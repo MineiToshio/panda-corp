@@ -17,6 +17,8 @@
  *   AC-09-002.3 — agent with no closed WOs returns honest zero state, no fake fill
  *   AC-09-002.4 — pure function; unknown agentId returns zero state, not throw
  */
+
+import { semanticLedger } from "../events/event-contract";
 import type { Event } from "../events/events";
 
 /**
@@ -114,11 +116,12 @@ const AGENT_RANK_BREAKPOINTS: readonly number[] = [
  * Unknown/empty agentId (AC-09-002.4): returns zero state, never throws.
  *
  * @param agentId - The agent role string to filter by (e.g. "backend-dev").
- * @param events  - The event stream to scan (never mutated).
+ * @param events  - Oracle-materialized durable events in production (never the
+ *                  live transport); pure tests may pass fixtures directly.
  */
 export function computeAgentLevel(agentId: string, events: readonly Event[]): AgentLevelResult {
   // ── XP derivation: only closed WOs for this agent ─────────────────────────
-  const xp = events.reduce<number>((acc, ev) => {
+  const xp = semanticLedger(events).reduce<number>((acc, ev) => {
     if (
       ev.agent === agentId &&
       typeof ev.workOrder === "string" &&

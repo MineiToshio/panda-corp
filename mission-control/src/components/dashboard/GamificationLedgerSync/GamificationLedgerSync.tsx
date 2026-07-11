@@ -4,11 +4,10 @@
  *
  * This component has NO visible UI. It exists solely to call
  * `snapshotGamificationLedger` once on mount (after the page renders), ensuring the
- * gamification ledger is updated with the latest live outcomes without blocking
+ * the server-side ledger is reconciled from canonical files without blocking
  * the render or increasing Time to First Byte.
  *
- * Mount it anywhere in the Server Component tree that has access to `liveOutcomes`
- * (e.g. `app/page.tsx`). Because it is a `"use client"` component, its `useEffect`
+ * It is mounted once in the root layout. Because it is a `"use client"` component, its `useEffect`
  * runs after hydration — safely after the page is painted (fire-and-forget, AC-09-006.2).
  *
  * Traceability:
@@ -17,19 +16,6 @@
 
 import { useEffect } from "react";
 import { snapshotGamificationLedger } from "@/app/_actions/snapshotLedger";
-import type { GuildOutcomes } from "@/lib/gamification/gamification";
-
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
-export type GamificationLedgerSyncProps = {
-  /**
-   * The live guild outcomes derived from the current portfolio state.
-   * Passed from the Server Component so the client component needs no data read.
-   */
-  readonly liveOutcomes: GuildOutcomes;
-};
 
 // ---------------------------------------------------------------------------
 // Component
@@ -42,15 +28,15 @@ export type GamificationLedgerSyncProps = {
  * Errors from the server action are silently swallowed (the action itself handles
  * them) so a write failure can never crash the page.
  */
-export function GamificationLedgerSync({ liveOutcomes }: GamificationLedgerSyncProps): null {
+export function GamificationLedgerSync(): null {
   useEffect(() => {
     // Fire-and-forget: never await, never re-trigger on re-render.
     // The void cast suppresses the "floating promise" linter warning — this is
     // intentional (AC-09-006.2: MUST NOT block the render).
-    void snapshotGamificationLedger(liveOutcomes).catch(() => {
+    void snapshotGamificationLedger().catch(() => {
       // Silently swallow action errors — fire-and-forget; page must never crash.
     });
-  }, [liveOutcomes]); // Dep on liveOutcomes: snapshot fires once per distinct live state
+  }, []);
 
   return null;
 }

@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+import { execFile } from "node:child_process";
+import { access, mkdtemp, mkdir, readFile, rm, rmdir, unlink, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
+
+const exec = promisify(execFile);
+const resolver = path.join(path.dirname(new URL(import.meta.url).pathname), "resolve-build-run-id.mjs");
+const scripts = path.dirname(resolver);
+const leaseCli = path.join(scripts, "pandacorp-build-state.mjs");
+const claudeLauncherPath = path.join(scripts, "launch-implement.sh");
+let passed = 0;
+const ok = (condition, name) => { if (!condition) throw new Error(name); passed++; console.log(`PASS  ${name}`); };
+const fixture = async ({ runtime = "claude", runId = "logical-build-1", phase = "implementation", running = "false", lease = false } = {}) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "pandacorp-run-id-"));
+  await mkdir(path.join(root, ".pandacorp/run"), { recursive: true });
+  await writeFile(path.join(root, ".pandacorp/status.yaml"), `phase: ${phase}\nrunning: ${running}\nbuild_runtime: ${runtime}\nbuild_run_id: ${runId}\n`);
+  if (lease) { await mkdir(path.join(root, ".pandacorp/run/build.lease")); await writeFile(path.join(root, ".pandacorp/run/build.lease/lease.json"), "{}\n"); }
+  return root;
+};
+const cleanup = async (root, lease = false) => { if (lease) { await unlink(path.join(root, ".pandacorp/run/build.lease/lease.json")); await rmdir(path.join(root, ".pandacorp/run/build.lease")); } await unlink(path.join(root, ".pandacorp/status.yaml")); await rmdir(path.join(root, ".pandacorp/run")); await rmdir(path.join(root, ".pandacorp")); await rmdir(root); };
+const resolve = async (root, runtime, mode = "auto", newId = "generated-new") => JSON.parse((await exec("node", [resolver, "--project", root, "--runtime", runtime, "--mode", mode, "--new-id", newId])).stdout);
+
+for (const [prior, target] of [["claude", "codex"], ["codex", "claude"]]) {
+  const root = await fixture({ runtime: prior }); const result = await resolve(root, target);
+  ok(result.continuation && result.run_id === "logical-build-1", `${prior}→${target} auto-reuses the canonical logical run at a released implementation safe point`); await cleanup(root);
+}
+{
+  const root = await fixture({ runtime: "codex" }); const result = await resolve(root, "codex");
+  ok(!result.continuation && result.run_id === "generated-new", "same-runtime launch defaults to a new governed run"); await cleanup(root);
+}
+{
+  const root = await fixture({ runtime: "claude", phase: "release" }); const result = await resolve(root, "codex");
+  ok(!result.continuation, "a terminal release phase never auto-continues an old run"); await cleanup(root);
+}
+{
+  const root = await fixture({ runtime: "claude" }); const result = await resolve(root, "codex", "new");
+  ok(!result.continuation && result.reason === "explicit-new-run", "explicit new-run intent prevents accidental ledger inheritance"); await cleanup(root);
+}
+{
+  const root = await fixture({ runtime: "claude", running: "true", lease: true }); const result = await resolve(root, "codex");
+  ok(!result.continuation, "an active lease is never classified as a cold continuation"); await cleanup(root, true);
+}
+{
+  const root = await fixture({ runtime: "claude" }); let rejected = false;
+  try { await resolve(root, "codex", "foreign-run"); } catch (error) { rejected = error.code === 3; }
+  ok(rejected, "an explicit foreign continuation id fails closed"); await cleanup(root);
+}
+
+const [claudeLauncher, codexLauncher] = await Promise.all([exec("bash", ["-n", claudeLauncherPath]), exec("bash", ["-n", path.join(scripts, "launch-codex-implement.sh")])]);
+ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime launchers remain syntactically valid");
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const active = JSON.parse((await exec("node", [leaseCli, "acquire", "--project", root, "--runtime", "codex", "--run-id", "active-owner", "--ttl", "600"])).stdout);
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "powerful", "5"]); } catch (error) { rejected = error.code === 2; }
+  const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
+  ok(rejected && /^phase: architecture$/m.test(status), "contended Claude launch is a strict no-op on phase");
+  await exec("node", [leaseCli, "release", "--project", root, "--token", active.token, "--epoch", String(active.epoch)]);
+  await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "powerful", "5"], { env: { ...process.env, PANDACORP_TEST_FAIL_PHASE_WRITE: "1" } }); } catch (error) { rejected = error.code === 2; }
+  const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
+  let leaseExists = true; try { await access(path.join(root, ".pandacorp/run/build.lease/lease.json")); } catch { leaseExists = false; }
+  ok(rejected && /^phase: architecture$/m.test(status) && !leaseExists && /^running: false$/m.test(status), "phase-write failure releases ownership without advancing phase");
+  await rm(root, { recursive: true });
+}
+const repo = path.resolve(path.dirname(resolver), "../..");
+const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
+ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");
+ok(skill.includes("--target-runtime claude --run-mode auto") && skill.includes("owner never copies or chooses that ID"), "implement skill makes automatic continuation the owner-free default");
+console.log(`RESULT: ${passed} passed, 0 failed`);

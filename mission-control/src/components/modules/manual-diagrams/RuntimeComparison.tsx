@@ -4,7 +4,7 @@
  * The per-capability Claude Code vs Codex comparison (PORT-1..6). Each row states
  * a capability, what each runtime provides, and a labelled status badge:
  *   - "idéntico"  → both runtimes behave the same (governance, gates, docs)
- *   - "degrada"   → Codex does it, but more manually / with less granularity
+ *   - "degrada"   → Codex provides a narrower/manual form of the capability
  *   - "solo Claude" → the mechanism is Claude-Code-only (governance still binds)
  * A highlighted final row states what is IDENTICAL across runtimes (the governance
  * floor: change queue, decisions, docs, human gates, Spanish).
@@ -70,13 +70,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "atendido + secuencial (playbook PORT-5)",
-    status: "degrades",
+    codex: "solo lectura/review: falta R10 instalado + R11 LIVE_OVERNIGHT",
+    status: "claude-only",
   },
   {
     capability: "Construcción nocturna",
     claude: "desatendida, corre por horas sin owner",
-    codex: "no — solo atendido con owner presente",
+    codex: "offline + LIVE_SHORT verdes; LIVE_OVERNIGHT sigue pendiente",
     status: "claude-only",
   },
   {
@@ -94,19 +94,19 @@ const ROWS: readonly Row[] = [
   {
     capability: "Enforcement",
     claude: "hooks automáticos (bloqueo, gate al parar)",
-    codex: "instrucciones, no hooks (port = BL-0030)",
+    codex: "hooks/config generados; instalación + trust siguen siendo gates",
     status: "degrades",
   },
   {
     capability: "Fragua / telemetría",
     claude: "eventos completos (hooks + motor)",
-    codex: "eventos best-effort al mismo stream (PORT-5 §6b)",
+    codex: "transporte propio listo; no emite build live hasta promoción",
     status: "degrades",
   },
   {
     capability: "Notificaciones",
     claude: "push al escritorio + móvil",
-    codex: "aviso en el chat (owner presente)",
+    codex: "aviso en chat para trabajo permitido; build aún no habilitado",
     status: "degrades",
   },
   {

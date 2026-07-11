@@ -112,7 +112,7 @@ describe("readLedger — absent file", () => {
     expect(result.totals.workOrdersDone).toBe(0);
     expect(result.totals.phasesCompleted).toBe(0);
     expect(result.totals.releases).toBe(0);
-    expect(result.version).toBe(1);
+    expect(result.version).toBe(2);
   });
 
   it("returns zero-totals when default factory path does not exist", () => {
@@ -131,8 +131,8 @@ describe("readLedger — real fixture (production shape)", () => {
     writeFileSync(ledgerPath, JSON.stringify(REAL_LEDGER), "utf8");
 
     const result = readLedger(ledgerPath);
-    expect(result.version).toBe(1);
-    expect(result.updatedAt).toBe("2026-06-29T12:00:00Z");
+    expect(result.version).toBe(2);
+    expect(result.migration.v1ImportedAt).toBeTruthy();
     expect(result.totals.workOrdersDone).toBe(42);
     expect(result.totals.phasesCompleted).toBe(7);
     expect(result.totals.releases).toBe(2);

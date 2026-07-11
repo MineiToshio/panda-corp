@@ -12,17 +12,20 @@ Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abr
 
 Piensa en un edificio con dos puertas que llevan al mismo taller:
 
-| | Puerta Claude Code | Puerta Codex (y Cursor/OpenCode) |
+| | Puerta Claude Code | Puerta Codex |
 |---|---|---|
-| **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo (ignora `CLAUDE.md` y el plugin) |
-| **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | `.agents/skills` (symlink), `.codex/agents/*.toml` (generados) |
+| **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo + plugin Codex instalado; ignora sólo `CLAUDE.md` |
+| **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | Plugin Codex + `.agents/skills` (symlink) + `.codex/agents/*.toml` (generados) |
 | **El núcleo que ambos operan** | `AGENTS.md` + `factory/` (manual y estándares) · `plugin/skills/` (los 25 SKILL.md) · el estado en ficheros (`status.yaml`, frontmatter de work orders, colas de inbox) | idem — es el MISMO conjunto de ficheros |
 
 Nadie elige runtime con un switch: **cada herramienta se auto-selecciona por lo que es capaz de leer**. El diagrama fuente está en `docs/assets/multi-runtime-two-doors.svg` (repo de la fábrica).
 
+Cursor y OpenCode conservan el piso portable de `AGENTS.md` + `.agents/skills`; no se les atribuye
+la instalación, los hooks ni los agentes TOML específicos del plugin Codex.
+
 ## Single source of truth — qué es enlace, qué es generado
 
-Regla: una sola fuente por cosa; lo demás es symlink, import o artefacto generado. **Solo existe UNA copia derivada** (los agentes Codex) y está automatizada:
+Regla: una sola fuente por cosa; lo demás es symlink, import o artefacto generado. Las copias derivadas están automatizadas y el gate compara sus fuentes:
 
 | Pieza | Fuente única | El "otro lado" es… |
 |---|---|---|
@@ -30,9 +33,16 @@ Regla: una sola fuente por cosa; lo demás es symlink, import o artefacto genera
 | El manual operativo | `AGENTS.md` (raíz) | **import** (`CLAUDE.md` lo referencia, no lo copia) |
 | Estándares, registry, docs | `factory/…` | compartido tal cual (ambos leen el mismo fichero) |
 | Los 14 agentes del equipo | `plugin/agents/*.md` | **generado** (`.codex/agents/*.toml`, script `generate-codex-agents.mjs`; cabecera "do not edit") |
-| Manifests del plugin | `.claude-plugin/plugin.json` | espejo mínimo (`.codex-plugin/plugin.json`), misma versión por ritual |
+| Manifests del plugin | `plugin/runtime/plugin-metadata.json` | `.claude-plugin/plugin.json` + `.codex-plugin/plugin.json`, generados |
+| Vocabulario de eventos | `plugin/runtime/event-vocabulary.json` | proyección generada para Mission Control (`src/lib/events/event-vocabulary.json`) |
 
 Desde 2026-07-04 esta capa derivada ya no depende solo del ritual: el gate `check-derived-drift.sh` (hook de Stop en el repo de la fábrica) verifica en cada sesión que los TOML generados coinciden con sus fuentes, que ambos manifests llevan la misma versión y que el symlink `.agents/skills` resuelve — si algo derivó, la sesión no puede declararse terminada hasta regenerar/re-sincronizar.
+
+## Telemetría: dos transportes, un idioma
+
+Claude conserva `~/.claude/dashboard-events.ndjson`; Codex escribe su propio `~/.codex/dashboard-events.ndjson`. Mission Control lee ambos, normaliza con el vocabulario único y elimina replays del feed. Pero esos IDs no son prueba de un resultado: XP y logros durables entran al único `factory/gamification-ledger.json` sólo cuando un work order, gate, estado o artefacto canónico lo confirma. El ledger guarda un hecho limpio, sin confiar en el agente, rol, modo, hora o veredicto declarado por el evento. Si todavía no existe un oráculo durable, la señal sigue viéndose como telemetría pero no desbloquea nada. Borrar o rotar los streams después de reconciliar no reduce el progreso.
+
+El aviso de plugin también separa puertas: el cache instalado de Claude y el de Codex tienen veredictos independientes. Tener Claude actualizado no demuestra que Codex lo esté, ni al revés.
 
 ## Si modificas algo, ¿qué debes tocar para que funcione en ambos?
 
@@ -43,20 +53,40 @@ Desde 2026-07-04 esta capa derivada ya no depende solo del ritual: el gate `chec
 | El manual (`AGENTS.md`) | Verificar que sigue < 32 KB (tope de Codex) y que no dependes de `@imports` (Codex no los expande) |
 | La capa Claude (`CLAUDE.md`) | Nada para Codex (no lo lee) |
 | La versión del plugin | Mantener los DOS manifests en la misma versión |
+| El vocabulario de eventos | Editar `plugin/runtime/event-vocabulary.json` y ejecutar `node plugin/scripts/generate-event-vocabulary.mjs` |
 
 El detalle completo (matriz de capacidades, tiers de modelo, tabla de traducción de herramientas) vive en el estándar `factory/standards/agent-portability.md` (reglas PORT-1…6).
 
 ## Qué funciona igual y qué degrada
 
-**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios (`/pandacorp:change` o su equivalente), el tablero y las fases (leen ficheros), y el **resume cruzado**: un runtime puede retomar el build que dejó el otro, porque el estado vive en disco y el candado de DR-050 impide que construyan a la vez.
+**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. **Eso no autoriza todavía escritura de build desde Codex.** R2/R3/R6, R7/R8 offline y el cambio en frío bidireccional R10 en fixture están verdes; falta probar ese cambio entre las aplicaciones instaladas y certificar R11 desatendido. Hasta entonces, Codex es solo lectura/review sobre el estado de construcción.
+
+R11 separa tres evidencias que no se pueden confundir: `OFFLINE_ACCELERATED` (fallos inyectados y
+relojes acelerados), `LIVE_SHORT` (proveedor real por pocos minutos) y `LIVE_OVERNIGHT` (varias horas
+reales). Las dos primeras están verdes, incluido el `LIVE_SHORT` del código actual: terminó en 114
+segundos con proveedor real, gasto y heartbeat durables, terminal del supervisor y lease liberado. El
+overnight sigue pendiente. El launcher comprueba host,
+credenciales, red, sandbox, árbol limpio y prevención de sueño, y deja un recibo reanudable en
+`.pandacorp/run/codex-launch.json`. Esto mejora la seguridad del camino, pero no abre el permiso hasta
+completar también el canario instalado R10 y el overnight R11.
+
+Un cambio de runtime es siempre **en frío y desde un safe point**: el ejecutor actual termina su gate/commit, se detiene por completo y libera ownership; recién entonces otra sesión puede reconstruir los ficheros. Nunca hay takeover vivo, mensajería/delegación entre runtimes ni dos builds simultáneos. Claude usa únicamente agentes/modelos Claude; Codex, únicamente los suyos.
+
+Una continuación real conserva el mismo `build_run_id` lógico para heredar despachos, gasto y frenos
+de salud, pero tú nunca copias ese ID. Los dos launchers usan un único resolver: si ven
+`phase: implementation`, `running: false`, ausencia de lease y un runtime anterior distinto,
+continúan automáticamente. Una segunda pasada en el mismo runtime, `phase: release` o la intención
+explícita `new` crean un run nuevo. La identidad del proceso o sesión de cada app sigue siendo local y
+nunca se usa como sustituto.
 
 **Degrada con honestidad en Codex:**
-- El build (`implement`) corre **atendido y secuencial** (playbook PORT-5), no en background: la construcción nocturna desatendida sigue siendo exclusiva de Claude Code.
-- **La Fragua**: el flujo automático de eventos (hooks + motor) es de Claude; el playbook atendido instruye emitir los eventos clave (`AgentWorking`, `gate`) al mismo stream, así que un build atendido desde Codex también se asoma a la Fragua — con menos granularidad que el motor nativo.
-- El enforcement (bloqueo de comandos peligrosos, gate de verificación al parar) en Codex son instrucciones, no hooks — portarlos es el backlog BL-0030.
+- El build (`implement`) sigue **habilitado sólo en Claude**. R10 prueba el contrato en un proyecto desechable, no el comportamiento de las dos aplicaciones instaladas.
+- **La Fragua**: Codex puede leer la evidencia existente, pero no emite eventos de build mientras sea read/review-only.
+- La política, los adaptadores y las proyecciones de hooks/config de Codex están certificados en fuente, pero el enforcement activo requiere instalar el plugin y dar trust explícito a sus definiciones. Hasta cerrar ese canario (BL-0030), `AGENTS.md` sigue siendo el piso vinculante y no se reclama paridad automática.
 
 ## Cómo probar que funciona
 
 1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 25 skills (`/skills`).
-2. **Codex, un ciclo real**: registra un microcambio con `change` en un proyecto y pídele a Codex ejecutar el build atendido (PORT-5) para ese cambio: verás los mismos commits, frontmatter y gates que haría Claude.
+2. **Codex, revisión segura**: abre un proyecto detenido en un safe point y pídele revisar work orders, commits y evidencia del gate sin mutar estado de construcción. El build se habilita sólo después del canario live R10 y R11.
 3. **Claude, intacto**: la misma prueba vía `/pandacorp:implement` — motor background, supervisor y Fragua completa, como siempre.
+4. **Harness Codex desatendido**: desde la fábrica, ejecuta `node plugin/scripts/test-codex-unattended.mjs`; debe quedar verde. El canario real corto se repite con `node plugin/scripts/run-codex-live-short-canary.mjs --keep`. El overnight usa el comando y conserva la evidencia descrita en `plugin/runtime/codex/R11-CERTIFICATION.md`.

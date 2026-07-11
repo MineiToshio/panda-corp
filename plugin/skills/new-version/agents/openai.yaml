@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp milestone engine"
+  short_description: "Internal milestone engine behind change"
+policy:
+  allow_implicit_invocation: false

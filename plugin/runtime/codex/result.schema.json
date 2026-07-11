@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["done", "verdict", "summary", "findings"],
+  "properties": {
+    "done": { "type": "boolean" },
+    "verdict": { "enum": ["green", "red", "needs-owner", "retry"] },
+    "summary": { "type": "string" },
+    "findings": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

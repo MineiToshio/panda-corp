@@ -1,0 +1,13 @@
+# Generated from plugin/runtime/enforcement-policy.json; do not edit by hand.
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+
+[agents]
+max_threads = 4
+max_depth = 1
+
+[features]
+hooks = true
+
+[sandbox_workspace_write]
+network_access = false

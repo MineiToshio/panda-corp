@@ -1,0 +1,19 @@
+{
+  "capabilities": {
+    "skills": { "canonical": "plugin/skills", "runtime_owner": "shared" },
+    "agents": { "canonical": "plugin/agents", "runtime_owner": "shared", "codex_projection": ".codex/agents" },
+    "product_build_orchestration": { "canonical": "plugin/templates/shared/.claude/engines/pandacorp-build.js", "runtime_owner": "claude" },
+    "factory_backlog_orchestration": { "canonical": ".claude/engines/pandacorp-backlog.js", "runtime_owner": "claude" },
+    "pandacorp-memory-review": { "canonical": "plugin/docs/routines.md", "scheduler_owner": "claude" },
+    "pandacorp-review-launch": { "canonical": "plugin/docs/routines.md", "scheduler_owner": "claude" }
+    ,"build_lease_and_run_ledger": { "canonical": "plugin/runtime/build-state.mjs", "runtime_owner": "shared" }
+    ,"build_rollup_and_counts": { "canonical": "plugin/runtime/build-state.mjs#syncRollups", "runtime_owner": "shared", "writer": "pandacorp-build-state.mjs sync-rollups" }
+    ,"enforcement_policy": { "canonical": "plugin/runtime/enforcement-policy.json", "runtime_owner": "shared", "runtime_registration": { "claude": "plugin/hooks/hooks.json", "codex": "plugin/hooks/codex-hooks.json" } }
+    ,"build_release_protocol": { "canonical": "plugin/runtime/build-state.mjs#quiesce+finalizeRelease", "runtime_owner": "shared", "required_order": ["quiesce", "commit-status-projection", "finalize-release"] }
+    ,"codex_product_executor": { "canonical": "plugin/runtime/codex/executor.mjs", "runtime_owner": "codex", "certification": "FALLBACK", "evidence": ["R7-live-short-green", "R11-offline-accelerated-green", "R11-current-head-live-short-green"], "blockers": ["R10-installed-bidirectional-canary", "R11-live-overnight-canary"] }
+    ,"codex_unattended_certification": { "canonical": "plugin/runtime/codex/R11-CERTIFICATION.md", "runtime_owner": "codex", "certification": "OFFLINE_PROVEN_LIVE_RECHECK_BLOCKED", "required_for_parity": "LIVE_OVERNIGHT" }
+    ,"product_change_queue_transactions": { "canonical": "plugin/runtime/build-state.mjs#applyChangePlan", "runtime_owner": "shared", "codex_controller": "plugin/runtime/codex/executor.mjs", "certification": "OFFLINE_PROVEN" }
+    ,"sequential_runtime_switch": { "canonical": "plugin/runtime/codex/R10-CERTIFICATION.md", "runtime_owner": "shared", "certification": "FIXTURE_PROVEN_LIVE_PENDING", "harness": "plugin/scripts/test-runtime-switch.mjs", "blockers": ["installed-Claude-to-Codex-to-Claude-canary", "R11-unattended-canary"] }
+    ,"durable_gamification_accounting": { "canonical": "mission-control/src/lib/gamification/ledger.ts", "runtime_owner": "mission-control", "single_writer": "mission-control/src/app/_actions/snapshotLedger.ts", "certification": "R9_PROVEN" }
+  }
+}

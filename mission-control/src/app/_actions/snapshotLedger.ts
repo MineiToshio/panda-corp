@@ -1,71 +1,129 @@
 "use server";
-/**
- * snapshotGamificationLedger — Server Action (WO-09-006, AC-09-006.2)
- *
- * Fire-and-forget write: when any live metric exceeds the stored ledger value,
- * updates the ledger to the new maximum. Called from `GamificationLedgerSync`
- * (a "use client" component) on mount — after the page has already rendered so
- * this write NEVER blocks the render or increases Time to First Byte.
- *
- * Write path: `factory/gamification-ledger.json` (resolved via `resolveFactoryRoot()`).
- * Gitignored — personal data (DR-033, AC-09-006.3).
- *
- * Atomicity: read → compare via `needsSnapshot` → write only if needed. The JSON
- * file is small enough that a single `writeFileSync` is effectively atomic on a
- * local filesystem (no partial-write window; process crash leaves the old file
- * intact or replaces it wholly).
- *
- * Traceability:
- *   AC-09-006.2 — writes only when live metric exceeds ledger (snapshot-on-exceed)
- *   AC-09-006.3 — resolves to factory/gamification-ledger.json (gitignored)
- */
 
-import { writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { resolveFactoryRoot } from "@/lib/config/config";
-import type { GuildOutcomes } from "@/lib/gamification/gamification";
+import { randomUUID } from "node:crypto";
+/** The only writer for factory/gamification-ledger.json. */
+import fs from "node:fs";
+import path from "node:path";
+import { resolveFactoryRoot, resolveProjectPath } from "@/lib/config/config";
+import { readEvents } from "@/lib/events/events";
+import { deriveGuildOutcomes } from "@/lib/gamification/gamification";
 import {
-  type GamificationLedger,
-  mergeLedgerOutcomes,
-  needsSnapshot,
-  readLedger,
+  atomicWriteLedger,
+  corroborateEvents,
+  mergeLedger,
+  readLedgerResult,
+  realInProject,
 } from "@/lib/gamification/ledger";
+import { readPortfolio } from "@/lib/portfolio/portfolio";
+import { readStatusWithLiveInboxCounts } from "@/lib/status/status";
+import { listWorkOrders } from "@/lib/work-orders/work-orders";
+
+type LockOwner = { readonly token: string; readonly pid: number; readonly acquiredAt: string };
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: lock acquisition enumerates crash/reclaim safety branches.
+function acquireLock(lockPath: string): LockOwner | null {
+  const owner: LockOwner = {
+    token: randomUUID(),
+    pid: process.pid,
+    acquiredAt: new Date().toISOString(),
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      fs.mkdirSync(lockPath, { mode: 0o700 });
+      fs.writeFileSync(path.join(lockPath, "owner.json"), JSON.stringify(owner), {
+        mode: 0o600,
+        flag: "wx",
+      });
+      return owner;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      const entry = fs.lstatSync(lockPath);
+      if (entry.isSymbolicLink() || !entry.isDirectory())
+        throw new Error("ledger lock path is unsafe");
+      let prior: LockOwner | null = null;
+      try {
+        prior = JSON.parse(fs.readFileSync(path.join(lockPath, "owner.json"), "utf8")) as LockOwner;
+      } catch {
+        /* incomplete acquisition is reclaimable */
+      }
+      const age = prior ? Date.now() - Date.parse(prior.acquiredAt) : Number.POSITIVE_INFINITY;
+      if (prior && pidAlive(prior.pid) && age < 600_000) return null;
+      try {
+        fs.unlinkSync(path.join(lockPath, "owner.json"));
+      } catch {
+        /* absent */
+      }
+      try {
+        fs.rmdirSync(lockPath);
+      } catch {
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
+function releaseLock(lockPath: string, owner: LockOwner): void {
+  try {
+    const current = JSON.parse(
+      fs.readFileSync(path.join(lockPath, "owner.json"), "utf8"),
+    ) as LockOwner;
+    if (current.token !== owner.token) return;
+    fs.unlinkSync(path.join(lockPath, "owner.json"));
+    fs.rmdirSync(lockPath);
+  } catch {
+    /* retain unexpected evidence for inspection */
+  }
+}
 
 /**
- * Snapshot the gamification ledger with the current live outcomes.
- *
- * Reads the existing ledger (absent → zero-totals), merges with live outcomes via
- * `MAX(live, ledger)`, and writes back only when at least one metric has increased.
- *
- * Resolves to `void` — callers must not await or depend on the result.
- * Any I/O error is silently swallowed (fire-and-forget; never crashes the page).
- *
- * @param live  The live `GuildOutcomes` derived from the current portfolio state.
+ * Reconciles from server-side canonical files. No client-provided totals or event
+ * identities cross this trust boundary.
  */
-export async function snapshotGamificationLedger(live: GuildOutcomes): Promise<void> {
+export async function snapshotGamificationLedger(_untrustedClientInput?: unknown): Promise<void> {
+  const ledgerPath = path.join(resolveFactoryRoot(), "factory", "gamification-ledger.json");
+  const lockPath = `${ledgerPath}.lock`;
+  const owner = acquireLock(lockPath);
+  if (!owner) return;
   try {
-    const ledgerPath = join(resolveFactoryRoot(), "factory", "gamification-ledger.json");
-    const existing = readLedger(ledgerPath);
-
-    if (!needsSnapshot(live, existing)) {
-      // Live values are already at or below the stored ledger — no write needed.
-      return;
+    const current = readLedgerResult(ledgerPath);
+    if (!current.ok)
+      throw new Error("gamification ledger is corrupt; refusing destructive recovery");
+    const roots = readPortfolio(path.join(resolveFactoryRoot(), "factory", "portfolio.md")).map(
+      (entry) => resolveProjectPath(entry.path),
+    );
+    const statuses = roots.map((root) =>
+      realInProject(root, path.join(root, ".pandacorp", "status.yaml"), "file")
+        ? readStatusWithLiveInboxCounts(root)
+        : { present: false as const, malformed: false as const, status: null },
+    );
+    const eventsSnapshot = readEvents({ cap: 100_000 });
+    const workOrdersDoneLive = roots.reduce(
+      (sum, root) => sum + listWorkOrders(root).filter((wo) => wo.state === "done").length,
+      0,
+    );
+    // Event-derived XP is reconciled separately from corroborated facts; raw
+    // transport lines never enter totals.
+    const live = deriveGuildOutcomes({ statuses, eventsSnapshot: null, workOrdersDoneLive });
+    const facts = corroborateEvents(eventsSnapshot.events, current.ledger);
+    const next = mergeLedger(current.ledger, live, facts);
+    if (
+      current.migrated ||
+      facts.length > 0 ||
+      JSON.stringify(next.totals) !== JSON.stringify(current.ledger.totals)
+    ) {
+      atomicWriteLedger(ledgerPath, next);
     }
-
-    const merged = mergeLedgerOutcomes(live, existing);
-    const newLedger: GamificationLedger = {
-      version: 1,
-      updatedAt: new Date().toISOString(),
-      totals: {
-        workOrdersDone: merged.workOrdersDone,
-        phasesCompleted: merged.phasesCompleted,
-        releases: merged.releases,
-      },
-    };
-
-    writeFileSync(ledgerPath, JSON.stringify(newLedger, null, 2), "utf8");
-  } catch {
-    // Fire-and-forget: silently swallow any I/O error.
-    // The page has already rendered; a write failure must never crash it.
+  } finally {
+    releaseLock(lockPath, owner);
   }
 }

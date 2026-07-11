@@ -1,9 +1,25 @@
 {
   "name": "pandacorp",
-  "version": "9.85.0",
+  "version": "9.92.3",
   "description": "100% AI software factory: idea discovery, PRD/FRDs, UX/UI design, architecture blueprint, work orders, implementation, release and post-launch review.",
   "skills": "./skills/",
-  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Pandacorp",
+    "shortDescription": "Operate a governed AI software factory.",
+    "longDescription": "Run Pandacorp lifecycle skills with shared standards, runtime-local agents, deterministic verification, and durable project state.",
+    "developerName": "Pandacorp",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Project lifecycle",
+      "Runtime-local orchestration",
+      "Deterministic verification"
+    ],
+    "defaultPrompt": [
+      "Review this Pandacorp project's current state.",
+      "Run the appropriate Pandacorp lifecycle skill.",
+      "Plan a safe runtime-local implementation."
+    ]
+  },
   "author": {
     "name": "Pandacorp"
   },

@@ -13,7 +13,13 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { getPluginSyncState, readInstalledVersion, readPluginSourceVersion } from "../plugin-sync";
+import {
+  getPluginSyncState,
+  readCodexInstalledVersion,
+  readCodexSourceVersion,
+  readInstalledVersion,
+  readPluginSourceVersion,
+} from "../plugin-sync";
 
 // ---------------------------------------------------------------------------
 // Temp-filesystem helpers
@@ -161,20 +167,25 @@ describe("getPluginSyncState — version verdict", () => {
   let factoryRoot: string;
   let prevHome: string | undefined;
   let prevFactory: string | undefined;
+  let prevCodexPluginRoot: string | undefined;
 
   beforeEach(() => {
     prevHome = process.env.HOME;
     prevFactory = process.env.PANDACORP_FACTORY_ROOT;
+    prevCodexPluginRoot = process.env.PANDACORP_CODEX_PLUGIN_ROOT;
     claudeHome = mkTmp("pc-home-");
     factoryRoot = mkTmp("pc-factory-");
     process.env.HOME = claudeHome;
     process.env.PANDACORP_FACTORY_ROOT = factoryRoot;
+    delete process.env.PANDACORP_CODEX_PLUGIN_ROOT;
   });
   afterEach(() => {
     if (prevHome === undefined) delete process.env.HOME;
     else process.env.HOME = prevHome;
     if (prevFactory === undefined) delete process.env.PANDACORP_FACTORY_ROOT;
     else process.env.PANDACORP_FACTORY_ROOT = prevFactory;
+    if (prevCodexPluginRoot === undefined) delete process.env.PANDACORP_CODEX_PLUGIN_ROOT;
+    else process.env.PANDACORP_CODEX_PLUGIN_ROOT = prevCodexPluginRoot;
     fs.rmSync(claudeHome, { recursive: true, force: true });
     fs.rmSync(factoryRoot, { recursive: true, force: true });
   });
@@ -247,5 +258,65 @@ describe("getPluginSyncState — version verdict", () => {
   it("a 'v'-prefixed installed version still compares numerically", () => {
     seed("v8.42.0", "8.43.0");
     expect(getPluginSyncState().reason).toBe("behind");
+  });
+
+  it("reports Claude and Codex installed-cache verdicts independently", () => {
+    seed("9.87.0", "9.87.0");
+    const codexRoot = path.join(factoryRoot, "activated-codex");
+    fs.mkdirSync(path.join(codexRoot, ".codex-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(codexRoot, ".codex-plugin", "plugin.json"),
+      JSON.stringify({ version: "9.86.0" }),
+    );
+    fs.mkdirSync(path.join(factoryRoot, "plugin", ".codex-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(factoryRoot, "plugin", ".codex-plugin", "plugin.json"),
+      JSON.stringify({ version: "9.87.0" }),
+    );
+    process.env.PANDACORP_CODEX_PLUGIN_ROOT = codexRoot;
+
+    const state = getPluginSyncState();
+    expect(state.runtimes?.claude.reason).toBe("in-sync");
+    expect(state.runtimes?.codex.reason).toBe("behind");
+    expect(state.drift).toBe(true);
+    expect(state.reason).toBe("behind");
+  });
+});
+
+describe("R9 — separate runtime plugin caches", () => {
+  let root: string;
+  let activated: string;
+  const prior = process.env.PANDACORP_CODEX_PLUGIN_ROOT;
+
+  beforeEach(() => {
+    root = mkTmp("pc-runtime-cache-");
+    activated = path.join(root, "activated-pandacorp");
+    fs.mkdirSync(path.join(activated, ".codex-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(activated, ".codex-plugin", "plugin.json"),
+      JSON.stringify({ version: "9.86.0" }),
+    );
+    process.env.PANDACORP_CODEX_PLUGIN_ROOT = activated;
+  });
+
+  afterEach(() => {
+    if (prior === undefined) delete process.env.PANDACORP_CODEX_PLUGIN_ROOT;
+    else process.env.PANDACORP_CODEX_PLUGIN_ROOT = prior;
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  it("reads Codex activation independently from Claude installed_plugins.json", () => {
+    expect(readCodexInstalledVersion(path.join(root, ".codex"))).toBe("9.86.0");
+    expect(readInstalledVersion(path.join(root, ".claude"))).toBeNull();
+  });
+
+  it("reads the Codex source manifest independently", () => {
+    fs.mkdirSync(path.join(root, "plugin", ".codex-plugin"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, "plugin", ".codex-plugin", "plugin.json"),
+      JSON.stringify({ version: "9.87.0" }),
+    );
+    expect(readCodexSourceVersion(root)).toBe("9.87.0");
+    expect(readPluginSourceVersion(root)).toBeNull();
   });
 });

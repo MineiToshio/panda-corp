@@ -25,6 +25,8 @@
  *   - Celebrations SCALE: toast (WO) → phase → release → levelup. Never flat.
  *   - Forbidden patterns: leaderboards, lives, daily-reset streaks, false urgency, bar at ~80%.
  */
+
+import { semanticLedger } from "../events/event-contract";
 import type { Event, EventsSnapshot } from "../events/events";
 import type { StatusResult } from "../status/status";
 
@@ -575,7 +577,7 @@ function _tallyStatus(sr: StatusResult): {
 function _countGreenTestRuns(eventsSnapshot: EventsSnapshot | null | undefined): number {
   if (!eventsSnapshot) return 0;
   let greenTestRuns = 0;
-  for (const ev of eventsSnapshot.events) {
+  for (const ev of semanticLedger(eventsSnapshot.events)) {
     if (ev.event === "test_ok") {
       greenTestRuns += 1;
     }

@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-22'
+last_updated: '2026-07-11'
 ---
 # FRD-08 — Documentation
 
@@ -26,6 +26,8 @@ The **"Documentación"** surface: the navigable face of the factory's know-how i
 - The full **`SKILL.md`** SHALL remain available rendered as **markdown** (a collapsible "ver el `SKILL.md` completo"), NOT a raw unformatted text dump.
 - The curated explainer + flow layer SHALL be **hand-authored** (`src/lib/manual/skill-flows.ts`) and SHALL reflect the **real** `plugin/skills/<slug>/SKILL.md` body + the factory decision rules (accuracy contract); when a skill's flow changes, its authored flow SHALL be updated in the same change (DR-046).
 - The hand-authored Tutorial / Guides / Concepts pages SHALL reflect the **current** factory workflow — the v2 build engine (the Build Plan, coarse work orders, repair-before-block, resumable runs) and the recent decision rules — NOT stale earlier content; a change to how the factory is operated SHALL update the affected page in the same change (DR-046; see the root `CLAUDE.md` "Decision log" section).
+- WHILE Proposal 32's installed Claude→Codex→Claude R10 canary OR R11 `LIVE_OVERNIGHT` certification is pending, THE Documentation SHALL identify Codex/non-Claude runtimes as **read/review-only on build state**, SHALL distinguish already-green source/fixture/short-live evidence from permission-granting live evidence, SHALL describe a runtime switch only as cold continuation after a clean safe-point stop, and SHALL NOT claim that file persistence or the legacy `running` + heartbeat projection permits live takeover.
+- WHILE Codex unattended parity is not fully certified, THE multi-runtime Concept SHALL distinguish `OFFLINE_ACCELERATED`, `LIVE_SHORT` and `LIVE_OVERNIGHT`, SHALL show which gates are green or pending, and SHALL NOT present a mock or short provider run as overnight evidence.
 - WHERE a Concept/Guide page describes a project's documentation structure, it SHALL reflect the **feature-centric** layout (DR-049): the shared product layer (`docs/product/`), the per-feature module folders `docs/frds/frd-NN-<slug>/` (`frd.md` + on-demand `fdd.md`/`blueprint.md`/`mocks/`/`work-orders/`), the global `docs/{adr,analytics,reviews,decision-log.md}`, the stable-ID spine (`REQ-NN-MMM → AC-NN-MMM.K → CMP/IF-NN → WO-NN-MMM`) and the source-of-truth hierarchy `FRD > FDD > design-tokens > blueprint > work order` — NOT the old by-type layout (a flat `docs/frds/`, a global `docs/blueprint.md`, a global `docs/work-orders/`). The derived Reference picks up DR-049 and the rewritten `structure.md` standard automatically.
 
 > **Prototype note.** While only the HTML prototype exists (`docs/design/prototype/index.html`), the "Documentación" surface (`manualView`) renders the Diátaxis side-menu and reuses the Configuración cards for the Reference; the Reference catalogs live in the `CONFIG.{skills,agents,rules,estandares}` arrays and are reconciled by hand; the Next.js app implements the dynamic derivation above by reading the source files directly. See the Mission Control decision-log (2026-06-15).

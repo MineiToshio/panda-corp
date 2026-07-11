@@ -2,7 +2,7 @@
  * manual-diagrams/MultiRuntimeDiagram.tsx — FRD-08 ("Operar desde cualquier agente")
  *
  * The "dos puertas, un núcleo" picture (DR-113): two doors — Claude Code and Codex
- * (+ Cursor/OpenCode) — each with its own runtime-specific layer, both opening onto
+ * — each with its own runtime-specific layer, both opening onto
  * the SAME shared core (AGENTS.md + factory/ · plugin/skills · state in files).
  *
  * Faithful to the Manual's diagram visual language (boxed regions + chips + a
@@ -40,10 +40,10 @@ const DOORS: readonly Door[] = [
     key: "codex",
     icon: "ti-door-enter",
     title: "Puerta Codex",
-    subtitle: "Cursor · OpenCode",
+    subtitle: "app · CLI",
     accent: "var(--color-cat-7)",
-    reads: "AGENTS.md directo",
-    layer: [".agents/skills (symlink)", ".codex/agents/*.toml (generados)"],
+    reads: "AGENTS.md directo + plugin Codex",
+    layer: ["plugin + .agents/skills (symlink)", ".codex/agents/*.toml (generados)"],
   },
 ] as const;
 

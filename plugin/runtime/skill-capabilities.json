@@ -1,0 +1,630 @@
+{
+  "generated_from": "plugin/skills/*/SKILL.md + plugin/runtime/skill-runtime-policy.json",
+  "skills": [
+    {
+      "slug": "adopt",
+      "source": "plugin/skills/adopt/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "architecture",
+      "source": "plugin/skills/architecture/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "bug",
+      "source": "plugin/skills/bug/SKILL.md",
+      "user_invocable": false,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "change",
+      "source": "plugin/skills/change/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "decide",
+      "source": "plugin/skills/decide/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "design",
+      "source": "plugin/skills/design/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Use the documented navigable HTML mockup path; no DesignSync canvas.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "discover",
+      "source": "plugin/skills/discover/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "explore",
+      "source": "plugin/skills/explore/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "implement",
+      "source": "plugin/skills/implement/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Use Claude for governed builds. R2/R3/R6, offline R7/R8/R11, current-head R11 LIVE_SHORT and the R10 cold-switch fixture are green; installed R10 plus R11 LIVE_OVERNIGHT remain pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "implement-backlog",
+      "source": "plugin/skills/implement-backlog/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Single-item mode only; drain-all remains Claude-owned until its independent E2E passes.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "iterate",
+      "source": "plugin/skills/iterate/SKILL.md",
+      "user_invocable": false,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "learn",
+      "source": "plugin/skills/learn/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "memory",
+      "source": "plugin/skills/memory/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "new-idea",
+      "source": "plugin/skills/new-idea/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "new-version",
+      "source": "plugin/skills/new-version/SKILL.md",
+      "user_invocable": false,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "onboarding",
+      "source": "plugin/skills/onboarding/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "recommend",
+      "source": "plugin/skills/recommend/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "release",
+      "source": "plugin/skills/release/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "review-launch",
+      "source": "plugin/skills/review-launch/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Use documented PostHog queries when the connected analytics tool is unavailable.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "scaffold",
+      "source": "plugin/skills/scaffold/SKILL.md",
+      "user_invocable": false,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "spec",
+      "source": "plugin/skills/spec/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "sync",
+      "source": "plugin/skills/sync/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "sync-portfolio",
+      "source": "plugin/skills/sync-portfolio/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "upgrade",
+      "source": "plugin/skills/upgrade/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
+      "slug": "work-orders",
+      "source": "plugin/skills/work-orders/SKILL.md",
+      "user_invocable": false,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -14,6 +14,7 @@
 import type { Metadata } from "next";
 import { Pixelify_Sans, Space_Grotesk } from "next/font/google";
 import { OnboardingGate } from "@/app/_components/OnboardingGate/OnboardingGate";
+import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
 import { AppShell } from "@/components/modules/AppShell/AppShell";
 import { CelebrationWatcher } from "@/components/modules/CelebrationWatcher/CelebrationWatcher";
 import { GuildBar } from "@/components/modules/GuildBar/GuildBar";
@@ -101,6 +102,9 @@ export default function RootLayout({
                 (release/levelup/phase/toast). Client component; no server I/O;
                 fires automatically from the live event stream (DR-061, AC-09-006.1). */}
             <CelebrationWatcher />
+            {/* Reconcile durable accounting on every route; direct navigation to
+                Logros/Configuración must not depend on visiting Inicio first. */}
+            <GamificationLedgerSync />
           </>
         ) : (
           <OnboardingGate />

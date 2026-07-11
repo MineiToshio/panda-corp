@@ -51,6 +51,10 @@ red() {
 command -v jq >/dev/null 2>&1 || red "jq not available — cannot verify manifest sync (fail-closed)"
 command -v node >/dev/null 2>&1 || red "node not available — cannot verify .codex/agents drift (fail-closed)"
 
+# --- Check 0: canonical runtime sources + complete manifest projections -----------------------
+node "$ROOT/plugin/scripts/check-runtime-sources.mjs" "$ROOT" \
+  || red "runtime source graph, tier mapping, or full manifest projection is invalid. Regenerate manifests with: node plugin/scripts/generate-plugin-manifests.mjs"
+
 # --- Check 1: manifest versions in sync (CLAUDE.md §Plugin maintenance step 1) ---
 v_claude=$(jq -r '.version // empty' "$CLAUDE_MANIFEST" 2>/dev/null)
 v_codex=$(jq -r '.version // empty' "$CODEX_MANIFEST" 2>/dev/null)
@@ -75,6 +79,8 @@ trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/plugin/scripts" "$tmp/plugin/agents"
 cp "$ROOT/plugin/scripts/generate-codex-agents.mjs" "$tmp/plugin/scripts/" || red "generator script missing"
 cp "$ROOT"/plugin/agents/*.md "$tmp/plugin/agents/" || red "no agent sources found"
+mkdir -p "$tmp/plugin/runtime"
+cp "$ROOT"/plugin/runtime/*.json "$tmp/plugin/runtime/" || red "runtime canonical sources missing"
 node "$tmp/plugin/scripts/generate-codex-agents.mjs" >/dev/null 2>&1 || red "generator failed to run (fail-closed)"
 
 drift=$(diff -rq "$tmp/.codex/agents" "$ROOT/.codex/agents" 2>&1)
@@ -83,5 +89,48 @@ if [ -n "$drift" ]; then
   echo "$drift" >&2
   red ".codex/agents/*.toml is stale vs plugin/agents/*.md. Regenerate: node plugin/scripts/generate-codex-agents.mjs (CLAUDE.md §Plugin maintenance step 2)"
 fi
+
+# --- Check 4: exact 25-skill capability projection --------------------------------------------
+cp "$ROOT/plugin/scripts/generate-skill-capabilities.mjs" "$tmp/plugin/scripts/" || red "skill capability generator missing"
+cp -R "$ROOT/plugin/skills" "$tmp/plugin/skills" || red "skill sources missing"
+node "$tmp/plugin/scripts/generate-skill-capabilities.mjs" >/dev/null 2>&1 || red "skill capability generator failed"
+cmp -s "$tmp/plugin/runtime/skill-capabilities.json" "$ROOT/plugin/runtime/skill-capabilities.json" \
+  || red "skill-capabilities.json is stale; run node plugin/scripts/generate-skill-capabilities.mjs"
+node "$ROOT/plugin/scripts/check-skill-capabilities.mjs" "$ROOT" >/dev/null 2>&1 \
+  || red "skill capability coverage/evidence is invalid"
+
+# --- Check 5: generated fenced rollup prompt + writer boundary --------------------------------
+mkdir -p "$tmp/plugin/templates/shared/.claude/engines" "$tmp/plugin/runtime/prompts"
+cp "$ROOT/plugin/scripts/generate-build-prompt-fragments.mjs" "$tmp/plugin/scripts/"
+cp "$ROOT/plugin/runtime/prompts/sync-rollups.md" "$tmp/plugin/runtime/prompts/"
+cp "$ROOT/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$tmp/plugin/templates/shared/.claude/engines/"
+node "$tmp/plugin/scripts/generate-build-prompt-fragments.mjs" >/dev/null 2>&1 || red "build prompt generator failed"
+cmp -s "$tmp/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$ROOT/plugin/templates/shared/.claude/engines/pandacorp-build.js" \
+  || red "generated build prompt fragment is stale"
+node "$ROOT/plugin/scripts/check-rollup-writer-boundary.mjs" "$ROOT" >/dev/null 2>&1 \
+  || red "rollup writer boundary is invalid or retired prose returned"
+
+# --- Check 6: generated Codex enforcement registration/config/rules ---------------------------
+mkdir -p "$tmp/plugin/runtime" "$tmp/plugin/scripts"
+cp "$ROOT/plugin/runtime/enforcement-policy.json" "$tmp/plugin/runtime/" || red "Codex enforcement policy missing"
+cp "$ROOT/plugin/scripts/generate-codex-enforcement.mjs" "$tmp/plugin/scripts/" || red "Codex enforcement generator missing"
+node "$tmp/plugin/scripts/generate-codex-enforcement.mjs" >/dev/null 2>&1 || red "Codex enforcement generator failed"
+for generated in \
+  .codex/config.toml \
+  .codex/rules/pandacorp.rules \
+  plugin/hooks/codex-hooks.json \
+  plugin/templates/shared/.codex/config.toml \
+  plugin/templates/shared/.codex/rules/pandacorp.rules; do
+  cmp -s "$tmp/$generated" "$ROOT/$generated" \
+    || red "$generated is stale; run node plugin/scripts/generate-codex-enforcement.mjs"
+done
+
+# --- Check 7: runtime-neutral event vocabulary projection --------------------------------------
+mkdir -p "$tmp/mission-control/src/lib/events"
+cp "$ROOT/plugin/runtime/event-vocabulary.json" "$tmp/plugin/runtime/" || red "event vocabulary source missing"
+cp "$ROOT/plugin/scripts/generate-event-vocabulary.mjs" "$tmp/plugin/scripts/" || red "event vocabulary generator missing"
+node "$tmp/plugin/scripts/generate-event-vocabulary.mjs" >/dev/null 2>&1 || red "event vocabulary generator failed"
+cmp -s "$tmp/mission-control/src/lib/events/event-vocabulary.json" "$ROOT/mission-control/src/lib/events/event-vocabulary.json" \
+  || red "Mission Control event vocabulary is stale; run node plugin/scripts/generate-event-vocabulary.mjs"
 
 exit 0

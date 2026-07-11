@@ -46,7 +46,11 @@ const SCAN_SCHEMA = {
           id: { type: 'string' },
           path: { type: 'string' },
           title: { type: 'string' },
-          status: { type: 'string', enum: ['open', 'doing'] },
+          // Scan returns the complete store so resume can exclude already-closed
+          // work from canonical frontmatter. Keeping `done` out of this schema
+          // contradicted the prompt below and made an honest complete scan fail
+          // schema validation as soon as the backlog contained a closed item.
+          status: { type: 'string', enum: ['open', 'doing', 'done'] },
           tier: { type: 'string', enum: ['haiku', 'sonnet', 'opus'] },
         },
       },
@@ -124,7 +128,12 @@ phase('Implement')
 
 const RECIPE = (item) => `${ANCHOR}Implement and close factory backlog item ${item.id} (proposal 31 T1.1 — dispatched by the pandacorp-backlog engine, replacing a hand-run subagent).
 
-1. Isolate FIRST: create a fresh worktree anchored at the factory root: \`git -C ${FACTORY_ROOT} worktree add ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} -b bl/${item.id}\`. The \`-C ${FACTORY_ROOT}\` decides WHICH repo owns the worktree — NEVER run worktree add without it (your cwd may be a different repo). Then VERIFY ownership before any work: \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rev-parse --git-common-dir\` must resolve inside ${FACTORY_ROOT} — if it does not, remove that worktree immediately and return status: "blocked" with reason "worktree anchored to wrong repo". Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
+1. Isolate FIRST, with resume awareness. Let \`WT=${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}\` and \`BRANCH=bl/${item.id}\`.
+   - If Git already registers WT for BRANCH, REUSE it: this is a previous red-merge/blocked attempt preserved for inspection. Never recreate or delete it. Re-run the item's tests and validator from that worktree; a prior \`status: done\` inside the branch is not proof that the failed merge is now valid.
+   - If BRANCH exists but has no registered worktree, attach it with \`git -C ${FACTORY_ROOT} worktree add $WT $BRANCH\`.
+   - If neither exists, create it with \`git -C ${FACTORY_ROOT} worktree add $WT -b $BRANCH\`.
+   - If WT exists on disk but Git does not register it to BRANCH, STOP as blocked; never delete an ambiguous directory.
+   The \`-C ${FACTORY_ROOT}\` decides WHICH repo owns the worktree — NEVER run worktree add without it (your cwd may be a different repo). Then VERIFY ownership before any work: canonicalize both \`git -C $WT rev-parse --git-common-dir\` and \`git -C ${FACTORY_ROOT} rev-parse --git-common-dir\`; they must be the exact same directory. If they differ, return status: "blocked" with reason "worktree anchored to wrong repo". Do ALL work inside that worktree directory from here on — never touch the main checkout's working tree.
 2. Read the item whole at ${item.path} (already known to you: title "${item.title}"): its Problem (+ Root cause if a bug), Fix plan, Tests, Done when, Out of scope.
 3. Implement EXACTLY the Fix plan — nothing broader, nothing past Out of scope. No drive-by refactors.
 4. Prove it with the item's own Tests section: a unit test, a verify.sh --canary gate canary, a script/CLI assertion, or a documented manual repro when automation is genuinely infeasible. Never skip proof.
@@ -169,13 +178,13 @@ for (const item of succeeded) {
   const mergeResult = await agent(
     `${ANCHOR}From the MAIN checkout at ${FACTORY_ROOT} (never a worktree), land backlog item ${item.id}'s branch \`${item.branch}\`.
 
-1. Same repo, local branch — no fetch needed, just proceed.
-2. Rebase the branch onto current main first if it is behind: from the item's OWN worktree at ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}, run \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rebase main\` (or skip if already up to date).
+1. Same repo, local branch — no fetch needed. Fail closed BEFORE rebase/merge unless ${FACTORY_ROOT} is on branch \`main\` and \`git -C ${FACTORY_ROOT} status --porcelain\` is empty. Never merge over a dirty main checkout: rollback restoration would otherwise overwrite unrelated owner work.
+2. Capture \`PRE_MERGE_SHA=$(git -C ${FACTORY_ROOT} rev-parse HEAD)\` before changing main. Rebase the branch onto current main first if it is behind: from the item's OWN worktree at ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}, run \`git -C ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id} rebase main\` (or skip if already up to date).
 3. From the MAIN checkout: \`git -C ${FACTORY_ROOT} merge --ff-only ${item.branch}\` when possible. If ff-only fails, do a normal merge and resolve conflicts by hand using these named hotspots:
    - plugin/.claude-plugin/plugin.json (and plugin/.codex-plugin/plugin.json) version field: keep the HIGHER of the two versions, never blindly pick one side. If this was a genuine CONFLICT on the version field (both sides independently bumped it from the same stale base, not just one side changing it) — a COLLAPSED BUMP: only one increment survives even though two items each thought they were the one bumping from a stable base. Do NOT try to compute a combined/correct bump yourself (that is BL-0025's still-open sequential-allocator work) — just keep the higher value AND set the returned \`reason\` field to a one-line flag even though the merge succeeds, e.g. \`"COLLAPSED-VERSION-BUMP: ${item.id} and another item both bumped plugin.json — verify the surviving version covers both changes' severity"\`, so the owner can reconcile manually.
    - plugin/docs/decision-log.md: keep BOTH entries, most-recent-on-top (never drop either side's entry).
    - factory/backlog/README.md's open-item count mentions: recount from the actual files after the merge, don't trust either side's stale number.
-4. After the merge lands (ff-only or resolved), run \`bash ${FACTORY_ROOT}/plugin/scripts/validate-backlog.sh\` from ${FACTORY_ROOT}. If it reports errors: \`git -C ${FACTORY_ROOT} revert --no-edit HEAD\` (or reset to the pre-merge commit if the merge was a plain fast-forward with nothing to revert-cleanly — whichever leaves main exactly as it was before this merge attempt), and report validator: "red", merged: false, with the validator's error as reason. Do NOT proceed to remove the worktree in that case — leave it for inspection.
+4. After the merge lands (ff-only or resolved), run \`bash ${FACTORY_ROOT}/plugin/scripts/validate-backlog.sh\` from ${FACTORY_ROOT}. If it reports errors, capture \`MERGED_SHA=$(git -C ${FACTORY_ROOT} rev-parse HEAD)\` and first re-check ALL ownership assumptions: the canonical common dir is still the exact repo from step 1, main is still the checked-out branch, and HEAD is exactly \`$MERGED_SHA\`. Then run ONE Git-owned rollback operation: \`git -C ${FACTORY_ROOT} reset --keep $PRE_MERGE_SHA\`. Never split rollback into \`update-ref\` followed by \`restore\`: an owner edit arriving between those commands would be overwritten. \`reset --keep\` must ABORT rather than overwrite a concurrent worktree/index edit; if it aborts, return merged:false/validator:red with reason \`ROLLBACK-BLOCKED-BY-CONCURRENT-OWNER-EDIT\`, preserve the owner's files byte-for-byte, leave HEAD/worktree/worktree-branch in place, STOP this item, and let every later item fail the clean-main preflight. If it succeeds, verify HEAD equals \`$PRE_MERGE_SHA\` and the checkout is clean. A revert commit is NOT acceptable here: Git would still consider the item branch merged and a later resume could not land it again. Do NOT proceed to remove the worktree in either red case — leave it for inspection and resume.
 5. If the validator is green: remove the worktree and its branch BEFORE returning — \`git -C ${FACTORY_ROOT} worktree remove ${FACTORY_ROOT}/.claude/worktrees/bl-${item.id}\` then \`git -C ${FACTORY_ROOT} branch -d ${item.branch}\`.
 
 Return { id: "${item.id}", merged: true or false, validator: "green" or "red", reason: <one-line if red or not merged, OR the COLLAPSED-VERSION-BUMP flag above even when merged:true/validator:"green"> }.`,

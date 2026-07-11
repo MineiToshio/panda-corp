@@ -51,6 +51,7 @@ import { computeStats } from "@/lib/achievements/stats";
 import { resolveFactoryRoot } from "@/lib/config/config";
 import { readEvents } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
+import { durableEvents, readLedger } from "@/lib/gamification/ledger";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { HallTabs } from "./_components/HallTabs";
 import { buildInformeData } from "./Informe/informeData";
@@ -71,7 +72,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
   // ── Read phase (fail-soft, read-only) ────────────────────────────────────
   // Guild state (statuses + events + level) from THE single source of truth, so the
   // hero's level matches the header GuildBar and the Inicio dashboard exactly.
-  const { statuses, level: guildLevel, liveOutcomes } = getGuildState();
+  const { statuses, level: guildLevel, outcomes } = getGuildState();
   const ideas = readIdeas();
   // Achievements read the FULL event stream (uncapped) so only-grow counters stay
   // honest — the guild level keeps getGuildState's tail (FRD-09 unchanged).
@@ -86,7 +87,8 @@ export default async function HallPage(): Promise<React.JSX.Element> {
     ideas,
     statuses,
     eventsSnapshot,
-    workOrdersDoneLive: liveOutcomes.workOrdersDone,
+    durableEvents: durableEvents(readLedger()),
+    workOrdersDoneLive: outcomes.workOrdersDone,
   };
 
   // ── Informe operativo report data (WO-10-015 consumes WO-10-014 readers) ───

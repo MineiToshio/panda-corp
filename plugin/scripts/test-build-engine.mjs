@@ -66,6 +66,7 @@ const engine = new AsyncFunction('args', 'budget', 'agent', 'parallel', 'pipelin
 // ── Schema-conformant default responses by label (the happy path) ────────────
 // A scenario only scripts the deviations it is about; everything else greens.
 function defaultResponse(label) {
+  if (label === 'baseline-precheck') return { escalate: true }
   if (label === 'baseline') return { green: true }                       // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
   if (label === 'sync-rollups') return { corrected: 0 }
@@ -73,6 +74,10 @@ function defaultResponse(label) {
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
+  if (label === 'gate-worktree') return { ok: true, created: true }
+  if (label.startsWith('pin:')) return { sha: 'pinsha0' }
+  if (label.startsWith('apply-gate:')) return { done: true }
+  if (label.startsWith('persist-block:')) return { done: true }
   if (label.startsWith('commit:')) return { committed: 1 }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('find:')) return { findings: [] }                 // FINDER_SCHEMA — nothing found
@@ -80,7 +85,7 @@ function defaultResponse(label) {
   if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
 
@@ -128,9 +133,12 @@ async function runEngine(scenario) {
   const noop = () => {}
 
   let result, error
+  const engineArgs = scenario.args && typeof scenario.args === 'object'
+    ? { leaseToken: 'test-lease-token', leaseEpoch: 1, ...scenario.args }
+    : scenario.args
   try {
     result = await engine(
-      scenario.args,
+      engineArgs,
       budget,
       agentStub,
       parallelStub,
@@ -330,9 +338,7 @@ for (const s of SCENARIOS) {
   } catch (e) {
     t.failures.push(`assertion block threw: ${e && e.stack ? e.stack.split('\n')[0] : e}`)
   }
-  if (run.unmatched.length) {
-    console.log(`  [info] ${s.name} — unmatched agent labels (answered {}): ${[...new Set(run.unmatched)].join(', ')}`)
-  }
+  if (run.unmatched.length) t.failures.push(`unmatched agent labels: ${[...new Set(run.unmatched)].join(', ')}`)
   if (t.failures.length === 0) {
     passed++
     console.log(`PASS  ${s.name}  (${t.count} assertions)`)

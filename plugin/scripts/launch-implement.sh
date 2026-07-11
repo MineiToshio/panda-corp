@@ -4,17 +4,18 @@
 # Workflow() invocation the skill must run and the ARG-ECHO verification reminder. It does NOT call
 # the Workflow tool itself (only Claude Code can) — it makes the launch mechanical instead of prose.
 #
-# Usage:  launch-implement.sh <project-dir> <mode> <maxAgents>
+# Usage:  launch-implement.sh <project-dir> <mode> <maxAgents> [auto|new|continue-run-id]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
 #
-# Idempotent: re-running only rewrites the same keys in place (never duplicates them) and re-touches
-# the lock; safe to call on a resume.
+# The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
+# re-running while it is held fails closed instead of manufacturing a second owner.
 set -uo pipefail
 
 PROJ="${1:-.}"; PROJ="${PROJ%/}"
 MODE="${2:-powerful}"
 MAX_AGENTS="${3:-}"
+RUN_MODE="${4:-auto}"
 
 STATUS="$PROJ/.pandacorp/status.yaml"
 [ -f "$STATUS" ] || { echo "ERROR: no $STATUS — run the preflight first (not a factory project)." >&2; exit 1; }
@@ -23,32 +24,36 @@ STATUS="$PROJ/.pandacorp/status.yaml"
 # ANY cwd is then safe (the engine cds every subagent to projectDir and stamps events with `project`).
 PROJECT_DIR=$(cd "$PROJ" && pwd -P)
 PROJECT=$(basename "$PROJECT_DIR")
-NOW=$(date -u +%FT%TZ)
+NEW_RUN_ID="run_$(date -u +%Y%m%dT%H%M%SZ)_$$"
+RESOLUTION=$(node "$(cd "$(dirname "$0")" && pwd)/resolve-build-run-id.mjs" --project "$PROJECT_DIR" --runtime claude --mode "$RUN_MODE" --new-id "$NEW_RUN_ID") || exit $?
+RUN_ID=$(node -e 'const v=JSON.parse(process.argv[1]);if(!v.run_id)process.exit(3);process.stdout.write(v.run_id)' "$RESOLUTION") || exit $?
+LEASE_CLI=$(cd "$(dirname "$0")" && pwd)/pandacorp-build-state.mjs
 
-# --- set/replace a flat top-level YAML key in place (never truncates the protected file) --------
-set_key() { # $1 file  $2 key  $3 value(literal, already-quoted if needed)
-  local file="$1" key="$2" val="$3" tmp
-  tmp=$(mktemp "${TMPDIR:-/tmp}/pcstatus.XXXXXX") || return 1
-  if grep -qE "^${key}:" "$file"; then
-    awk -v k="$key" -v v="$val" '
-      $0 ~ ("^" k ":") && !seen { print k ": " v; seen=1; next }
-      { print }
-    ' "$file" > "$tmp" && mv "$tmp" "$file"
-  else
-    cp "$file" "$tmp" && printf '%s: %s\n' "$key" "$val" >> "$tmp" && mv "$tmp" "$file"
-  fi
-}
-
-# 1) Take the lock (DR-050 §Unattended operation step 1 + DR-063).
-set_key "$STATUS" phase          "implementation"
-set_key "$STATUS" running        "true"
-set_key "$STATUS" run_started_at "\"$NOW\""
-set_key "$STATUS" supervisor_heartbeat "\"\""   # clear any stale heartbeat → fresh baseline for the guard
+# 1) Take the atomic neutral lease BEFORE any phase write. A contended launch must leave canonical
+# project state untouched. The lease CLI owns all compatibility projections.
 mkdir -p "$PROJECT_DIR/.pandacorp/run"
+LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl 600) \
+  || { echo "ERROR: atomic build lease acquisition failed." >&2; exit 2; }
+LEASE_TOKEN=$(printf '%s' "$LEASE" | jq -r '.token // empty')
+LEASE_EPOCH=$(printf '%s' "$LEASE" | jq -r '.epoch // empty')
+[ -n "$LEASE_TOKEN" ] && [ -n "$LEASE_EPOCH" ] || { echo "ERROR: lease receipt malformed." >&2; exit 2; }
+
+# Only the fenced owner may advance architecture -> implementation. If this projection fails,
+# release immediately so a launch error cannot strand ownership. The test switch only forces this
+# safe abort path and never grants a capability.
+if [ "${PANDACORP_TEST_FAIL_PHASE_WRITE:-0}" = "1" ] || \
+   ! node "$LEASE_CLI" set-phase --project "$PROJECT_DIR" --token "$LEASE_TOKEN" --epoch "$LEASE_EPOCH" --phase implementation >/dev/null; then
+  echo "ERROR: fenced phase transition failed; releasing the newly acquired lease." >&2
+  if ! node "$LEASE_CLI" release --project "$PROJECT_DIR" --token "$LEASE_TOKEN" --epoch "$LEASE_EPOCH" >/dev/null; then
+    echo "ERROR: lease cleanup also failed; STOP and inspect the lease before retrying." >&2
+  fi
+  exit 2
+fi
 touch "$PROJECT_DIR/.pandacorp/run/build.lock"
 
 echo "== launch prepared for $PROJECT =="
-echo "status.yaml: phase=implementation running=true run_started_at=$NOW supervisor_heartbeat cleared"
+echo "status.yaml: phase=implementation running=true runtime=claude epoch=$LEASE_EPOCH"
+echo "logical run: $RUN_ID ($(node -e 'process.stdout.write(JSON.parse(process.argv[1]).reason)' "$RESOLUTION"))"
 echo "build lock:  $PROJECT_DIR/.pandacorp/run/build.lock (touched)"
 echo
 
@@ -58,7 +63,7 @@ MA_FIELD=""
 echo "Run this Workflow() call (args MUST be a JSON object, never a string):"
 echo
 echo "  Workflow({ scriptPath: '$PROJECT_DIR/.claude/engines/pandacorp-build.js',"
-echo "             args: { mode: '$MODE'$MA_FIELD, projectDir: '$PROJECT_DIR', project: '$PROJECT' } })"
+echo "             args: { mode: '$MODE'$MA_FIELD, projectDir: '$PROJECT_DIR', project: '$PROJECT', leaseToken: '$LEASE_TOKEN', leaseEpoch: $LEASE_EPOCH } })"
 echo
 
 # 3) ARG-ECHO VERIFICATION (DR-072 R2) — the launch is not done until you confirm the args landed.

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { type EventRuntime, normalizeEventName } from "./event-contract";
 import { isNewerTimestamp } from "./event-time";
 
 /**
@@ -82,7 +83,17 @@ const VALID_MODES: ReadonlySet<string> = new Set<EventMode>([
  */
 export type Event = {
   event: string;
+  /** Runtime-neutral semantic act from the canonical event vocabulary. */
+  semanticName?: string;
   at: string;
+  /** Producer runtime. Legacy custom fixtures remain `unknown`. */
+  runtime?: EventRuntime;
+  /** Durable run identity for semantic accounting. */
+  runId?: string;
+  /** Stable transport identity. Derived deterministically for legacy lines. */
+  eventId?: string;
+  /** Explicit accounting subject; falls back to WO/FRD/task/agent/project. */
+  subject?: string;
   agent?: string;
   session?: string;
   tool?: string;
@@ -165,13 +176,6 @@ export type EventsSnapshot = {
   byProject: Record<string, { lastEventAt: string }>;
 };
 
-/** The empty snapshot returned on missing file or fully-malformed input. */
-const EMPTY_SNAPSHOT: EventsSnapshot = {
-  events: [],
-  lastEventAt: null,
-  byProject: {},
-};
-
 /**
  * Resolve the default NDJSON path: the `PANDACORP_EVENTS_FILE` env override
  * when set (e2e runs point it at a frozen fixture so a live build's events
@@ -186,6 +190,14 @@ function defaultEventsPath(): string {
   }
   const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
   return path.join(home, ".claude", "dashboard-events.ndjson");
+}
+
+/** Codex-local additive transport. It never replaces or writes the Claude stream. */
+function defaultCodexEventsPath(): string {
+  const override = process.env.PANDACORP_CODEX_EVENTS_FILE;
+  if (override !== undefined && override.length > 0) return override;
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
+  return path.join(home, ".codex", "dashboard-events.ndjson");
 }
 
 /**
@@ -336,6 +348,7 @@ function readWorkflowNames(raw: unknown): string[] | undefined {
  * Extracted from `parseLine` to keep it within the complexity budget.
  */
 /** Apply the finite-number result fields (reopen_count, blocking, important, maxAgents, routes, failed, attempt). */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: flat independent optional-number guards are clearer than an unsafe generic assignment loop.
 function applyResultNumberFields(src: Record<string, unknown>, ev: Event): void {
   if (typeof src.reopen_count === "number" && Number.isFinite(src.reopen_count)) {
     ev.reopenCount = src.reopen_count;
@@ -391,7 +404,24 @@ function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
  * Field-name mapping performed here:
  *   `work_order` → `workOrder`
  */
-function parseLine(line: string): Event | undefined {
+function baseContractEvent(obj: Record<string, unknown>, transportRuntime: EventRuntime): Event {
+  const rawName = obj.event as string;
+  const normalized = normalizeEventName(rawName);
+  const runtime: EventRuntime =
+    obj.runtime === "claude" || obj.runtime === "codex" ? obj.runtime : transportRuntime;
+  const event: Event = {
+    event: normalized.display,
+    semanticName: normalized.semanticName,
+    at: obj.at as string,
+    runtime,
+  };
+  if (typeof obj.event_id === "string" && obj.event_id.trim() !== "") event.eventId = obj.event_id;
+  if (typeof obj.run_id === "string" && obj.run_id.trim() !== "") event.runId = obj.run_id;
+  if (typeof obj.subject === "string" && obj.subject.trim() !== "") event.subject = obj.subject;
+  return event;
+}
+
+function parseLine(line: string, transportRuntime: EventRuntime = "unknown"): Event | undefined {
   const trimmed = line.trim();
   if (trimmed === "") {
     return undefined;
@@ -416,10 +446,7 @@ function parseLine(line: string): Event | undefined {
     return undefined;
   }
 
-  const ev: Event = {
-    event: obj.event,
-    at: obj.at,
-  };
+  const ev = baseContractEvent(obj, transportRuntime);
 
   // Optional string fields — map through if present with the right type.
   if (typeof obj.agent === "string") ev.agent = obj.agent;
@@ -447,10 +474,10 @@ function parseLine(line: string): Event | undefined {
  * Parse all valid events from an NDJSON string, returning them in file order.
  * Malformed lines are silently skipped (per-line catch pattern).
  */
-function parseLines(raw: string): Event[] {
+function parseLines(raw: string, runtime: EventRuntime = "unknown"): Event[] {
   const validEvents: Event[] = [];
   for (const line of raw.split("\n")) {
-    const ev = parseLine(line);
+    const ev = parseLine(line, runtime);
     if (ev !== undefined) {
       validEvents.push(ev);
     }
@@ -489,6 +516,50 @@ function deriveByProject(events: readonly Event[]): Record<string, { lastEventAt
   return byProject;
 }
 
+type EventSource = { path: string; runtime: EventRuntime };
+
+function resolveEventSources(explicitPath: string | undefined): EventSource[] {
+  if (explicitPath !== undefined) {
+    return [
+      {
+        path: explicitPath,
+        runtime: explicitPath === defaultEventsPath() ? "claude" : "unknown",
+      },
+    ];
+  }
+  const claudeOverride = process.env.PANDACORP_EVENTS_FILE;
+  const codexOverride = process.env.PANDACORP_CODEX_EVENTS_FILE;
+  if (claudeOverride || codexOverride) {
+    return [
+      ...(claudeOverride ? [{ path: claudeOverride, runtime: "claude" as const }] : []),
+      ...(codexOverride ? [{ path: codexOverride, runtime: "codex" as const }] : []),
+    ];
+  }
+  return [
+    { path: defaultEventsPath(), runtime: "claude" },
+    { path: defaultCodexEventsPath(), runtime: "codex" },
+  ];
+}
+
+function readEventSources(sources: readonly EventSource[]): { parsed: Event[]; count: number } {
+  const parsed: Event[] = [];
+  const seenSources = new Set<string>();
+  let count = 0;
+  for (const source of sources) {
+    const sourceKey = path.resolve(source.path);
+    if (seenSources.has(sourceKey)) continue;
+    seenSources.add(sourceKey);
+    if (!fs.existsSync(source.path)) continue;
+    try {
+      parsed.push(...parseLines(readTailUtf8(source.path), source.runtime));
+      count++;
+    } catch {
+      // Transports are optional and independently fail-soft.
+    }
+  }
+  return { parsed, count };
+}
+
 /**
  * Read the event stream and compute the dashboard digest.
  *
@@ -515,29 +586,36 @@ export function readEvents(opts?: {
   cap?: number;
   project?: string;
 }): EventsSnapshot {
-  const filePath = opts?.path ?? defaultEventsPath();
   const cap = resolveCapFromOpts(opts?.cap);
   const project = opts?.project;
+  const { parsed, count: readSourceCount } = readEventSources(resolveEventSources(opts?.path));
 
-  // Missing or unreadable file → empty snapshot (fail-soft, blueprint §3).
-  if (!fs.existsSync(filePath)) {
-    return { ...EMPTY_SNAPSHOT, byProject: {} };
+  // Exact replay across a transport or dual-reader is idempotent. First observation wins.
+  const seenEventIds = new Set<string>();
+  const unique = parsed.filter((event) => {
+    const id = event.eventId;
+    if (id === undefined) return true;
+    if (seenEventIds.has(id)) return false;
+    seenEventIds.add(id);
+    return true;
+  });
+
+  // The two runtime transports are independent tails. Concatenating Claude then Codex would let an
+  // older Codex tail evict a newer Claude event when the cap is applied. Merge chronologically first;
+  // Array#sort is stable, so equal/invalid timestamps retain their source order.
+  if (readSourceCount > 1) {
+    unique.sort((a, b) => {
+      const left = Date.parse(a.at);
+      const right = Date.parse(b.at);
+      return Number.isFinite(left) && Number.isFinite(right) ? left - right : 0;
+    });
   }
-
-  let raw: string;
-  try {
-    raw = readTailUtf8(filePath);
-  } catch {
-    return { ...EMPTY_SNAPSHOT, byProject: {} };
-  }
-
-  const parsed = parseLines(raw);
 
   // Project filter BEFORE the cap (legacy events without a project field pass).
   const validEvents =
     project === undefined
-      ? parsed
-      : parsed.filter((ev) => ev.project === undefined || ev.project === project);
+      ? unique
+      : unique.filter((ev) => ev.project === undefined || ev.project === project);
 
   // Apply tail cap: take the LAST `cap` events.
   const retained =

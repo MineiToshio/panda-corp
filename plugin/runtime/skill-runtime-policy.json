@@ -1,0 +1,12 @@
+{
+  "defaults": {
+    "claude": { "status": "PROVEN", "fallback": null, "evidence": { "kind": "canonical-runtime", "verified_at": "2026-07-11", "verifier": "plugin/scripts/check-skill-capabilities.mjs" } },
+    "codex": { "status": "FALLBACK", "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.", "evidence": { "kind": "static-contract-only", "verified_at": "2026-07-11", "verifier": "plugin/scripts/check-skill-capabilities.mjs" } }
+  },
+  "overrides": {
+    "design": { "codex": { "status": "FALLBACK", "fallback": "Use the documented navigable HTML mockup path; no DesignSync canvas." } },
+    "implement": { "codex": { "status": "FALLBACK", "fallback": "Use Claude for governed builds. R2/R3/R6, offline R7/R8/R11, current-head R11 LIVE_SHORT and the R10 cold-switch fixture are green; installed R10 plus R11 LIVE_OVERNIGHT remain pending." } },
+    "implement-backlog": { "codex": { "status": "FALLBACK", "fallback": "Single-item mode only; drain-all remains Claude-owned until its independent E2E passes." } },
+    "review-launch": { "codex": { "status": "FALLBACK", "fallback": "Use documented PostHog queries when the connected analytics tool is unavailable." } }
+  }
+}

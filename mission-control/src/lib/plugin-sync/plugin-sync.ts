@@ -31,6 +31,7 @@ const PLUGIN_KEY = "pandacorp@panda-corp";
 
 /** Source-of-truth manifest for the plugin's published version, relative to the factory root. */
 const PLUGIN_MANIFEST_REL = path.join("plugin", ".claude-plugin", "plugin.json");
+const CODEX_PLUGIN_MANIFEST_REL = path.join("plugin", ".codex-plugin", "plugin.json");
 
 /**
  * Read the installed plugin's semver `version` from
@@ -78,6 +79,42 @@ export function readPluginSourceVersion(factoryRoot: string): string | null {
     return null;
   }
   return extractVersion(parsed as Record<string, unknown>);
+}
+
+/** Read the independently generated Codex source manifest version. */
+export function readCodexSourceVersion(factoryRoot: string): string | null {
+  const parsed = readJsonFile(path.join(factoryRoot, CODEX_PLUGIN_MANIFEST_REL));
+  return parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)
+    ? extractVersion(parsed as Record<string, unknown>)
+    : null;
+}
+
+/**
+ * Read the installed Codex cache verdict without conflating it with Claude's cache.
+ * `PANDACORP_CODEX_PLUGIN_ROOT` is the authoritative activation pointer; the cache
+ * probe is a conservative fallback for the standard personal-plugin layout.
+ */
+export function readCodexInstalledVersion(codexHome: string): string | null {
+  const explicit = process.env.PANDACORP_CODEX_PLUGIN_ROOT;
+  if (explicit && explicit.trim() !== "") {
+    const parsed = readJsonFile(path.join(explicit, ".codex-plugin", "plugin.json"));
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return extractVersion(parsed as Record<string, unknown>);
+    }
+  }
+  const cacheRoot = path.join(codexHome, "plugins", "cache");
+  const candidates = [
+    path.join(cacheRoot, "pandacorp", ".codex-plugin", "plugin.json"),
+    path.join(cacheRoot, "personal", "pandacorp", ".codex-plugin", "plugin.json"),
+  ];
+  for (const candidate of candidates) {
+    const parsed = readJsonFile(candidate);
+    if (parsed !== null && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const version = extractVersion(parsed as Record<string, unknown>);
+      if (version !== null) return version;
+    }
+  }
+  return null;
 }
 
 /** Read + JSON.parse a file; return the parsed value or null on any error. */
@@ -160,6 +197,19 @@ export type PluginSyncState = {
   reason: "behind" | "in-sync" | "unknown";
   /** Human (Spanish) one-liner for the banner, always non-empty. */
   detail: string;
+  /** Separate installed-cache verdicts. Optional only for legacy API fixtures. */
+  runtimes?: {
+    readonly claude: RuntimePluginSyncVerdict;
+    readonly codex: RuntimePluginSyncVerdict;
+  };
+};
+
+export type RuntimePluginSyncVerdict = {
+  readonly runtime: "claude" | "codex";
+  readonly installedVersion: string | null;
+  readonly sourceVersion: string | null;
+  readonly drift: boolean;
+  readonly reason: "behind" | "in-sync" | "unknown";
 };
 
 /** Resolve `~/.claude` from env, falling back to `os.homedir()`. */
@@ -221,8 +271,34 @@ export function getPluginSyncState(): PluginSyncState {
     reason = compareVersions(installedVersion, sourceVersion);
   }
 
-  const drift = reason === "behind";
-  const detail = buildDetail(installedVersion, sourceVersion, reason);
+  const home = process.env.HOME ?? process.env.USERPROFILE ?? os.homedir();
+  const codexInstalled = readCodexInstalledVersion(path.join(home, ".codex"));
+  const codexSource = readCodexSourceVersion(resolveFactoryRootLocal());
+  const codexReason =
+    codexInstalled === null || codexSource === null
+      ? "unknown"
+      : compareVersions(codexInstalled, codexSource);
+  const runtimes = {
+    claude: {
+      runtime: "claude" as const,
+      installedVersion,
+      sourceVersion,
+      drift: reason === "behind",
+      reason,
+    },
+    codex: {
+      runtime: "codex" as const,
+      installedVersion: codexInstalled,
+      sourceVersion: codexSource,
+      drift: codexReason === "behind",
+      reason: codexReason,
+    },
+  };
+  const drift = runtimes.claude.drift || runtimes.codex.drift;
+  const aggregateReason: PluginSyncState["reason"] = drift ? "behind" : reason;
+  const detail = drift
+    ? `Claude: ${buildDetail(installedVersion, sourceVersion, reason)} · Codex: ${buildDetail(codexInstalled, codexSource, codexReason)}`
+    : buildDetail(installedVersion, sourceVersion, reason);
 
-  return { installedVersion, sourceVersion, drift, reason, detail };
+  return { installedVersion, sourceVersion, drift, reason: aggregateReason, detail, runtimes };
 }

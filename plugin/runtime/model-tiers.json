@@ -1,0 +1,17 @@
+{
+  "tiers": {
+    "MECH": {
+      "aliases": ["haiku"],
+      "codex": { "model": "gpt-5.4-mini", "effort": "low" }
+    },
+    "STANDARD": {
+      "aliases": ["sonnet"],
+      "codex": { "model": "gpt-5.5", "effort": "medium" }
+    },
+    "JUDGE": {
+      "aliases": ["opus"],
+      "codex": { "model": "gpt-5.5", "effort": "high" }
+    }
+  },
+  "effort_rank": ["minimal", "low", "medium", "high", "xhigh"]
+}

@@ -3,8 +3,7 @@
  *
  * The single-source-of-truth map (agent-portability standard, "Maintenance"):
  * every piece has exactly ONE source; the "other side" is a symlink, an import,
- * a shared read, a script-GENERATED artifact, or a mirrored manifest. Only ONE
- * derived copy exists in the whole layer (the Codex agent TOMLs) — flagged.
+ * a shared read, or a script-GENERATED artifact. Generated projections are flagged.
  *
  * Each row carries a labelled mechanism badge (mechanism never by color alone:
  * icon + text + data-mechanism). Tokens only · light+dark first-class.
@@ -31,7 +30,7 @@ type Piece = {
   readonly source: string;
   readonly otherSide: string;
   readonly mechanism: Mechanism;
-  /** The only genuinely derived copy in the layer — worth flagging. */
+  /** A deterministic generated projection checked by the drift gate. */
   readonly derived?: boolean;
 };
 
@@ -63,9 +62,17 @@ const PIECES: readonly Piece[] = [
   },
   {
     piece: "Manifests del plugin",
-    source: ".claude-plugin/plugin.json",
-    otherSide: ".codex-plugin/plugin.json · misma versión por ritual",
-    mechanism: "mirror",
+    source: "plugin/runtime/plugin-metadata.json",
+    otherSide: ".claude-plugin/plugin.json + .codex-plugin/plugin.json · generados",
+    mechanism: "generated",
+    derived: true,
+  },
+  {
+    piece: "Vocabulario de eventos",
+    source: "plugin/runtime/event-vocabulary.json",
+    otherSide: "Mission Control event-vocabulary.json · generado y drift-checked",
+    mechanism: "generated",
+    derived: true,
   },
 ];
 
@@ -137,7 +144,7 @@ function PieceRow({ piece, isFirst }: { piece: Piece; isFirst: boolean }): React
                 letterSpacing: "0.03em",
               }}
             >
-              única copia derivada
+              proyección derivada verificada
             </span>
           )}
         </div>

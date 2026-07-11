@@ -48,3 +48,17 @@ Analogy: you belong to a **guild** (the organization) and you go out in a **part
 
 ## Future
 Full-screen level-up moment; phase transitions as a "cutscene"; meta-achievements (titled, displayable Seals); XP multiplier for weekly streak.
+
+## Runtime-neutral result ledger (AC-09-007)
+
+- WHEN the same result is replayed through multiple runtime transports or vocabulary aliases THEN
+  durable XP and achievements SHALL count it once by a monotonic oracle-derived fact key, independent
+  of declared `event_id` or `run_id`.
+- The existing gitignored ledger SHALL use schema v2, migrate valid v1 maxima without fabricating
+  event history, write atomically through one Server Action, serialize concurrent reconciliation,
+  refuse symlinks and fail closed without overwriting corrupt data.
+- The writer SHALL derive totals and evidence from server-side canonical files; it SHALL ignore all
+  aggregate values supplied by the client.
+- A live/legacy event MAY render as telemetry, but SHALL NOT grant durable XP, agent attribution or an
+  achievement until a WO/FRD/status/git/artifact oracle corroborates the result. Uncorroborated
+  agent/role/mode/time fields SHALL be discarded when the durable fact is materialized.

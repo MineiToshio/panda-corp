@@ -85,7 +85,13 @@ describe("readEvents — new engine vocabulary fields", () => {
       // The real extended gate event carries wos as a plain COUNT (number)…
       { event: "gate", at: "2026-07-07T10:00:04Z", frd: "frd-05-z", wos: 3, attempt: 2 },
       // …while BuildComplete keeps the "done/total" string form.
-      { event: "BuildComplete", at: "2026-07-07T10:00:05Z", wos: "5/7", frds: "2/3", verdict: "partial" },
+      {
+        event: "BuildComplete",
+        at: "2026-07-07T10:00:05Z",
+        wos: "5/7",
+        frds: "2/3",
+        verdict: "partial",
+      },
     ]);
     const { events } = readEvents({ path: file });
     expect(events[0]?.stage).toBe("security");

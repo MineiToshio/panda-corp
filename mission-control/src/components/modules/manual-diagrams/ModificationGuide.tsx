@@ -47,7 +47,20 @@ const CHANGES: readonly Change[] = [
   },
   {
     change: "La versión del plugin",
-    action: <>Mantener los DOS manifests en la misma versión.</>,
+    action: (
+      <>
+        <Code>plugin-metadata.json</Code> → ejecutar <Code>generate-plugin-manifests.mjs</Code>.
+      </>
+    ),
+  },
+  {
+    change: "El vocabulario de eventos",
+    action: (
+      <>
+        <Code>plugin/runtime/event-vocabulary.json</Code> → ejecutar{" "}
+        <Code>generate-event-vocabulary.mjs</Code>.
+      </>
+    ),
   },
 ];
 

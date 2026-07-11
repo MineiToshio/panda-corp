@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp scaffold engine"
+  short_description: "Internal project creation step behind spec"
+policy:
+  allow_implicit_invocation: false

@@ -44,6 +44,15 @@ under `data`) via a new **signals layer**. The single `lib/achievements.ts` modu
 achievements/` package** (§3). Full catalogue, the real-signal map and the rarity model:
 `docs/achievements.md` v2.
 
+### R9 accounting boundary (2026-07-11)
+
+The live Claude/Codex streams still drive narrative and the usage report, but production trophy
+predicates receive `ReaderData.durableEvents` from the canonical v2 gamification ledger. Presence of
+that field, including an empty array, is an explicit trust boundary: raw events cannot fall through.
+Only oracle-materialized result fields reach `signals.ts`/catalogue helpers. Signals without a durable
+oracle (agent/role/mode, time-of-day, relaunches, subagents) stay visible as telemetry but honestly
+remain zero/locked for durable achievements.
+
 ## 2. Where the stats come from (honesty contract, shared with FRD-09)
 
 Every stat is **derived from verifiable real outcomes** read via the platform readers — never an

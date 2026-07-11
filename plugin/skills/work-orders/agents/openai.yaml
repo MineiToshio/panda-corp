@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp work-order engine"
+  short_description: "Internal work-order generation step behind architecture"
+policy:
+  allow_implicit_invocation: false

@@ -9,6 +9,7 @@
  * Traceability: AC-10-014.4.
  */
 
+import { semanticLedger } from "../../events/event-contract";
 import type { Event } from "../../events/events";
 import type { ReaderData } from "../readerData";
 import type { EffortLevel, UsageCount, UsageMix } from "./types";
@@ -61,7 +62,8 @@ function tallyEffort(events: readonly Event[]): { level: EffortLevel; count: num
  * @returns A `UsageMix` — top workflows + effort mix, both descending.
  */
 export function usageMix(data: ReaderData): UsageMix {
-  const events = data.eventsSnapshot?.events ?? [];
+  // Usage is explicitly live telemetry, not XP or an achievement predicate.
+  const events = semanticLedger(data.eventsSnapshot?.events ?? []);
   return {
     workflows: tallyWorkflows(events),
     effort: tallyEffort(events),

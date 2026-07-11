@@ -12,7 +12,7 @@ This file adds ONLY what is specific to running the factory under **Claude Code*
 - The named agents in `plugin/agents/*.md` are the canonical definitions (frontmatter `model:`/`tools:` pins are enforced here). The `.codex/agents/*.toml` mirrors are **generated** — never hand-edit them.
 - To run an internal engine skill by hand (`user-invocable: false`): the agent invokes it directly, or the owner flips its `user-invocable` flag.
 - Recurring jobs run via **`/loop`**: `review-launch` over the portfolio and the `memory` review sweep are designed to run as self-paced `/loop` jobs.
-- The build engine (`/pandacorp:implement`) runs on **Dynamic Workflows** (`pandacorp-build.js`) with the live supervisor (`Monitor` + `ScheduleWakeup` + `PushNotification`) — this background/overnight contract is Claude-Code-only; other runtimes run the attended loop (AGENTS.md §Runtime portability, `factory/standards/agent-portability.md` PORT-5).
+- The build engine (`/pandacorp:implement`) runs on **Dynamic Workflows** (`pandacorp-build.js`) with the live supervisor (`Monitor` + `ScheduleWakeup` + `PushNotification`) — this background/overnight contract is Claude-Code-only. Under the current R10 fixture boundary, other runtimes remain read/review-only on project build state: R7/R8 and a disposable bidirectional cold-switch fixture are green, but the installed-runtime R10 canary and unattended R11 gate remain. They do not imitate or take over this live executor (AGENTS.md §Runtime portability, `factory/standards/agent-portability.md` PORT-5).
 - Enforcement hooks (`plugin/hooks/hooks.json`): dangerous-command gate (PreToolUse), verify-before-stop + lesson-capture backstop (Stop), telemetry (SubagentStop).
 
 ## Plugin maintenance

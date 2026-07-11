@@ -16,6 +16,20 @@ command -v jq >/dev/null 2>&1 || { echo "FAIL  jq is missing — the preflight c
 
 PROJ="${1:-.}"
 PROJ="${PROJ%/}"
+CONTINUE_RUNTIME=""
+CONTINUE_RUN_ID=""
+TARGET_RUNTIME=""
+RUN_MODE="auto"
+shift || true
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --continue-runtime) [ "$#" -ge 2 ] || { echo "FAIL  --continue-runtime requires a value"; exit 3; }; CONTINUE_RUNTIME="$2"; shift 2 ;;
+    --continue-run-id) [ "$#" -ge 2 ] || { echo "FAIL  --continue-run-id requires a value"; exit 3; }; CONTINUE_RUN_ID="$2"; shift 2 ;;
+    --target-runtime) [ "$#" -ge 2 ] || { echo "FAIL  --target-runtime requires a value"; exit 3; }; TARGET_RUNTIME="$2"; shift 2 ;;
+    --run-mode) [ "$#" -ge 2 ] || { echo "FAIL  --run-mode requires a value"; exit 3; }; RUN_MODE="$2"; shift 2 ;;
+    *) echo "FAIL  unknown preflight argument: $1"; exit 3 ;;
+  esac
+done
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 OVERLAY_FILE="$SCRIPT_DIR/../templates/OVERLAY_VERSION"
 
@@ -52,6 +66,13 @@ if [ ! -f "$STATUS" ]; then
   exit "$FAILS"
 fi
 pass "marker present (.pandacorp/status.yaml)"
+if [ -n "$TARGET_RUNTIME" ]; then
+  RESOLVE_MODE="$RUN_MODE"; [ -n "$CONTINUE_RUN_ID" ] && RESOLVE_MODE="$CONTINUE_RUN_ID"
+  RUN_RESOLUTION=$(node "$SCRIPT_DIR/resolve-build-run-id.mjs" --project "$PROJ" --runtime "$TARGET_RUNTIME" --mode "$RESOLVE_MODE" --new-id preflight-new 2>/dev/null) \
+    || { fail "logical build-run resolution failed closed"; echo "== $FAILS failing check(s) =="; exit "$FAILS"; }
+  RUN_REASON=$(printf '%s' "$RUN_RESOLUTION" | jq -r '.reason // "invalid"')
+  pass "logical build-run intent resolved ($RUN_REASON; owner ID input not required)"
+fi
 
 # 2) overlay_version not behind the plugin's OVERLAY_VERSION (DR-048) --------------------------
 if [ -f "$OVERLAY_FILE" ]; then
@@ -130,12 +151,42 @@ else
 fi
 
 # 6) concurrent-run guard (DR-050 §11) — one build per project ---------------------------------
+# A certified neutral lease takes precedence over the legacy status heartbeat. Until the Claude
+# launcher is migrated, absence of this directory falls through to the exact legacy behavior.
+LEASE_CLI="$SCRIPT_DIR/pandacorp-build-state.mjs"
+CONTINUE_STALE_LEASE=0
+if [ -d "$PROJ/.pandacorp/run/build.lease" ]; then
+  LEASE_STATUS=$(node "$LEASE_CLI" status --project "$PROJ" 2>/dev/null || true)
+  LEASE_FRESH=$(printf '%s' "$LEASE_STATUS" | jq -r 'if (.fresh | type) == "boolean" then .fresh else true end' 2>/dev/null || echo true)
+  LEASE_RUNTIME=$(printf '%s' "$LEASE_STATUS" | jq -r '.lease.runtime // "unknown"' 2>/dev/null || echo unknown)
+  LEASE_RUN=$(printf '%s' "$LEASE_STATUS" | jq -r '.lease.run_id // "unknown"' 2>/dev/null || echo unknown)
+  if [ "$LEASE_FRESH" = "true" ]; then
+    fail "another build owns the atomic lease (runtime=$LEASE_RUNTIME run=$LEASE_RUN) — ABORT."
+  elif [ -n "$CONTINUE_RUNTIME" ] && [ -n "$CONTINUE_RUN_ID" ] && [ "$LEASE_RUNTIME" = "$CONTINUE_RUNTIME" ] && [ "$LEASE_RUN" = "$CONTINUE_RUN_ID" ]; then
+    pass "stale atomic lease belongs to the explicitly resumed run (runtime=$LEASE_RUNTIME run=$LEASE_RUN) — fenced reclaim permitted."
+    CONTINUE_STALE_LEASE=1
+  else
+    fail "STALE ATOMIC LEASE (runtime=$LEASE_RUNTIME run=$LEASE_RUN) — reclaim explicitly with pandacorp-build-state.mjs; never clear it by editing status.yaml."
+  fi
+  if [ "$CONTINUE_STALE_LEASE" != "1" ]; then
+    echo "== $FAILS failing check(s) =="
+    exit "$FAILS"
+  fi
+fi
+
 # Liveness (running:true AND EITHER supervisor_heartbeat OR last_event_at < 10 min => LIVE; STALE
 # only when BOTH are older; fail-closed to RUNNING if the file can't be read) is decided by the
 # SHARED helper so this guard and /pandacorp:upgrade's can never drift (C2+S7). We just print the
 # same PASS/FAIL lines off its verdict.
-LIVENESS=$("$LIVENESS_HELPER" "$STATUS" 2>/dev/null || true)
+if [ "$CONTINUE_STALE_LEASE" = "1" ]; then
+  LIVENESS="CONTINUE_STALE_LEASE"
+else
+  LIVENESS=$("$LIVENESS_HELPER" "$STATUS" 2>/dev/null || true)
+fi
 case "$LIVENESS" in
+  CONTINUE_STALE_LEASE)
+    pass "legacy running/heartbeat state is superseded by the matching stale fenced lease during explicit continuation"
+    ;;
   NOT_RUNNING)
     RUNNING=$(yaml_val "$STATUS" running)
     pass "no active build (running: ${RUNNING:-absent})"

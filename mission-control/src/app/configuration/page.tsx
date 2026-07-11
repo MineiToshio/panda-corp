@@ -38,8 +38,8 @@
  */
 
 import type { Metadata } from "next";
-import { readEvents } from "@/lib/events/events";
 import { type AgentLevelResult, computeAgentLevel } from "@/lib/gamification/agents";
+import { durableEvents, readLedger } from "@/lib/gamification/ledger";
 import { readAgents, readSkills } from "@/lib/reference/reference";
 import { readDecisionRules } from "@/lib/registry/registry";
 import { readStandards } from "@/lib/standards/standards";
@@ -79,9 +79,9 @@ export default function ConfigurationPage(): React.JSX.Element {
 
   // WO-07-007: read agents + derive XP levels for the agents tab (AC-07-007.1/.3).
   const agents = readAgents();
-  // Events are the source of truth for agent XP (FRD-09 honesty contract).
-  // readEvents() never throws — returns empty snapshot when the file is absent.
-  const { events } = readEvents();
+  // Only oracle-materialized facts may drive agent XP. Current WO state does not
+  // prove author identity, so forged event attribution cannot award XP.
+  const events = durableEvents(readLedger());
   const levels: Record<string, AgentLevelResult> = {};
   for (const agent of agents) {
     levels[agent.id] = computeAgentLevel(agent.id, events);

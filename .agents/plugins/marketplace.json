@@ -1,0 +1,20 @@
+{
+  "name": "panda-corp",
+  "interface": {
+    "displayName": "Panda Corp"
+  },
+  "plugins": [
+    {
+      "name": "pandacorp",
+      "source": {
+        "source": "local",
+        "path": "./plugins/pandacorp"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp bug engine"
+  short_description: "Internal bug case behind the public change skill"
+policy:
+  allow_implicit_invocation: false

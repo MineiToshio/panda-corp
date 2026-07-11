@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pandacorp neutral build lease and ledger",
+  "type": "object",
+  "properties": {
+    "lease": {
+      "type": "object",
+      "required": ["version", "runtime", "run_id", "token_hash", "epoch", "acquired_at", "renewed_at", "ttl_seconds"],
+      "properties": {
+        "version": { "const": 1 },
+        "runtime": { "enum": ["claude", "codex"] },
+        "run_id": { "type": "string", "minLength": 1 },
+        "token_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "epoch": { "type": "integer", "minimum": 1 },
+        "acquired_at": { "type": "string", "format": "date-time" },
+        "renewed_at": { "type": "string", "format": "date-time" },
+        "quiesced_at": { "type": "string", "format": "date-time" },
+        "ttl_seconds": { "type": "integer", "minimum": 3 }
+      },
+      "additionalProperties": false
+    },
+    "ledger": {
+      "type": "object",
+      "required": ["version", "run_id", "epoch", "dispatch_count", "spend_units", "consecutive_blocks", "dispatches", "updated_at"],
+      "properties": {
+        "version": { "const": 1 },
+        "run_id": { "type": "string" },
+        "epoch": { "type": "integer", "minimum": 1 },
+        "dispatch_count": { "type": "integer", "minimum": 0 },
+        "spend_units": { "type": "number", "minimum": 0 },
+        "consecutive_blocks": { "type": "integer", "minimum": 0 },
+        "dispatches": { "type": "object" },
+        "updated_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

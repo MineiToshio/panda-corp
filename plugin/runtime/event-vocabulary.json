@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": 1,
+  "description": "Canonical runtime-neutral semantic event vocabulary for Pandacorp observability. Display names preserve Mission Control's La Fragua vocabulary.",
+  "events": {
+    "agent.working": {
+      "display": "AgentWorking",
+      "aliases": [
+        "AgentWorking",
+        "agent_working",
+        "agent-working",
+        "dispatch_started",
+        "worker_started"
+      ]
+    },
+    "agent.done": {
+      "display": "AgentDone",
+      "aliases": ["AgentDone", "agent_done", "agent-done"]
+    },
+    "dispatch.finished": {
+      "display": "AgentDone",
+      "aliases": ["dispatch_finished", "worker_stopped"]
+    },
+    "agent.finding": {
+      "display": "AgentFinding",
+      "aliases": ["AgentFinding", "agent_finding", "agent-finding"]
+    },
+    "subagent.stop": {
+      "display": "SubagentStop",
+      "aliases": ["SubagentStop", "subagent_stop", "subagent-stop"]
+    },
+    "review.verdict": {
+      "display": "ReviewVerdict",
+      "aliases": ["ReviewVerdict", "review_verdict", "review-verdict"]
+    },
+    "gate.result": {
+      "display": "GateResult",
+      "aliases": ["GateResult", "gate_result", "gate-result"]
+    },
+    "gate.verdict": {
+      "display": "GateVerdict",
+      "aliases": ["GateVerdict", "gate_verdict", "gate-verdict", "gate"]
+    },
+    "build.launch": {
+      "display": "BuildLaunch",
+      "aliases": ["BuildLaunch", "build_launch", "build-launch", "executor_started"]
+    },
+    "build.complete": {
+      "display": "BuildComplete",
+      "aliases": ["BuildComplete", "build_complete", "build-complete", "executor_terminal"]
+    },
+    "build.relaunch": {
+      "display": "BuildRelaunch",
+      "aliases": ["BuildRelaunch", "build_relaunch", "build-relaunch", "restart_wait"]
+    },
+    "build.stopped": {
+      "display": "BuildStopped",
+      "aliases": ["BuildStopped", "build_stopped", "executor_stopped"]
+    },
+    "test.green": { "display": "test_ok", "aliases": ["test_ok", "TestOk", "test-ok"] },
+    "test.failed": { "display": "test_fail", "aliases": ["test_fail", "TestFail", "test-fail"] },
+    "achievement.recorded": {
+      "display": "achievement",
+      "aliases": ["achievement", "AchievementRecorded", "achievement-recorded"]
+    },
+    "hardening.stage": {
+      "display": "HardeningStage",
+      "aliases": ["HardeningStage", "hardening_stage", "hardening-stage"]
+    },
+    "patch.result": {
+      "display": "PatchResult",
+      "aliases": ["PatchResult", "patch_result", "patch-result"]
+    },
+    "preview.smoke": {
+      "display": "PreviewSmoke",
+      "aliases": ["PreviewSmoke", "preview_smoke", "preview-smoke"]
+    },
+    "change.integrated": {
+      "display": "ChangeIntegrated",
+      "aliases": ["ChangeIntegrated", "change_integrated"]
+    },
+    "change.reconciled": {
+      "display": "ChangeIntegrated",
+      "aliases": ["change_reconciled"]
+    },
+    "dispatch.uncertain": {
+      "display": "DispatchUncertain",
+      "aliases": ["DispatchUncertain", "dispatch_uncertain", "uncertain_requires_owner"]
+    },
+    "dispatch.quiesced": {
+      "display": "DispatchQuiesced",
+      "aliases": ["DispatchQuiesced", "dispatch_quiesce"]
+    },
+    "lease.lost": { "display": "LeaseLost", "aliases": ["LeaseLost", "lease_lost"] },
+    "lease.released": {
+      "display": "LeaseReleased",
+      "aliases": ["LeaseReleased", "lease_released"]
+    },
+    "lease.release-failed": {
+      "display": "LeaseReleaseFailed",
+      "aliases": ["LeaseReleaseFailed", "lease_release_failed"]
+    },
+    "supervisor.signal": {
+      "display": "SupervisorSignal",
+      "aliases": ["SupervisorSignal", "supervisor_signal"]
+    },
+    "supervisor.terminal": {
+      "display": "SupervisorTerminal",
+      "aliases": ["SupervisorTerminal", "supervisor_terminal"]
+    },
+    "supervisor.failure": {
+      "display": "SupervisorFailure",
+      "aliases": ["SupervisorFailure", "supervisor_exhausted", "supervisor_protocol_error"]
+    }
+  }
+}

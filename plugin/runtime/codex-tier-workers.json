@@ -1,0 +1,22 @@
+{
+  "workers": [
+    {
+      "file_slug": "tier-mech",
+      "name": "tier-mech",
+      "tier": "MECH",
+      "description": "Mechanical zero-judgment executor (commits, renames, single-line tweaks) — Pandacorp MECH tier"
+    },
+    {
+      "file_slug": "tier-standard",
+      "name": "tier-standard",
+      "tier": "STANDARD",
+      "description": "Default implementation/research worker — Pandacorp STANDARD tier"
+    },
+    {
+      "file_slug": "tier-judge",
+      "name": "tier-judge",
+      "tier": "JUDGE",
+      "description": "High-judgment reviewer/architect/red-teamer — Pandacorp JUDGE tier"
+    }
+  ]
+}

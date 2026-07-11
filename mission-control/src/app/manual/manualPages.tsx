@@ -1777,8 +1777,8 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       </Lead>
       <NotePanel icon="ti-shield-check" iconColor="var(--color-warn)">
         <B weight={600}>Antes de leer un solo número, dos asertos de procedencia</B> (los datos del
-        proyecto equivocado son peores que ningún dato): que exista la telemetría de ESTE proyecto
-        (<Code>docs/analytics/events.md</Code> — si falta, se detiene con «sin telemetría:
+        proyecto equivocado son peores que ningún dato): que exista la telemetría de ESTE proyecto (
+        <Code>docs/analytics/events.md</Code> — si falta, se detiene con «sin telemetría:
         instrumenta primero vía <Code>/pandacorp:change</Code>» y NO emite veredicto), y que el
         proyecto de PostHog conectado sea el de esta app (si no coincide o no hay conexión, no lee
         de otra org: deja las consultas escritas para que las corras y reporta «sin datos para este
@@ -2167,13 +2167,17 @@ function ConceptTuPerfil(): React.JSX.Element {
         <KvRow label="Fase 1" isFirst>
           <B weight={500}>Barrido teaser</B> (barato y ancho): lentes de caza — app-enhancement
           (quejas de apps conocidas → extensiones), tus otras identidades, own-itch/QoL, challenger
-          de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers de una línea con
-          evidencia de fuentes verificadas (playbook sources.md).
+          de incumbentes (rebuild AI-first / unbundling 80-20) — y 8-12 teasers presentados como un{" "}
+          <B weight={500}>widget de decisión inline</B>, cada uno con el problema, la solución
+          propuesta y una primera lectura de viabilidad técnica, sobre evidencia de fuentes
+          verificadas (playbook sources.md).
         </KvRow>
         <KvRow label="Fase 2" isFirst={false}>
           <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y solo
-          esos pasan por los gates duros y el memo-pitch. Tus reacciones al resto se destilan como
-          patrones de atracción/rechazo en tu perfil (DR-053).
+          esos pasan por los gates duros —incluido un <B weight={500}>spike de viabilidad técnica</B>{" "}
+          que confirma que el dato/capacidad crítica se puede conseguir antes de construir— y el
+          memo-pitch. Tus reacciones al resto se destilan como patrones de atracción/rechazo en tu
+          perfil (DR-053).
         </KvRow>
       </Panel>
       <NotePanel icon="ti-scale">
@@ -2230,13 +2234,15 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <Panel>
         <MultiRuntimeDiagram />
       </Panel>
-      <NotePanel icon="ti-lock" iconColor="var(--color-accent)">
-        <B weight={600}>Resume cruzado + el candado de DR-050.</B> Todo el estado durable vive en
-        ficheros (frontmatter de work orders, <Code>status.yaml</Code>, colas de inbox), nunca en la
-        sesión. Por eso un runtime puede <B weight={500}>retomar el build que dejó el otro</B>: la
-        verdad está en disco. Y el candado de build único (<Code>status.yaml</Code>, DR-050 §11) es
-        por fichero, así que un build atendido de Codex y uno de fondo de Claude{" "}
-        <B weight={500}>no pueden correr a la vez</B> sobre el mismo proyecto.
+      <NotePanel icon="ti-lock" iconColor="var(--color-warn)">
+        <B weight={600}>Cambio de runtime: en frío y desde un safe point.</B> Los ficheros conservan
+        el estado durable, pero no reconstruyen todavía todo el scheduler que mantiene un ejecutor
+        vivo. El lease atómico, fencing, presupuesto y salud durables ya están probados; Codex sigue
+        solo lectura/review hasta el canario live R10 y R11. Un runtime posterior puede continuar
+        únicamente cuando el anterior cerró su gate y commit, llegó a un safe point, se detuvo por
+        completo y liberó ownership. R10 ya prueba este relevo en un proyecto desechable con los
+        CLIs reales; todavía falta el canario entre las aplicaciones instaladas y R11 desatendido.
+        Nunca hay takeover vivo ni dos builds simultáneos.
       </NotePanel>
 
       <DocH title="Qué funciona igual y qué degrada" />
@@ -2254,8 +2260,8 @@ function ConceptMultiRuntime(): React.JSX.Element {
 
       <DocH title="Single source of truth · qué es enlace, qué es generado" />
       <Lead>
-        Una sola fuente por cosa; lo demás es symlink, import o artefacto generado.{" "}
-        <B weight={600}>Solo existe UNA copia derivada</B> —los agentes Codex— y está automatizada.
+        Una sola fuente por cosa; lo demás es symlink, import o artefacto generado. Las copias
+        derivadas están automatizadas y el gate las compara con su fuente.
       </Lead>
       <Panel>
         <div style={{ overflowX: "auto" }}>
@@ -2270,6 +2276,22 @@ function ConceptMultiRuntime(): React.JSX.Element {
         detectada = la sesión no puede declararse terminada hasta regenerar.
       </NotePanel>
 
+      <DocH title="Telemetría: dos transportes, un idioma" />
+      <Lead>
+        Claude conserva <Code>~/.claude/dashboard-events.ndjson</Code>; Codex escribe su propio{" "}
+        <Code>~/.codex/dashboard-events.ndjson</Code>. Mission Control lee ambos y los normaliza con
+        el vocabulario único de <Code>plugin/runtime/event-vocabulary.json</Code>, conservando los
+        nombres visuales de La Fragua. El feed deduplica replays exactos por <Code>event_id</Code>.
+        Para XP/logros, la identidad
+        semántica es solo higiene: un hecho durable entra al ledger v2 únicamente cuando un oráculo
+        canónico de archivos, Git o artefactos lo confirma. Los eventos nunca deciden fase, work
+        order ni build: esos hechos siguen viniendo de archivos canónicos.
+      </Lead>
+      <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
+        El estado del plugin también separa puertas: Claude y Codex tienen veredictos de cache
+        instalado independientes. Que una esté al día no demuestra nada sobre la otra.
+      </NotePanel>
+
       <DocH title="Si modificas algo, ¿qué debes tocar?" />
       <Lead>
         Para que un cambio funcione en ambas puertas, esto es lo mínimo que hay que hacer en cada
@@ -2279,10 +2301,11 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <ModificationGuide />
       </Panel>
       <NotePanel icon="ti-shield-x" iconColor="var(--color-warn)">
-        <B weight={600}>Enforcement en Codex son instrucciones, no hooks.</B> El bloqueo de comandos
-        peligrosos y el gate de verificación al parar son automáticos en Claude; en Codex se aplican
-        como instrucciones en AGENTS.md. Portarlos a hooks reales es el backlog <Code>BL-0030</Code>
-        .
+        <B weight={600}>Enforcement en Codex tiene dos estados.</B> La política, los adaptadores y
+        las proyecciones de hooks/config ya están certificados en fuente. Hasta instalar el plugin,
+        revisar sus definiciones y darles trust en una sesión real, AGENTS.md sigue siendo el piso
+        vinculante y no se reclama enforcement activo. BL-0030 permanece abierto hasta cerrar ese
+        canario de instalación; nunca se salta el trust.
       </NotePanel>
 
       <DocH title="Cómo probar que funciona" />
@@ -2298,12 +2321,15 @@ function ConceptMultiRuntime(): React.JSX.Element {
             ),
           },
           {
-            title: <>Codex, un ciclo real</>,
+            title: <>Codex, revisión segura</>,
             body: (
               <>
-                Registra un microcambio con <Code>change</Code> en un proyecto y pídele a Codex
-                ejecutar el build atendido (PORT-5) para ese cambio: verás los mismos{" "}
-                <B weight={500}>commits, frontmatter y gates</B> que haría Claude.
+                Abre un proyecto detenido en un safe point y pídele a Codex revisar sus work orders,
+                commits y evidencia del gate,{" "}
+                <B weight={500}>sin mutar el estado de construcción</B>. El build atendido se
+                habilita sólo cuando PORT-5 registre en verde el canario instalado
+                Claude→Codex→Claude de R10 y el <Code>LIVE_OVERNIGHT</Code> de R11; R2, R3, R6 y los
+                fixtures offline ya están verdes, pero no conceden permiso por sí solos.
               </>
             ),
           },
@@ -2366,9 +2392,9 @@ function GuideAdoptar(): React.JSX.Element {
             body: (
               <>
                 Adopt ya no <B weight={500}>estampa</B> la fase del código: corre —una vez, de abajo
-                arriba hasta el techo— las <B weight={500}>mismas baterías</B> que los skills de cada
-                fase (producto: contradicciones DR-116 + sin <Code>[NEEDS CLARIFICATION]</Code> +
-                campos agent-critical; diseño: axe-core + Playwright + entregables + lectura
+                arriba hasta el techo— las <B weight={500}>mismas baterías</B> que los skills de
+                cada fase (producto: contradicciones DR-116 + sin <Code>[NEEDS CLARIFICATION]</Code>{" "}
+                + campos agent-critical; diseño: axe-core + Playwright + entregables + lectura
                 anti-omisión §1c). La <B weight={500}>primera batería que falla topa la fase</B>. La
                 readiness de arquitectura se difiere a <Code>/pandacorp:architecture</Code>. Los
                 huecos se reportan <B weight={500}>por fase</B>.
@@ -2381,10 +2407,11 @@ function GuideAdoptar(): React.JSX.Element {
               <>
                 Fase <B weight={500}>manual</B> (product/design/architecture) → escribe{" "}
                 <Code>phase</Code> + <Code>advance_pending: true</Code> y para (DR-032). App{" "}
-                <B weight={500}>viva</B> (<Code>release</Code>) → mantiene <Code>phase: release</Code>{" "}
-                (no se degrada el tablero) y cada batería fallida se archiva como tarjeta de{" "}
-                <Code>/change</Code>, enrutando a <Code>/pandacorp:design</Code> +{" "}
-                <Code>/pandacorp:review-launch</Code>. Tras tu confirmación, adopt puede{" "}
+                <B weight={500}>viva</B> (<Code>release</Code>) → mantiene{" "}
+                <Code>phase: release</Code> (no se degrada el tablero) y cada batería fallida se
+                archiva como tarjeta de <Code>/change</Code>, enrutando a{" "}
+                <Code>/pandacorp:design</Code> + <Code>/pandacorp:review-launch</Code>. Tras tu
+                confirmación, adopt puede{" "}
                 <B weight={500}>ofrecerte lanzar ese siguiente skill en la misma conversación</B>{" "}
                 (un solo salto, nunca directo a <Code>/pandacorp:implement</Code>) — solo lo lanza
                 si respondes que sí.
@@ -2601,11 +2628,11 @@ function GuideCambio(): React.JSX.Element {
             Tú solo recuerdas <Code>/change</Code>; siguen existiendo como alias directos.
           </li>
           <li>
-            <B weight={500}>¿Es un hito, no un cambio suelto?</B> Un rediseño grande o un paquete
-            de cambios con su propio mini-PRD NO va a la cola: <Code>change</Code> lo clasifica
-            como hito, te lo explica y —solo con tu OK explícito en esa misma conversación— lo
-            pasa al motor <Code>new-version</Code> (DR-069 §5). Si lo prefieres más chico, vuelve a
-            la clasificación normal feature/cambio.
+            <B weight={500}>¿Es un hito, no un cambio suelto?</B> Un rediseño grande o un paquete de
+            cambios con su propio mini-PRD NO va a la cola: <Code>change</Code> lo clasifica como
+            hito, te lo explica y —solo con tu OK explícito en esa misma conversación— lo pasa al
+            motor <Code>new-version</Code> (DR-069 §5). Si lo prefieres más chico, vuelve a la
+            clasificación normal feature/cambio.
           </li>
         </Ul>
       </Panel>

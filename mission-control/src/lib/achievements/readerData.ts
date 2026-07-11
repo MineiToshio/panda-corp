@@ -6,7 +6,7 @@
  * (stats → signals → stats). Pure type module; no runtime, no I/O.
  */
 
-import type { EventsSnapshot } from "../events/events";
+import type { Event, EventsSnapshot } from "../events/events";
 import type { IdeaCard } from "../ideas/ideas";
 import type { StatusResult } from "../status/status";
 
@@ -23,6 +23,13 @@ export type ReaderData = {
   readonly statuses: readonly StatusResult[];
   /** Event snapshot from dashboard-events.ndjson (FRD-06 lib/events.ts) */
   readonly eventsSnapshot: EventsSnapshot | null;
+  /**
+   * Corroborated, durable result events. Production always supplies this field;
+   * its presence (including an empty array) excludes untrusted live telemetry
+   * from XP and durable achievement predicates. Production omission fails closed
+   * to empty; raw fallback exists only under NODE_ENV=test for old pure fixtures.
+   */
+  readonly durableEvents?: readonly Event[];
   /**
    * LIVE total of work orders in state "done", summed across the whole portfolio
    * (DR-092/DR-115: `getGuildState().liveOutcomes.workOrdersDone`, itself derived from

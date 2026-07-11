@@ -1,0 +1,114 @@
+{
+  "facts": {
+    "plugin_identity": {
+      "source": "plugin/runtime/plugin-metadata.json",
+      "outputs": ["plugin/.claude-plugin/plugin.json", "plugin/.codex-plugin/plugin.json"],
+      "generator": "plugin/scripts/generate-plugin-manifests.mjs",
+      "contract": "Runtime-compatible fields are projected independently; Codex plugin.json never registers hooks."
+    },
+    "repo_local_codex_marketplace": {
+      "source": "plugin/runtime/plugin-metadata.json",
+      "outputs": [".agents/plugins/marketplace.json", "plugins/pandacorp"],
+      "contract": "The catalog exposes one local Pandacorp entry; Codex resolves ./plugins/pandacorp from the repository root, whose relative symlink points to canonical plugin/ and never copies plugin content."
+    },
+    "model_tiers": {
+      "source": "plugin/runtime/model-tiers.json",
+      "consumers": ["plugin/scripts/generate-codex-agents.mjs"]
+    },
+    "shared_agents": {
+      "source_glob": "plugin/agents/*.md",
+      "outputs": [
+        ".codex/agents/analytics.toml",
+        ".codex/agents/architect.toml",
+        ".codex/agents/backend-dev.toml",
+        ".codex/agents/copywriter.toml",
+        ".codex/agents/designer.toml",
+        ".codex/agents/devops.toml",
+        ".codex/agents/frontend-dev.toml",
+        ".codex/agents/implementer.toml",
+        ".codex/agents/librarian.toml",
+        ".codex/agents/product-manager.toml",
+        ".codex/agents/researcher.toml",
+        ".codex/agents/reviewer.toml",
+        ".codex/agents/security-auditor.toml",
+        ".codex/agents/test-writer.toml"
+      ]
+    },
+    "codex_tier_workers": {
+      "source": "plugin/runtime/codex-tier-workers.json",
+      "outputs": [
+        ".codex/agents/tier-mech.toml",
+        ".codex/agents/tier-standard.toml",
+        ".codex/agents/tier-judge.toml"
+      ]
+    },
+    "skill_capabilities": {
+      "source": "plugin/runtime/skill-runtime-policy.json",
+      "outputs": ["plugin/runtime/skill-capabilities.json"]
+    },
+    "codex_enforcement": {
+      "source": "plugin/runtime/enforcement-policy.json",
+      "consumers": ["plugin/scripts/pandacorp-hook-adapter.mjs"],
+      "registration_owner": ".codex/config.toml plus plugin/hooks/codex-hooks.json (outside plugin.json)",
+      "outputs": [
+        ".codex/config.toml",
+        ".codex/rules/pandacorp.rules",
+        "plugin/hooks/codex-hooks.json",
+        "plugin/templates/shared/.codex/config.toml",
+        "plugin/templates/shared/.codex/rules/pandacorp.rules"
+      ]
+    },
+    "neutral_build_state": {
+      "source": "plugin/runtime/build-state.mjs",
+      "consumers": ["plugin/scripts/pandacorp-build-state.mjs"]
+    },
+    "codex_sequential_executor": {
+      "source": "plugin/runtime/codex/executor.mjs",
+      "consumers": ["plugin/runtime/codex/supervisor.mjs", "plugin/scripts/test-codex-executor.mjs"]
+    },
+    "codex_result_contract": {
+      "source": "plugin/runtime/codex/result.schema.json",
+      "consumers": ["plugin/runtime/codex/executor.mjs"]
+    },
+    "product_change_queue_transactions": {
+      "source": "plugin/runtime/build-state.mjs",
+      "contracts": ["plugin/runtime/codex/change-result.schema.json"],
+      "consumers": ["plugin/runtime/codex/executor.mjs", "plugin/scripts/test-build-state.mjs", "plugin/scripts/test-codex-executor.mjs"]
+    },
+    "codex_supervision": {
+      "source": "plugin/runtime/codex/supervisor.mjs",
+      "consumers": ["plugin/scripts/launch-codex-implement.sh", "plugin/scripts/preflight-codex-unattended.mjs", "plugin/scripts/test-codex-unattended.mjs"]
+    },
+    "codex_unattended_evidence": {
+      "source": "plugin/runtime/codex/R11-CERTIFICATION.md",
+      "consumers": ["plugin/scripts/collect-codex-unattended-evidence.mjs", "plugin/scripts/run-codex-live-short-canary.mjs"]
+    },
+    "runtime_switch_certification": {
+      "source": "plugin/scripts/test-runtime-switch.mjs",
+      "consumers": ["plugin/runtime/codex/R10-CERTIFICATION.md", "plugin/runtime/capability-ownership.json"]
+    },
+    "logical_build_run_resolution": {
+      "source": "plugin/scripts/resolve-build-run-id.mjs",
+      "consumers": ["plugin/scripts/preflight-implement.sh", "plugin/scripts/launch-implement.sh", "plugin/scripts/launch-codex-implement.sh", "plugin/skills/implement/SKILL.md", "plugin/scripts/test-build-run-id.mjs"]
+    },
+    "event_vocabulary": {
+      "source": "plugin/runtime/event-vocabulary.json",
+      "outputs": ["mission-control/src/lib/events/event-vocabulary.json"],
+      "consumers": ["plugin/runtime/event-transport.mjs", "mission-control/src/lib/events/event-contract.ts"]
+    },
+    "runtime_event_transport": {
+      "source": "plugin/runtime/event-transport.mjs",
+      "consumers": ["plugin/runtime/codex/executor.mjs"]
+    },
+    "sync_rollup_prompt": {
+      "source": "plugin/runtime/prompts/sync-rollups.md",
+      "consumers": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"]
+    },
+    "durable_gamification_accounting": {
+      "source": "mission-control/src/lib/gamification/ledger.ts",
+      "outputs": ["factory/gamification-ledger.json"],
+      "consumers": ["mission-control/src/lib/gamification/guildState.ts", "mission-control/src/lib/achievements/readerData.ts", "mission-control/src/app/configuration/page.tsx"],
+      "single_writer": "mission-control/src/app/_actions/snapshotLedger.ts"
+    }
+  }
+}

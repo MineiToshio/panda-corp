@@ -1,0 +1,40 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|exec_command|shell|unified_exec",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./scripts/pandacorp-hook-adapter.mjs\" --runtime codex --event pre-tool",
+            "timeout": 15,
+            "statusMessage": "Pandacorp Codex safety gate"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./scripts/pandacorp-hook-adapter.mjs\" --runtime codex --event pre-tool",
+            "timeout": 15,
+            "statusMessage": "Pandacorp Codex write gate"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"./scripts/pandacorp-hook-adapter.mjs\" --runtime codex --event stop",
+            "timeout": 300,
+            "statusMessage": "Pandacorp Codex verify gate"
+          }
+        ]
+      }
+    ]
+  }
+}

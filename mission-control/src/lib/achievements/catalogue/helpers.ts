@@ -6,6 +6,7 @@
  * via the signals layer). No I/O. Honesty contract: never fabricate a date/project.
  */
 
+import { accountingEvents } from "../../events/event-contract";
 import type { Event } from "../../events/events";
 import { signalsFor } from "../signals";
 import type { ReaderData } from "../stats";
@@ -136,7 +137,7 @@ export function unlockWhen(data: ReaderData, condition: boolean, date?: string):
 
 /** Green-WO close events (`AgentDone result=green`) sorted ascending by `at`. */
 function greenDoneSorted(data: ReaderData): Event[] {
-  const events = data.eventsSnapshot?.events ?? [];
+  const events = accountingEvents(data);
   return events
     .filter((ev) => ev.event === "AgentDone" && ev.result === "green")
     .sort((a, b) => a.at.localeCompare(b.at));

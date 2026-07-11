@@ -1,0 +1,11 @@
+# Generated from plugin/runtime/enforcement-policy.json; do not edit by hand.
+prefix_rule(pattern=["git","reset","--hard"], decision="forbidden", justification="Pandacorp forbids unfenced destructive resets.")
+prefix_rule(pattern=["git","push","--force"], decision="forbidden", justification="Pandacorp never force-pushes.")
+prefix_rule(pattern=["git","push","-f"], decision="forbidden", justification="Pandacorp never force-pushes.")
+prefix_rule(pattern=["git","clean","-fdx"], decision="forbidden", justification="Ignored Pandacorp owner state must never be cleaned.")
+prefix_rule(pattern=["git","clean","-xfd"], decision="forbidden", justification="Ignored Pandacorp owner state must never be cleaned.")
+prefix_rule(pattern=["rm","-rf",".pandacorp"], decision="forbidden", justification=".pandacorp is protected owner/build state.")
+prefix_rule(pattern=["rm","-r",".pandacorp"], decision="forbidden", justification=".pandacorp is protected owner/build state.")
+prefix_rule(pattern=["gh","repo","delete"], decision="forbidden", justification="Repository deletion is an owner hard gate.")
+prefix_rule(pattern=["vercel","--prod"], decision="forbidden", justification="Production release requires the owner gate.")
+prefix_rule(pattern=["claude"], decision="forbidden", justification="Codex may not dispatch or steer the Claude runtime.")

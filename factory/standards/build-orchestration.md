@@ -817,8 +817,7 @@ queue — it never edits the build's docs/work-orders/code and **has no build-de
 mis-detection of "is a build running?" **cannot corrupt anything**: the change waits durably in the queue until the
 build itself pulls it. This is the fix for the owner's real fear — there is no "if no build, edit docs directly"
 branch to get wrong. The ONLY place that decides "is a build running?" is `implement`'s concurrent-run guard
-(DR-050 §11), a **lease + heartbeat + 10-min-TTL** check (no fencing token exists — that claim was corrected
-2026-07-01, audit-20; the TTL + the engine's single-writer commit chain are the actual mechanism); and even that
+(DR-050 §11), an **atomic owner-token lease + fencing epoch** whose heartbeat carries a TTL; and even that
 decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just leaves the change queued).
 
 **The consumer — THE ENGINE ITSELF drains + routes at every safe point** (a safe-point check runs **before every
@@ -959,8 +958,10 @@ engine's orchestration contracts, per scenario:
 - **Durable change archival (DR-069 §7 / WS-A/D1)** — an integrated change is stamped `status: building`
   + `affected_frds` in its OWN file (never an in-session list), so the verify-then-archive sweep is
   disk-driven and a change whose FRDs finish verifying on a LATER run is still archived to `done/`
-  (state lives in files — the PORT-5 cross-runtime-resume contract). Scenario 9 asserts the durable
-  contract structurally (the stamp, the safe-point skip, the disk-driven sweep); the cross-RUN behavior
+  (state lives in files — the durable same-executor/cold-reconstruction contract). Scenario 9 asserts
+  that cross-run contract structurally (the stamp, the safe-point skip, the disk-driven sweep); it does
+  **not** prove cross-runtime takeover, atomic mutual exclusion or permission for an uncertified executor
+  to write build state. The cross-RUN behavior
   needs a live multi-run build for full fidelity, and the known residual (a strand if the verifying run's
   archive agent dies and the next run has nothing to build) is tracked in BL-0046.
 
@@ -997,13 +998,17 @@ The engine is a **Dynamic Workflows** script. Two mechanics matter and were prev
   `projectDir/.pandacorp/status.yaml` exists and stops loud if not (never plans against the wrong tree). The
   `$(basename "$PWD")` + relative-`track.jsonl` fallback is kept for back-compat when a launcher omits the args.
 
-## 11. Concurrent-run guard (heartbeat-based lock)
+## 11. Concurrent-run guard (atomic lease + heartbeat liveness)
 
 Only ONE build may run on a project at a time. A second `/pandacorp:implement` on the same project
 while one is already active would cause race conditions on the frontmatter (double-pickup of the same
 work order), `status.yaml` corruption, and conflicting git commits.
 
-**The mechanism: TTL lock via supervisor heartbeat.**
+**The mechanism: atomic lease with token+epoch fencing.** The canonical owner is
+`.pandacorp/run/build.lease/lease.json`, acquired by atomic directory creation through
+`pandacorp-build-state.mjs`. Every governed mutation revalidates the opaque token and monotonic epoch
+inside the shared mutation mutex. Heartbeats determine lease freshness; they do not independently own
+the lock. `running` and the timestamps below are compatibility/observability projections.
 
 `status.yaml` carries these fields written at launch and cleared on close:
 
@@ -1041,7 +1046,10 @@ timestamp while the build was advancing). So:
   reflected in the UI quickly — push/watch for near-real-time when cheap, polling **≤ 30 s** worst case — and
   (2) "sin señal" engages when the heartbeat stops. See [quality.md](quality.md) "Observability-fidelity gate".
 
-The **`implement` preflight** checks, after confirming `status.yaml` exists. **Liveness is
+The **`implement` preflight** checks the atomic lease first, after confirming `status.yaml` exists. A
+fresh lease always aborts a second launch; a stale lease is reclaimed only through the fenced CLI,
+never by editing/removing its directory. Only when no neutral lease exists does the compatibility
+projection below apply. **Projection liveness is
 `max(supervisor_heartbeat, last_event_at)`, not the supervisor's clock alone (DR-066):** either stamp being
 fresh means alive, so the lock is stale only when **BOTH** are ≥ 10 min old. Reading only
 `supervisor_heartbeat` would steamroll a **healthy-but-quiet** build whose supervisor tick lagged while the
@@ -1059,8 +1067,10 @@ safe point. Five missed beats on **both** clocks (10 min of total silence) is a 
 run is genuinely dead, not just slow or between long agents. This avoids false positives while still
 auto-recovering quickly after a crash.
 
-**Zombie recovery is automatic.** The owner never needs to hand-edit `status.yaml` to clear a stale
-lock — the next `implement` detects the stale heartbeat and resets it. If a run was interrupted
+**Zombie recovery is fenced.** The owner never hand-edits `status.yaml` or deletes the lease directory:
+the next certified controller reclaims a stale lease through token/epoch rotation. A terminal path
+uses `quiesce → commit status.yaml → finalize-release`; ownership remains fenced across the projection
+commit. If a run was interrupted
 mid-build, the frontmatter state (`implementation_status`) is still valid and the resumable engine
 picks up from where it left off without rebuilding `VERIFIED` work orders.
 

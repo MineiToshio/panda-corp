@@ -281,22 +281,28 @@ function parseWorkOrderFile(absPath: string, frdSlug: string, projectPath: strin
  * @returns Array of WorkOrder. Empty array when none found.
  */
 /** True when `absPath` is a directory (fail-soft: any stat error → false). */
-function isDirectorySafe(absPath: string): boolean {
+function isRealInTree(absPath: string, projectPath: string, kind: "file" | "directory"): boolean {
   try {
-    return fs.statSync(absPath).isDirectory();
+    const entry = fs.lstatSync(absPath);
+    const rootEntry = fs.lstatSync(projectPath);
+    if (entry.isSymbolicLink() || rootEntry.isSymbolicLink() || !rootEntry.isDirectory())
+      return false;
+    if (kind === "directory" ? !entry.isDirectory() : !entry.isFile()) return false;
+    const rootReal = fs.realpathSync(projectPath);
+    return (
+      fs.realpathSync(absPath) ===
+      path.join(rootReal, path.relative(path.resolve(projectPath), path.resolve(absPath)))
+    );
   } catch {
     return false;
   }
 }
 
 /** True when `absPath` is a regular file (fail-soft: any stat error → false). */
-function isFileSafe(absPath: string): boolean {
-  try {
-    return fs.statSync(absPath).isFile();
-  } catch {
-    return false;
-  }
-}
+const isDirectorySafe = (absPath: string, projectPath: string): boolean =>
+  isRealInTree(absPath, projectPath, "directory");
+const isFileSafe = (absPath: string, projectPath: string): boolean =>
+  isRealInTree(absPath, projectPath, "file");
 
 /**
  * Parse all wo-*.md files in a single FRD's work-orders/ directory.
@@ -304,6 +310,7 @@ function isFileSafe(absPath: string): boolean {
  */
 function listWorkOrdersForFrd(frdPath: string, frdSlug: string, projectPath: string): WorkOrder[] {
   const woDir = path.join(frdPath, "work-orders");
+  if (!isDirectorySafe(woDir, projectPath)) return [];
   let woEntries: string[];
   try {
     woEntries = fs.readdirSync(woDir);
@@ -318,7 +325,7 @@ function listWorkOrdersForFrd(frdPath: string, frdSlug: string, projectPath: str
     if (!/^wo-.+\.md$/i.test(woFile)) continue;
 
     const woAbsPath = path.join(woDir, woFile);
-    if (!isFileSafe(woAbsPath)) continue;
+    if (!isFileSafe(woAbsPath, projectPath)) continue;
 
     results.push(parseWorkOrderFile(woAbsPath, frdSlug, projectPath));
   }
@@ -329,6 +336,7 @@ export function listWorkOrders(projectPath: string): WorkOrder[] {
   if (!projectPath || projectPath.trim() === "") return [];
 
   const frdsDir = path.join(projectPath, "docs", "frds");
+  if (!isDirectorySafe(frdsDir, projectPath)) return [];
 
   let frdEntries: string[];
   try {
@@ -345,7 +353,7 @@ export function listWorkOrders(projectPath: string): WorkOrder[] {
     if (!/^frd-\d/.test(entry)) continue;
 
     const frdPath = path.join(frdsDir, entry);
-    if (!isDirectorySafe(frdPath)) continue;
+    if (!isDirectorySafe(frdPath, projectPath)) continue;
 
     results.push(...listWorkOrdersForFrd(frdPath, entry, projectPath));
   }

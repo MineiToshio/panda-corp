@@ -44,3 +44,10 @@ The banner has one reason that renders: **the installed version is behind the so
 
 ## Implementation note
 In the real app (Next.js), `GET /api/plugin-sync` does the two file reads and returns the `PluginSyncState` (`installedVersion`, `sourceVersion`, `drift`, `reason`, `detail`); the client banner polls it and self-clears. The prototype simulates it with a flag.
+
+## Runtime adapters (Proposal 32 R9)
+
+Claude compares its installed cache against `.claude-plugin/plugin.json`; Codex independently compares its activated plugin root/cache against `.codex-plugin/plugin.json`. The API exposes both under `runtimes` and keeps the original top-level Claude fields for existing clients. One runtime's cache is never evidence that the other runtime is installed or current.
+
+- WHEN plugin freshness is read THEN Mission Control SHALL return separate Claude and Codex installed/source verdicts.
+- IF one runtime cache is missing THEN only that runtime's verdict SHALL be `unknown`; the other verdict SHALL remain independently computable.

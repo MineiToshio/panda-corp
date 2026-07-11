@@ -74,11 +74,17 @@ const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at mos
 // substitution when provided); PROJECT_DIR is the absolute root every relative path / event anchors to.
 const PROJECT = (args && args.project) || '$(basename "$PWD")'   // event key — the folder basename; literal when provided, shell fallback otherwise
 const PROJECT_DIR = (args && args.projectDir) || '.'              // absolute project root; '.' = session cwd (back-compat)
+const LEASE_TOKEN = (args && args.leaseToken) || ''
+const LEASE_EPOCH = (args && args.leaseEpoch) || 0
 const TRACK_PATH = PROJECT_DIR === '.' ? '.pandacorp/track.jsonl' : `${PROJECT_DIR}/.pandacorp/track.jsonl`   // absolute when PROJECT_DIR is set, else the legacy relative path
 // One-line preamble prepended to EVERY agent prompt (a small helper — the `agent` wrapper below, NOT N
 // hand edits) so each subagent works from the project root regardless of the session cwd. Empty in the
 // back-compat case (cwd == project root already), so the legacy behaviour is byte-for-byte unchanged.
 const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJECT_DIR} — cd there FIRST; every relative path below is relative to it.\n`
+// GENERATED from plugin/runtime/prompts/sync-rollups.md — do not hand-edit this fragment.
+const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `node \"${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs\" sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
+const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
+const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
 
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP) — REAL repair attempts ONLY (WS-D/D5)
@@ -130,6 +136,7 @@ if (args === undefined || args === null) {
 } else if (typeof args !== 'object') {
   log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
 }
+if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')
 log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run
@@ -505,7 +512,7 @@ const FOUNDATION_SCHEMA = {
 // MECH spawn that guarantees running:false (and NEVER touches `phase`) — awaited before every such return.
 async function ensureStopped(reason) {
   agentSpawned++
-  await agent(`Pre-loop fail-safe close (${reason}): ensure .pandacorp/status.yaml has running:false written. Do NOT touch \`phase\` — NEVER set phase: release here (nothing is verified in this branch). Confirm done:true.`,
+  await agent(`Pre-loop fail-safe close (${reason}): ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
     { label: 'ensure-stopped', phase: 'Baseline', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
@@ -653,11 +660,9 @@ const reuseRef = (frd) => plan.hasFrontend
   ? ` REUSE & COHERENCE (DR-057): before creating ANY UI component, READ the component inventory \`docs/design/components.md\` (if it doesn't exist yet you're early in the build — create it and list your component as the first row) and scan \`src/components/core\` + \`src/components/modules\`. REUSE an existing component if one fits; ADAPT/extend it (add a prop/variant) if it is close — do NOT fork a near-duplicate for a small difference; CREATE a new shared component only if none fits, and when you do, APPEND it to \`docs/design/components.md\` so the next agent reuses it. A component that re-implements an existing pattern (a second banner/card/modal) is a defect the gate rejects.`
   : ''
 
-// Sync DERIVED rollups (DR-050): an FRD/blueprint implementation_status is DERIVED from its work
-// orders (THE source of truth). Correct any drift from a crash mid-build, an interrupted run or a
-// manual edit BEFORE building, so the document never lies about progress. One cheap pass, frontmatter only.
+// Sync derived rollups through the sole fenced writer before building.
 agentSpawned++
-await agent(`Sync DERIVED rollup state, frontmatter ONLY — NEVER change a work order's state (work orders are the source of truth; you only recompute the FRD/blueprint that rolls up from them). For EVERY docs/frds/*/ folder: read \`implementation_status\` of all its work-orders/wo-*.md and compute the FRD rollup — **VERIFIED** iff ALL are VERIFIED; else **BLOCKED** if any is BLOCKED; else **PLANNED** if any is PLANNED; else **IN_PROGRESS** if any is IN_PROGRESS; else **IN_REVIEW**. Write it into that FRD's frd.md AND blueprint.md \`implementation_status\` ONLY if it differs from the computed value. Refresh .pandacorp/status.yaml per-status work-order counts AND advance \`last_event_at\` + \`updated_at\` to now (ISO 8601, the DR-066 producer freshness stamp — a monitor reads liveness as running AND fresh, so this timestamp must never be left frozen while the build advances). Commit only if something changed (Conventional Commits, scope). Return { corrected: <count> }.`,
+await agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
   { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' })
 
 // ── Adaptive model selection (DR-073) — escalate to opus within the mode, never below the floor ──
@@ -997,7 +1002,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
-    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then **recompute the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders** and persist it (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); update .pandacorp/status.yaml (per-status counts + safe_to_test:true + advance \`last_event_at\` and \`updated_at\` to now, ISO 8601 — the DR-066 producer freshness stamp).${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.`,
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.`,
     { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
   return link.then((r) => Boolean(r && r.done === true), (e) => { log(`apply-gate failed for ${frd}: ${(e && e.message) || e}`); return false })
@@ -1008,7 +1013,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
 async function persistGateBlock(frd, reviewIds, reason, failure) {
   agentSpawned++
   const link = commitChain.then(() => agent(
-    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. Recompute + persist the FRD's frd.md + blueprint.md rollup; mirror in .pandacorp/status.yaml (per-status counts, bump \`pending_decisions\`, advance last_event_at + updated_at). Commit (Conventional Commits, scope). Return { done: true }.`,
+    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope). Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
   return link.then(() => true, () => false)
@@ -1094,7 +1099,7 @@ async function verifyPatched(frd, reviewIds) {
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
-  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders (VERIFIED iff all are; else BLOCKED if any blocked; else PLANNED if any planned; else IN_PROGRESS if any in progress; else IN_REVIEW); advance .pandacorp/status.yaml exactly as the gate does (per-status counts + last_green_sha + safe_to_test:true + last_event_at + updated_at to now, ISO 8601).${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
+  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
   **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
@@ -1125,7 +1130,7 @@ async function revertAndReopen(frd, reopenIds, opts = {}) {
      a) Set its frontmatter \`implementation_status: PLANNED\` and **INCREMENT its \`reopen_count\`** (the non-progress cap, DR-072 — so a WO that keeps failing eventually BLOCKS needs-owner instead of grinding).
      b) **EXCEPTION — preserve test evidence (DR-107):** a newly-created TEST file that the reviewer authored or that a \`## Status Note\` references (an adversarial spec, an e2e spec like \`a11y.spec.ts\`) is COVERAGE, not rejected code — do not destroy it. MOVE it to \`.pandacorp/run/preserved-tests/<wo-id>/\` (mkdir -p; gitignored runtime state) instead of deleting it, so the rebuild restores it as its RED baseline (the personal-page-v2 incident: a green 6/6 a11y spec was deleted by a revert and had to be re-authored blind a pass later).
      c) Append one durable reopen line PER reopened work order to ${TRACK_PATH} (fire-and-forget — reopen_count resets to 0 when the WO finally passes, so WITHOUT this line the durable timeline under-reports rework): printf '{"kind":"wo_reopen","frd":"${frd}","wo":"%s","reason":"${reopenReason}","at":"%s"}\\n' "<the-wo-id>" "$(date -u +%FT%TZ)" >> ${TRACK_PATH}.${WO_REOPEN_EVENT(frd, reopenReason)} BUILD-JOURNAL (A1) — record ONE revert line (descriptive attempt; verdict stays empty):${revertJournal}
-     Recompute + persist the FRD's frd.md + blueprint.md \`implementation_status\` rollup from ALL its work orders; advance .pandacorp/status.yaml (per-status counts + last_event_at + updated_at to now, ISO 8601). **COMMIT this frontmatter flip ALONE** (Conventional Commits, scope; stage \`.pandacorp/build-journal.jsonl\` too, append-only) — now no committed WO claims IN_REVIEW while its code is about to vanish.
+     ${SYNC_ROLLUPS} **COMMIT this frontmatter flip ALONE** (Conventional Commits, scope; stage \`.pandacorp/build-journal.jsonl\` too, append-only) — now no committed WO claims IN_REVIEW while its code is about to vanish.
   **COMMIT 2 — THEN discard the rejected code.** DR-070 — so it does not pollute sibling FRDs' WHOLE-PROJECT gate: ${seamFiles ? `for the SEAM files ONLY (${seamFiles.join(', ')}) \`git checkout <last_green_sha> -- <those of them that existed at last green>\` and \`git rm\` any of them the WO newly created — leave every OTHER file the WO touched in place (A3 partial revert: the diagnosis proved the fault is confined to the seam).` : `for EACH reopened WO \`git checkout <last_green_sha> -- <its files that existed at last green>\` and \`git rm\` any files it newly created.`} **NEVER a hard reset of the whole tree** (that would discard verified siblings). Leave every other WO (IN_REVIEW or VERIFIED) untouched. **COMMIT the revert** (Conventional Commits, scope).
   Return { green: false } (the engine retries the reopened WOs — in-run first (DR-107), else next pass — from a clean green base).`,
     { label: `revert:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
@@ -1284,7 +1289,7 @@ const woWaveCost = (w) => {
 async function safePoint() {
   agentSpawned++
   const sp = await agent(
-    `Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
+    `${RENEW_LEASE} Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
     1) Read .pandacorp/status.yaml → if \`rethink_pending: true\`, OR if the file \`.pandacorp/run/stop\` EXISTS (WS-D/D15 — the owner dropped a stop signal; do NOT delete it, the owner removes it), return { stop: true } immediately (the owner re-planned or halted mid-run; the engine stops at this safe point and the next run resumes on the new plan).
     2) ${TARGETED ? 'TARGETED BUILD (the owner launched with a specific `change`/`frds` — build ONLY that): do NOT scan the queue for ready changes. Return `ready: []`. Other queued changes are intentionally left for a later bare `/implement`.' : 'List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter `status` is "ready" — `class: expedite` FIRST, then standard FIFO by date. Skip draft/done/building (a `building` change is already integrated and in flight — never re-drain it, WS-A/D1).'}
     3) Read .pandacorp/inbox/decisions.md: for each decision the owner ANSWERED (via /pandacorp:decide) that resolves blocked work, find the work orders with \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\` that the answer unblocks, set each back to \`implementation_status: PLANNED\` (the DR-050 frontmatter signal), and update \`pending_decisions\` in status.yaml to the count still unanswered. Commit those frontmatter edits if you made any.
@@ -1384,7 +1389,7 @@ async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
   const record = (diag && diag.decisionRecord) || `El gate rechaza repetidamente ${frd} y el diagnóstico lo clasifica como ${cls} (confianza ${conf}) — no es un fallo puntual que el motor pueda arreglar solo; requiere una decisión del owner.`
   return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}EARLY BLOCK needs-owner (A3 progressive-learning recovery) for ${frd}. The diagnoser classified this failure as **${cls}** (confidence ${conf}) — a doomed spec; burning the remaining reopens on it cannot help. Do NOT retry, do NOT patch. Steps:
   1) Read last_green_sha from .pandacorp/status.yaml and DISCARD the rejected code for the reopened work orders (${(reopenIds || []).join(', ')}): \`git checkout <last_green_sha> -- <their files that existed at last green>\` and \`git rm\` any files they newly created. **NEVER a whole-tree hard reset** (it would discard verified siblings). PRESERVE reviewer-authored / Status-Note-referenced TEST files — MOVE them to \`.pandacorp/run/preserved-tests/<wo-id>/\` (DR-107), do not delete.
-  2) Set EACH reopened work order's frontmatter \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; recompute + persist the FRD's frd.md + blueprint.md rollup from ALL its work orders; mirror in .pandacorp/status.yaml (per-status counts, bump \`pending_decisions\`, advance \`last_event_at\` + \`updated_at\` to now, ISO 8601).
+  2) Set EACH reopened work order's frontmatter \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) — what the gate keeps rejecting, the diagnosis, and exactly what the owner must decide — and INLINE the build-journal digest for this WO: read the last few ${JOURNAL_PATH} lines for ${(reopenIds || [])[0] || frd} and summarize the attempt/diagnosis history so the owner sees how it got here. The record: ${record}
   4) COMMIT (Conventional Commits, scope) staging the frontmatter flip, the code revert, decisions.md, status.yaml AND \`.pandacorp/build-journal.jsonl\` (append-only — sweeps the diagnosis line).${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)}${NOTIFY('FRD ' + frd + ' bloqueado (diagnóstico ' + cls + ') — necesita tu decisión')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
@@ -1934,7 +1939,7 @@ while (true) {
     // the post-loop ensure-stopped fail-safe below covers the clean return paths, this covers the crash path).
     log(`☠☠ FATAL: the build scheduler loop threw — ${(loopErr && loopErr.message) || loopErr} — ensuring running:false before rethrow (WS-D/D2)`)
     agentSpawned++
-    await agent(`Crash fail-safe (WS-D/D2): the build engine's scheduler loop threw. Ensure .pandacorp/status.yaml has running:false written. Do NOT touch \`phase\` — NEVER set phase: release here (nothing is verified; this fires precisely on a crash). Confirm done:true.`,
+    await agent(`Crash fail-safe (WS-D/D2): the scheduler loop threw. Ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
       { label: 'ensure-stopped-crash', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
     throw loopErr
   }
@@ -2050,8 +2055,14 @@ if (allDone) {
 // Fail-safe: never leave Mission Control showing a phantom running build.
 if (!closed || closed.done !== true) {
   agentSpawned++
-  await agent(`Fail-safe close: ensure .pandacorp/status.yaml has running:false written. Do NOT touch \`phase\` — NEVER set phase: release here (BL-0012 fail-closed: the release transition happens ONLY in the hardening-gated close-out; this branch fires precisely when a close-out agent died, so nothing here is verified). Confirm done:true.`,
+  await agent(`Fail-safe close: ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
     { label: 'ensure-stopped', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+}
+
+if (closed && closed.done === true) {
+  agentSpawned++
+  await agent(`Terminal lease close. ${RELEASE_LEASE} Confirm done:true.`,
+    { label: 'release-lease', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
 return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }

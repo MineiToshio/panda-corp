@@ -16,6 +16,7 @@
  * Traceability: AC-10-010.1..4.
  */
 
+import { accountingEvents, UNKNOWN_ACCOUNTING_AT } from "../events/event-contract";
 import type { Event } from "../events/events";
 import type { ReaderData } from "./readerData";
 
@@ -118,6 +119,7 @@ function firstStamp(events: readonly Event[], pred: (ev: Event) => boolean): Fir
   let best: Event | null = null;
   for (const ev of events) {
     if (!pred(ev)) continue;
+    if (ev.at === UNKNOWN_ACCOUNTING_AT) continue;
     if (best === null || ev.at < best.at) best = ev;
   }
   return best ? { at: best.at, project: best.project ?? "" } : null;
@@ -376,7 +378,7 @@ function deriveFastestBuildHours(events: readonly Event[]): number {
  * Pure: no I/O, no clock, no mutation; same input → same output.
  */
 export function deriveSignals(data: ReaderData): Signals {
-  const events = data.eventsSnapshot?.events ?? [];
+  const events = accountingEvents(data);
   const greenDoneList = events.filter(isGreenDone);
   const greenDates = greenDoneList
     .map((ev) => new Date(ev.at))

@@ -164,3 +164,12 @@ composition point and is owned for its hero region by this WO.
 **Cross-FRD deps:** `frd-13` (foundation primitives `PageTitle`/`Shield`/`XpBar`/`Avatar`/
 `CelebrationSurface`, tokens, motion, `tabular-nums`); shared achievements route with `frd-10`.
 </content>
+
+## R9 durable result ledger
+
+`lib/gamification/ledger.ts` owns the schema-v2 reader, strict migration, oracle corroboration,
+canonical fact materialization and atomic writer primitive. `app/_actions/snapshotLedger.ts` remains
+the only writer and re-reads portfolio/status/WOs/events on the server under an exclusive sibling lock.
+Production achievement and agent-XP readers receive only `durableEvents(readLedger())`; live transports
+remain available to La Fragua and the usage report. Exact ID and semantic replay dedup improve the live
+feed, but only the monotonic `(oracle kind, oracle ref, canonical act)` fact key controls accounting.

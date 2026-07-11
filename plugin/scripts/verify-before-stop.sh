@@ -11,8 +11,15 @@
 # and the full suite at close-out — so the Stop gate steps aside. It re-engages the moment the
 # build ends (lock gone or stale).
 
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Pandacorp Stop gate cannot parse its payload because jq is missing — failing closed." >&2
+  exit 2
+fi
+
 input=$(cat)
 cwd=$(echo "$input" | jq -r '.cwd // "."')
+hook_runtime=$(echo "$input" | jq -r '.pandacorp_runtime // "claude"')
+case "$hook_runtime" in claude|codex) : ;; *) echo "Pandacorp Stop gate received an invalid runtime adapter — failing closed." >&2; exit 2 ;; esac
 
 # Avoid infinite loops: if a previous Stop hook already fired in this turn, let it stop.
 stop_active=$(echo "$input" | jq -r '.stop_hook_active // false')
@@ -22,13 +29,37 @@ stop_active=$(echo "$input" | jq -r '.stop_hook_active // false')
 verify="$cwd/.pandacorp/verify.sh"
 [ -f "$verify" ] || exit 0
 
-# Phase-aware skip (DR-063): a FRESH build lock means a build is running right now → no-op.
+# R2/R3 ownership rule: a lease suppresses this Stop gate only for the SAME certified runtime.
+# Codex is deliberately NOT a verification owner yet: R3 arms its hooks, but build writes remain
+# read/review-only until the later R6/R7 promotion. Therefore a Codex hook always runs verify.sh;
+# a crashed/foreign Codex lease can never silence verification. Claude keeps the known-good skip.
+lease="$cwd/.pandacorp/run/build.lease/lease.json"
+lease_live=0
+if [ -f "$lease" ]; then
+  lease_runtime=$(jq -er '.runtime | select(. == "claude" or . == "codex")' "$lease" 2>/dev/null) || {
+    echo "Pandacorp Stop gate cannot validate the build lease — failing closed." >&2
+    exit 2
+  }
+  lease_renewed=$(jq -er '.renewed_at | strings' "$lease" 2>/dev/null) || exit 2
+  lease_ttl=$(jq -er '.ttl_seconds | numbers | select(. >= 3)' "$lease" 2>/dev/null) || exit 2
+  _pc_lease_ts=$(printf '%s' "$lease_renewed" | sed -E 's/\.[0-9]+//; s/Z$//')
+  _pc_lease_epoch=$(date -u -d "${_pc_lease_ts}Z" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$_pc_lease_ts" +%s 2>/dev/null || echo "")
+  [ -n "$_pc_lease_epoch" ] || { echo "Pandacorp Stop gate cannot parse lease freshness — failing closed." >&2; exit 2; }
+  [ $(( $(date -u +%s) - _pc_lease_epoch )) -lt "$lease_ttl" ] && lease_live=1
+  if [ "$lease_live" = "1" ] && [ "$hook_runtime" = "claude" ] && [ "$lease_runtime" = "claude" ]; then
+    exit 0
+  fi
+fi
+
+# Legacy phase-aware skip (DR-063): applies ONLY to the known-good Claude path while R2 is projected.
+# A Codex payload never trusts a legacy build.lock/heartbeat because those signals carry no owner
+# token and could otherwise suppress its Stop gate.
 # The supervisor (the agent running /pandacorp:implement) touches .pandacorp/run/build.lock at
 # launch and on every ~2-min heartbeat; `find -mmin -10` treats a lock untouched for ≥10 min as
 # stale (supervisor died) and ignores it, so the gate auto-re-engages — same TTL as the
 # concurrent-run guard (DR-050 §11). The folder .pandacorp/run/ is gitignored runtime state.
 lock="$cwd/.pandacorp/run/build.lock"
-if [ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ]; then
+if [ "$hook_runtime" = "claude" ] && [ ! -f "$lease" ] && [ -f "$lock" ] && [ -n "$(find "$lock" -mmin -10 2>/dev/null)" ]; then
   exit 0   # active build → delegate the gate to the engine (per-FRD + close-out)
 fi
 
@@ -38,7 +69,7 @@ fi
 # This backstops a lock the supervisor forgot to touch while a long, quiet agent is still working. Same
 # 10-min TTL as the lock + the concurrent-run guard; when both go stale the gate auto-re-engages.
 status_yaml="$cwd/.pandacorp/status.yaml"
-if [ -f "$status_yaml" ]; then
+if [ "$hook_runtime" = "claude" ] && [ ! -f "$lease" ] && [ -f "$status_yaml" ]; then
   _pc_epoch() { # iso -> epoch seconds (BSD/GNU tolerant, fractional secs stripped)
     local ts; ts="$(printf '%s' "${1:-}" | sed -E 's/\.[0-9]+//; s/Z$//')"
     [ -n "$ts" ] || { echo ""; return; }

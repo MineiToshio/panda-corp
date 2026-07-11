@@ -35,3 +35,12 @@ Pandacorp reads the factory's and each project's information from disk, without 
 - `factory/profile.md` absent → onboarding gate (an empty profile is not assumed nor invented).
 - Empty ideas folder → empty states handled gracefully.
 - `status.yaml` absent or malformed → show the project with partial data, without breaking.
+
+## Proposal 32 R9 — Runtime-neutral observability
+
+- WHEN Mission Control reads live build telemetry THEN it SHALL merge the legacy Claude transport and the Codex-local transport, normalize both through the single canonical event vocabulary, and preserve the existing La Fragua display names.
+- WHEN two transport records carry the same `event_id` THEN Mission Control SHALL retain exactly one observation.
+- WHEN vocabulary aliases describe the same result-bearing act THEN XP and achievement derivations SHALL ledger it once by `(run_id, event_name, subject)`.
+- IF either event transport is missing, malformed, changed, or deleted THEN phase, work-order state, and build state SHALL remain derived exclusively from canonical project files and SHALL NOT change because of the event stream.
+- WHEN both runtime transports contain events outside file order THEN Mission Control SHALL merge them chronologically before applying the bounded tail cap.
+- IF an event reports only dispatch completion or change reconciliation THEN Mission Control SHALL preserve it as a non-result semantic act and SHALL NOT normalize it as WO completion or change integration.

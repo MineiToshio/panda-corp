@@ -260,3 +260,11 @@ gap is presentational, not in `lib/`). Phase 2 adds ONE new piece here: the real
 > debounced (`STORE_DEBOUNCE_MS`) and frames throttled (`EMIT_THROTTLE_MS`). The per-client
 > `stateVersion` stat-watchers stay (cheap, project-specific) and stamp each frame with the project
 > machine-state's max mtime (the DR-066 refresh trigger consumed by FRD-05/FRD-06).
+
+## 8. Runtime-neutral event adapter (Proposal 32 R9)
+
+- Canonical vocabulary: `plugin/runtime/event-vocabulary.json`. Mission Control consumes only the generated, drift-checked projection `src/lib/events/event-vocabulary.json`; it never maintains an independent alias table.
+- Transports are additive and runtime-local: legacy Claude remains `~/.claude/dashboard-events.ndjson`; Codex writes `~/.codex/dashboard-events.ndjson`. The reader merges both and exact-deduplicates `event_id`.
+- `event-contract.ts` maps aliases to the stable semantic name and the pre-existing La Fragua display name. New events carry `runtime`, `run_id`, `event_id`, and `subject`; legacy lines remain accepted without fabricated run boundaries.
+- Result consumers use one semantic ledger keyed by `(run_id,event_name,subject)`. Transport IDs and alias spelling cannot inflate XP or unlocks.
+- Events are observability only. Status, phase, WO and build truth continue to come from `.pandacorp/status.yaml`, WO frontmatter and track/git evidence.

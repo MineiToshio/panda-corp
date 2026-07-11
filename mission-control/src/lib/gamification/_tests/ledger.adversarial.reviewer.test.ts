@@ -84,8 +84,9 @@ describe("readLedger via the DEFAULT factory path (the production seam) — DR-0
     expect(ledger.totals.workOrdersDone).toBe(0);
     // NaN/null → 0
     expect(ledger.totals.phasesCompleted).toBe(0);
-    // fractional → truncated to a natural number
-    expect(ledger.totals.releases).toBe(3);
+    // Schema v2 migration is fail-closed: a fractional v1 total corrupts the
+    // whole candidate instead of partially laundering hostile values.
+    expect(ledger.totals.releases).toBe(0);
     expect(Number.isInteger(ledger.totals.releases)).toBe(true);
   });
 

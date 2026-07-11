@@ -69,6 +69,10 @@ let source = readFileSync(ENGINE_PATH, 'utf8')
 // source is a valid function body. (We transform our in-memory copy — the
 // engine file on disk is never touched.)
 source = source.replace(/^export\s+const\s+meta/m, 'const meta')
+// The args-guard scenario deliberately passes undefined. Neutralize only the lease receipt guard in
+// this in-memory harness; production keeps it fail-closed and every behavioral fixture otherwise gets
+// a fake receipt below.
+source = source.replace("if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')", '')
 if (/^\s*(export|import)\b/m.test(source)) {
   console.error('FATAL: engine still contains ESM syntax after the meta transform — update the harness loader.')
   process.exit(1)
@@ -100,7 +104,7 @@ function defaultResponse(label) {
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes)$/.test(label)) return { done: true } // STOP_SCHEMA (ensure-stopped-crash: the WS-D/D2 loop error-boundary shutdown, G1)
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
 
@@ -142,8 +146,12 @@ async function runEngine(scenario) {
   const budget = scenario.budget || { total: 0, spent: () => 0, remaining: () => Infinity }
   const parallelStub = (fns) => Promise.all(fns.map((f) => f()))
   let result, error
+  let engineArgs = scenario.args
+  if (typeof engineArgs === 'string') {
+    try { engineArgs = JSON.stringify({ leaseToken: 'test-lease-token', leaseEpoch: 1, ...JSON.parse(engineArgs) }) } catch {}
+  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { leaseToken: 'test-lease-token', leaseEpoch: 1, ...engineArgs }
   try {
-    result = await engine(agentStub, (l) => logs.push(String(l)), budget, scenario.args, (t) => phases.push(t), parallelStub)
+    result = await engine(agentStub, (l) => logs.push(String(l)), budget, engineArgs, (t) => phases.push(t), parallelStub)
   } catch (e) {
     error = e
   }
@@ -1544,9 +1552,7 @@ for (const s of SCENARIOS) {
   } catch (e) {
     t.failures.push(`assertion block threw: ${e && e.stack ? e.stack.split('\n')[0] : e}`)
   }
-  if (run.unmatched.length) {
-    console.log(`  [info] ${s.name} — unmatched agent labels (answered {}): ${[...new Set(run.unmatched)].join(', ')}`)
-  }
+  if (run.unmatched.length) t.failures.push(`unmatched agent labels: ${[...new Set(run.unmatched)].join(', ')}`)
   if (t.failures.length === 0) {
     passed++
     console.log(`PASS  ${s.name}  (${t.count} assertions)`)

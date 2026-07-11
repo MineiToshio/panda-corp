@@ -1,158 +1,140 @@
-/**
- * WO-09-006 — snapshotGamificationLedger Server Action integration test (RED phase)
- *
- * Tests that the server action:
- *   - writes the ledger only when needsSnapshot() returns true (AC-09-006.2)
- *   - does NOT write when live values are already captured in ledger
- *   - writes valid JSON that can be re-read by readLedger
- *   - resolves atomically (read → compare → write, no partial writes)
- *
- * Traceability: AC-09-006.1, AC-09-006.2
- */
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { readLedger, readLedgerResult } from "@/lib/gamification/ledger";
 
-import type { GuildOutcomes } from "@/lib/gamification/gamification";
-import { readLedger } from "@/lib/gamification/ledger";
-
-// We import the action via a direct import (not module mock) to test the real logic.
-// The factory root is overridden via the PANDACORP_FACTORY_ROOT env var pattern used in config.ts.
-// Instead, we test the action directly by passing the ledger path through a factory root override.
-
-// Note: the Server Action reads the ledger path by calling resolveFactoryRoot() and computing
-// path.join(root, "factory/gamification-ledger.json"). We override PANDACORP_FACTORY_ROOT
-// per test via the env to point to our tmp dir.
-
-let tmpFactory: string;
-
+let root: string;
 beforeEach(() => {
-  tmpFactory = join(tmpdir(), `snapshot-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  // Create the factory/gamification sub-structure (matching the real path)
-  mkdirSync(join(tmpFactory, "factory"), { recursive: true });
-  process.env.PANDACORP_FACTORY_ROOT = tmpFactory;
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "ledger-v2-action-"));
+  fs.mkdirSync(path.join(root, "factory"), { recursive: true });
+  process.env.PANDACORP_FACTORY_ROOT = root;
 });
-
 afterEach(() => {
-  rmSync(tmpFactory, { recursive: true, force: true });
+  fs.rmSync(root, { recursive: true, force: true });
   delete process.env.PANDACORP_FACTORY_ROOT;
-  vi.restoreAllMocks();
+  delete process.env.PANDACORP_EVENTS_FILE;
 });
 
-const LIVE_WITH_PROGRESS: GuildOutcomes = {
-  workOrdersDone: 25,
-  phasesCompleted: 5,
-  releases: 1,
-  greenTestRuns: 100,
-  weeklyStreak: 3,
-};
+function fixture(): void {
+  const project = path.join(root, "app");
+  fs.mkdirSync(path.join(project, ".pandacorp"), { recursive: true });
+  fs.mkdirSync(path.join(project, "docs/frds/frd-01-core/work-orders"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "factory/portfolio.md"),
+    "| Proyecto | Ruta |\n|---|---|\n| App | app |\n",
+  );
+  fs.writeFileSync(
+    path.join(project, ".pandacorp/status.yaml"),
+    "phase: implementation\nrunning: false\n",
+  );
+  fs.writeFileSync(
+    path.join(project, "docs/frds/frd-01-core/work-orders/wo-01-001.md"),
+    "---\nimplementation_status: VERIFIED\n---\n# WO-01-001 Core\n",
+  );
+}
 
-const LIVE_ZERO: GuildOutcomes = {
-  workOrdersDone: 0,
-  phasesCompleted: 0,
-  releases: 0,
-  greenTestRuns: 0,
-  weeklyStreak: 0,
-};
-
-describe("snapshotGamificationLedger", () => {
-  it("writes the ledger when no prior ledger exists (first snapshot)", async () => {
+describe("snapshotGamificationLedger v2 trust boundary", () => {
+  it("derives totals on the server and ignores forged client aggregates", async () => {
+    fixture();
     const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_WITH_PROGRESS);
-
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    const written = readLedger(ledgerPath);
-
-    expect(written.totals.workOrdersDone).toBe(25);
-    expect(written.totals.phasesCompleted).toBe(5);
-    expect(written.totals.releases).toBe(1);
-    expect(written.version).toBe(1);
-    expect(written.updatedAt).toBeTruthy();
+    await snapshotGamificationLedger({ workOrdersDone: 999_999, releases: 999_999 });
+    const ledger = readLedger(path.join(root, "factory/gamification-ledger.json"));
+    expect(ledger.version).toBe(2);
+    expect(ledger.totals.workOrdersDone).toBe(1);
+    expect(ledger.totals.releases).toBe(0);
   });
 
-  it("writes a valid ISO date for updatedAt", async () => {
+  it("migrates v1 maxima without inventing event facts", async () => {
+    fs.writeFileSync(
+      path.join(root, "factory/gamification-ledger.json"),
+      JSON.stringify({
+        version: 1,
+        updatedAt: "2026-01-01T00:00:00Z",
+        totals: { workOrdersDone: 4, phasesCompleted: 2, releases: 1 },
+      }),
+    );
     const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_WITH_PROGRESS);
-
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    const written = readLedger(ledgerPath);
-    // Must be a parseable date
-    expect(new Date(written.updatedAt).getTime()).toBeGreaterThan(0);
+    await snapshotGamificationLedger();
+    const ledger = readLedger(path.join(root, "factory/gamification-ledger.json"));
+    expect(ledger.totals).toMatchObject({
+      workOrdersDone: 4,
+      phasesCompleted: 2,
+      releases: 1,
+      greenTestRuns: 0,
+    });
+    expect(ledger.facts).toEqual({});
+    expect(ledger.migration.v1ImportedAt).toBeTruthy();
   });
 
-  it("does NOT write when live values are all at zero (cold start — needsSnapshot false)", async () => {
+  it("fails closed and preserves a corrupt ledger", async () => {
+    const ledgerPath = path.join(root, "factory/gamification-ledger.json");
+    fs.writeFileSync(ledgerPath, "{broken");
     const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_ZERO);
-
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    // File should NOT be created when nothing has been earned
-    expect(() => readFileSync(ledgerPath, "utf8")).toThrow();
+    await expect(snapshotGamificationLedger()).rejects.toThrow(/corrupt/);
+    expect(fs.readFileSync(ledgerPath, "utf8")).toBe("{broken");
+    expect(readLedgerResult(ledgerPath).ok).toBe(false);
   });
 
-  it("does NOT write when live values are already at or below the stored ledger", async () => {
-    // Pre-write a high ledger
-    const { writeFileSync } = await import("node:fs");
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    const priorLedger = {
-      version: 1,
-      updatedAt: "2026-06-01T00:00:00Z",
-      totals: { workOrdersDone: 100, phasesCompleted: 50, releases: 10 },
+  it("reclaims a crashed stale lock but never steals a live owner lock", async () => {
+    fixture();
+    const lock = path.join(root, "factory/gamification-ledger.json.lock");
+    fs.mkdirSync(lock);
+    fs.writeFileSync(
+      path.join(lock, "owner.json"),
+      JSON.stringify({ token: "dead", pid: 999_999_999, acquiredAt: "2020-01-01T00:00:00Z" }),
+    );
+    const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
+    await snapshotGamificationLedger();
+    expect(
+      readLedger(path.join(root, "factory/gamification-ledger.json")).totals.workOrdersDone,
+    ).toBe(1);
+
+    fs.mkdirSync(lock);
+    fs.writeFileSync(
+      path.join(lock, "owner.json"),
+      JSON.stringify({ token: "live", pid: process.pid, acquiredAt: new Date().toISOString() }),
+    );
+    const before = fs.readFileSync(path.join(root, "factory/gamification-ledger.json"), "utf8");
+    await snapshotGamificationLedger();
+    expect(fs.readFileSync(path.join(root, "factory/gamification-ledger.json"), "utf8")).toBe(
+      before,
+    );
+  });
+
+  it("detects post-write fact tampering and refuses to bless it", async () => {
+    fixture();
+    process.env.PANDACORP_EVENTS_FILE = path.join(root, "events.ndjson");
+    fs.writeFileSync(
+      process.env.PANDACORP_EVENTS_FILE,
+      `${JSON.stringify({ event: "AgentDone", at: "2026-07-11T01:00:00Z", project: "app", wo: "WO-01-001", result: "green" })}\n`,
+    );
+    const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
+    await snapshotGamificationLedger();
+    const ledgerPath = path.join(root, "factory/gamification-ledger.json");
+    const parsed = JSON.parse(fs.readFileSync(ledgerPath, "utf8")) as {
+      facts: Record<string, { event: Record<string, unknown> }>;
     };
-    writeFileSync(ledgerPath, JSON.stringify(priorLedger), "utf8");
-
-    const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_WITH_PROGRESS);
-
-    // File should NOT be overwritten since live < ledger
-    const content = readFileSync(ledgerPath, "utf8");
-    const parsed: { totals: { workOrdersDone: number } } = JSON.parse(content);
-    // The original ledger's higher value should still be there (not overwritten with lower)
-    expect(parsed.totals.workOrdersDone).toBe(100);
+    const first = Object.values(parsed.facts)[0];
+    expect(first).toBeTruthy();
+    if (first) first.event.agent = "forged-after-reconcile";
+    const tampered = `${JSON.stringify(parsed, null, 2)}\n`;
+    fs.writeFileSync(ledgerPath, tampered);
+    expect(readLedgerResult(ledgerPath).ok).toBe(false);
+    await expect(snapshotGamificationLedger()).rejects.toThrow(/corrupt/);
+    expect(fs.readFileSync(ledgerPath, "utf8")).toBe(tampered);
+    delete process.env.PANDACORP_EVENTS_FILE;
   });
 
-  it("updates the ledger when live exceeds the stored value on any metric (AC-09-006.2)", async () => {
-    const { writeFileSync } = await import("node:fs");
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    const priorLedger = {
-      version: 1,
-      updatedAt: "2026-06-01T00:00:00Z",
-      totals: { workOrdersDone: 10, phasesCompleted: 2, releases: 0 },
-    };
-    writeFileSync(ledgerPath, JSON.stringify(priorLedger), "utf8");
-
+  it("refuses a symlinked ledger target without writing through it", async () => {
+    fixture();
+    const ledgerPath = path.join(root, "factory/gamification-ledger.json");
+    const outside = path.join(root, "outside-ledger.json");
+    const sentinel = `${JSON.stringify({ version: 2, updatedAt: "1970-01-01T00:00:00.000Z", totals: { workOrdersDone: 0, phasesCompleted: 0, releases: 0, greenTestRuns: 0 }, facts: {}, migration: {} })}\n`;
+    fs.writeFileSync(outside, sentinel);
+    fs.symlinkSync(outside, ledgerPath);
     const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_WITH_PROGRESS);
-
-    const updated = readLedger(ledgerPath);
-    // live (25) > prior ledger (10)
-    expect(updated.totals.workOrdersDone).toBe(25);
-    expect(updated.totals.phasesCompleted).toBe(5);
-    expect(updated.totals.releases).toBe(1);
-  });
-
-  it("stores MAX(live, ledger) so no metric ever decreases (AC-09-006.1 invariant)", async () => {
-    const { writeFileSync } = await import("node:fs");
-    const ledgerPath = join(tmpFactory, "factory", "gamification-ledger.json");
-    // Ledger has higher phasesCompleted but lower workOrdersDone
-    const priorLedger = {
-      version: 1,
-      updatedAt: "2026-06-01T00:00:00Z",
-      totals: { workOrdersDone: 5, phasesCompleted: 99, releases: 0 },
-    };
-    writeFileSync(ledgerPath, JSON.stringify(priorLedger), "utf8");
-
-    const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    await snapshotGamificationLedger(LIVE_WITH_PROGRESS); // workOrdersDone=25, phasesCompleted=5
-
-    const updated = readLedger(ledgerPath);
-    expect(updated.totals.workOrdersDone).toBe(25); // MAX(25, 5) = 25
-    expect(updated.totals.phasesCompleted).toBe(99); // MAX(5, 99) = 99 — never decreases
-  });
-
-  it("resolves to void (fire-and-forget — does not return a value)", async () => {
-    const { snapshotGamificationLedger } = await import("@/app/_actions/snapshotLedger");
-    const result = await snapshotGamificationLedger(LIVE_WITH_PROGRESS);
-    expect(result).toBeUndefined();
+    await expect(snapshotGamificationLedger()).rejects.toThrow(/symlink/);
+    expect(fs.readFileSync(outside, "utf8")).toBe(sentinel);
   });
 });

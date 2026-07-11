@@ -18,6 +18,7 @@
  * Traceability: FRD-09 (gamification) — CMP-09-guild-state.
  */
 
+import path from "node:path";
 import { cache } from "react";
 import { resolveProjectPath } from "@/lib/config/config";
 import { type EventsSnapshot, readEvents } from "@/lib/events/events";
@@ -30,7 +31,7 @@ import {
   type GuildLevel,
   type GuildOutcomes,
 } from "./gamification";
-import { mergeLedgerOutcomes, readLedger } from "./ledger";
+import { mergeLedgerOutcomes, readLedger, realInProject } from "./ledger";
 
 /**
  * Everything the guild surfaces need, derived once from the live data layers.
@@ -43,11 +44,9 @@ export type GuildState = {
   readonly eventsSnapshot: EventsSnapshot;
   /**
    * The raw live outcomes derived from the current portfolio state, BEFORE the
-   * ledger merge. Exposed so `GamificationLedgerSync` can pass them to the
-   * snapshot action — which itself applies MAX(live, ledger) and writes only when
-   * the live value genuinely exceeds the stored maximum (AC-09-006.2).
-   * Passing the pre-merged outcomes to the action would cause `needsSnapshot` to
-   * never fire (it would see ledger values as "live"), breaking the snapshot logic.
+   * ledger merge. Exposed for read-only presentation/diagnostics only. The
+   * snapshot action re-reads canonical files server-side and never accepts this
+   * aggregate from a client.
    */
   readonly liveOutcomes: GuildOutcomes;
   /**
@@ -70,7 +69,11 @@ export function readGuildState(): GuildState {
   // The portfolio path is factory-root-relative (e.g. "mission-control"); it MUST
   // be resolved before readStatus, or every project reads ABSENT (the original bug).
   const portfolioPaths = readPortfolio().map((entry) => resolveProjectPath(entry.path));
-  const statuses = portfolioPaths.map((absPath) => readStatusWithLiveInboxCounts(absPath));
+  const statuses = portfolioPaths.map((absPath) =>
+    realInProject(absPath, path.join(absPath, ".pandacorp", "status.yaml"), "file")
+      ? readStatusWithLiveInboxCounts(absPath)
+      : { present: false as const, malformed: false as const, status: null },
+  );
   const eventsSnapshot = readEvents();
 
   // workOrdersDone: LIVE count of WOs in state "done", summed across the whole portfolio
@@ -82,7 +85,9 @@ export function readGuildState(): GuildState {
   );
 
   // Live outcomes from the current portfolio state.
-  const liveOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot, workOrdersDoneLive });
+  // Raw transports are live telemetry, not an accounting oracle. Event-derived
+  // XP enters only through the durable ledger reconciler.
+  const liveOutcomes = deriveGuildOutcomes({ statuses, eventsSnapshot: null, workOrdersDoneLive });
 
   // WO-09-006 — ledger merge: MAX(live, ledger) so deleting a project NEVER
   // decreases the guild's XP or level (AC-09-006.1).

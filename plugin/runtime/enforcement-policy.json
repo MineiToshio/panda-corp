@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "minimum_codex_version": "0.144.1",
+  "handlers": {
+    "dangerous_command": "plugin/scripts/block-dangerous.sh",
+    "write_nudge": "plugin/scripts/warn-adhoc-write.sh",
+    "stop_gate": "plugin/scripts/verify-before-stop.sh"
+  },
+  "codex": {
+    "config": {
+      "sandbox_mode": "workspace-write",
+      "approval_policy": "on-request",
+      "max_threads": 4,
+      "max_depth": 1,
+      "hooks_enabled": true,
+      "network_access": false
+    },
+    "hook_matchers": {
+      "command": "Bash|exec_command|shell|unified_exec",
+      "write": "Write|Edit|apply_patch",
+      "stop": "Stop"
+    }
+  },
+  "runtime_local_dispatch": {
+    "claude": ["codex"],
+    "codex": ["claude"]
+  },
+  "governed_build_markers": [
+    ".pandacorp/status.yaml",
+    "implementation_status:",
+    "reopen_count:",
+    "last_green_sha:",
+    "build_lease_epoch:"
+  ],
+  "fenced_cli": {
+    "path_suffix": "plugin/scripts/pandacorp-build-state.mjs",
+    "runtime_commands": ["acquire", "reclaim"],
+    "fenced_commands": ["renew", "release", "quiesce", "finalize-release", "validate", "reserve-dispatch", "set-health", "sync-rollups", "transition-wo", "stamp-last-green", "set-phase", "pause-owner", "apply-change-plan", "stamp-change-integration", "reconcile-building-change", "recover-change-transactions", "ledger"]
+  },
+  "execpolicy": [
+    { "pattern": ["git", "reset", "--hard"], "decision": "forbidden", "justification": "Pandacorp forbids unfenced destructive resets." },
+    { "pattern": ["git", "push", "--force"], "decision": "forbidden", "justification": "Pandacorp never force-pushes." },
+    { "pattern": ["git", "push", "-f"], "decision": "forbidden", "justification": "Pandacorp never force-pushes." },
+    { "pattern": ["git", "clean", "-fdx"], "decision": "forbidden", "justification": "Ignored Pandacorp owner state must never be cleaned." },
+    { "pattern": ["git", "clean", "-xfd"], "decision": "forbidden", "justification": "Ignored Pandacorp owner state must never be cleaned." },
+    { "pattern": ["rm", "-rf", ".pandacorp"], "decision": "forbidden", "justification": ".pandacorp is protected owner/build state." },
+    { "pattern": ["rm", "-r", ".pandacorp"], "decision": "forbidden", "justification": ".pandacorp is protected owner/build state." },
+    { "pattern": ["gh", "repo", "delete"], "decision": "forbidden", "justification": "Repository deletion is an owner hard gate." },
+    { "pattern": ["vercel", "--prod"], "decision": "forbidden", "justification": "Production release requires the owner gate." },
+    { "pattern": ["claude"], "decision": "forbidden", "justification": "Codex may not dispatch or steer the Claude runtime." }
+  ]
+}

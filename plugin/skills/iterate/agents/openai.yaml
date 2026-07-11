@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp iteration engine"
+  short_description: "Internal project iteration engine behind change"
+policy:
+  allow_implicit_invocation: false

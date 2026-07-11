@@ -2,6 +2,179 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — Proposal 32 records implemented rings without granting premature Codex build writes
+
+**What:** reconciled Proposal 32's narrative status with the implemented repository: R0–R9 are
+implemented and source/offline green; R10 is fixture/source green but its installed
+Claude→Codex→Claude canary is pending; R11 accelerated and current-head short-live evidence are green
+but `LIVE_OVERNIGHT` is pending. The proposal's old “ready for implementation / do not implement”
+gate was retired and its source graph now points to the actual canonical files.
+
+**Why:** a completed implementation plan that still denied its own authorization or advertised an
+obsolete R2/R3/R6 promotion threshold was a dangerous second truth. Certification remains
+fail-closed: Codex `implement` stays `FALLBACK` and read/review-only until installed R10 and overnight
+R11 are both green. Claude and its two recurring routines remain unchanged.
+
+**Impact:** `docs/proposals/32-native-dual-runtime/README.md`; no runtime permission, plugin version,
+overlay, backlog state or product build state changed.
+
+## 2026-07-11 — Plugin 9.92.1 carries automatic cold-continuation resolution
+
+The R10 logical-run resolver/preflight behavior landed as plugin PATCH 9.92.1 with generated Claude
+and Codex manifests; the managed project overlay is unchanged.
+
+## 2026-07-11 — CONV-11: name concrete referents, never a vague "the current tool"
+
+**What:** added a bullet to the interaction-style rule (CONV-11, `factory/standards/conventions.md`):
+owner-facing replies must NAME the exact product/app/extension/library/endpoint/competitor referenced
+(e.g. `Improve Crunchyroll`, not "the current extension"), glossing it in one line if the owner
+hasn't met it in this conversation. An abstract reference is not context.
+
+**Why:** the owner flagged (2026-07-11, in a `/discover` run) that "la extensión actual promete…" told
+him nothing — he could not tell which extension was meant. This is a recurring clarity failure worth
+binding all agents, not just this run. Also recorded in `factory/profile.md` (DR-053).
+
+**Impact:** standards catalog auto-derives (no hand-copy); no narrative concept page enumerates
+CONV-11's bullets, so no Manual page edit. Operative form propagates via `rules/code-conventions.md`
+per DR-051. No new rule ID (refinement of the existing CONV-11).
+
+## 2026-07-11 — Cold continuation preserves one logical build-run identity
+
+**What:** PORT-5 and the neutral state contract now define `build_run_id`/`run_id` as the logical
+governed build-run identity. Both runtime launchers consume one resolver that automatically reuses it
+only at a released cross-runtime implementation safe point; the R10 fixture proves both directions
+without owner-supplied IDs plus cumulative dispatch, spend and health facts.
+
+**Why:** generating a runtime-specific ID at each boundary reset the durable ledger and made the old
+fixture incapable of proving the required safety brakes. Process/session identity remains local;
+same-runtime next passes, release state and explicit `new` intent start a new run.
+
+**Impact:** R10 fixture evidence rises to 17 checks, including automatic resolution in both
+directions, replay and overspend after both switches; the focused resolver/preflight corpus is 10/10.
+Installed-runtime R10 and R11 remain binding, so current Codex build-write permission does not change.
+
+## 2026-07-11 — R9 closes the event-derived truth exception with canonical oracles
+
+**What:** Mission Control's existing personal gamification ledger is now the sole durable accounting
+store for cross-runtime XP/achievement facts. Runtime streams remain additive telemetry; only facts
+corroborated by canonical project files enter the monotonic ledger, through one atomic writer.
+
+**Why:** transport IDs and semantic aliases solve replay presentation, not provenance. This preserves
+one source of truth while allowing Claude and Codex to emit independent local telemetry.
+
+**Impact:** Proposal 32 R9 is green; Mission Control FRD/ADR/Manual and the runtime capability/source
+graphs point to the ledger and its single writer. Plugin metadata patch 9.90.1 records the corrected
+capability graph; no managed overlay changed.
+
+## 2026-07-11 — R11 separates accelerated, short-live and overnight evidence
+
+**What:** the Codex-local build path now has a fail-closed unattended preflight, independently
+controllable supervisor, PID-bound sleep inhibitor, bounded restart breaker, durable receipt and an
+evidence collector that rejects mixed/corrupt runs. The accelerated failure corpus and current-head
+114-second real provider canary are green; the required several-hours overnight canary remains pending.
+
+**Why:** mocks prove mechanics and a short real call proves provider transport, but neither proves
+walk-away endurance. Keeping `OFFLINE_ACCELERATED`, `LIVE_SHORT` and `LIVE_OVERNIGHT` distinct prevents
+a convenient test from silently promoting build-write permission. A real canary also caught a prompt
+heading that disagreed with the deterministic gate, demonstrating why live evidence remains separate.
+
+**Verdict:** the former R7 provider-path blocker and current-head R11 short-live gate are closed. Run
+`codex-20260711T183105Z-28552` finished in 114 seconds with two dispatches/four durable units, heartbeat
+within `TTL/3`, terminal supervisor evidence and fenced release; the disposable fixture was removed.
+Codex `implement` remains `FALLBACK` and read/review-only under PORT-5 until installed R10 switching
+and `LIVE_OVERNIGHT` R11 are green. Existing Claude memory-review and review-launch schedules are
+unchanged and not duplicated.
+
+## 2026-07-11 — R10 is fixture-proven but not live-certified
+
+**What:** Proposal 32's bidirectional cold switch now has a reproducible disposable harness using the real fenced state APIs. The operative standard, root instructions, project overlay and capability catalog record `FIXTURE_PROVEN_LIVE_PENDING`; Codex build writes remain disabled until the installed Claude→Codex→Claude canary and R11 unattended canary pass.
+
+**Why:** runtime portability must distinguish canonical-state equivalence from installed executor behaviour. A Codex session cannot launch or certify a Claude Dynamic Workflow, so presenting the fixture as live parity would violate the fail-closed evidence rule.
+
+## 2026-07-11 — R8 closes the offline product ready-queue contract without promoting Codex builds
+
+**What:** the shared fenced writer and Codex-local controller now implement the product project's
+DR-069 ready change-queue lifecycle: proposal-only planning, deterministic FRD/WO DAG validation and
+application, durable apply/archive recovery, exact integration-commit evidence, affected-FRD
+verification and move-only archival to `done/`. Bare versus targeted scope remains explicit. The path
+boundary was red-teamed and now rejects symlink roots/cards/done directories, FRD/work-order parents,
+mutation targets and existing/foreign archive targets.
+
+**Why:** queue parity cannot be claimed if a model can route a canonical mutation through a symlink,
+if replay trusts a tampered target, or if any commit touching an affected FRD can masquerade as the
+integration commit. Crash recovery also has to commit partially applied canonical paths rather than
+fall back to an unrelated HEAD.
+
+**Verdict/evidence:** R8's product ready-queue slice is offline green (`test-build-state.mjs` 21/21;
+`test-codex-executor.mjs` 23/23), so `R8-ready-change-drain` is removed from the promotion blockers.
+Codex build writes remain closed because the real R7 model smoke and R11 unattended canary are
+independent outstanding gates. Factory backlog drain-all remains Claude-owned after its separate
+26/26 spike; its red-validator rollback aborts rather than overwriting a concurrent owner edit. Codex
+retains only the single-item recipe.
+
+**Post-review hardening:** the first archive fix covered the normal `building` path but left two crash
+recovery paths able to rename without repeating current-content evidence. One centralized validator
+now guards normal archive, `status: done` re-entry and transaction replay; delete, mutation and foreign
+target canaries after `archive-card` all fail closed. This correction is part of plugin v9.89.0 and
+still requires independent review.
+
+**Impact:** current truth in `plugin/docs/runtime-executors.md`, shared build-state contract and
+runtime capability/source graphs; plugin implementation history in v9.88.0. Proposal 32 records the
+ring evidence. No Mission Control files are part of this bounded R8 slice.
+
+## 2026-07-11 — R7 evidence keeps Codex build writes closed; atomic lease terminal protocol becomes two-phase
+
+**What:** updated PORT-5 from its now-satisfied R2/R3/first-R6 prerequisite wording to the current R7
+verdict. Codex `implement` remains read/review-only and `FALLBACK`: the offline executor corpus is
+green, but the real low-budget smoke was usage-BLOCKED, ready change draining belongs to R8 and
+unattended certification remains R11. The same boundary is carried by root `AGENTS.md` and the project
+overlay template. DR-050 §11 now names the neutral atomic lease—not `running`/heartbeat—as ownership.
+Certified Claude and Codex terminal paths use `quiesce → commit running:false → finalize-release`, so
+the lease continues fencing writers across the git commit boundary.
+
+**Why:** the old reevaluation text would have granted permission as soon as R2/R3/R6 passed even
+though R7's real runtime evidence and queue parity do not exist. Separately, removing the lease before
+committing its status projection creates a writer-free window in which another runtime can enter while
+the previous controller still changes git. Evidence gates must narrow permission on UNKNOWN/BLOCKED,
+never infer it from a green mock.
+
+**Impact:** `factory/standards/{agent-portability,build-orchestration}.md` · root/project `AGENTS.md`
+carriers. Plugin implementation/evidence is recorded in `plugin/docs/decision-log.md` v9.87.0.
+
+## 2026-07-11 — R0 retracts unsafe cross-runtime build permission and clarifies constitution §14
+
+**What:** applied the owner-approved Proposal 32 R0 safety hotfix across every current carrier. `factory/standards/agent-portability.md` PORT-5 now states the actual interim permission boundary: the legacy `running` + heartbeat mechanism is TTL liveness, not atomic cross-runtime mutual exclusion; until R2 (atomic lease), R3 (Codex enforcement) and the first R6 governed-transition slice are certified, Codex/non-Claude runtimes are read/review-only on project build state. Runtime switching is cold and safe-point-only — the active executor completes its gate/commit, stops and releases ownership before a later runtime reconstructs files; no mid-run takeover, simultaneous build, cross-runtime messaging or delegation. `AGENTS.md`, the Claude-only layer in `CLAUDE.md`, DR-113, the PORT-5 rule-registry row, the project `AGENTS.md.tpl`, the standards index, the build-harness wording and Mission Control Manual/FRD-08 now say the same thing. Proposal 25 is preserved as history with an explicit operational-supersession notice. Overlay `8.70.0` → `8.70.1` propagates the corrected project instruction.
+
+**Constitution clarification:** §14 continues to require Claude's Dynamic Workflow as the Claude orchestration decision-maker. It now explicitly permits shared deterministic, versioned, test-covered transition CLIs/schemas/contracts invoked under that workflow's instruction; those seams do not replace the executor. Execution is strict-local: Claude dispatches only Claude agents/models and a future Codex executor only Codex agents/models. The work-order loop is resumable within its executor; cross-runtime continuation requires a cold safe-point handoff.
+
+**Why:** the prior PORT-5 language inferred too much from durable file state. A live Dynamic Workflow also owns in-memory scheduling, commit serialization, review work, budgets and health brakes, while current lock acquisition is read-then-write and unfenced. Therefore files make later reconstruction possible but do not prove live takeover safety or atomic exclusion. This documentation-first hotfix removes the unsafe permission before any executor work begins; reevaluation is evidence-gated, not inferred from product capability claims.
+
+**Impact:** documentation/policy only — no executor, script, hook, manifest, runtime config or product state changed. Canonical current truth: constitution §14 + `factory/standards/agent-portability.md` PORT-5 + DR-113. Mission Control mirrors the operator-facing explanation and its FRD-08 contract; see its decision log for the product-side write.
+
+## 2026-07-10 — External-repo mining: ringer (NateBJones-Projects) harvested — 6 lessons + 2 backlog items, 9 findings discarded with cause
+
+**What:** a delegated mining run over `github.com/NateBJones-Projects/ringer` (a Python stdlib orchestrator that fans tasks out to cheap headless agent CLIs and trusts only executed shell checks — exit 0 — as PASS): 5 recon subagents (STANDARD tier) mapped the repo by axis, 3 adversarial judges (JUDGE tier) evaluated 16 candidate findings against the factory's existing machinery, a writer materialized the survivors. Kept: **6 memory-inbox lines** (harness≠model taxonomy in telemetry; runtime-dispatched subagent prompts must be self-contained "on-camera" briefs, not pointer specs; synthesis steps must not introduce evidence absent from their inputs; advisory nudge-hook discipline — fire once per session, never block, honor overrides; process-group kill on timed-out gates; own verification tooling must be under continuous execution — the factory has no CI today) and **2 backlog items**: **BL-0063** (p1 — mock-worker harness giving `pandacorp-build.js` an offline, deterministic, zero-token e2e seam, modeled on ringer's `engines/mock_worker.py`; the engine's recovery ladder is untestable today) and **BL-0064** (p2, owner-gated — advisory fire-once nudge toward `/sync` after inline hand-edits). One `learn` proposal left for the owner: extend `prompting-conventions.md` scope (a PROMPT-8) to cover runtime-synthesized dispatch prompts, currently ungoverned.
+
+**Why discards matter:** 9 findings were rejected with recorded cause so they are not re-evaluated — executed-check-per-task, manifest lint, crash honesty, check-writing craft, steering profiles, model-notes journal (all already covered, mostly more strongly: DR-019/072/100 §3b/050 §11, MEM-1); evidence-based model routing and the cheap-CLI cost arbitrage (inverted economics under a flat-rate subscription — importing a per-token worker fleet would ADD cost; revisit only if the factory moves to per-token billing or needs parallelism beyond one session); zero-LLM dashboards (already the EMIT/TRACK + DR-087 doctrine).
+
+**Impact:** `factory/memory/_inbox.md` (+6), `factory/backlog/BL-0063*`, `BL-0064*`. No standard, skill, registry or product code changed — harvest only (DR-103/DR-047).
+
+## 2026-07-10 — Proposal 32 frames native dual-runtime operation as a gated SSOT architecture review
+
+**What:** Added `docs/proposals/32-native-dual-runtime/` as the decision package for the next portability iteration: a complete Codex audit, adversarial red-team corrections, current baseline evidence, a one-source/one-writer target, an atomic-lease prerequisite, a ringed implementation plan, and a read-only Claude Code review handoff. The proposal is explicitly `PROPOSED`; it changes no current runtime contract. The two deployed recurring jobs remain Claude-owned and are not proposed for duplication in Codex.
+
+**Why:** Proposal 25 established a useful portable floor but its 2026 capability assumptions are now incomplete, while the new goal is stronger: use each runtime's native advantages without splitting truth or regressing Claude. Red-team review rejected treating Goal mode, a shared executable core, the existing lock, arbitrary-point resume, or Codex parallel worktrees as proven. Independent Claude Code review is therefore a required gate before implementation.
+
+**Impact:** `docs/proposals/32-native-dual-runtime/README.md` and `claude-code-review-handoff.md`. No constitution, standard, registry, skill, agent, hook, engine, manifest, backlog status, runtime configuration, or product code changed.
+
+**Reconciliation addendum (same day):** Claude Code completed the independent review with overall verdict `MODIFY`; Codex reverified and accepted every P0–P3 finding and every claim correction against the live repository. Proposal 32 is now `RECONCILED PROPOSAL`: its one-writer seam is deterministic transition CLIs invoked by Claude subagents through generated prompt fragments (not a service callable from the workflow body); R0 first proposes the owner-gated retraction of unsafe current PORT-5 lock/resume claims; R2 adds an atomic owner-token lease, certified Stop ownership, renewal cadence and durable health/spend floors; R6 removes prompt-prose writers slice by slice; R9 fixes event-derived achievement/XP duplication. The report remains dated evidence; §18 of the proposal records the complete disposition. Five owner decisions remain. Still no implementation or current-policy change.
+
+**Owner-scope addendum (2026-07-11):** “dual runtime” was clarified as sequential interchangeability, not Claude↔Codex collaboration: exactly one runtime owns a project at a time; a later session in another runtime resumes only after a clean safe-point stop and lease release; no messaging, live steering, shared transcript or simultaneous build is required. Proposal R10 now certifies cold switches instead of takeovers. Three former owner choices are resolved by this scope: R5 NO-GO is an acceptable technical fallback, Claude owns unattended operation for V1, and Codex hook re-trust is an activation gate rather than an architecture choice. Two owner decisions remain (R0 hotfix, constitution §14 clarification). The future implementation contract also requires the principal Codex agent to orchestrate/architect/integrate/review while tier-sized subagents perform every implementation slice and independent subagents verify them.
+
+**Maintenance addendum (same day):** the owner also made dual-runtime compatibility permanent for future factory evolution, not a one-time migration. Proposal §6.2.1 introduces neutral delegation tiers (`MECH`/`STANDARD`/`JUDGE`/owner-only max) and treats Haiku/Sonnet/Opus or Codex model names as authoring aliases resolved through one runtime mapping; shared skills/agents never store vendor model names unless an explicit runtime-only override is intended. Proposal §13.1 adds a same-change dual-runtime close-out protocol for every future skill, agent, hook, manifest, template, orchestration and Mission Control change. A change authored in one tool is incomplete until the other projection passes or declares an explicit tested fallback.
+
+**Architecture-approval addendum (2026-07-11):** the owner approved the R0 safety hotfix and constitution §14 clarification, and made two runtime guarantees explicit. First, execution is strictly local to the tool that launched it: Claude Dynamic Workflows dispatch only Claude agents/models; the Pandacorp Codex executor dispatches only Codex agents/models; neither runtime messages or delegates to the other. Second, Codex `implement` must support manually launched unattended/overnight operation before parity is claimed. Official OpenAI documentation confirms programmable Codex building blocks (TypeScript SDK, App Server, and non-interactive CLI), but no identical Claude `Workflow()` DSL; Proposal 32 therefore plans a separate durable Codex adapter over the same canonical contracts and transition CLIs. A fourth red team made R11 mandatory, moved durability into R4/R7, and added fenced lease epochs, durable dispatch reconciliation, supervisor/sleep/approval handling, and an overnight canary. The two existing recurring jobs remain Claude-only. All architecture decisions are now resolved; implementation still awaits explicit authorization.
+
 ## 2026-07-10 — `/pandacorp:adopt` derives the phase from doc-quality gates, not code maturity (DR-119)
 
 **What:** adopt no longer reads a brownfield project's phase off code maturity and stamps it. Code evidence now yields only a **candidate ceiling** (an upper bound); the **actual phase is DERIVED** by running the SAME doc-quality batteries the phase skills run, bottom-up to that ceiling, ONCE per adoption (new **Step 6b**). The **product** battery (a JUDGE-tier fresh agent, opus) reuses spec Step 7c's fresh-set contradiction verifier (DR-116) + no surviving `[NEEDS CLARIFICATION]` (DR-100) + DR-095 agent-critical-fields presence; the **design** battery first runs design Step 5's verification (axe-core + Playwright at 375/1280 → `a11y-report.md` + `prototype/screenshots/`), then design Step 9's deliverable-presence check (MECH) + the design.md §1c anti-omission completeness read (JUDGE-tier). The first failing battery caps the phase at that boundary's predecessor and populates a per-phase gap report. Pre-existing and reconstructed docs run the identical oracle (constitution §24). Step 2 recast to the ceiling language; Step 6 gained the **fix-vs-route** rule (a gap the code embodies → reverse-document harder THIS run per DR-054; a gap needing a forward decision → hand to the capped phase's skill, never fabricate); Step 9 became **phase-aware**: a derived manual phase writes `phase` + `advance_pending: true` and STOPS (DR-032), a live app KEEPS `phase: release` (an observable deploy — never downgrade the board) and files each failed-battery gap as a `/change` card, routing to `/pandacorp:design` + `/pandacorp:review-launch`. New report sections `## Estado derivado` / `## Huecos por fase` / `## Siguiente paso`. Registry rule **DR-119** (`requiere_humano: true` — the derived-phase confirmation stays the owner's).

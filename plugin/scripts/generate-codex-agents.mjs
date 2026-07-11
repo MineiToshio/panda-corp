@@ -14,7 +14,7 @@
 // plugin/agents/ stays canonical. Regenerate this whenever an agent
 // changes (part of the plugin-maintenance ritual, D4).
 
-import { readFileSync, writeFileSync, mkdirSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -23,6 +23,14 @@ const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "..", "..");
 const AGENTS_SRC_DIR = path.join(REPO_ROOT, "plugin", "agents");
 const OUT_DIR = path.join(REPO_ROOT, ".codex", "agents");
+const RUNTIME_DIR = path.join(REPO_ROOT, "plugin", "runtime");
+
+function readJson(name) {
+  return JSON.parse(readFileSync(path.join(RUNTIME_DIR, name), "utf8"));
+}
+
+const MODEL_TIERS = readJson("model-tiers.json");
+const TIER_WORKER_SOURCE = readJson("codex-tier-workers.json");
 
 // ---------------------------------------------------------------------------
 // Minimal frontmatter parsing (no YAML dependency).
@@ -98,26 +106,23 @@ function parseAgentFile(raw) {
 // Model tier mapping (D5 — factory/standards/agent-portability.md).
 // ---------------------------------------------------------------------------
 
-const MODEL_TIER_MAP = {
-  haiku: { model: "gpt-5.4-mini", effort: "low" },
-  sonnet: { model: "gpt-5.5", effort: "medium" },
-  opus: { model: "gpt-5.5", effort: "high" },
-};
+const MODEL_TIER_MAP = Object.fromEntries(
+  Object.values(MODEL_TIERS.tiers).flatMap((tier) =>
+    tier.aliases.map((alias) => [alias.toLowerCase(), tier.codex]),
+  ),
+);
 
 /**
- * Maps a Claude model tier + the frontmatter's own `effort:` to the Codex
- * { model, effort } pair, per the task spec:
- *   haiku  -> gpt-5.4-mini / low
- *   sonnet -> gpt-5.5 / medium
- *   opus   -> gpt-5.5 / high
- *   missing model -> sonnet mapping
+ * Maps a legacy Claude model alias + the frontmatter's own `effort:` to the
+ * Codex { model, effort } pair owned by plugin/runtime/model-tiers.json.
+ * A missing alias resolves through the STANDARD (`sonnet`) compatibility alias.
  * An explicit `effort:` pin in the source frontmatter overrides the tier's
  * default, but only UPWARD (AGENTS.md rule 11: escalate upward, never
  * downward) — `sonnet + effort: high` must stay `high` on Codex, not fall
  * back to the tier's `medium` (the silent downgrade hit security-auditor,
  * analytics, devops and librarian — Fable-audit 2026-07-04 #5).
  */
-const EFFORT_RANK = { minimal: 0, low: 1, medium: 2, high: 3, xhigh: 4 };
+const EFFORT_RANK = Object.fromEntries(MODEL_TIERS.effort_rank.map((value, index) => [value, index]));
 
 function mapModelTier(claudeModel, explicitEffort) {
   const key = (claudeModel || "sonnet").trim().toLowerCase();
@@ -226,30 +231,12 @@ function renderAgentToml({ name, description, model, effort, sandboxReadOnly, de
 // Generic tier workers (not sourced from any .md file — D4).
 // ---------------------------------------------------------------------------
 
-const TIER_WORKERS = [
-  {
-    fileSlug: "tier-mech",
-    name: "tier-mech",
-    description:
-      "Mechanical zero-judgment executor (commits, renames, single-line tweaks) — Pandacorp MECH tier",
-    model: "gpt-5.4-mini",
-    effort: "low",
-  },
-  {
-    fileSlug: "tier-standard",
-    name: "tier-standard",
-    description: "Default implementation/research worker — Pandacorp STANDARD tier",
-    model: "gpt-5.5",
-    effort: "medium",
-  },
-  {
-    fileSlug: "tier-judge",
-    name: "tier-judge",
-    description: "High-judgment reviewer/architect/red-teamer — Pandacorp JUDGE tier",
-    model: "gpt-5.5",
-    effort: "high",
-  },
-];
+const TIER_WORKERS = TIER_WORKER_SOURCE.workers.map((worker) => ({
+  fileSlug: worker.file_slug,
+  name: worker.name,
+  description: worker.description,
+  ...MODEL_TIERS.tiers[worker.tier].codex,
+}));
 
 function buildTierDeveloperInstructions(tierLabel) {
   return [
@@ -275,6 +262,13 @@ function main() {
     .sort();
 
   const generated = [];
+  const expectedNames = new Set([
+    ...agentFiles.map((file) => `${file.replace(/\.md$/, "")}.toml`),
+    ...TIER_WORKERS.map((tier) => `${tier.fileSlug}.toml`),
+  ]);
+  for (const existing of readdirSync(OUT_DIR).filter((file) => file.endsWith(".toml"))) {
+    if (!expectedNames.has(existing)) rmSync(path.join(OUT_DIR, existing));
+  }
 
   for (const file of agentFiles) {
     const fullPath = path.join(AGENTS_SRC_DIR, file);

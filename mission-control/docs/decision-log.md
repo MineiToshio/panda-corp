@@ -4,6 +4,100 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-11 — Multi-runtime Manual follows the current R10/R11 permission boundary
+
+**What:** removed the obsolete statement that Codex build writes unlock after R2/R3/first-R6 (those
+gates are already green). The Manual and FRD-08 now keep Codex read/review-only until the installed
+R10 cold-switch canary and R11 `LIVE_OVERNIGHT` pass; they distinguish source-certified Codex hooks
+from installed/trusted enforcement and explain that durable XP uses an oracle-backed v2 ledger, not
+event identity as an accounting boundary.
+
+**Why:** the prior wording mixed an early rollout threshold with the current certification gate and
+could invite an unsafe build launch. The UI must expose the same fail-closed status as PORT-5 while
+still showing the real progress: R10 fixture and R11 offline/current-head short-live are green.
+
+**Impact:** hand-authored multi-runtime Manual (interactive page plus Markdown fallback),
+`RuntimeComparison` and FRD-08 only; no
+runtime capability was promoted and no Mission Control build state changed.
+
+## 2026-07-11 — R10 cold continuation carries one logical build-run identity
+
+The Multi-runtime Manual now makes the durable handoff key explicit: one shared resolver
+automatically reuses the prior `build_run_id` only at a released cross-runtime implementation safe
+point, preserving dispatch, spend and health floors without owner-supplied IDs. Same-runtime passes,
+release state and explicit `new` intent start a new run. This mirrors the independently hardened R10
+fixture and changes no current permission: installed R10 and unattended R11 remain promotion gates.
+
+## 2026-07-11 — R9 durable accounting is oracle-derived, not event-ID-derived
+
+**What:** replaced the in-memory semantic tail filter as the XP/achievement trust boundary with schema
+v2 of the existing gitignored gamification ledger. Its sole Server Action writer re-reads canonical
+project files, serializes and writes atomically, migrates valid v1 maxima, refuses corrupt/symlinked
+state, and materializes only oracle-corroborated fields. Every production durable predicate now reads
+the ledger; live Claude/Codex streams remain available to La Fragua and the usage report.
+
+**Why:** `event_id`, `run_id`, agent, role, mode, timestamp and verdict are producer claims. They can
+deduplicate a feed but cannot prove a result. A local shared signature key would be available to the
+same processes that append events, so canonical WO/FRD/status/artifact oracles are the honest proof.
+
+**Evidence:** ledger v2 security tests cover stream deletion/mutation, alias and transport replay,
+forged identities and attribution, corrupt migration, concurrent reconciliation and the explicit
+empty-durable boundary. FRD-09/10, ADR-0005 and the Manual describe telemetry-only degradations.
+
+## 2026-07-11 — Manual exposes honest R11 unattended evidence levels
+
+**What:** the multi-runtime Concept distinguishes accelerated failure evidence, a short real provider
+canary and a true several-hours overnight canary. It now records the current-head 114-second
+`LIVE_SHORT` GO while keeping Codex build writes disabled because `LIVE_OVERNIGHT` and installed R10
+remain open.
+
+**Why:** Mission Control must mirror the factory's operable surface without turning a short canary
+into an overnight claim. The evidence boundary is user-visible behavior under DR-046.
+
+**Impact:** hand-authored Manual and FRD-08. Canonical certification remains
+`plugin/runtime/codex/R11-CERTIFICATION.md`.
+
+## 2026-07-11 — Manual distinguishes R10 fixture proof from installed runtime certification
+
+**What:** synchronized the hand-authored multi-runtime Manual with Proposal 32 R10. The runtime
+comparison now says that bidirectional cold continuation is proven only in a disposable fixture over
+the real fenced state APIs, while the installed Claude→Codex→Claude canary and R11 unattended canary
+remain pending. It continues to prohibit live takeover, simultaneous build ownership and
+runtime-to-runtime delegation, and does not present Codex `implement` as promoted.
+
+**Why:** a green offline state/lease harness establishes durable interchangeability at a clean safe
+point, but it cannot impersonate an installed Claude Dynamic Workflow or prove an app-to-app run.
+DR-046 requires the Manual to preserve that evidence boundary rather than turn fixture success into
+operator permission.
+
+**Impact:** Manual content only. Canonical execution status remains in
+`plugin/runtime/codex/R10-CERTIFICATION.md` and `factory/standards/agent-portability.md` PORT-5.
+
+## 2026-07-11 — Runtime-neutral observability without a second event truth (Proposal 32 R9)
+
+**What:** added one canonical machine-readable event vocabulary at `plugin/runtime/event-vocabulary.json`, a generated/drift-checked Mission Control projection, a Claude+Codex dual-reader, exact `event_id` deduplication and a shared semantic ledger for every XP/achievement consumer keyed by `(run_id,event_name,subject)`. The Codex executor now appends its own enriched transport at `~/.codex/dashboard-events.ndjson`; Claude's legacy transport remains operational. FRD-15 now exposes separate Claude/Codex installed-cache verdicts. Recorded the design in ADR-0005 and reconciled FRD-01/09/15 plus the Manual.
+
+**Why:** telemetry may describe work but must never become a second writer of phase/WO/build facts, and two runtime transports must not award the same result twice. Keeping La Fragua's display names in the canonical mapping preserves the UI while runtimes remain strictly local.
+
+**Evidence:** legacy and Codex fixtures, exact replay, alias replay, missing/deleted stream and separate-cache tests under `src/lib/events/_tests`, `src/lib/gamification/_tests` and `src/lib/plugin-sync/_tests`; canonical projection is enforced by `check-derived-drift.sh`.
+
+**Independent-review addendum:** the first R9 review rejected two semantic shortcuts and one merge
+ordering bug. `dispatch_finished` no longer aliases the result-bearing `agent.done`, and
+`change_reconciled` no longer aliases `change.integrated`; each has its own canonical semantic act while
+retaining La Fragua's display vocabulary. Independent Claude/Codex tails are sorted chronologically
+before the cap, while a single legacy file preserves file-order tail semantics. Explicit transport
+overrides no longer accidentally mix in the other runtime's live default file. Added same-file source
+dedup and a fail-soft transport-write canary. Evidence: event/gamification/achievement/plugin-sync
+corpus 582/582, typecheck, and transport 12/12 before the final full gate.
+
+## 2026-07-11 — Manual retracts unsafe cross-runtime build/resume claims (Proposal 32 R0)
+
+**What:** synchronized the hand-authored multi-runtime Manual with the owner-approved R0 factory contract. `ConceptMultiRuntime`, its markdown fallback and `RuntimeComparison` no longer instruct Codex to execute PORT-5 writes or claim that durable files plus `running`/heartbeat make cross-runtime resume and mutual exclusion safe. They now state the interim boundary: Codex is read/review-only on build state until R2 + R3 + the first R6 transition are certified; runtime changes are cold and safe-point-only; the legacy guard is TTL liveness, not an atomic lock; execution stays local to each runtime's own agents/models. The test trail now asks Codex to review a stopped safe point without mutation. FRD-08 adds the corresponding EARS criterion and blueprint traceability row.
+
+**Why:** the previous Manual turned Proposal 25's assumption into an unsafe operator instruction. A live executor holds scheduler, commit-chain, budget and health state that the files do not fully reconstruct, and lock acquisition is currently unfenced read-then-write. DR-046 requires the owner-facing surface to narrow permission at the same time as the canonical factory standard, not after an incident.
+
+**Impact:** content/contract only; no Mission Control data reader, runtime executor or project state changed. Canonical factory source: `factory/standards/agent-portability.md` PORT-5 and constitution §14.
+
 ## 2026-07-10 — Manual sync (DR-046): change 4th outcome, review-launch provenance guard, architecture 3-gate
 
 **What:** DR-046 Manual sync in the same change as a factory skill-surface update. Touched only hand-authored Manual content (Reference catalogs auto-derive, untouched): (1) `change` now has a **milestone-scale** outcome beyond bug/feature/decision — added the owner-gated `new-version` handoff (DR-069 §5) to the rendered guide `GuideCambio` (`src/app/manual/manualPages.tsx`) and its markdown backing `content/manual/guides/g-cambio.md`; (2) `review-launch` now runs **two provenance asserts** (telemetry `docs/analytics/events.md` exists; connected PostHog project matches THIS app) with an honest "sin datos" fallback before reading metrics — added to the rendered `ConceptDespuesDeLanzar` and `content/manual/concepts/despues-de-lanzar.md` step 2; (3) architecture's single readiness gate is now **three parallel JUDGE-tier gates** (readiness/grounding/contradiction, flip on all three green) — corrected `content/manual/concepts/el-pipeline.md` (the rendered `PipelineDiagram` copy is high-level and stayed accurate). **Why:** the Manual must not describe stale operable surface (DR-046). Trigger: factory changes to the `change`/`review-launch`/`architecture` skills. Not covered elsewhere (no edit): bug/change status enum (`building`/`done` are automated lifecycle, Manual only surfaces draft-vs-ready), release verify.sh-bound checklist, design path-aware a11y/master-brief, sync-portfolio scan-portfolio.sh. Prose-only; no code/logic change. Not committed.

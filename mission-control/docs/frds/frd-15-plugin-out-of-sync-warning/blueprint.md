@@ -161,3 +161,7 @@ with FRD-16's `orphans-banner/**` or FRD-18's dashboard surfaces.
 **Cross-FRD deps:** `frd-13` (the shared `Banner`/`CmdRow`/`CopyButton` — WO-13-007). The plugin-drift
 banner is the `kind="drift"` **consumer** of that one `Banner`; it must NOT re-declare a banner style
 block (the DR-057 duplicate-banner defect this Phase-2 WO exists to fix).
+
+## R9 adapter-aware freshness
+
+`PluginSyncState.runtimes` contains independent `claude` and `codex` `RuntimePluginSyncVerdict` values. Claude reads `~/.claude/plugins/installed_plugins.json` and its source manifest; Codex reads the explicitly activated `PANDACORP_CODEX_PLUGIN_ROOT` (with a conservative standard-cache fallback) and its own generated source manifest. The old top-level Claude fields remain additive compatibility fields for shipped clients.

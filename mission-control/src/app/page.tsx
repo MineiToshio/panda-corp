@@ -43,7 +43,6 @@ import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { Cartera } from "@/components/dashboard/Cartera/Cartera";
 import { DashboardLiveWatcher } from "@/components/dashboard/DashboardLiveWatcher/DashboardLiveWatcher";
 import { FactoryWorktrees } from "@/components/dashboard/FactoryWorktrees/FactoryWorktrees";
-import { GamificationLedgerSync } from "@/components/dashboard/GamificationLedgerSync/GamificationLedgerSync";
 import { Progreso } from "@/components/dashboard/Progreso/Progreso";
 import { TuTurno } from "@/components/dashboard/TuTurno/TuTurno";
 import { Digest } from "@/components/modules/Digest/Digest";
@@ -57,6 +56,7 @@ import {
 } from "@/lib/constants";
 import type { EventsSnapshot } from "@/lib/events/events";
 import { getGuildState } from "@/lib/gamification/guildState";
+import { durableEvents, readLedger } from "@/lib/gamification/ledger";
 import { countIdeas, countLaunched, type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
@@ -296,9 +296,7 @@ export default function HomePage(): React.JSX.Element {
 
   // Guild state (statuses + events + level) from THE single source of truth, so the
   // dashboard's guild level matches the header GuildBar and the Logros hero exactly.
-  // `liveOutcomes` (pre-ledger) is passed to GamificationLedgerSync so the snapshot
-  // action can compare raw live vs stored max — not the already-merged outcomes (WO-09-006).
-  const { statuses, eventsSnapshot, liveOutcomes, level: guildLevel } = getGuildState();
+  const { statuses, eventsSnapshot, outcomes, level: guildLevel } = getGuildState();
   // Drop infra/live-stream noise (SubagentStop/SupervisorTick/AgentWorking) so the "since last visit"
   // digest shows milestone changes, not thousands of SubagentStop rows (coherence, prototype digest).
   const events = filterDigestEvents(eventsSnapshot.events);
@@ -326,7 +324,8 @@ export default function HomePage(): React.JSX.Element {
     ideas,
     statuses,
     eventsSnapshot,
-    workOrdersDoneLive: liveOutcomes.workOrdersDone,
+    workOrdersDoneLive: outcomes.workOrdersDone,
+    durableEvents: durableEvents(readLedger()),
   };
   const { recentAchievement, nextMilestone } = deriveGamification(readerData);
 
@@ -354,9 +353,6 @@ export default function HomePage(): React.JSX.Element {
     >
       {/* ── Live watcher (renders null): event-driven real-time refresh, AC-18-001.2 ── */}
       <DashboardLiveWatcher />
-      {/* ── Ledger sync (renders null): fire-and-forget snapshot after paint, AC-09-006.2 ── */}
-      <GamificationLedgerSync liveOutcomes={liveOutcomes} />
-
       <div style={PAGE_STYLE}>
         {/* ── Health banners (conditional, AC-18-001.3). Collapses when empty
             (globals.css :empty rule) so it never adds a stray gap. ── */}

@@ -4,6 +4,334 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.92.3 — 2026-07-11 (PATCH): fenced Claude launcher ordering and accurate runtime docs
+
+**What:** the Claude project-build launcher now acquires the neutral lease before any phase write,
+advances `phase` only through the fenced state CLI, and releases a newly acquired lease if that
+projection fails. Its focused corpus proves both a contended no-op and post-acquire cleanup. The
+Manual now distinguishes the installed Codex plugin from Cursor/OpenCode's portable floor, and
+Claude workflow examples no longer omit the mandatory lease receipt.
+
+**Why:** a losing Claude launch could previously change `phase` before `acquire` rejected contention;
+the old Manual also said Codex ignored the plugin that Proposal 32 installed. Both were regressions
+at the runtime boundary, not acceptable documentation shorthand.
+
+**Impact:** plugin 9.92.3; no overlay change. Claude keeps Dynamic Workflows and its native hooks,
+agents, supervisor and recurring routines unchanged.
+
+## v9.92.2 — 2026-07-11 (PATCH): runtime-compatible Codex manifest projection
+
+**What:** the canonical plugin metadata now projects the required Codex `interface` block and skills
+path while omitting the unsupported top-level `hooks` field. Claude's manifest continues to receive
+only its compatible common fields. The runtime-source gate proves this split and bounds Codex starter
+prompts to the ingestion contract.
+
+**Why:** Codex plugin ingestion rejects hook registration in `plugin.json` and requires presentation
+metadata. Codex enforcement already has a separate canonical owner and generated registration:
+`plugin/runtime/enforcement-policy.json` → `.codex/config.toml` and
+`plugin/hooks/codex-hooks.json`. Keeping that boundary avoids a second writer and leaves Claude's
+native plugin lifecycle unchanged.
+
+**Impact:** plugin 9.92.2; no overlay change. Both manifests remain generated from one metadata
+source, but their runtime-specific compatible shapes intentionally differ.
+
+**Packaging addendum:** the repo-local Codex marketplace at `.agents/plugins/marketplace.json`
+publishes `pandacorp` through the relative `plugins/pandacorp → ../plugin` symlink. Codex resolves the
+catalog's `./plugins/pandacorp` source from the repository root (confirmed against the real CLI), not
+from the marketplace file's directory. It is a
+catalog/bridge only: plugin content remains single-source in `plugin/`. Runtime-source checks bind the
+catalog schema and exact resolved symlink target. This packaging addition does not change the plugin
+or overlay version and does not install or activate the marketplace.
+
+## v9.92.1 — 2026-07-11 (PATCH): automatic cold-continuation run resolution
+
+Both runtime launchers and preflight now consume one resolver that automatically preserves the
+canonical logical build run at a released cross-runtime safe point; same-runtime passes, release
+state and explicit `new` intent still create a new run. No overlay change.
+
+## v9.92.0 — 2026-07-11 (MINOR): discover — killed picks become permanent discarded cards; teaser memory is permanent
+
+**What:** two changes close a do-not-re-suggest gap in `/pandacorp:discover`:
+1. **Deep-dive kills of PICKED candidates now auto-card as `discarded`** (Step 3f) — `status: discarded`,
+   `origin: discovery`, `status_before_discard: discovered`, `discard_reason` = the evidence-backed kill
+   finding — so they enter the PERMANENT exclusion set (Step 0 + Gate 3.0) and never resurface. This
+   REPLACES the old "auto-kills are reported, not carded (only the owner discards from MC)" rule. The
+   owner can restore from Mission Control if he disagrees.
+2. **Step 0 now reads ALL past teaser sheets** (not a rolling ~3-run window) — passed-over teasers are
+   permanently not re-teased.
+
+**Why:** the owner (2026-07-11 run) asked for a durable "discarded list so the same idea is never
+suggested again." The mechanism mostly existed (discarded cards → exclusion set, dedup by problem), but
+had a hole: ideas killed by the deep-dive BEFORE carding (this run: the vibe-coding security auditor and
+the anti-Zety resume builder) only lived in the teaser-sheet memory, which was a rolling ~3-run window —
+so after a few runs they could resurface. Both killed picks were filed as discarded cards in this same
+change (`factory/ideas/vibe-coding-security-auditor.md`, `factory/ideas/resume-builder-one-time-anti-zety.md`).
+
+**Impact:** plugin 9.92.0 (both manifests); no agent change. Manual unaffected — no narrative page
+enumerates discover's exclusion mechanism (the only "descartada" mention is MC's own write capability).
+Two agent-inferred lessons jotted to `factory/memory/_inbox.md` (hot-category indie-wave saturation;
+already-occupied pricing-trap wedge). No overlay bump.
+
+## v9.91.1 — 2026-07-11 (PATCH): discover app-enhancement pain-intensity + trivial-copy bar
+
+**What:** `/pandacorp:discover` now holds extension/companion candidates to a higher bar. The
+App-enhancement lens (1a), the teaser triage (1c) and the red-team kill-gate (3f criterion #4) require
+the missing feature to be a **strong, widespread pain that visibly hurt the incumbent** (rating dragged
+down, mass complaints/abandonment) — **NOT a minority gripe on a beloved high-rated app** (a 4.9★ app
+whose fans love it → ~10 users converted, not a market), and **NOT a trivial feature the incumbent can
+add in one update** (which wipes out the app). A weak-signal or trivially-copyable companion is now a
+KILL, not a survivor.
+
+**Why:** the owner (2026-07-11 `/discover` run) passed on the Steam-regional-price and YouTube-Unhook-
+toggle teasers with exactly this reasoning: "es un feature chiquito que la extensión arregla y te tumba
+todo"; and on a 4.9★ beloved app "ganas 10 usuarios pero convertir a los que la aman está complicado —
+tiene que ser un dolor tan fuerte que ya le bajó estrellas". Recorded as a rejection pattern in
+`factory/profile.md` (DR-053, Step 0 reads it into the triage).
+
+**Impact:** plugin 9.91.1 (both manifests); no agent change; standards catalog unaffected. High-level
+lens description in the Manual (`tu-perfil`) unchanged — this is a within-lens rigor bar, not a new
+lens/flow/gate. No overlay bump.
+
+## v9.91.0 — 2026-07-11 (MINOR): discover Phase 1 as an inline decision widget + a technical-feasibility dimension
+
+**What:** `/pandacorp:discover` Phase 1 now presents its 8-12 teasers as an **inline decision
+widget** (Claude Code, via the `visualize` `show_widget` tool) instead of only a flat markdown sheet,
+and each teaser carries three new fields: **the problem** (a PAS seed, not just the pain), **the
+proposed solution** (one line), and **a first-read of technical viability** (the one critical
+capability the app must obtain + its access path + a 🟢viable/🟡spike/🔴blocked flag). Phase 2 gains a
+Step-2 **technical-feasibility spike** and a new **gate 3d (technical feasibility)** — a 🔴-blocked
+core capability with no fallback = cannot-be-build (→ validate/re-scope); a 🟡 stays but the memo names
+the spike as the explicit first build step. Gates renumbered (old 3d ground-truth+legal → 3e,
+red-team → 3f); the feasibility read is recorded in the card's Profundizar prose (no new frontmatter
+field, so the byte-authoritative card contract is untouched). Markdown draft sheet is kept as the
+durable record (unattended runs, dedup, DR-053 learning); non-Claude runtimes fall back to it (no
+widget tool).
+
+**Why:** the owner rejected the flat one-line sheet ("no me da nada de información") and asked for the
+richer inline widget — he ruled it the best way to decide. Critically, he flagged that **technical
+viability must be read in discovery, not discovered at the architecture phase**: a picked idea whose
+critical data/capability turns out unreachable (his example: can we actually get Steam's real regional
+price? — yes, via `appdetails?cc=pe`) would waste the whole spec→design→architecture spend.
+
+**Impact:** plugin 9.91.0 (both manifests); no agent change (Codex agent mirrors unchanged);
+`skill-capabilities.json` regenerated. Manual synced (DR-046): `tu-perfil` + `el-pipeline` concept
+pages (TSX components in `manualPages.tsx` — LESSON-0028 — and their `.md` sources) updated with the
+widget presentation and the feasibility gate. Owner-facing widget taste recorded in the profile
+(DR-053). No overlay bump (no managed project template changed).
+
+## v9.90.1 — 2026-07-11 (PATCH): R9 durable accounting provenance correction
+
+**What:** the runtime source and capability graphs now identify Mission Control's schema-v2
+gamification ledger and its sole Server Action writer as the durable accounting boundary. Live event
+IDs and semantic keys remain transport dedup only; canonical file oracles establish results.
+
+**Why:** the first R9 implementation still trusted producer-declared run/subject identity in an
+in-memory tail, which did not survive stream rotation and allowed forged attribution. The corrected
+graph prevents future runtimes from treating telemetry as an accounting source.
+
+**Impact:** canonical metadata and generated manifests 9.90.1; no overlay bump (no managed project
+template changed). Mission Control owns the implementation and records the product decision.
+
+## v9.90.0 — 2026-07-11 (MINOR): R11 durable unattended harness and live-short evidence
+
+**What:** added the Codex unattended preflight, whole-supervisor sleep inhibition, atomic path-safe
+launch receipt, bounded supervisor restart/backoff, `TTL/3` heartbeat validation, accelerated failure
+corpus, real short-canary runner and fail-closed evidence collector. The receipt serializes the exact
+guarded launcher continuation argv—including targeted `--change`/`--frds` scope and logical run ID—
+plus the exact supervisor argv, so resumption reruns preflight, restores the inhibitor and cannot
+silently become a bare queue drain. Matching stale-lease continuation is fail-closed by runtime/run ID;
+fresh or foreign leases remain blocked. Stopping the receipt's supervisor PID quiesces its worker/lease;
+the separately recorded inhibitor is PID-bound and terminates with it. Supervisor backoff is
+signal-interruptible, project enforcement files must exactly match their canonical generated
+projections, and collected evidence binds the launch/checkpoint/ledger/terminal/release chain to one
+run while requiring the lease to be absent.
+
+**Evidence/verdict:** `OFFLINE_ACCELERATED` is green (13/13) and current-head real-provider
+`LIVE_SHORT` run `codex-20260711T183105Z-28552` completed in 114 seconds with two dispatches/four
+durable spend units, a 120000 ms heartbeat within `TTL/3`, controller verify, terminal supervisor
+evidence and fenced release; the disposable fixture was removed. The first live attempt exposed
+and correctly rejected a hardening heading mismatch; the prompt now names the controller's exact
+`## Verification` contract. A current-head rerun then exposed an expired unrelated user MCP; global
+config is now isolated and project config/rules are mandatory. Capacity later returned and the
+current-head canary closed that short-live gap. `LIVE_OVERNIGHT` and installed R10 remain pending, so
+Codex `implement` stays `FALLBACK`.
+
+**Impact:** executor/supervisor/launcher and R11 scripts/contracts/evidence; capability/source graphs,
+runtime docs, Proposal 32 and Mission Control Manual. Plugin **9.90.0**; no overlay bump because no
+managed project template changed in this slice. The two recurring routines remain Claude-only.
+
+## v9.89.0 — 2026-07-11 (MINOR): R10 fixture-proven bidirectional cold continuation
+
+**What:** added `test-runtime-switch.mjs`, a disposable Claude→Codex→Claude cold-continuation harness over the real fenced build-state APIs; added an orphan `IN_PROGRESS` restart case to the Codex executor suite; recorded evidence levels and the pending installed-runtime canary in `runtime/codex/R10-CERTIFICATION.md`; updated capability ownership and every operative permission surface without promoting Codex `implement`. The harness also asserts the two deployed routines and factory backlog drain-all remain Claude-owned. The managed project AGENTS template moves to overlay 8.73.0.
+
+**Why:** fixture evidence can prove file-state/lease interchangeability, but cannot impersonate an installed Claude Dynamic Workflow or certify an installed app-to-app switch. The live canary and R11 remain gates; labeling evidence by level prevents offline simulation from becoming an unsafe permission claim.
+
+**Independent R10 review result:** the original fixture changed `run_id` at each runtime boundary,
+which reset the ledger and therefore did not prove the required cross-switch spend/health floors. The
+contract now defines `run_id` as a logical governed build-run ID, both launchers accept an explicit
+continuation ID for mechanical restart receipts, and both default to the one shared automatic
+resolver. The 17-check fixture proves Claude→Codex→Claude resolves the canonical ID without owner
+input, preserves cumulative spend/health, keeps dispatch replay idempotent and rejects overspend.
+Same-runtime next passes, release state and explicit `new` intent create a new run; runtime
+process/session identity remains local.
+
+**R8 security close-out folded into this release:** centralized archive evidence validation and now
+re-runs it before all three rename paths: normal `building`, post-crash `status: done` re-entry and
+archive transaction replay. New canaries delete or mutate an integrated path after the `archive-card`
+crash boundary and place a foreign archive target; every path fails closed without archiving or
+overwriting owner bytes. Updated R8 evidence: `test-build-state.mjs` **21/21**. Independent review is
+still required; this implementation does not self-certify the close-out.
+
+**Independent R8 review result:** the JUDGE review found and closed two additional fail-open seams:
+progress-field normalization had applied to the whole Markdown body instead of only its leading YAML
+frontmatter, and the archive readiness read had not independently rejected a swapped `frd.md`
+symlink. The close-out now also binds each card to the digest of its completed apply transaction,
+rejects unknown/tampered transaction types and stages, and compares the card's exact FRD/path set to
+that durable plan. Reviewer-authored canaries are folded into the same **21/21** corpus; the product
+change-queue R8 verdict is GO offline. Installed-runtime and unattended gates remain separate.
+
+## v9.88.0 — 2026-07-11 (MINOR): R8 fenced product change-queue drain and adversarial path hardening
+
+**What:** the Codex product executor now drains `ready` change cards at safe points through a
+proposal-only JUDGE planner and the shared fenced state writer. Bare, targeted-change and targeted-FRD
+runs preserve DR-069 scope. Plans must produce a complete affected FRD/blueprint/WO Build Plan DAG;
+cards become `building` only after deterministic application and move to `done/` only after every
+affected FRD verifies. Apply/archive transactions resume at every journal boundary without
+redispatching the planner or duplicating the integration commit.
+
+**Security review:** all change/card/done, FRD, work-order and mutation paths now require real in-tree
+roots, parents and leaves (`lstat` + `realpath`); symlinks, target escapes and existing archive targets
+fail closed. Replay revalidates the plan and canonical archive target. An integration stamp is bound to
+current HEAD, all exact planned paths and their committed contents, closing the prior “any path under
+the affected FRD” evidence gap. Signal-race verification now uses a deterministic barrier rather than
+a timing window.
+
+**Verdict:** R8 product ready-queue support is **OFFLINE PROVEN**, removing that blocker from the
+Codex executor catalog. Overall Codex `implement` remains `FALLBACK` until the real R7 smoke and R11
+unattended canary pass. Factory backlog drain-all remains explicitly Claude-owned; its independent
+spike is 26/26 but does not justify a partial second controller.
+
+**Evidence:** `test-build-state.mjs` 21/21; `test-codex-executor.mjs` 23/23, including card/root/done,
+FRD/work-order parent and target symlinks, existing-target collision, fake/foreign/wrong-path/content
+commit evidence, and executor recovery at prepared/mutation/card boundaries.
+
+**Independent P1 close-out:** archive now also proves every integrated path still exists as a real file
+and matches the integration content modulo controller-owned progress frontmatter in normal execution,
+post-`archive-card` re-entry and transaction replay; delete/mutate after integration fails closed.
+Factory backlog rollback replaced the split `update-ref` + `restore` sequence
+with `git reset --keep`, which aborts and preserves concurrent owner bytes (26/26 backlog corpus).
+
+**Impact:** shared `build-state.mjs` + contract; Codex executor and change-result contract; R8 tests,
+runtime executor docs/source/capability graphs and Proposal 32 evidence. Plugin version **9.88.0**; no
+overlay bump (the executor is plugin-owned and no project-managed template changed in this slice).
+
+## 2026-07-11 — R9 runtime-neutral event transport and semantic vocabulary (part of v9.88.0)
+
+**What:** added the canonical event vocabulary, generated Mission Control projection and Codex-local
+NDJSON transport with `runtime`, `run_id`, `event_id`, stable semantic name and subject. External
+transport writes are best-effort and cannot stop a build; the executor's own durable journal remains
+separate evidence. Independent review split non-result lifecycle observations from result-bearing acts:
+`dispatch.finished` ≠ `agent.done`, and `change.reconciled` ≠ `change.integrated`, while their display
+names remain compatible with La Fragua.
+
+**Why:** sharing a display glyph is not permission to share an accounting identity. Treating a model
+dispatch exit as a verified WO completion, or a waiting/reset reconciliation as an integration, would
+let vocabulary normalization inflate achievements or hide distinct lifecycle evidence.
+
+**Evidence:** generated-projection drift gate; `test-event-transport.mjs` 12/12 including a failing
+external transport; Mission Control's event/gamification/achievement/plugin-sync corpus 582/582 and
+typecheck. Mission Control's ADR-0005, FRD-01/09/15 and decision log own the product-side contract.
+
+## v9.87.0 — 2026-07-11 (MINOR): R5 stable split architecture + R7 durable Codex executor remains FALLBACK
+
+**What:** R5 records a stable NO-GO for a shared executable orchestration bundle: Claude keeps its
+native Dynamic Workflow controller, while both runtimes share deterministic schemas, fenced state
+CLIs and generated prompt fragments. Added the Codex-local sequential executor/supervisor with strict
+Build Plan DAG parsing, durable lease/spend/health/checkpoint/commit ownership, bounded multipass
+convergence, independent per-FRD review, preserved RED tests, no-blind-retry uncertain dispatch,
+precise staging, explicit terminal reasons and process-group quiescence. Release is now two-phase in
+both controllers: fenced `quiesce` projects `running:false` while retaining ownership, the controller
+commits only `status.yaml`, then fenced `finalize-release` removes the lease. Hardening uses a
+read-only JUDGE auditor, a separate STANDARD fixer and controller-side evidence plus full verify.
+
+**Verdict:** R7 is **NO-GO for PROVEN promotion** and Codex `implement` remains `FALLBACK`. The
+disposable mock/failure suite is green, but the real read-only low-budget `codex exec` smoke reached
+the provider and was BLOCKED by the account usage limit. Ready change cards also fail safe into a
+persisted decision because automatic queue draining belongs to R8; unattended certification belongs
+to R11. No live evidence was inferred from mock success.
+
+**Why:** two runtime-native controllers are safer than a nominal shared bundle that Claude cannot
+execute directly. Durable state can be shared only at deterministic writer boundaries. The red-team
+found that releasing before committing `running:false`, handling signals concurrently with staging,
+letting a reviewer write its own hardening fix, or retrying an unknown dispatch would each reopen a
+double-writer or false-green path.
+
+**Evidence:** `test-codex-executor.mjs` 13/13; `test-build-state.mjs` 16/16;
+`test-engine-lease-lifecycle.mjs` 8/8. The Codex structured-output transport schema passed local
+validation; the live request was usage-BLOCKED and is documented as such in
+`plugin/docs/runtime-executors.md`.
+
+**Impact:** `plugin/runtime/codex/{executor.mjs,supervisor.mjs,result.schema.json}` · shared
+`build-state.mjs`/schema/contract · build-state CLI and enforcement policy · both Claude engine
+projections · Codex launcher/tests · runtime source/capability graphs · runtime executor docs.
+`OVERLAY_VERSION` advances to **8.72.0** for the generated project engine and R7 permission carrier.
+
+## v9.86.0 — 2026-07-11 (MINOR): Generated Codex enforcement + native dual-runtime foundation (Proposal 32 R1–R6)
+
+**What:** This MINOR release consolidates the R1–R6 native dual-runtime foundation documented in
+this entry and the three component entries immediately below. Added one machine-readable enforcement policy whose Codex registration, project config,
+execpolicy rules and overlay projections are generated, while both runtimes continue to invoke the
+existing canonical dangerous-command, write-nudge and Stop handlers through a strict payload adapter.
+Codex 0.144.1 accepts the generated config and plugin manifest in a disposable install. The shared
+corpus proves fail-closed behavior for malformed payloads, missing `jq`, protected-state deletion,
+runtime-local dispatch, fenced CLI use and red Stop gates; only a live Claude-owned lease may suppress
+Claude's known-good Stop gate before Codex verification ownership is promoted. Activation and hook
+trust remain explicit owner-local gates. Independent R2 review then removed raw tokens from durable
+lease state, made stale-mutex recovery ownership-safe, rejected protected-state symlinks and invalid
+budget/health numbers, and made release ownership end through an atomic tomb rename.
+
+**Why:** duplicating hook behavior would create two policy sources, but sharing raw runtime payloads
+would make malformed or renamed fields fail open. Generated runtime-local registrations preserve one
+behavioral owner without weakening Claude. The lease review found crash/race and token-exposure paths
+that unit tests had not covered; fencing is only credible when those hostile cases reject mechanically.
+
+**Impact:** `plugin/runtime/{enforcement-policy.json,build-state.mjs,source-graph.json,plugin-metadata.json}`
+· `plugin/scripts/{pandacorp-hook-adapter.mjs,generate-codex-enforcement.mjs,test-codex-enforcement.mjs,test-build-state.mjs,check-derived-drift.sh,verify-before-stop.sh}`
+· generated `.codex/{config.toml,rules/pandacorp.rules}`, Codex hook registration and overlay copies
+· `plugin/docs/codex-activation.md` · Codex manifest. Claude's `plugin/hooks/hooks.json` is unchanged.
+
+## 2026-07-11 — Exact skill capability matrix + first fenced transition slice (Proposal 32 R4/R6)
+
+**What:** Added an exact generated 25-skill runtime matrix with dated evidence, honest Codex `FALLBACK` labels until live certification, and Codex sidecars only for the five internal engines. Migrated derived FRD/blueprint rollups and status counts to `build-state.syncRollups`, guarded by token+epoch inside the lease mutation mutex. The Claude engine consumes a generated CLI prompt, its launcher acquires the lease, safe points renew it, terminal/crash/early exits release it, and the supervisor renews on its dedicated tick. Writer-boundary lint rejects the retired free-form sync writer.
+
+**Why:** skill discovery is not behavioral proof, and a shared state machine cannot tolerate each runtime reimplementing rollup precedence or counters in prose. This slice establishes the evidence vocabulary and proves the incremental migration pattern without introducing a Codex executor.
+
+**Impact:** `plugin/runtime/{skill-runtime-policy.json,skill-capabilities.json,prompts/sync-rollups.md,build-state.mjs,source-graph.json,capability-ownership.json}` · internal skill sidecars · generators/verifiers/tests · Claude engine template/projection · `launch-implement.sh` and `implement/SKILL.md` lease lifecycle.
+
+## 2026-07-11 — Neutral atomic build lease, fencing and durable run brakes (Proposal 32 R2)
+
+**What:** Added a zero-dependency neutral build-state library and CLI with atomic directory acquisition, opaque owner tokens, monotonic fencing epochs, renew, owner-only release, stale-only reclaim, and a mutation mutex that revalidates the fence inside the critical section. The same owner persists dispatch reservations, cumulative spend and consecutive-block health facts through atomic snapshots plus an append-only audit log. `status.yaml` receives compatibility projections but does not own the lease. `preflight-implement.sh` recognizes a neutral lease before evaluating the legacy Claude heartbeat, while absence of a lease preserves the current Claude path. The Stop gate now fails closed before parsing when `jq` is unavailable.
+
+**Why:** the legacy read-then-write `running` flag cannot provide mutual exclusion, and token-only leases allow an old process to write after recovery. Epoch fencing plus a single guarded-mutation primitive makes stale writers mechanically rejectable; durable brakes prevent a crash or same-run runtime switch from resetting spend and health limits.
+
+**Impact:** `plugin/runtime/{build-state.mjs,build-state.schema.json,build-state-contract.md}` · `plugin/scripts/{pandacorp-build-state.mjs,test-build-state.mjs,preflight-implement.sh,verify-before-stop.sh}`. The Claude launcher remains on its last-known-good legacy path until its supervisor can renew the neutral lease; R6/R7 transition writers must call `withFence` or validate through this CLI immediately inside their mutation boundary.
+
+## 2026-07-11 — R0 project overlay retracts unsafe non-Claude build permission
+
+**What:** updated the canonical project `AGENTS.md.tpl` so every non-Claude runtime receives the owner-approved Proposal 32 R0 boundary: the legacy `running` + heartbeat guard is TTL liveness rather than an atomic cross-runtime lock; until R2 (lease), R3 (enforcement) and the first R6 governed-transition slice pass, non-Claude runtimes are read/review-only on build state and may not start `implement`, mutate state, take/clear the guard or emit a heartbeat. Runtime execution is strict-local and a later runtime continues only after a clean safe-point stop and ownership release. `OVERLAY_VERSION` **8.70.0 → 8.70.1** propagates this compatible safety correction.
+
+**Why:** the previous overlay told any AGENTS-compliant runtime to execute an attended build and “respect” a guard that acquisition does not atomically fence. Durable files permit later reconstruction, but do not preserve all live executor scheduler/budget/health state or prevent a read-then-write race. The project instruction must narrow permission in the same R0 change as the factory standard; leaving the old template live would immediately reintroduce the superseded claim on the next scaffold/upgrade.
+
+**Impact:** documentation/template only — no skill, agent, executor, script, hook or manifest behavior changed. Activation for existing projects is the normal compatible `/pandacorp:upgrade`; current canonical contract is `factory/standards/agent-portability.md` PORT-5.
+
+## 2026-07-11 — Runtime projections gain machine-readable owners and complete drift gates (Proposal 32 R1)
+
+**What:** Added canonical machine-readable sources for plugin metadata, neutral model tiers, Codex tier workers, the derived-source graph, and runtime capability ownership under `plugin/runtime/`. Codex agent generation now reads tier/model and generic-worker facts from those sources and removes orphan TOMLs. Plugin manifests are exact projections of one metadata source through `generate-plugin-manifests.mjs`. The derived-drift gate now validates the source graph, unique aliases/producers, tier completeness, generator model-literal hygiene, full manifest content, and the exact generated agent output set; its self-test adds missing, orphan, and non-version manifest drift counterfactuals.
+
+**Why:** Version-only manifest comparison and model mappings embedded in generator code allowed two runtime surfaces to disagree while the existing gate stayed green. R1 makes every derived runtime fact name one owner and makes missing or extra outputs fail closed without changing the Claude agent definitions or execution behavior.
+
+**Impact:** `plugin/runtime/*.json` · `plugin/scripts/{generate-codex-agents.mjs,generate-plugin-manifests.mjs,check-runtime-sources.mjs,check-derived-drift.sh,test-check-derived-drift.sh}` · both generated plugin manifests and `.codex/agents/*.toml` (expected byte-equivalent behavior).
+
 ## v9.85.0 — 2026-07-10 (MINOR): `/pandacorp:adopt` derives the phase from doc-quality gates (DR-119)
 
 **What:** `/pandacorp:adopt` no longer maps code maturity straight to a stamped phase. New capability: code evidence yields only a **candidate ceiling** (Step 2 recast), and the actual phase is **DERIVED** by a doc-quality gate battery (new **Step 6b**) run bottom-up to that ceiling, ONCE per adoption. The batteries are the phase skills' own, reused verbatim (independent oracle, constitution §24, referenced not edited): **product** = a JUDGE-tier fresh agent (opus, DR-111; not the authoring `product-manager`, rule 4) running spec Step 7c's fresh-set contradiction verifier (DR-116) + no surviving `[NEEDS CLARIFICATION]` (DR-100) + DR-095 agent-critical-fields presence per FRD; **design** = design Step 5's verification (axe-core + Playwright at 375/1280 → `docs/design/a11y-report.md` + `docs/design/prototype/screenshots/`) THEN design Step 9's deliverable-presence check (MECH) + the design.md §1c anti-omission completeness read (JUDGE-tier). The first failing battery caps the phase at the boundary's predecessor. Pre-existing and reconstructed docs run the identical oracle. **Architecture readiness is NOT battery-checked at adoption** — it needs work orders + a Build Plan adopt never produces, so it defers to `/pandacorp:architecture`; the gate-derived phase tops out at `design`, `architecture` is only a routing ceiling. Step 6 gained the **fix-vs-route** rule; Step 9 became **phase-aware** (manual phase → `phase` + `advance_pending: true` + STOP, DR-032; live app → keep `phase: release`, each failed-battery gap → a `/change` card, route to `/pandacorp:design` + `/pandacorp:review-launch`) and its Spanish report gained `## Estado derivado` / `## Huecos por fase` / `## Siguiente paso`. Non-Claude runtimes run the batteries inline sequentially (tier-judge, DR-113).
