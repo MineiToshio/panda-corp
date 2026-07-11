@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execFile } from "node:child_process";
-import { access, mkdtemp, mkdir, readFile, rm, rmdir, unlink, writeFile } from "node:fs/promises";
+import { access, mkdtemp, mkdir, readFile, realpath, rename, rm, rmdir, unlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -21,6 +21,16 @@ const fixture = async ({ runtime = "claude", runId = "logical-build-1", phase = 
 };
 const cleanup = async (root, lease = false) => { if (lease) { await unlink(path.join(root, ".pandacorp/run/build.lease/lease.json")); await rmdir(path.join(root, ".pandacorp/run/build.lease")); } await unlink(path.join(root, ".pandacorp/status.yaml")); await rmdir(path.join(root, ".pandacorp/run")); await rmdir(path.join(root, ".pandacorp")); await rmdir(root); };
 const resolve = async (root, runtime, mode = "auto", newId = "generated-new") => JSON.parse((await exec("node", [resolver, "--project", root, "--runtime", runtime, "--mode", mode, "--new-id", newId])).stdout);
+const workflowInvocation = (stdout) => {
+  const line = stdout.split("\n").find((item) => item.trim().startsWith("Workflow("));
+  if (!line) throw new Error(`launcher did not print Workflow invocation:\n${stdout}`);
+  return JSON.parse(line.trim().replace(/^Workflow\(/, "").replace(/\)$/, ""));
+};
+const workflowArgs = (stdout) => workflowInvocation(stdout).args;
+const releaseLauncherLease = async (root, stdout) => {
+  const args = workflowArgs(stdout);
+  await exec("node", [leaseCli, "release", "--project", root, "--token", args.leaseToken, "--epoch", String(args.leaseEpoch)]);
+};
 
 for (const [prior, target] of [["claude", "codex"], ["codex", "claude"]]) {
   const root = await fixture({ runtime: prior }); const result = await resolve(root, target);
@@ -67,6 +77,55 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
   let leaseExists = true; try { await access(path.join(root, ".pandacorp/run/build.lease/lease.json")); } catch { leaseExists = false; }
   ok(rejected && /^phase: architecture$/m.test(status) && !leaseExists && /^running: false$/m.test(status), "phase-write failure releases ownership without advancing phase");
+  await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "balanced", "5", "new"]);
+  const args = workflowArgs(launched.stdout);
+  ok(args.mode === "balanced" && args.maxAgents === 5 && !args.frds && !args.change && !args.maxFrds && !args.maxSpend, "historical four positional launcher arguments remain backward compatible");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", "--frds", "frd-a,docs/frds/frd-b/frd.md", "--max-frds", "1", "--max-spend", "4000"]);
+  const args = workflowArgs(launched.stdout);
+  ok(JSON.stringify(args.frds) === JSON.stringify(["frd-a", "docs/frds/frd-b/frd.md"]) && args.maxFrds === 1 && args.maxSpend === 4000, "launcher prints an exact JSON Workflow scope and supervised ceilings");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", "--frds", "frd-a", "--change", "change-a"]); } catch (error) { rejected = error.code === 3; }
+  const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
+  let leaseExists = true; try { await access(path.join(root, ".pandacorp/run/build.lease/lease.json")); } catch { leaseExists = false; }
+  ok(rejected && !leaseExists && /^phase: architecture$/m.test(status), "mutually exclusive change/FRD scope fails before lease or phase mutation");
+  await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", "--frds", "../escape"]); } catch (error) { rejected = error.code === 3; }
+  ok(rejected, "launcher rejects path traversal in targeted scope");
+  await rm(root, { recursive: true });
+}
+{
+  const original = await fixture({ phase: "architecture", running: "false" });
+  const root = `${original}'quoted`;
+  await rename(original, root);
+  const launched = await exec("bash", [claudeLauncherPath, root, "pro", "2"]);
+  const invocation = workflowInvocation(launched.stdout);
+  const canonicalRoot = await realpath(root);
+  ok(invocation.scriptPath === path.join(canonicalRoot, ".claude/engines/pandacorp-build.js") && invocation.args.projectDir === canonicalRoot, "launcher JSON-escapes apostrophes in scriptPath and project identity");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "pro", "2"], { env: { ...process.env, PANDACORP_TEST_FAIL_ARGS_JSON: "1" } }); } catch (error) { rejected = error.code === 3; }
+  let leaseExists = true; try { await access(path.join(root, ".pandacorp/run/build.lease/lease.json")); } catch { leaseExists = false; }
+  const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
+  ok(rejected && !leaseExists && /^running: false$/m.test(status), "post-acquire Workflow serialization failure releases the fenced lease");
   await rm(root, { recursive: true });
 }
 const repo = path.resolve(path.dirname(resolver), "../..");

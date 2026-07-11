@@ -2,6 +2,23 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — Provider diagnostics are classified, redacted and non-retriable
+
+Codex unattended execution now records only a bounded provider-failure class and mechanical
+exit/timeout facts. It never persists raw child output and never converts a classified failure into a
+retry. The two real overnight attempts remain NO-GO evidence—one process-lifecycle failure and one
+provider `usage_limit` after a green Alpha implementation—so Codex build-write promotion remains
+blocked until a later real three-hour/two-FRD run completes. Plugin 9.92.5 carries the compatible
+observability fix; the project overlay is unchanged.
+
+## 2026-07-11 — Targeted Claude builds have one fenced launcher path
+
+The build-orchestration standard now binds targeted FRD/change scope and supervised ceilings to
+validated launcher flags. The launcher, rather than the skill or owner, serializes the exact
+Workflow args. This removes a contradiction discovered while preparing Proposal 32's installed R10
+canary: the skill required an exact printed call but the old launcher could print only a bare build.
+Plugin 9.92.4 carries the compatible fix; the project overlay is unchanged.
+
 ## 2026-07-11 — Proposal 32 records implemented rings without granting premature Codex build writes
 
 **What:** reconciled Proposal 32's narrative status with the implemented repository: R0–R9 are

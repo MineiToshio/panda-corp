@@ -2983,7 +2983,9 @@ function WorkflowBuild(): React.JSX.Element {
         <Code>preflight-implement.sh</Code> comprueba que todo esté listo (el último verde, que no
         haya otro build corriendo — el candado de un-build-a-la-vez —, presupuesto y salud) y{" "}
         <Code>launch-implement.sh</Code> arranca el motor junto a su supervisor. Tú no corres nada a
-        mano: el skill te enseña el checklist y lanza. A partir de ahí, mira el Party.
+        mano: el skill le pasa también el alcance dirigido (<Code>--frds</Code> o <Code>--change</Code>)
+        y los topes de prueba al launcher, que valida todo antes de tomar el candado e imprime una sola
+        llamada JSON segura. Nunca se completa esa llamada a mano. A partir de ahí, mira el Party.
       </Body>
 
       <DocH title="Cómo retoma si se corta" />

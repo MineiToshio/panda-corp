@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.92.5 — 2026-07-11 (PATCH): sanitized Codex provider-failure evidence
+
+**What:** uncertain Codex child failures now persist a bounded `error_class` plus exit/timeout facts
+in the event, checkpoint, owner decision and notification. Raw provider stdout/stderr is never made
+durable. R11 records two overnight NO-GO attempts: an orchestration shell reaped the first detached
+worker; the second completed Alpha implementation green and then stopped without retry when the
+provider returned `usage_limit`.
+
+**Why:** a bare exit code made a safely stopped unattended run impossible to diagnose, while storing
+the provider's raw diagnostic could leak credentials or unrelated user data. The bounded taxonomy
+preserves both observability and redaction without changing the no-blind-retry rule.
+
+**Impact:** plugin 9.92.5; no overlay change and no capability promotion. R11 `LIVE_OVERNIGHT` remains
+pending; the CLI reported quota reset at 18:48 local time and no third provider attempt was made.
+
+## v9.92.4 — 2026-07-11 (PATCH): targeted Claude scope is launcher-owned
+
+**What:** `launch-implement.sh` keeps its four historical positional arguments and adds validated
+`--frds`/`--change` scope plus `--max-frds`/`--max-spend` ceilings. It rejects mutually exclusive or
+escaping scope before lease acquisition and prints the complete Workflow args through
+`JSON.stringify`. The launcher corpus covers compatibility, exact projection and fail-closed input.
+
+**Why:** the implement skill promised that a targeted scope appeared in the launcher-printed call,
+but the launcher had no way to receive it. Following the documented “run the exact call” rule would
+therefore build every FRD; adding the field by hand would violate the same safety contract.
+
+**Impact:** plugin 9.92.4; no overlay change. Claude keeps its Dynamic Workflow unchanged. This closes
+the launcher prerequisite for the installed R10 Claude→Codex→Claude canary.
+
 ## v9.92.3 — 2026-07-11 (PATCH): fenced Claude launcher ordering and accurate runtime docs
 
 **What:** the Claude project-build launcher now acquires the neutral lease before any phase write,

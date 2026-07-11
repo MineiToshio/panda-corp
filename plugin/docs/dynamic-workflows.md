@@ -30,11 +30,14 @@ These are two independent scripts with independent phases — `pandacorp-backlog
 Claude Code auto-exposes every script under `.claude/workflows/` (project or `~/.claude/workflows/` user-level) as a `/` slash command. Both engines are internal machinery meant to be launched by their owning skill only — never typed directly by the owner — so they live in `.claude/engines/`, a directory Claude Code does not scan for the menu. A skill launches one by `scriptPath` (never by `name`, which is the form that DOES get menu-exposed):
 
 ```js
-Workflow({ scriptPath: '<project-root>/.claude/engines/pandacorp-build.js', args: { mode, maxAgents, projectDir, project, leaseToken: '<from launch-implement.sh>', leaseEpoch: '<from launch-implement.sh>' } })
+Workflow({ scriptPath: '<project-root>/.claude/engines/pandacorp-build.js', args: { mode, maxAgents, projectDir, project, leaseToken: '<from launch-implement.sh>', leaseEpoch: '<from launch-implement.sh>', frds: ['<optional target>'], maxFrds: 1 } })
 ```
 
 For `pandacorp-build`, never construct that call by hand: `launch-implement.sh` acquires ownership
-and prints the exact fenced invocation. Omitting its lease receipt fails closed. The backlog engine
+and prints the exact fenced invocation. Its additive `--frds`/`--change` and
+`--max-frds`/`--max-spend` flags project targeted scope and supervised ceilings into JSON-safe args;
+`--frds` and `--change` fail closed when combined. Omitting its lease receipt or manually adding a
+scope the launcher did not print fails the launch contract. The backlog engine
 has its own owning skill and does not use the project-build lease arguments.
 
 ## The `args`-as-JSON-string quirk

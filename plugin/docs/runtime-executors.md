@@ -24,7 +24,9 @@ STANDARD implements one WO; a separate JUDGE reviews each FRD and runs the proje
 controller parses the mandatory Build Plan DAG table and rejects dependency drift against WO
 frontmatter. Dispatch, spend, health, commit ownership, retry attempts, checkpoints and uncertain
 outcomes are durable. An uncertain dispatch is never retried blindly: it persists a decision and
-quiesces. Reviewer tests survive a rollback under `.pandacorp/run/preserved-tests/` and are injected
+quiesces. Provider failures persist only a sanitized `error_class` (`usage_limit`, `rate_limit`,
+`auth`, `approval`, `network`, or `unknown`) plus exit/timeout facts; raw child diagnostics are never
+written to durable state. Reviewer tests survive a rollback under `.pandacorp/run/preserved-tests/` and are injected
 as the RED baseline of the next bounded pass.
 
 Terminal handling is controller-owned. SIGINT/SIGTERM/SIGHUP first quiesce the active Codex process

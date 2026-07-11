@@ -997,6 +997,11 @@ The engine is a **Dynamic Workflows** script. Two mechanics matter and were prev
   with the project as a subfolder) is caught immediately, and the Baseline step asserts
   `projectDir/.pandacorp/status.yaml` exists and stops loud if not (never plans against the wrong tree). The
   `$(basename "$PWD")` + relative-`track.jsonl` fallback is kept for back-compat when a launcher omits the args.
+- **Scope and ceilings are launcher-owned.** `launch-implement.sh` preserves its historical four positional
+  arguments and accepts additive named flags: `--frds <comma-list>` or `--change <card>` (mutually exclusive),
+  plus `--max-frds <N>` and `--max-spend <N>`. It validates scope before acquiring the lease and emits the
+  complete args object with `JSON.stringify`; a skill never edits the printed Workflow call to add a target.
+  This keeps targeted change/FRD builds on the same fenced, injection-safe launch path as bare builds.
 
 ## 11. Concurrent-run guard (atomic lease + heartbeat liveness)
 

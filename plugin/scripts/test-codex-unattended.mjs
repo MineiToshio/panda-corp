@@ -40,7 +40,7 @@ async function fixture({ rethink = false } = {}) {
   await writeFile(worker, `#!/usr/bin/env node
 import{appendFileSync,writeFileSync}from'node:fs';
 const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],prompt=a[a.length-1],scenario=process.env.R11_SCENARIO||'hang';appendFileSync('.pandacorp/run/dispatches.log',prompt.includes('Implement exactly')?'implement\\n':'other\\n');
-if(['uncertain','network','rate-limit','auth-expired','approval-denied'].includes(scenario)){writeFileSync('uncertain-output.txt',scenario+'\\n');process.exit({uncertain:7,network:28,'rate-limit':29,'auth-expired':30,'approval-denied':31}[scenario])}
+if(['uncertain','usage-limit','network','rate-limit','auth-expired','approval-denied'].includes(scenario)){const diagnostic={uncertain:'PRIVATE_TOKEN=must-never-persist opaque provider failure','usage-limit':'usage limit reached; purchase more credits',network:'network connection reset','rate-limit':'HTTP 429 rate limit','auth-expired':'authentication failed: expired token','approval-denied':'approval denied by policy'}[scenario];console.error(diagnostic);writeFileSync('uncertain-output.txt',scenario+'\\n');process.exit({uncertain:7,'usage-limit':27,network:28,'rate-limit':29,'auth-expired':30,'approval-denied':31}[scenario])}
 if(scenario==='hang')await new Promise(()=>setInterval(()=>{},1000));
 writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'fixture',findings:[]}));
 `); await chmod(worker, 0o755);
@@ -87,12 +87,18 @@ await test("uncertain result survives restart and never duplicates the durable d
   const second = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "success" }); must(second.code === 25 || second.code === 20, `restart exit ${second.code}: ${second.err}`);
   const dispatches = (await read(path.join(fx.project, ".pandacorp/run/dispatches.log"))).trim().split("\n"); must(dispatches.length === 1, `dispatch duplicated: ${dispatches}`);
   const decisions = await read(path.join(fx.project, ".pandacorp/inbox/decisions.md")); must(/without a trustworthy terminal result/.test(decisions), decisions);
+  const persisted = `${await read(path.join(fx.project, ".pandacorp/run/codex-checkpoint.json"))}\n${await read(path.join(fx.project, ".pandacorp/run/codex-executor.jsonl"))}\n${decisions}`;
+  must(/"error_class": "unknown"|"error_class":"unknown"|provider class: unknown/.test(persisted), persisted);
+  must(!persisted.includes("PRIVATE_TOKEN") && !persisted.includes("must-never-persist"), "raw provider diagnostic leaked into durable state");
 });
 
-await test("network, rate-limit, expired-auth and approval-denial outcomes fail safe without blind retries", async () => {
-  for (const scenario of ["network", "rate-limit", "auth-expired", "approval-denied"]) {
+await test("provider failures are classified sanitizably and still fail safe without blind retries", async () => {
+  const expected = { "usage-limit": "usage_limit", network: "network", "rate-limit": "rate_limit", "auth-expired": "auth", "approval-denied": "approval" };
+  for (const scenario of Object.keys(expected)) {
     const fx = await fixture(); const args = [executor, "--project", fx.project, "--run-id", `r11-${scenario}`, "--max-spend", "4", "--max-duration", "30"];
     const first = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: scenario }); must(first.code === 25, `${scenario} exit ${first.code}: ${first.err}`);
+    const checkpoint = JSON.parse(await read(path.join(fx.project, ".pandacorp/run/codex-checkpoint.json"))); must(checkpoint.uncertain?.error_class === expected[scenario], `${scenario} class: ${JSON.stringify(checkpoint)}`);
+    const journal = await read(path.join(fx.project, ".pandacorp/run/codex-executor.jsonl")); must(journal.includes(`"error_class":"${expected[scenario]}"`), `${scenario} journal class absent`);
     const second = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "success" }); must(new Set([20, 25]).has(second.code), `${scenario} restart ${second.code}`);
     const dispatches = (await read(path.join(fx.project, ".pandacorp/run/dispatches.log"))).trim().split("\n"); must(dispatches.length === 1, `${scenario} duplicated ${dispatches}`);
   }

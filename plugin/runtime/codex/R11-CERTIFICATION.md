@@ -47,6 +47,22 @@ disposable fixture. The canonical evidence JSON at
 `LIVE_OVERNIGHT` remains **PENDING** until a real several-hours window completes; no accelerated clock,
 short provider call or mock worker may promote it. Full unattended parity is therefore not yet claimed.
 
+Two 2026-07-11 overnight attempts are retained as explicit **NO-GO** evidence and do not count toward
+promotion. In the first disposable checkout (`codex-20260711T193340Z-40302`), the launcher receipt was
+written but the short-lived orchestration shell reaped its detached supervisor/worker immediately
+after launch. The lease and inflight checkpoint were preserved; the uncertain dispatch was not
+replayed or resumed. In a separate clean checkout, run `codex-20260711T193448Z-42409` kept the
+supervisor and sleep inhibitor alive, completed the Alpha implementer green, then the Alpha reviewer
+exited non-zero because the real Codex provider reported `usage_limit`. The controller failed safe,
+did not retry, persisted the uncertain checkpoint and released its fenced lease. A read-only provider
+diagnostic confirmed the same quota condition and reported a reset at **18:48 local time**. No third
+provider attempt was made. Neither run reached the three-hour/two-reviewed-FRD requirement.
+
+Provider failures now persist only a sanitized `error_class` (`usage_limit`, `rate_limit`, `auth`,
+`approval`, `network`, or `unknown`) plus exit/timeout facts. Raw child stdout/stderr is never copied
+to the journal, checkpoint, owner decision or notification. This improves diagnosis without weakening
+the no-blind-retry rule.
+
 The two deployed recurring routines remain Claude-owned. This certification covers only a manually
 launched Codex `implement` run.
 

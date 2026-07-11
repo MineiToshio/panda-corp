@@ -4,6 +4,13 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-11 — Manual names the validated targeted-build launcher path
+
+The Implement guide now explains that FRD/change scope and supervised ceilings are passed to the
+launcher, validated before ownership, and serialized into one exact JSON-safe Workflow call. This
+reflects plugin 9.92.4 and prevents the Manual from suggesting that targeted scope is appended by
+hand after the lease-bearing call is printed.
+
 ## 2026-07-11 — Multi-runtime Manual follows the current R10/R11 permission boundary
 
 **What:** removed the obsolete statement that Codex build writes unlock after R2/R3/first-R6 (those
