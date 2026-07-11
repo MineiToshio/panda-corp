@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0090, LESSON-0093, LESSON-0073]
+links: [LESSON-0090, LESSON-0093, LESSON-0073, LESSON-0125]
 ---
 
 **Situation:** a git worktree (DR-096 isolation) only ever carries tracked content — by construction it never has a copy of gitignored owner-state files (`factory/portfolio.md`, `factory/profile.md`, a project's `.pandacorp/run/*`). Code that reads one of those (e.g. `readPortfolio()`) resolves an empty result inside a worktree, and any derive/core logic downstream that treats "no portfolio" as "not a real repo" degrades or reds — a false signal that is purely an artifact of running inside a worktree, not a real defect.

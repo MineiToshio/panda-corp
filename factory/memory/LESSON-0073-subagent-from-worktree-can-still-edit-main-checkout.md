@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0032]
+links: [LESSON-0032, LESSON-0125]
 ---
 
 **Situation:** a session standing in a git worktree (DR-096 isolation) dispatched 15 parallel rewriter

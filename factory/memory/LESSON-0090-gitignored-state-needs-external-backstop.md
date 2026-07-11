@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [BL-0035, BL-0045, LESSON-0093]
+links: [BL-0035, BL-0045, LESSON-0093, LESSON-0125, LESSON-0131]
 ---
 
 **Situation:** an unexplained deletion of 11 versioned files was recoverable via `git checkout` because
@@ -40,4 +40,15 @@ honest fail-loud fallback): losing it is not a data-loss incident, but if nothin
 (no CLI/hook/trigger), it stays permanently unpopulated the moment it disappears — safe (never fabricates
 a wrong value) but silently inert. When designing such a cache, verify a write trigger actually exists
 and fires (not just that the reader+fallback exist) — see LESSON-0093 for the sibling "worktree deploy
-only carries tracked files" angle on the same class of gap.
+only carries tracked files" angle on the same class of gap. A FOURTH variant, corroborated 2026-07-10
+(personal-page-v2, `.pandacorp/run/lessons.md`): the raw lesson-capture inbox itself
+(`.pandacorp/run/lessons.md`) is gitignored by design, so notes an agent jots WHILE WORKING INSIDE A
+WORKTREE are lost the moment that worktree is removed post-merge — nobody ever "swept" anything, the
+notes simply never existed anywhere outside the doomed worktree. This is the sharpest-edged costume yet:
+not a missed backup and not a missing regeneration trigger, but the capture mechanism for lessons being
+itself vulnerable to the exact class of loss it exists to help prevent.
+
+**Apply next time (addendum):** when jotting a raw capture-inbox note (or writing to any other
+gitignored, provisional file) from a session running inside a git worktree, write it to the MAIN
+checkout's copy of that file, not the worktree's — the worktree's copy does not survive the worktree's
+removal, backstop or no backstop.

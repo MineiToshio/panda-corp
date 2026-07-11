@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0027, LESSON-0047, LESSON-0057, LESSON-0058, LESSON-0067, LESSON-0068]
+links: [LESSON-0027, LESSON-0047, LESSON-0057, LESSON-0058, LESSON-0067, LESSON-0068, LESSON-0140]
 ---
 
 **Situation:** across six independent incidents (two projects, different domains — audit claims, preview
