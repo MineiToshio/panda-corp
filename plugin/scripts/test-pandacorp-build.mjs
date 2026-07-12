@@ -79,6 +79,16 @@ if (!/close-preloop --project/.test(source) || !/agentType: 'pandacorp:devops'/.
   console.error('FATAL: ensureStopped regained a broad implementer or lost its bounded close command.')
   process.exit(1)
 }
+if (/CLAUDE_PLUGIN_ROOT[^\n]*pandacorp-build-state/.test(source)) {
+  console.error('FATAL: engine state commands regained an ambient CLAUDE_PLUGIN_ROOT dependency.')
+  process.exit(1)
+}
+for (const command of ['sync-rollups', 'renew', 'inspect-stop', 'close-preloop', 'quiesce', 'finalize-release']) {
+  if (!new RegExp(`STATE_CLI_COMMAND[^\\n]*${command}|${command}[^\\n]*STATE_CLI_COMMAND`).test(source)) {
+    console.error(`FATAL: ${command} is not bound to the explicit stateCli capability.`)
+    process.exit(1)
+  }
+}
 // The only ESM syntax in the file is the meta export; neutralize it so the
 // source is a valid function body. (We transform our in-memory copy — the
 // engine file on disk is never touched.)
@@ -163,8 +173,8 @@ async function runEngine(scenario) {
   let result, error
   let engineArgs = scenario.args
   if (typeof engineArgs === 'string') {
-    try { engineArgs = JSON.stringify({ leaseToken: 'test-lease-token', leaseEpoch: 1, ...JSON.parse(engineArgs) }) } catch {}
-  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { leaseToken: 'test-lease-token', leaseEpoch: 1, ...engineArgs }
+    try { engineArgs = JSON.stringify({ stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...JSON.parse(engineArgs) }) } catch {}
+  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...engineArgs }
   try {
     result = await engine(agentStub, (l) => logs.push(String(l)), budget, engineArgs, (t) => phases.push(t), parallelStub)
   } catch (e) {
@@ -210,16 +220,19 @@ const SCENARIOS = []
 
 // ── 1. BL-0024 / DR-072 R2 args guard (the RED→GREEN test the BL spec asks for) ──
 SCENARIOS.push({
-  name: '1a. args guard — args undefined fires the loud DROPPED/UNBOUNDED warning',
+  name: '1a. capability guard — missing stateCli fails before the first agent spawn',
   args: undefined,
   assert(t, run) {
-    t.ok(!run.error, `engine threw: ${run.error}`)
-    const warn = run.logs.find((l) => l.includes('⚠⚠'))
-    t.ok(Boolean(warn), 'a ⚠⚠ warning log line fires when args is undefined')
-    t.ok(warn && warn.includes('undefined'), 'the warning names the undefined case')
-    t.ok(warn && /DR-072 R2/.test(warn) && /BL-0024/.test(warn), 'the warning cites DR-072 R2 / BL-0024')
-    t.ok(warn && /UNBOUNDED/.test(warn), 'the warning says the run is UNBOUNDED')
-    t.ok(warn && /Supervisor/.test(warn), 'the warning addresses the supervisor (verify + TaskStop)')
+    t.ok(Boolean(run.error) && /stateCli/.test(String(run.error)), 'missing stateCli throws a named fatal error')
+    t.ok(run.calls.length === 0, 'missing stateCli spawns no agent')
+  },
+})
+SCENARIOS.push({
+  name: '1aa. capability guard — relative stateCli fails before the first agent spawn',
+  args: { stateCli: 'scripts/pandacorp-build-state.mjs' },
+  assert(t, run) {
+    t.ok(Boolean(run.error) && /stateCli/.test(String(run.error)), 'relative stateCli throws a named fatal error')
+    t.ok(run.calls.length === 0, 'relative stateCli spawns no agent')
   },
 })
 SCENARIOS.push({
@@ -230,6 +243,7 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const precheck = byLabel(run, 'baseline-precheck')[0]
     t.ok(precheck && /inspect-stop --project/.test(precheck.prompt), 'precheck invokes the deterministic Node inspection')
+    t.ok(precheck && /node '\/installed plugin\/scripts\/pandacorp-build-state\.mjs' inspect-stop/.test(precheck.prompt), 'state CLI paths containing spaces are shell-quoted exactly')
     t.ok(precheck && !/`test -f/.test(precheck.prompt), 'precheck does not use ambient shell test')
     t.ok(byLabel(run, 'plan').length === 1, 'an absent stop continues to planning')
     t.ok(!(run.result && run.result.note === 'owner stop signal'), 'absence was not fabricated into a stop')

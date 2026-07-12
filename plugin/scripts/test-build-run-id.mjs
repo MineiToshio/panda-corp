@@ -83,7 +83,7 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "balanced", "5", "new"]);
   const args = workflowArgs(launched.stdout);
-  ok(args.mode === "balanced" && args.maxAgents === 5 && !args.frds && !args.change && !args.maxFrds && !args.maxSpend, "historical four positional launcher arguments remain backward compatible");
+  ok(args.mode === "balanced" && args.maxAgents === 5 && path.isAbsolute(args.stateCli) && !args.frds && !args.change && !args.maxFrds && !args.maxSpend, "historical four positional launcher arguments remain backward compatible and inject the absolute state CLI");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
@@ -116,7 +116,7 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   const launched = await exec("bash", [claudeLauncherPath, root, "pro", "2"]);
   const invocation = workflowInvocation(launched.stdout);
   const canonicalRoot = await realpath(root);
-  ok(invocation.scriptPath === path.join(canonicalRoot, ".claude/engines/pandacorp-build.js") && invocation.args.projectDir === canonicalRoot, "launcher JSON-escapes apostrophes in scriptPath and project identity");
+  ok(invocation.scriptPath === path.join(canonicalRoot, ".claude/engines/pandacorp-build.js") && invocation.args.projectDir === canonicalRoot && invocation.args.stateCli === await realpath(leaseCli), "launcher JSON-escapes apostrophes and injects the canonical state CLI");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {

@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-12 — Manual explains explicit installed Workflow capabilities
+
+The multi-runtime guide now explains that Claude's launcher injects a validated absolute `stateCli`
+into the Workflow. Subagents never reconstruct it from the non-guaranteed `CLAUDE_PLUGIN_ROOT`; an
+absent or relative capability fails before dispatch. This mirrors BL-0071/plugin 9.94.2 and grants no
+R10/R11 promotion.
+
 Product, design and technical decisions for Mission Control (the Next.js app). Most recent on top. See the index and format in [DECISION-LOG.md](../../DECISION-LOG.md).
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.

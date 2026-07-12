@@ -4,7 +4,10 @@
 
 The Claude workflow remains the orchestration decision-maker. Its derived FRD/blueprint rollups and
 work-order status counts are now written only by the fenced neutral command
-`pandacorp-build-state.mjs sync-rollups`. The prompt text is generated from
+`pandacorp-build-state.mjs sync-rollups`. The launcher resolves that command to an absolute,
+canonical regular file and passes it as `args.stateCli`; Workflow subagents never depend on an
+ambient `CLAUDE_PLUGIN_ROOT`. Missing or relative capabilities fail before any agent spawn, and the
+validated path is shell-quoted in every state command. The prompt text is generated from
 `plugin/runtime/prompts/sync-rollups.md`; `check-rollup-writer-boundary.mjs` rejects a missing command
 or the retired free-form writer prose. Every launch carries a local-only lease token and fencing epoch;
 the supervisor renews at its two-minute tick and every terminal path uses the shared two-phase CLI
@@ -30,7 +33,7 @@ These are two independent scripts with independent phases — `pandacorp-backlog
 Claude Code auto-exposes every script under `.claude/workflows/` (project or `~/.claude/workflows/` user-level) as a `/` slash command. Both engines are internal machinery meant to be launched by their owning skill only — never typed directly by the owner — so they live in `.claude/engines/`, a directory Claude Code does not scan for the menu. A skill launches one by `scriptPath` (never by `name`, which is the form that DOES get menu-exposed):
 
 ```js
-Workflow({ scriptPath: '<project-root>/.claude/engines/pandacorp-build.js', args: { mode, maxAgents, projectDir, project, leaseToken: '<from launch-implement.sh>', leaseEpoch: '<from launch-implement.sh>', frds: ['<optional target>'], maxFrds: 1 } })
+Workflow({ scriptPath: '<project-root>/.claude/engines/pandacorp-build.js', args: { mode, maxAgents, projectDir, project, leaseToken: '<from launch-implement.sh>', leaseEpoch: '<from launch-implement.sh>', stateCli: '<absolute path from launch-implement.sh>', frds: ['<optional target>'], maxFrds: 1 } })
 ```
 
 For `pandacorp-build`, never construct that call by hand: `launch-implement.sh` acquires ownership

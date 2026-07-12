@@ -135,7 +135,7 @@ async function runEngine(scenario) {
 
   let result, error
   const engineArgs = scenario.args && typeof scenario.args === 'object'
-    ? { leaseToken: 'test-lease-token', leaseEpoch: 1, ...scenario.args }
+    ? { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...scenario.args }
     : scenario.args
   try {
     result = await engine(

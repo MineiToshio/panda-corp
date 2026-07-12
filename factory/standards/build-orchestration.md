@@ -1026,6 +1026,12 @@ work order), `status.yaml` corruption, and conflicting git commits.
 inside the shared mutation mutex. Heartbeats determine lease freshness; they do not independently own
 the lock. `running` and the timestamps below are compatibility/observability projections.
 
+The installed launcher passes this writer to the Dynamic Workflow as the explicit absolute
+`stateCli` capability. It resolves the real path and proves it is a regular file before acquiring a
+lease. The engine rejects a missing or relative capability before any subagent spawn and shell-quotes
+the validated path for `sync-rollups`, `renew`, `inspect-stop`, `close-preloop`, `quiesce` and
+`finalize-release`. Workflow subagents never reconstruct the path from ambient `CLAUDE_PLUGIN_ROOT`.
+
 `status.yaml` carries these fields written at launch and cleared on close:
 
 ```yaml

@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.94.2 — 2026-07-12 (PATCH): explicit installed state-CLI capability
+
+**What:** BL-0071 makes `launch-implement.sh` realpath-validate the installed build-state CLI as a
+regular file before lease acquisition and serialize it as absolute `args.stateCli`. The engine rejects
+missing/relative/control-character paths before any agent spawn and safely shell-quotes the capability
+for sync, renew, stop inspection, bounded pre-loop close and two-phase release prompts.
+
+**Why:** installed R10-E proved Workflow subagents do not reliably inherit `CLAUDE_PLUGIN_ROOT`; five
+commands consequently resolved to `/scripts/pandacorp-build-state.mjs` despite a healthy installation.
+
+**Impact:** plugin 9.94.2, compatible overlay 8.75.1, engine/template/Manual/certification updates and
+adversarial regressions. No R10/R11 promotion.
+
 ## v9.94.1 — 2026-07-12 (PATCH): provenance-aware Codex heartbeat ownership
 
 **What:** BL-0070 replaces the Codex executor's path-set-only worker attribution with before/after

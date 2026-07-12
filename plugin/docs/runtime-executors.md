@@ -13,6 +13,12 @@ Dynamic Workflow contract exposes injected orchestration globals but no Node mod
 surface; the generated prompt-fragment and shared-CLI tests preserve deterministic transitions without
 pretending the Claude controller can import the Codex executor.
 
+Claude receives the shared state writer as an explicit installed capability: `launch-implement.sh`
+realpath-validates the regular file before lease acquisition and serializes its absolute path as
+`args.stateCli`. The engine validates it before spawning an agent and shell-quotes it in every
+governed state command. This avoids relying on `CLAUDE_PLUGIN_ROOT`, which installed Workflow
+subagents do not reliably inherit, without sharing either runtime's orchestration controller.
+
 ## Codex executor
 
 `launch-codex-implement.sh` starts a controllable local supervisor and a separate PID-bound sleep

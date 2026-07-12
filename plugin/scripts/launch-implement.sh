@@ -53,14 +53,31 @@ fi
 STATUS="$PROJ/.pandacorp/status.yaml"
 [ -f "$STATUS" ] || { echo "ERROR: no $STATUS — run the preflight first (not a factory project)." >&2; exit 1; }
 
+# Dynamic Workflow subagents do not inherit CLAUDE_PLUGIN_ROOT reliably. Resolve the governed state
+# writer here, while the installed plugin root is still known, and pass its canonical capability path
+# explicitly. This validation happens before lease acquisition so a broken installation is a no-op.
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd -P)
+STATE_CLI=$(node - "$SCRIPT_DIR/pandacorp-build-state.mjs" <<'NODE'
+const fs = require('node:fs');
+const path = require('node:path');
+const candidate = process.argv[2];
+try {
+  const resolved = fs.realpathSync(candidate);
+  if (!path.isAbsolute(resolved) || !fs.statSync(resolved).isFile()) process.exit(3);
+  process.stdout.write(resolved);
+} catch { process.exit(3); }
+NODE
+) || { echo "ERROR: installed build-state CLI is missing or not a regular file." >&2; exit 3; }
+[ -n "$STATE_CLI" ] || { echo "ERROR: installed build-state CLI resolved to an empty path." >&2; exit 3; }
+
 # Resolve the project identity EXPLICITLY (BL-0022): absolute root + its basename. Launching from
 # ANY cwd is then safe (the engine cds every subagent to projectDir and stamps events with `project`).
 PROJECT_DIR=$(cd "$PROJ" && pwd -P)
 PROJECT=$(basename "$PROJECT_DIR")
 NEW_RUN_ID="run_$(date -u +%Y%m%dT%H%M%SZ)_$$"
-RESOLUTION=$(node "$(cd "$(dirname "$0")" && pwd)/resolve-build-run-id.mjs" --project "$PROJECT_DIR" --runtime claude --mode "$RUN_MODE" --new-id "$NEW_RUN_ID") || exit $?
+RESOLUTION=$(node "$SCRIPT_DIR/resolve-build-run-id.mjs" --project "$PROJECT_DIR" --runtime claude --mode "$RUN_MODE" --new-id "$NEW_RUN_ID") || exit $?
 RUN_ID=$(node -e 'const v=JSON.parse(process.argv[1]);if(!v.run_id)process.exit(3);process.stdout.write(v.run_id)' "$RESOLUTION") || exit $?
-LEASE_CLI=$(cd "$(dirname "$0")" && pwd)/pandacorp-build-state.mjs
+LEASE_CLI="$STATE_CLI"
 
 # 1) Take the atomic neutral lease BEFORE any phase write. A contended launch must leave canonical
 # project state untouched. The lease CLI owns all compatibility projections.
@@ -98,14 +115,15 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents) args.maxAgents = Number(maxAgents);
 args.projectDir = projectDir;
 args.project = project;
 args.leaseToken = leaseToken;
 args.leaseEpoch = Number(leaseEpoch);
+args.stateCli = stateCli;
 if (frds) args.frds = frds.split(",");
 if (change) args.change = change;
 if (maxFrds) args.maxFrds = Number(maxFrds);

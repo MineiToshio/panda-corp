@@ -18,6 +18,18 @@ if (typeof args === 'string') {
   try { args = JSON.parse(args) } catch (e) { log('FATAL: args arrived as an unparseable string: ' + e.message); throw e }
 }
 
+// BL-0071: installed Workflow subagents do not reliably inherit CLAUDE_PLUGIN_ROOT. The launcher
+// therefore passes the canonical, realpath-validated state writer as an explicit capability. Reject
+// absent/relative/control-character paths before the first agent spawn; never guess `/scripts/...`.
+const STATE_CLI = args && typeof args.stateCli === 'string' ? args.stateCli : ''
+if (!STATE_CLI.startsWith('/') || /[\0\r\n]/.test(STATE_CLI)) {
+  const message = 'FATAL: args.stateCli must be an absolute validated build-state CLI path'
+  log(message)
+  throw new Error(message)
+}
+const shellQuote = (value) => `'${String(value).replaceAll("'", `'"'"'`)}'`
+const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
+
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
 //   args.frds:    specific FRD folders to limit to           (default: all pending)
@@ -82,10 +94,10 @@ const TRACK_PATH = PROJECT_DIR === '.' ? '.pandacorp/track.jsonl' : `${PROJECT_D
 // back-compat case (cwd == project root already), so the legacy behaviour is byte-for-byte unchanged.
 const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJECT_DIR} — cd there FIRST; every relative path below is relative to it.\n`
 // GENERATED from plugin/runtime/prompts/sync-rollups.md — do not hand-edit this fragment.
-const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `node \"${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs\" sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
-const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
-const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
-const INSPECT_STOP = `node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" inspect-stop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"`
+const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE_CLI_COMMAND}} sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
+const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
+const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`${STATE_CLI_COMMAND} quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`${STATE_CLI_COMMAND} finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
+const INSPECT_STOP = `${STATE_CLI_COMMAND} inspect-stop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"`
 
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
 let foundationRepairs = 0   // DR-065: how many foundation auto-repairs we've spent this run (capped by FOUNDATION_REPAIR_CAP) — REAL repair attempts ONLY (WS-D/D5)
@@ -512,7 +524,7 @@ const FOUNDATION_SCHEMA = {
 // MECH spawn that guarantees running:false (and NEVER touches `phase`) — awaited before every such return.
 async function ensureStopped(reason) {
   agentSpawned++
-  const receipt = await agent(`MECHANICAL COMMAND RUNNER — your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`node "\${CLAUDE_PLUGIN_ROOT}/scripts/pandacorp-build-state.mjs" close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
+  const receipt = await agent(`MECHANICAL COMMAND RUNNER — your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`${STATE_CLI_COMMAND} close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
     { label: 'ensure-stopped', phase: 'Baseline', model: MECH, agentType: 'pandacorp:devops', schema: CLOSE_RECEIPT_SCHEMA })
   if (!receipt || receipt.done !== true || receipt.lease_released !== true || JSON.stringify(receipt.allowed_paths) !== JSON.stringify(['.pandacorp/status.yaml'])) throw new Error('FATAL: bounded pre-loop close returned an invalid receipt')
 }

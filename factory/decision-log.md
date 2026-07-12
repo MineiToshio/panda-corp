@@ -1,5 +1,12 @@
 # Decision Log — Factory
 
+## 2026-07-12 — Installed workflows receive governed writers as explicit capabilities
+
+BL-0071 removes an ambient-environment dependency from Claude's native controller. The installed
+launcher now validates and passes the absolute state-writer path; the engine fails before spawning
+when that capability is absent/relative and quotes it in every governed command. Plugin 9.94.2 and
+overlay 8.75.1 ship the compatible correction. R10 remains NO-GO pending a fresh installed retry.
+
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
 ## 2026-07-12 — Stop is deterministic and shutdown has no product capability

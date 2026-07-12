@@ -17,6 +17,12 @@ Plugin 9.94.0 / overlay 8.75.0 replaces both seams with deterministic, bounded C
 distinct clean retry is still required. No capability is
 promoted from `FALLBACK`.
 
+Installed fixture E then exposed BL-0071 before useful Claude work: Workflow subagents did not
+inherit `CLAUDE_PLUGIN_ROOT`, so governed state commands resolved under `/scripts`. Plugin 9.94.2 /
+overlay 8.75.1 pass a realpath-validated absolute `stateCli` capability in launcher-produced args and
+fail before any spawn when it is absent or relative. This repairs the cause but does not promote or
+retroactively certify the failed canary; a distinct clean installed retry remains required.
+
 ## Evidence levels
 
 - **fixture-real-cli:** a disposable Git project exercised the real fenced state APIs.

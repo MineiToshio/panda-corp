@@ -2251,6 +2251,13 @@ function ConceptMultiRuntime(): React.JSX.Element {
         el estado gobernado sigue fallando cerrado.
         Nunca hay takeover vivo ni dos builds simultáneos.
       </NotePanel>
+      <NotePanel icon="ti-route" iconColor="var(--color-warn)">
+        En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
+        como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar, sincronizar
+        y cerrar; nunca intentan reconstruirla desde <Code>CLAUDE_PLUGIN_ROOT</Code>, porque ese entorno
+        no está garantizado dentro de un Workflow instalado. Una ruta ausente o relativa detiene el
+        engine antes de lanzar agentes.
+      </NotePanel>
 
       <DocH title="Qué funciona igual y qué degrada" />
       <Lead>
