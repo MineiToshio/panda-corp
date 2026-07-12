@@ -20,6 +20,7 @@ CONTINUE_RUNTIME=""
 CONTINUE_RUN_ID=""
 TARGET_RUNTIME=""
 RUN_MODE="auto"
+CERTIFICATION_ONLY="false"
 shift || true
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -27,6 +28,7 @@ while [ "$#" -gt 0 ]; do
     --continue-run-id) [ "$#" -ge 2 ] || { echo "FAIL  --continue-run-id requires a value"; exit 3; }; CONTINUE_RUN_ID="$2"; shift 2 ;;
     --target-runtime) [ "$#" -ge 2 ] || { echo "FAIL  --target-runtime requires a value"; exit 3; }; TARGET_RUNTIME="$2"; shift 2 ;;
     --run-mode) [ "$#" -ge 2 ] || { echo "FAIL  --run-mode requires a value"; exit 3; }; RUN_MODE="$2"; shift 2 ;;
+    --certification-only) CERTIFICATION_ONLY="true"; shift ;;
     *) echo "FAIL  unknown preflight argument: $1"; exit 3 ;;
   esac
 done
@@ -66,6 +68,9 @@ if [ ! -f "$STATUS" ]; then
   exit "$FAILS"
 fi
 pass "marker present (.pandacorp/status.yaml)"
+if [ "$CERTIFICATION_ONLY" = "true" ]; then
+  if [ "$TARGET_RUNTIME" = "codex" ]; then pass "certification-only intent declared (permit validation remains mandatory in the launcher)"; else fail "certification-only intent is valid only for target runtime codex"; fi
+fi
 if [ -n "$TARGET_RUNTIME" ]; then
   RESOLVE_MODE="$RUN_MODE"; [ -n "$CONTINUE_RUN_ID" ] && RESOLVE_MODE="$CONTINUE_RUN_ID"
   RUN_RESOLUTION=$(node "$SCRIPT_DIR/resolve-build-run-id.mjs" --project "$PROJ" --runtime "$TARGET_RUNTIME" --mode "$RESOLVE_MODE" --new-id preflight-new 2>/dev/null) \

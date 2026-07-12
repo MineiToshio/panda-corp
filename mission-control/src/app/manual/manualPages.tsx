@@ -2238,7 +2238,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <B weight={600}>Cambio de runtime: en frío y desde un safe point.</B> Los ficheros conservan
         el estado durable, pero no reconstruyen todavía todo el scheduler que mantiene un ejecutor
         vivo. El lease atómico, fencing, presupuesto y salud durables ya están probados; Codex sigue
-        solo lectura/review hasta el canario live R10 y R11. Un runtime posterior puede continuar
+        solo lectura/review hasta el canario live R10 y R11. La única excepción es el permiso R10
+        de certificación de un solo uso: fixture descartable fijado, autorización del dueño, un FRD
+        y límites exactos, foreground, consumido antes de ownership y nunca reintentable. No es una
+        promoción ni autoriza proyectos normales. Un runtime posterior puede continuar
         únicamente cuando el anterior cerró su gate y commit, llegó a un safe point, se detuvo por
         completo y liberó ownership. R10 ya prueba este relevo en fixtures y dos intentos instalados
         aportaron evidencia parcial: el segundo demostró que Codex Desktop conserva vivo su launcher

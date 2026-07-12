@@ -23,6 +23,20 @@ overlay 8.75.1 pass a realpath-validated absolute `stateCli` capability in launc
 fail before any spawn when it is absent or relative. This repairs the cause but does not promote or
 retroactively certify the failed canary; a distinct clean installed retry remains required.
 
+## Certification-only Stage 2 permit
+
+PORT-5 no longer deadlocks its own evidence collection. Plugin 9.95.0 adds a narrowly scoped,
+one-shot permit for installed Codex Stage 2 only. The committed fixture marker and owner
+authorization bind the fixture UUID and seed, stage, current safe-point HEAD, plugin/overlay/engine
+pins, exact single FRD, limits and nonce. The foreground launcher consumes it before ownership and
+revokes it at terminal exit. Any mismatch, symlink, non-canary path, dirty tree, live lease,
+non-ancestor green pointer or reused nonce fails closed. This is not capability promotion.
+
+```bash
+bash "$PLUGIN_ROOT/scripts/launch-codex-implement.sh" "$FIXTURE" 4 900 0 1 "" \
+  "frd-b-multiply" auto foreground "$FIXTURE/.pandacorp/run/r10-owner-authorization.json"
+```
+
 ## Evidence levels
 
 - **fixture-real-cli:** a disposable Git project exercised the real fenced state APIs.

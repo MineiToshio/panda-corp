@@ -102,6 +102,10 @@ Claude ownership and reevaluation gates. Product queue parity does not imply bac
 
 ## R10 sequential runtime-switch verdict — two installed attempts NO-GO, fixture C pending
 
+PORT-5's evidence path uses a certification-only one-shot permit, not general write permission. The
+foreground launcher validates the versioned fixture and owner authorization against the exact Stage
+2 HEAD, FRD, limits and runtime pins; it consumes the nonce before ownership and revokes it on exit.
+
 The runtime-neutral state and lease contract now has a bidirectional disposable-project harness at
 `plugin/scripts/test-runtime-switch.mjs`. It exercises the real `build-state.mjs` APIs and proves that
 a Claude owner can quiesce and finalize before a later Codex owner acquires a newer fenced epoch, and

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const value = (name) => { const index = args.indexOf(`--${name}`); if (index < 0 || !args[index + 1]) throw new Error(`missing --${name}`); return args[index + 1]; };
+const value = (name, required = true) => { const index = args.indexOf(`--${name}`); if (index < 0 || !args[index + 1]) { if (required) throw new Error(`missing --${name}`); return ""; } return args[index + 1]; };
 const project = path.resolve(value("project"));
 const runId = value("run-id");
 const log = path.join(project, ".pandacorp/run/codex-supervisor.jsonl");
@@ -14,7 +14,8 @@ const checkpoint = path.join(project, ".pandacorp/run/codex-checkpoint.json");
 const executorPath = process.env.PANDACORP_EXECUTOR_PATH || path.join(here, "executor.mjs");
 const leaseTtlMs = Number(process.env.PANDACORP_LEASE_TTL_SECONDS || 600) * 1000;
 const restartWaitMs = Number(process.env.PANDACORP_SUPERVISOR_RESTART_WAIT_MS || leaseTtlMs + 10000);
-const maxCrashes = Number(process.env.PANDACORP_SUPERVISOR_MAX_CRASHES || 3);
+const certificationReceipt = value("certification-receipt", false);
+const maxCrashes = certificationReceipt ? 1 : Number(process.env.PANDACORP_SUPERVISOR_MAX_CRASHES || 3);
 if (!Number.isSafeInteger(restartWaitMs) || restartWaitMs < 1 || !Number.isSafeInteger(maxCrashes) || maxCrashes < 1) throw new Error("invalid supervisor recovery configuration");
 const terminalReasons = new Set(["complete", "needs-owner", "budget", "rethink", "duration", "breaker", "uncertain", "stopped"]);
 let child;

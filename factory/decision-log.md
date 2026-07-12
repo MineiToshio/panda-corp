@@ -9,6 +9,13 @@ overlay 8.75.1 ship the compatible correction. R10 remains NO-GO pending a fresh
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-12 — Certification can write only with a consumed one-shot permit
+
+BL-0072 resolves PORT-5's evidence deadlock without relaxing normal projects. Only a pinned,
+standalone R10 fixture may receive one exact foreground Stage 2 authorization. Its nonce is consumed
+before ownership and terminally revoked; failure never authorizes a retry. Plugin 9.95.0 / overlay
+8.76.0 carry the mechanism; general Codex writes remain blocked pending R10 and R11.
+
 ## 2026-07-12 — Stop is deterministic and shutdown has no product capability
 
 BL-0068 closes the R10-C false-stop/rogue-close incident. Owner-stop truth now comes from a fenced

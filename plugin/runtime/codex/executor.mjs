@@ -20,6 +20,12 @@ async function assertRealRuntimePath(absolute, type) {
   if (entry.isSymbolicLink() || !rightType || actual !== expected) throw Object.assign(new Error(`runtime ${type} must be real and in-tree`), { code: "INVALID_PATH" }); return target;
 }
 const runId = arg("run-id", `codex-${Date.now()}`);
+const certificationReceipt = arg("certification-receipt", "");
+if (certificationReceipt) {
+  const receiptPath = await assertRealRuntimePath(certificationReceipt, "file");
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  if (receipt.kind !== "pandacorp-r10-certification-receipt" || receipt.status !== "consumed" || receipt.run_id !== runId || receipt.stage !== "codex-frd-b") throw Object.assign(new Error("invalid or unconsumed R10 certification receipt"), { code: "CERTIFICATION" });
+}
 const maxSpend = numberArg("max-spend", 12, { min: 1 });
 const maxRetries = numberArg("max-retries", 2);
 const maxBlocks = numberArg("max-blocks", 3, { min: 1 });

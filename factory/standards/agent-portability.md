@@ -90,6 +90,15 @@ Use Claude Code for governed build writes during this interim. A later runtime m
 canary in addition to the already-green R2/R3/R6/offline-R7/R8 and fixture-R10 evidence. Until that complete evidence set exists, no prose interpretation of
 this playbook or local invocation of `launch-codex-implement.sh` grants write permission.
 
+**R10 certification-only exception (not promotion).** The sole exception is one installed-canary
+Stage 2 launched by the official Codex foreground launcher with a one-shot owner authorization. The
+permit requires a non-symlink standalone repository below `pandacorp-canaries`, a versioned
+`.pandacorp/certification/r10.json` identity (UUID + seed), exact plugin/overlay/engine pins, one
+exact FRD and limits, authorization tied to the fixture, stage and current HEAD, and a clean Claude
+safe point with no lease and a reachable `last_green_sha`. It is consumed before ownership and
+revoked on every terminal result; a consumed nonce is never retried. This path only produces the
+evidence this section requires and grants no write permission elsewhere.
+
 ### Future attended sequential contract (certification target; not current permission)
 
 Once promoted by the gate above, a non-Claude `/pandacorp:implement` executor must satisfy this contract with strict runtime locality:

@@ -4,6 +4,15 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.0 — 2026-07-12 (MINOR): one-shot R10 certification permit
+
+**What:** added a fail-closed permit to the Codex foreground launcher, binding one disposable
+installed-canary fixture, owner authorization, current Claude safe point, exact FRD/limits and
+plugin/overlay/engine pins. It is consumed before ownership and revoked on terminal.
+
+**Why:** PORT-5's blanket interim prohibition circularly prevented the installed Codex write needed
+to produce its own R10 evidence. This exception grants no normal project writes and is not promotion.
+
 ## v9.94.2 — 2026-07-12 (PATCH): explicit installed state-CLI capability
 
 **What:** BL-0071 makes `launch-implement.sh` realpath-validate the installed build-state CLI as a

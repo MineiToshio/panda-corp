@@ -11,6 +11,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-12 — Manual distinguishes certification permission from promotion
+
+The multi-runtime Manual now explains PORT-5's one-shot installed R10 permit: exact disposable
+fixture, owner authorization and pins, foreground only, consumed before ownership and never retried.
+Normal Codex builds remain read/review-only until the complete R10/R11 evidence is green.
+
 ## 2026-07-12 — Manual explains deterministic stop and bounded shutdown
 
 The Dynamic Workflows guide now states that owner-stop detection is a Node receipt immune to shell
