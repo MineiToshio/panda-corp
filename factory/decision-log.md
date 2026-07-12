@@ -2,6 +2,15 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — Installed R10 remains fail-closed after a safe partial run
+
+The first real installed Claude→Codex→Claude canary proved Claude Stage 1 and Codex's fencing under
+uncertainty, but not the end-to-end switch. Claude verified FRD-A and released epoch 2; Codex reserved
+FRD-B work at epoch 3 before its detached worker was reaped; epoch 4 recovery refused to duplicate the
+ambiguous dispatch, stopped `needs-owner` and released cleanly. The original fixture is preserved as
+NO-GO. BL-0065/plugin 9.92.6 fixes the foreground-lifetime cause, and a fresh fixture B retry is
+pending. Plugin 9.92.7 records the evidence without changing the overlay or promoting Codex writes.
+
 ## 2026-07-11 — Ephemeral runtime shells own unattended process lifetime in foreground
 
 Codex's launcher now distinguishes durable shells (`background`) from ephemeral desktop-agent shells

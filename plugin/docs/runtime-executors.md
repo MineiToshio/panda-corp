@@ -88,7 +88,7 @@ Factory backlog drain-all is a separate R8 decision. Its Claude engine corpus is
 still supports only single-item mode; `plugin/runtime/codex/R8-BACKLOG-SPIKE.md` records the explicit
 Claude ownership and reevaluation gates. Product queue parity does not imply backlog drain-all parity.
 
-## R10 sequential runtime-switch verdict — fixture proven, live pending
+## R10 sequential runtime-switch verdict — installed attempt NO-GO, retry pending
 
 The runtime-neutral state and lease contract now has a bidirectional disposable-project harness at
 `plugin/scripts/test-runtime-switch.mjs`. It exercises the real `build-state.mjs` APIs and proves that
@@ -99,12 +99,19 @@ takeover or runtime-to-runtime messaging. Companion source and executor suites c
 `IN_PROGRESS`, durable budget/health state, terminal enforcement, preserved tests, hardening and
 orphan worktree/journal recovery.
 
-This is deliberately **fixture evidence, not installed-runtime evidence**. A Codex session cannot
-impersonate or launch the installed Claude Dynamic Workflow. The owner-run Claude→Codex→Claude canary
-and R11 unattended canary therefore remain mandatory promotion gates. Codex `implement` stays
-`FALLBACK`; the two deployed recurring routines and factory-backlog drain-all remain Claude-owned.
-The evidence taxonomy, commands and live capture requirements are canonical in
-`plugin/runtime/codex/R10-CERTIFICATION.md`.
+The first installed canary is preserved as **partial GO / overall NO-GO**. Installed Claude 9.92.5
+completed and independently verified FRD-A, committed a clean safe point and released epoch 2.
+Installed Codex 9.92.5 then acquired epoch 3, reserved `implement-WO-B-001-p0` and persisted its start,
+but Codex Desktop reaped the detached background worker. Epoch 4 recovery correctly stopped
+`needs-owner`, never duplicated the ambiguous dispatch and released the lease. Those safety
+properties are green, but FRD-B was never implemented or reviewed, so the switch did not complete.
+
+BL-0065/plugin 9.92.6 adds foreground-owned process lifetime for ephemeral shells. Certification
+must restart on the fresh `r10-installed-cold-switch-b` fixture and use foreground mode for the Codex
+stage; the failed fixture is immutable evidence, not a retry surface. The installed R10 retry and R11
+unattended canary remain mandatory promotion gates. Codex `implement` stays `FALLBACK`; the two
+deployed recurring routines and factory-backlog drain-all remain Claude-owned. Full evidence and
+retry requirements are canonical in `plugin/runtime/codex/R10-CERTIFICATION.md`.
 
 Cold continuation uses one logical build `run_id` across runtimes. Both launchers consume the same
 resolver and automatically inherit this durable key only from a released cross-runtime

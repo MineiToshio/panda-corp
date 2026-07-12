@@ -4,6 +4,23 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.92.7 — 2026-07-11 (PATCH): preserve the installed R10 NO-GO boundary
+
+**What:** recorded the first installed Claude→Codex→Claude canary as partial GO / overall NO-GO.
+Claude Stage 1 verified FRD-A and released epoch 2. Codex Stage 2 acquired epoch 3 and reserved
+`implement-WO-B-001-p0`, but its detached worker was reaped after the committed start. Epoch 4
+recovery stopped `needs-owner`, did not duplicate the ambiguous dispatch and released the lease.
+The original fixture is preserved; the fresh `r10-installed-cold-switch-b` foreground retry remains
+pending.
+
+**Why:** correct fencing and no-blind-retry behavior prove safety, not completion. FRD-B never reached
+implementation or its independent gate, so converting this partial run into installed-runtime proof
+would weaken the fail-closed promotion boundary.
+
+**Impact:** documentation-only plugin 9.92.7; no overlay or capability promotion. Plugin 9.92.6's
+foreground launcher fixes the observed process-lifetime cause, but installed R10 and overnight R11
+remain binding.
+
 ## v9.92.6 — 2026-07-11 (PATCH): foreground-owned Codex process lifetime
 
 **What:** `launch-codex-implement.sh` now offers an explicit `foreground` mode for ephemeral command
