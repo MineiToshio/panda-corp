@@ -2246,6 +2246,9 @@ function ConceptMultiRuntime(): React.JSX.Element {
         expuso un puntero verde huérfano en Claude y luego la revisión Codex quedó incierta por cuota.
         Plugin 9.93.0 / overlay 8.74.0 corrigen esos contratos; todavía faltan el fixture C completo
         y R11 desatendido.
+        Mientras un agente trabaja, Codex mantiene el heartbeat: su controlador reconoce únicamente
+        los campos de liveness acreditados por la lease cercada; cualquier otro cambio del agente en
+        el estado gobernado sigue fallando cerrado.
         Nunca hay takeover vivo ni dos builds simultáneos.
       </NotePanel>
 

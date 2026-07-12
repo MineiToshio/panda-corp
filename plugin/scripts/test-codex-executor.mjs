@@ -35,6 +35,9 @@ if(scenario==='uncertain'&&prompt.includes('Implement exactly')){writeFileSync('
 let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
+if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){await new Promise(r=>setTimeout(r,450));const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at)appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');}
+if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
+if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
 if(prompt.includes('Repair only')&&scenario==='red-review'){verdict='red';summary='repair did not converge'}
 if(prompt.includes('READ-ONLY independent final audit')&&scenario==='audit-writes')writeFileSync('audit-write.txt','forbidden\\n');
@@ -51,6 +54,31 @@ const addChange=async(fx,slug,type="feature")=>{await mkdir(path.join(fx.project
 
 await test("success E2E uses precise staging, ignores runtime artifacts and reaches release", async () => {
   const fx = await fixture(); const result = await execute(fx); ok(result.code === 0, result.err); const status = await read(path.join(fx.project, ".pandacorp/status.yaml")); ok(/phase: ["']?release/.test(status) && /running: false/.test(status), status); const wo = await read(path.join(fx.project, "docs/frds/frd-01-a/work-orders/wo-01.md")); ok(/VERIFIED/.test(wo), wo); const cp = await checkpoint(fx.project); ok(cp.terminal_reason === "complete" && cp.implementation_commits["frd-01-a"].length === 1, JSON.stringify(cp)); const trackedRun = await run("git", ["ls-files", ".pandacorp/run"], fx.project); ok(!trackedRun.out.trim(), "runtime files were staged");
+});
+
+await test("fenced heartbeat during a long dispatch is controller-owned, not a worker write", async () => {
+  const fx = await fixture();
+  const result = await execute(fx, "slow-heartbeat", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100" });
+  ok(result.code === 0, `${result.err}\n${result.out}`);
+  ok((await read(path.join(fx.project, ".pandacorp/run/heartbeat-observed"))).trim() === "1", "dispatch did not span a lease renewal");
+  const log = await run("git", ["log", "--format=%s"], fx.project);
+  ok(/feat\(WO-01\): implementation attempt/.test(log.out), log.out);
+});
+
+await test("worker non-liveness status mutation remains an ownership violation", async () => {
+  const fx = await fixture();
+  const result = await execute(fx, "worker-status-write", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100" });
+  ok(result.code === 2, `exit ${result.code}`);
+  const cp = await checkpoint(fx.project);
+  ok(cp.terminal_reason === "error" && /implementer touched governed state/.test(cp.error), JSON.stringify(cp));
+});
+
+await test("worker work-order frontmatter mutation remains an ownership violation", async () => {
+  const fx = await fixture();
+  const result = await execute(fx, "worker-wo-write");
+  ok(result.code === 2, `exit ${result.code}`);
+  const cp = await checkpoint(fx.project);
+  ok(cp.terminal_reason === "error" && /implementer touched governed state/.test(cp.error), JSON.stringify(cp));
 });
 
 await test("Build Plan/frontmatter dependency drift fails before any Codex dispatch", async () => {

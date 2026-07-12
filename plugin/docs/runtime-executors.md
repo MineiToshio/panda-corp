@@ -33,6 +33,12 @@ quiesces. Provider failures persist only a sanitized `error_class` (`usage_limit
 written to durable state. Reviewer tests survive a rollback under `.pandacorp/run/preserved-tests/` and are injected
 as the RED baseline of the next bounded pass.
 
+Worker ownership uses before/after content snapshots, not path-set attribution. During a dispatch,
+lease renewal continues normally. A change to `status.yaml` is ignored only when the active Codex
+token/epoch still passes the fence, the lease is fresh, and the complete diff normalizes to the exact
+`renew` projection (`running: true` and `supervisor_heartbeat: renewed_at`). Every other status field,
+duplicate liveness key, FRD or WO mutation remains a fail-closed `OWNERSHIP` violation.
+
 Terminal handling is controller-owned. SIGINT/SIGTERM/SIGHUP first quiesce the active Codex process
 group; the main controller alone then records the terminal reason and performs the two-phase release:
 fenced `quiesce` → precise `status.yaml` commit → fenced `finalize-release`. Claude terminal prompts

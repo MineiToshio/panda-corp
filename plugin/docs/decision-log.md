@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.94.1 — 2026-07-12 (PATCH): provenance-aware Codex heartbeat ownership
+
+**What:** BL-0070 replaces the Codex executor's path-set-only worker attribution with before/after
+content snapshots. A concurrent `status.yaml` delta is controller-owned only when the current Codex
+token/epoch passes its fence, the lease remains fresh, and normalizing the exact `renew` fields
+(`running` and `supervisor_heartbeat`) makes both snapshots equal. Every other governed mutation
+still fails closed.
+
+**Why:** installed R10-D crossed the 120-second renewal boundary during a healthy 126-second dispatch.
+The controller heartbeat correctly dirtied `status.yaml`, but the old path delta blamed the worker.
+
+**Impact:** plugin 9.94.1; no overlay or capability promotion. The regression corpus forces renewal
+during dispatch, accepts normal implementation, and rejects non-liveness status and WO mutations.
+
 ## v9.94.0 — 2026-07-12 (MINOR): deterministic stop and capability-bounded pre-loop close
 
 **What:** BL-0068 removes ambient shell `test -f` from owner-stop detection. The engine consumes a

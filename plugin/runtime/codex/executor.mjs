@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { appendFile, chmod, copyFile, lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
 import { createRuntimeEventEmitter } from "../event-transport.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -114,8 +114,47 @@ async function changedPaths() {
   if (tracked.code || untracked.code) throw Object.assign(new Error("cannot inspect git ownership"), { code: "GIT" });
   return [...new Set(`${tracked.out}${untracked.out}`.split("\0").filter(Boolean))].sort();
 }
-const snapshot = async () => new Set(await changedPaths());
-const delta = async (before) => (await changedPaths()).filter((file) => !before.has(file) && !runtimePath(file));
+const statusPath = ".pandacorp/status.yaml";
+const contentAt = async (file) => readFile(path.join(project, file)).then((body) => body.toString("base64")).catch((error) => error.code === "ENOENT" ? null : Promise.reject(error));
+const snapshot = async () => {
+  const dirty = await changedPaths();
+  const files = new Set([...dirty, statusPath]);
+  return new Map(await Promise.all([...files].map(async (file) => [file, await contentAt(file)])));
+};
+const parseStatusLiveness = (body) => {
+  const lines = body.split("\n"); const found = { running: [], supervisor_heartbeat: [] };
+  for (const line of lines) for (const key of Object.keys(found)) { const match = line.match(new RegExp(`^${key}:\\s*(.*)$`)); if (match) found[key].push(match[1].trim()); }
+  return found;
+};
+const normalizeStatusLiveness = (body) => body.split("\n").map((line) => /^(running|supervisor_heartbeat):/.test(line) ? `${line.slice(0, line.indexOf(":"))}: <controller-liveness>` : line).join("\n");
+async function controllerOnlyStatusDelta(beforeEncoded, afterEncoded) {
+  if (beforeEncoded === null || afterEncoded === null) return false;
+  const before = Buffer.from(beforeEncoded, "base64").toString("utf8"); let candidate = Buffer.from(afterEncoded, "base64").toString("utf8");
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const ownedLease = await assertFence(project, lease.token, lease.epoch);
+    if (ownedLease.runtime !== "codex" || ownedLease.run_id !== runId || ownedLease.epoch !== lease.epoch || !isFresh(ownedLease)) return false;
+    const values = parseStatusLiveness(candidate);
+    const projected = values.running.length === 1 && values.running[0] === "true" && values.supervisor_heartbeat.length === 1 && values.supervisor_heartbeat[0].replace(/^['"]|['"]$/g, "") === ownedLease.renewed_at;
+    if (projected && normalizeStatusLiveness(before) === normalizeStatusLiveness(candidate)) return true;
+    // Renewal can race the initial content read. Re-read under two identical fenced lease views;
+    // a worker's non-liveness edit survives renew and therefore cannot normalize away here.
+    candidate = await readFile(path.join(project, statusPath), "utf8");
+    const stable = await assertFence(project, lease.token, lease.epoch);
+    if (stable.renewed_at !== ownedLease.renewed_at) continue;
+  }
+  return false;
+}
+const delta = async (before) => {
+  const current = new Set(await changedPaths()); const candidates = new Set([...before.keys(), ...current]); const changed = [];
+  for (const file of [...candidates].sort()) {
+    if (runtimePath(file)) continue;
+    const after = await contentAt(file); const prior = before.get(file);
+    if (after === prior) continue;
+    if (file === statusPath && await controllerOnlyStatusDelta(prior, after)) continue;
+    changed.push(file);
+  }
+  return changed;
+};
 async function commitPaths(message, paths, kind) {
   const wanted = [...new Set(paths)].filter((file) => !runtimePath(file)); const dirty = new Set(await changedPaths()); const files = wanted.filter((file) => dirty.has(file));
   if (kind === "state" && files.some((file) => !governedPath(file))) throw Object.assign(new Error(`state commit contains non-governed files: ${files.filter((f) => !governedPath(f)).join(",")}`), { code: "OWNERSHIP" });
