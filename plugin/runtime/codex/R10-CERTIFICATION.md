@@ -4,20 +4,23 @@ Date: 2026-07-11
 
 ## Verdict
 
-**FIXTURE PROVEN · LIVE ATTEMPTED / NO-GO · RETRY PENDING.** The runtime-neutral state/lease
-contract passes the offline bidirectional fixture. The first installed canary proved Claude Stage 1,
-then stopped safely but inconclusively in Codex Stage 2 when Codex Desktop reaped a detached worker
-after dispatch reservation. The ambiguous dispatch was not repeated and the lease was released.
-That fixture is preserved as failed evidence; a fresh foreground-owned retry fixture is pending.
-No capability is promoted from `FALLBACK`.
+**FIXTURE PROVEN · TWO LIVE ATTEMPTS / NO-GO · FRESH RETRY PENDING.** The runtime-neutral
+state/lease contract passes the offline bidirectional fixture. The first installed canary proved
+Claude Stage 1, then stopped safely but inconclusively when Codex Desktop reaped a detached worker.
+The second installed canary proved foreground-owned Codex process lifetime and a same-run,
+new-epoch continuation through implementation, but it was invalid as certification evidence: Claude
+had published an orphaned `last_green_sha`, and Codex's independent review ended uncertain on a
+provider `usage_limit`. Both fixtures are preserved as failed evidence. BL-0066 and BL-0067 are fixed
+in plugin 9.93.0 / overlay 8.74.0; a distinct clean fixture C is still required. No capability is
+promoted from `FALLBACK`.
 
 ## Evidence levels
 
 - **fixture-real-cli:** a disposable Git project exercised the real fenced state APIs.
 - **fixture/source-suite:** the named independent suite executes a real script/engine harness.
 - **source:** static ownership or lifecycle invariant; never represented as runtime behaviour.
-- **live:** an installed Claude/Codex run. The first run is partial evidence only: Claude Stage 1 is
-  green, while Codex Stage 2 is NO-GO and the full bidirectional verdict remains open.
+- **live:** an installed Claude/Codex run. Both preserved attempts provide partial evidence only;
+  neither completed the full Claude→Codex→Claude chain on a valid green ancestor.
 
 ## Proven offline
 
@@ -75,17 +78,42 @@ gate. Therefore this is not an end-to-end installed cold-switch certification. B
 process-lifetime cause in plugin 9.92.6 by adding foreground-owned launch mode; it does not convert
 the failed run into passing evidence.
 
+## Installed canary B — foreground lifetime GO, certification NO-GO
+
+The preserved fixture is
+`/Users/Shared/Proyectos/pandacorp-canaries/r10-installed-cold-switch-b`.
+
+- Installed Claude plugin 9.92.7 functionally built and independently verified FRD-A, quiesced at
+  commit `074730a`, and released epoch 1 with a clean main checkout. Its final status nevertheless
+  published `last_green_sha: 1fb820d`, a gate-worktree commit that was not an ancestor of main. The
+  code and independent 12/12 rerun were green, but the orphaned pointer invalidates the safe point.
+- Installed Codex plugin 9.92.7 used the canonical `foreground` launcher. Launcher, supervisor and
+  sleep inhibitor remained alive together, proving BL-0065's process-lifetime fix under the real
+  Codex Desktop host.
+- Codex automatically continued logical run `run_20260712T012811Z_27525` under epoch 2. WO-B
+  implementation completed green and commit `ca32d3a` persisted it for handoff to review.
+- The independent JUDGE review returned an uncertain provider outcome classified as `usage_limit`.
+  The executor did not retry it, committed the governed uncertain state in `10c76ec`, quiesced in
+  `f00bded`, released the lease, and left `running: false`.
+- Commit `9301dcc` preserves the fixture-local NO-GO report. Do not run Stage 3, repair, continue or
+  retry this fixture.
+
+BL-0066 now publishes a verified ancestor through the explicit two-commit green-snapshot protocol.
+BL-0067 now preserves ambiguous gate-worktree residue and falls back to the synchronous gate instead
+of deleting crash evidence. Both fixes ship in plugin 9.93.0 and overlay 8.74.0. They repair the
+causes but cannot retroactively turn fixture B into passing evidence.
+
 ## Live canary retry still required
 
-Use the fresh retry fixture
-`/Users/Shared/Proyectos/pandacorp-canaries/r10-installed-cold-switch-b` with plugin 9.92.6 or later.
+Use a distinct clean fixture C with plugin 9.93.0 / overlay 8.74.0 or later.
 Claude verifies one WO and cleanly releases;
 a later Codex session acquires a newer epoch and verifies the next WO; a later Claude session
 acquires a newer epoch and confirms both VERIFIED WOs are skipped. Capture factory SHA,
 plugin/cache versions, overlay version, lease epochs and gate output. No runtime messages or live
 takeover are allowed. The Codex stage MUST use the launcher's `foreground` mode from an ephemeral
 Codex Desktop shell. Until the complete retry and R11 are green, Codex `implement` remains
-`FALLBACK`.
+`FALLBACK`. Fixture C must also prove that the published `last_green_sha` resolves to an ancestor of
+the shared main HEAD and that any preexisting ambiguous gate worktree remains preserved.
 
 The three launches MUST carry the same logical build-run ID, but the owner never copies it. In the
 default `auto` mode the shared resolver reuses it only when canonical state proves a released

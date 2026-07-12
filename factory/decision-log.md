@@ -2,6 +2,16 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — Installed R10 fixture B proves foreground ownership, not promotion
+
+The second installed Claude→Codex→Claude canary proved that Codex Desktop can own the official
+foreground launcher for its complete process lifetime and continue the same logical run under a new
+lease epoch. It remains NO-GO: Claude's functionally green Stage 1 published a non-ancestor
+`last_green_sha`, while Codex's independent review ended uncertain on provider `usage_limit` after a
+green implementation. Codex correctly avoided a blind retry, quiesced and released ownership.
+BL-0066 and BL-0067 fix the exposed engine contracts in plugin 9.93.0 / overlay 8.74.0. A fresh
+fixture C and R11 overnight proof remain mandatory; no runtime permission changes.
+
 ## 2026-07-11 — A green snapshot is an ancestor, never a self-hashing commit
 
 BL-0066 makes the safe point an explicit two-commit protocol: A contains the complete independently
@@ -28,6 +38,9 @@ FRD-B work at epoch 3 before its detached worker was reaped; epoch 4 recovery re
 ambiguous dispatch, stopped `needs-owner` and released cleanly. The original fixture is preserved as
 NO-GO. BL-0065/plugin 9.92.6 fixes the foreground-lifetime cause, and a fresh fixture B retry is
 pending. Plugin 9.92.7 records the evidence without changing the overlay or promoting Codex writes.
+
+**Later evidence:** fixture B proved foreground lifetime but remained NO-GO; see the newer entry
+above. Plugin 9.93.0 / overlay 8.74.0 contain BL-0066 and BL-0067, and fixture C is now pending.
 
 ## 2026-07-11 — Ephemeral runtime shells own unattended process lifetime in foreground
 

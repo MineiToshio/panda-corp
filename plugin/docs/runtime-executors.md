@@ -88,7 +88,7 @@ Factory backlog drain-all is a separate R8 decision. Its Claude engine corpus is
 still supports only single-item mode; `plugin/runtime/codex/R8-BACKLOG-SPIKE.md` records the explicit
 Claude ownership and reevaluation gates. Product queue parity does not imply backlog drain-all parity.
 
-## R10 sequential runtime-switch verdict — installed attempt NO-GO, retry pending
+## R10 sequential runtime-switch verdict — two installed attempts NO-GO, fixture C pending
 
 The runtime-neutral state and lease contract now has a bidirectional disposable-project harness at
 `plugin/scripts/test-runtime-switch.mjs`. It exercises the real `build-state.mjs` APIs and proves that
@@ -106,10 +106,17 @@ but Codex Desktop reaped the detached background worker. Epoch 4 recovery correc
 `needs-owner`, never duplicated the ambiguous dispatch and released the lease. Those safety
 properties are green, but FRD-B was never implemented or reviewed, so the switch did not complete.
 
-BL-0065/plugin 9.92.6 adds foreground-owned process lifetime for ephemeral shells. Certification
-must restart on the fresh `r10-installed-cold-switch-b` fixture and use foreground mode for the Codex
-stage; the failed fixture is immutable evidence, not a retry surface. The installed R10 retry and R11
-unattended canary remain mandatory promotion gates. Codex `implement` stays `FALLBACK`; the two
+BL-0065/plugin 9.92.6 adds foreground-owned process lifetime for ephemeral shells. Fixture B then
+proved that lifetime under the installed Codex Desktop host: Codex retained the same logical run,
+acquired epoch 2 and completed WO-B implementation. It is still an overall NO-GO. Claude Stage 1
+published a gate-worktree `last_green_sha` that was not an ancestor of main, and Codex's independent
+JUDGE review ended uncertain with sanitized class `usage_limit`; the executor did not retry, released
+the lease and left `running: false`. BL-0066 and BL-0067 fix the green-snapshot and crash-evidence
+contracts in plugin 9.93.0 / overlay 8.74.0, but fixture B remains immutable failed evidence.
+
+Certification must restart on a distinct clean fixture C using the repaired overlay and foreground
+Codex stage. The installed R10 retry and R11 unattended canary remain mandatory promotion gates.
+Codex `implement` stays `FALLBACK`; the two
 deployed recurring routines and factory-backlog drain-all remain Claude-owned. Full evidence and
 retry requirements are canonical in `plugin/runtime/codex/R10-CERTIFICATION.md`.
 

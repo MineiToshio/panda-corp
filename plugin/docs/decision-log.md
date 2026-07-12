@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.93.0 — 2026-07-11 (MINOR): preserve installed R10 fixture B as NO-GO
+
+**What:** records the second installed Claude→Codex→Claude attempt. Claude functionally verified
+FRD-A but published a gate-worktree `last_green_sha` outside main ancestry. Codex's official
+foreground launcher then stayed alive, continued the same logical run at epoch 2 and completed WO-B
+implementation; its independent JUDGE review ended uncertain with sanitized class `usage_limit`.
+The executor did not retry, quiesced and released the lease.
+
+**Impact:** BL-0066 and BL-0067 repair the exposed green-snapshot and crash-evidence contracts in
+plugin 9.93.0 / overlay 8.74.0. Fixture B stays immutable NO-GO evidence. A distinct fixture C and
+R11 overnight proof remain required, so Codex `implement` is not promoted.
+
 ## v9.93.0 — 2026-07-11 (MINOR): publish last-green as an ancestor snapshot
 
 **What:** BL-0066 replaces the impossible `last_green_sha` self-hash/amend instruction with an

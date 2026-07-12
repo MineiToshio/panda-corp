@@ -2240,8 +2240,12 @@ function ConceptMultiRuntime(): React.JSX.Element {
         vivo. El lease atómico, fencing, presupuesto y salud durables ya están probados; Codex sigue
         solo lectura/review hasta el canario live R10 y R11. Un runtime posterior puede continuar
         únicamente cuando el anterior cerró su gate y commit, llegó a un safe point, se detuvo por
-        completo y liberó ownership. R10 ya prueba este relevo en un proyecto desechable con los
-        CLIs reales; todavía falta el canario entre las aplicaciones instaladas y R11 desatendido.
+        completo y liberó ownership. R10 ya prueba este relevo en fixtures y dos intentos instalados
+        aportaron evidencia parcial: el segundo demostró que Codex Desktop conserva vivo su launcher
+        foreground y continúa el mismo run bajo un epoch nuevo. No certificó la cadena completa:
+        expuso un puntero verde huérfano en Claude y luego la revisión Codex quedó incierta por cuota.
+        Plugin 9.93.0 / overlay 8.74.0 corrigen esos contratos; todavía faltan el fixture C completo
+        y R11 desatendido.
         Nunca hay takeover vivo ni dos builds simultáneos.
       </NotePanel>
 

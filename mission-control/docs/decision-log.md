@@ -4,6 +4,14 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-11 — Manual reports the second installed R10 NO-GO honestly
+
+The multi-runtime concept now distinguishes the progress proved by fixture B from certification.
+Codex Desktop's foreground launcher survived its real execution lifetime and continued the same run
+under a new epoch, but the chain was invalidated by an orphaned Claude green pointer and later ended
+uncertain at the Codex reviewer on provider quota. Plugin 9.93.0 / overlay 8.74.0 repair the exposed
+contracts; fixture C and R11 remain required. The Manual grants no new write permission.
+
 ## 2026-07-11 — Manual explains the two-commit green snapshot
 
 The unattended-construction concept and rendered Implement guide now describe the honest safe-point
