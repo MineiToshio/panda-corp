@@ -12,6 +12,14 @@ the baseline fast path recognizes only that snapshot or its direct status-only p
 build orchestration, infra and runtime portability now share this contract. Plugin 9.93.0 and compatible
 overlay 8.74.0 close the defect without promoting R10/R11.
 
+## 2026-07-11 — Gate-worktree crash residue is evidence, not disposable state
+
+DR-118 now distinguishes safe reuse from uncertain residue. A gate checkout is reusable only when Git
+registers the exact path and it is clean; dirty, orphaned, unregistered, locked or ambiguous state is
+preserved and the build falls back to its synchronous gate. Baseline and probe never delete, reset,
+prune, recreate or force-remove the protected `.pandacorp/run/gate-worktree` path. BL-0067 ships this
+contract in plugin 9.93.0 and overlay 8.74.0.
+
 ## 2026-07-11 — Installed R10 remains fail-closed after a safe partial run
 
 The first real installed Claude→Codex→Claude canary proved Claude Stage 1 and Codex's fencing under

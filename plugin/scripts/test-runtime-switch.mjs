@@ -141,7 +141,7 @@ try {
   ok(/orphan IN_PROGRESS/.test(codexSuite) && /preserved RED baseline/.test(codexSuite) && /refuses release when hardening evidence is absent/.test(codexSuite), "Codex certification suite binds IN_PROGRESS reconciliation, preserved RED evidence and hardening", "source");
   const claudeEngine = await readFile(path.join(root, "plugin/templates/shared/.claude/engines/pandacorp-build.js"), "utf8");
   const claudeSuite = await readFile(path.join(root, "plugin/scripts/test-pandacorp-build.mjs"), "utf8");
-  ok(/remove a STALE gate worktree/.test(claudeEngine) && /worktree creation fails/.test(claudeSuite) && /hardening-failure close/.test(claudeSuite), "Claude source/harness binds orphan gate-worktree cleanup, gate fallback and hardening failure", "source");
+  ok(/preserve gate-worktree crash evidence/.test(claudeEngine) && /dirty, orphaned, unregistered, or ambiguous/.test(claudeEngine) && !/worktree remove\s+--force[^\n]*gate-worktree|rm\s+-rf[^\n]*gate-worktree/.test(claudeEngine) && /worktree creation fails/.test(claudeSuite) && /hardening-failure close/.test(claudeSuite), "Claude source/harness preserves unsafe gate-worktree evidence, falls back synchronously and binds hardening failure", "source");
 
   const separateSuites = [
     ["build-state fencing, spend/health and transaction crash recovery", "node plugin/scripts/test-build-state.mjs"],

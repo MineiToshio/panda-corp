@@ -428,8 +428,10 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
   semantics are byte-for-byte the pre-C2 path.
 - **Fail-safe topology.** The first gate **probes** the worktree synchronously: success → concurrent for the
   whole run; **worktree failure → the LEGACY synchronous gate** (one gate inline per iteration, on the quiet
-  main tree) for the rest of the run — a real, tested fallback, never "no gate". The **baseline pre-check removes
-  a stale gate worktree** left by a crashed prior run before anything starts.
+  main tree) for the rest of the run — a real, tested fallback, never "no gate". A preexisting gate worktree is
+  reused only when Git registers its exact path and its tree is clean. Dirty, orphaned, unregistered, locked or
+  ambiguous residue is **preserved as crash evidence** and forces the synchronous fallback; neither baseline nor
+  probe deletes, resets, prunes, recreates or force-removes this protected `.pandacorp/` path (BL-0067).
 - **HONEST LIMITS (stated plainly).** Gate reviews **serialize with each other** (one worktree). And `applyGate`
   **trusts the worktree gate's green without a main-side re-run** — so the integration window `[pin, apply]`
   (main advanced while the gate reviewed the older pin) is NOT re-verified at apply time. That window is covered
@@ -691,7 +693,7 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   is to **restore it to `last_green_sha`** (a clean reset to the green commit); never hand-resolve a
   stash-pop. On startup the engine **drops stale build stashes and clears leftover temp `preview-wo*`
   pages** (baseline self-heal) — they're stale, the work is resumable. **The baseline is a TWO-STEP
-  (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, the stale gate-worktree removal, the
+  (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, preserves any gate-worktree crash evidence, the
   `rethink_pending` consume, the `.pandacorp/run/stop` owner-signal check, and a **clean-tree fast path** (tree
   clean AND HEAD is `last_green_sha` **or its direct metadata-only pointer child whose sole diff is
   `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty

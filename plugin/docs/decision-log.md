@@ -20,6 +20,17 @@ snapshot was safe.
 commits), implement skill, deterministic Git regressions and plugin 9.93.0. The injected engine changes,
 so overlay 8.74.0 upgrades projects compatibly. R10/R11 promotion remains unchanged.
 
+## v9.93.0 — 2026-07-11 (MINOR): Gate-worktree crash evidence is preserved
+
+**What:** BL-0067 removes the build baseline's destructive cleanup of
+`.pandacorp/run/gate-worktree`. The gate probe now reuses a preexisting checkout only when Git
+registers that exact path and its tree is clean. Dirty, orphaned, unregistered, locked or ambiguous
+residue remains untouched and forces the tested synchronous-gate fallback. Source guards reject any
+future `worktree remove --force` or recursive-delete instruction aimed at this path.
+
+**Impact:** canonical build engine template + Mission Control overlay copy, implement skill, build
+harness and runtime-switch source suite; included in plugin **9.93.0** and overlay **8.74.0**. No agent changed.
+
 ## v9.92.7 — 2026-07-11 (PATCH): preserve the installed R10 NO-GO boundary
 
 **What:** recorded the first installed Claude→Codex→Claude canary as partial GO / overall NO-GO.

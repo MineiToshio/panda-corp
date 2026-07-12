@@ -261,7 +261,7 @@ const MECH = (args && args.mechModel) || 'haiku'
 // WAVES stay synchronous barriers — only GATES go concurrent. If worktree creation fails, the whole run
 // falls back to the legacy synchronous gate path (a real, tested fallback).
 const MAX_CONCURRENT_GATES = (args && args.maxConcurrentGates) || 2   // cap on gate promises in flight at once (they still serialize on the single worktree; this bounds the backlog)
-const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${PROJECT_DIR}/.pandacorp/run/gate-worktree`   // detached worktree dir (gitignored run/ state); crash residue removed by baseline-precheck
+const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${PROJECT_DIR}/.pandacorp/run/gate-worktree`   // detached worktree dir (gitignored run/ state); crash residue is preserved and causes synchronous fallback
 // The gate agent's cwd preamble: cd to the frozen worktree (NOT the project root). Every relative path in
 // the gate prompt is worktree-relative; absolute ${PROJECT_DIR}/... paths (dashboard events, track.jsonl,
 // punch-list) still target the MAIN tree (append-only, no git — worktree-safe).
@@ -525,7 +525,7 @@ const precheck = await agent(
   `You are the Pandacorp baseline PRE-CHECK (mechanical — cheap; do NOT run verify.sh, do NOT fix code, just return a verdict). Do these steps IN ORDER:
   **STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}
   **STEP 0 — FAIL-LOUD project-root guard (BL-0022):** \`test -f ${PROJECT_DIR}/.pandacorp/status.yaml\`. If it does NOT exist, STOP and return { green: false, failure: "BL-0022: ${PROJECT_DIR}/.pandacorp/status.yaml no existe — el motor se lanzó apuntando al árbol equivocado (¿cwd = raíz de la fábrica en vez de la carpeta del proyecto?). Relanza pasando args.projectDir/args.project apuntando a la carpeta del proyecto." } — do nothing else.
-  **STEP W — remove a STALE gate worktree (C2 crash residue):** if ${GATE_WORKTREE} exists, it is leftover from a crashed prior run (the gate worktree is disposable run/ state, NOT protected owner data — removing it via git is allowed): \`git -C ${PROJECT_DIR} worktree remove --force ${GATE_WORKTREE} 2>/dev/null || rm -rf ${GATE_WORKTREE}\`, then \`git -C ${PROJECT_DIR} worktree prune\`. Do this ONLY for ${GATE_WORKTREE} — never any other .pandacorp/ path.
+  **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** if the file \`${PROJECT_DIR}/.pandacorp/run/stop\` EXISTS, return { stop: true } immediately. Do NOT delete it (the owner removes it) — the engine will stop clean without building.
   **STEP 3 — clean-tree fast path:** run \`git -C ${PROJECT_DIR} status --porcelain\` and compare \`git -C ${PROJECT_DIR} rev-parse --short HEAD\` to \`last_green_sha\` in status.yaml. If the tree is CLEAN (no porcelain output) AND HEAD == last_green_sha → return { green: true } (known-green; skip the cold-start verify). Otherwise return { escalate: true, dirty: <true iff porcelain showed any changes, else false> }.`,
@@ -952,7 +952,7 @@ ${GATE_PASS_RETURN}
 }
 
 // ── C2 gate worktree lifecycle (MECH, MAIN-tree git op) ──────────────────────────────────────────
-// Lazily creates the persistent detached worktree at GATE_WORKTREE; on reuse it checks out the new pin sha
+// Lazily creates the persistent detached worktree at GATE_WORKTREE; on safe reuse it checks out the new pin sha
 // (+ pnpm install ONLY if pnpm-lock.yaml changed between shas). One label 'gate-worktree'. Returns true iff
 // the worktree is ready at `sha`. First hard failure → worktreeState 'failed' → the whole run falls back to
 // the legacy synchronous gate path. Idempotent: a no-op (no spawn) when already frozen at `sha`.
@@ -962,9 +962,10 @@ async function ensureGateWorktree(sha) {
   agentSpawned++
   const r = await agent(
     `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
-    1) If the directory ${GATE_WORKTREE} does NOT exist yet: \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\`, then \`pnpm install\` inside ${GATE_WORKTREE} (the pnpm store is shared/hardlinked, so this is fast). Return { ok: true, created: true }.
-    2) If it ALREADY exists (reuse): note the sha it is currently at, then \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`. Run \`pnpm install --frozen-lockfile\` inside ${GATE_WORKTREE} ONLY IF pnpm-lock.yaml changed between the old sha and ${sha} (\`git -C ${PROJECT_DIR} diff --name-only <oldsha> ${sha} -- pnpm-lock.yaml\` non-empty); otherwise SKIP install. Return { ok: true, created: false }.
-    If ANY step fails (the repo state does not support a worktree here — a stuck lock, an unreachable sha, an already-linked worktree), do NOT retry endlessly: return { ok: false, failure: "<what failed>" } and the engine falls back to running gates synchronously on the main tree for the rest of the run. NEVER touch .pandacorp/ owner state beyond this worktree dir.`,
+    1) If the directory ${GATE_WORKTREE} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\` and \`pnpm install\` inside ${GATE_WORKTREE}. Return { ok: true, created: true }.
+    2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain\` is empty. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved" }.
+    3) For a registered CLEAN reuse, note its old sha, then \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`. Run \`pnpm install --frozen-lockfile\` inside ${GATE_WORKTREE} ONLY IF pnpm-lock.yaml changed between the old sha and ${sha} (\`git -C ${PROJECT_DIR} diff --name-only <oldsha> ${sha} -- pnpm-lock.yaml\` non-empty); otherwise SKIP install. Return { ok: true, created: false }.
+    If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
     { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
   if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
   worktreeState = 'failed'; lastWorktreeSha = null

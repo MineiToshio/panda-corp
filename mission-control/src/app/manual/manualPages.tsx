@@ -2943,6 +2943,12 @@ function WorkflowBuild(): React.JSX.Element {
         congelar la forja, y una orden rechazada camina de vuelta a la forja (↩️{" "}
         <Code>wo_reopen</Code>).
       </Body>
+      <NotePanel>
+        Si un corte deja <Code>.pandacorp/run/gate-worktree</Code>, el motor no lo borra: puede ser la
+        única evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente ese
+        worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
+        síncrono sobre el árbol principal.
+      </NotePanel>
 
       <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />
       <Body>

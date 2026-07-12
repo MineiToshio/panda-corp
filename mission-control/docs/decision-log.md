@@ -12,6 +12,12 @@ chain: commit A is the independently verified snapshot; metadata-only commit B p
 snapshot, not an impossible commit that claims to contain its own SHA. This mirrors BL-0066/plugin
 9.93.0 and changes no R10/R11 permission boundary.
 
+## 2026-07-11 — Manual treats gate-worktree residue as preserved crash evidence
+
+The build workflow page now explains that a preexisting internal gate worktree is reused only when
+Git registers the exact path and it is clean. Dirty, orphaned or ambiguous residue remains untouched
+and the engine takes the synchronous-gate fallback, matching BL-0067 and DR-118.
+
 ## 2026-07-11 — Manual distinguishes Codex foreground-owned launches
 
 The portability guide now tells operators that Codex Desktop keeps the launcher attached in

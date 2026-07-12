@@ -65,6 +65,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ENGINE_PATH = path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
 
 let source = readFileSync(ENGINE_PATH, 'utf8')
+// BL-0067 source guard: the protected gate-worktree may contain the only crash evidence.
+// The engine must never prescribe a destructive cleanup of that path.
+if (/worktree remove\s+--force[^\n]*gate-worktree|rm\s+-rf[^\n]*gate-worktree/.test(source)) {
+  console.error('FATAL: destructive gate-worktree cleanup returned to the engine source.')
+  process.exit(1)
+}
 // The only ESM syntax in the file is the meta export; neutralize it so the
 // source is a valid function body. (We transform our in-memory copy — the
 // engine file on disk is never touched.)
@@ -1436,7 +1442,10 @@ SCENARIOS.push({
       && gateA.index < applyA.index && buildB2.index < applyA.index,
       `INTERLEAVE: after dispatch:frd-i-b (@${dispB && dispB.index}), gate:frd-i-a (@${gateA && gateA.index}) AND build:wo-ib2 (@${buildB2 && buildB2.index}) both run before apply-gate:frd-i-a (@${applyA && applyA.index}) — build and review OVERLAP`)
     t.ok(gateA && /GATE WORKTREE/.test(gateA.prompt), 'the concurrent gate runs from the pinned gate worktree (cd preamble)')
-    t.ok(byLabel(run, 'gate-worktree').length >= 1, 'the persistent gate worktree was prepared (probed at the first gate)')
+    const wt = byLabel(run, 'gate-worktree')[0]
+    t.ok(wt, 'the persistent gate worktree was prepared (probed at the first gate)')
+    t.ok(wt && /worktree list --porcelain/.test(wt.prompt) && /status --porcelain/.test(wt.prompt), 'a preexisting worktree is reused only when its exact path is registered and clean')
+    t.ok(wt && /DO NOT delete, reset, clean, prune, recreate, or force-remove/.test(wt.prompt), 'the probe preserves crash evidence on every unsafe reuse')
     t.ok(run.result && run.result.builtFrds.includes('frd-i-a') && run.result.builtFrds.includes('frd-i-b'), 'both FRDs verified')
   },
 })
@@ -1509,6 +1518,10 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error} (a worktree failure must degrade, not crash)`)
     t.ok(byLabel(run, 'gate-worktree').length === 1, 'the worktree was probed once (and failed) — not retried per gate')
+    const precheck = byLabel(run, 'baseline-precheck')[0]
+    const wt = byLabel(run, 'gate-worktree')[0]
+    t.ok(precheck && /preserve gate-worktree crash evidence/.test(precheck.prompt), 'baseline preserves a dirty/orphaned gate worktree instead of cleaning it')
+    t.ok(wt && /dirty, orphaned, unregistered, or ambiguous/.test(wt.prompt) && /evidence preserved/.test(wt.prompt), 'dirty/orphaned reuse returns a preserved-evidence failure')
     t.ok(hasLog(run, /legacy synchronous gate path/i), 'the fallback to the legacy synchronous gate path is logged loudly')
     const gate = byLabel(run, 'gate:frd-iv')[0]
     t.ok(gate, 'the gate STILL ran (never skipped — it just runs synchronously)')
