@@ -147,7 +147,7 @@ await test("launcher prevents sleep for the whole supervisor and preserves space
   const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
   const result = await run("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), spaced, "4", "60", "0", "1", "chosen-change", "frd-01-r11"], spaced, { PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub, R11_WRAP_LOG: wrapLog });
   must(result.code === 0, `${result.out}\n${result.err}`); const receipt = JSON.parse(await read(path.join(spaced, ".pandacorp/run/codex-launch.json")));
-  const canonical = await realpath(spaced); must(Array.isArray(receipt.resume_argv) && receipt.resume_argv[0] === "bash" && receipt.resume_argv[2] === canonical && receipt.resume_argv.at(-1) === receipt.run_id && !Object.hasOwn(receipt, "resume_command"), JSON.stringify(receipt));
+  const canonical = await realpath(spaced); must(Array.isArray(receipt.resume_argv) && receipt.resume_argv[0] === "bash" && receipt.resume_argv[2] === canonical && receipt.resume_argv.at(-2) === receipt.run_id && receipt.resume_argv.at(-1) === "background" && receipt.launch_mode === "background" && !Object.hasOwn(receipt, "resume_command"), JSON.stringify(receipt));
   must(receipt.resume_argv.slice(7,9).join("|") === "chosen-change|frd-01-r11", `targeted scope lost: ${JSON.stringify(receipt.resume_argv)}`);
   must(Array.isArray(receipt.supervisor_argv) && receipt.supervisor_argv.includes("--change") && receipt.supervisor_argv.includes("chosen-change") && receipt.supervisor_argv.includes("--frds") && receipt.supervisor_argv.includes("frd-01-r11"), JSON.stringify(receipt));
   const wrapped = JSON.parse(await read(wrapLog)); must(wrapped.includes("-dimsu") && wrapped.includes("-w") && wrapped.includes(String(receipt.supervisor_pid)), JSON.stringify(wrapped));
@@ -157,9 +157,25 @@ await test("launcher prevents sleep for the whole supervisor and preserves space
   const status=await read(path.join(spaced,".pandacorp/status.yaml"));must(/running: false/.test(status),status);must(!await exists(path.join(spaced,".pandacorp/run/build.lease/lease.json")),"lease survived launcher stop");
 });
 
+await test("foreground launcher owns the process lifetime and forwards termination", async () => {
+  const fx = await fixture(); const bin = await mkdtemp(path.join(os.tmpdir(), "pc-r11-fg-bin-")); projects.push(bin);
+  await writeFile(path.join(bin, "codex"), "#!/bin/sh\ncase \"$1 $2\" in 'login status') echo logged-in;; *) echo codex-cli-test;; esac\n");
+  await writeFile(path.join(bin, "curl"), "#!/bin/sh\nexit 0\n");
+  await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\n[ \"${1:-}\" = -h ] && exit 0\ntrap 'exit 0' INT TERM HUP\nwhile [ $# -gt 0 ]; do [ \"$1\" = -w ] && { shift; target=$1; break; }; shift; done\nwhile kill -0 \"$target\" 2>/dev/null; do sleep 0.05; done\n");
+  for (const file of ["codex", "curl", "caffeinate"]) await chmod(path.join(bin, file), 0o755);
+  const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
+  const child = spawn("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), fx.project, "4", "60", "0", "1", "chosen-change", "frd-foreground", "auto", "foreground"], { cwd: fx.project, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub }, stdio: ["ignore", "pipe", "pipe"] });
+  const receiptPath=path.join(fx.project,".pandacorp/run/codex-launch.json"); for(let i=0;i<300&&!await exists(receiptPath);i++) await sleep(10);
+  const receipt=JSON.parse(await read(receiptPath)); must(receipt.launch_mode==="foreground"&&receipt.launcher_pid===child.pid&&receipt.resume_argv.at(-1)==="foreground"&&receipt.resume_argv.at(-2)===receipt.run_id,JSON.stringify(receipt));
+  for(const pid of [child.pid,receipt.supervisor_pid,receipt.sleep_inhibitor_pid]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(alive,`foreground process ${pid} was not live`)}
+  child.kill("SIGTERM"); await new Promise(resolve=>child.on("close",resolve));
+  for(let i=0;i<750;i++){let alive=false;for(const pid of [receipt.supervisor_pid,receipt.sleep_inhibitor_pid])try{process.kill(pid,0);alive=true}catch{}if(!alive)break;await sleep(20)}
+  for(const [label,pid] of [["supervisor",receipt.supervisor_pid],["inhibitor",receipt.sleep_inhibitor_pid]]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(!alive,`foreground ${label} ${pid} survived SIGTERM`)}
+});
+
 await test("evidence collector reads the real normalized journal schema and fails closed", async () => {
   const fx = await fixture(); const runDir = path.join(fx.project, ".pandacorp/run"); const runId = "r11-evidence"; const started = "2026-07-11T00:00:00.000Z", terminal = "2026-07-11T00:05:00.000Z";
-  await writeFile(path.join(runDir, "codex-launch.json"), JSON.stringify({ run_id: runId, pid: 101, supervisor_pid: 101, sleep_inhibitor_pid: 102, runtime: "codex", started_at: started, resume_argv: ["bash", "/factory/plugin/scripts/launch-codex-implement.sh", fx.project, "4", "300", "2", "3", "", "", runId], supervisor_argv: ["node", "/factory/plugin/runtime/codex/supervisor.mjs", "--run-id", runId] }));
+  await writeFile(path.join(runDir, "codex-launch.json"), JSON.stringify({ run_id: runId, pid: 101, supervisor_pid: 101, sleep_inhibitor_pid: 102, launch_mode: "background", runtime: "codex", started_at: started, resume_argv: ["bash", "/factory/plugin/scripts/launch-codex-implement.sh", fx.project, "4", "300", "2", "3", "", "", runId, "background"], supervisor_argv: ["node", "/factory/plugin/runtime/codex/supervisor.mjs", "--run-id", runId] }));
   await writeFile(path.join(runDir, "codex-checkpoint.json"), JSON.stringify({ run_id: runId, terminal_reason: "complete", terminal_at: terminal }));
   await writeFile(path.join(runDir, "run-ledger.json"), JSON.stringify({ run_id: runId, spend_units: 4, dispatch_count: 2 }));
   await writeFile(path.join(runDir, "codex-supervisor.jsonl"), `${JSON.stringify({ at: terminal, event: "supervisor_terminal", run_id: runId, reason: "complete" })}\n`);

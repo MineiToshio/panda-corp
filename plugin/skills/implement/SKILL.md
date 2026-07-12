@@ -42,6 +42,15 @@ Control the **concurrency and models** of the workflow (DR-014), not "team size"
 
 ## Unattended operation — the build supervisor (run and walk away SAFELY)
 
+> **Codex launcher lifetime (BL-0065; promotion gates still apply).** On a host whose command shell
+> persists, the historical launcher mode remains `background`. Codex Desktop and any ephemeral
+> orchestration shell MUST use the ninth positional argument `foreground` (or
+> `PANDACORP_CODEX_LAUNCH_MODE=foreground`) so the launcher remains the process-tree owner, forwards
+> INT/TERM/HUP to the supervisor and sleep inhibitor, and does not return until the run stops. The
+> atomic receipt records `launch_mode`, `launcher_pid`, child PIDs, and the exact 11-element resume
+> argv. This lifecycle fix does not bypass PORT-5: do not launch Codex build writes until R10/R11 are
+> promoted.
+
 ### Launch checklist (run in order — mechanized, not prose)
 1. **Preflight (read-only):** `bash "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-implement.sh" <projectDir> --target-runtime claude --run-mode auto`. Every line must read `PASS` (exit 0), including the logical build-run intent classification from the shared resolver; it never asks the owner for an ID. A `FAIL` STOPS the launch: *another build ACTIVE* → abort; *STALE LOCK* → it prints the reset commands (it never auto-resets — the next step's `launch-implement.sh` takes a fresh lock); a readiness/overlay/`NEEDS CLARIFICATION` fail routes back to `/pandacorp:architecture` or `/pandacorp:upgrade`.
 2. **Resolve the logical run + take the lock:** `bash "${CLAUDE_PLUGIN_ROOT}/scripts/launch-implement.sh" <projectDir> <mode> <maxAgents> [auto|new|continue-run-id] [--frds <comma-list> | --change <card>] [--max-frds <N>] [--max-spend <N>]`. The first four arguments remain backward-compatible. A targeted request MUST be passed through the named flag; `--frds` and `--change` are mutually exclusive and invalid/escaping paths fail before lease acquisition. The shared resolver automatically reuses the canonical `build_run_id` only for a safe cross-runtime cold continuation: `phase: implementation`, `running: false`, no lease, a valid prior ID, and `build_runtime` different from the runtime being launched. The owner never copies or chooses that ID. Otherwise the launcher creates a new governed run. A same-runtime next pass and a project already in `phase: release` are new runs; when the owner's request explicitly says to start a separate/reset budget run, pass `new` as the fourth argument. An explicit prior ID is reserved for a runtime supervisor's mechanical restart receipt, not owner interaction. The launcher then writes `phase: implementation`, `running: true`, `run_started_at`, touches `.pandacorp/run/build.lock`, and PRINTS the exact JSON-safe `Workflow()` call—including every requested scope/ceiling—to run next. Never add a missing option by hand.

@@ -2,6 +2,13 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — Ephemeral runtime shells own unattended process lifetime in foreground
+
+Codex's launcher now distinguishes durable shells (`background`) from ephemeral desktop-agent shells
+(`foreground`). The latter keeps a foreground controller alive and propagates termination through the
+supervisor and sleep inhibitor instead of treating `nohup` as a durable process manager. Plugin 9.92.6
+closes BL-0065 without changing the overlay or weakening the R10/R11 promotion boundary.
+
 ## 2026-07-11 — Provider diagnostics are classified, redacted and non-retriable
 
 Codex unattended execution now records only a bounded provider-failure class and mechanical

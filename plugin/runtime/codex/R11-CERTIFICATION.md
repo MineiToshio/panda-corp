@@ -11,7 +11,7 @@ This evidence record is append-only by run. Evidence classes are not interchange
 
 ## Current verdict — OFFLINE GREEN; CURRENT-HEAD SHORT LIVE GREEN; OVERNIGHT PENDING
 
-`OFFLINE_ACCELERATED` is automated by `node plugin/scripts/test-codex-unattended.mjs` (**13/13** on
+`OFFLINE_ACCELERATED` is automated by `node plugin/scripts/test-codex-unattended.mjs` (**14/14** on
 2026-07-11). It injects crash/restart, network loss, rate limit, expired auth, approval denial,
 budget/ownership and uncertain-result failures; verifies the supervisor breaker/backoff, whole-run
 sleep prevention, interruptible backoff, `TTL/3` renewal, path-safe receipts, exact guarded resumption,
@@ -71,12 +71,14 @@ launched Codex `implement` run.
 Run from a disposable, representative multi-FRD project after the short canary is green:
 
 ```bash
-bash /absolute/path/to/panda-corp/plugin/scripts/launch-codex-implement.sh "$PWD" 24 28800 2 3
+bash /absolute/path/to/panda-corp/plugin/scripts/launch-codex-implement.sh "$PWD" 24 28800 2 3 "" "" auto foreground
 ```
 
-Keep the Mac powered and logged in. The launcher starts `caffeinate -w <supervisor_pid>` as a separate
-sleep inhibitor bound to the supervisor and records both PIDs; stopping the supervisor ends its worker
-tree and the inhibitor. Power-off, forced OS termination, or loss of the local checkout cannot continue.
+Keep the Mac powered and logged in. `foreground` is mandatory under Codex Desktop or another ephemeral
+command shell: the launcher stays attached, owns signal propagation, and starts
+`caffeinate -w <supervisor_pid>` as a separate sleep inhibitor. The receipt records launcher and child
+PIDs; stopping the launcher ends the supervisor worker tree and inhibitor. Power-off, forced OS
+termination, loss of the local checkout, or closing the attached task cannot continue.
 After a supervisor crash, wait until the matching lease is stale and invoke the `resume_argv` array from
 the receipt as argv (not as an interpolated shell string). It re-enters the launcher, reruns both
 preflights, re-establishes the sleep inhibitor and permits reclaim only when runtime and logical run ID

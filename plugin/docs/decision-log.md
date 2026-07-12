@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.92.6 — 2026-07-11 (PATCH): foreground-owned Codex process lifetime
+
+**What:** `launch-codex-implement.sh` now offers an explicit `foreground` mode for ephemeral command
+shells. The launcher remains alive, forwards termination to the supervisor and PID-bound sleep
+inhibitor, waits and reaps both, and records its mode/PID in the atomic mode-preserving receipt.
+Historical `background` behavior remains the default for durable shells. The offline corpus proves
+argv, receipt, concurrent liveness and signal cleanup without a provider.
+
+**Why:** Codex Desktop may reap detached `nohup` descendants when its command shell returns. The first
+R11 overnight attempt exposed that `nohup` is not a process manager and left an uncertain dispatch.
+
+**Impact:** plugin 9.92.6; no overlay or capability promotion. Codex Desktop must use `foreground`
+once PORT-5 permits build writes; R10/R11 gates remain binding.
+
 ## v9.92.5 — 2026-07-11 (PATCH): sanitized Codex provider-failure evidence
 
 **What:** uncertain Codex child failures now persist a bounded `error_class` plus exit/timeout facts

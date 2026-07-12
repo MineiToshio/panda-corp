@@ -16,7 +16,11 @@ pretending the Claude controller can import the Codex executor.
 ## Codex executor
 
 `launch-codex-implement.sh` starts a controllable local supervisor and a separate PID-bound sleep
-inhibitor (`caffeinate -w` on macOS), recording both in an atomic receipt. The executor uses only
+inhibitor (`caffeinate -w` on macOS), recording both in an atomic receipt. Its backward-compatible
+`background` mode remains for durable shells. Ephemeral shells such as Codex Desktop must select
+`foreground`: the launcher remains alive as the process-tree owner, forwards INT/TERM/HUP, waits for
+the supervisor and reaps the inhibitor. The receipt records the launch mode, launcher/child PIDs and
+the exact mode-preserving resume argv. The executor uses only
 `codex exec --ignore-user-config --json --output-schema` child processes: unrelated user MCPs cannot
 control the run, while project-local Codex config/rules remain mandatory. Strict config and the
 workspace-write sandbox apply; approval/sandbox bypass flags never do. Work is sequential in the shared checkout.
@@ -119,7 +123,8 @@ separate sleep inhibitor to its PID, health-checks both, and writes an atomic JS
 array that preserves paths containing spaces. Supervisor restart uses bounded backoff and a crash
 circuit breaker; executor renewal is mechanically constrained to `<= TTL/3`.
 
-`test-codex-unattended.mjs` is the `OFFLINE_ACCELERATED` failure corpus (13/13). The real disposable
+`test-codex-unattended.mjs` is the `OFFLINE_ACCELERATED` failure corpus (14/14), including foreground
+launcher liveness and signal propagation. The real disposable
 current-head `LIVE_SHORT` run `codex-20260711T183105Z-28552` is green: 114 seconds, two real
 dispatches, four durable spend units, controller verification, a 120000 ms heartbeat within `TTL/3`,
 supervisor terminal, fenced release, and no implementer dispatch for its already-VERIFIED WO. The

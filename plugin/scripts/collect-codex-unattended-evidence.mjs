@@ -22,7 +22,7 @@ const runId = launch.run_id;
 if (typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId)) reject("invalid launch run id");
 if (launch.runtime !== "codex" || checkpoint.run_id !== runId || ledger.run_id !== runId) reject("launch/checkpoint/ledger run ids differ");
 if (!safePositive(launch.supervisor_pid ?? launch.pid) || !safePositive(launch.sleep_inhibitor_pid)) reject("invalid launcher PIDs");
-if (!Array.isArray(launch.resume_argv) || launch.resume_argv.length !== 10 || launch.resume_argv[0] !== "bash" || path.basename(launch.resume_argv[1] || "") !== "launch-codex-implement.sh" || launch.resume_argv.at(-1) !== runId) reject("resume argv is not the exact guarded launcher continuation");
+if (!Array.isArray(launch.resume_argv) || launch.resume_argv.length !== 11 || launch.resume_argv[0] !== "bash" || path.basename(launch.resume_argv[1] || "") !== "launch-codex-implement.sh" || launch.resume_argv.at(-2) !== runId || !["background", "foreground"].includes(launch.resume_argv.at(-1))) reject("resume argv is not the exact guarded launcher continuation");
 if (!Array.isArray(launch.supervisor_argv) || !launch.supervisor_argv.includes("--run-id") || launch.supervisor_argv[launch.supervisor_argv.indexOf("--run-id") + 1] !== runId) reject("supervisor argv is absent or belongs to another run");
 
 const start = Date.parse(launch.started_at);

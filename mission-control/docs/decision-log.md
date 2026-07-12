@@ -4,6 +4,12 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-11 — Manual distinguishes Codex foreground-owned launches
+
+The portability guide now tells operators that Codex Desktop keeps the launcher attached in
+`foreground` mode so its supervisor and sleep inhibitor share one cancellable lifetime. Background
+mode is reserved for durable shells, and neither mode bypasses PORT-5 promotion gates.
+
 ## 2026-07-11 — Manual names the validated targeted-build launcher path
 
 The Implement guide now explains that FRD/change scope and supervised ceilings are passed to the
