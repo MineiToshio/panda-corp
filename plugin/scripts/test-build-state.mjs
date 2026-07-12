@@ -13,6 +13,7 @@ const rejects = async (fn, code) => { try { await fn(); throw new Error(`expecte
 const fixture = async () => { const root = await mkdtemp(path.join(os.tmpdir(), "pc-lease-")); await mkdir(path.join(root, ".pandacorp", "run"), { recursive: true }); await writeFile(path.join(root, ".pandacorp", "status.yaml"), "phase: architecture\nrunning: false\nsupervisor_heartbeat: \"\"\n"); return root; };
 const changeFixture = async () => { const p=await fixture();const frd=path.join(p,"docs/frds/frd-01");await mkdir(path.join(frd,"work-orders"),{recursive:true});await mkdir(path.join(p,".pandacorp/inbox/changes"),{recursive:true});await writeFile(path.join(p,".gitignore"),".pandacorp/run/\n.pandacorp/inbox/\n");await writeFile(path.join(frd,"frd.md"),"---\nimplementation_status: VERIFIED\n---\n");await writeFile(path.join(frd,"blueprint.md"),"---\nimplementation_status: VERIFIED\n---\n\n## Build Plan\n\n| WO | Depends on | Artifacts | Foundation | Parallel with |\n|---|---|---|---|---|\n| WO-01 | — | `a` | false | — |\n");await writeFile(path.join(frd,"work-orders/wo-01.md"),"---\nid: WO-01\nimplementation_status: VERIFIED\ndependsOn: []\n---\n");await writeFile(path.join(p,".pandacorp/inbox/changes/add.md"),"---\ntype: feature\nclass: standard\nstatus: ready\n---\n");const blueprint="---\nimplementation_status: VERIFIED\n---\n\n## Build Plan\n\n| WO | Depends on | Artifacts | Foundation | Parallel with |\n|---|---|---|---|---|\n| WO-01 | — | `a` | false | — |\n| WO-02 | WO-01 | `b` | false | — |\n";const wo="---\nid: WO-02\nimplementation_status: PLANNED\ndependsOn: [WO-01]\n---\n";const plan={changeFile:".pandacorp/inbox/changes/add.md",affectedFrds:["frd-01"],mutations:[{target:"docs/frds/frd-01/blueprint.md",content:blueprint},{target:"docs/frds/frd-01/work-orders/wo-02.md",content:wo}],reopenWorkOrders:[]};git(p,"init","-q");git(p,"config","user.email","test@example.com");git(p,"config","user.name","Test");git(p,"add","-A");git(p,"commit","-qm","fixture");const l=await acquire(p,{runtime:"codex",runId:"change",ttlSeconds:30});return{p,l,plan}; };
 const git = (p, ...args) => execFileSync("git", args, { cwd: p, encoding: "utf8" }).trim();
+const buildStateCli = fileURLToPath(new URL("./pandacorp-build-state.mjs", import.meta.url));
 
 await test("atomic acquire has exactly one winner", async () => {
   const p = await fixture(); const settled = await Promise.allSettled(Array.from({ length: 12 }, (_, i) => acquire(p, { runtime: "codex", runId: `race-${i}`, ttlSeconds: 30 })));
@@ -24,6 +25,26 @@ await test("renew and owner-only release project compatibility state", async () 
 });
 await test("two-phase release keeps fencing through the committed quiesce window", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "two-phase", ttlSeconds: 30 }); await quiesce(p, l.token, l.epoch); const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/running: false/.test(status), "quiesce projection missing"); ok(Boolean(await currentLease(p)), "quiesce dropped ownership before commit"); await rejects(() => renew(p, l.token, l.epoch), "QUIESCED"); await rejects(() => finalizeRelease(p, "foreign", l.epoch), "FENCE"); await finalizeRelease(p, l.token, l.epoch); ok(!(await currentLease(p)), "finalize retained lease"); await rm(p, { recursive: true });
+});
+await test("deterministic stop inspection ignores an adversarial shell test alias", async () => {
+  const p = await fixture(); const l = await acquire(p, { runtime: "claude", runId: "stop-inspect", ttlSeconds: 30 });
+  const inspect = () => JSON.parse(execFileSync("zsh", ["-c", "alias test='true'; node \"$1\" inspect-stop --project \"$2\" --token \"$3\" --epoch \"$4\"", "_", buildStateCli, p, l.token, String(l.epoch)], { encoding: "utf8" }));
+  ok(inspect().stop === false, "ambient shell alias fabricated a stop");
+  await writeFile(path.join(p, ".pandacorp/run/stop"), "owner\n");
+  const real = inspect(); ok(real.stop === true && real.method === "node-lstat", "real stop was not detected by Node lstat");
+  await rm(p, { recursive: true });
+});
+await test("pre-loop close rejects rogue product drift and commits only governed status", async () => {
+  const p = await fixture(); git(p, "init", "-q"); git(p, "config", "user.email", "test@example.com"); git(p, "config", "user.name", "Test"); git(p, "add", "-A"); git(p, "commit", "-qm", "fixture");
+  const l = await acquire(p, { runtime: "claude", runId: "bounded-close", ttlSeconds: 30 }); const base = git(p, "rev-parse", "HEAD");
+  await writeFile(path.join(p, "rogue-product.txt"), "must not commit\n");
+  let rejected = false; try { execFileSync(process.execPath, [buildStateCli, "close-preloop", "--project", p, "--token", l.token, "--epoch", String(l.epoch), "--reason", "test"], { encoding: "utf8", stdio: "pipe" }); } catch { rejected = true; }
+  ok(rejected, "rogue product drift was accepted"); ok(git(p, "rev-parse", "HEAD") === base, "rogue close created a commit"); ok((await currentLease(p))?.epoch === l.epoch, "failed close released the lease");
+  await rm(path.join(p, "rogue-product.txt"));
+  const receipt = JSON.parse(execFileSync(process.execPath, [buildStateCli, "close-preloop", "--project", p, "--token", l.token, "--epoch", String(l.epoch), "--reason", "test"], { encoding: "utf8" }));
+  ok(receipt.done && receipt.lease_released && receipt.allowed_paths.join() === ".pandacorp/status.yaml", "bounded receipt is incomplete");
+  ok(git(p, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD") === ".pandacorp/status.yaml", "close commit escaped the allowed path");
+  await rm(p, { recursive: true });
 });
 await test("opaque fence token is returned once but never persisted in the public lease", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "secret", ttlSeconds: 30 }); const raw = await readFile(path.join(p, ".pandacorp/run/build.lease/lease.json"), "utf8");

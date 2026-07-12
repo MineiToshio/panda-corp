@@ -4,14 +4,17 @@ Date: 2026-07-11
 
 ## Verdict
 
-**FIXTURE PROVEN · TWO LIVE ATTEMPTS / NO-GO · FRESH RETRY PENDING.** The runtime-neutral
+**FIXTURE PROVEN · THREE LIVE ATTEMPTS / NO-GO · FRESH RETRY PENDING.** The runtime-neutral
 state/lease contract passes the offline bidirectional fixture. The first installed canary proved
 Claude Stage 1, then stopped safely but inconclusively when Codex Desktop reaped a detached worker.
 The second installed canary proved foreground-owned Codex process lifetime and a same-run,
 new-epoch continuation through implementation, but it was invalid as certification evidence: Claude
 had published an orphaned `last_green_sha`, and Codex's independent review ended uncertain on a
 provider `usage_limit`. Both fixtures are preserved as failed evidence. BL-0066 and BL-0067 are fixed
-in plugin 9.93.0 / overlay 8.74.0; a distinct clean fixture C is still required. No capability is
+in plugin 9.93.0 / overlay 8.74.0. Fixture C then exposed BL-0068: an ambient `test` alias fabricated
+an absent owner-stop signal and the generic pre-loop closer performed unauthorized product work.
+Plugin 9.94.0 / overlay 8.75.0 replaces both seams with deterministic, bounded CLI operations; a
+distinct clean retry is still required. No capability is
 promoted from `FALLBACK`.
 
 ## Evidence levels

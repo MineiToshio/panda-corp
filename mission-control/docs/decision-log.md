@@ -4,6 +4,13 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-12 — Manual explains deterministic stop and bounded shutdown
+
+The Dynamic Workflows guide now states that owner-stop detection is a Node receipt immune to shell
+aliases and that a pre-planner exit cannot delegate product work: its fenced close rejects product
+diffs, publishes only `status.yaml`, and reports its allowed paths. This mirrors BL-0068/plugin 9.94.0
+and grants no R10 promotion.
+
 ## 2026-07-11 — Manual reports the second installed R10 NO-GO honestly
 
 The multi-runtime concept now distinguishes the progress proved by fixture B from certification.

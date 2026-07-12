@@ -694,7 +694,8 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   stash-pop. On startup the engine **drops stale build stashes and clears leftover temp `preview-wo*`
   pages** (baseline self-heal) — they're stale, the work is resumable. **The baseline is a TWO-STEP
   (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, preserves any gate-worktree crash evidence, the
-  `rethink_pending` consume, the `.pandacorp/run/stop` owner-signal check, and a **clean-tree fast path** (tree
+  `rethink_pending` consume, and a **deterministic Node `lstat` receipt** for `.pandacorp/run/stop` (BL-0068;
+  never ambient shell `test`, `[` or aliases), followed by a **clean-tree fast path** (tree
   clean AND HEAD is `last_green_sha` **or its direct metadata-only pointer child whose sole diff is
   `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
   tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
@@ -713,7 +714,11 @@ The engine already cleans up on a NORMAL end (its close-out sets `running:false`
 `ensureStopped()` helper invoked at EVERY early-return exit** (owner stop signal, change-not-processed,
 baseline red, planner failed, nothing to build, unsatisfied deps) plus a crash `try/catch` around the whole
 scheduler loop that guarantees `running:false` before rethrowing — **no exit path leaves a phantom
-`running:true`** (and none of these paths ever touches `phase`, since nothing is verified). Two gaps remained
+`running:true`**. BL-0068 makes that helper capability-bounded: its MECH runner may execute exactly the
+fenced `close-preloop` Node command; the CLI rejects any dirty or staged product path, mutates/commits only
+`.pandacorp/status.yaml`, performs `quiesce → commit → finalize-release`, and returns an allowed-path receipt.
+It is never a product implementer and cannot construct an A+B green pair during shutdown. None of these
+paths touches `phase`, since nothing is verified. Two gaps remained
 on the *supervisor* side, exposed when a build sat dead ~1h with `running:true` and a stuck spinner:
 - **A KILLED/stopped run never reaches the engine close-out**, so clearing state is the **supervisor's**
   job — and it must be its **guaranteed LAST act on EVERY exit** (clean end, budget/health/needs-owner

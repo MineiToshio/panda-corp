@@ -2771,6 +2771,14 @@ function WorkflowsOverview(): React.JSX.Element {
         corta. No es un agente que improvisa — es una cinta de montaje con estaciones fijas.
       </Lead>
 
+      <NotePanel icon="ti-shield-check" iconColor="var(--color-warning)">
+        Las señales de parada no dependen del shell. El motor inspecciona
+        <Code>.pandacorp/run/stop</Code> mediante un recibo Node determinista, inmune a aliases como
+        <Code>test=npm test</Code>. Si sale antes del planner, el cierre es un comando mecánico
+        cercado: rechaza cambios de producto, solo puede publicar <Code>status.yaml</Code> y devuelve
+        el recibo de rutas permitidas antes de liberar la lease.
+      </NotePanel>
+
       <NotePanel icon="ti-tools" iconColor="var(--color-accent)">
         Piensa en la diferencia entre un <B weight={600}>cocinero</B> y una{" "}
         <B weight={600}>cadena de montaje</B>.

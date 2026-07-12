@@ -2,6 +2,14 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-12 — Stop is deterministic and shutdown has no product capability
+
+BL-0068 closes the R10-C false-stop/rogue-close incident. Owner-stop truth now comes from a fenced
+Node `lstat` receipt, never mutable shell aliases. Every pre-loop close is a single governed CLI
+operation that refuses non-status drift or staging, commits only `.pandacorp/status.yaml`, and emits
+an allowed-path receipt before finalizing the lease. The runner is mechanical/devops, not a product
+implementer. Plugin 9.94.0 and overlay 8.75.0 ship the correction without promoting R10.
+
 ## 2026-07-11 — Installed R10 fixture B proves foreground ownership, not promotion
 
 The second installed Claude→Codex→Claude canary proved that Codex Desktop can own the official

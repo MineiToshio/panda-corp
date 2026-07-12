@@ -85,7 +85,8 @@ function defaultResponse(label) {
   if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
+  if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
 

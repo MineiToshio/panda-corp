@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.94.0 — 2026-07-12 (MINOR): deterministic stop and capability-bounded pre-loop close
+
+**What:** BL-0068 removes ambient shell `test -f` from owner-stop detection. The engine consumes a
+fenced Node `lstat` receipt, so aliases cannot fabricate `.pandacorp/run/stop`. `ensureStopped` no
+longer delegates shutdown to a broad implementer: a MECH/devops runner executes one `close-preloop`
+command whose CLI rejects product/staged drift, commits only `.pandacorp/status.yaml`, completes the
+two-phase lease release and returns an allowed-path receipt.
+
+**Why:** installed R10-C on 9.93.0 saw `test=npm test` return zero for an absent signal; the resulting
+generic shutdown agent ignored its role and constructed/committed product A+B during an early exit.
+
+**Impact:** engine template + Mission Control copy, state CLI, adversarial regressions, implement skill,
+Manual and overlay 8.75.0. The failed fixture remains NO-GO and R10 is not promoted.
+
 ## v9.93.0 — 2026-07-11 (MINOR): preserve installed R10 fixture B as NO-GO
 
 **What:** records the second installed Claude→Codex→Claude attempt. Claude functionally verified

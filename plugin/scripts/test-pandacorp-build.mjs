@@ -71,6 +71,14 @@ if (/worktree remove\s+--force[^\n]*gate-worktree|rm\s+-rf[^\n]*gate-worktree/.t
   console.error('FATAL: destructive gate-worktree cleanup returned to the engine source.')
   process.exit(1)
 }
+if (/baseline PRE-CHECK[\s\S]*?test -f[\s\S]*?run\/stop/.test(source) || !/inspect-stop --project/.test(source)) {
+  console.error('FATAL: owner-stop detection is not bound to the deterministic Node receipt.')
+  process.exit(1)
+}
+if (!/close-preloop --project/.test(source) || !/agentType: 'pandacorp:devops'/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
+  console.error('FATAL: ensureStopped regained a broad implementer or lost its bounded close command.')
+  process.exit(1)
+}
 // The only ESM syntax in the file is the meta export; neutralize it so the
 // source is a valid function body. (We transform our in-memory copy — the
 // engine file on disk is never touched.)
@@ -110,7 +118,8 @@ function defaultResponse(label) {
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
-  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
+  if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
+  if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
 
@@ -211,6 +220,19 @@ SCENARIOS.push({
     t.ok(warn && /DR-072 R2/.test(warn) && /BL-0024/.test(warn), 'the warning cites DR-072 R2 / BL-0024')
     t.ok(warn && /UNBOUNDED/.test(warn), 'the warning says the run is UNBOUNDED')
     t.ok(warn && /Supervisor/.test(warn), 'the warning addresses the supervisor (verify + TaskStop)')
+  },
+})
+SCENARIOS.push({
+  name: '11b. absent deterministic stop receipt reaches the planner despite hostile shell aliases',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { green: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const precheck = byLabel(run, 'baseline-precheck')[0]
+    t.ok(precheck && /inspect-stop --project/.test(precheck.prompt), 'precheck invokes the deterministic Node inspection')
+    t.ok(precheck && !/`test -f/.test(precheck.prompt), 'precheck does not use ambient shell test')
+    t.ok(byLabel(run, 'plan').length === 1, 'an absent stop continues to planning')
+    t.ok(!(run.result && run.result.note === 'owner stop signal'), 'absence was not fabricated into a stop')
   },
 })
 SCENARIOS.push({
