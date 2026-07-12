@@ -1459,7 +1459,10 @@ SCENARIOS.push({
     t.ok(apply && apply.opts.model === 'haiku', 'apply-gate runs on the cheap MECH tier (the trust boundary was the gate; this only persists)')
     t.ok(apply && /gate-worktree/.test(apply.prompt) && /e2e\/frd-ii\.spec\.ts/.test(apply.prompt), 'apply-gate PORTS the reviewer test files from the gate worktree onto main')
     t.ok(apply && /implementation_status: VERIFIED/.test(apply.prompt), 'apply-gate stamps the reviewed WOs VERIFIED on main')
-    t.ok(apply && /last_green_sha/.test(apply.prompt) && /git commit --amend/.test(apply.prompt), 'apply-gate advances last_green_sha (LAST_GREEN_ORDERING — only the serialized apply advances it)')
+    t.ok(apply && /last_green_sha/.test(apply.prompt) && /TWO commits/.test(apply.prompt)
+      && /merge-base --is-ancestor/.test(apply.prompt) && /NEVER amend/.test(apply.prompt)
+      && !/git commit --amend/.test(apply.prompt),
+    'apply-gate publishes last_green through a verified-snapshot commit followed by an ancestor-pointer commit')
     t.ok(apply && /"event":"GateVerdict"/.test(apply.prompt) && /verdict":"pass"/.test(apply.prompt), 'apply-gate emits the single PASS GateVerdict')
     t.ok(run.result && run.result.builtFrds.includes('frd-ii'), 'the FRD verifies via the concurrent gate + serialized apply')
   },

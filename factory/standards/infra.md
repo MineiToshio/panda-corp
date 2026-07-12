@@ -57,8 +57,11 @@ A project's **local deployment** (the built, served snapshot of an `internal` to
 ## State published for Mission Control (`.pandacorp/status.yaml`)
 
 The gate script (not the agent) writes at every green work-order close:
-- `last_green_sha`: commit of the last work order closed green.
-- `safe_to_test: true/false`: `true` only when `HEAD == last_green_sha` (no uncommitted work).
+- `last_green_sha`: immutable commit of the last independently verified snapshot. It MUST exist and be
+  an ancestor of HEAD; the metadata-only pointer commit immediately after it is expected (BL-0066).
+- `safe_to_test: true/false`: `true` only after the state transition has proven that `last_green_sha`
+  exists and is an ancestor of HEAD. It means the named snapshot is safe to test; it does not claim the
+  metadata pointer commit has the same SHA (a commit cannot contain its own hash).
 Plus: `pending_decisions` (.pandacorp/inbox/decisions.md), `rethink_pending` (iterate asked to pause). `pending_changes` is NOT a stored field — Mission Control and any other reader **derive** the count live from the unified change queue `.pandacorp/inbox/changes/` (DR-069); see `single-source-of-truth.md` (a counter maintained by scattered increments is a forbidden pattern, DR-115).
 
 ## Human gates as hard rules

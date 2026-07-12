@@ -1128,8 +1128,8 @@ function ConceptDesatendida(): React.JSX.Element {
             </li>
             <li>
               <B weight={500}>Punto seguro = commit por FRD:</B> el gate escribe{" "}
-              <Code>last_green_sha</Code> y <Code>safe_to_test</Code> en status.yaml al verificar
-              cada feature.
+              <Code>last_green_sha</Code> y <Code>safe_to_test</Code> mediante dos commits: primero
+              el snapshot verificado y luego un commit solo de metadatos que apunta a ese ancestro.
             </li>
             <li>
               <B weight={500}>El workflow ES el loop</B> (corre hasta vaciar la cola y para solo,

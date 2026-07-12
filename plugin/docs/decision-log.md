@@ -4,6 +4,22 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.93.0 — 2026-07-11 (MINOR): publish last-green as an ancestor snapshot
+
+**What:** BL-0066 replaces the impossible `last_green_sha` self-hash/amend instruction with an
+explicit two-commit protocol. Commit A is the complete independently reviewed snapshot; metadata-only
+commit B publishes `last_green_sha: A` and `safe_to_test: true`. The fenced state transition now proves
+that A resolves to a commit and is an ancestor of HEAD before publishing it. The baseline fast path
+accepts only A itself or its direct pointer child whose sole diff is `.pandacorp/status.yaml`.
+
+**Why:** amending A after embedding SHA(A) creates commit B with a different hash and leaves SHA(A)
+orphaned. Recovery and review worktrees could therefore follow a non-ancestor while status claimed the
+snapshot was safe.
+
+**Impact:** Claude engine template, shared state API/CLI contract, Codex executor (already uses two
+commits), implement skill, deterministic Git regressions and plugin 9.93.0. The injected engine changes,
+so overlay 8.74.0 upgrades projects compatibly. R10/R11 promotion remains unchanged.
+
 ## v9.92.7 — 2026-07-11 (PATCH): preserve the installed R10 NO-GO boundary
 
 **What:** recorded the first installed Claude→Codex→Claude canary as partial GO / overall NO-GO.

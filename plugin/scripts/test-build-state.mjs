@@ -3,7 +3,8 @@ import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, utimes, writeFi
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, stampChangeIntegration, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
+import { fileURLToPath } from "node:url";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
 
 let passed = 0; let failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (e) { console.error(`FAIL  ${name}: ${e.stack || e}`); failed++; } };
@@ -110,6 +111,22 @@ await test("fenced rollup derives docs and counts from atomic WO frontmatter", a
   const l = await acquire(p, { runtime: "claude", runId: "rollup", ttlSeconds: 30 }); const result = await syncRollups(p, l.token, l.epoch); ok(result.total === 4 && result.counts.VERIFIED === 2 && result.counts.BLOCKED === 1, "counts wrong");
   ok(/implementation_status: VERIFIED/.test(await readFile(path.join(p, "docs/frds/frd-01-a/frd.md"), "utf8")), "verified rollup wrong"); ok(/implementation_status: BLOCKED/.test(await readFile(path.join(p, "docs/frds/frd-02-b/blueprint.md"), "utf8")), "blocked precedence wrong");
   const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/work_orders_total: 4/.test(status) && /work_orders_done: 2/.test(status), "status counts absent"); await rejects(() => syncRollups(p, "zombie", l.epoch), "FENCE"); await rm(p, { recursive: true });
+});
+
+await test("last green uses a stable snapshot commit followed by a pointer commit", async () => {
+  const p = await fixture(); git(p, "init", "-q"); git(p, "config", "user.email", "test@example.com"); git(p, "config", "user.name", "Test"); git(p, "add", "-A"); git(p, "commit", "-qm", "fixture");
+  const l = await acquire(p, { runtime: "codex", runId: "last-green", ttlSeconds: 30 }); git(p, "add", ".pandacorp/status.yaml"); git(p, "commit", "-qm", "chore: publish build ownership");
+  await writeFile(path.join(p, "feature.txt"), "verified\n"); git(p, "add", "feature.txt"); git(p, "commit", "-qm", "feat: verified snapshot"); const green = git(p, "rev-parse", "HEAD");
+  const stamped = JSON.parse(execFileSync(process.execPath, [fileURLToPath(new URL("./pandacorp-build-state.mjs", import.meta.url)), "stamp-last-green", "--project", p, "--token", l.token, "--epoch", String(l.epoch), "--sha", green], { encoding: "utf8" })); ok(stamped.safe_to_test === true, "CLI did not report a safe snapshot"); git(p, "add", ".pandacorp/status.yaml"); git(p, "commit", "-qm", "chore: publish last green pointer");
+  const head = git(p, "rev-parse", "HEAD"); ok(head !== green, "pointer publication rewrote the green commit"); git(p, "merge-base", "--is-ancestor", green, "HEAD");
+  const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(new RegExp(`last_green_sha: [\"']?${green}[\"']?`).test(status) && /safe_to_test: true/.test(status), "status does not publish the verified ancestor"); await rm(p, { recursive: true });
+});
+
+await test("last green rejects nonexistent and orphan commits without claiming safe_to_test", async () => {
+  const p = await fixture(); git(p, "init", "-q"); git(p, "config", "user.email", "test@example.com"); git(p, "config", "user.name", "Test"); git(p, "add", "-A"); git(p, "commit", "-qm", "fixture");
+  const base = git(p, "branch", "--show-current"); git(p, "switch", "-qc", "foreign"); await writeFile(path.join(p, "foreign.txt"), "foreign\n"); git(p, "add", "foreign.txt"); git(p, "commit", "-qm", "feat: foreign snapshot"); const orphan = git(p, "rev-parse", "HEAD"); git(p, "switch", "-q", base);
+  const l = await acquire(p, { runtime: "codex", runId: "last-green-reject", ttlSeconds: 30 }); await rejects(() => stampLastGreen(p, l.token, l.epoch, "abcdef1"), "EVIDENCE"); await rejects(() => stampLastGreen(p, l.token, l.epoch, orphan), "EVIDENCE");
+  const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(!/safe_to_test: true/.test(status) && !/^last_green_sha:/m.test(status), "rejected evidence published a safe snapshot"); await rm(p, { recursive: true });
 });
 
 console.log(`RESULT: ${passed} passed, ${failed} failed`); process.exit(failed ? 1 : 0);

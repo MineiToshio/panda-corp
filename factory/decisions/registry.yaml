@@ -120,7 +120,7 @@ decisiones:
 
   - id: DR-023
     patron: "test the progress without stopping the construction"
-    default: "the owner tests the last green commit (last_green_sha) in a separate git worktree (a single review folder, refreshed to the latest green), never the agent's working tree. The gate script writes last_green_sha + safe_to_test in .pandacorp/status.yaml. Native checkpoints do NOT work as a snapshot (they ignore what was done by Bash)"
+    default: "the owner tests the last independently verified snapshot (last_green_sha) in a separate git worktree (a single review folder, refreshed to the latest green), never the agent's working tree. The gate publishes it with two commits: A is the reviewed snapshot; metadata-only B writes last_green_sha=A + safe_to_test only after proving A exists and is an ancestor of HEAD (BL-0066). A commit can never contain its own SHA, so amend/self-hash publication is forbidden. Native checkpoints do NOT work as a snapshot (they ignore what was done by Bash)"
     requiere_humano: false
 
   # DR-024..030 are governance: they point to a standard in factory/standards/ (the values live there, not here).

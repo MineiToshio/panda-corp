@@ -4,6 +4,14 @@ Product, design and technical decisions for Mission Control (the Next.js app). M
 
 > The live project state is in [.pandacorp/status.yaml](../.pandacorp/status.yaml); the PRD in [docs/product/prd.md](product/prd.md) and the FRDs in [docs/frds/](frds/). This is where the **why** of the decisions goes, not the state.
 
+## 2026-07-11 — Manual explains the two-commit green snapshot
+
+The unattended-construction concept and rendered Implement guide now describe the honest safe-point
+chain: commit A is the independently verified snapshot; metadata-only commit B publishes
+`last_green_sha: A` and `safe_to_test: true`. Mission Control therefore presents a reachable ancestor
+snapshot, not an impossible commit that claims to contain its own SHA. This mirrors BL-0066/plugin
+9.93.0 and changes no R10/R11 permission boundary.
+
 ## 2026-07-11 — Manual distinguishes Codex foreground-owned launches
 
 The portability guide now tells operators that Codex Desktop keeps the launcher attached in

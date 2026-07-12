@@ -308,13 +308,11 @@ agent = (prompt, opts = {}) => {
 const GATE_SKIP =
   ` GATE QUARANTINE (BL-0011, fail-closed) — you are about to run a WHOLE-PROJECT \`bash .pandacorp/verify.sh\` (no \`--since\`), whose e2e layer asserts EVERY route. FIRST derive the needs-owner quarantine set so a route the OWNER must unblock does not red-lock the whole gate: scan every docs/frds/*/work-orders/wo-*.md and collect ONLY those whose frontmatter is EXACTLY \`implementation_status: BLOCKED\` AND \`blocked_reason: needs-owner\` (NOT error, NOT external, NOT any other reason — those still RED). For each such WO, take the route it owns (its \`route:\`/\`path:\` frontmatter if present, else the live path of the surface it builds, matched against e2e/routes.ts SURFACES). If the set is NON-EMPTY, export it before running verify.sh: \`export PANDACORP_GATE_SKIP_ROUTES="/route-a,/route-b"\` (comma-separated, no spaces) and LOG it loudly to your output ("⚠ quarantining needs-owner-blocked route(s): …, held aside from the whole-project gate — tracked owner TODO(s), not regressions"). If the set is EMPTY, do NOT export the variable (the default is zero quarantine — the full gate ranges over every route). NEVER add a route that is not provably BLOCKED needs-owner.`
 
-// ── WS-D/D11: last_green_sha must point at the TRUE verified commit ────────────
-// A gate/verifier writes last_green_sha into status.yaml AND commits — but the sha of a commit is only
-// known AFTER it exists, so writing last_green_sha "then committing" records a sha one step behind the
-// real green commit (a resume/reconcile then restores to the wrong point). Make the order explicit: commit
-// everything first, read the resulting sha, write it, and AMEND it into that same commit — so the recorded
-// green sha and the commit it names are one and the same. Injected into every prompt that sets last_green_sha.
-const LAST_GREEN_ORDERING = ` **last_green_sha ORDERING (WS-D/D11 — do this EXACTLY):** COMMIT everything first (the code, the VERIFIED frontmatter, the frd.md/blueprint.md rollups, and status.yaml with its other fields), THEN run \`git rev-parse --short HEAD\` to read the resulting commit's sha, THEN write THAT sha as \`last_green_sha\` in .pandacorp/status.yaml and fold it into the SAME commit — \`git add .pandacorp/status.yaml && git commit --amend --no-edit\` — so last_green_sha always points at the true verified commit (never an earlier one).`
+// ── BL-0066: publish last_green_sha through an honest two-commit protocol ──────
+// A commit cannot contain its own SHA: amending after writing that SHA creates a different commit and
+// orphans the recorded object. Commit A is the immutable reviewed snapshot; commit B publishes
+// last_green_sha=A. The pointer commit is metadata-only and A remains an ancestor of HEAD.
+const LAST_GREEN_ORDERING = ` **last_green_sha ORDERING (BL-0066 — do this EXACTLY, TWO commits):** (A) COMMIT the complete independently verified snapshot first (code/tests, VERIFIED frontmatter, frd.md/blueprint.md rollups, timeline/journal, and status.yaml with every field EXCEPT the new last_green_sha/safe_to_test publication). (B) Run \`git rev-parse HEAD\` and prove it exists + is on the current chain with \`git cat-file -e <sha>^{commit} && git merge-base --is-ancestor <sha> HEAD\`; only then write THAT SHA as \`last_green_sha\` and \`safe_to_test: true\` in .pandacorp/status.yaml and make a SECOND metadata-only commit: \`git add .pandacorp/status.yaml && git commit -m "chore(build): publish last green snapshot"\`. NEVER amend commit A: the stable contract is last_green_sha = the verified ancestor snapshot, and pointer commit B descends from A.`
 
 // ── Schemas ───────────────────────────────────────────────────────────────────
 const VERIFY_SCHEMA = {
@@ -380,8 +378,8 @@ const PRECHECK_SCHEMA = {
   type: 'object',
   properties: {
     stop: { type: 'boolean', description: 'true iff .pandacorp/run/stop exists — the owner asked to halt; the engine stops clean without building' },
-    green: { type: 'boolean', description: 'true = clean tree AND HEAD == last_green_sha (known-green fast path, skip the cold verify); false ONLY paired with a BL-0022 failure' },
-    escalate: { type: 'boolean', description: 'true = the tree is dirty or HEAD != last_green_sha → run the judge baseline (reconcile + verify)' },
+    green: { type: 'boolean', description: 'true = clean tree AND HEAD is last_green_sha OR its direct metadata-only pointer child (known-green fast path); false ONLY paired with a BL-0022 failure' },
+    escalate: { type: 'boolean', description: 'true = dirty tree or HEAD is beyond the certified snapshot/pointer pair → run the judge baseline' },
     dirty: { type: 'boolean', description: 'true iff `git status --porcelain` showed changes (informs the judge baseline whether reconciliation is needed)' },
     failure: { type: 'string' },
   },
@@ -528,7 +526,7 @@ const precheck = await agent(
   **STEP W — remove a STALE gate worktree (C2 crash residue):** if ${GATE_WORKTREE} exists, it is leftover from a crashed prior run (the gate worktree is disposable run/ state, NOT protected owner data — removing it via git is allowed): \`git -C ${PROJECT_DIR} worktree remove --force ${GATE_WORKTREE} 2>/dev/null || rm -rf ${GATE_WORKTREE}\`, then \`git -C ${PROJECT_DIR} worktree prune\`. Do this ONLY for ${GATE_WORKTREE} — never any other .pandacorp/ path.
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** if the file \`${PROJECT_DIR}/.pandacorp/run/stop\` EXISTS, return { stop: true } immediately. Do NOT delete it (the owner removes it) — the engine will stop clean without building.
-  **STEP 3 — clean-tree fast path:** run \`git -C ${PROJECT_DIR} status --porcelain\` and compare \`git -C ${PROJECT_DIR} rev-parse --short HEAD\` to \`last_green_sha\` in status.yaml. If the tree is CLEAN (no porcelain output) AND HEAD == last_green_sha → return { green: true } (known-green; skip the cold-start verify). Otherwise return { escalate: true, dirty: <true iff porcelain showed any changes, else false> }.`,
+  **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false }. A dirty tree returns { escalate: true, dirty: true }.`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: 'pandacorp:implementer', schema: PRECHECK_SCHEMA },
 )
 if (precheck && precheck.stop === true) {
@@ -539,7 +537,7 @@ if (precheck && precheck.stop === true) {
 let baseline
 if (precheck && precheck.green === true) {
   baseline = { green: true }
-  log('Baseline verde (fast path: árbol limpio y HEAD == last_green_sha) — no se corrió verify.sh.')
+  log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
 } else if (precheck && precheck.green === false && precheck.failure) {
   baseline = precheck   // BL-0022 root guard failed in the pre-check — carry its failure to the red path below
 } else {
@@ -547,7 +545,7 @@ if (precheck && precheck.green === true) {
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
   agentSpawned += COST(P.judge)   // DR-070/DR-073: weight EVERY spawn by model cost so the maxAgents brake is a token-proxy
   baseline = await agent(
-    `You are the Pandacorp baseline-repair engineer (DR-067 reconciliation + verify). The cheap pre-check found the tree DIRTY or HEAD off last_green_sha${precheck && precheck.dirty ? ' (tree is dirty)' : ''}.
+    `You are the Pandacorp baseline-repair engineer (DR-067 reconciliation + verify). The cheap pre-check found the tree DIRTY or HEAD beyond the certified last_green snapshot/pointer pair${precheck && precheck.dirty ? ' (tree is dirty)' : ''}.
     **STEP 0 — FAIL-LOUD project-root guard (BL-0022):** \`test -f ${PROJECT_DIR}/.pandacorp/status.yaml\`; if it does NOT exist, return { green: false, failure: "BL-0022: ${PROJECT_DIR}/.pandacorp/status.yaml no existe — el motor se lanzó apuntando al árbol equivocado. Relanza pasando args.projectDir/args.project apuntando a la carpeta del proyecto." } and do nothing else.
     **STEP 1 — DR-067 RECONCILIATION (only if the tree is dirty/conflicted):** read \`last_green_sha\` from status.yaml. If the working tree has uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), RESTORE the tracked MODIFIED files to the last green: \`git checkout <last_green_sha> -- <those modified tracked files>\` (surgical — NEVER \`git reset --hard\` the whole tree, which would discard verified work). Drop stale build stashes: inspect \`git stash list\` and drop entries that are leftover build stashes (DR-067 — never stash-pop across a moved tree). Remove leftover temp preview pages: any \`preview-wo*\` scratch page/route the build created. Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
     **STEP 2 —${GATE_SKIP} THEN run \`bash ${PROJECT_DIR}/.pandacorp/verify.sh\`:**

@@ -416,9 +416,12 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
 - **One writer to main — the serialized apply-gate (MECH).** A gate running in the worktree is **REVIEW-ONLY**:
   it sets nothing `VERIFIED`, advances no `last_green_sha`, commits nothing. When it PASSES, a single serialized
   **`applyGate`** MECH step is the **ONLY main-tree writer**: it ports the reviewer's new test files to main,
-  stamps the WOs `VERIFIED` + `reopen_count: 0`, recomputes the FRD/blueprint rollups, updates `status.yaml`,
-  and advances `last_green_sha` on the **shared commit chain** (serialized with the per-WO commit writer — no
-  interleaved `index.lock` race).
+  stamps the WOs `VERIFIED` + `reopen_count: 0`, recomputes the FRD/blueprint rollups, and publishes the green
+  point with **two serialized commits**. Commit A contains the complete independently verified snapshot;
+  metadata-only commit B writes `last_green_sha: A` + `safe_to_test: true`. A commit cannot contain its own
+  SHA, so amend/self-hash schemes are forbidden. The state transition validates that A exists and is an
+  ancestor of HEAD before publishing it (BL-0066). Both commits stay on the **shared commit chain** serialized
+  with the per-WO writer, so there is no interleaved `index.lock` race.
 - **REJECT → quiesce → the ladder runs on main, unchanged.** A non-pass verdict is queued; because waves are
   synchronous barriers, the engine **quiesces** (awaits every in-flight gate to settle, so no wave is building),
   then runs the DR-072/073/**117** recovery ladder on the **main** tree exactly as before — the convergence
@@ -690,7 +693,8 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   pages** (baseline self-heal) — they're stale, the work is resumable. **The baseline is a TWO-STEP
   (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, the stale gate-worktree removal, the
   `rethink_pending` consume, the `.pandacorp/run/stop` owner-signal check, and a **clean-tree fast path** (tree
-  clean AND HEAD == `last_green_sha` → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
+  clean AND HEAD is `last_green_sha` **or its direct metadata-only pointer child whose sole diff is
+  `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
   tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
   a warm resume pays nothing, while a dirty/off-green tree still gets the full reconcile-then-verify.
 - **The supervisor watches the tree's git health as a first-class signal**, not just `status.yaml` +

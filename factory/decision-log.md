@@ -2,6 +2,16 @@
 
 Decisions about operating the factory: constitution, standards, flow, and conventions. Most recent on top. See index and format in [DECISION-LOG.md](../DECISION-LOG.md).
 
+## 2026-07-11 — A green snapshot is an ancestor, never a self-hashing commit
+
+BL-0066 makes the safe point an explicit two-commit protocol: A contains the complete independently
+verified snapshot and metadata-only B publishes `last_green_sha: A` after deterministic existence and
+ancestry checks. This removes the former amend instruction, which necessarily changed the commit hash
+and orphaned the recorded SHA. `safe_to_test` now means the named snapshot is proven reachable, while
+the baseline fast path recognizes only that snapshot or its direct status-only pointer child. DR-023,
+build orchestration, infra and runtime portability now share this contract. Plugin 9.93.0 and compatible
+overlay 8.74.0 close the defect without promoting R10/R11.
+
 ## 2026-07-11 — Installed R10 remains fail-closed after a safe partial run
 
 The first real installed Claude→Codex→Claude canary proved Claude Stage 1 and Codex's fencing under

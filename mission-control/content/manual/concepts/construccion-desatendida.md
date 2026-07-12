@@ -14,7 +14,7 @@ El motor de `implement` es un **Dynamic Workflow** — un script determinista qu
 
 ## Safe points
 
-Un safe point es un **commit verde** en git. Cada work order que termina con `verify.sh` verde se commitea inmediatamente. Si el proceso se interrumpe en cualquier momento, el próximo arranque retoma desde el último commit verde — nunca pierde trabajo completado.
+Un safe point se publica como una pareja de commits: el primero es el **snapshot verde** que pasó la revisión independiente; el segundo solo registra en `status.yaml` que `last_green_sha` apunta al primero y que `safe_to_test` es verdadero. El motor comprueba que ese snapshot existe y es ancestro de `HEAD`; nunca intenta que un commit contenga su propio hash. Si el proceso se interrumpe, el próximo arranque retoma desde ese snapshot verde — nunca pierde trabajo completado.
 
 ```
 WO-01 ✓ → commit → WO-02 ✓ → commit → WO-03 ✗ → freeze

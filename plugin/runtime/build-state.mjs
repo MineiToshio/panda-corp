@@ -161,7 +161,18 @@ export async function transitionWorkOrder(project, token, epoch, { file, to, rea
   });
 }
 export async function stampLastGreen(project, token, epoch, sha) {
-  return withFence(project, token, epoch, async () => { if (!/^[0-9a-f]{7,40}$/.test(sha)) throw Object.assign(new Error("invalid git sha"), { code: "INVALID_STATE" }); await yamlSet(paths(project).status, { last_green_sha: sha, safe_to_test: true, last_event_at: iso(), updated_at: iso() }); return { sha }; });
+  return withFence(project, token, epoch, async () => {
+    if (!/^[0-9a-f]{7,40}$/.test(sha)) throw Object.assign(new Error("invalid git sha"), { code: "INVALID_STATE" });
+    try {
+      await execFileAsync("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: project });
+      await execFileAsync("git", ["merge-base", "--is-ancestor", sha, "HEAD"], { cwd: project });
+    } catch {
+      throw Object.assign(new Error("last green commit must exist and be an ancestor of HEAD"), { code: "EVIDENCE" });
+    }
+    const now = iso();
+    await yamlSet(paths(project).status, { last_green_sha: sha, safe_to_test: true, last_event_at: now, updated_at: now });
+    return { sha, safe_to_test: true };
+  });
 }
 export async function setProjectPhase(project, token, epoch, phase) {
   return withFence(project, token, epoch, async () => { if (!new Set(["implementation", "release"]).has(phase)) throw Object.assign(new Error("invalid phase"), { code: "INVALID_STATE" }); if (phase === "release") { const dirs = await readdir(path.join(project, "docs/frds"), { withFileTypes: true }); for (const d of dirs.filter((x) => x.isDirectory())) { const body = await readFile(path.join(project, "docs/frds", d.name, "frd.md"), "utf8"); if (fmStatus(body) !== "VERIFIED") throw Object.assign(new Error(`release blocked by ${d.name}`), { code: "INVALID_STATE" }); } const day=new Date().toISOString().slice(0,10); try { await readFile(path.join(project,"docs/reviews",`security-${day}.md`),"utf8"); const analytics=await readFile(path.join(project,"docs/analytics/events.md"),"utf8"); if(!/^## Verification/m.test(analytics)) throw new Error("telemetry evidence missing"); } catch(error){ throw Object.assign(new Error(`release evidence missing: ${error.message}`),{code:"INVALID_STATE"}); } } await yamlSet(paths(project).status, { phase, updated_at: iso() }); return { phase }; });
