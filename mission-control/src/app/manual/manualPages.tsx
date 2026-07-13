@@ -2353,6 +2353,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
                 habilita sólo cuando PORT-5 registre en verde el canario instalado
                 Claude→Codex→Claude de R10 y el <Code>LIVE_OVERNIGHT</Code> de R11; R2, R3, R6 y los
                 fixtures offline ya están verdes, pero no conceden permiso por sí solos.
+                Mientras figure <Code>FALLBACK</Code>, el launcher rechaza una autorización vacía:
+                sólo permite las excepciones desechables one-shot de R10 Stage 2 y R11 overnight,
+                cada una ligada a su fixture, HEAD, hashes, alcance y límites exactos. Se consumen
+                antes de tomar la lease y se revocan al terminar; no habilitan proyectos normales.
                 Cuando se habilite, Codex Desktop debe lanzar en modo <Code>foreground</Code>: la
                 tarea permanece abierta como dueña del supervisor y propaga la cancelación. El modo
                 background queda reservado para shells persistentes.

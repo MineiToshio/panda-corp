@@ -21,11 +21,6 @@ async function assertRealRuntimePath(absolute, type) {
 }
 const runId = arg("run-id", `codex-${Date.now()}`);
 const certificationReceipt = arg("certification-receipt", "");
-if (certificationReceipt) {
-  const receiptPath = await assertRealRuntimePath(certificationReceipt, "file");
-  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
-  if (receipt.kind !== "pandacorp-r10-certification-receipt" || receipt.status !== "consumed" || receipt.run_id !== runId || receipt.stage !== "codex-frd-b") throw Object.assign(new Error("invalid or unconsumed R10 certification receipt"), { code: "CERTIFICATION" });
-}
 const maxSpend = numberArg("max-spend", 12, { min: 1 });
 const maxRetries = numberArg("max-retries", 2);
 const maxBlocks = numberArg("max-blocks", 3, { min: 1 });
@@ -39,6 +34,19 @@ const codexBin = process.env.PANDACORP_CODEX_BIN || "codex";
 const requestedChange = arg("change", "");
 const requestedFrds = arg("frds", "").split(",").map((item) => item.trim()).filter(Boolean);
 const targeted = Boolean(requestedChange || requestedFrds.length);
+if (certificationReceipt) {
+  const receiptPath = await assertRealRuntimePath(certificationReceipt, "file");
+  const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
+  const contracts = {
+    "pandacorp-r10-certification-receipt": { stage: "codex-frd-b", file: "r10-certification-receipt.json" },
+    "pandacorp-r11-certification-receipt": { stage: "codex-live-overnight", file: "r11-certification-receipt.json" },
+  };
+  const contract = contracts[receipt.kind];
+  const canonicalPath = contract ? path.join(project, ".pandacorp/run", contract.file) : "";
+  const exactLimits = receipt.limits?.max_spend === maxSpend && receipt.limits?.max_duration === maxDuration && receipt.limits?.max_retries === maxRetries && receipt.limits?.max_blocks === maxBlocks;
+  const exactScope = !requestedChange && Array.isArray(receipt.frds) && receipt.frds.join(",") === requestedFrds.join(",");
+  if (!contract || receiptPath !== canonicalPath || receipt.status !== "consumed" || receipt.run_id !== runId || receipt.stage !== contract.stage || !exactLimits || !exactScope) throw Object.assign(new Error("invalid, drifted or unconsumed certification receipt"), { code: "CERTIFICATION" });
+}
 const runDir = path.join(project, ".pandacorp/run");
 const checkpointFile = path.join(runDir, "codex-checkpoint.json");
 const journalFile = path.join(runDir, "codex-executor.jsonl");

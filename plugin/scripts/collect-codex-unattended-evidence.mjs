@@ -4,6 +4,7 @@ import path from "node:path";
 
 const project = path.resolve(process.argv[2] || ".");
 const run = path.join(project, ".pandacorp/run");
+const plugin = path.resolve(new URL("..", import.meta.url).pathname);
 const json = async (name) => JSON.parse(await readFile(path.join(run, name), "utf8"));
 const lines = async (name) => {
   const body = (await readFile(path.join(run, name), "utf8")).trim();
@@ -22,8 +23,21 @@ const runId = launch.run_id;
 if (typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId)) reject("invalid launch run id");
 if (launch.runtime !== "codex" || checkpoint.run_id !== runId || ledger.run_id !== runId) reject("launch/checkpoint/ledger run ids differ");
 if (!safePositive(launch.supervisor_pid ?? launch.pid) || !safePositive(launch.sleep_inhibitor_pid)) reject("invalid launcher PIDs");
-if (!Array.isArray(launch.resume_argv) || launch.resume_argv.length !== 11 || launch.resume_argv[0] !== "bash" || path.basename(launch.resume_argv[1] || "") !== "launch-codex-implement.sh" || launch.resume_argv.at(-2) !== runId || !["background", "foreground"].includes(launch.resume_argv.at(-1))) reject("resume argv is not the exact guarded launcher continuation");
 if (!Array.isArray(launch.supervisor_argv) || !launch.supervisor_argv.includes("--run-id") || launch.supervisor_argv[launch.supervisor_argv.indexOf("--run-id") + 1] !== runId) reject("supervisor argv is absent or belongs to another run");
+const certificationIndex = launch.supervisor_argv.indexOf("--certification-receipt");
+const certificationPath = certificationIndex >= 0 ? launch.supervisor_argv[certificationIndex + 1] : "";
+const normalResume = Array.isArray(launch.resume_argv) && launch.resume_argv.length === 11 && launch.resume_argv.at(-2) === runId && ["background", "foreground"].includes(launch.resume_argv.at(-1));
+const certificationResume = Array.isArray(launch.resume_argv) && launch.resume_argv.length === 12 && launch.resume_argv[9] === runId && launch.resume_argv[10] === "foreground" && path.resolve(launch.resume_argv[11] || "").startsWith(`${run}${path.sep}`);
+if ((!normalResume && !certificationResume) || launch.resume_argv[0] !== "bash" || path.basename(launch.resume_argv[1] || "") !== "launch-codex-implement.sh") reject("resume argv is not the exact guarded launcher continuation");
+if (Boolean(certificationPath) !== certificationResume) reject("certification receipt and guarded launcher argv disagree");
+let certification = null;
+if (certificationPath) {
+  const absolute = path.resolve(certificationPath); const entry = await lstat(absolute);
+  if (entry.isSymbolicLink() || absolute !== path.join(run, "r11-certification-receipt.json")) reject("R11 receipt path is not the exact real in-tree path");
+  certification = JSON.parse(await readFile(absolute, "utf8"));
+  const expectedLimits = { max_spend: Number(launch.resume_argv[3]), max_duration: Number(launch.resume_argv[4]), max_retries: Number(launch.resume_argv[5]), max_blocks: Number(launch.resume_argv[6]) };
+  if (certification.kind !== "pandacorp-r11-certification-receipt" || certification.stage !== "codex-live-overnight" || certification.status !== "revoked" || certification.run_id !== runId || certification.frds?.join(",") !== launch.resume_argv[8] || Object.entries(expectedLimits).some(([key, value]) => certification.limits?.[key] !== value)) reject("R11 certification receipt is absent, live, forged, or drifted");
+}
 
 const start = Date.parse(launch.started_at);
 const end = Date.parse(checkpoint.terminal_at);
@@ -60,6 +74,9 @@ for (const id of dispatchIds) {
 }
 const durationSeconds = Math.floor((end - start) / 1000);
 const overnightEligible = durationSeconds >= 3 * 60 * 60 && reviewedFrds.size >= 2;
+const policy = JSON.parse(await readFile(path.join(plugin, "runtime/skill-runtime-policy.json"), "utf8"));
+const implementStatus = policy.overrides?.implement?.codex?.status || policy.defaults?.codex?.status;
+if (overnightEligible && implementStatus !== "PROVEN" && !certification) reject("LIVE_OVERNIGHT while FALLBACK lacks the one-shot R11 receipt");
 const evidence = {
   schema_version: 2,
   evidence_class: overnightEligible ? "LIVE_OVERNIGHT" : "LIVE_SHORT",
@@ -72,6 +89,7 @@ const evidence = {
   terminal_reason: checkpoint.terminal_reason,
   representative_frd_count: reviewedFrds.size,
   overnight_eligible: overnightEligible,
+  certification: certification ? "R11_ONE_SHOT" : null,
   lease_ttl_seconds: heartbeat.data.lease_ttl_seconds,
   heartbeat_interval_ms: heartbeat.data.heartbeat_interval_ms,
   heartbeat_within_ttl_third: heartbeatWithinTtlThird,

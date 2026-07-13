@@ -4,6 +4,23 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.6 — 2026-07-13 (PATCH): fail-closed FALLBACK launcher and one-shot R11 authority
+
+**What:** BL-0077 makes the Codex launcher read the canonical `implement` capability policy and
+reject every authorization-free build while it remains `FALLBACK`. The certification permit now
+supports two distinct, backward-compatible contracts: existing R10 Stage 2 and a new R11
+`codex-live-overnight` permit bound to one standalone fixture, current HEAD/UUID, plugin/overlay,
+executor/supervisor/launcher hashes, exact multi-FRD scope, foreground mode and exact ceilings.
+Receipts are consumed before lease acquisition, accepted by the executor only at their exact
+kind/stage/scope/limits and revoked on terminal/recovery.
+
+**Why:** R11 required a real Codex write but PORT-5 authorized only R10; meanwhile an empty optional
+authorization bypassed the launcher's permit check and reached the normal write path.
+
+**Impact:** plugin 9.95.6; no overlay change. R11 may now collect its bounded evidence without
+granting normal-project writes. Codex `implement` remains `FALLBACK` until installed R10 and the real
+R11 `LIVE_OVERNIGHT` gate pass.
+
 ## v9.95.5 — 2026-07-13 (PATCH): the whole FRD is the gate oracle
 
 **What:** BL-0078 makes the canonical reviewer inventory every normative FRD class before verdict:

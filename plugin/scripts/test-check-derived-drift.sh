@@ -23,7 +23,7 @@ check() { # $1 label, $2 expected rc, $3 root
 make_fixture() { # builds a minimal factory-shaped tree from the real repo
   local d
   d=$(mktemp -d)
-  mkdir -p "$d/factory" "$d/plugin/scripts" "$d/plugin/agents" \
+  mkdir -p "$d/factory/standards" "$d/plugin/scripts" "$d/plugin/agents" \
            "$d/plugin/.claude-plugin" "$d/plugin/.codex-plugin" "$d/plugin/runtime" "$d/.agents/plugins" "$d/plugins" \
            "$d/mission-control/src/lib/events"
   touch "$d/factory/constitution.md"
@@ -37,12 +37,16 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   cp "$HERE/plugin/scripts/generate-event-vocabulary.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/test-runtime-switch.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/resolve-build-run-id.mjs" "$d/plugin/scripts/"
+  cp "$HERE/plugin/scripts/launch-codex-implement.sh" "$d/plugin/scripts/"
+  cp "$HERE/plugin/scripts/collect-codex-unattended-evidence.mjs" "$d/plugin/scripts/"
+  cp "$HERE/plugin/scripts/test-r10-certification-permit.mjs" "$d/plugin/scripts/"
   cp "$HERE"/plugin/runtime/*.json "$d/plugin/runtime/"
   cp "$HERE/plugin/runtime/build-state.mjs" "$d/plugin/runtime/"
   cp "$HERE/plugin/runtime/event-transport.mjs" "$d/plugin/runtime/"
   mkdir -p "$d/plugin/runtime/codex"
-  cp "$HERE/plugin/runtime/codex/"{executor.mjs,supervisor.mjs,result.schema.json} "$d/plugin/runtime/codex/"
-  cp "$HERE/plugin/runtime/codex/R11-CERTIFICATION.md" "$d/plugin/runtime/codex/"
+  cp "$HERE/plugin/runtime/codex/"{certification-permit.mjs,executor.mjs,supervisor.mjs,result.schema.json} "$d/plugin/runtime/codex/"
+  cp "$HERE/plugin/runtime/codex/"{R10-CERTIFICATION.md,R11-CERTIFICATION.md} "$d/plugin/runtime/codex/"
+  cp "$HERE/factory/standards/agent-portability.md" "$d/factory/standards/"
   mkdir -p "$d/plugin/runtime/prompts" "$d/plugin/templates/shared/.claude/engines"
   cp "$HERE/plugin/runtime/prompts/sync-rollups.md" "$d/plugin/runtime/prompts/"
   cp "$HERE/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$d/plugin/templates/shared/.claude/engines/"

@@ -126,7 +126,7 @@ FRD-08 states EARS bullets (no explicit `REQ-08-MMM` ids). Work orders assign `A
 | Sufficient for a no-context reader to understand & operate | `CMP-08-concept-pages` (Diátaxis completeness) |
 | Reference (commands/agents/rules/standards) DERIVED from canonical source, not hand-copied (DR-046) | `CMP-08-reference-*` + `IF-07-reference/registry/standards` |
 | Manual stays in sync: Reference auto-derived; Tutorial/Guides/Concepts kept current by discipline (DR-046) | `CMP-08-reference-*` (auto) + `CMP-08-concept-pages` (discipline) |
-| Multi-runtime page exposes the current R0 permission boundary and safe-point-only cold switch | `CMP-08-concept-pages` (`ConceptMultiRuntime` + `RuntimeComparison`) |
+| Multi-runtime page exposes the current permission boundary, one-shot R10/R11 certification exceptions and safe-point-only cold switch | `CMP-08-concept-pages` (`ConceptMultiRuntime` + `RuntimeComparison`) |
 | Concept/Guide pages reflect the feature-centric DR-049 layout + ID spine + hierarchy | `CMP-08-concept-pages` (the structure page) |
 
 ## 9. Build Plan (Phase 2)

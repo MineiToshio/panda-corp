@@ -166,6 +166,12 @@ separate sleep inhibitor to its PID, health-checks both, and writes an atomic JS
 array that preserves paths containing spaces. Supervisor restart uses bounded backoff and a crash
 circuit breaker; executor renewal is mechanically constrained to `<= TTL/3`.
 
+BL-0077 also makes the launcher consult the canonical capability policy before any build path. While
+`implement` is `FALLBACK`, an empty authorization is a hard stop. The sole R11 write path is a distinct
+one-shot foreground permit bound to a standalone canary, exact HEAD/UUID, plugin/overlay, executor,
+supervisor and launcher hashes, exact multi-FRD scope and limits. It is consumed before lease ownership
+and revoked on terminal/recovery; R10 keeps its existing schema and receipt unchanged.
+
 `test-codex-unattended.mjs` is the `OFFLINE_ACCELERATED` failure corpus (14/14), including foreground
 launcher liveness and signal propagation. The real disposable
 current-head `LIVE_SHORT` run `codex-20260711T183105Z-28552` is green: 114 seconds, two real
@@ -175,6 +181,6 @@ disposable fixture was removed and the exact summary lives in
 `plugin/runtime/codex/evidence/r11-live-short-2026-07-11.json`.
 
 This evidence is intentionally **not** `LIVE_OVERNIGHT`. The parity gate stays open until a
-a representative multi-FRD run completes at least three real wall-clock hours without owner interaction,
+representative multi-FRD run completes at least three real wall-clock hours without owner interaction,
 followed by the cold return canary. Commands, evidence retention and the fail-closed collector are in
 `plugin/runtime/codex/R11-CERTIFICATION.md`.

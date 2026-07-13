@@ -106,7 +106,14 @@ the Codex-produced state. Fail-closed receipts and live installed evidence are r
 that a Claude subagent can never fabricate a tool result is not an R10/R11 criterion, because the
 Dynamic Workflows API offers no such host seam and Codex never consumes that narration.
 
-**R10 certification-only exception (not promotion).** The sole exception is one installed-canary
+**Certification-only exceptions (not promotion).** Normal Codex build writes remain denied while
+`implement` is `FALLBACK`. The official launcher reads that policy and fails closed when the owner
+authorization argument is empty; a local invocation is not authority. The two evidence exceptions
+below use distinct markers, authorizations and receipts. Both consume their nonce before lease
+acquisition, revoke it on every terminal path, reject replay/resume after revocation and grant no
+permission to another fixture, HEAD, scope or limit.
+
+**R10 Stage 2.** One installed-canary
 Stage 2 launched by the official Codex foreground launcher with a one-shot owner authorization. The
 permit requires a non-symlink standalone repository below `pandacorp-canaries`, a versioned
 `.pandacorp/certification/r10.json` identity (UUID + seed), exact plugin/overlay/engine pins, one
@@ -118,6 +125,15 @@ The engine pin resolves only the regular, versioned managed-overlay file
 `.claude/engines/pandacorp-build.js`; no `.pandacorp` engine alias or fallback exists. Permit checks
 fail closed on missing, modified or symlinked engine provenance and never print the authorization
 nonce.
+
+**R11 `LIVE_OVERNIGHT`.** One separately authorized foreground run in a non-symlink standalone
+repository below `pandacorp-canaries`. Its committed `.pandacorp/certification/r11.json` marker and
+fresh owner authorization bind the fixture UUID and seed, exact current HEAD, plugin and overlay,
+the SHA-256 of the Codex executor, supervisor and launcher, at least two exact FRDs, and the exact
+spend/duration/retry/block ceilings. The duration ceiling must permit at least three hours. Its
+`pandacorp-r11-certification-receipt` is separate from R10 and is accepted only for stage
+`codex-live-overnight`. The collector, not elapsed narration, decides whether the result qualifies as
+`LIVE_OVERNIGHT`. Full procedure: `plugin/runtime/codex/R11-CERTIFICATION.md`.
 
 ### Future attended sequential contract (certification target; not current permission)
 

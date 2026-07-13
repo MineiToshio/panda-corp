@@ -47,6 +47,10 @@ disposable fixture. The canonical evidence JSON at
 `LIVE_OVERNIGHT` remains **PENDING** until a real several-hours window completes; no accelerated clock,
 short provider call or mock worker may promote it. Full unattended parity is therefore not yet claimed.
 
+While Codex `implement` remains `FALLBACK`, the normal launcher is fail-closed even when its optional
+authorization argument is omitted. R11 therefore has one certification-only exception, separate from
+R10. It is evidence machinery, not normal-project permission and not promotion.
+
 Two 2026-07-11 overnight attempts are retained as explicit **NO-GO** evidence and do not count toward
 promotion. In the first disposable checkout (`codex-20260711T193340Z-40302`), the launcher receipt was
 written but the short-lived orchestration shell reaped its detached supervisor/worker immediately
@@ -66,12 +70,52 @@ the no-blind-retry rule.
 The two deployed recurring routines remain Claude-owned. This certification covers only a manually
 launched Codex `implement` run.
 
-## Resumable overnight command
+## One-shot installed R11 permit
+
+Prepare a fresh standalone, non-symlink fixture under
+`/Users/Shared/Proyectos/pandacorp-canaries/`. It must contain at least two exact pending FRDs and a
+committed `.pandacorp/certification/r11.json`:
+
+```json
+{
+  "schema": 1,
+  "kind": "pandacorp-r11-installed-canary",
+  "fixture_uuid": "<fresh UUID>",
+  "fixture_path": "<exact real absolute fixture path>",
+  "seed_commit": "<fixture seed SHA>",
+  "stage": "codex-live-overnight",
+  "frds": ["<exact FRD A>", "<exact FRD B>"],
+  "limits": { "max_spend": 24, "max_duration": 28800, "max_retries": 2, "max_blocks": 3 },
+  "launch_mode": "foreground",
+  "plugin_version": "<installed version>",
+  "overlay_version": "<fixture overlay>",
+  "executor_sha256": "<SHA-256 plugin/runtime/codex/executor.mjs>",
+  "supervisor_sha256": "<SHA-256 plugin/runtime/codex/supervisor.mjs>",
+  "launcher_sha256": "<SHA-256 plugin/scripts/launch-codex-implement.sh>"
+}
+```
+
+Commit the marker, verify a clean tree, `running: false` and no active lease. Only then may the owner
+create a fresh gitignored authorization at `.pandacorp/run/r11-owner-authorization.json` with the
+same fields plus `authorized_head` equal to the exact current HEAD, a fresh `nonce`, and kind
+`pandacorp-r11-owner-authorization`. Never synthesize owner authorization from the marker or an old
+chat approval.
+
+The permit rejects path/marker/authorization symlinks, a non-standalone or outside-root repository,
+dirty or drifted HEAD, fixture/seed/version/overlay/hash/scope/limit drift, a live lease, background
+mode and every previously consumed or revoked nonce. Consumption writes the distinct
+`.pandacorp/run/r11-certification-receipt.json` before the executor can acquire a lease. Every
+terminal launcher path revokes it. A revoked/uncertain run is evidence and is never resumed or
+retried with the same authorization.
+
+## One-shot overnight command
 
 Run from a disposable, representative multi-FRD project after the short canary is green:
 
 ```bash
-bash /absolute/path/to/panda-corp/plugin/scripts/launch-codex-implement.sh "$PWD" 24 28800 2 3 "" "" auto foreground
+bash /absolute/path/to/panda-corp/plugin/scripts/launch-codex-implement.sh \
+  "$PWD" 24 28800 2 3 "" "<exact FRD A>,<exact FRD B>" auto foreground \
+  "$PWD/.pandacorp/run/r11-owner-authorization.json"
 ```
 
 Keep the Mac powered and logged in. `foreground` is mandatory under Codex Desktop or another ephemeral
@@ -79,10 +123,10 @@ command shell: the launcher stays attached, owns signal propagation, and starts
 `caffeinate -w <supervisor_pid>` as a separate sleep inhibitor. The receipt records launcher and child
 PIDs; stopping the launcher ends the supervisor worker tree and inhibitor. Power-off, forced OS
 termination, loss of the local checkout, or closing the attached task cannot continue.
-After a supervisor crash, wait until the matching lease is stale and invoke the `resume_argv` array from
-the receipt as argv (not as an interpolated shell string). It re-enters the launcher, reruns both
-preflights, re-establishes the sleep inhibitor and permits reclaim only when runtime and logical run ID
-match the stale lease. A fresh, foreign or differently named lease still fails closed.
+The general supervisor remains mechanically resumable after promotion, but this certification permit
+is deliberately one-shot: a crash/uncertain/terminal result revokes its receipt and the recorded
+`resume_argv` must not be used for R11. Preserve the state and obtain a new fixture plus a new explicit
+owner authorization if policy requires a later independent attempt.
 Preserve these files as evidence:
 
 - `.pandacorp/run/codex-launch.json`
@@ -99,6 +143,7 @@ node /absolute/path/to/panda-corp/plugin/scripts/collect-codex-unattended-eviden
 
 The collector classifies a run as `LIVE_OVERNIGHT` only after at least three wall-clock hours and at
 least two independently reviewed FRDs. It binds launch, checkpoint, durable ledger, executor terminal,
-supervisor terminal and lease release to the same run/reason; it also requires the lease directory to
-be absent. Mixed/corrupt evidence, duplicate event IDs, a forged terminal chain or a surviving lease
-fails closed.
+supervisor terminal, the revoked one-shot R11 receipt and lease release to the same run/reason; it also
+requires the lease directory to be absent. While policy remains `FALLBACK`, a three-hour result without
+that exact receipt is rejected rather than promoted. Mixed/corrupt evidence, duplicate event IDs, a
+forged terminal chain, a live receipt or a surviving lease fails closed.

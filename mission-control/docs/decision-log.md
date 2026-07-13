@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-13 — Manual distinguishes one-shot certification from Codex build permission
+
+The multi-runtime Manual now states the executable `FALLBACK` boundary: normal Codex build writes
+fail closed when authorization is empty, while R10 Stage 2 and R11 `LIVE_OVERNIGHT` have separate
+one-shot disposable permits bound to exact provenance, scope and limits. The diagrams show the R11
+permit as ready while keeping the overnight evidence and overall Codex promotion pending.
+
 ## 2026-07-13 — Manual explains the whole-FRD gate oracle
 
 The build workflow now explains that a feature gate inventories every normative FRD class, records

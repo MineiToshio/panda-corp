@@ -724,6 +724,13 @@ Required live scenarios:
 
 R11 is a release gate for claiming `implement` parity. It certifies a manually launched Codex build; it does not copy the two Claude-owned recurring routines.
 
+While the capability policy remains `FALLBACK`, this gate runs only through the R11 one-shot
+certification permit. The normal launcher rejects an empty authorization. The permit is bound to one
+standalone disposable fixture, current HEAD/UUID, plugin/overlay plus executor/supervisor/launcher
+hashes, an exact multi-FRD scope, foreground mode and exact limits; it is consumed before the lease
+and revoked on every terminal path. It is separate from and backward-compatible with R10, and grants
+no normal-project write permission.
+
 - Test a representative multi-FRD run for several hours without owner interaction.
 - Test controller/app restart, unexpected sleep, network loss, rate limits, expired authentication, approval denial, token/budget exhaustion, supervisor restart, and a true owner decision.
 - Preflight host, credentials, network, sandbox, and narrowly preauthorized routine commands. Prevent system sleep for the run; a powered-off or sleeping local machine cannot continue.
@@ -735,7 +742,8 @@ R11 is a release gate for claiming `implement` parity. It certifies a manually l
 Failure blocks the claim that Codex `implement` has full parity. It does not regress Claude or block Codex read/review and certified non-build skills.
 - Prove the same durable spend brake used by R7; unattended execution never trusts only in-memory counts.
 
-Failure or continued deferral leaves the attended sequential executor as the supported Codex mode. It does not block safe read/review or attended build operation.
+Failure or continued deferral leaves Claude as the supported build writer and Codex in safe
+read/review mode. It does not turn the certification exception into attended normal-project permission.
 
 **Implementation evidence (2026-07-11):** `OFFLINE_ACCELERATED` is green through
 `plugin/scripts/test-codex-unattended.mjs`; it covers preflight failures, supervisor crash/restart and

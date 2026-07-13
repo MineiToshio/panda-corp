@@ -70,13 +70,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "solo lectura/review: falta R10 instalado + R11 LIVE_OVERNIGHT",
+    codex: "normal: solo lectura/review · one-shot sólo para canarios R10/R11",
     status: "claude-only",
   },
   {
     capability: "Construcción nocturna",
     claude: "desatendida, corre por horas sin owner",
-    codex: "offline + LIVE_SHORT verdes; LIVE_OVERNIGHT sigue pendiente",
+    codex: "permiso R11 one-shot listo; LIVE_OVERNIGHT sigue pendiente",
     status: "claude-only",
   },
   {

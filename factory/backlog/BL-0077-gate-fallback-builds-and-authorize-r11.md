@@ -3,12 +3,12 @@ id: BL-0077
 type: bug
 area: build-engine
 title: "Gate FALLBACK Codex builds and add a one-shot R11 permit"
-status: open
+status: done
 severity: p0
 opened: 2026-07-13
-closed:
+closed: 2026-07-13
 source: "R11 readiness audit after R10-I Stage 1"
-closes:
+closes: "PORT-5 fail-closed FALLBACK launcher and one-shot R11 certification permit in plugin 9.95.6"
 links: [DR-113]
 ---
 

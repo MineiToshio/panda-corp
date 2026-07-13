@@ -41,8 +41,9 @@ committed safe point.
 
 ## Certification-only Stage 2 permit
 
-PORT-5 no longer deadlocks its own evidence collection. Plugin 9.95.0 adds a narrowly scoped,
-one-shot permit for installed Codex Stage 2 only. The committed fixture marker and owner
+PORT-5 no longer deadlocks its own evidence collection. Plugin 9.95.0 added a narrowly scoped,
+one-shot permit for installed Codex Stage 2 only; BL-0077 later generalized the permit reader without
+changing this R10 schema, stage, receipt path or one-shot semantics. The committed fixture marker and owner
 authorization bind the fixture UUID and seed, stage, current safe-point HEAD, plugin/overlay/engine
 pins, exact single FRD, limits and nonce. The foreground launcher consumes it before ownership and
 revokes it at terminal exit. Any mismatch, symlink, non-canary path, dirty tree, live lease,

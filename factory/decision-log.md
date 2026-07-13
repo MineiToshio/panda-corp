@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-07-13 — FALLBACK writes require an explicit one-shot certification authority
+
+BL-0077 makes capability policy executable at the Codex launcher boundary: an omitted authorization
+no longer becomes normal build permission. PORT-5 now owns two separate evidence exceptions—R10
+Stage 2 and R11 `LIVE_OVERNIGHT`—with distinct markers and receipts, exact disposable fixture/HEAD,
+runtime hashes, scope and limits, consumption before lease and terminal revocation. Plugin 9.95.6
+adds the R11 path without promoting Codex or changing Claude Dynamic Workflows.
+
 ## 2026-07-13 — The whole approved FRD is one indivisible gate oracle
 
 BL-0078 closes the loophole where numbered acceptance criteria could pass while another normative FRD

@@ -217,7 +217,7 @@
         },
         "codex": {
           "status": "FALLBACK",
-          "fallback": "Use Claude for governed builds. R2/R3/R6, offline R7/R8/R11, current-head R11 LIVE_SHORT and the R10 cold-switch fixture are green; installed R10 plus R11 LIVE_OVERNIGHT remain pending.",
+          "fallback": "Use Claude for normal governed builds. Only the exact one-shot R10 Stage 2 and R11 LIVE_OVERNIGHT disposable certification permits may write while FALLBACK; installed R10 plus R11 LIVE_OVERNIGHT remain pending.",
           "evidence": {
             "kind": "static-contract-only",
             "verified_at": "2026-07-11",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { chmod, copyFile, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, copyFile, cp, mkdir, mkdtemp, readFile, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -16,6 +16,15 @@ const must = (condition, message) => { if (!condition) throw new Error(message);
 let passed = 0, failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (error) { console.error(`FAIL  ${name}: ${error.stack || error}`); failed++; } };
 const projects = [];
+let provenLauncherPath = "";
+async function provenLauncher() {
+  if (provenLauncherPath) return provenLauncherPath;
+  const sandbox = await mkdtemp(path.join(os.tmpdir(), "pc-proven-launcher-")); projects.push(sandbox);
+  const plugin = path.join(sandbox, "plugin"); await cp(path.join(root, "plugin"), plugin, { recursive: true });
+  const policyFile = path.join(plugin, "runtime/skill-runtime-policy.json"); const policy = JSON.parse(await read(policyFile));
+  policy.overrides.implement.codex.status = "PROVEN"; await writeFile(policyFile, `${JSON.stringify(policy, null, 2)}\n`);
+  provenLauncherPath = path.join(plugin, "scripts/launch-codex-implement.sh"); return provenLauncherPath;
+}
 
 async function fixture({ rethink = false } = {}) {
   const project = await mkdtemp(path.join(os.tmpdir(), "pc-r11-")); projects.push(project);
@@ -145,7 +154,7 @@ await test("launcher prevents sleep for the whole supervisor and preserves space
   await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\n[ \"${1:-}\" = -h ] && exit 0\nnode -e 'require(\"node:fs\").writeFileSync(process.env.R11_WRAP_LOG,JSON.stringify(process.argv.slice(1)))' -- \"$@\"\nwhile [ $# -gt 0 ]; do [ \"$1\" = -w ] && { shift; target=$1; break; }; shift; done\nwhile kill -0 \"$target\" 2>/dev/null; do sleep 0.05; done\n");
   for (const file of ["codex", "curl", "caffeinate"]) await chmod(path.join(bin, file), 0o755);
   const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
-  const result = await run("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), spaced, "4", "60", "0", "1", "chosen-change", "frd-01-r11"], spaced, { PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub, R11_WRAP_LOG: wrapLog });
+  const result = await run("bash", [await provenLauncher(), spaced, "4", "60", "0", "1", "chosen-change", "frd-01-r11"], spaced, { PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub, R11_WRAP_LOG: wrapLog });
   must(result.code === 0, `${result.out}\n${result.err}`); const receipt = JSON.parse(await read(path.join(spaced, ".pandacorp/run/codex-launch.json")));
   const canonical = await realpath(spaced); must(Array.isArray(receipt.resume_argv) && receipt.resume_argv[0] === "bash" && receipt.resume_argv[2] === canonical && receipt.resume_argv.at(-2) === receipt.run_id && receipt.resume_argv.at(-1) === "background" && receipt.launch_mode === "background" && !Object.hasOwn(receipt, "resume_command"), JSON.stringify(receipt));
   must(receipt.resume_argv.slice(7,9).join("|") === "chosen-change|frd-01-r11", `targeted scope lost: ${JSON.stringify(receipt.resume_argv)}`);
@@ -164,7 +173,7 @@ await test("foreground launcher owns the process lifetime and forwards terminati
   await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\n[ \"${1:-}\" = -h ] && exit 0\ntrap 'exit 0' INT TERM HUP\nwhile [ $# -gt 0 ]; do [ \"$1\" = -w ] && { shift; target=$1; break; }; shift; done\nwhile kill -0 \"$target\" 2>/dev/null; do sleep 0.05; done\n");
   for (const file of ["codex", "curl", "caffeinate"]) await chmod(path.join(bin, file), 0o755);
   const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
-  const child = spawn("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), fx.project, "4", "60", "0", "1", "chosen-change", "frd-foreground", "auto", "foreground"], { cwd: fx.project, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub }, stdio: ["ignore", "pipe", "pipe"] });
+  const child = spawn("bash", [await provenLauncher(), fx.project, "4", "60", "0", "1", "chosen-change", "frd-foreground", "auto", "foreground"], { cwd: fx.project, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub }, stdio: ["ignore", "pipe", "pipe"] });
   const receiptPath=path.join(fx.project,".pandacorp/run/codex-launch.json"); for(let i=0;i<300&&!await exists(receiptPath);i++) await sleep(10);
   const receipt=JSON.parse(await read(receiptPath)); must(receipt.launch_mode==="foreground"&&receipt.launcher_pid===child.pid&&receipt.resume_argv.at(-1)==="foreground"&&receipt.resume_argv.at(-2)===receipt.run_id,JSON.stringify(receipt));
   for(const pid of [child.pid,receipt.supervisor_pid,receipt.sleep_inhibitor_pid]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(alive,`foreground process ${pid} was not live`)}
@@ -188,6 +197,18 @@ await test("evidence collector reads the real normalized journal schema and fail
   await writeFile(journal, `${ev("e1", "build.launch", { lease_ttl_seconds: 600, heartbeat_interval_ms: 120000 })}\n${ev("e2", "agent.working", { dispatch_id: "hardening-audit" }, "hardening-audit")}\n${ev("e3", "agent.working", { dispatch_id: "hardening-fix" }, "hardening-fix")}\n${ev("e4", "build.complete", { reason: "complete" })}\n${ev("e5", "lease.released", { reason: "complete" })}\n`);
   await writeFile(path.join(runDir, "run-ledger.json"), JSON.stringify({ run_id: "foreign", spend_units: 4, dispatch_count: 2 }));
   const mixed = await run("node", [path.join(root, "plugin/scripts/collect-codex-unattended-evidence.mjs"), fx.project], fx.project); must(mixed.code !== 0, "collector accepted a foreign ledger");
+
+  const overnightEnd = "2026-07-11T04:00:00.000Z"; const authPath = path.join(runDir, "r11-owner-authorization.json"); const certPath = path.join(runDir, "r11-certification-receipt.json");
+  const limits = { max_spend: 24, max_duration: 28800, max_retries: 2, max_blocks: 3 }; const frds = ["frd-a-overnight", "frd-b-overnight"];
+  await writeFile(path.join(runDir, "codex-launch.json"), JSON.stringify({ run_id: runId, pid: 101, supervisor_pid: 101, sleep_inhibitor_pid: 102, launch_mode: "foreground", runtime: "codex", started_at: started, resume_argv: ["bash", "/factory/plugin/scripts/launch-codex-implement.sh", fx.project, "24", "28800", "2", "3", "", frds.join(","), runId, "foreground", authPath], supervisor_argv: ["node", "/factory/plugin/runtime/codex/supervisor.mjs", "--run-id", runId, "--certification-receipt", certPath] }));
+  await writeFile(path.join(runDir, "codex-checkpoint.json"), JSON.stringify({ run_id: runId, terminal_reason: "complete", terminal_at: overnightEnd }));
+  await writeFile(path.join(runDir, "run-ledger.json"), JSON.stringify({ run_id: runId, spend_units: 4, dispatch_count: 2 }));
+  await writeFile(path.join(runDir, "codex-supervisor.jsonl"), `${JSON.stringify({ at: overnightEnd, event: "supervisor_terminal", run_id: runId, reason: "complete" })}\n`);
+  const overnightEvent = (id, semantic_name, data = {}, subject = fx.project) => JSON.stringify({ at: semantic_name === "build.launch" ? started : overnightEnd, runtime: "codex", run_id: runId, event_id: id, event: semantic_name, semantic_name, subject, data });
+  await writeFile(path.join(runDir, "codex-executor.jsonl"), `${overnightEvent("o1", "build.launch", { lease_ttl_seconds: 600, heartbeat_interval_ms: 120000 })}\n${overnightEvent("o2", "agent.working", { dispatch_id: "review-frd-a-overnight-a1" }, "review-frd-a-overnight-a1")}\n${overnightEvent("o3", "agent.working", { dispatch_id: "review-frd-b-overnight-a1" }, "review-frd-b-overnight-a1")}\n${overnightEvent("o4", "build.complete", { reason: "complete" })}\n${overnightEvent("o5", "lease.released", { reason: "complete" })}\n`);
+  const certification = { schema: 1, kind: "pandacorp-r11-certification-receipt", stage: "codex-live-overnight", status: "revoked", run_id: runId, frds, limits }; await writeFile(certPath, JSON.stringify(certification));
+  const overnight = await run("node", [path.join(root, "plugin/scripts/collect-codex-unattended-evidence.mjs"), fx.project], fx.project); must(overnight.code === 0, `${overnight.out}\n${overnight.err}`); const overnightEvidence = JSON.parse(overnight.out); must(overnightEvidence.evidence_class === "LIVE_OVERNIGHT" && overnightEvidence.certification === "R11_ONE_SHOT", overnight.out);
+  await writeFile(certPath, JSON.stringify({ ...certification, status: "consumed" })); const liveReceipt = await run("node", [path.join(root, "plugin/scripts/collect-codex-unattended-evidence.mjs"), fx.project], fx.project); must(liveReceipt.code !== 0, "collector accepted a non-revoked R11 receipt");
 });
 
 await test("R11 evidence classes cannot promote an accelerated soak to overnight", async () => {

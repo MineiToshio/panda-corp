@@ -79,6 +79,11 @@
       "source": "plugin/runtime/codex/supervisor.mjs",
       "consumers": ["plugin/scripts/launch-codex-implement.sh", "plugin/scripts/preflight-codex-unattended.mjs", "plugin/scripts/test-codex-unattended.mjs"]
     },
+    "codex_certification_authority": {
+      "source": "plugin/runtime/codex/certification-permit.mjs",
+      "contracts": ["factory/standards/agent-portability.md", "plugin/runtime/codex/R10-CERTIFICATION.md", "plugin/runtime/codex/R11-CERTIFICATION.md"],
+      "consumers": ["plugin/scripts/launch-codex-implement.sh", "plugin/runtime/codex/executor.mjs", "plugin/scripts/collect-codex-unattended-evidence.mjs", "plugin/scripts/test-r10-certification-permit.mjs"]
+    },
     "codex_unattended_evidence": {
       "source": "plugin/runtime/codex/R11-CERTIFICATION.md",
       "consumers": ["plugin/scripts/collect-codex-unattended-evidence.mjs", "plugin/scripts/run-codex-live-short-canary.mjs"]
