@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-12 — Manual makes recurring stop inspection fail closed
+
+The build workflow and unattended-construction concept now explain that every safe point consumes a
+fenced `stateCli inspect-stop` Node receipt. Ambient shell aliases cannot manufacture an owner stop,
+and invalid evidence aborts instead of being interpreted as absence. This mirrors BL-0073/plugin
+9.95.1 and changes no Codex promotion boundary.
+
 ## 2026-07-12 — Manual explains explicit installed Workflow capabilities
 
 The multi-runtime guide now explains that Claude's launcher injects a validated absolute `stateCli`

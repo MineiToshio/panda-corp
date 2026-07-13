@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-07-12 — Every safe point requires fenced stop evidence
+
+BL-0073 extends DR-068's deterministic owner-stop rule from the pre-loop check to every recurring
+wave boundary. Stop-file truth comes only from the absolute `stateCli inspect-stop` Node receipt;
+missing, failed or malformed evidence aborts rather than becoming `stop:false`. Queue and decision
+processing remain independent. Plugin 9.95.1 / overlay 8.76.1 ship the correction without changing
+Codex promotion status.
+
 ## 2026-07-12 — Installed workflows receive governed writers as explicit capabilities
 
 BL-0071 removes an ambient-environment dependency from Claude's native controller. The installed

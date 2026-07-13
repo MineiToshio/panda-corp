@@ -70,7 +70,7 @@ function defaultResponse(label) {
   if (label === 'baseline') return { green: true }                       // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
   if (label === 'sync-rollups') return { corrected: 0 }
-  if (label === 'safe-point') return { stop: false, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
+  if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}

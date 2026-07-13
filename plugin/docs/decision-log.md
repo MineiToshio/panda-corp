@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.1 — 2026-07-12 (PATCH): fenced stop receipt at every safe point
+
+**What:** BL-0073 makes the recurring wave-boundary safe point execute the launcher-provided absolute
+`stateCli inspect-stop` capability and return its complete Node `lstat` receipt. The engine validates
+that receipt before queue/decision processing and aborts on command failure or malformed evidence.
+
+**Why:** R10-F proved the pre-loop repair was incomplete: the recurring prompt could still improvise
+ambient `test -f`, and a host alias returning zero fabricated an owner stop before any work began.
+
+**Impact:** plugin 9.95.1 and overlay 8.76.1. This fixes Claude's safe-point contract; it neither runs
+Codex Stage 2 nor promotes Codex `implement`.
+
 ## v9.95.0 — 2026-07-12 (MINOR): one-shot R10 certification permit
 
 **What:** added a fail-closed permit to the Codex foreground launcher, binding one disposable

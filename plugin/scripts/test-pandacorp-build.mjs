@@ -75,6 +75,11 @@ if (/baseline PRE-CHECK[\s\S]*?test -f[\s\S]*?run\/stop/.test(source) || !/inspe
   console.error('FATAL: owner-stop detection is not bound to the deterministic Node receipt.')
   process.exit(1)
 }
+if (/Safe-point check[\s\S]*?(?:test\s+-f|\[\s+-[ef])[^\n]*run\/stop/.test(source) ||
+    !/Safe-point check[\s\S]*?INSPECT_STOP/.test(source)) {
+  console.error('FATAL: recurring safe-point stop detection is not exclusively bound to the fenced receipt.')
+  process.exit(1)
+}
 if (!/close-preloop --project/.test(source) || !/agentType: 'pandacorp:devops'/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
   console.error('FATAL: ensureStopped regained a broad implementer or lost its bounded close command.')
   process.exit(1)
@@ -113,7 +118,7 @@ function defaultResponse(label) {
   if (label === 'baseline') return { green: true }                      // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
   if (label === 'sync-rollups') return { corrected: 0 }
-  if (label === 'safe-point') return { stop: false, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
+  if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
@@ -158,7 +163,13 @@ async function runEngine(scenario) {
       // `throws`, so behavior is unchanged. (Scripted NULLs already work: `response: null` is returned
       // as-is here — matched before defaultResponse — so a scenario can simulate a dead/garbled agent.)
       if (r.throws !== undefined) throw (r.throws instanceof Error ? r.throws : new Error(String(r.throws)))
-      return typeof r.response === 'function' ? r.response(call) : r.response
+      const answer = typeof r.response === 'function' ? r.response(call) : r.response
+      // Existing scenarios focus on queue/rethink behavior. Give their object verdicts the valid fenced
+      // receipt the real CLI would return; null/explicit malformed receipts remain untouched for BL-0073.
+      if (call.label === 'safe-point' && answer && typeof answer === 'object' && !('stop_receipt' in answer)) {
+        return { ...answer, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' } }
+      }
+      return answer
     }
     const def = defaultResponse(call.label)
     if (def === null) {
@@ -513,6 +524,8 @@ SCENARIOS.push({
     t.ok(!sp.some((s) => s.index > gates[0].index && s.index < gates[1].index),
       'no safe point runs between the two consecutive gate drains (C1c — skipped on pure gate-drain iterations)')
     const p = sp[0].prompt
+    t.ok(/inspect-stop --project/.test(p) && /stop_receipt/.test(p), 'the recurring safe point executes and returns the fenced inspect-stop receipt')
+    t.ok(!/`test\s+-f|`\[\s+-[ef]/.test(p), 'a successful ambient test alias cannot participate in stop truth')
     t.ok(/rethink_pending/.test(p), 'the safe point checks rethink_pending')
     t.ok(/inbox\/changes/.test(p), 'the safe point drains the inbox/changes queue')
     t.ok(/decisions\.md/.test(p), 'the safe point checks answered decisions')
@@ -526,13 +539,13 @@ SCENARIOS.push({
     { frd: 'frd-06-one', deps: [], workOrders: [mkWo('wo-06-101', 'PLANNED', { frd: 'frd-06-one', artifacts: ['src/one/**'] })] },
   ]),
   responses: [
-    { label: 'safe-point', response: { stop: true }, times: 1 },
+    { label: 'safe-point', response: { stop: true, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] }, times: 1 },
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'rethink', `stopReason is 'rethink' (got ${run.result && run.result.stopReason})`)
     t.ok(byLabel(run, /^(dispatch|build|gate):/).length === 0, 'nothing was built or gated after the rethink stop')
-    t.ok(hasLog(run, /rethink_pending/), 'the stop is logged with its reason')
+    t.ok(hasLog(run, /señal fenced de stop\/rethink/), 'the stop is logged with its fenced/rethink reason')
     t.ok(byLabel(run, 'notify-end').length === 1, 'the run still closes out (notify-end) so status.yaml gets running:false')
   },
 })
@@ -1036,11 +1049,9 @@ SCENARIOS.push({
   },
 })
 
-// ── G3. safe-point agent returns NULL — the loop continues safely ─────────────────────────────────
-// A null safePoint result is not 'stop', has no ready/unblocked — so no drain, no stop, no crash; the
-// wave dispatches and the FRD verifies normally.
+// ── G3. safe-point receipt is invalid — fail closed ───────────────────────────────────────────────
 SCENARIOS.push({
-  name: 'G3. safe-point NULL verdict — no drain, no stop, no crash; the loop continues',
+  name: 'G3. malformed safe-point receipt — aborts rather than guessing stop:false',
   args: { mode: 'pro' },
   plan: mkPlan([{
     frd: 'frd-g3-nullsafe',
@@ -1051,11 +1062,33 @@ SCENARIOS.push({
     { label: 'safe-point', response: null },   // scripted NULL — a dead safe-point agent
   ],
   assert(t, run) {
-    t.ok(!run.error, `engine threw: ${run.error} (a null safe-point must not crash the loop)`)
+    t.ok(Boolean(run.error) && /fenced stop receipt/.test(String(run.error)), `malformed receipt fails closed: ${run.error}`)
     t.ok(byLabel(run, 'safe-point').length >= 1, 'the safe point was invoked (and returned null)')
-    t.ok(!(run.result && run.result.stopReason === 'rethink'), 'a null safe-point is NOT read as a rethink stop')
     t.ok(byLabel(run, /^process-change:/).length === 0, 'a null safe-point drains nothing (no ready items)')
-    t.ok(run.result && run.result.builtFrds.includes('frd-g3-nullsafe'), 'the loop continued past the null safe-point and the FRD verified')
+    t.ok(byLabel(run, /^(dispatch|build|gate):/).length === 0, 'no work runs after an invalid receipt')
+  },
+})
+
+SCENARIOS.push({
+  name: 'G3b. real owner stop receipt — halts at recurring safe point',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-g3-stop', deps: [], workOrders: [mkWo('wo-g3-stop', 'PLANNED', { frd: 'frd-g3-stop', artifacts: ['src/g3/**'] })] }]),
+  responses: [{ label: 'safe-point', response: { stop: false, stop_receipt: { status_exists: true, stop: true, method: 'node-lstat' }, ready: [], unblocked: [] }, times: 1 }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.stopReason === 'rethink', 'the fenced real-stop receipt halts the run')
+    t.ok(byLabel(run, /^(dispatch|build|gate):/).length === 0, 'nothing runs after the owner stop')
+  },
+})
+
+SCENARIOS.push({
+  name: 'G3c. failed recurring inspect-stop command — aborts before dispatch',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-g3-failed', deps: [], workOrders: [mkWo('wo-g3-failed', 'PLANNED', { frd: 'frd-g3-failed', artifacts: ['src/g3/**'] })] }]),
+  responses: [{ label: 'safe-point', throws: 'inspect-stop fence rejected' }],
+  assert(t, run) {
+    t.ok(Boolean(run.error) && /inspect-stop fence rejected/.test(String(run.error)), `command failure propagates: ${run.error}`)
+    t.ok(byLabel(run, /^(dispatch|build|gate):/).length === 0, 'no work runs after inspect-stop fails')
   },
 })
 

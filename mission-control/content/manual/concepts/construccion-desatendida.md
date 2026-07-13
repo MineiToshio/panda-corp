@@ -16,6 +16,8 @@ El motor de `implement` es un **Dynamic Workflow** — un script determinista qu
 
 Un safe point se publica como una pareja de commits: el primero es el **snapshot verde** que pasó la revisión independiente; el segundo solo registra en `status.yaml` que `last_green_sha` apunta al primero y que `safe_to_test` es verdadero. El motor comprueba que ese snapshot existe y es ancestro de `HEAD`; nunca intenta que un commit contenga su propio hash. Si el proceso se interrumpe, el próximo arranque retoma desde ese snapshot verde — nunca pierde trabajo completado.
 
+La orden de parar tampoco depende del shell. Antes de cada oleada, el motor exige un recibo cercado producido por `stateCli inspect-stop`; por eso un alias como `test=npm test` no puede simular que existe el archivo de parada. Si el recibo falla o llega incompleto, el run se detiene de forma segura en vez de adivinar que no hay una orden pendiente.
+
 ```
 WO-01 ✓ → commit → WO-02 ✓ → commit → WO-03 ✗ → freeze
                                                     ↑ retoma aquí

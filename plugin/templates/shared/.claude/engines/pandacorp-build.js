@@ -403,9 +403,12 @@ const PRECHECK_SCHEMA = {
 // rethink stop — instead of leaving the drain to supervisor prose (a supervisor may not exist, and
 // its safe points are between passes, not between FRDs).
 const SAFE_POINT_SCHEMA = {
-  type: 'object', required: ['stop'],
+  type: 'object', required: ['stop', 'stop_receipt'],
   properties: {
-    stop: { type: 'boolean', description: 'true iff rethink_pending: true — the engine stops at this safe point' },
+    stop: { type: 'boolean', description: 'true iff rethink_pending: true — owner-file stop truth is carried separately by stop_receipt' },
+    stop_receipt: { type: 'object', required: ['status_exists', 'stop', 'method'], properties: {
+      status_exists: { type: 'boolean' }, stop: { type: 'boolean' }, method: { type: 'string' },
+    }, description: 'verbatim fenced stateCli inspect-stop receipt; mandatory and validated fail-closed by the engine' },
     ready: { type: 'array', items: { type: 'string' }, description: 'queue slugs with status: ready — expedite first, then standard FIFO' },
     // WS-D/D14: report each unblocked WO with its OWNING FRD so the engine can re-enroll it into THIS run's
     // schedule (remove from blockedIds, restore into globalQueue + the FRD's toBuildIds) — the unblock takes
@@ -1303,14 +1306,19 @@ const woWaveCost = (w) => {
 async function safePoint() {
   agentSpawned++
   const sp = await agent(
-    `${RENEW_LEASE} Safe-point check (DR-069) — read the owner's signals; change ONLY what is specified:
-    1) Read .pandacorp/status.yaml → if \`rethink_pending: true\`, OR if the file \`.pandacorp/run/stop\` EXISTS (WS-D/D15 — the owner dropped a stop signal; do NOT delete it, the owner removes it), return { stop: true } immediately (the owner re-planned or halted mid-run; the engine stops at this safe point and the next run resumes on the new plan).
+    `${RENEW_LEASE} Safe-point check (DR-069/BL-0073) — read the owner's signals; change ONLY what is specified:
+    0) Execute exactly \`${INSPECT_STOP}\`. This is the EXCLUSIVE source of truth for the owner stop file. Preserve its JSON output verbatim as \`stop_receipt\`. NEVER use shell \`test\`, \`[\`, \`stat\`, \`ls\`, filesystem aliases, or infer stop from path presence/absence or an exit code. If the command fails or its JSON cannot be returned exactly, throw/fail this safe point and mutate nothing — NEVER guess \`stop:false\`.
+    1) Read .pandacorp/status.yaml → set \`stop: true\` iff \`rethink_pending: true\`. Do not derive this field from the stop file; the engine evaluates the fenced \`stop_receipt.stop\` itself.
     2) ${TARGETED ? 'TARGETED BUILD (the owner launched with a specific `change`/`frds` — build ONLY that): do NOT scan the queue for ready changes. Return `ready: []`. Other queued changes are intentionally left for a later bare `/implement`.' : 'List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter `status` is "ready" — `class: expedite` FIRST, then standard FIFO by date. Skip draft/done/building (a `building` change is already integrated and in flight — never re-drain it, WS-A/D1).'}
     3) Read .pandacorp/inbox/decisions.md: for each decision the owner ANSWERED (via /pandacorp:decide) that resolves blocked work, find the work orders with \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\` that the answer unblocks, set each back to \`implementation_status: PLANNED\` (the DR-050 frontmatter signal), and update \`pending_decisions\` in status.yaml to the count still unanswered. Commit those frontmatter edits if you made any.
-    Return { stop: false, ready: [...slugs, expedite first], unblocked: [{ frd, wo } for EACH work order you flipped BLOCKED→PLANNED — WS-D/D14, report its OWNING FRD folder so the engine re-enrolls it THIS run] } (empty arrays when there is nothing).`,
+    Return { stop: <rethink_pending boolean>, stop_receipt: <the exact inspect-stop JSON object>, ready: [...slugs, expedite first], unblocked: [{ frd, wo } for EACH work order you flipped BLOCKED→PLANNED — WS-D/D14, report its OWNING FRD folder so the engine re-enrolls it THIS run] } (empty arrays when there is nothing).`,
     { label: 'safe-point', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
   )
-  if (sp && sp.stop === true) { log('⏸ rethink_pending — el owner re-planificó; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); return 'stop' }
+  const receipt = sp && sp.stop_receipt
+  if (!receipt || receipt.status_exists !== true || typeof receipt.stop !== 'boolean' || receipt.method !== 'node-lstat') {
+    throw new Error('FATAL: recurring safe-point returned an invalid fenced stop receipt; refusing to guess owner stop state')
+  }
+  if (receipt.stop === true || sp.stop === true) { log('⏸ señal fenced de stop/rethink — el owner re-planificó o detuvo; el motor para en este safe point (la próxima corrida retoma con el plan nuevo)'); return 'stop' }
   // WS-D/D14: the safe point flipped answered-decision BLOCKED WOs to PLANNED — RE-ENROLL them into THIS
   // run's schedule (remove from blockedIds, restore into globalQueue + the FRD's toBuildIds, un-fail the FRD)
   // so the unblock takes effect NOW, not next run. Each item is { frd, wo }.

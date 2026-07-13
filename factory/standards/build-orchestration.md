@@ -700,6 +700,12 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
   tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
   a warm resume pays nothing, while a dirty/off-green tree still gets the full reconcile-then-verify.
+- **The same fence applies at every recurring safe point (BL-0073), not only pre-loop.** Before queue
+  or decision processing, the safe-point runner executes the absolute launcher-provided
+  `stateCli inspect-stop` command and returns its complete receipt. The engine itself requires
+  `status_exists:true`, a boolean `stop`, and `method:node-lstat`; a command failure, missing field or
+  malformed receipt aborts the run. It never turns uncertainty into `stop:false`, and no delegated
+  shell predicate (`test`, `[`, aliases, `stat` or `ls`) may derive owner-stop truth.
 - **The supervisor watches the tree's git health as a first-class signal**, not just `status.yaml` +
   liveness. The Monitor checks `git status --porcelain` each tick — any `UU`/unmerged path or conflict
   marker is a **broken tree** and emits an alarm, routed to the bounded auto-repair (restore to last green).
