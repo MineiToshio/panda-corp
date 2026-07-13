@@ -6,9 +6,18 @@
 
 The Pandacorp factory — and, lighter, its product projects — is operable from **any coding agent that reads AGENTS.md and discovers Agent Skills** (`SKILL.md`): Claude Code (native), OpenAI Codex (app + CLI), Cursor, OpenCode. This standard defines the **portable core** (documents + file-state + skills), the **per-runtime capability matrix**, the **neutral model-tier vocabulary**, the **tool translation table**, and the **degradation rules** for the parts that don't port. It never forks the know-how (`factory/` is plain markdown, one canonical copy) and never degrades the Claude Code experience.
 
-**The invariant that makes portability possible — durable handoff state lives in files, never only in a session.** Work-order frontmatter (`implementation_status`: `PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), `.pandacorp/status.yaml` (`phase`, machine state), the change queue and the decisions inbox are the cross-session evidence. This is necessary but **not sufficient for live cross-runtime takeover**: the active executor also owns in-memory scheduling, commit serialization, review work, budgets and health brakes that files do not currently reconstruct completely. Therefore a runtime switch is a **cold continuation only after a clean safe point**: the current executor finishes its gate/commit, stops fully and releases ownership before a later runtime reads the files. No runtime may take over another runtime's live run. Only the *execution vehicle* (Dynamic Workflows and its supervisor under Claude; a future separately certified Codex executor) is runtime-specific — see PORT-5/PORT-6.
+**The invariant that makes portability possible — durable handoff state lives in files, never only in a session.** Work-order frontmatter (`implementation_status`: `PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), `.pandacorp/status.yaml` (`phase`, machine state), the change queue and the decisions inbox are the cross-session evidence. This is necessary but **not sufficient for live cross-runtime takeover**: the active executor also owns in-memory scheduling, commit serialization, review work, budgets and health brakes that files do not currently reconstruct completely. Therefore a runtime switch is a **cold continuation only after a clean safe point**: the current executor finishes its gate/commit, stops fully and releases ownership before a later runtime reads the files. No runtime may take over another runtime's live run. Only the *execution vehicle* is runtime-specific: Claude uses Dynamic Workflows and its supervisor; Codex uses `plugin/runtime/codex/executor.mjs` and its own supervisor. Certification controls whether that Codex executor may write normal projects; it is not a claim that Codex drives Claude's workflow — see PORT-5/PORT-6.
 
 **Runtime locality is strict.** A Claude session or Dynamic Workflow dispatches only Claude agents/models; a Codex session dispatches only Codex agents/models. The runtimes share canonical files and deterministic contracts, not subagents, messages, transcripts or a live control plane. Deterministic, versioned and test-covered CLIs may be shared as the one writer for a governed transition once their migration slice is certified; Claude invokes them under the Dynamic Workflow's instruction, so the Workflow remains the Claude orchestration decision-maker (constitution §14).
+
+**Executor parity is contractual, not mechanical identity.** R10/R11 certify the observable governed
+contract of each runtime-local executor and the cold handoff between them. They do not require the
+Claude Dynamic Workflow to eliminate every model-agent trust boundary or become the Codex executor.
+Claude's workflow JavaScript has no native filesystem/process channel, so stop inspection currently
+passes through a Claude subagent: receipt validation is fail-closed, and installed qualification proves
+the real CLI path under hostile aliases, but this is not cryptographic proof of every future agent tool
+call. That explicit platform limitation is tracked as non-blocking hardening in BL-0074. It does not
+prevent R10/R11 from running or promoting the separately certified Codex executor.
 
 ## Rule — PORT-1 Runtime capability matrix
 
@@ -90,6 +99,13 @@ Use Claude Code for governed build writes during this interim. A later runtime m
 canary in addition to the already-green R2/R3/R6/offline-R7/R8 and fixture-R10 evidence. Until that complete evidence set exists, no prose interpretation of
 this playbook or local invocation of `launch-codex-implement.sh` grants write permission.
 
+R10 evaluates both executors at their real platform boundaries: an installed Claude Dynamic Workflow
+must reach and release a valid safe point; a later foreground Codex executor must acquire a new epoch,
+continue canonical pending work and release another valid safe point; a later Claude run must recognize
+the Codex-produced state. Fail-closed receipts and live installed evidence are required. Host-side proof
+that a Claude subagent can never fabricate a tool result is not an R10/R11 criterion, because the
+Dynamic Workflows API offers no such host seam and Codex never consumes that narration.
+
 **R10 certification-only exception (not promotion).** The sole exception is one installed-canary
 Stage 2 launched by the official Codex foreground launcher with a one-shot owner authorization. The
 permit requires a non-symlink standalone repository below `pandacorp-canaries`, a versioned
@@ -132,7 +148,7 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 
 | Claude-only capability | Why it doesn't port | What still binds every runtime |
 |---|---|---|
-| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex stays read/review-only under PORT-5; its separate runtime-local executor is not PROVEN until the complete reevaluation set passes |
+| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex stays read/review-only under PORT-5; its separate runtime-local executor remains unpromoted until the complete reevaluation set passes; it never calls or replaces this Claude engine |
 | Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; Codex has a separate durable local supervisor and its current-head short-live gate is green, but the overnight gate remains open | while FALLBACK binds, use Claude for governed unattended builds; neither runtime duplicates the two Claude-owned recurring schedules |
 | Hooks enforcement (safety gate, Stop verify-gate, telemetry) | registrations remain runtime-local; Codex uses a generated adapter and must re-trust changed hook definitions | shared policy is source-tested for Codex 0.144.1; an uninstalled/untrusted adapter fails the activation gate and does not grant build writes |
 | Mission Control live telemetry | each runtime emits its own additive stream; Claude transcripts remain Claude-only | Mission Control reads both transports through the canonical vocabulary, while `status.yaml`, WO frontmatter and progress files remain truth |

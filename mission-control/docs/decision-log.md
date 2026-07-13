@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-07-12 — Manual separates the Claude and Codex executors
+
+The multi-runtime and unattended-construction guides now show the actual architecture: Claude runs a
+Dynamic Workflow with Claude agents; Codex runs its own executor with Codex agents; committed state and
+a released lease are the only cold-switch bridge. The Manual labels Dynamic Workflows' model-agent
+stop-inspection boundary honestly as BL-0074 non-blocking hardening. Installed R10 and R11 overnight
+remain the permission gates; no Codex build capability is promoted here.
+
 ## 2026-07-12 — Manual names the sole R10 engine provenance path
 
 The multi-runtime Manual now states that R10 certification hashes only the regular, versioned

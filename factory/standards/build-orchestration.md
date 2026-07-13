@@ -706,6 +706,12 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   `status_exists:true`, a boolean `stop`, and `method:node-lstat`; a command failure, missing field or
   malformed receipt aborts the run. It never turns uncertainty into `stop:false`, and no delegated
   shell predicate (`test`, `[`, aliases, `stat` or `ls`) may derive owner-stop truth.
+  **Evidence boundary (BL-0074):** Dynamic Workflow JavaScript has no native filesystem/process
+  channel, so a Claude subagent still invokes that CLI and transports the receipt. Schema/fuzz tests
+  prove fail-closed consumption; the installed hostile-alias qualification proves the real expected
+  invocation. Neither claims cryptographic provenance for every future model tool call. Eliminating
+  that platform boundary is optional hardening, not a prerequisite for certifying a cold continuation
+  to the separate Codex executor.
 - **The supervisor watches the tree's git health as a first-class signal**, not just `status.yaml` +
   liveness. The Monitor checks `git status --porcelain` each tick — any `UU`/unmerged path or conflict
   marker is a **broken tree** and emits an alarm, routed to the bounded auto-repair (restore to last green).

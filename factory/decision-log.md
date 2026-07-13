@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-07-12 — BL-0074 is non-blocking Claude-platform hardening
+
+BL-0074 is reclassified from a P0 R10/R11 blocker to P2 non-blocking hardening while remaining
+`doing` with its stronger Done-when intact. PORT-5 now states the stable architecture explicitly:
+Claude Dynamic Workflows and the Codex executor are different runtime-local controllers; they exchange
+only committed canonical state at a cold safe point. Dynamic Workflows has no host filesystem/process
+seam, so eliminating every model-agent trust boundary is not a truthful certification criterion. The
+actual promotion gates remain installed R10 plus R11 `LIVE_OVERNIGHT`; this grants no Codex writes.
+
 ## 2026-07-12 — Every safe point requires fenced stop evidence
 
 BL-0073 extends DR-068's deterministic owner-stop rule from the pre-loop check to every recurring

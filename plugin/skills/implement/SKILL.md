@@ -29,6 +29,10 @@ description: Starts and runs the build of a Pandacorp project. Launches a dynami
 **Targeted change build — when the owner asks to implement a specific pending change from the queue:** parse the change name from `$ARGUMENTS` (the filename without `.md` or a recognizable substring) and pass it as `args.change`. The workflow processes the change FIRST (creating/updating FRDs+WOs), then builds the resulting FRDs. If the change is `draft` (the only pre-`ready` queue status, DR-069), the engine stops immediately and tells the owner to flip it to `ready` first. If the resulting FRDs have unsatisfied deps, the dep gate fires as usual.
 
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
+> This is the **Claude-local executor**. It dispatches only Claude agents and never invokes, messages
+> or delegates to Codex. Under Codex, the same skill contract routes to the separately certified
+> `runtime/codex/executor.mjs`; the two executors share deterministic file state and may alternate only
+> as cold continuations after a committed safe point and complete lease release (PORT-5).
 
 ## Execution modes (consumption/quality control)
 
@@ -116,6 +120,13 @@ The owner runs `implement` and leaves, even overnight. For that to be SAFE — *
    - **structural / fundamental / new-design** → pause (`rethink_pending`) + tell the owner the command to run (e.g. `/design` for a visual — the design gate is theirs); don't silently rebuild half the app.
    - **Complete = verify the durable record, then ARCHIVE (never hand-delete, DR-069).** The **engine's close-out archive step** does this for every change it integrated whose affected FRDs all VERIFIED: it confirms the durable record exists (the landing commits **touched the canonical docs**), stamps `status: done` + `shipped_sha` + `shipped_at` and **moves the file into `changes/done/`** (the active `changes/` stays pending-only; the file is **moved, never `rm`'d** — the folder is gitignored, so a delete is irreversible), updates the queue index. A change whose FRDs did NOT all verify stays `ready` and is drained again next run. **Never auto-delete** `done/`; any prune is a separate owner-gated, reversible action.
    The engine also honors `rethink_pending: true` at every safe point and inspects `.pandacorp/run/stop` exclusively through the launcher-provided absolute `stateCli inspect-stop` capability. Every recurring safe-point verdict must carry the fenced Node `lstat` receipt; the engine validates it and aborts on a missing/malformed/failed receipt rather than guessing `stop:false`. Shell `test`, `[`, aliases and direct path inference are forbidden. Queue and answered-decision processing stay separate from that stop truth. The next run clears `rethink_pending` only after starting from the re-planned docs. (The former `inbox/bugs/` folds into `changes/` as `type: bug`.)
+
+   **Dynamic Workflows evidence boundary (BL-0074):** workflow JavaScript cannot execute the CLI
+   directly, so a Claude subagent transports the receipt. The engine fails closed on invalid evidence
+   and the installed qualification proves real execution under hostile aliases; that does not remove
+   the platform's model-agent trust boundary. This known limitation is non-blocking for R10/R11,
+   because Codex uses its own executor and consumes only the committed safe-point state, never the
+   Claude agent's narration.
 
 ## Real-time documentation (Mission Control reads it live)
 

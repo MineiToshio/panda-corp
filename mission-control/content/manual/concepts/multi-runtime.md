@@ -16,6 +16,7 @@ Piensa en un edificio con dos puertas que llevan al mismo taller:
 |---|---|---|
 | **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo + plugin Codex instalado; ignora sólo `CLAUDE.md` |
 | **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | Plugin Codex + `.agents/skills` (symlink) + `.codex/agents/*.toml` (generados) |
+| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | `runtime/codex/executor.mjs` + supervisor Codex; solo agentes/modelos Codex, cuando PORT-5 lo promocione |
 | **El núcleo que ambos operan** | `AGENTS.md` + `factory/` (manual y estándares) · `plugin/skills/` (los 25 SKILL.md) · el estado en ficheros (`status.yaml`, frontmatter de work orders, colas de inbox) | idem — es el MISMO conjunto de ficheros |
 
 Nadie elige runtime con un switch: **cada herramienta se auto-selecciona por lo que es capaz de leer**. El diagrama fuente está en `docs/assets/multi-runtime-two-doors.svg` (repo de la fábrica).
@@ -71,6 +72,19 @@ credenciales, red, sandbox, árbol limpio y prevención de sueño, y deja un rec
 completar también el canario instalado R10 y el overnight R11.
 
 Un cambio de runtime es siempre **en frío y desde un safe point**: el ejecutor actual termina su gate/commit, se detiene por completo y libera ownership; recién entonces otra sesión puede reconstruir los ficheros. Nunca hay takeover vivo, mensajería/delegación entre runtimes ni dos builds simultáneos. Claude usa únicamente agentes/modelos Claude; Codex, únicamente los suyos.
+
+R10 no intenta convertir Dynamic Workflows en un motor de Codex. Comprueba una cadena de tres
+ejecuciones separadas: Claude publica un safe point con su Dynamic Workflow; Codex, en una sesión
+posterior, adquiere una lease nueva y continúa con su propio executor; Claude vuelve después y reconoce
+el estado producido por Codex. El puente son los commits, el frontmatter, `status.yaml` y la lease, no
+mensajes ni resultados internos de un subagente.
+
+Hay una limitación explícita de la plataforma Claude: el JavaScript de Dynamic Workflows no ejecuta
+filesystem o procesos directamente, así que `inspect-stop` pasa por un subagente Claude. El motor
+valida el recibo y falla cerrado, y una calificación instalada demuestra la llamada real incluso con
+aliases hostiles. Eso no equivale a probar criptográficamente cada tool call futura. BL-0074 conserva
+ese hardening como no bloqueante; R10/R11 certifican el contrato observable y el relevo en frío, no la
+eliminación de todo límite interno de Dynamic Workflows.
 
 El permiso excepcional de R10 fija el motor contra una sola ruta real del overlay:
 `.claude/engines/pandacorp-build.js`. Debe ser un fichero regular, versionado y con el hash esperado;

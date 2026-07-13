@@ -13,6 +13,13 @@ Dynamic Workflow contract exposes injected orchestration globals but no Node mod
 surface; the generated prompt-fragment and shared-CLI tests preserve deterministic transitions without
 pretending the Claude controller can import the Codex executor.
 
+This platform boundary also means Claude stop inspection is invoked by a Claude subagent. The engine
+validates its receipt fail-closed, and the installed 9.95.2 qualification proves the real expected
+path under hostile aliases, but no document claims cryptographic provenance for every future agent
+tool call. BL-0074 tracks a possible native host seam as non-blocking hardening. R10/R11 evaluate the
+observable executor contracts and cold file-state handoff; they do not require the two executors to
+share a mechanism or remove Claude's native model-agent boundary.
+
 Claude receives the shared state writer as an explicit installed capability: `launch-implement.sh`
 realpath-validates the regular file before lease acquisition and serializes its absolute path as
 `args.stateCli`. The engine validates it before spawning an agent and shell-quotes it in every

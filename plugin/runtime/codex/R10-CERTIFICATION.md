@@ -4,7 +4,7 @@ Date: 2026-07-11
 
 ## Verdict
 
-**FIXTURE PROVEN · THREE LIVE ATTEMPTS / NO-GO · FRESH RETRY PENDING.** The runtime-neutral
+**FIXTURE PROVEN · THREE LIVE ATTEMPTS / NO-GO · CLAUDE 9.95.2 STATE-SEAM QUALIFIED · FRESH RETRY PENDING.** The runtime-neutral
 state/lease contract passes the offline bidirectional fixture. The first installed canary proved
 Claude Stage 1, then stopped safely but inconclusively when Codex Desktop reaped a detached worker.
 The second installed canary proved foreground-owned Codex process lifetime and a same-run,
@@ -22,6 +22,22 @@ inherit `CLAUDE_PLUGIN_ROOT`, so governed state commands resolved under `/script
 overlay 8.75.1 pass a realpath-validated absolute `stateCli` capability in launcher-produced args and
 fail before any spawn when it is absent or relative. This repairs the cause but does not promote or
 retroactively certify the failed canary; a distinct clean installed retry remains required.
+
+## Executor boundary and BL-0074 disposition
+
+R10 certifies two different runtime-local executors and their durable handoff; it does not ask either
+runtime to drive the other. Claude Stage 1/3 use the installed Dynamic Workflow and Claude agents.
+Codex Stage 2 uses `plugin/runtime/codex/executor.mjs` and Codex agents. The only bridge is committed
+canonical state plus the fenced lease, after the prior executor has fully quiesced.
+
+The installed Claude 9.95.2 state-seam qualification proved `inspect-stop` returns `stop:false`, then
+`stop:true`, and fences a stale epoch under hostile shell aliases, followed by clean lease release.
+Dynamic Workflow JavaScript itself has no filesystem/process channel, so a Claude subagent remains in
+the tool-execution path. Receipt validation is fail-closed and the installed qualification is the live
+oracle for the current platform; neither is misrepresented as cryptographic proof that every future
+agent call is honest. BL-0074 tracks a future runtime-owned seam as P2 hardening. It is **not** an
+R10/R11 blocker, because Codex never consumes Claude narration and uses its own executor after the
+committed safe point.
 
 ## Certification-only Stage 2 permit
 

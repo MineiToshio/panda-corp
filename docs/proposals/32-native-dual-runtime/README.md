@@ -7,6 +7,13 @@
 **Independent review handoff:** [Claude Code review handoff](claude-code-review-handoff.md)
 **Independent review evidence:** [Claude Code review report](claude-code-review-report.md)
 
+> **Scope correction (2026-07-12):** BL-0074 is P2 non-blocking hardening, not a new promotion gate.
+> Claude and Codex intentionally keep separate executors. R10/R11 certify each executor's observable
+> governed contract and the committed safe-point handoff; they do not require Dynamic Workflows to
+> expose a nonexistent host-side filesystem/process seam or eliminate its model-agent boundary. The
+> installed Claude 9.95.2 state-seam qualification is green; the full installed R10 chain and R11
+> `LIVE_OVERNIGHT` remain the actual pending gates.
+
 ## Executive decision
 
 The goal is **not** to make Claude Code and Codex use identical mechanisms. The goal is to make both runtimes honor the same product and governance contract while each uses its strongest native execution vehicle.

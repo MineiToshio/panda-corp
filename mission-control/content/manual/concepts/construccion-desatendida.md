@@ -18,6 +18,12 @@ Un safe point se publica como una pareja de commits: el primero es el **snapshot
 
 La orden de parar tampoco depende del shell. Antes de cada oleada, el motor exige un recibo cercado producido por `stateCli inspect-stop`; por eso un alias como `test=npm test` no puede simular que existe el archivo de parada. Si el recibo falla o llega incompleto, el run se detiene de forma segura en vez de adivinar que no hay una orden pendiente.
 
+En Claude, el Dynamic Workflow no tiene acceso directo al filesystem ni a procesos: un subagente
+Claude ejecuta `inspect-stop` y transporta el recibo. La validación fail-closed y la calificación live
+prueban el camino real esperado, pero no convierten esa frontera de la plataforma en una garantía
+criptográfica. El hardening futuro está registrado en BL-0074 y no bloquea el relevo en frío hacia el
+ejecutor separado de Codex, que nunca consume la narración de ese subagente.
+
 ```
 WO-01 ✓ → commit → WO-02 ✓ → commit → WO-03 ✗ → freeze
                                                     ↑ retoma aquí

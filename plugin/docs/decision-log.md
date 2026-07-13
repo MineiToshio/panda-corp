@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.3 — 2026-07-12 (PATCH): separate executor certification from Claude platform hardening
+
+**What:** the `implement` contract and R10 documentation now state that Claude uses only Dynamic
+Workflows/Claude agents while Codex uses only its runtime-local executor/Codex agents. BL-0074 remains
+open as P2 hardening for a future native Claude host seam, not as an R10/R11 gate.
+
+**Why:** requiring Dynamic Workflows to eliminate its unavoidable model-agent tool boundary confused
+mechanism identity with governed parity and blocked certification of a separate Codex executor.
+
+**Impact:** plugin 9.95.3; no engine or overlay change. Installed R10 and R11 `LIVE_OVERNIGHT` remain
+binding, and Codex normal-project build writes remain disabled until they pass.
+
 ## v9.95.2 — 2026-07-12 (PATCH): canonical R10 engine provenance
 
 **What:** BL-0075 binds the one-shot R10 permit exclusively to the regular, versioned managed engine
