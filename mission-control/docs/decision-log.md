@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-13 — Manual explains the whole-FRD gate oracle
+
+The build workflow now explains that a feature gate inventories every normative FRD class, records
+contract-to-test traceability and requires adversarial boundary evidence for applicable edges and limits.
+A green numbered AC never waives a contradiction elsewhere in the approved FRD. This mirrors
+BL-0078/plugin 9.95.5 in both runtime-local executors.
+
 ## 2026-07-13 — Manual defines the targeted-build terminal scope
 
 The partial-build and multi-runtime guides now state that FRD/change targets end after their own

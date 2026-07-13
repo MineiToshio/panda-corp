@@ -6,7 +6,21 @@
     "done": { "type": "boolean" },
     "verdict": { "enum": ["green", "red", "needs-owner", "retry"] },
     "summary": { "type": "string" },
-    "findings": { "type": "array", "items": { "type": "string" } }
+    "findings": { "type": "array", "items": { "type": "string" } },
+    "traceability": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["contract", "contract_class", "status", "tests"],
+        "properties": {
+          "contract": { "type": "string" },
+          "contract_class": { "enum": ["requirement", "acceptance-criterion", "invariant", "edge-case", "limit", "error", "exclusion"] },
+          "status": { "enum": ["pass", "fail", "not-applicable"] },
+          "tests": { "type": "array", "items": { "type": "string" } }
+        },
+        "additionalProperties": false
+      }
+    }
   },
   "additionalProperties": false
 }

@@ -54,7 +54,7 @@ export const buildFlow: SkillFlow = {
       title: "Gate por feature",
       kind: "gate",
       detail:
-        "Al cerrar cada FRD, revisión. En powerful/deep se abre en 4 lentes en paralelo + verificación adversarial + cierre Opus (reviewSplit); en pro/balanced, un revisor en serie. El gate corre en un worktree congelado (anclado al commit verde) MIENTRAS el build sigue forjando otras features; al aprobar, sella VERIFIED en main de forma serializada.",
+        "Al cerrar cada FRD, el juez inventaría el contrato completo — requisitos, AC numerados, invariantes, casos límite, límites, errores y exclusiones— y deja trazabilidad contrato→prueba. Un AC verde nunca perdona una contradicción en otra sección; cada borde o límite aplicable exige una prueba adversarial. En powerful/deep se abre en 4 lentes en paralelo + verificación adversarial + cierre Opus (reviewSplit); en pro/balanced, un revisor en serie. El gate corre en un worktree congelado mientras el build sigue forjando otras features; al aprobar, sella VERIFIED en main de forma serializada.",
       parallel: true,
       calls: [{ ref: "reviewer", as: "agent" }],
     },

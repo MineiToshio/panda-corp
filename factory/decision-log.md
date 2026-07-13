@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-07-13 — The whole approved FRD is one indivisible gate oracle
+
+BL-0078 closes the loophole where numbered acceptance criteria could pass while another normative FRD
+section failed. Every gate now inventories requirements, ACs, invariants, edges, limits, errors and
+exclusions; records contract-to-test traceability; and requires adversarial boundary evidence for each
+applicable edge/limit class. No reviewer waiver can narrow approved spec text. Plugin 9.95.5 / overlay
+8.76.3 enforce the same rule in the Claude and Codex runtime-local executors.
+
 ## 2026-07-13 — Targeted build authority ends at its scoped gates
 
 BL-0076 makes the scope boundary runtime-independent. A targeted FRD/change build may implement and

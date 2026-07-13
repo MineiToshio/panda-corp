@@ -111,6 +111,7 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
 const engine = new AsyncFunction('agent', 'log', 'budget', 'args', 'phase', 'parallel', source)
 
 // ── Default (schema-conformant) responses by label — the happy path ─────────
+const validTraceability = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'].map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))
 function defaultResponse(label) {
   // WS-D/D10: the baseline is now a two-step (cheap MECH pre-check → judge baseline). The default pre-check
   // ESCALATES so the judge baseline still runs and greens — the closest analogue of the old single spawn.
@@ -128,7 +129,7 @@ function defaultResponse(label) {
   if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
   if (label.startsWith('commit:')) return { committed: 1 }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
-  if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
+  if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
@@ -169,7 +170,7 @@ async function runEngine(scenario) {
       if (call.label === 'safe-point' && answer && typeof answer === 'object' && !('stop_receipt' in answer)) {
         return { ...answer, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' } }
       }
-      return answer
+      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
     }
     const def = defaultResponse(call.label)
     if (def === null) {
@@ -1064,6 +1065,31 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^repair:frd-g2-nullgate$/).length === 1, 'a null gate routes to attemptRepair (unspecific failure), never silently green')
     t.ok(!(run.result && run.result.builtFrds.includes('frd-g2-nullgate')), 'the FRD is NEVER treated as a pass on a null verdict')
     t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g2-nullgate'] === 'error', `the FRD blocks 'error' (unspecific) — got ${run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g2-nullgate']}`)
+  },
+})
+
+SCENARIOS.push({
+  name: 'G2b. whole-FRD oracle — green numbered ACs cannot waive a failed unsafe-integer edge',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g2b-edge',
+    deps: [],
+    workOrders: [mkWo('wo-g2b-001', 'PLANNED', { frd: 'frd-g2b-edge', artifacts: ['src/g2b/**'] })],
+  }]),
+  responses: [{
+    label: 'gate:frd-g2b-edge',
+    response: {
+      green: true,
+      traceability: validTraceability.map((entry) => entry.contractClass === 'edge-case'
+        ? { ...entry, contract: 'unsafe integers must be rejected', status: 'fail', tests: [] }
+        : entry),
+    },
+  }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-g2b-edge').length >= 1, 'the reviewer gate ran')
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-g2b-edge')), 'the FRD is never VERIFIED from a green waiver')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-g2b-edge'] === 'error', 'the contradictory verdict fails closed')
   },
 })
 

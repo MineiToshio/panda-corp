@@ -43,6 +43,9 @@ const runDir = path.join(project, ".pandacorp/run");
 const checkpointFile = path.join(runDir, "codex-checkpoint.json");
 const journalFile = path.join(runDir, "codex-executor.jsonl");
 const tiers = JSON.parse(await readFile(path.join(plugin, "runtime/model-tiers.json"), "utf8")).tiers;
+const reviewerSource = await readFile(path.join(plugin, "agents/reviewer.md"), "utf8");
+const wholeFrdOracle = reviewerSource.match(/<!-- WHOLE_FRD_ORACLE_START -->([\s\S]*?)<!-- WHOLE_FRD_ORACLE_END -->/)?.[1]?.trim().replace(/\s+/g, " ");
+if (!wholeFrdOracle) throw Object.assign(new Error("canonical whole-FRD reviewer oracle is unavailable"), { code: "CONTRACT" });
 const schema = path.join(here, "result.schema.json");
 const changeSchema = path.join(here, "change-result.schema.json");
 const startedAt = Date.now();
@@ -177,6 +180,14 @@ const stateFiles = (wo) => [wo.file, `docs/frds/${wo.frd}/frd.md`, `docs/frds/${
 async function stateCommit(message, wo) { const items = Array.isArray(wo) ? wo : wo ? [wo] : []; return commitPaths(message, items.length ? items.flatMap(stateFiles) : [".pandacorp/status.yaml"], "state"); }
 
 function validateResult(value) { if (!value || typeof value !== "object" || typeof value.done !== "boolean" || !["green", "red", "needs-owner", "retry"].includes(value.verdict) || typeof value.summary !== "string" || !Array.isArray(value.findings) || value.findings.some((item) => typeof item !== "string")) throw Object.assign(new Error("Codex result violates result.schema.json"), { code: "INVALID_RESULT" }); return value; }
+function validateReviewResult(value) {
+  validateResult(value);
+  const classes = ["requirement", "acceptance-criterion", "invariant", "edge-case", "limit", "error", "exclusion"];
+  if (!Array.isArray(value.traceability) || classes.some((kind) => !value.traceability.some((entry) => entry?.contract_class === kind))) throw Object.assign(new Error("review verdict lacks whole-FRD traceability inventory"), { code: "INVALID_RESULT" });
+  const invalid = value.traceability.some((entry) => !entry || !classes.includes(entry.contract_class) || !["pass", "fail", "not-applicable"].includes(entry.status) || !Array.isArray(entry.tests) || (["edge-case", "limit"].includes(entry.contract_class) && entry.status === "pass" && entry.tests.length === 0));
+  if (invalid || (value.verdict === "green" && value.traceability.some((entry) => entry.status === "fail"))) throw Object.assign(new Error("review verdict contradicts whole-FRD traceability or lacks boundary evidence"), { code: "INVALID_RESULT" });
+  return value;
+}
 function validateChangeResult(value) { validateResult(value); if (!["bug", "feature", "change"].includes(value.change_kind) || !Array.isArray(value.affected_frds) || !value.affected_frds.length || !Array.isArray(value.mutations) || !Array.isArray(value.reopen_work_orders)) throw Object.assign(new Error("Codex change plan violates change-result.schema.json"), { code: "INVALID_RESULT" }); return value; }
 function classifyProviderFailure(result) {
   const diagnostic = `${result.out || ""}\n${result.err || ""}`.toLowerCase();
@@ -260,7 +271,7 @@ try {
       }
       if (finalReason !== "error") break;
       group = (await workOrders()).filter((wo) => wo.frd === frd); if (!group.every((wo) => ["IN_REVIEW", "VERIFIED"].includes(wo.status))) continue;
-      const attempt = state.attempts[frd] || 0; const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, prompt: `Independently review ${frd} as a fresh judge. ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
+      const attempt = state.attempts[frd] || 0; const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, validator: validateReviewResult, prompt: `Independently review ${frd} as a fresh judge. ${wholeFrdOracle} ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Your schema verdict must include traceability for every normative contract class; use explicit not-applicable entries where the FRD has none. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
       let green = review.verdict === "green" && await verify(`review-${frd}-a${attempt}`); let evidenceFiles = [...reviewFiles];
       if (!green && review.verdict !== "needs-owner") { const repairBefore = await snapshot(); const repair = await dispatch({ id: `repair-${frd}-a${attempt}`, tier: "STANDARD", prompt: `Repair only the recorded review findings for ${frd}. Bounded production/test changes; no governed state or commits. Return green only after your focused checks pass.` }); const repairFiles = await delta(repairBefore); if (repairFiles.some(governedPath)) throw Object.assign(new Error("repair touched governed state"), { code: "OWNERSHIP" }); const repairSha = await commitPaths(`fix(${frd}): review repair attempt ${attempt}`, repairFiles, "implementation"); await recordCommit(frd, repairSha); evidenceFiles.push(...repairFiles); green = repair.verdict === "green" && await verify(`repair-${frd}-a${attempt}`); }
       if (review.verdict === "needs-owner") { const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "BLOCKED", reason: "needs-owner" }); await stateCommit(`chore(${frd}): block for owner`, active); await needsOwner(frd, review.summary); }

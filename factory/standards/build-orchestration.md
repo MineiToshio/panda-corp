@@ -271,7 +271,11 @@ The build engine reviews and tests **per FRD**, not per work order:
   frd.md in full). One reader hands off to N builders — instead of N builders re-reading the same docs and
   still constructing against a one-line summary, which made gates catch missing-AC work late.
 - When all of an FRD's work orders are `IN_REVIEW`, run **one review + test pass over the whole FRD**,
-  which also exercises the work orders **together** (real integration). The gate's tests are **focused**:
+  which also exercises the work orders **together** (real integration). Before a verdict, the reviewer
+  inventories the full normative source — requirements, numbered acceptance criteria, invariants, edge
+  cases, limits, errors and exclusions — and records contract-to-test traceability. A numbered-AC pass
+  never waives another approved clause; each applicable edge/limit class has an adversarial boundary
+  test, and missing inventory or coverage is RED. The gate's tests are **focused**:
   `verify.sh --since <last_green>` runs biome + tsc globally but only the vitest tests **affected since the
   last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate), and
   **scopes the browser layer the same way (DR-106)**: in `--since` mode only `smoke` + `shell` run — the e2e

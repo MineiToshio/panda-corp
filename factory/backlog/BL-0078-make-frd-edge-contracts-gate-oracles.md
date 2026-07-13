@@ -3,12 +3,12 @@ id: BL-0078
 type: bug
 area: plugin-agent
 title: "Make whole-FRD edge contracts mandatory gate oracles"
-status: open
+status: done
 severity: p1
 opened: 2026-07-13
-closed:
+closed: 2026-07-13
 source: "R10-I Stage 1 independent audit"
-closes:
+closes: "plugin 9.95.5 / overlay 8.76.3 whole-FRD gate oracle"
 links: [DR-015]
 ---
 

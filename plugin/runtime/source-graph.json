@@ -104,6 +104,11 @@
       "source": "plugin/runtime/prompts/sync-rollups.md",
       "consumers": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"]
     },
+    "whole_frd_gate_oracle": {
+      "source": "plugin/agents/reviewer.md",
+      "consumers": ["plugin/scripts/generate-build-prompt-fragments.mjs", "plugin/templates/shared/.claude/engines/pandacorp-build.js", "plugin/runtime/codex/executor.mjs"],
+      "contract": "The marked canonical block is generated into Claude's engine prompt, read directly by Codex and included in the generated reviewer TOML; runtime gates never maintain an independent policy copy."
+    },
     "durable_gamification_accounting": {
       "source": "mission-control/src/lib/gamification/ledger.ts",
       "outputs": ["factory/gamification-ledger.json"],

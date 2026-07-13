@@ -43,7 +43,8 @@ if(prompt.includes('Repair only')&&scenario==='red-review'){verdict='red';summar
 if(prompt.includes('READ-ONLY independent final audit')&&scenario==='audit-writes')writeFileSync('audit-write.txt','forbidden\\n');
 if(prompt.includes('separate hardening implementer')&&scenario!=='missing-hardening'){const d=new Date().toISOString().slice(0,10);mkdirSync('docs/reviews',{recursive:true});writeFileSync(join('docs/reviews','security-'+d+'.md'),'# Security\\n');appendFileSync('docs/analytics/events.md','\\n## Verification\\n- green\\n')}
 if(prompt.includes('separate hardening implementer')&&scenario==='missing-hardening')writeFileSync('broken-hardening.txt','must rollback\\n');
-writeFileSync(o,JSON.stringify({done:true,verdict,summary,findings:[]}));process.exit(0);
+const traceability=label==='review'?['requirement','acceptance-criterion','invariant','edge-case','limit','error','exclusion'].map(contract_class=>({contract:contract_class+' fixture',contract_class,status:scenario==='unsafe-edge-waiver'&&contract_class==='edge-case'?'fail':(['edge-case','limit'].includes(contract_class)?'pass':'not-applicable'),tests:['edge-case','limit'].includes(contract_class)?['tests/'+contract_class+'.test.ts']:[]})):undefined;
+writeFileSync(o,JSON.stringify({done:true,verdict,summary,findings:[],...(traceability?{traceability}:{})}));process.exit(0);
 `); await chmod(fake, 0o755);
   await run("git", ["init", "-q"], project); await run("git", ["config", "user.email", "test@example.com"], project); await run("git", ["config", "user.name", "Test"], project); await run("git", ["add", "-A"], project); await run("git", ["commit", "-qm", "fixture"], project);
   return { project, fake };
@@ -110,6 +111,10 @@ await test("needs-owner blocks the WO, persists the decision and quiesces before
 
 await test("red gates converge through bounded passes, preserve reviewer tests, then stop safely", async () => {
   const fx = await fixture(); const result = await execute(fx, "red-review", ["--max-retries", "1"]); ok(result.code === 20, `exit ${result.code}`); const preservedRoot = path.join(fx.project, ".pandacorp/run/preserved-tests/frd-01-a"); const attempts = await readdir(preservedRoot); ok(attempts.length >= 2, `preserved attempts ${attempts}`); const consumed = await read(path.join(fx.project, ".pandacorp/run/preserved-consumed")); ok(consumed.trim().split("\n").length >= 2, "preserved RED baseline was not injected into later pass"); const cp = await checkpoint(fx.project); ok(cp.attempts["frd-01-a"] === 2 && cp.terminal_reason === "needs-owner", JSON.stringify(cp));
+});
+
+await test("whole-FRD traceability rejects a green waiver when an unsafe-integer edge fails", async () => {
+  const fx = await fixture(); const result = await execute(fx, "unsafe-edge-waiver"); ok(result.code === 2, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.terminal_reason === "error" && /traceability or lacks boundary evidence/.test(cp.error), JSON.stringify(cp)); const wo = await read(path.join(fx.project, "docs/frds/frd-01-a/work-orders/wo-01.md")); ok(!/VERIFIED/.test(wo), wo);
 });
 
 await test("rethink safe point dispatches nothing and returns a distinct terminal reason", async () => {

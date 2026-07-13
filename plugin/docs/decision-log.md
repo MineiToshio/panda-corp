@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.5 — 2026-07-13 (PATCH): the whole FRD is the gate oracle
+
+**What:** BL-0078 makes the canonical reviewer inventory every normative FRD class before verdict:
+requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions.
+Verdicts carry contract-to-test traceability, applicable edge/limit classes require adversarial boundary
+tests, and passing numbered ACs can never waive a conflicting clause. Claude's engine enforces the
+traceability shape and consistency; Codex reads the same marked reviewer block and validates its result.
+
+**Why:** R10-I Stage 1 passed its numbered ACs while accepting unsafe integers in direct conflict with
+the FRD's separate Edge cases section. The reviewer acknowledged the conflict but treated it as waivable.
+
+**Impact:** plugin 9.95.5 / overlay 8.76.3. The canonical reviewer prompt generates the Codex mirror and
+the Claude prompt fragment; deterministic regressions reject a green unsafe-integer waiver.
+
 ## v9.95.4 — 2026-07-13 (PATCH): targeted builds cannot widen into global hardening
 
 **What:** BL-0076 makes both runtime-local executors terminate targeted FRD/change runs after their

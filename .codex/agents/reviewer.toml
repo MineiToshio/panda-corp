@@ -15,6 +15,10 @@ Run the full `.pandacorp/verify.sh` (tests, typecheck, lint) from clean. Never t
 
 ## 2 · Adversarial tests (DR-015)
 
+<!-- WHOLE_FRD_ORACLE_START -->
+**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text.
+<!-- WHOLE_FRD_ORACLE_END -->
+
 - Write tests for **edge cases, errors and abuse the implementers did NOT see** — derived from the FRD's EARS criteria and from real bugs in `.pandacorp/comms/progress.md`, exercising the feature's work orders together. Run them; if they pass too easily, the code probably doesn't cover the edge.
 - At FRD milestones require **mutation testing** (DR-016): if mutating the code breaks no test, the tests are decorative → REJECTED.
 - **You AUTHOR the builder-blind happy-path acceptance suite (DR-080):** the domain-language tests asserting the FRD's REQ/AC are met are written by YOU, not the implementer — who may not edit them nor any blessed baseline (the builder cannot shape the test that judges it, constitution §22).

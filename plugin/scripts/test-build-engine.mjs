@@ -65,6 +65,7 @@ const engine = new AsyncFunction('args', 'budget', 'agent', 'parallel', 'pipelin
 
 // ── Schema-conformant default responses by label (the happy path) ────────────
 // A scenario only scripts the deviations it is about; everything else greens.
+const validTraceability = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'].map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))
 function defaultResponse(label) {
   if (label === 'baseline-precheck') return { escalate: true }
   if (label === 'baseline') return { green: true }                       // VERIFY_SCHEMA
@@ -82,7 +83,7 @@ function defaultResponse(label) {
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('find:')) return { findings: [] }                 // FINDER_SCHEMA — nothing found
   if (label.startsWith('verify-finding:')) return { refuted: true, reason: 'default refuted' } // VERIFY_FINDING_SCHEMA
-  if (label.startsWith('gate:')) return { green: true }                 // FRD_GATE_SCHEMA
+  if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
@@ -117,7 +118,8 @@ async function runEngine(scenario) {
         (typeof r.prefix === 'string' && call.label.startsWith(r.prefix))
       if (!m) continue
       if (r.times !== undefined) r.times--
-      return typeof r.response === 'function' ? r.response(call) : r.response
+      const answer = typeof r.response === 'function' ? r.response(call) : r.response
+      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
     }
     const def = defaultResponse(call.label)
     if (def === null) {
