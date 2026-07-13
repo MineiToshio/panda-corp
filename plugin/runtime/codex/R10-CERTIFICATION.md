@@ -32,6 +32,13 @@ pins, exact single FRD, limits and nonce. The foreground launcher consumes it be
 revokes it at terminal exit. Any mismatch, symlink, non-canary path, dirty tree, live lease,
 non-ancestor green pointer or reused nonce fails closed. This is not capability promotion.
 
+The engine pin has exactly one project-side source: the managed overlay file at
+`.claude/engines/pandacorp-build.js`, materialized from the matching file under
+`plugin/templates/shared/` by scaffold/upgrade. The permit requires that canonical path to be a
+regular, versioned file and rejects missing, altered or symlinked engines; the former invented
+`.pandacorp/pandacorp-build.js` path is neither read nor accepted as a fallback. Non-consuming
+`check` output contains only the fixture identity and stage, never the authorization nonce.
+
 ```bash
 bash "$PLUGIN_ROOT/scripts/launch-codex-implement.sh" "$FIXTURE" 4 900 0 1 "" \
   "frd-b-multiply" auto foreground "$FIXTURE/.pandacorp/run/r10-owner-authorization.json"

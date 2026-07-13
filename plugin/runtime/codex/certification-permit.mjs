@@ -12,6 +12,7 @@ const authInput = arg("authorization");
 const frds = arg("frds");
 const limits = { max_spend: Number(arg("max-spend")), max_duration: Number(arg("max-duration")), max_retries: Number(arg("max-retries")), max_blocks: Number(arg("max-blocks")) };
 const pluginRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const MANAGED_BUILD_ENGINE = ".claude/engines/pandacorp-build.js";
 const readJson = async (file) => JSON.parse(await readFile(file, "utf8"));
 const git = (project, ...args) => execFileSync("git", ["-C", project, ...args], { encoding: "utf8" }).trim();
 const yaml = (text, key) => (text.match(new RegExp(`^${key}:\\s*["']?([^"'#\\s]+)`, "m")) || [])[1] || "";
@@ -55,10 +56,15 @@ try { await lstat(path.join(project, ".pandacorp/run/build.lease/lease.json")); 
 const metadata = await readJson(path.join(pluginRoot, "runtime/plugin-metadata.json"));
 if (metadata.version !== marker.plugin_version || auth.plugin_version !== marker.plugin_version) fail("plugin pin mismatch");
 if (yaml(status, "overlay_version") !== marker.overlay_version || auth.overlay_version !== marker.overlay_version) fail("overlay pin mismatch");
-const engineHash = await sha256(path.join(project, ".pandacorp/pandacorp-build.js"));
+const engineFile = path.join(project, MANAGED_BUILD_ENGINE);
+let engineStat;
+try { engineStat = await lstat(engineFile); } catch (error) { if (error?.code === "ENOENT") fail("canonical managed engine is missing"); throw error; }
+if (engineStat.isSymbolicLink() || !engineStat.isFile()) fail("managed engine is not a regular versioned overlay file");
+if (git(project, "ls-files", "--error-unmatch", MANAGED_BUILD_ENGINE) !== MANAGED_BUILD_ENGINE) fail("managed engine is not versioned at the canonical overlay path");
+const engineHash = await sha256(engineFile);
 if (engineHash !== marker.engine_sha256 || auth.engine_sha256 !== marker.engine_sha256) fail("engine pin mismatch");
 try { await readJson(receiptFile); fail("this fixture certification stage was already consumed"); } catch (error) { if (!String(error.message).includes("ENOENT")) throw error; }
-if (mode === "check") { process.stdout.write(JSON.stringify({ ok: true, fixture_uuid: marker.fixture_uuid, stage: marker.stage, nonce: auth.nonce })); process.exit(0); }
+if (mode === "check") { process.stdout.write(JSON.stringify({ ok: true, fixture_uuid: marker.fixture_uuid, stage: marker.stage })); process.exit(0); }
 if (mode !== "consume") fail("invalid permit operation");
 const now = new Date().toISOString();
 let receipt;

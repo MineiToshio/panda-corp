@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-12 — Manual names the sole R10 engine provenance path
+
+The multi-runtime Manual now states that R10 certification hashes only the regular, versioned
+`.claude/engines/pandacorp-build.js` materialized by the overlay. Missing, altered or symlinked
+engines fail closed, and non-consuming checks never expose the owner-authorization nonce. This
+mirrors BL-0075/plugin 9.95.2 and grants no Codex build promotion.
+
 ## 2026-07-12 — Manual makes recurring stop inspection fail closed
 
 The build workflow and unattended-construction concept now explain that every safe point consumes a

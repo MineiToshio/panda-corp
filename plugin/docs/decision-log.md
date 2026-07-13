@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.2 — 2026-07-12 (PATCH): canonical R10 engine provenance
+
+**What:** BL-0075 binds the one-shot R10 permit exclusively to the regular, versioned managed engine
+at `.claude/engines/pandacorp-build.js`. Its fixture now copies the real overlay template and proves
+missing, altered and symlinked engines fail closed; the invented `.pandacorp` path is ignored.
+
+**Why:** the previous permit and its test agreed on a path no generated overlay contains. A valid
+Claude Stage 1 would therefore have reached Codex only to fail before ownership. Check mode also
+disclosed the authorization nonce on stdout.
+
+**Impact:** plugin 9.95.2, R10 certification docs and Manual. Check mode no longer returns secrets;
+no overlay change, authorization creation, permit consumption, Stage 2 run or Codex promotion.
+
 ## v9.95.1 — 2026-07-12 (PATCH): fenced stop receipt at every safe point
 
 **What:** BL-0073 makes the recurring wave-boundary safe point execute the launcher-provided absolute

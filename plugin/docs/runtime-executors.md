@@ -105,6 +105,8 @@ Claude ownership and reevaluation gates. Product queue parity does not imply bac
 PORT-5's evidence path uses a certification-only one-shot permit, not general write permission. The
 foreground launcher validates the versioned fixture and owner authorization against the exact Stage
 2 HEAD, FRD, limits and runtime pins; it consumes the nonce before ownership and revokes it on exit.
+Its engine pin reads only the regular, versioned `.claude/engines/pandacorp-build.js` installed by the
+overlay; the permit has no alternate engine path, and non-consuming checks never disclose the nonce.
 
 The runtime-neutral state and lease contract now has a bidirectional disposable-project harness at
 `plugin/scripts/test-runtime-switch.mjs`. It exercises the real `build-state.mjs` APIs and proves that

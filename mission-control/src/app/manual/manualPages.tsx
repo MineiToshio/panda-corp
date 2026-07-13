@@ -2254,6 +2254,12 @@ function ConceptMultiRuntime(): React.JSX.Element {
         el estado gobernado sigue fallando cerrado.
         Nunca hay takeover vivo ni dos builds simultáneos.
       </NotePanel>
+      <NotePanel icon="ti-fingerprint" iconColor="var(--color-warn)">
+        El permiso excepcional de R10 fija el motor contra una sola ruta real del overlay:
+        <Code>.claude/engines/pandacorp-build.js</Code>. Debe ser un fichero regular, versionado y con
+        el hash esperado; si falta, cambia o es un symlink, la certificación se bloquea. La
+        comprobación previa tampoco imprime el nonce de autorización.
+      </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
         como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar, sincronizar

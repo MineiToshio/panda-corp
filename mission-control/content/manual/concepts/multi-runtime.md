@@ -72,6 +72,11 @@ completar también el canario instalado R10 y el overnight R11.
 
 Un cambio de runtime es siempre **en frío y desde un safe point**: el ejecutor actual termina su gate/commit, se detiene por completo y libera ownership; recién entonces otra sesión puede reconstruir los ficheros. Nunca hay takeover vivo, mensajería/delegación entre runtimes ni dos builds simultáneos. Claude usa únicamente agentes/modelos Claude; Codex, únicamente los suyos.
 
+El permiso excepcional de R10 fija el motor contra una sola ruta real del overlay:
+`.claude/engines/pandacorp-build.js`. Debe ser un fichero regular, versionado y con el hash esperado;
+si falta, cambia o es un symlink, la certificación se bloquea. La comprobación previa tampoco imprime
+el nonce de autorización.
+
 Una continuación real conserva el mismo `build_run_id` lógico para heredar despachos, gasto y frenos
 de salud, pero tú nunca copias ese ID. Los dos launchers usan un único resolver: si ven
 `phase: implementation`, `running: false`, ausencia de lease y un runtime anterior distinto,

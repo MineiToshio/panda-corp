@@ -98,6 +98,10 @@ exact FRD and limits, authorization tied to the fixture, stage and current HEAD,
 safe point with no lease and a reachable `last_green_sha`. It is consumed before ownership and
 revoked on every terminal result; a consumed nonce is never retried. This path only produces the
 evidence this section requires and grants no write permission elsewhere.
+The engine pin resolves only the regular, versioned managed-overlay file
+`.claude/engines/pandacorp-build.js`; no `.pandacorp` engine alias or fallback exists. Permit checks
+fail closed on missing, modified or symlinked engine provenance and never print the authorization
+nonce.
 
 ### Future attended sequential contract (certification target; not current permission)
 
