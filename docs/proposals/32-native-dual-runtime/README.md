@@ -650,6 +650,10 @@ FRD/WO DAG plans; journals and recovers every apply/archive boundary; binds inte
 HEAD plus exact paths/content and the completed apply-transaction digest; limits progress-field
 normalization to leading YAML frontmatter; and rejects symlink roots/cards/parents/targets, swapped
 FRD status files, transaction tampering and archive collisions.
+Targeted runs have a strict terminal authority boundary: after their scoped FRDs verify they persist
+`complete`, quiesce and keep `phase: implementation`; they never enter project-wide hardening or
+release merely because their target happened to be the final global pending FRD. Only a bare run may
+perform global hardening and advance release. The Claude Dynamic Workflow enforces the same split.
 `test-build-state.mjs` passes 21/21—including post-`archive-card` delete/mutation/foreign-target
 recovery—and `test-codex-executor.mjs` passes its full corpus. This closes the
 `R8-ready-change-drain` blocker only. The independent factory-backlog spike passes 26/26 but records an

@@ -151,7 +151,15 @@ causes but cannot retroactively turn fixture B into passing evidence.
 
 ## Live canary retry still required
 
-Use a distinct clean fixture C with plugin 9.93.0 / overlay 8.74.0 or later.
+R10-H Stage 1 completed installed Claude FRD-A and published a clean safe point. Stage 2 then exposed
+BL-0076: the targeted Codex FRD-B run completed its exact feature scope, but because it made every
+global WO `VERIFIED`, the controller widened into project-wide hardening. That audit/fix authority was
+outside the one-shot target, so Stage 2 is not certifiable and Stage 3 must not consume it. Plugin
+9.95.4 fixes both runtime-local executors: targeted FRD/change runs terminally quiesce in
+`phase: implementation`; only a bare run may harden/release. R10 must continue from a clean authorized
+state under the repaired version; no failed permit is retried or fabricated.
+
+Use a distinct clean fixture with plugin 9.95.4 / overlay 8.76.2 or later.
 Claude verifies one WO and cleanly releases;
 a later Codex session acquires a newer epoch and verifies the next WO; a later Claude session
 acquires a newer epoch and confirms both VERIFIED WOs are skipped. Capture factory SHA,

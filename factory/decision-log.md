@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-07-13 — Targeted build authority ends at its scoped gates
+
+BL-0076 makes the scope boundary runtime-independent. A targeted FRD/change build may implement and
+verify only its target, then must quiesce and keep `phase: implementation`; becoming the last global
+pending work does not implicitly authorize project-wide hardening/fixes or release. Only a bare
+whole-project build owns DR-085 close-out. Plugin 9.95.4 / overlay 8.76.2 enforce this in both the
+Claude Dynamic Workflow and Codex executor.
+
 ## 2026-07-12 — BL-0074 is non-blocking Claude-platform hardening
 
 BL-0074 is reclassified from a P0 R10/R11 blocker to P2 non-blocking hardening while remaining

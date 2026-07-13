@@ -448,7 +448,7 @@ Control's six rooms: **research** (pre-project) → `product` → `design` → `
 - **Construction (`implementation`) owns the hardening — and the engine ENFORCES it (BL-0012, fail-closed).**
   The security audit, quality close-out and telemetry/metrics verification are the **last step of
   construction** (see §6 "Nothing is left"), not a separate release activity — and this is cabled, not
-  prose: `pandacorp-build.js` runs a `Hardening` phase (security-auditor + analytics agents) once every FRD
+  prose: on a **bare whole-project run**, `pandacorp-build.js` runs a `Hardening` phase (security-auditor + analytics agents) once every FRD
   is `VERIFIED`, and the close-out **asserts the hardening evidence exists — and is FRESH, DETERMINISTICALLY**:
   the dated report `docs/reviews/security-<TODAY>.md` (TODAY = `date -u +%F`) exists **AND its mtime is newer
   than `status.yaml`'s `run_started_at`** (compare epochs — a STALE same-day report left by a *previous* run
@@ -482,7 +482,7 @@ The build **runs to completion** by default (owner decision 2026-06-16). It does
 features: one feature can cost 10x another, so a count protects neither tokens nor progress. A run
 stops only when:
 
-- **Nothing is left** — every FRD is `VERIFIED`, then the **final hardening step** runs (DR-085: security audit + quality close-out + telemetry/metrics verification — the audit that used to live in `/pandacorp:release` is now construction's last step) → `phase: release`. Reaching `release` means the build is hardened and ready to be **launched** (deployed internal or external) by `/pandacorp:release`; there is no `operation` phase after it.
+- **Nothing is left in a bare whole-project run** — every FRD is `VERIFIED`, then the **final hardening step** runs (DR-085: security audit + quality close-out + telemetry/metrics verification — the audit that used to live in `/pandacorp:release` is now construction's last step) → `phase: release`. Reaching `release` means the build is hardened and ready to be **launched** (deployed internal or external) by `/pandacorp:release`; there is no `operation` phase after it. A targeted FRD/change run owns only its requested scope: after its complete per-FRD gates it quiesces with `phase: implementation`, even when that scope happened to be the last globally pending work. Only a later bare run may audit/fix the whole project and advance release.
 - **Budget ceiling** — `maxAgents` (a hard cap on subagents spawned this run) is reached, or a `+Nk` turn
   directive / `maxSpend` is nearly spent → stop at the last safe point (a commit). For overnight runs,
   **`maxAgents` is the real guardrail**: counted **inside the engine** (each implementer/reviewer ≈ work ≈

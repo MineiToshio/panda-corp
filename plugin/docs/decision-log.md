@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.4 — 2026-07-13 (PATCH): targeted builds cannot widen into global hardening
+
+**What:** BL-0076 makes both runtime-local executors terminate targeted FRD/change runs after their
+scoped gates. They quiesce with `phase: implementation`; only a bare whole-project run may dispatch
+global hardening, apply its findings and advance release. Codex persists explicit terminal
+`complete`; Claude uses its partial close path. Regression suites cover targeted-last-FRD,
+already-verified target, targeted change and the equivalent bare close.
+
+**Why:** R10-H Codex Stage 2 completed its exact FRD-B target, then widened authority because that gate
+made every global WO verified. The global auditor inspected FRD-A/transient canary state and its fixer
+could write beyond the one-shot authorization.
+
+**Impact:** plugin 9.95.4 / overlay 8.76.2. R10-H Stage 2 is not certification evidence and its permit
+is never retried. A clean installed retry remains required; normal Codex build writes stay gated.
+
 ## v9.95.3 — 2026-07-12 (PATCH): separate executor certification from Claude platform hardening
 
 **What:** the `implement` contract and R10 documentation now state that Claude uses only Dynamic

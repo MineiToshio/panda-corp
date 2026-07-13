@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-13 — Manual defines the targeted-build terminal scope
+
+The partial-build and multi-runtime guides now state that FRD/change targets end after their own
+gates, release the lease and preserve `phase: implementation`. They cannot widen into global
+hardening or release when the target happens to be the final pending feature; only a bare build owns
+that whole-project close-out. This mirrors BL-0076 in both runtime-local executors.
+
 ## 2026-07-12 — Manual separates the Claude and Codex executors
 
 The multi-runtime and unattended-construction guides now show the actual architecture: Claude runs a

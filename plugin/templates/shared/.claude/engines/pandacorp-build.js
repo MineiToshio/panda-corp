@@ -2016,7 +2016,9 @@ if (builtFrds.length) {
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
 const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
-const allDone = !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
+// Project-wide hardening/release is authority a bare whole-project run owns. A targeted FRD/change
+// run closes as a scoped partial run even when its final gate happens to make every global WO VERIFIED.
+const allDone = !TARGETED && !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
 let closed
 if (allDone) {
   // ── DR-085 HARDENING (BL-0012, fail-closed): security + telemetry are construction's LAST STEP.

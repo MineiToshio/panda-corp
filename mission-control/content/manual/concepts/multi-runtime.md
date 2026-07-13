@@ -79,6 +79,11 @@ posterior, adquiere una lease nueva y continúa con su propio executor; Claude v
 el estado producido por Codex. El puente son los commits, el frontmatter, `status.yaml` y la lease, no
 mensajes ni resultados internos de un subagente.
 
+La frontera de alcance es idéntica en las dos puertas: un `implement` dirigido a FRDs o a una change
+termina después de sus gates, libera la lease y mantiene `phase: implementation`. No puede aprovechar
+que su objetivo era lo último pendiente para entrar al hardening global o modificar otras features.
+Solo un `implement` sin objetivo puede auditar/arreglar el proyecto completo y avanzar a `release`.
+
 Hay una limitación explícita de la plataforma Claude: el JavaScript de Dynamic Workflows no ejecuta
 filesystem o procesos directamente, así que `inspect-stop` pasa por un subagente Claude. El motor
 valida el recibo y falla cerrado, y una calificación instalada demuestra la llamada real incluso con

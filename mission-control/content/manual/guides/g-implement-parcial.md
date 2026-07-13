@@ -45,6 +45,7 @@ El motor normaliza el identificador automáticamente. Todos estos formatos son e
 
 4. **Build** — construye los FRDs especificados con TDD, igual que un build completo.
 5. **Gate del reviewer** — cada FRD pasa su gate de revisión completa. Solo cuando el reviewer lo aprueba queda marcado `VERIFIED`.
+6. **Cierre acotado** — el run se detiene y libera la lease manteniendo `phase: implementation`. Aunque ese FRD haya sido el último pendiente de todo el proyecto, un build parcial no amplía su permiso hacia el hardening global ni hacia `release`. Ese cierre completo se hace después con `/pandacorp:implement` sin objetivo.
 
 **¿Qué hago si hay dependencias sin implementar?**
 
@@ -108,6 +109,7 @@ El identificador es el **nombre del archivo** en `.pandacorp/inbox/changes/` (si
 
 - **`change` gana sobre `frds`**: si pasas ambos por alguna razón, `change` tiene prioridad y `frds` se ignora.
 - **Un build dirigido construye SOLO su objetivo (DR-069)**: si lanzas por `change` o por `frds`, el motor **no** drena otros cambios `ready` que haya en la cola — construye únicamente lo que le pediste. Los demás cambios esperan a un `/pandacorp:implement` **sin objetivo** (bare), que es el único que vacía la cola entera. "Implementa solo este cambio" significa exactamente eso.
+- **El hardening es global y solo lo corre un build completo**: un run por `frds` o `change` termina después de sus gates, conserva `phase: implementation` y nunca ejecuta el auditor/fixer de todo el proyecto. Ejecuta `/pandacorp:implement` sin objetivo cuando quieras cerrar construcción, hardening y release.
 - **El motor es resumible**: si el build se interrumpe (por error o por timeout), correr el mismo comando de nuevo retoma desde donde quedó — los WOs ya `VERIFIED` no se rehacen.
 - **La change no desaparece hasta que el FRD verifica**: el archivado ocurre en el gate del reviewer, no en el paso Process Change. Si el build falla a mitad, la change sigue en la cola para el próximo intento.
 - **El gate de deps siempre aplica**: ya sea que pases un FRD o una change, el motor siempre chequea que las dependencias estén satisfechas antes de empezar a construir.

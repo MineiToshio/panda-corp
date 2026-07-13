@@ -58,7 +58,11 @@ fenced `quiesce` → precise `status.yaml` commit → fenced `finalize-release`.
 use the same protocol. This keeps the lease alive across the commit boundary and prevents a second
 writer from entering the checkout during finalization.
 
-Hardening preserves reviewer independence: a JUDGE performs a mechanically read-only audit; a
+Project-wide hardening is reachable only from a bare whole-project run after every global WO is
+verified. Targeted FRD/change runs persist terminal `complete`, quiesce and release the lease while
+keeping `phase: implementation`, even when their target happened to be the final global pending WO;
+this prevents a scope-limited invocation from authorizing an audit/fixer over unrelated features.
+On the bare path, hardening preserves reviewer independence: a JUDGE performs a mechanically read-only audit; a
 separate STANDARD implementer applies fixes/evidence; the controller checks the dated security report,
 telemetry `## Verification` and full deterministic gate. A false-green candidate is committed only as
 a rollback unit, immediately reverted, and cannot advance the phase.

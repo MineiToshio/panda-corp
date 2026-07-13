@@ -241,7 +241,7 @@ try {
   let passes = 0;
   while (true) {
     const stop = await safePoint(); if (await honorSafePoint(stop)) break;
-    await reconcileChangeCards(); await drainReadyChanges(); const every = await workOrders(); const all = scopeFrds.size ? every.filter((wo) => scopeFrds.has(wo.frd)) : every; if (!all.length && scopeFrds.size) await needsOwner("target-scope", `Targeted FRDs have no work orders: ${[...scopeFrds].join(", ")}`); if (all.every((wo) => wo.status === "VERIFIED")) { await reconcileChangeCards(); finalReason = every.every((wo) => wo.status === "VERIFIED") ? "hardening" : "complete"; break; }
+    await reconcileChangeCards(); await drainReadyChanges(); const every = await workOrders(); const all = scopeFrds.size ? every.filter((wo) => scopeFrds.has(wo.frd)) : every; if (!all.length && scopeFrds.size) await needsOwner("target-scope", `Targeted FRDs have no work orders: ${[...scopeFrds].join(", ")}`); if (all.every((wo) => wo.status === "VERIFIED")) { await reconcileChangeCards(); finalReason = targeted ? "complete" : every.every((wo) => wo.status === "VERIFIED") ? "hardening" : "complete"; break; }
     let progress = false;
     for (const frd of [...new Set(all.map((wo) => wo.frd))]) {
       let group = (await workOrders()).filter((wo) => wo.frd === frd); if (group.every((wo) => wo.status === "VERIFIED" || wo.status === "BLOCKED")) continue;
@@ -281,6 +281,7 @@ try {
     await recordCommit("hardening", hardSha);
     await setProjectPhase(project, lease.token, lease.epoch, "release"); await stateCommit("chore: close construction", null); finalReason = "complete"; await terminal("complete"); notify("Build Codex completado");
   }
+  if (finalReason === "complete" && !state.terminal_reason) await terminal("complete");
   if (!["complete", "needs-owner"].includes(finalReason) && !state.terminal_reason) await terminal(finalReason);
   await shutdown(finalReason); process.exitCode = EXIT[finalReason] ?? 2;
 } catch (error) {

@@ -667,6 +667,8 @@ SCENARIOS.push({
     t.ok(hasLog(run, /Build dirigido.*NO se drenan/), 'the guard logs that the ready change was intentionally left in the queue')
     t.ok(!hasLog(run, /Drenando \d+ change/), 'the drain path never ran')
     t.ok(run.result && run.result.builtFrds.includes('frd-10-tgt'), 'only the targeted FRD built')
+    t.ok(byLabel(run, /^hardening:/).length === 0 && byLabel(run, 'close-out').length === 0, 'targeted FRD completion never widens into global hardening/release')
+    t.ok(byLabel(run, 'notify-end').length === 1 && /Set \.pandacorp\/status\.yaml running: false/.test(byLabel(run, 'notify-end')[0].prompt), 'targeted FRD completion quiesces as a partial run')
   },
 })
 SCENARIOS.push({
@@ -691,6 +693,8 @@ SCENARIOS.push({
     t.ok(hasLog(run, /Build dirigido.*NO se drenan.*other-queued-change/), 'the guard names the deferred change in the log')
     t.ok(!hasLog(run, /Drenando \d+ change/), 'the drain path never ran')
     t.ok(run.result && run.result.builtFrds.includes('frd-10-chg'), 'only the target change FRD built')
+    t.ok(byLabel(run, /^hardening:/).length === 0 && byLabel(run, 'close-out').length === 0, 'targeted change completion never widens into global hardening/release')
+    t.ok(byLabel(run, 'notify-end').length === 1, 'targeted change completion follows the scoped terminal close')
   },
 })
 SCENARIOS.push({
@@ -715,6 +719,20 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'process-change:queued-change').length === 1, 'the queued change IS processed (drained)')
     t.ok(!hasLog(run, /Build dirigido.*NO se drenan/), 'the targeted-scope guard never fires on a bare build')
     t.ok(run.result && run.result.builtFrds.includes('frd-10-bare'), 'the bare build still builds its own FRD')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 1 && byLabel(run, 'hardening:security-fix').length === 1 && byLabel(run, 'hardening:telemetry').length === 1, 'bare completion retains exactly one global hardening pass')
+    t.ok(byLabel(run, 'close-out').length === 1 && byLabel(run, 'notify-end').length === 0, 'bare completion alone owns release close-out')
+  },
+})
+SCENARIOS.push({
+  name: '10d. already-verified targeted scope closes without global hardening',
+  args: { mode: 'pro', frds: ['frd-10-done'] },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.note === 'all verified', 'already-verified target returns the bounded no-work result')
+    t.ok(byLabel(run, /^hardening:/).length === 0 && byLabel(run, 'close-out').length === 0, 'already-verified targeted scope never dispatches global hardening/release')
+    const stopped = byLabel(run, 'ensure-stopped')
+    t.ok(stopped.length === 1 && /close-preloop --project/.test(stopped[0].prompt), 'already-verified target performs the fenced pre-loop close')
   },
 })
 
