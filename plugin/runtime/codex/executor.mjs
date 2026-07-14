@@ -138,21 +138,24 @@ const snapshot = async () => {
   const files = new Set([...dirty, statusPath]);
   return new Map(await Promise.all([...files].map(async (file) => [file, await contentAt(file)])));
 };
-const parseStatusLiveness = (body) => {
-  const lines = body.split("\n"); const found = { running: [], supervisor_heartbeat: [] };
+const projectionKeys = ["phase", "running", "run_started_at", "build_run_id", "build_runtime", "build_lease_epoch", "supervisor_heartbeat"];
+const parseStatusProjection = (body) => {
+  const lines = body.split("\n"); const found = Object.fromEntries(projectionKeys.map((key) => [key, []]));
   for (const line of lines) for (const key of Object.keys(found)) { const match = line.match(new RegExp(`^${key}:\\s*(.*)$`)); if (match) found[key].push(match[1].trim()); }
   return found;
 };
-const normalizeStatusLiveness = (body) => body.split("\n").map((line) => /^(running|supervisor_heartbeat):/.test(line) ? `${line.slice(0, line.indexOf(":"))}: <controller-liveness>` : line).join("\n");
+const normalizeStatusProjection = (body) => body.split("\n").map((line) => projectionKeys.some((key) => line.startsWith(`${key}:`)) ? `${line.slice(0, line.indexOf(":"))}: <controller-projection>` : line).join("\n");
+const unquote = (value) => String(value || "").replace(/^['"]|['"]$/g, "");
 async function controllerOnlyStatusDelta(beforeEncoded, afterEncoded) {
   if (beforeEncoded === null || afterEncoded === null) return false;
   const before = Buffer.from(beforeEncoded, "base64").toString("utf8"); let candidate = Buffer.from(afterEncoded, "base64").toString("utf8");
   for (let attempt = 0; attempt < 5; attempt++) {
     const ownedLease = await assertFence(project, lease.token, lease.epoch);
     if (ownedLease.runtime !== "codex" || ownedLease.run_id !== runId || ownedLease.epoch !== lease.epoch || !isFresh(ownedLease)) return false;
-    const values = parseStatusLiveness(candidate);
-    const projected = values.running.length === 1 && values.running[0] === "true" && values.supervisor_heartbeat.length === 1 && values.supervisor_heartbeat[0].replace(/^['"]|['"]$/g, "") === ownedLease.renewed_at;
-    if (projected && normalizeStatusLiveness(before) === normalizeStatusLiveness(candidate)) return true;
+    const values = parseStatusProjection(candidate);
+    const expected = { phase: ownedLease.project_phase || "implementation", running: "true", run_started_at: ownedLease.acquired_at, build_run_id: ownedLease.run_id, build_runtime: ownedLease.runtime, build_lease_epoch: String(ownedLease.epoch), supervisor_heartbeat: ownedLease.renewed_at };
+    const projected = projectionKeys.every((key) => values[key].length === 1 && unquote(values[key][0]) === expected[key]);
+    if (projected && normalizeStatusProjection(before) === normalizeStatusProjection(candidate)) return true;
     // Renewal can race the initial content read. Re-read under two identical fenced lease views;
     // a worker's non-liveness edit survives renew and therefore cannot normalize away here.
     candidate = await readFile(path.join(project, statusPath), "utf8");

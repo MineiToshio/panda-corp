@@ -1,5 +1,12 @@
 # Decision Log — Mission Control
 
+## 2026-07-14 — Manual explains the lease-derived handoff projection
+
+The state, multi-runtime and build-workflow pages now explain that active phase/run/runtime/epoch/start
+facts derive from the fenced lease, survive renew/sync/quiesce, and are excluded from model-driven
+baseline restore. The R10 description also names the evidence-bound resolver check required before a
+Claude→Codex Stage-2 permit can be consumed. This mirrors BL-0079/plugin 9.95.7.
+
 ## 2026-07-13 — Manual distinguishes one-shot certification from Codex build permission
 
 The multi-runtime Manual now states the executable `FALLBACK` boundary: normal Codex build writes

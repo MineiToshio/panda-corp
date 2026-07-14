@@ -58,14 +58,32 @@ const withMutex = async (p, fn, attempts = 100) => {
 const yamlSet = async (file, updates) => {
   let body = await readFile(file, "utf8");
   for (const [key, raw] of Object.entries(updates)) {
-    const value = typeof raw === "boolean" || typeof raw === "number" ? String(raw) : JSON.stringify(raw);
+    const value = typeof raw === "boolean" || typeof raw === "number" || key === "phase" && new Set(["implementation", "release"]).has(raw) ? String(raw) : JSON.stringify(raw);
     const line = `${key}: ${value}`;
-    const re = new RegExp(`^${key}:.*$`, "m");
-    body = re.test(body) ? body.replace(re, line) : `${body.replace(/\s*$/, "")}\n${line}\n`;
+    const re = new RegExp(`^${key}:.*$`, "gm");
+    let first = true; let found = false;
+    body = body.replace(re, () => { found = true; if (first) { first = false; return line; } return ""; });
+    if (!found) body = `${body.replace(/\s*$/, "")}\n${line}\n`;
   }
   const tmp = `${file}.tmp-${process.pid}-${randomBytes(4).toString("hex")}`;
   await writeFile(tmp, body); await rename(tmp, file);
 };
+async function reassertActiveProjection(project, lease, { running = true } = {}) {
+  if (!lease || !new Set(["claude", "codex"]).has(lease.runtime) || typeof lease.run_id !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(lease.run_id) || !Number.isSafeInteger(lease.epoch) || lease.epoch < 1 || !Number.isFinite(Date.parse(lease.acquired_at)) || !Number.isFinite(Date.parse(lease.renewed_at))) {
+    throw Object.assign(new Error("active lease cannot project canonical build state"), { code: "INVALID_STATE" });
+  }
+  const phase = lease.project_phase || "implementation";
+  if (!new Set(["implementation", "release"]).has(phase)) throw Object.assign(new Error("active lease has invalid project phase"), { code: "INVALID_STATE" });
+  await yamlSet(paths(project).status, {
+    phase,
+    running,
+    run_started_at: lease.acquired_at,
+    build_run_id: lease.run_id,
+    build_runtime: lease.runtime,
+    build_lease_epoch: lease.epoch,
+    supervisor_heartbeat: running ? lease.renewed_at : "",
+  });
+}
 export const currentLease = async (project) => { try { return await parseJson(paths(project).lease); } catch { return null; } };
 export const isFresh = (lease, now = Date.now()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) < lease.ttl_seconds * 1000);
 export const assertFence = async (project, token, epoch, { allowQuiesced = false } = {}) => {
@@ -77,19 +95,23 @@ export const assertFence = async (project, token, epoch, { allowQuiesced = false
 export const withFence = async (project, token, epoch, mutation) => { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch); return mutation(lease); }); };
 async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 600, token = randomBytes(24).toString("hex") }) {
   if (!new Set(["claude", "codex"]).has(runtime) || typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId) || !Number.isInteger(ttlSeconds) || ttlSeconds < 3) throw Object.assign(new Error("invalid acquire arguments"), { code: "USAGE" });
-  const p = paths(project); await mkdir(p.run, { recursive: true });
+  const p = paths(project); await mkdir(p.run, { recursive: true }); const priorStatus = await readFile(p.status, "utf8");
   try { await mkdir(p.leaseDir); } catch (error) { if (error.code === "EEXIST") throw Object.assign(new Error("lease already held"), { code: "CONTENDED" }); throw error; }
   try {
     const previous = Number.parseInt((await readFile(p.epoch, "utf8").catch(() => "0")).trim(), 10) || 0;
     const epoch = previous + 1; await atomicText(p.epoch, `${epoch}\n`);
-    const now = iso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds };
-    await atomicJson(p.lease, lease); await yamlSet(p.status, { running: true, run_started_at: now, supervisor_heartbeat: now, build_run_id: runId, build_runtime: runtime, build_lease_epoch: epoch });
+    const now = iso(); const lease = { version: 1, runtime, run_id: runId, token_hash: tokenHash(token), epoch, acquired_at: now, renewed_at: now, ttl_seconds: ttlSeconds, project_phase: "implementation" };
+    await atomicJson(p.lease, lease); await reassertActiveProjection(project, lease);
     return { ...lease, token };
-  } catch (error) { await rm(p.leaseDir, { recursive: true, force: true }); throw error; }
+  } catch (error) {
+    try { await atomicText(p.status, priorStatus); }
+    catch (rollbackError) { throw Object.assign(new Error(`lease projection failed and status rollback failed: ${rollbackError.message}`), { code: "ROLLBACK_FAILED", cause: error }); }
+    await rm(p.leaseDir, { recursive: true, force: true }); throw error;
+  }
 }
 export async function acquire(project, options) { const p = await assertSafeLayout(project, { allowMissingRun: true }); await mkdir(p.run, { recursive: true }); await assertSafeLayout(project); return withMutex(p.mutex, () => acquireUnlocked(project, options)); }
-export async function renew(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: iso() }; await atomicJson(paths(project).lease, next); await yamlSet(paths(project).status, { running: true, supervisor_heartbeat: next.renewed_at }); return next; }); }
-export async function quiesce(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); await yamlSet(paths(project).status, { running: false, supervisor_heartbeat: "" }); return next; }); }
+export async function renew(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, renewed_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next); return next; }); }
+export async function quiesce(project, token, epoch) { return withFence(project, token, epoch, async (lease) => { const next = { ...lease, quiesced_at: iso() }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next, { running: false }); return next; }); }
 export async function finalizeRelease(project, token, epoch) { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch, { allowQuiesced: true }); if (!lease.quiesced_at) throw Object.assign(new Error("lease must be quiesced before final release"), { code: "INVALID_STATE" }); const tomb = `${p.leaseDir}.released-${lease.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true }); return lease; }); }
 // Compatibility wrapper for callers that do not own a git commit boundary. Certified executors use
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
@@ -128,7 +150,7 @@ const fmStatus = (body) => body.match(/^implementation_status:\s*(PLANNED|IN_PRO
 const setFmStatus = (body, status) => /^implementation_status:/m.test(body) ? body.replace(/^implementation_status:.*$/m, `implementation_status: ${status}`) : body.replace(/^---\s*$/m, `---\nimplementation_status: ${status}`);
 const setFmKey = (body, key, value) => { const line = `${key}: ${value}`; const re = new RegExp(`^${key}:.*$`, "m"); return re.test(body) ? body.replace(re, line) : body.replace(/^---\s*$/m, `---\n${line}`); };
 const rollup = (states) => states.every((s) => s === "VERIFIED") ? "VERIFIED" : states.some((s) => s === "BLOCKED") ? "BLOCKED" : states.some((s) => s === "PLANNED") ? "PLANNED" : states.some((s) => s === "IN_PROGRESS") ? "IN_PROGRESS" : "IN_REVIEW";
-async function syncRollupsUnlocked(project) {
+async function syncRollupsUnlocked(project, lease) {
     const root = path.join(project, "docs", "frds"); const folders = (await readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     const counts = { PLANNED: 0, IN_PROGRESS: 0, IN_REVIEW: 0, VERIFIED: 0, BLOCKED: 0 }; let corrected = 0;
     for (const folder of folders) {
@@ -140,12 +162,13 @@ async function syncRollupsUnlocked(project) {
     }
     const now = iso(); const total = Object.values(counts).reduce((a, b) => a + b, 0);
     await yamlSet(paths(project).status, { work_orders_total: total, work_orders_done: counts.VERIFIED, work_orders_planned: counts.PLANNED, work_orders_in_progress: counts.IN_PROGRESS, work_orders_in_review: counts.IN_REVIEW, work_orders_blocked: counts.BLOCKED, work_orders_verified: counts.VERIFIED, last_event_at: now, updated_at: now });
+    await reassertActiveProjection(project, lease);
     return { corrected, total, counts, at: now };
 }
-export async function syncRollups(project, token, epoch) { return withFence(project, token, epoch, () => syncRollupsUnlocked(project)); }
+export async function syncRollups(project, token, epoch) { return withFence(project, token, epoch, (lease) => syncRollupsUnlocked(project, lease)); }
 export async function transitionWorkOrder(project, token, epoch, { file, to, reason = "" }) {
   const allowed = new Set(["PLANNED", "IN_PROGRESS", "IN_REVIEW", "VERIFIED", "BLOCKED"]);
-  return withFence(project, token, epoch, async () => {
+  return withFence(project, token, epoch, async (lease) => {
     const absolute = path.resolve(project, file); const root = path.resolve(project, "docs/frds");
     if (!absolute.startsWith(`${root}${path.sep}`) || !/\/work-orders\/wo-[^/]+\.md$/.test(absolute) || !allowed.has(to)) throw Object.assign(new Error("invalid governed WO transition"), { code: "INVALID_STATE" });
     const [actual, actualRoot, entry] = await Promise.all([realpath(absolute), realpath(root), lstat(absolute)]).catch(() => { throw Object.assign(new Error("governed WO path is unavailable"), { code: "INVALID_PATH" }); });
@@ -157,11 +180,11 @@ export async function transitionWorkOrder(project, token, epoch, { file, to, rea
     body = setFmStatus(body, to); if (to === "BLOCKED") body = setFmKey(body, "blocked_reason", reason || "error"); else if (/^blocked_reason:/m.test(body)) body = body.replace(/^blocked_reason:.*\n?/m, "");
     if (to === "PLANNED" && from === "IN_REVIEW") { const current = Number(body.match(/^reopen_count:\s*(\d+)/m)?.[1] || 0); body = setFmKey(body, "reopen_count", current + 1); }
     if (to === "VERIFIED") body = setFmKey(body, "reopen_count", 0);
-    await atomicText(actual, body); const derived = await syncRollupsUnlocked(project); return { file, from, to, derived };
+    await atomicText(actual, body); const derived = await syncRollupsUnlocked(project, lease); return { file, from, to, derived };
   });
 }
 export async function stampLastGreen(project, token, epoch, sha) {
-  return withFence(project, token, epoch, async () => {
+  return withFence(project, token, epoch, async (lease) => {
     if (!/^[0-9a-f]{7,40}$/.test(sha)) throw Object.assign(new Error("invalid git sha"), { code: "INVALID_STATE" });
     try {
       await execFileAsync("git", ["cat-file", "-e", `${sha}^{commit}`], { cwd: project });
@@ -170,15 +193,15 @@ export async function stampLastGreen(project, token, epoch, sha) {
       throw Object.assign(new Error("last green commit must exist and be an ancestor of HEAD"), { code: "EVIDENCE" });
     }
     const now = iso();
-    await yamlSet(paths(project).status, { last_green_sha: sha, safe_to_test: true, last_event_at: now, updated_at: now });
+    await yamlSet(paths(project).status, { last_green_sha: sha, safe_to_test: true, last_event_at: now, updated_at: now }); await reassertActiveProjection(project, lease);
     return { sha, safe_to_test: true };
   });
 }
 export async function setProjectPhase(project, token, epoch, phase) {
-  return withFence(project, token, epoch, async () => { if (!new Set(["implementation", "release"]).has(phase)) throw Object.assign(new Error("invalid phase"), { code: "INVALID_STATE" }); if (phase === "release") { const dirs = await readdir(path.join(project, "docs/frds"), { withFileTypes: true }); for (const d of dirs.filter((x) => x.isDirectory())) { const body = await readFile(path.join(project, "docs/frds", d.name, "frd.md"), "utf8"); if (fmStatus(body) !== "VERIFIED") throw Object.assign(new Error(`release blocked by ${d.name}`), { code: "INVALID_STATE" }); } const day=new Date().toISOString().slice(0,10); try { await readFile(path.join(project,"docs/reviews",`security-${day}.md`),"utf8"); const analytics=await readFile(path.join(project,"docs/analytics/events.md"),"utf8"); if(!/^## Verification/m.test(analytics)) throw new Error("telemetry evidence missing"); } catch(error){ throw Object.assign(new Error(`release evidence missing: ${error.message}`),{code:"INVALID_STATE"}); } } await yamlSet(paths(project).status, { phase, updated_at: iso() }); return { phase }; });
+  return withFence(project, token, epoch, async (lease) => { if (!new Set(["implementation", "release"]).has(phase)) throw Object.assign(new Error("invalid phase"), { code: "INVALID_STATE" }); if (phase === "release") { const dirs = await readdir(path.join(project, "docs/frds"), { withFileTypes: true }); for (const d of dirs.filter((x) => x.isDirectory())) { const body = await readFile(path.join(project, "docs/frds", d.name, "frd.md"), "utf8"); if (fmStatus(body) !== "VERIFIED") throw Object.assign(new Error(`release blocked by ${d.name}`), { code: "INVALID_STATE" }); } const day=new Date().toISOString().slice(0,10); try { await readFile(path.join(project,"docs/reviews",`security-${day}.md`),"utf8"); const analytics=await readFile(path.join(project,"docs/analytics/events.md"),"utf8"); if(!/^## Verification/m.test(analytics)) throw new Error("telemetry evidence missing"); } catch(error){ throw Object.assign(new Error(`release evidence missing: ${error.message}`),{code:"INVALID_STATE"}); } } const next = { ...lease, project_phase: phase }; await atomicJson(paths(project).lease, next); await reassertActiveProjection(project, next); await yamlSet(paths(project).status, { updated_at: iso() }); return { phase }; });
 }
 export async function pauseForOwner(project, token, epoch, { subject, summary }) {
-  return withFence(project, token, epoch, async () => { const now=iso(); const decision=path.join(project,".pandacorp/inbox/decisions.md"); const progress=path.join(project,".pandacorp/comms/progress.md"); await mkdir(path.dirname(decision),{recursive:true}); await mkdir(path.dirname(progress),{recursive:true}); await appendFileSafe(decision,`\n## ${now} — ${subject}\n\n${summary}\n\nStatus: pending\n`); await appendFileSafe(progress,`\n- ${now}: detenido en punto seguro — ${subject}: ${summary}\n`); await yamlSet(paths(project).status,{pending_decisions:1,last_event_at:now,updated_at:now}); return {paused:true}; });
+  return withFence(project, token, epoch, async (lease) => { const now=iso(); const decision=path.join(project,".pandacorp/inbox/decisions.md"); const progress=path.join(project,".pandacorp/comms/progress.md"); await mkdir(path.dirname(decision),{recursive:true}); await mkdir(path.dirname(progress),{recursive:true}); await appendFileSafe(decision,`\n## ${now} — ${subject}\n\n${summary}\n\nStatus: pending\n`); await appendFileSafe(progress,`\n- ${now}: detenido en punto seguro — ${subject}: ${summary}\n`); await yamlSet(paths(project).status,{pending_decisions:1,last_event_at:now,updated_at:now}); await reassertActiveProjection(project,lease); return {paused:true}; });
 }
 async function appendFileSafe(file,text){const h=await open(file,"a",0o600);try{await h.appendFile(text);await h.sync();}finally{await h.close();}}
 
@@ -257,7 +280,7 @@ const injectedCrash = (wanted, boundary) => { if (wanted === boundary) throw Obj
 export async function applyChangePlan(project, token, epoch, { changeFile, affectedFrds, mutations, reopenWorkOrders = [], faultAfter = "" }) {
   if (!Array.isArray(affectedFrds) || !affectedFrds.length || !Array.isArray(mutations) || !Array.isArray(reopenWorkOrders)) throw Object.assign(new Error("invalid change plan payload"), { code: "USAGE" });
   const frds = [...new Set(affectedFrds.map(validateFrd))].sort();
-  return withFence(project, token, epoch, async () => {
+  return withFence(project, token, epoch, async (lease) => {
     const card = await safeChangeFile(project, changeFile); let cardBody = await readFile(card, "utf8"); if (!new Set(["ready", "building"]).has(changeStatus(cardBody))) throw Object.assign(new Error("change card is not drainable"), { code: "INVALID_STATE" });
     const docsRoot = path.resolve(project, "docs/frds"); await assertRealEntry(project, docsRoot, { type: "directory" });
     const proposed = new Map();
@@ -278,7 +301,7 @@ export async function applyChangePlan(project, token, epoch, { changeFile, affec
     }
     const durablePlan = { changeFile, affectedFrds: frds, mutations: [...proposed].map(([file, content]) => ({ target: path.relative(project, file), content })), reopenWorkOrders }; const txId = changeTxId("apply", durablePlan); const txFile = path.join(await safeChangeTxRoot(project, { create: true }), `${txId}.json`); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: "prepared", plan: durablePlan, updated_at: iso() }); injectedCrash(faultAfter, "prepared");
     let index = 0; for (const [file, body] of proposed) { await assertRealEntry(project, file, { type: "file", allowMissing: true }); await atomicText(file, body); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: `mutation:${index}`, plan: durablePlan, updated_at: iso() }); injectedCrash(faultAfter, `mutation:${index}`); index++; }
-    cardBody = setFmKey(cardBody, "status", "building"); cardBody = setFmKey(cardBody, "affected_frds", JSON.stringify(frds)); cardBody = setFmKey(cardBody, "integration_paths", JSON.stringify(durablePlan.mutations.map((item) => item.target))); cardBody = setFmKey(cardBody, "integration_transaction", JSON.stringify(txId)); cardBody = setFmKey(cardBody, "integration_sha", '""'); await atomicText(card, cardBody); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: "card", plan: durablePlan, updated_at: iso() }); injectedCrash(faultAfter, "card"); await syncRollupsUnlocked(project); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: "complete", plan: durablePlan, completed_at: iso(), updated_at: iso() }); return { transaction_id: txId, change_file: path.relative(project, card), affected_frds: frds, mutations: proposed.size, mutation_paths: durablePlan.mutations.map((item) => item.target) };
+    cardBody = setFmKey(cardBody, "status", "building"); cardBody = setFmKey(cardBody, "affected_frds", JSON.stringify(frds)); cardBody = setFmKey(cardBody, "integration_paths", JSON.stringify(durablePlan.mutations.map((item) => item.target))); cardBody = setFmKey(cardBody, "integration_transaction", JSON.stringify(txId)); cardBody = setFmKey(cardBody, "integration_sha", '""'); await atomicText(card, cardBody); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: "card", plan: durablePlan, updated_at: iso() }); injectedCrash(faultAfter, "card"); await syncRollupsUnlocked(project, lease); await atomicJson(txFile, { version: 1, id: txId, type: "apply", stage: "complete", plan: durablePlan, completed_at: iso(), updated_at: iso() }); return { transaction_id: txId, change_file: path.relative(project, card), affected_frds: frds, mutations: proposed.size, mutation_paths: durablePlan.mutations.map((item) => item.target) };
   });
 }
 

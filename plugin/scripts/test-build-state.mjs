@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-import { mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
+import { chmod, mkdtemp, mkdir, readFile, readdir, rename, rm, symlink, utimes, writeFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
 
 let passed = 0; let failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (e) { console.error(`FAIL  ${name}: ${e.stack || e}`); failed++; } };
@@ -19,9 +19,61 @@ await test("atomic acquire has exactly one winner", async () => {
   const p = await fixture(); const settled = await Promise.allSettled(Array.from({ length: 12 }, (_, i) => acquire(p, { runtime: "codex", runId: `race-${i}`, ttlSeconds: 30 })));
   ok(settled.filter((x) => x.status === "fulfilled").length === 1, "more than one acquire winner"); await rm(p, { recursive: true });
 });
+await test("acquire retains its fence when projection rollback cannot be guaranteed", async () => {
+  const p = await fixture(); const statusFile = path.join(p, ".pandacorp/status.yaml"); const original = await readFile(statusFile, "utf8");
+  await chmod(path.dirname(statusFile), 0o500); await rejects(() => acquire(p, { runtime: "codex", runId: "rollback-fence", ttlSeconds: 30 }), "ROLLBACK_FAILED"); await chmod(path.dirname(statusFile), 0o700);
+  ok(Boolean(await currentLease(p)), "failed rollback dropped the only writer fence"); ok(await readFile(statusFile, "utf8") === original, "failed projection changed the prior status bytes"); await rm(p, { recursive: true });
+});
 await test("renew and owner-only release project compatibility state", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "claude", runId: "run-a", ttlSeconds: 30 }); const r = await renew(p, l.token, l.epoch); ok(r.renewed_at >= l.renewed_at, "renew did not advance");
   await rejects(() => release(p, "foreign", l.epoch), "FENCE"); await release(p, l.token, l.epoch); const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/running: false/.test(status), "release projection missing"); await rm(p, { recursive: true });
+});
+await test("active projection is re-derived from the fenced lease after status clobber", async () => {
+  const p = await fixture(); await mkdir(path.join(p, "docs/frds"), { recursive: true });
+  const l = await acquire(p, { runtime: "claude", runId: "projection-run", ttlSeconds: 30 });
+  const acquired = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  ok(/^phase:\s*["']?implementation["']?$/m.test(acquired), "acquire did not project implementation phase");
+  const started = acquired.match(/^run_started_at:\s*["']?([^"'\n]+)["']?$/m)?.[1];
+  ok(started === l.acquired_at, "acquire did not derive run_started_at from the lease");
+  await writeFile(path.join(p, ".pandacorp/status.yaml"), "phase: architecture\nrunning: false\nrun_started_at: \"\"\nbuild_run_id: \"\"\nbuild_runtime: \"\"\nbuild_lease_epoch: 0\nsupervisor_heartbeat: \"\"\n");
+  await renew(p, l.token, l.epoch);
+  let status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  for (const expected of [
+    /^phase:\s*["']?implementation["']?$/m,
+    /^running: true$/m,
+    new RegExp(`^run_started_at: ["']${l.acquired_at.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']$`, "m"),
+    /^build_run_id: "projection-run"$/m,
+    /^build_runtime: "claude"$/m,
+    new RegExp(`^build_lease_epoch: ${l.epoch}$`, "m"),
+  ]) ok(expected.test(status), `renew did not restore ${expected}`);
+  await writeFile(path.join(p, ".pandacorp/status.yaml"), "phase: architecture\nrunning: false\nrun_started_at: \"\"\nbuild_run_id: \"wrong\"\nbuild_runtime: \"codex\"\nbuild_lease_epoch: 999\n");
+  await syncRollups(p, l.token, l.epoch);
+  status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  ok(/^phase:\s*["']?implementation["']?$/m.test(status) && /^running: true$/m.test(status) && /^build_run_id: "projection-run"$/m.test(status) && /^build_runtime: "claude"$/m.test(status) && new RegExp(`^build_lease_epoch: ${l.epoch}$`, "m").test(status), "sync-rollups did not restore the active lease projection");
+  await writeFile(path.join(p, ".pandacorp/status.yaml"), `${status}\nphase: architecture\nbuild_run_id: "duplicate-wrong"\nbuild_runtime: "codex"\nbuild_lease_epoch: 999\n`);
+  await renew(p, l.token, l.epoch); status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  for (const key of ["phase", "running", "run_started_at", "build_run_id", "build_runtime", "build_lease_epoch", "supervisor_heartbeat"]) ok((status.match(new RegExp(`^${key}:`, "gm")) || []).length === 1, `projection retained duplicate ${key}`);
+  await writeFile(path.join(p, ".pandacorp/status.yaml"), "phase: architecture\nrunning: true\nrun_started_at: \"\"\nbuild_run_id: \"clobbered\"\nbuild_runtime: \"codex\"\nbuild_lease_epoch: 999\nsupervisor_heartbeat: \"bad\"\n");
+  await quiesce(p, l.token, l.epoch); status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  ok(/^running: false$/m.test(status) && /^phase:\s*["']?implementation["']?$/m.test(status) && /^build_run_id: "projection-run"$/m.test(status) && /^build_runtime: "claude"$/m.test(status) && new RegExp(`^build_lease_epoch: ${l.epoch}$`, "m").test(status), "quiesce committed a clobbered handoff projection");
+  await rejects(() => syncRollups(p, "foreign", l.epoch), "FENCE");
+  await rm(p, { recursive: true });
+});
+await test("release phase in the fenced lease is never downgraded by renew or rollup", async () => {
+  const p = await fixture();
+  const frd = path.join(p, "docs/frds/frd-01"); await mkdir(path.join(frd, "work-orders"), { recursive: true });
+  await writeFile(path.join(frd, "frd.md"), "---\nimplementation_status: VERIFIED\n---\n");
+  await writeFile(path.join(frd, "blueprint.md"), "---\nimplementation_status: VERIFIED\n---\n");
+  await writeFile(path.join(frd, "work-orders/wo-01.md"), "---\nimplementation_status: VERIFIED\n---\n");
+  await mkdir(path.join(p, "docs/reviews"), { recursive: true }); await mkdir(path.join(p, "docs/analytics"), { recursive: true });
+  await writeFile(path.join(p, "docs/reviews", `security-${new Date().toISOString().slice(0,10)}.md`), "green\n");
+  await writeFile(path.join(p, "docs/analytics/events.md"), "## Verification\n\ngreen\n");
+  const l = await acquire(p, { runtime: "codex", runId: "release-run", ttlSeconds: 30 });
+  await Promise.all([setProjectPhase(p, l.token, l.epoch, "release"), renew(p, l.token, l.epoch)]); await syncRollups(p, l.token, l.epoch);
+  const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  ok(/^phase:\s*["']?release["']?$/m.test(status), "active projection downgraded release");
+  ok((await currentLease(p))?.project_phase === "release", "lease did not retain the canonical release projection");
+  await rm(p, { recursive: true });
 });
 await test("two-phase release keeps fencing through the committed quiesce window", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "two-phase", ttlSeconds: 30 }); await quiesce(p, l.token, l.epoch); const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/running: false/.test(status), "quiesce projection missing"); ok(Boolean(await currentLease(p)), "quiesce dropped ownership before commit"); await rejects(() => renew(p, l.token, l.epoch), "QUIESCED"); await rejects(() => finalizeRelease(p, "foreign", l.epoch), "FENCE"); await finalizeRelease(p, l.token, l.epoch); ok(!(await currentLease(p)), "finalize retained lease"); await rm(p, { recursive: true });

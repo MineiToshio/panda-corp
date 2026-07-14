@@ -830,6 +830,13 @@ function ConceptEstado(): React.JSX.Element {
           <StateTable />
         </div>
       </Panel>
+      <NotePanel icon="ti-lock" iconColor="var(--color-accent)">
+        Durante un build, <Code>status.yaml</Code> es una proyección controlada por la lease, no un
+        segundo candado. Acquire, heartbeat, sincronización y cierre reponen fase, hora de inicio,
+        run lógico, runtime y epoch desde esa única fuente. La reparación de baseline nunca restaura
+        ese fichero mientras la lease siga activa; al detenerse conserva la identidad y publica
+        <Code>running: false</Code> para el relevo en frío.
+      </NotePanel>
     </>
   );
 }
@@ -2260,6 +2267,13 @@ function ConceptMultiRuntime(): React.JSX.Element {
         el hash esperado; si falta, cambia o es un symlink, la certificación se bloquea. La
         comprobación previa tampoco imprime el nonce de autorización.
       </NotePanel>
+      <NotePanel icon="ti-arrows-exchange" iconColor="var(--color-warn)">
+        Antes de consumir la etapa Codex, R10 compara el HEAD y la evidencia Claude con los seis
+        campos del relevo —fase, actividad, inicio, run lógico, runtime y epoch— y exige que el
+        resolver compartido confirme una continuación Claude→Codex. La lease vuelve a derivarlos en
+        cada renovación, sincronización y cierre, así que una copia vieja de <Code>status.yaml</Code>
+        no puede fabricar un run nuevo.
+      </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
         como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar, sincronizar
@@ -2983,6 +2997,13 @@ function WorkflowBuild(): React.JSX.Element {
         única evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente ese
         worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
         síncrono sobre el árbol principal.
+      </NotePanel>
+      <NotePanel icon="ti-shield-lock" iconColor="var(--color-accent)">
+        La lease también es la fuente de la proyección activa. Acquire, renovación, <Code>sync-rollups</Code>{" "}
+        y cierre reponen fase, run lógico, runtime, epoch y hora de inicio en <Code>status.yaml</Code>.
+        El cierre cambia únicamente la actividad a{" "}
+        <Code>running: false</Code>. El reparador de baseline puede restaurar otros residuos tracked,
+        pero nunca ese estado controlado mientras el writer siga cercado.
       </NotePanel>
 
       <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />

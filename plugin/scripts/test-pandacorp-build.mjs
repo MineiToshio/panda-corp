@@ -240,6 +240,18 @@ SCENARIOS.push({
   },
 })
 SCENARIOS.push({
+  name: '11c. baseline repair excludes the controller-owned active status projection',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true } }, { label: 'baseline', response: { green: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const baseline = byLabel(run, 'baseline')[0]
+    t.ok(baseline && /controller-owned[^\n]*\.pandacorp\/status\.yaml/i.test(baseline.prompt), 'repair prompt identifies status as controller-owned')
+    t.ok(baseline && /NEVER checkout or restore[^\n]*\.pandacorp\/status\.yaml/i.test(baseline.prompt), 'repair prompt explicitly excludes status from restore')
+    t.ok(baseline && /except \.pandacorp\/status\.yaml/.test(baseline.prompt), 'surgical tracked-file restore carries the exclusion')
+  },
+})
+SCENARIOS.push({
   name: '1aa. capability guard — relative stateCli fails before the first agent spawn',
   args: { stateCli: 'scripts/pandacorp-build-state.mjs' },
   assert(t, run) {

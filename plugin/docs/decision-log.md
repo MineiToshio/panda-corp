@@ -4,6 +4,25 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.7 — 2026-07-14 (PATCH): active build projection is lease-derived
+
+**What:** BL-0079 makes the fenced lease the single source for the active phase, logical run,
+runtime, epoch, acquisition time and activity projection. Acquire, renew, rollup, safe-point and
+quiesce writers deterministically reassert it; duplicate YAML keys are collapsed; release phase is
+retained in the lease; baseline repair explicitly excludes controller-owned `status.yaml`. R10 Stage
+2 now binds regular Stage-1 evidence to the current projection and requires the canonical resolver's
+Claude→Codex cold-continuation verdict before consuming authority. The Codex executor harness also
+tracks spawned processes and cleans them on interruption so a signal-barrier test cannot orphan a
+live executor or lease when its runner is stopped.
+
+**Why:** R10-J's baseline repair restored the uncommitted ownership projection to architecture and a
+later rollup committed the clobber, turning the intended cold continuation into a new run despite a
+green feature gate.
+
+**Impact:** plugin 9.95.7 / overlay 8.76.4. Existing Claude and Codex executors keep their separate
+runtime-local orchestration; only the deterministic shared state seam and certification precondition
+change. R10-J remains NO-GO and is never reused.
+
 ## v9.95.6 — 2026-07-13 (PATCH): fail-closed FALLBACK launcher and one-shot R11 authority
 
 **What:** BL-0077 makes the Codex launcher read the canonical `implement` capability policy and

@@ -7,7 +7,31 @@ import { spawn } from "node:child_process";
 const root = path.resolve(new URL("../..", import.meta.url).pathname);
 const executor = path.join(root, "plugin/runtime/codex/executor.mjs");
 const supervisor = path.join(root, "plugin/runtime/codex/supervisor.mjs");
-const run = (cmd, args, cwd, env = {}) => new Promise((resolve) => { const child = spawn(cmd, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] }); let out = "", err = ""; child.stdout.on("data", (d) => out += d); child.stderr.on("data", (d) => err += d); child.on("close", (code, signal) => resolve({ code, signal, out, err })); });
+const activeChildren = new Set();
+const trackedSpawn = (...args) => {
+  const child = spawn(...args);
+  activeChildren.add(child);
+  child.once("close", () => activeChildren.delete(child));
+  return child;
+};
+const childIsAlive = (child) => {
+  if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return false;
+  try { process.kill(child.pid, 0); return true; } catch { return false; }
+};
+const cleanupChildren = async () => {
+  for (const child of activeChildren) if (childIsAlive(child)) child.kill("SIGTERM");
+  for (let attempt = 0; attempt < 40 && [...activeChildren].some(childIsAlive); attempt++) await new Promise((resolve) => setTimeout(resolve, 50));
+  for (const child of activeChildren) if (childIsAlive(child)) child.kill("SIGKILL");
+};
+let interrupted = false;
+for (const [signal, exitCode] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]]) process.on(signal, async () => {
+  if (interrupted) return;
+  interrupted = true;
+  await cleanupChildren();
+  process.exit(exitCode);
+});
+process.on("exit", () => { for (const child of activeChildren) if (childIsAlive(child)) child.kill("SIGTERM"); });
+const run = (cmd, args, cwd, env = {}) => new Promise((resolve) => { const child = trackedSpawn(cmd, args, { cwd, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "pipe"] }); let out = "", err = ""; child.stdout.on("data", (d) => out += d); child.stderr.on("data", (d) => err += d); child.on("close", (code, signal) => resolve({ code, signal, out, err })); });
 const ok = (condition, message) => { if (!condition) throw new Error(message); };
 const read = (file) => readFile(file, "utf8");
 let passed = 0, failed = 0;
@@ -134,15 +158,15 @@ await test("read-only hardening auditor is independent; any write is rolled back
 });
 
 await test("signal quiesces the entire active Codex process group before releasing the lease", async () => {
-  const fx = await fixture(); const child = spawn("node", [executor, "--project", fx.project, "--run-id", "signal-run", "--max-spend", "12", "--max-duration", "120"], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.fake, PANDACORP_CODEX_EVENTS_FILE: path.join(fx.project, ".pandacorp/run/test-events.ndjson"), FAKE_SCENARIO: "hang-tree" }, stdio: ["ignore", "pipe", "pipe"] });
+  const fx = await fixture(); const child = trackedSpawn("node", [executor, "--project", fx.project, "--run-id", "signal-run", "--max-spend", "12", "--max-duration", "120"], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.fake, PANDACORP_CODEX_EVENTS_FILE: path.join(fx.project, ".pandacorp/run/test-events.ndjson"), FAKE_SCENARIO: "hang-tree" }, stdio: ["ignore", "pipe", "pipe"] });
   for (let i=0;i<100;i++){const calls=await read(path.join(fx.project,".pandacorp/run/fake-calls.log")).catch(()=>"");if(/implement/.test(calls))break;await new Promise(r=>setTimeout(r,20));}
-  child.kill("SIGTERM"); const closed = await new Promise((resolve)=>child.on("close",(code)=>resolve(code))); ok(closed === 26, `signal exit ${closed}`); await new Promise(r=>setTimeout(r,2300)); const journal=await read(path.join(fx.project,".pandacorp/run/codex-executor.jsonl")).catch(()=>"");ok(!await read(path.join(fx.project,"late-write")).then(()=>true).catch(()=>false), `grandchild wrote after lease release\n${journal}`); const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");
+  child.kill("SIGTERM"); const closed = await new Promise((resolve)=>child.on("close",(code)=>resolve(code))); ok(closed === 26, `signal exit ${closed}`); ok(!childIsAlive(child), `executor pid ${child.pid} remained alive`); await new Promise(r=>setTimeout(r,2300)); const journal=await read(path.join(fx.project,".pandacorp/run/codex-executor.jsonl")).catch(()=>"");ok(!await read(path.join(fx.project,"late-write")).then(()=>true).catch(()=>false), `grandchild wrote after lease release\n${journal}`); const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");
 });
 
 await test("signal after dispatch_finished never races staging against terminal lease finalization", async () => {
-  const fx=await fixture();const child=spawn("node",[executor,"--project",fx.project,"--run-id","signal-race","--max-spend","12","--max-duration","120"],{cwd:fx.project,env:{...process.env,PANDACORP_CODEX_BIN:fx.fake,PANDACORP_CODEX_EVENTS_FILE:path.join(fx.project,".pandacorp/run/test-events.ndjson"),FAKE_SCENARIO:"success",PANDACORP_TEST_AFTER_DISPATCH_BARRIER:"1"},stdio:["ignore","pipe","pipe"]});
-  let reached=false;for(let i=0;i<250;i++){reached=await read(path.join(fx.project,".pandacorp/run/after-dispatch.barrier")).then(Boolean).catch(()=>false);if(reached){ok(child.kill("SIGTERM"),"signal delivery failed");break}await new Promise(r=>setTimeout(r,10));}ok(reached,"dispatch barrier was never reached");
-  const closed=await new Promise(resolve=>child.on("close",code=>resolve(code)));ok(closed===26,`race exit ${closed}`);const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));const status=await read(path.join(fx.project,".pandacorp/status.yaml"));ok(/running: false/.test(status),status);ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");const staged=await run("git",["diff","--cached","--name-only"],fx.project);ok(!staged.out.trim(),`staged residue: ${staged.out}`);
+  const fx=await fixture();const child=trackedSpawn("node",[executor,"--project",fx.project,"--run-id","signal-race","--max-spend","12","--max-duration","120"],{cwd:fx.project,env:{...process.env,PANDACORP_CODEX_BIN:fx.fake,PANDACORP_CODEX_EVENTS_FILE:path.join(fx.project,".pandacorp/run/test-events.ndjson"),FAKE_SCENARIO:"success",PANDACORP_TEST_AFTER_DISPATCH_BARRIER:"1"},stdio:["ignore","pipe","pipe"]});
+  let reached=false;for(let i=0;i<500;i++){reached=await read(path.join(fx.project,".pandacorp/run/after-dispatch.barrier")).then(Boolean).catch(()=>false);if(reached){ok(child.kill("SIGTERM"),"signal delivery failed");break}await new Promise(r=>setTimeout(r,10));}ok(reached,"dispatch barrier was never reached");
+  const closed=await new Promise(resolve=>child.on("close",code=>resolve(code)));ok(closed===26,`race exit ${closed}`);ok(!childIsAlive(child),`executor pid ${child.pid} remained alive`);const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));const status=await read(path.join(fx.project,".pandacorp/status.yaml"));ok(/running: false/.test(status),status);ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");const staged=await run("git",["diff","--cached","--name-only"],fx.project);ok(!staged.out.trim(),`staged residue: ${staged.out}`);
 });
 
 await test("bare run drains every ready feature/bug and archives only after VERIFIED",async()=>{const fx=await fixture();await addChange(fx,"feature-one","feature");await addChange(fx,"bug-two","bug");const result=await execute(fx);ok(result.code===0,result.err);const calls=await read(path.join(fx.project,".pandacorp/run/fake-calls.log"));ok(calls.split("\n").filter(x=>x==="process-change").length===2,calls);for(const slug of ["feature-one","bug-two"]){const done=await read(path.join(fx.project,`.pandacorp/inbox/changes/done/${slug}.md`));ok(/status: done/.test(done)&&/shipped_sha:/.test(done),done);} });

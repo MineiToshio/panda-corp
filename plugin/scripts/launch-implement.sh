@@ -82,6 +82,10 @@ LEASE_CLI="$STATE_CLI"
 # 1) Take the atomic neutral lease BEFORE any phase write. A contended launch must leave canonical
 # project state untouched. The lease CLI owns all compatibility projections.
 mkdir -p "$PROJECT_DIR/.pandacorp/run"
+if [ "${PANDACORP_TEST_FAIL_PHASE_WRITE:-0}" = "1" ]; then
+  echo "ERROR: simulated fenced projection failure before lease acquisition." >&2
+  exit 2
+fi
 LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl 600) \
   || { echo "ERROR: atomic build lease acquisition failed." >&2; exit 2; }
 LEASE_TOKEN=$(printf '%s' "$LEASE" | jq -r '.token // empty')
@@ -91,8 +95,7 @@ LEASE_EPOCH=$(printf '%s' "$LEASE" | jq -r '.epoch // empty')
 # Only the fenced owner may advance architecture -> implementation. If this projection fails,
 # release immediately so a launch error cannot strand ownership. The test switch only forces this
 # safe abort path and never grants a capability.
-if [ "${PANDACORP_TEST_FAIL_PHASE_WRITE:-0}" = "1" ] || \
-   ! node "$LEASE_CLI" set-phase --project "$PROJECT_DIR" --token "$LEASE_TOKEN" --epoch "$LEASE_EPOCH" --phase implementation >/dev/null; then
+if ! node "$LEASE_CLI" set-phase --project "$PROJECT_DIR" --token "$LEASE_TOKEN" --epoch "$LEASE_EPOCH" --phase implementation >/dev/null; then
   echo "ERROR: fenced phase transition failed; releasing the newly acquired lease." >&2
   if ! node "$LEASE_CLI" release --project "$PROJECT_DIR" --token "$LEASE_TOKEN" --epoch "$LEASE_EPOCH" >/dev/null; then
     echo "ERROR: lease cleanup also failed; STOP and inspect the lease before retrying." >&2

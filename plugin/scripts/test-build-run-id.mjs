@@ -63,10 +63,11 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
 {
   const root = await fixture({ phase: "architecture", running: "false" });
   const active = JSON.parse((await exec("node", [leaseCli, "acquire", "--project", root, "--runtime", "codex", "--run-id", "active-owner", "--ttl", "600"])).stdout);
+  const before = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "powerful", "5"]); } catch (error) { rejected = error.code === 2; }
   const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
-  ok(rejected && /^phase: architecture$/m.test(status), "contended Claude launch is a strict no-op on phase");
+  ok(rejected && status === before && /^phase:\s*["']?implementation["']?$/m.test(status), "contended Claude launch is a strict no-op on the active owner's projection");
   await exec("node", [leaseCli, "release", "--project", root, "--token", active.token, "--epoch", String(active.epoch)]);
   await rm(root, { recursive: true });
 }

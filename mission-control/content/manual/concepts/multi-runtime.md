@@ -96,6 +96,12 @@ El permiso excepcional de R10 fija el motor contra una sola ruta real del overla
 si falta, cambia o es un symlink, la certificación se bloquea. La comprobación previa tampoco imprime
 el nonce de autorización.
 
+Antes de consumir la etapa Codex, R10 exige además que la evidencia de Claude coincida con el HEAD y
+con seis campos de relevo (`phase`, `running`, inicio, run lógico, runtime y epoch), y pregunta al
+resolver compartido si realmente es una continuación Claude→Codex. La lease vuelve a derivar esos
+campos en cada heartbeat, sincronización y cierre; una copia vieja de `status.yaml` no puede convertir
+el relevo en un run nuevo ni quedar commiteada por la reparación de baseline.
+
 Una continuación real conserva el mismo `build_run_id` lógico para heredar despachos, gasto y frenos
 de salud, pero tú nunca copias ese ID. Los dos launchers usan un único resolver: si ven
 `phase: implementation`, `running: false`, ausencia de lease y un runtime anterior distinto,

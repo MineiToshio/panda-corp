@@ -1040,7 +1040,14 @@ work order), `status.yaml` corruption, and conflicting git commits.
 `.pandacorp/run/build.lease/lease.json`, acquired by atomic directory creation through
 `pandacorp-build-state.mjs`. Every governed mutation revalidates the opaque token and monotonic epoch
 inside the shared mutation mutex. Heartbeats determine lease freshness; they do not independently own
-the lock. `running` and the timestamps below are compatibility/observability projections.
+the lock. The lease also owns the active projection identity (`run_id`, runtime, epoch, acquisition
+time and project phase). Acquire, renew, rollup synchronization and every commit-bearing terminal
+mutation re-derive `phase`, `running`, `run_started_at`, `build_run_id`, `build_runtime` and
+`build_lease_epoch` from that fenced source. Thus a stale baseline/worktree copy of `status.yaml`
+cannot become a durable handoff. A phase already advanced to `release` is stored in the lease and is
+never downgraded by a later heartbeat. During an active fence the baseline repair may reconcile other
+tracked crash residue but must never checkout/restore controller-owned `.pandacorp/status.yaml`.
+`running` and the timestamps below remain compatibility/observability projections, not ownership.
 
 The installed launcher passes this writer to the Dynamic Workflow as the explicit absolute
 `stateCli` capability. It resolves the real path and proves it is a regular file before acquiring a
@@ -1055,6 +1062,9 @@ running: true
 run_started_at: "2026-06-17T10:00:00Z"     # set once at launch
 supervisor_heartbeat: "2026-06-17T10:08:30Z"  # advanced every ~2 min by the supervisor (liveness of the watcher)
 last_event_at: "2026-06-17T10:08:12Z"       # advanced by the PRODUCER (engine) at every safe point — liveness of the build itself (DR-066)
+build_run_id: "run_..."                     # logical run, derived from the fenced lease
+build_runtime: "claude"                     # current runtime owner, derived from the fenced lease
+build_lease_epoch: 4                         # current monotonic fence epoch
 ```
 
 The **supervisor** (the agent that runs `implement`) writes `supervisor_heartbeat` to `status.yaml`

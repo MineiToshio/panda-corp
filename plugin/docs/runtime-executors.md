@@ -49,8 +49,9 @@ as the RED baseline of the next bounded pass.
 Worker ownership uses before/after content snapshots, not path-set attribution. During a dispatch,
 lease renewal continues normally. A change to `status.yaml` is ignored only when the active Codex
 token/epoch still passes the fence, the lease is fresh, and the complete diff normalizes to the exact
-`renew` projection (`running: true` and `supervisor_heartbeat: renewed_at`). Every other status field,
-duplicate liveness key, FRD or WO mutation remains a fail-closed `OWNERSHIP` violation.
+lease-derived projection (`phase`, `running`, acquisition time, logical run, runtime, epoch and
+heartbeat), with exactly one occurrence of every field. Any other status value, duplicate projected
+key, FRD or WO mutation remains a fail-closed `OWNERSHIP` violation.
 
 Terminal handling is controller-owned. SIGINT/SIGTERM/SIGHUP first quiesce the active Codex process
 group; the main controller alone then records the terminal reason and performs the two-phase release:
@@ -118,6 +119,9 @@ foreground launcher validates the versioned fixture and owner authorization agai
 2 HEAD, FRD, limits and runtime pins; it consumes the nonce before ownership and revokes it on exit.
 Its engine pin reads only the regular, versioned `.claude/engines/pandacorp-build.js` installed by the
 overlay; the permit has no alternate engine path, and non-consuming checks never disclose the nonce.
+The permit also binds the regular Stage-1 evidence to the current HEAD and released Claude projection,
+then requires the shared resolver to return the same logical run as an automatic cross-runtime cold
+continuation before authorization can be consumed.
 
 The runtime-neutral state and lease contract now has a bidirectional disposable-project harness at
 `plugin/scripts/test-runtime-switch.mjs`. It exercises the real `build-state.mjs` APIs and proves that

@@ -13,12 +13,23 @@ const run = async (args, env = {}) => { try { const r = await exec("node", [perm
 const git = (...args) => exec("git", ["-C", project, ...args]);
 await git("init", "-q"); await git("config", "user.email", "fixture@example.invalid"); await git("config", "user.name", "R10 fixture");
 await copyFile(path.join(root, "plugin/templates/shared/.claude/engines/pandacorp-build.js"), engineFile); await writeFile(path.join(project, ".gitignore"), ".pandacorp/run/*\n.pandacorp/pandacorp-build.js\n"); await writeFile(path.join(project, ".pandacorp/status.yaml"), 'running: false\noverlay_version: "8.75.0"\nlast_green_sha: ""\n'); await git("add", "."); await git("commit", "-qm", "test: seed"); const seed = (await git("rev-parse", "HEAD")).stdout.trim();
-await writeFile(path.join(project, ".pandacorp/status.yaml"), `running: false\noverlay_version: "8.75.0"\nlast_green_sha: "${seed}"\n`);
+const stage1RunId = "claude-stage-1-run"; const stage1Epoch = 1; const stage1Started = "2026-07-14T00:00:00.000Z";
+await writeFile(path.join(project, ".pandacorp/status.yaml"), `phase: implementation\nrunning: false\nrun_started_at: "${stage1Started}"\nbuild_run_id: "${stage1RunId}"\nbuild_runtime: "claude"\nbuild_lease_epoch: ${stage1Epoch}\noverlay_version: "8.75.0"\nlast_green_sha: "${seed}"\n`);
 const engine = createHash("sha256").update(await readFile(engineFile)).digest("hex"); const fixture = randomUUID(); const limits = { max_spend: 4, max_duration: 900, max_retries: 0, max_blocks: 1 };
 await writeFile(path.join(project, ".pandacorp/certification/r10.json"), `${JSON.stringify({ schema: 1, kind: "pandacorp-r10-installed-canary", fixture_uuid: fixture, seed_commit: seed, stage: "codex-frd-b", frds: ["frd-b-multiply"], limits, launch_mode: "foreground", plugin_version: pluginVersion, overlay_version: "8.75.0", engine_sha256: engine }, null, 2)}\n`); await git("add", "."); await git("commit", "-qm", "test: clean Claude safe point"); const head = (await git("rev-parse", "HEAD")).stdout.trim();
+await writeFile(path.join(project, ".pandacorp/run/r10-stage-1.json"), `${JSON.stringify({ runtime:"claude", plugin_version:pluginVersion, overlay_version:"8.75.0", engine_sha256:engine, initial_head:seed, build_run_id:stage1RunId, lease_epoch:stage1Epoch, target_frds:["frd-a-add"], max_agents:24, max_frds:1, snapshot_head:seed, safe_point_head:head, final_head:head, implementation_files:["src/add.mjs","tests/add.test.mjs"] })}\n`);
 const authFile = path.join(base, "authorization.json"); const nonce = randomUUID(); const auth = { schema: 1, kind: "pandacorp-r10-owner-authorization", fixture_uuid: fixture, seed_commit: seed, authorized_head: head, stage: "codex-frd-b", nonce, frds: ["frd-b-multiply"], limits, launch_mode: "foreground", plugin_version: pluginVersion, overlay_version: "8.75.0", engine_sha256: engine }; await writeFile(authFile, `${JSON.stringify(auth)}\n`);
 const common = ["--project", project, "--authorization", authFile, "--frds", "frd-b-multiply", "--max-spend", "4", "--max-duration", "900", "--max-retries", "0", "--max-blocks", "1"];
 let result = await run(["--mode", "check", ...common]); ok(result.code === 0, "real managed-overlay installed-canary permit checks green");
+await git("update-index", "--assume-unchanged", ".pandacorp/status.yaml");
+for (const [field, replacement] of [["phase", "architecture"], ["build_run_id", "wrong"], ["build_runtime", "codex"], ["build_lease_epoch", "99"], ["run_started_at", ""]]) {
+  const original = await readFile(path.join(project, ".pandacorp/status.yaml"), "utf8");
+  const changed = original.replace(new RegExp(`^${field}:.*$`, "m"), `${field}: ${replacement === "" ? '""' : JSON.stringify(replacement)}`);
+  await writeFile(path.join(project, ".pandacorp/status.yaml"), changed);
+  result = await run(["--mode", "check", ...common]); ok(result.code !== 0 && /Stage 1 handoff projection|cold continuation/.test(result.out), `R10 rejects drifted Stage 1 ${field}`);
+  await writeFile(path.join(project, ".pandacorp/status.yaml"), original);
+}
+await git("update-index", "--no-assume-unchanged", ".pandacorp/status.yaml");
 ok(!result.out.includes(nonce) && !result.out.includes(auth.nonce), "check stdout discloses no nonce or authorization secret");
 await writeFile(path.join(project, ".pandacorp/pandacorp-build.js"), await readFile(engineFile)); result = await run(["--mode", "check", ...common]); ok(result.code === 0, "invented legacy path is ignored when canonical engine is valid"); await rm(path.join(project, ".pandacorp/pandacorp-build.js"));
 const originalEngine = await readFile(engineFile); await git("update-index", "--assume-unchanged", ".claude/engines/pandacorp-build.js"); await writeFile(engineFile, "tampered\n"); result = await run(["--mode", "check", ...common]); ok(result.code !== 0 && /engine pin mismatch/.test(result.out), "wrong canonical engine fails closed"); await writeFile(engineFile, originalEngine);

@@ -176,6 +176,12 @@ cross-runtime safe point: `phase: implementation`, `running: false`, no lease, v
 `build_run_id`, and a different prior `build_runtime`. Preflight reports this classification without
 printing or requesting an owner-supplied ID:
 
+Before Stage 2 authorization, the permit independently reads the regular Stage-1 evidence file and
+requires its final HEAD, plugin/overlay/engine pins, logical run and epoch to match the clean released
+Claude projection. `phase`, `running`, `run_started_at`, `build_run_id`, `build_runtime` and
+`build_lease_epoch` are mandatory; the canonical resolver must return
+`automatic-cross-runtime-cold-continuation`. Any missing/drifted field blocks consumption.
+
 ```bash
 # First Claude launch: creates the logical run id.
 bash "$CLAUDE_PLUGIN_ROOT/scripts/launch-implement.sh" "$PROJECT" balanced 4

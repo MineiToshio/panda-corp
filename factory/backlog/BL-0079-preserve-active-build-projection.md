@@ -3,12 +3,12 @@ id: BL-0079
 type: bug
 area: build-engine
 title: "Preserve the active build projection across baseline repair"
-status: open
+status: done
 severity: p0
 opened: 2026-07-14
-closed:
+closed: 2026-07-14
 source: "R10-J Stage 1 independent audit"
-closes:
+closes: "plugin 9.95.7 / overlay 8.76.4 active lease projection"
 links: [DR-050, DR-113, LESSON-0027]
 ---
 
@@ -61,6 +61,8 @@ the acquire → clobber → renew/sync path, masking the gap.
   automatic cross-runtime cold continuation with the same logical run.
 - Run build-state, Claude engine, Codex executor, runtime-switch, permit, unattended, derived/source
   graph, backlog, manifest and Manual checks applicable to touched surfaces.
+- Signal-race harness test: a completed or interrupted suite must leave no executor PID or lease from
+  its disposable fixture; the harness owns and cleans every child it launches.
 
 ## Done when
 

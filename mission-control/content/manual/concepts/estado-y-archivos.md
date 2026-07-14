@@ -24,12 +24,18 @@ phase: build                    # fase actual del pipeline
 version: "1.0.0"                # versión semántica
 overlay_version: "8.5.0"        # versión del overlay Pandacorp
 last_green_sha: abc1234         # SHA del último commit con verify.sh verde
-safe_to_test: true              # si el build está en estado limpio
+safe_to_test: true              # hay snapshot verificado; HEAD es ese snapshot o su hijo-puntero de metadatos
 running: false                  # si el motor de implement está activo
 blocked_work_orders: []         # WOs congeladas esperando desbloqueo
 ```
 
 Mission Control lee este fichero para mostrar la fase y el estado en el portfolio y en la página de proyecto.
+
+Mientras existe una lease activa, `status.yaml` es una **proyección controlada**, no una segunda
+fuente de ownership. La lease deriva nuevamente la fase, `running`, la hora de inicio, el ID lógico,
+el runtime y el epoch durante acquire, heartbeat, sincronización y cierre. Por eso una reparación de
+baseline nunca restaura este fichero desde un commit antiguo. Al detenerse, la misma identidad queda
+publicada con `running: false`, lista para que otra puerta continúe en frío.
 
 ## Work orders: `docs/frds/frd-NN-<slug>/work-orders/wo-NN-MMM-<slug>.md`
 

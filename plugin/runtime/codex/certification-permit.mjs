@@ -72,8 +72,21 @@ if (metadata.version !== marker.plugin_version || auth.plugin_version !== marker
 if (yaml(status, "overlay_version") !== marker.overlay_version || auth.overlay_version !== marker.overlay_version) fail("overlay pin mismatch");
 
 if (contract.name === "r10") {
+  const stage1File = path.join(project, ".pandacorp/run/r10-stage-1.json");
+  try { await assertRegular(stage1File, "R10 Stage 1 evidence"); } catch (error) { if (error?.code === "ENOENT") fail("R10 Stage 1 evidence is missing"); throw error; }
+  const stage1 = await readJson(stage1File); const head = git(project, "rev-parse", "HEAD");
+  const stage1IdValid = typeof stage1.build_run_id === "string" && /^[A-Za-z0-9._:-]{1,160}$/.test(stage1.build_run_id);
+  const stage1PinsMatch = stage1.plugin_version === marker.plugin_version && stage1.overlay_version === marker.overlay_version && stage1.engine_sha256 === marker.engine_sha256;
+  const handoff = { phase: yaml(status, "phase"), running: yaml(status, "running"), run_id: yaml(status, "build_run_id"), runtime: yaml(status, "build_runtime"), epoch: Number(yaml(status, "build_lease_epoch")), started_at: yaml(status, "run_started_at") };
+  let stageHeadsOrdered = false;
+  try { git(project, "merge-base", "--is-ancestor", stage1.snapshot_head, stage1.safe_point_head); git(project, "merge-base", "--is-ancestor", stage1.safe_point_head, stage1.final_head); stageHeadsOrdered = true; } catch {}
+  if (stage1.runtime !== "claude" || !stage1IdValid || !Number.isSafeInteger(stage1.lease_epoch) || stage1.lease_epoch < 1 || !stage1PinsMatch || stage1.final_head !== head || !stageHeadsOrdered || stage1.build_run_id !== handoff.run_id || stage1.lease_epoch !== handoff.epoch || handoff.phase !== "implementation" || handoff.running !== "false" || handoff.runtime !== "claude" || !Number.isFinite(Date.parse(handoff.started_at))) fail("R10 Stage 1 handoff projection does not match its evidence");
+  let resolution;
+  try { resolution = JSON.parse(execFileSync(process.execPath, [path.join(pluginRoot, "scripts/resolve-build-run-id.mjs"), "--project", project, "--runtime", "codex", "--mode", "auto", "--new-id", "r10-certification-probe"], { encoding: "utf8" })); }
+  catch { fail("R10 Stage 1 handoff does not resolve as a cold continuation"); }
+  if (!resolution.continuation || resolution.reason !== "automatic-cross-runtime-cold-continuation" || resolution.run_id !== stage1.build_run_id || resolution.previous_runtime !== "claude") fail("R10 Stage 1 handoff does not resolve as a cold continuation");
   const lastGreen = yaml(status, "last_green_sha");
-  if (!lastGreen || git(project, "merge-base", "--is-ancestor", lastGreen, "HEAD") !== "") fail("last_green_sha is missing or not an ancestor");
+  if (!lastGreen || lastGreen !== stage1.snapshot_head || git(project, "merge-base", "--is-ancestor", lastGreen, "HEAD") !== "") fail("last_green_sha is missing, drifted from Stage 1, or not an ancestor");
   const engineFile = path.join(project, ".claude/engines/pandacorp-build.js");
   try { await assertRegular(engineFile, "managed engine"); } catch (error) { if (error?.code === "ENOENT") fail("canonical managed engine is missing"); throw error; }
   if (git(project, "ls-files", "--error-unmatch", ".claude/engines/pandacorp-build.js") !== ".claude/engines/pandacorp-build.js") fail("managed engine is not versioned at the canonical overlay path");

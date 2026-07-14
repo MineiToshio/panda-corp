@@ -14,4 +14,9 @@ Los gates concurrentes reutilizan `.pandacorp/run/gate-worktree` únicamente si 
 
 En cada safe point, el motor consulta la señal de parada mediante un recibo cercado de `stateCli inspect-stop`. Ese recibo usa `lstat` de Node y se valida antes de procesar la cola o las decisiones: un alias de shell no puede inventar una parada y un recibo ausente o inválido detiene el run de forma segura, sin asumir que todo está bien.
 
+La lease es también la fuente de la proyección activa. Acquire, renovación, `sync-rollups` y cierre
+reponen fase, run lógico, runtime, epoch y hora de inicio en `status.yaml`; el cierre cambia únicamente
+la actividad a `running: false`. El reparador de baseline puede restaurar otros residuos tracked, pero
+nunca ese `status.yaml` controlado mientras la lease siga cercando al writer.
+
 > El cuerpo se compone en React (`WorkflowBuild`); este markdown respalda el índice del Manual.

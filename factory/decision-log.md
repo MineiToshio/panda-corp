@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-07-14 — Active build identity is projected only from the fenced lease
+
+BL-0079 closes the R10-J handoff failure: the lease now owns active phase/run/runtime/epoch/start-time
+projection, including the release phase, and all commit-bearing safe-point paths re-derive it. Baseline
+repair cannot restore controller-owned `status.yaml`; duplicate projected keys are canonicalized.
+R10 Stage 2 additionally requires Stage-1 evidence and the shared resolver to prove the exact cold
+continuation before one-shot authorization is consumed. Plugin 9.95.7 / overlay 8.76.4.
+
 ## 2026-07-13 — FALLBACK writes require an explicit one-shot certification authority
 
 BL-0077 makes capability policy executable at the Codex launcher boundary: an omitted authorization

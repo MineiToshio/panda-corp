@@ -20,5 +20,5 @@ pending_decisions: 0   # maintenance counter written by skills; display consumer
 rethink_pending: false # true if /iterate asked to pause the build for a major change
 advance_pending: false # true when the current phase produced output and awaits your "ok, advance" (meanwhile, re-running the phase = iterate in place, DR-032)
 last_green_sha: ""     # commit of the last work order closed green (written by the gate, not the agent)
-safe_to_test: false    # true only when HEAD == last_green_sha (nothing uncommitted) → "testable point"
+safe_to_test: false    # true when last_green_sha is the verified snapshot and HEAD is that snapshot or its metadata-only pointer child
 last_harvest: ""       # ISO timestamp of the last factory-memory lesson harvest for this project — written by /pandacorp:implement's close-out and /pandacorp:memory (DR-047/DR-103); read by the recurring memory sweep
