@@ -74,12 +74,30 @@ writeFileSync(o,JSON.stringify({done:true,verdict,summary,findings:[],...(tracea
   return { project, fake };
 }
 const execute = ({ project, fake }, scenario = "success", extra = [], env = {}) => run("node", [executor, "--project", project, "--run-id", "mock-run", "--max-spend", "40", "--max-duration", "120", ...extra], project, { PANDACORP_CODEX_BIN: fake, PANDACORP_CODEX_EVENTS_FILE: path.join(project, ".pandacorp/run/test-events.ndjson"), FAKE_SCENARIO: scenario, ...env });
-const checkpoint = (project) => read(path.join(project, ".pandacorp/run/codex-checkpoint.json")).then(JSON.parse);
+const checkpoint = async (project) => {
+  const value = JSON.parse(await read(path.join(project, ".pandacorp/run/codex-checkpoint.json")));
+  if (value.terminal_reason) ok(value.terminal_at === value.updated_at, `non-atomic ${value.terminal_reason} checkpoint: ${JSON.stringify(value)}`);
+  return value;
+};
+const tickingClock = async (project) => {
+  const file = path.join(project, ".pandacorp/run/tick-clock.mjs");
+  await writeFile(file, `const NativeDate=globalThis.Date;let tick=NativeDate.parse('2026-07-14T12:00:00.000Z');globalThis.Date=class extends NativeDate{constructor(...args){super(...(args.length?args:[tick++]));}static now(){return tick++;}};\n`);
+  return file;
+};
 const addChange=async(fx,slug,type="feature")=>{await mkdir(path.join(fx.project,".pandacorp/inbox/changes"),{recursive:true});await writeFile(path.join(fx.project,`.pandacorp/inbox/changes/${slug}.md`),`---\ntype: ${type}\nclass: standard\nstatus: ready\n---\n\nCambio ${slug}\n`);};
 const addLastPendingTarget=async(fx)=>{const aRoot=path.join(fx.project,"docs/frds/frd-01-a");for(const file of ["frd.md","blueprint.md","work-orders/wo-01.md"]){const absolute=path.join(aRoot,file);await writeFile(absolute,(await read(absolute)).replace("implementation_status: PLANNED","implementation_status: VERIFIED"));}const bRoot=path.join(fx.project,"docs/frds/frd-02-b");await mkdir(path.join(bRoot,"work-orders"),{recursive:true});await writeFile(path.join(bRoot,"frd.md"),"---\nimplementation_status: PLANNED\n---\n");await writeFile(path.join(bRoot,"blueprint.md"),"---\nimplementation_status: PLANNED\n---\n\n## Build Plan\n\n| WO | Depends on | Artifacts | Foundation | Parallel with |\n|---|---|---|---|---|\n| WO-02 | — | `feature-b.txt` | false | — |\n");await writeFile(path.join(bRoot,"work-orders/wo-02.md"),"---\nid: WO-02\nimplementation_status: PLANNED\ndependsOn: []\n---\n");await run("git",["add","-A"],fx.project);await run("git",["commit","-qm","test: seed last pending target"],fx.project);return read(path.join(aRoot,"work-orders/wo-01.md"));};
 
 await test("success E2E uses precise staging, ignores runtime artifacts and reaches release", async () => {
   const fx = await fixture(); const result = await execute(fx); ok(result.code === 0, result.err); const status = await read(path.join(fx.project, ".pandacorp/status.yaml")); ok(/phase: ["']?release/.test(status) && /running: false/.test(status), status); const wo = await read(path.join(fx.project, "docs/frds/frd-01-a/work-orders/wo-01.md")); ok(/VERIFIED/.test(wo), wo); const cp = await checkpoint(fx.project); ok(cp.terminal_reason === "complete" && cp.implementation_commits["frd-01-a"].length === 1, JSON.stringify(cp)); const trackedRun = await run("git", ["ls-files", ".pandacorp/run"], fx.project); ok(!trackedRun.out.trim(), "runtime files were staged");
+});
+
+await test("terminal checkpoint captures one atomic instant even when the clock ticks between reads", async () => {
+  const fx = await fixture();
+  const clock = await tickingClock(fx.project);
+  const result = await execute(fx, "success", [], { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${clock}`.trim() });
+  ok(result.code === 0, `${result.err}\n${result.out}`);
+  const cp = await checkpoint(fx.project);
+  ok(cp.terminal_at === cp.updated_at, `terminal transition split across instants: ${JSON.stringify(cp)}`);
 });
 
 await test("fenced heartbeat during a long dispatch is controller-owned, not a worker write", async () => {

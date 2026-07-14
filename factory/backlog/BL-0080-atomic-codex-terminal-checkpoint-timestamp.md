@@ -3,12 +3,12 @@ id: BL-0080
 type: bug
 area: build-engine
 title: "Make Codex terminal checkpoints use one atomic timestamp"
-status: open
+status: done
 severity: p1
 opened: 2026-07-14
-closed:
+closed: 2026-07-14
 source: "R10-K Stage 2 certification finding"
-closes:
+closes: "Plugin 9.95.8 atomic Codex terminal checkpoint invariant"
 links: [DR-113]
 ---
 

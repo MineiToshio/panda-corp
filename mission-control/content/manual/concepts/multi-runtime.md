@@ -71,6 +71,13 @@ credenciales, red, sandbox, árbol limpio y prevención de sueño, y deja un rec
 `.pandacorp/run/codex-launch.json`. Esto mejora la seguridad del camino, pero no abre el permiso hasta
 completar también el canario instalado R10 y el overnight R11.
 
+El cierre Codex también es una sola transición observable: el checkpoint captura una única hora y la
+reutiliza como `terminal_at` y `updated_at`. El recolector falla cerrado si el evento de cierre, la
+liberación de lease, el supervisor o el recibo aparecen antes de ese instante o contradicen el resultado.
+También exige que cada FRD nocturno tenga review JUDGE terminada en verde y su resultado real, y que
+el recibo completo coincida con el marker y la autorización del dueño. Así, ni una diferencia accidental
+de milisegundos, ni una review apenas iniciada, ni un recibo mínimo pueden fabricar la certificación.
+
 Un cambio de runtime es siempre **en frío y desde un safe point**: el ejecutor actual termina su gate/commit, se detiene por completo y libera ownership; recién entonces otra sesión puede reconstruir los ficheros. Nunca hay takeover vivo, mensajería/delegación entre runtimes ni dos builds simultáneos. Claude usa únicamente agentes/modelos Claude; Codex, únicamente los suyos.
 
 R10 no intenta convertir Dynamic Workflows en un motor de Codex. Comprueba una cadena de tres

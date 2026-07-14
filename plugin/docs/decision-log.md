@@ -4,6 +4,23 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.8 — 2026-07-14 (PATCH): terminal checkpoints use one atomic instant
+
+**What:** BL-0080 makes the Codex executor capture one terminal transition timestamp and reuse it for
+both `terminal_at` and `updated_at`. The unattended evidence collector now rejects split checkpoint
+times, completion/release/supervisor events that predate the checkpoint, and an R11 receipt whose
+revocation time or outcome contradicts successful completion. It also requires each overnight FRD's
+exact JUDGE start, green finish and result artifact, and a complete receipt bound to marker and owner
+authorization. A ticking-clock regression makes the old two-read implementation deterministically red.
+
+**Why:** R10-K exposed a one-millisecond mismatch because `terminal()` and `checkpoint()` each read
+the clock independently. One transition had two competing times, making valid certification evidence
+nondeterministically inconsistent.
+
+**Impact:** plugin 9.95.8; no overlay change. Claude Dynamic Workflows are unchanged. Codex terminal
+evidence is internally atomic; partial reviews, forged-minimal receipts and causally inverted chains
+remain fail-closed.
+
 ## v9.95.7 — 2026-07-14 (PATCH): active build projection is lease-derived
 
 **What:** BL-0079 makes the fenced lease the single source for the active phase, logical run,

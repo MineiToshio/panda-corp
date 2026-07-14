@@ -144,6 +144,11 @@ node /absolute/path/to/panda-corp/plugin/scripts/collect-codex-unattended-eviden
 The collector classifies a run as `LIVE_OVERNIGHT` only after at least three wall-clock hours and at
 least two independently reviewed FRDs. It binds launch, checkpoint, durable ledger, executor terminal,
 supervisor terminal, the revoked one-shot R11 receipt and lease release to the same run/reason; it also
-requires the lease directory to be absent. While policy remains `FALLBACK`, a three-hour result without
+requires the lease directory to be absent. The terminal checkpoint is one atomic transition:
+`terminal_at` and `updated_at` must be identical, and the completion, release, supervisor and receipt
+timestamps must follow their causal order and cannot be future-dated past collection. Each counted
+FRD requires its exact JUDGE dispatch, a green `dispatch.finished` record and its real green result
+artifact. The revoked receipt must carry the complete permit identity and match the committed marker
+plus owner authorization; a minimal or reconstructed receipt is not evidence. While policy remains `FALLBACK`, a three-hour result without
 that exact receipt is rejected rather than promoted. Mixed/corrupt evidence, duplicate event IDs, a
 forged terminal chain, a live receipt or a surviving lease fails closed.

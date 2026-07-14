@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-07-14 — One terminal transition has one timestamp
+
+BL-0080 makes the Codex executor's terminal checkpoint atomic in time: `terminal_at` and `updated_at`
+come from one captured instant. The unattended evidence gate also proves that executor completion,
+lease release, supervisor termination and certification-receipt revocation cannot predate or
+contradict that checkpoint. Overnight proof counts only completed green JUDGE results and a complete
+receipt bound to its marker and owner authorization. Plugin 9.95.8 ships the fix without changing the
+project overlay or Claude Dynamic Workflows.
+
 ## 2026-07-14 — Active build identity is projected only from the fenced lease
 
 BL-0079 closes the R10-J handoff failure: the lease now owns active phase/run/runtime/epoch/start-time

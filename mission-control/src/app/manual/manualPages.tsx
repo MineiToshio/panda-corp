@@ -2274,6 +2274,14 @@ function ConceptMultiRuntime(): React.JSX.Element {
         cada renovación, sincronización y cierre, así que una copia vieja de <Code>status.yaml</Code>
         no puede fabricar un run nuevo.
       </NotePanel>
+      <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
+        El cierre Codex es una sola transición observable: el checkpoint captura una hora y la
+        reutiliza como <Code>terminal_at</Code> y <Code>updated_at</Code>. El recolector rechaza una
+        cadena donde el evento de cierre, la liberación de lease, el supervisor o el recibo
+        contradigan el resultado o aparezcan fuera de orden. Para R11, cada FRD necesita review JUDGE
+        terminada en verde y su resultado real; el recibo completo debe coincidir con el marker y la
+        autorización del dueño.
+      </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
         como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar, sincronizar

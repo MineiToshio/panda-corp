@@ -148,6 +148,12 @@ Once promoted by the gate above, a non-Claude `/pandacorp:implement` executor mu
 - **VERIFIED is never rebuilt.** A cold successor derives pending work from canonical files only after the prior executor stopped and released the atomic lease.
 - **Sequential by default.** No shared-tree parallel writes. Any later parallelism requires its own certified contract/ADR.
 - **One atomic lease.** The certified lease, not the legacy `running` flag alone, fences acquire, heartbeat, stale reclaim and release across runtimes.
+- **One atomic terminal instant.** A terminal checkpoint captures time once and uses that exact value
+  for both `terminal_at` and `updated_at`. Executor completion, lease release, supervisor terminal and
+  any certification-receipt revocation must name the same run/outcome and may not predate that instant;
+  the evidence collector rejects split or causally impossible chains. `LIVE_OVERNIGHT` additionally
+  binds every counted FRD to a JUDGE dispatch, green finish and real result artifact, and binds the
+  complete receipt to its committed marker and owner authorization—starts or partial receipts do not count.
 - **One logical build-run identity per cold continuation.** The shared resolver automatically reuses
   the prior `build_run_id` only at a released cross-runtime `phase: implementation` safe point, so
   durable dispatch, spend and health floors carry over without asking the owner for an ID. A
