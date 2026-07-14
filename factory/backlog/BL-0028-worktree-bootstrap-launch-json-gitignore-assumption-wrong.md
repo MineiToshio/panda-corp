@@ -50,3 +50,9 @@ the port rewrite. GREEN: after the fix, `git status` in the worktree shows no di
 
 ## Out of scope
 Changing how the port itself is chosen (only how/where the choice is persisted).
+
+## Corroborating occurrence (2026-07-12, personal-page-v2, harvested via /pandacorp:memory)
+Re-hit in a later session: `worktree-bootstrap.sh`'s launch.json autoPort rewrite again left the worktree
+dirty, and `merge-queue.sh`'s clean-tree preflight rejected the landing until an agent ran
+`git checkout -- .claude/launch.json` by hand first. Same root cause as above, still unfixed as of this
+note — no new item filed (this is the same BL-0028).

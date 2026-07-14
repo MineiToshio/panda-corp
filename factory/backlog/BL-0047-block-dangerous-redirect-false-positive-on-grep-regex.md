@@ -44,6 +44,14 @@ message (containing a `>`/arrow-like token, e.g. "8.51 -> 8.69") was BLOCKED by 
 message's own descriptive text as a redirect. Worked around by rephrasing the message to avoid the literal
 character. See `factory/memory/LESSON-0105` (updated) for the generalized workaround.
 
+## Corroborating occurrence (2026-07-12, personal-page-v2, harvested via /pandacorp:memory)
+A FOURTH live reproduction, on a new trigger surface: a `git commit -m` whose `Co-Authored-By:` trailer
+contained a standard `Name <email>` angle-bracket email was BLOCKED — the closing `>` of the trailer read
+as a redirect once `.pandacorp/*` also appeared elsewhere in the same command. Worked around with
+`git commit -F <msgfile>`. See `factory/memory/LESSON-0105` (updated) for the generalized workaround; this
+confirms the false-positive surface now also covers a routine git trailer format, not just prose/version
+strings.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument

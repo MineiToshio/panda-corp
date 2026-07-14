@@ -5,7 +5,7 @@ domain: build-orchestration
 tags: [worktree, dr-096, env-local, codegen, content-collections, verify-sh, false-red, worktree-setup-hook]
 context: a project onboarded onto the shared `worktree-bootstrap.sh` template (DR-096), which reserves a per-project extension point (`.pandacorp/worktree-setup.sh`) for exactly this kind of project-specific "day-zero" setup
 trigger: use this when a fresh git worktree's verify.sh/build fails right after bootstrap with a missing-env-var error or a missing-generated-content error, before suspecting a real code regression — and when onboarding ANY project onto worktree isolation that reads its own `.env.local` or needs a codegen step before building
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-10 (agent-inferred) — a fresh worktree needed .env.local copied AND `npx @content-collections/cli build` run before verify.sh could pass; the project had never created its `.pandacorp/worktree-setup.sh` hook (the shared worktree-bootstrap.sh template's own designated extension point, step 4 — 'a project with its own state adds the heavy bit here'), so nothing filled that gap, and a freshly bootstrapped worktree looked broken even though the checked-out code was correct and the shared template itself was working exactly as designed"
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-10 (agent-inferred) — a fresh worktree needed .env.local copied AND `npx @content-collections/cli build` run before verify.sh could pass; the project had never created its `.pandacorp/worktree-setup.sh` hook (the shared worktree-bootstrap.sh template's own designated extension point, step 4 — 'a project with its own state adds the heavy bit here'), so nothing filled that gap, and a freshly bootstrapped worktree looked broken even though the checked-out code was correct and the shared template itself was working exactly as designed. CORROBORATED 2026-07-12 (personal-page-v2 `.pandacorp/run/lessons.md`, next harvest): the exact same gap recurred — 'worktree-bootstrap.sh does not reconstitute the gitignored `.content-collections/generated` codegen nor `.env.local`... hit by 4 independent agents this session' — confirming the project STILL has not created `.pandacorp/worktree-setup.sh` after being flagged once already; the shared template and its extension point are unchanged and correct (verified: `.pandacorp/worktree-bootstrap.sh` line 67-69 still calls the project hook if executable), so this remains a project-awareness gap, not a regression in the shared tooling."
 provenance: agent-inferred
 created: 2026-07-10
 status: candidate
@@ -42,3 +42,7 @@ to copy the env file(s) and run that codegen step — do this BEFORE the first w
 after a false red. If a fresh worktree's `verify.sh` fails immediately with a missing-env or
 missing-generated-artifact error, check first whether the project has a `.pandacorp/worktree-setup.sh` at
 all before suspecting either the checked-out code or the shared `worktree-bootstrap.sh` template.
+**Known-recurring case:** as of 2026-07-12, personal-page-v2 has hit this twice (2026-07-10, 2026-07-12)
+without creating the hook — if you land on this project again and see the same symptom, the fix is to
+create `.pandacorp/worktree-setup.sh` in THIS project via its own `/pandacorp:change`, not another factory
+investigation.

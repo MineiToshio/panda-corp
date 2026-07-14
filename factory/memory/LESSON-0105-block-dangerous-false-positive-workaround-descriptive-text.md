@@ -5,7 +5,7 @@ domain: build-engine
 tags: [block-dangerous, hooks, false-positive, git-commit, workaround]
 context: an ordinary `git commit -m`/`grep` command gets blocked by `block-dangerous.sh`'s redirect-truncation guard because the command's TEXT (a commit message, a grep pattern) merely mentions a bare `>` character or a protected-looking path, with no real shell redirect involved
 trigger: use this when a legitimate git commit or grep/inspection command is unexpectedly blocked as a "dangerous redirect" and you need to get the actual work done without weakening the gate
-source: "mission-control .pandacorp/run/lessons.md 2026-07-07 (two occurrences: a commit message describing a bug with a literal '>' character, and a commit message mentioning a `.pandacorp/...` path) — agent-inferred; corroborates BL-0047 (open). Corroborated a THIRD time on personal-page-v2 (2026-07-07): a `git commit -m` for an overlay-version bump (e.g. '8.51 -> 8.69') was BLOCKED by the same redirect-truncation guard reading the arrow/`>`-like text in the message; resolved the same way, by rephrasing the message to avoid the literal character."
+source: "mission-control .pandacorp/run/lessons.md 2026-07-07 (two occurrences: a commit message describing a bug with a literal '>' character, and a commit message mentioning a `.pandacorp/...` path) — agent-inferred; corroborates BL-0047 (open). Corroborated a THIRD time on personal-page-v2 (2026-07-07): a `git commit -m` for an overlay-version bump (e.g. '8.51 -> 8.69') was BLOCKED by the same redirect-truncation guard reading the arrow/`>`-like text in the message; resolved the same way, by rephrasing the message to avoid the literal character. Corroborated a FOURTH time on personal-page-v2 (2026-07-12, `.pandacorp/run/lessons.md`): a `git commit -m` whose `Co-Authored-By:` trailer contained an email in angle brackets (`Name <email>`) was blocked — the scanner read the closing `>` as a redirect once `.pandacorp/*` also appeared elsewhere in the same command line, a NEW trigger surface (a standard git trailer format, not prose or a version-bump arrow) hitting the exact same root cause; workaround used: `git commit -F <msgfile>` (write the message via the editor tool, no shell `>` in the invoking command)."
 provenance: agent-inferred
 created: 2026-07-07
 status: candidate
@@ -33,4 +33,8 @@ prose, sidestep the gate rather than fighting it: (a) rephrase to avoid the lite
 than sign" instead of quoting `>`); or (b) write the commit message to a scratch file and commit with
 `git commit -F <file>` instead of `-m "$(cat <<HEREDOC ...)"` — this avoids the gate reading the message's
 own text as part of the invoking command line. Neither workaround weakens the gate; both just avoid
-triggering its known false-positive surface until BL-0047 narrows it.
+triggering its known false-positive surface until BL-0047 narrows it. **A standard `Co-Authored-By: Name
+<email>` git trailer is itself a trigger surface** (the `>` closing the angle-bracket email reads as a
+redirect when a protected-looking path also appears in the same command) — prefer `git commit -F <file>`
+whenever a commit carries a `Co-Authored-By` trailer AND the command also references a `.pandacorp/`-style
+path, rather than discovering the block mid-commit.
