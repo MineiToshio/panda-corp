@@ -29,11 +29,11 @@ Which portable-core capability each supported runtime provides. When a cell is a
 | SKILL.md discovery | native (`plugin/`) | `$REPO_ROOT/.agents/skills/` + `~/.agents/skills/` | native (skills support) | `.agents/skills/`, `.claude/skills/`, `.opencode/skills/` |
 | Skill discovery path in this repo | `plugin/skills/` | `.agents/skills` → `plugin/skills` (committed symlink) | same symlink | same symlink |
 | Subagents | native (`Agent`/`Task`, per-spawn model) | `.codex/agents/*.toml` (model baked in, explicit-request-only, depth 1, ≤ `max_threads`) | limited/none | limited/none |
-| Background / unattended workflows | native (Dynamic Workflows, resumable) | **none locally** (Cloud only; `codex resume` reloads transcript) | none | none |
+| Build execution | native Dynamic Workflow: targeted or bare/global, background/unattended, resumable | **FALLBACK:** `attended_foreground` is implemented as a candidate but unavailable until its installed Codex-only canary is green | none | none |
 | Hooks (lifecycle enforcement) | native (`hooks.json` + `${CLAUDE_PLUGIN_ROOT}`) | **source-certified for Codex CLI 0.144.1**: generated `PreToolUse` + `Stop` registration, strict payload adapter and execpolicy; each installation/update still requires explicit plugin install + hook trust | none wired | none wired |
 | MCP | native | native (`.mcp.json`) | native | native |
 
-**Reading the matrix:** AGENTS.md + SKILL.md discovery + MCP are the portable floor present everywhere — enough to read the factory, invoke certified non-build flows and review canonical state, but **not by themselves permission to write the build state machine**. Subagents are shallow/absent outside Claude Code (degrade to sequential, PORT-3). Codex hook source is now certified, but activation/trust and the executor transition proof are separate gates; hook availability alone never grants write permission. The interim write boundary and executor certification live in PORT-5/PORT-6.
+**Reading the matrix:** AGENTS.md + SKILL.md discovery + MCP are the portable floor present everywhere, but **not by themselves permission to write the build state machine**. Codex remains denied while policy is `FALLBACK`; candidate code and a one-run permit are not authority. Subagents are shallow/absent outside Claude Code (degrade to sequential, PORT-3). Hook availability alone never grants or widens build permission.
 
 ## Rule — PORT-2 Neutral model tiers
 
@@ -79,39 +79,47 @@ When the owner asks for a phase (`/pandacorp:x`, "ejecuta la fase x", `$x`) on a
 
 ## Rule — PORT-5 Build execution and cold runtime continuation
 
-### Current permission boundary (R10 fixture result — binding now)
+### Current permission boundary — Codex remains FALLBACK pending its installed canary
 
-Proposal 32's R2 atomic lease, R3 enforcement and first R6 governed-transition slice are green. R7's
-Codex-local executor also passes its offline disposable failure corpus, including two-phase terminal
-release; R8 ready-change routing is green offline; and R10 proves bidirectional cold continuation
-with real fenced CLIs in a disposable Git fixture. It is nevertheless **NO-GO for promotion**: the
-installed Claude→Codex→Claude R10 canary is still pending and unattended certification remains R11. Codex and
-every other non-Claude runtime are therefore still **read/review-only on any project with build
-state**. They MUST NOT:
+Codex MUST NOT write normal project build state while canonical capability policy resolves
+`implement.codex` to `FALLBACK`. The implemented `attended_foreground` profile is a promotion candidate,
+not permission: the official launcher must stop before lease acquisition until one installed
+Codex-only disposable canary is green and the policy is explicitly changed to `EXPERIMENTAL`.
 
-- start `/pandacorp:implement` or execute the write steps below;
-- stamp work-order/FRD/build state, clear or take the current lock, or emit a build heartbeat;
-- run concurrently with, steer, message, delegate to or take over a Claude Dynamic Workflow.
+The candidate profile contract, which becomes operative only after that promotion, is fail-closed at launcher, supervisor and executor:
 
-Use Claude Code for governed build writes during this interim. A later runtime may inspect/review the committed safe point, but a **runtime change is cold and safe-point-only**: the current executor completes its active gate and commit, drains/cancels its children, persists the handoff facts, stops fully and releases ownership; only then may a later runtime reconstruct state. `VERIFIED` remains skip-on-resume evidence, but that fact alone does not preserve the prior executor's in-memory scheduler, budget or health state and does not prove cross-runtime safety.
+- exactly **one** explicit target: one normalized FRD slug OR one exact `status: ready` change slug;
+- foreground ownership for the full run, with cumulative `max-duration <= 7200` seconds;
+- zero automatic restarts: a controller crash ends the run and releases/quiesces through the terminal path;
+- sequential Codex-local STANDARD implementation and independent JUDGE review, deterministic
+  `verify.sh`, and a parsed mutation receipt that must be green; missing, timed-out, ambiguous or
+  below-threshold mutation evidence is red;
+- milestones in `.pandacorp/comms/progress.md`, timing events in `.pandacorp/track.jsonl`, and the
+  existing fenced lease/state writer remain the durable evidence;
+- terminal scope is always partial: release ownership and keep `phase: implementation`. The profile
+  cannot enter project-wide hardening, advance `phase: release`, drain an untargeted project, run in
+  background/unattended/overnight mode, or invoke/delegate to Claude.
 
-**Reevaluation trigger:** promotion requires the installed-runtime R10 canary and R11's unattended
-canary in addition to the already-green R2/R3/R6/offline-R7/R8 and fixture-R10 evidence. Until that complete evidence set exists, no prose interpretation of
-this playbook or local invocation of `launch-codex-implement.sh` grants write permission.
+After promotion, the launcher issues a single-use attended permit bound to the project, run, exact target and limits;
+the supervisor and executor consume their own stages before build mutation. Directly invoking either
+controller without the profile and permit is denied before lease acquisition. The permit is authority
+for this one attended run, not a reusable certification receipt.
 
-R10 evaluates both executors at their real platform boundaries: an installed Claude Dynamic Workflow
-must reach and release a valid safe point; a later foreground Codex executor must acquire a new epoch,
-continue canonical pending work and release another valid safe point; a later Claude run must recognize
-the Codex-produced state. Fail-closed receipts and live installed evidence are required. Host-side proof
-that a Claude subagent can never fabricate a tool result is not an R10/R11 criterion, because the
-Dynamic Workflows API offers no such host seam and Codex never consumes that narration.
+Before promotion, **all** normal Codex build forms remain denied. After the narrow promotion, these broader forms remain denied: bare/global `/pandacorp:implement`, multiple FRDs,
+hardening/release, background/unattended operation and factory-backlog drain-all. Cursor, OpenCode and
+other non-Claude runtimes remain read/review-only on build state until separately promoted. Claude Code
+keeps its Dynamic Workflow, Claude-only agents, supervisor and unattended behavior unchanged.
 
-**Certification-only exceptions (not promotion).** Normal Codex build writes remain denied while
-`implement` is `FALLBACK`. The official launcher reads that policy and fails closed when the owner
-authorization argument is empty; a local invocation is not authority. The two evidence exceptions
-below use distinct markers, authorizations and receipts. Both consume their nonce before lease
-acquisition, revoke it on every terminal path, reject replay/resume after revocation and grant no
-permission to another fixture, HEAD, scope or limit.
+Runtime switching is outside this profile. If the owner later reopens that capability, it remains a
+cold continuation only after a clean committed safe point, full stop and lease release—never live
+takeover, simultaneous builds or runtime-to-runtime messaging.
+
+**Legacy certification-only exceptions (not normal permission).** The R10/R11 evidence procedures
+below remain preserved for any future cross-runtime or overnight qualification. They are separate
+from `attended_foreground`: their distinct owner authorizations, markers and receipts consume a nonce
+before lease acquisition, revoke it on every terminal path, reject replay after revocation and grant
+no permission to another fixture, HEAD, scope or limit. Completing them is no longer a prerequisite
+for the narrow Codex-only attended profile, and the attended permit cannot be substituted for either.
 
 **R10 Stage 2.** One installed-canary
 Stage 2 launched by the official Codex foreground launcher with a one-shot owner authorization. The
@@ -140,9 +148,9 @@ spend/duration/retry/block ceilings. The duration ceiling must permit at least t
 `codex-live-overnight`. The collector, not elapsed narration, decides whether the result qualifies as
 `LIVE_OVERNIGHT`. Full procedure: `plugin/runtime/codex/R11-CERTIFICATION.md`.
 
-### Future attended sequential contract (certification target; not current permission)
+### Governed sequential contract (candidate for Codex `attended_foreground`)
 
-Once promoted by the gate above, a non-Claude `/pandacorp:implement` executor must satisfy this contract with strict runtime locality:
+The Codex `attended_foreground` executor is implemented against the applicable targeted subset of this contract, but may not exercise it on a normal project until the installed canary and policy promotion; whole-project/hardening clauses remain future gates:
 
 - **Same governed state machine.** Build Plan order, `implementation_status` frontmatter (`PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), the same per-FRD gate (fresh reviewer pass + `verify.sh`), the same per-WO commits and safe-point rules.
 - **VERIFIED is never rebuilt.** A cold successor derives pending work from canonical files only after the prior executor stopped and released the atomic lease.
@@ -160,13 +168,13 @@ Once promoted by the gate above, a non-Claude `/pandacorp:implement` executor mu
   same-runtime next pass, `phase: release`, missing/invalid prior state or explicit `new` intent starts
   a new run. Runtime/process identity stays local.
 
-**Certification playbook (execute only after promotion; each step names its file evidence):**
+**Executor playbook (the Codex profile applies it to its one exact target):**
 
 1. **Preflight.** `.pandacorp/status.yaml` exists (else STOP: not a factory project — route to `adopt`/`spec`). `overlay_version` not behind `plugin/templates/OVERLAY_VERSION` (else run `upgrade` first, DR-048). Readiness stamps present on every ACTIVE per-FRD `blueprint.md` (`readiness_gate: passed`, `grounding_gate: passed`) and `grep -rn "NEEDS CLARIFICATION" docs/` empty (DR-100/DR-102) — a plan that never passed its gates is not built.
 2. **Atomic lease.** Acquire the R2 lease using the certified owner-token protocol; a failed acquire restores the prior projection before dropping ownership (and retains the fence if rollback itself cannot complete). Renew at the certified cadence, reclaim stale ownership only through the fenced protocol, and release only with the matching owner token on every exit. The active `phase`, `running`, acquisition time, logical run, runtime and epoch are one controller-owned projection re-derived from the fenced lease at renew, rollup and terminal safe points; duplicate/drifted YAML keys are canonicalized. Legacy status fields never become an independent lock.
 3. **Plan.** Read every FRD's Build Plan + work-order frontmatter; list non-`VERIFIED` FRDs in cross-FRD dependency order. Announce to the owner what will be built and in what order.
 4. **Per work order** (one at a time): stamp `IN_PROGRESS` → implement with TDD per the WO's EARS acceptance criteria → run the WO's own fast self-test → stamp `IN_REVIEW` + write the `## Status Note` hand-off → commit (one commit per WO, conventional message).
-5. **Per-FRD gate** (when all its WOs are `IN_REVIEW`): re-read the feature with fresh eyes (correctness, security, quality, runtime lenses), write at least one adversarial test the implementation didn't anticipate, run `verify.sh` (or `verify.sh --since <last_green>` if available). Green → stamp every WO + the FRD `VERIFIED` and publish the safe point with **two commits**: A contains the complete reviewed snapshot; metadata-only B records `last_green_sha: A` + `safe_to_test: true` only after proving A exists and is an ancestor of HEAD (BL-0066). Never amend A—a commit cannot contain its own hash. Red → fix in place; if genuinely stuck → `BLOCKED` + `blocked_reason` (`needs-owner` | `external` | `error`), log it to `.pandacorp/inbox/decisions.md` when the owner must act, and continue with an independent FRD. **On a REVERT (a `cause: 'code'` reopen), PRESERVE the test evidence (DR-107): MOVE the reviewer-authored / Status-Note-referenced test files to `.pandacorp/run/preserved-tests/` — never delete them — so the rebuild inherits the RED baseline that caught the fault.** **Append the gate's timing to `.pandacorp/track.jsonl`** (`review_start` / `review_end` / `frd_end`, with state — DR-086) so a later cold session (and Mission Control's timeline) can reconstruct the safe-point history from files.
+5. **Per-FRD gate** (when all its WOs are `IN_REVIEW`): re-read the feature with fresh eyes (correctness, security, quality, runtime lenses), write at least one adversarial test the implementation didn't anticipate, run `verify.sh` (or `verify.sh --since <last_green>` if available), then run the deterministic FRD mutation seam. For Codex `attended_foreground`, absent, timed-out, unparsable, ambiguous or below-threshold mutation evidence is RED. Green → stamp every WO + the FRD `VERIFIED` and publish the safe point with **two commits**: A contains the complete reviewed snapshot; metadata-only B records `last_green_sha: A` + `safe_to_test: true` only after proving A exists and is an ancestor of HEAD (BL-0066). Never amend A—a commit cannot contain its own hash. Red → fix in place; if genuinely stuck → `BLOCKED` + `blocked_reason` (`needs-owner` | `external` | `error`), log it to `.pandacorp/inbox/decisions.md` when the owner must act, and continue with an independent FRD. **On a REVERT (a `cause: 'code'` reopen), PRESERVE the test evidence (DR-107): MOVE the reviewer-authored / Status-Note-referenced test files to `.pandacorp/run/preserved-tests/` — never delete them — so the rebuild inherits the RED baseline that caught the fault.** **Append the gate's timing to `.pandacorp/track.jsonl`** (`review_start` / `review_end` / `frd_end`, with state — DR-086) so a later cold session (and Mission Control's timeline) can reconstruct the safe-point history from files.
 6. **Safe point** (after each FRD gate): drain `status: ready` items from `.pandacorp/inbox/changes/` (route via the `iterate`/`bug` engine; `draft` is SKIPPED, DR-069) — **but ONLY on a bare, whole-project run: a TARGETED attended run (launched for a specific `change` or a `frds` subset) builds ONLY its target and does NOT drain the other `ready` changes** (they wait for a later bare `implement`); apply answered `decisions.md` entries (flip their BLOCKED WOs back to `PLANNED`); honor the **stop signal — `rethink_pending: true` in `status.yaml` OR the presence of `.pandacorp/run/stop` (equivalent)** — (stop cleanly + tell the owner); append a milestone line to `.pandacorp/comms/progress.md` (what shipped, in owner language — never raw tool output, BL-0014).
 6b. **Feed the live dashboard (best effort, fire-and-forget).** Mission Control's Party reads a plain NDJSON stream any runtime can append to. At each WO start and each FRD gate, append one line to `~/.claude/dashboard-events.ndjson` (schema: `{"event":"<name>","at":"<ISO-UTC>","project":"<project folder basename>","data":{…}}`): `AgentWorking` with `data:{role:"<agent role>",wo:"<WO id>"}` at WO start; `gate` with `data:{frd:"<frd id>",result:"verified"|"reopened"}` at each gate. Never block or fail the build on a write error here — observability is best effort, the file state is the truth.
 7. **Close-out (bare whole-project runs only).** When all global FRDs are `VERIFIED`, a bare run performs the hardening pass per DR-085 — security audit (evidence: `docs/reviews/security-<date>.md`), telemetry verification (evidence: `## Verification` in `docs/analytics/events.md`), full quality suite — BEFORE setting `phase: release`; if hardening can't run in this runtime session, say so explicitly and leave `phase: implementation` (never self-declare release without the evidence). A targeted `frds`/`change` run always terminates after its scoped FRDs verify, quiesces ownership and preserves `phase: implementation`, even when its target was the final global pending work; it has no authority to widen into project hardening/fixes or release. Remind the owner to run the lesson harvest from the factory.
@@ -175,8 +183,8 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 
 | Claude-only capability | Why it doesn't port | What still binds every runtime |
 |---|---|---|
-| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex stays read/review-only under PORT-5; its separate runtime-local executor remains unpromoted until the complete reevaluation set passes; it never calls or replaces this Claude engine |
-| Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; Codex has a separate durable local supervisor and its current-head short-live gate is green, but the overnight gate remains open | while FALLBACK binds, use Claude for governed unattended builds; neither runtime duplicates the two Claude-owned recurring schedules |
+| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex's candidate sequential executor remains unavailable while policy is FALLBACK; it never calls or replaces this Claude engine |
+| Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; Codex has a candidate foreground supervisor but no promoted build profile | After promotion the caller stays attached for ≤7200 s; background/overnight and the two Claude-owned recurring schedules remain unavailable in Codex |
 | Hooks enforcement (safety gate, Stop verify-gate, telemetry) | registrations remain runtime-local; Codex uses a generated adapter and must re-trust changed hook definitions | shared policy is source-tested for Codex 0.144.1; an uninstalled/untrusted adapter fails the activation gate and does not grant build writes |
 | Mission Control live telemetry | each runtime emits its own additive stream; Claude transcripts remain Claude-only | Mission Control reads both transports through the canonical vocabulary, while `status.yaml`, WO frontmatter and progress files remain truth |
 | Claude Design canvas (`DesignSync`) | Claude-native tool | documented HTML-mockup fallback (DR-058 Plan B, PORT-3) |
@@ -184,12 +192,12 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 ## How it is verified
 
 - **PORT-1/PORT-2/PORT-3/PORT-4:** manual — the agent self-checks the translation on each skill invocation under a non-Claude runtime; the injection point is AGENTS.md (always in context), so the worst case is the agent stops and asks. Cross-checked by the owner's Codex test plan (proposal Part 4).
-- **PORT-5:** today, verify the negative permission mechanically by a supersession grep: no current operating surface may authorize non-Claude build writes or promise live/arbitrary cross-runtime resume. Promotion requires the complete R7/R8/R11 reevaluation set above; offline executor tests alone are insufficient.
+- **PORT-5:** while policy is `FALLBACK`, verify every normal Codex launch fails before lease acquisition. The candidate implementation must also reject missing profile/permit, zero-or-multiple targets, background, duration >7200, restart, bare/global, hardening and release. A disposable installed Codex-only canary must prove one real targeted FRD and leave `phase: implementation`, a released lease and a clean tree; only then may policy change to `EXPERIMENTAL/attended_foreground`. R10/R11 remain separate future evidence for cross-runtime/overnight capability.
 - **PORT-6:** Claude keeps its existing registration untouched. Codex enforcement is generated from `plugin/runtime/enforcement-policy.json` and tested by `test-codex-enforcement.mjs`; promotion additionally requires a disposable install, explicit hook trust and the live deny/Stop canaries in `plugin/docs/codex-activation.md`. Cursor/OpenCode remain instruction-only.
 
 ## Why
 
-The standards landscape converged on two open standards we already fit — **AGENTS.md** (cross-tool instructions, our product overlay is already AGENTS.md-canonical) and **Agent Skills / SKILL.md** (open, unknown frontmatter fields ignored). That portable floor lets any compliant runtime read the same know-how and review the same durable evidence without forking it. It does **not** make every runtime a certified writer: build execution additionally requires runtime-local orchestration, atomic ownership, enforcement and one-writer transition proofs. Neutral tiers and explicit tool translation let the owner operate dual-channel and cross-check safe-point artifacts while each executor stays local to its own agents/models. Degradation is honest: where a mechanism is not certified, governance still binds and write permission narrows — today to read/review-only for non-Claude build state — rather than pretending file persistence alone proves equivalence.
+The standards landscape converged on two open standards we already fit — **AGENTS.md** (cross-tool instructions, our product overlay is already AGENTS.md-canonical) and **Agent Skills / SKILL.md** (open, unknown frontmatter fields ignored). That portable floor lets any compliant runtime read the same know-how and review the same durable evidence without forking it. It does **not** make every runtime a certified writer: build execution additionally requires runtime-local orchestration, atomic ownership, enforcement and one-writer transition proofs. Neutral tiers and explicit tool translation let each executor stay local to its own agents/models. Degradation is honest: Codex receives only the narrow attended targeted authority its executor has proved; every broader build form stays denied instead of borrowing confidence from Claude or from file persistence alone.
 
 ## Maintenance — the single-source-of-truth map
 

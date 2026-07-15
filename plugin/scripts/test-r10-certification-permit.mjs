@@ -52,7 +52,7 @@ try {
   await exec("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), project, "4", "900", "0", "1", "", "frd-b-multiply", "auto", "foreground", ""], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
   ok(false, "empty authorization fails closed while Codex implement is FALLBACK");
 } catch (error) {
-  ok(/FALLBACK.*certification authorization/i.test(`${error.stdout || ""}${error.stderr || ""}`), "empty authorization fails closed while Codex implement is FALLBACK");
+  ok(/FALLBACK.*normal execution is unavailable/i.test(`${error.stdout || ""}${error.stderr || ""}`), "empty authorization fails closed while Codex implement is FALLBACK");
 }
 
 // R11 is a distinct one-shot contract. It binds the Codex-only executor surfaces,
@@ -91,7 +91,7 @@ result = await run(["--mode", "consume", ...recoveryCommon, "--run-id", "r11-rec
 result = await run(["--mode", "check", ...recoveryCommon]); const recoveryReceipt = JSON.parse(await readFile(path.join(recoveryProject, ".pandacorp/run/r11-certification-receipt.json"))); ok(result.code !== 0 && recoveryReceipt.status === "revoked" && recoveryReceipt.terminal_reason === "recovery-reentry", "R11 resumed path revokes consumed authority before refusing recovery");
 const foreignValidReceiptFile = path.join(recoveryProject, ".pandacorp/run/foreign-valid-r11-receipt.json"); await writeFile(foreignValidReceiptFile, `${JSON.stringify({ ...recoveryReceipt, status: "consumed", run_id: "foreign-valid-run", stage: "codex-live-overnight" })}\n`);
 try {
-  await exec("node", [path.join(root, "plugin/runtime/codex/executor.mjs"), "--project", recoveryProject, "--run-id", "foreign-valid-run", "--max-spend", "24", "--max-duration", "28800", "--max-retries", "2", "--max-blocks", "3", "--frds", r11Frds.join(","), "--certification-receipt", foreignValidReceiptFile]);
+  await exec("node", [path.join(root, "plugin/runtime/codex/executor.mjs"), "--project", recoveryProject, "--run-id", "foreign-valid-run", "--max-spend", "24", "--max-duration", "28800", "--max-retries", "2", "--max-blocks", "3", "--frds", r11Frds.join(","), "--execution-profile", "certification", "--certification-receipt", foreignValidReceiptFile]);
   ok(false, "executor rejects a valid-shaped R11 receipt at a foreign in-tree path before lease acquisition");
 } catch (error) {
   const leaseExists = await readFile(path.join(recoveryProject, ".pandacorp/run/build.lease/lease.json")).then(() => true).catch(() => false);
@@ -99,7 +99,7 @@ try {
 }
 const forgedReceiptFile = path.join(recoveryProject, ".pandacorp/run/forged-certification-receipt.json"); await writeFile(forgedReceiptFile, `${JSON.stringify({ ...recoveryReceipt, status: "consumed", run_id: "forged-run", stage: "codex-frd-b" })}\n`);
 try {
-  await exec("node", [path.join(root, "plugin/runtime/codex/executor.mjs"), "--project", recoveryProject, "--run-id", "forged-run", "--max-spend", "24", "--max-duration", "28800", "--max-retries", "2", "--max-blocks", "3", "--frds", r11Frds.join(","), "--certification-receipt", forgedReceiptFile]);
+  await exec("node", [path.join(root, "plugin/runtime/codex/executor.mjs"), "--project", recoveryProject, "--run-id", "forged-run", "--max-spend", "24", "--max-duration", "28800", "--max-retries", "2", "--max-blocks", "3", "--frds", r11Frds.join(","), "--execution-profile", "certification", "--certification-receipt", forgedReceiptFile]);
   ok(false, "executor rejects a certification kind/stage mismatch before lease acquisition");
 } catch (error) {
   const leaseExists = await readFile(path.join(recoveryProject, ".pandacorp/run/build.lease/lease.json")).then(() => true).catch(() => false);

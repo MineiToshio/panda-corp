@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-07-14: Codex targeted attended build candidate remains canary-gated
+
+**What:** BL-0081 implements the Codex `attended_foreground` candidate: exactly one FRD or ready
+change, foreground, cumulative duration no greater than 7200 seconds and zero automatic restarts.
+Launcher, supervisor and executor enforce the same one-run permit. A separate JUDGE, deterministic
+verification and fail-closed mutation gate precede `VERIFIED`; the terminal path releases ownership
+and preserves `phase: implementation`.
+
+**Why:** the owner narrowed the immediate goal to useful Codex-local implementation rather than
+waiting for mechanical parity with Claude Dynamic Workflows or cross-runtime/overnight certification.
+
+**Impact:** policy remains `FALLBACK` until one installed Codex-only canary is green; only then may it
+be explicitly promoted to `EXPERIMENTAL`. Claude's Dynamic Workflow remains unchanged. Bare/global,
+hardening/release, background/unattended, multi-FRD, cross-runtime and backlog drain-all stay unavailable.
+
 ## v9.95.8 — 2026-07-14 (PATCH): terminal checkpoints use one atomic instant
 
 **What:** BL-0080 makes the Codex executor capture one terminal transition timestamp and reuse it for

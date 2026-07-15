@@ -70,13 +70,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "normal: solo lectura/review · one-shot sólo para canarios R10/R11",
-    status: "claude-only",
+    codex: "FALLBACK: candidato atendido requiere canario instalado verde",
+    status: "degrades",
   },
   {
     capability: "Construcción nocturna",
     claude: "desatendida, corre por horas sin owner",
-    codex: "permiso R11 one-shot listo; LIVE_OVERNIGHT sigue pendiente",
+    codex: "no habilitada; attended_foreground no se puede dejar solo",
     status: "claude-only",
   },
   {
@@ -100,13 +100,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Fragua / telemetría",
     claude: "eventos completos (hooks + motor)",
-    codex: "transporte propio listo; no emite build live hasta promoción",
+    codex: "transporte propio + progreso/track; archivos siguen siendo verdad",
     status: "degrades",
   },
   {
     capability: "Notificaciones",
     claude: "push al escritorio + móvil",
-    codex: "aviso en chat para trabajo permitido; build aún no habilitado",
+    codex: "avance en chat mientras el build atendido permanece abierto",
     status: "degrades",
   },
   {

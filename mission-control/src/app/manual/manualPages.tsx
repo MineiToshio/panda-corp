@@ -2242,45 +2242,17 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <MultiRuntimeDiagram />
       </Panel>
       <NotePanel icon="ti-lock" iconColor="var(--color-warn)">
-        <B weight={600}>Cambio de runtime: en frío y desde un safe point.</B> Los ficheros conservan
-        el estado durable, pero no reconstruyen todavía todo el scheduler que mantiene un ejecutor
-        vivo. El lease atómico, fencing, presupuesto y salud durables ya están probados; Codex sigue
-        solo lectura/review hasta el canario live R10 y R11. La única excepción es el permiso R10
-        de certificación de un solo uso: fixture descartable fijado, autorización del dueño, un FRD
-        y límites exactos, foreground, consumido antes de ownership y nunca reintentable. No es una
-        promoción ni autoriza proyectos normales. Un runtime posterior puede continuar
-        únicamente cuando el anterior cerró su gate y commit, llegó a un safe point, se detuvo por
-        completo y liberó ownership. R10 ya prueba este relevo en fixtures y dos intentos instalados
-        aportaron evidencia parcial: el segundo demostró que Codex Desktop conserva vivo su launcher
-        foreground y continúa el mismo run bajo un epoch nuevo. No certificó la cadena completa:
-        expuso un puntero verde huérfano en Claude y luego la revisión Codex quedó incierta por cuota.
-        Plugin 9.93.0 / overlay 8.74.0 corrigen esos contratos; todavía faltan el fixture C completo
-        y R11 desatendido.
-        Mientras un agente trabaja, Codex mantiene el heartbeat: su controlador reconoce únicamente
-        los campos de liveness acreditados por la lease cercada; cualquier otro cambio del agente en
-        el estado gobernado sigue fallando cerrado.
-        Nunca hay takeover vivo ni dos builds simultáneos.
-      </NotePanel>
-      <NotePanel icon="ti-fingerprint" iconColor="var(--color-warn)">
-        El permiso excepcional de R10 fija el motor contra una sola ruta real del overlay:
-        <Code>.claude/engines/pandacorp-build.js</Code>. Debe ser un fichero regular, versionado y con
-        el hash esperado; si falta, cambia o es un symlink, la certificación se bloquea. La
-        comprobación previa tampoco imprime el nonce de autorización.
-      </NotePanel>
-      <NotePanel icon="ti-arrows-exchange" iconColor="var(--color-warn)">
-        Antes de consumir la etapa Codex, R10 compara el HEAD y la evidencia Claude con los seis
-        campos del relevo —fase, actividad, inicio, run lógico, runtime y epoch— y exige que el
-        resolver compartido confirme una continuación Claude→Codex. La lease vuelve a derivarlos en
-        cada renovación, sincronización y cierre, así que una copia vieja de <Code>status.yaml</Code>
-        no puede fabricar un run nuevo.
+        <B weight={600}>Codex sigue bloqueado mientras policy sea FALLBACK.</B> El perfil candidato
+        <Code>attended_foreground</Code> ya está implementado, pero no concede permiso hasta que un
+        canario instalado Codex-only quede verde y la policy cambie explícitamente a EXPERIMENTAL.
+        En ese momento exigirá un FRD o change exacto, foreground, máximo 7200 segundos, cero
+        reinicios, review JUDGE, <Code>verify.sh</Code> y mutation gate verdes.
       </NotePanel>
       <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
-        El cierre Codex es una sola transición observable: el checkpoint captura una hora y la
-        reutiliza como <Code>terminal_at</Code> y <Code>updated_at</Code>. El recolector rechaza una
-        cadena donde el evento de cierre, la liberación de lease, el supervisor o el recibo
-        contradigan el resultado o aparezcan fuera de orden. Para R11, cada FRD necesita review JUDGE
-        terminada en verde y su resultado real; el recibo completo debe coincidir con el marker y la
-        autorización del dueño.
+        <B weight={600}>Límites honestos.</B> Codex todavía no puede ejecutar un build sin objetivo,
+        varios FRDs, hardening global, avance a release, background, overnight ni relevo con Claude.
+        R10/R11 quedan como certificaciones futuras independientes; el candidato atendido tiene su
+        propio canario instalado antes de habilitarse. Claude conserva intacto su Dynamic Workflow.
       </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
@@ -2366,22 +2338,14 @@ function ConceptMultiRuntime(): React.JSX.Element {
             ),
           },
           {
-            title: <>Codex, revisión segura</>,
+            title: <>Codex, canario atendido</>,
             body: (
               <>
-                Abre un proyecto detenido en un safe point y pídele a Codex revisar sus work orders,
-                commits y evidencia del gate,{" "}
-                <B weight={500}>sin mutar el estado de construcción</B>. El build atendido se
-                habilita sólo cuando PORT-5 registre en verde el canario instalado
-                Claude→Codex→Claude de R10 y el <Code>LIVE_OVERNIGHT</Code> de R11; R2, R3, R6 y los
-                fixtures offline ya están verdes, pero no conceden permiso por sí solos.
-                Mientras figure <Code>FALLBACK</Code>, el launcher rechaza una autorización vacía:
-                sólo permite las excepciones desechables one-shot de R10 Stage 2 y R11 overnight,
-                cada una ligada a su fixture, HEAD, hashes, alcance y límites exactos. Se consumen
-                antes de tomar la lease y se revocan al terminar; no habilitan proyectos normales.
-                Cuando se habilite, Codex Desktop debe lanzar en modo <Code>foreground</Code>: la
-                tarea permanece abierta como dueña del supervisor y propaga la cancelación. El modo
-                background queda reservado para shells persistentes.
+                Mientras policy sea <Code>FALLBACK</Code>, un proyecto normal debe rechazarse antes
+                de ownership. Ejecuta sólo el fixture desechable autorizado. Si completa review
+                JUDGE, <Code>verify.sh</Code>, mutation gate, lease liberada, árbol limpio y
+                <Code>phase: implementation</Code>, registra la evidencia; recién entonces puede
+                promoverse la policy a <Code>EXPERIMENTAL/attended_foreground</Code>.
               </>
             ),
           },

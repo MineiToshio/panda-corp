@@ -130,7 +130,7 @@ await test("both adapters fail closed when jq is absent", async () => {
 });
 
 await test("Codex 0.144.1 strict config accepts generated project config", async () => {
-  const result = spawnSync("codex", ["--strict-config", "doctor", "--summary", "--no-color"], { cwd: root, encoding: "utf8" });
+  const result = spawnSync("codex", ["--strict-config", "doctor", "--summary", "--no-color"], { cwd: root, encoding: "utf8", env: { ...process.env, TERM: process.env.TERM === "dumb" ? "xterm-256color" : process.env.TERM } });
   ok(result.status === 0 && /config\s+loaded/.test(result.stdout), result.stderr || "strict config rejected");
 });
 

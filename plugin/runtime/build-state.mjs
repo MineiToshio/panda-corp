@@ -145,6 +145,10 @@ export async function setHealth(project, token, epoch, consecutiveBlocks) {
   if (!Number.isSafeInteger(consecutiveBlocks) || consecutiveBlocks < 0) throw Object.assign(new Error("invalid health value"), { code: "USAGE" });
   return withFence(project, token, epoch, async (lease) => { const ledger = await readLedger(project, lease); ledger.consecutive_blocks = consecutiveBlocks; ledger.updated_at = iso(); await atomicJson(paths(project).ledger, ledger); await audit(project, { event: "health_set", run_id: lease.run_id, epoch: lease.epoch, consecutive_blocks: consecutiveBlocks }); return ledger; });
 }
+export async function setPendingDecisions(project, token, epoch, count) {
+  if (!Number.isSafeInteger(count) || count < 0) throw Object.assign(new Error("invalid pending-decision count"), { code: "USAGE" });
+  return withFence(project, token, epoch, async (lease) => { const now = iso(); await yamlSet(paths(project).status, { pending_decisions: count, last_event_at: now, updated_at: now }); await reassertActiveProjection(project, lease); return { pending_decisions: count }; });
+}
 
 const fmStatus = (body) => body.match(/^implementation_status:\s*(PLANNED|IN_PROGRESS|IN_REVIEW|VERIFIED|BLOCKED)\s*$/m)?.[1] || null;
 const setFmStatus = (body, status) => /^implementation_status:/m.test(body) ? body.replace(/^implementation_status:.*$/m, `implementation_status: ${status}`) : body.replace(/^---\s*$/m, `---\nimplementation_status: ${status}`);

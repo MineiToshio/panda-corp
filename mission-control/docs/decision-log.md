@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-07-14 — Manual exposes the canary-gated Codex attended-build candidate
+
+The multi-runtime Manual keeps Codex `implement` at `FALLBACK` and describes its implemented
+`attended_foreground` candidate: one exact FRD/change, foreground, <=7200 seconds and zero automatic restarts, ending in
+`phase: implementation` after independent review, deterministic verification and mutation evidence.
+It also names the denied surface—global/hardening/release, background/overnight and cross-runtime—
+while preserving Claude's Dynamic Workflow path unchanged. A green installed Codex-only canary is
+required before policy may become `EXPERIMENTAL`. This mirrors BL-0081/PORT-5.
+
 ## 2026-07-14 — Manual explains the lease-derived handoff projection
 
 The state, multi-runtime and build-workflow pages now explain that active phase/run/runtime/epoch/start

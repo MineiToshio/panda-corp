@@ -22,7 +22,7 @@ async function provenLauncher() {
   const sandbox = await mkdtemp(path.join(os.tmpdir(), "pc-proven-launcher-")); projects.push(sandbox);
   const plugin = path.join(sandbox, "plugin"); await cp(path.join(root, "plugin"), plugin, { recursive: true });
   const policyFile = path.join(plugin, "runtime/skill-runtime-policy.json"); const policy = JSON.parse(await read(policyFile));
-  policy.overrides.implement.codex.status = "PROVEN"; await writeFile(policyFile, `${JSON.stringify(policy, null, 2)}\n`);
+  policy.overrides.implement.codex.status = "EXPERIMENTAL"; await writeFile(policyFile, `${JSON.stringify(policy, null, 2)}\n`);
   provenLauncherPath = path.join(plugin, "scripts/launch-codex-implement.sh"); return provenLauncherPath;
 }
 
@@ -56,6 +56,11 @@ writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'fixture',find
   for (const args of [["init", "-q"], ["config", "user.email", "r11@example.invalid"], ["config", "user.name", "R11 fixture"], ["add", "-A"], ["commit", "-qm", "test: seed R11 fixture"]]) { const result = await run("git", args, project); must(result.code === 0, result.err); }
   return { project, worker };
 }
+async function certificationArgs(project, runId, { maxSpend = 4, maxDuration = 30, maxRetries = 2, maxBlocks = 3, frds = [] } = {}) {
+  const file = path.join(project, ".pandacorp/run/r11-certification-receipt.json");
+  await writeFile(file, `${JSON.stringify({ kind: "pandacorp-r11-certification-receipt", stage: "codex-live-overnight", status: "consumed", run_id: runId, frds, limits: { max_spend: maxSpend, max_duration: maxDuration, max_retries: maxRetries, max_blocks: maxBlocks } }, null, 2)}\n`, { mode: 0o600 });
+  return ["--execution-profile", "certification", "--certification-receipt", file];
+}
 
 await test("offline preflight is fail-closed and leaves the disposable fixture untouched", async () => {
   const fx = await fixture({ rethink: true }); const before = (await run("git", ["status", "--porcelain"], fx.project)).out;
@@ -83,7 +88,7 @@ await test("preflight rejects drifted project enforcement and permits only the e
 
 await test("executor renews the fenced heartbeat at no slower than TTL/3 and kills its worker tree on stop", async () => {
   const fx = await fixture(); const leaseFile = path.join(fx.project, ".pandacorp/run/build.lease/lease.json");
-  const child = spawn("node", [executor, "--project", fx.project, "--run-id", "r11-heartbeat", "--max-spend", "4", "--max-duration", "30"], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "hang", PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "500" }, stdio: ["ignore", "pipe", "pipe"] });
+  const auth = await certificationArgs(fx.project, "r11-heartbeat"); const child = spawn("node", [executor, "--project", fx.project, "--run-id", "r11-heartbeat", "--max-spend", "4", "--max-duration", "30", ...auth], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "hang", PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "500" }, stdio: ["ignore", "pipe", "pipe"] });
   let first; for (let i = 0; i < 100; i++) { if (await exists(leaseFile)) { first = JSON.parse(await read(leaseFile)); break; } await sleep(20); } must(first, "lease was not acquired");
   let renewed; for (let i = 0; i < 100; i++) { const body = await read(leaseFile).catch(() => null); if (body) { const value = JSON.parse(body); if (value.renewed_at !== first.renewed_at) { renewed = value; break; } } await sleep(20); } must(renewed, "heartbeat did not renew");
   must(Date.parse(renewed.renewed_at) - Date.parse(first.renewed_at) <= 1000, `renewal exceeded TTL/3: ${JSON.stringify({ first, renewed })}`);
@@ -91,7 +96,7 @@ await test("executor renews the fenced heartbeat at no slower than TTL/3 and kil
 });
 
 await test("uncertain result survives restart and never duplicates the durable dispatch", async () => {
-  const fx = await fixture(); const args = [executor, "--project", fx.project, "--run-id", "r11-uncertain", "--max-spend", "4", "--max-duration", "30"];
+  const fx = await fixture(); const args = [executor, "--project", fx.project, "--run-id", "r11-uncertain", "--max-spend", "4", "--max-duration", "30", ...await certificationArgs(fx.project, "r11-uncertain")];
   const first = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "uncertain" }); must(first.code === 25, `first exit ${first.code}: ${first.err}`);
   const second = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: "success" }); must(second.code === 25 || second.code === 20, `restart exit ${second.code}: ${second.err}`);
   const dispatches = (await read(path.join(fx.project, ".pandacorp/run/dispatches.log"))).trim().split("\n"); must(dispatches.length === 1, `dispatch duplicated: ${dispatches}`);
@@ -104,7 +109,7 @@ await test("uncertain result survives restart and never duplicates the durable d
 await test("provider failures are classified sanitizably and still fail safe without blind retries", async () => {
   const expected = { "usage-limit": "usage_limit", network: "network", "rate-limit": "rate_limit", "auth-expired": "auth", "approval-denied": "approval" };
   for (const scenario of Object.keys(expected)) {
-    const fx = await fixture(); const args = [executor, "--project", fx.project, "--run-id", `r11-${scenario}`, "--max-spend", "4", "--max-duration", "30"];
+    const fx = await fixture(); const runId = `r11-${scenario}`; const args = [executor, "--project", fx.project, "--run-id", runId, "--max-spend", "4", "--max-duration", "30", ...await certificationArgs(fx.project, runId)];
     const first = await run("node", args, fx.project, { PANDACORP_CODEX_BIN: fx.worker, R11_SCENARIO: scenario }); must(first.code === 25, `${scenario} exit ${first.code}: ${first.err}`);
     const checkpoint = JSON.parse(await read(path.join(fx.project, ".pandacorp/run/codex-checkpoint.json"))); must(checkpoint.uncertain?.error_class === expected[scenario], `${scenario} class: ${JSON.stringify(checkpoint)}`);
     const journal = await read(path.join(fx.project, ".pandacorp/run/codex-executor.jsonl")); must(journal.includes(`"error_class":"${expected[scenario]}"`), `${scenario} journal class absent`);
@@ -123,64 +128,57 @@ await test("live preflight rejects missing credentials and network independently
   const network = await run("node", [preflight, fx.project], fx.project, { PANDACORP_CODEX_BIN: path.join(bin, "codex-ok"), PATH: `${bin}:${process.env.PATH}` }); must(network.code === 3 && /"id": "network"[\s\S]*?"status": "FAIL"/.test(network.out), network.out);
 });
 
-await test("supervisor restart uses bounded backoff and terminates on durable owner state", async () => {
+await test("certification supervisor does not relaunch an unclassified crash", async () => {
   const fx = await fixture(); const stub = path.join(fx.project, "restart-stub.mjs");
   await writeFile(stub, `import{appendFileSync,readFileSync,writeFileSync}from'node:fs';const a=process.argv,p=a[a.indexOf('--project')+1],r=a[a.indexOf('--run-id')+1],f=p+'/.pandacorp/run/restart-count';let n=0;try{n=readFileSync(f,'utf8').trim().split('\\n').filter(Boolean).length}catch{}appendFileSync(f,'1\\n');if(n===0)process.exit(2);writeFileSync(p+'/.pandacorp/run/codex-checkpoint.json',JSON.stringify({run_id:r,terminal_reason:'needs-owner'}));process.exit(20);`);
-  const result = await run("node", [supervisor, "--project", fx.project, "--run-id", "r11-restart", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1"], fx.project, { PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "10", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" });
-  must(result.code === 0, result.err); const count = (await read(path.join(fx.project, ".pandacorp/run/restart-count"))).trim().split("\n").length; must(count === 2, `worker starts ${count}`);
-  const journal = await read(path.join(fx.project, ".pandacorp/run/codex-supervisor.jsonl")); must(/restart_wait/.test(journal) && /supervisor_terminal/.test(journal) && /needs-owner/.test(journal), journal);
+  const auth = await certificationArgs(fx.project, "r11-restart", { maxSpend: 1, maxDuration: 30, maxRetries: 0, maxBlocks: 1 }); const result = await run("node", [supervisor, "--project", fx.project, "--run-id", "r11-restart", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1", ...auth], fx.project, { PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "10", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" });
+  must(result.code === 2, result.err); const count = (await read(path.join(fx.project, ".pandacorp/run/restart-count"))).trim().split("\n").length; must(count === 1, `worker starts ${count}`);
+  const journal = await read(path.join(fx.project, ".pandacorp/run/codex-supervisor.jsonl")); must(/supervisor_exhausted/.test(journal) && !/restart_wait/.test(journal), journal);
 });
 
 await test("supervisor circuit breaker stops crash loops", async () => {
   const fx = await fixture(); const stub = path.join(fx.project, "crash-stub.mjs"); await writeFile(stub, `import{appendFileSync}from'node:fs';const a=process.argv,p=a[a.indexOf('--project')+1];appendFileSync(p+'/.pandacorp/run/crash-count','1\\n');process.exit(2);`);
-  const result = await run("node", [supervisor, "--project", fx.project, "--run-id", "r11-breaker", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1"], fx.project, { PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "5", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" });
-  must(result.code === 2, `breaker exit ${result.code}`); const count = (await read(path.join(fx.project, ".pandacorp/run/crash-count"))).trim().split("\n").length; must(count === 3, `crash count ${count}`);
+  const auth = await certificationArgs(fx.project, "r11-breaker", { maxSpend: 1, maxDuration: 30, maxRetries: 0, maxBlocks: 1 }); const result = await run("node", [supervisor, "--project", fx.project, "--run-id", "r11-breaker", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1", ...auth], fx.project, { PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "5", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" });
+  must(result.code === 2, `breaker exit ${result.code}`); const count = (await read(path.join(fx.project, ".pandacorp/run/crash-count"))).trim().split("\n").length; must(count === 1, `crash count ${count}`);
   must(/supervisor_exhausted/.test(await read(path.join(fx.project, ".pandacorp/run/codex-supervisor.jsonl"))), "breaker event missing");
 });
 
-await test("a signal interrupts supervisor backoff without relaunching", async () => {
-  const fx = await fixture(); const stub = path.join(fx.project, "signal-backoff-stub.mjs"); await writeFile(stub, `import{appendFileSync}from'node:fs';const a=process.argv,p=a[a.indexOf('--project')+1];appendFileSync(p+'/.pandacorp/run/signal-count','1\\n');process.exit(2);`);
-  const child = spawn("node", [supervisor, "--project", fx.project, "--run-id", "r11-signal-backoff", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1"], { cwd: fx.project, env: { ...process.env, PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "60000", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" }, stdio: ["ignore", "pipe", "pipe"] });
-  const journal = path.join(fx.project, ".pandacorp/run/codex-supervisor.jsonl"); for (let i=0;i<200 && !/restart_wait/.test(await read(journal).catch(()=>""));i++) await sleep(10);
-  const before = Date.now(); child.kill("SIGTERM"); const code = await new Promise((resolve) => child.on("close", resolve)); must(Date.now()-before < 1500, "signal waited for full backoff"); must(code === 0, `signal exit ${code}`);
+await test("a signal stops the certification supervisor without relaunching", async () => {
+  const fx = await fixture(); const stub = path.join(fx.project, "signal-backoff-stub.mjs"); await writeFile(stub, `import{appendFileSync}from'node:fs';const a=process.argv,p=a[a.indexOf('--project')+1];appendFileSync(p+'/.pandacorp/run/signal-count','1\\n');setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
+  const auth = await certificationArgs(fx.project, "r11-signal-backoff", { maxSpend: 1, maxDuration: 30, maxRetries: 0, maxBlocks: 1 }); const child = spawn("node", [supervisor, "--project", fx.project, "--run-id", "r11-signal-backoff", "--max-spend", "1", "--max-duration", "30", "--max-retries", "0", "--max-blocks", "1", ...auth], { cwd: fx.project, env: { ...process.env, PANDACORP_EXECUTOR_PATH: stub, PANDACORP_SUPERVISOR_RESTART_WAIT_MS: "60000", PANDACORP_SUPERVISOR_MAX_CRASHES: "3" }, stdio: ["ignore", "pipe", "pipe"] });
+  const countFile = path.join(fx.project, ".pandacorp/run/signal-count"); for (let i=0;i<200 && !await exists(countFile);i++) await sleep(10);
+  const before = Date.now(); const closed = new Promise((resolve) => child.on("close", resolve)); child.kill("SIGTERM"); const code = await closed; must(Date.now()-before < 1500, "signal did not quiesce promptly"); must(code === 0, `signal exit ${code}`);
   const count = (await read(path.join(fx.project, ".pandacorp/run/signal-count"))).trim().split("\n").length; must(count === 1, `worker relaunched after signal: ${count}`);
 });
 
-await test("launcher prevents sleep for the whole supervisor and preserves spaced paths in an atomic argv receipt", async () => {
+await test("attended launcher rejects background before issuing a permit or lease", async () => {
   const fx = await fixture(); const spaced = `${fx.project} with spaces`; await rename(fx.project, spaced); projects[projects.indexOf(fx.project)] = spaced;
-  const bin = await mkdtemp(path.join(os.tmpdir(), "pc-r11-fake-bin-")); projects.push(bin); const wrapLog = path.join(spaced, ".pandacorp/run/wrapper.json");
+  const bin = await mkdtemp(path.join(os.tmpdir(), "pc-r11-fake-bin-")); projects.push(bin);
   await writeFile(path.join(bin, "codex"), "#!/bin/sh\ncase \"$1 $2\" in 'login status') echo logged-in;; *) echo codex-cli-test;; esac\n");
-  await writeFile(path.join(bin, "curl"), "#!/bin/sh\nexit 0\n");
-  await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\n[ \"${1:-}\" = -h ] && exit 0\nnode -e 'require(\"node:fs\").writeFileSync(process.env.R11_WRAP_LOG,JSON.stringify(process.argv.slice(1)))' -- \"$@\"\nwhile [ $# -gt 0 ]; do [ \"$1\" = -w ] && { shift; target=$1; break; }; shift; done\nwhile kill -0 \"$target\" 2>/dev/null; do sleep 0.05; done\n");
-  for (const file of ["codex", "curl", "caffeinate"]) await chmod(path.join(bin, file), 0o755);
-  const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
-  const result = await run("bash", [await provenLauncher(), spaced, "4", "60", "0", "1", "chosen-change", "frd-01-r11"], spaced, { PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub, R11_WRAP_LOG: wrapLog });
-  must(result.code === 0, `${result.out}\n${result.err}`); const receipt = JSON.parse(await read(path.join(spaced, ".pandacorp/run/codex-launch.json")));
-  const canonical = await realpath(spaced); must(Array.isArray(receipt.resume_argv) && receipt.resume_argv[0] === "bash" && receipt.resume_argv[2] === canonical && receipt.resume_argv.at(-2) === receipt.run_id && receipt.resume_argv.at(-1) === "background" && receipt.launch_mode === "background" && !Object.hasOwn(receipt, "resume_command"), JSON.stringify(receipt));
-  must(receipt.resume_argv.slice(7,9).join("|") === "chosen-change|frd-01-r11", `targeted scope lost: ${JSON.stringify(receipt.resume_argv)}`);
-  must(Array.isArray(receipt.supervisor_argv) && receipt.supervisor_argv.includes("--change") && receipt.supervisor_argv.includes("chosen-change") && receipt.supervisor_argv.includes("--frds") && receipt.supervisor_argv.includes("frd-01-r11"), JSON.stringify(receipt));
-  const wrapped = JSON.parse(await read(wrapLog)); must(wrapped.includes("-dimsu") && wrapped.includes("-w") && wrapped.includes(String(receipt.supervisor_pid)), JSON.stringify(wrapped));
-  must(receipt.pid === receipt.supervisor_pid && Number.isSafeInteger(receipt.sleep_inhibitor_pid), JSON.stringify(receipt)); process.kill(receipt.supervisor_pid, "SIGTERM");
-  for (let i=0;i<750;i++){let supervisor=true,inhibitor=true;try{process.kill(receipt.supervisor_pid,0)}catch{supervisor=false}try{process.kill(receipt.sleep_inhibitor_pid,0)}catch{inhibitor=false}if(!supervisor&&!inhibitor)break;await sleep(20);}
-  for (const [label,pid] of [["supervisor",receipt.supervisor_pid],["inhibitor",receipt.sleep_inhibitor_pid]]) { let alive=true; try { process.kill(pid,0); } catch { alive=false; } must(!alive, `${label} ${pid} survived stop`); }
-  const status=await read(path.join(spaced,".pandacorp/status.yaml"));must(/running: false/.test(status),status);must(!await exists(path.join(spaced,".pandacorp/run/build.lease/lease.json")),"lease survived launcher stop");
+  await chmod(path.join(bin, "codex"), 0o755);
+  const result = await run("bash", [await provenLauncher(), spaced, "4", "60", "0", "1", "chosen-change", "", "auto", "background"], spaced, { PATH: `${bin}:${process.env.PATH}` });
+  must(result.code === 3 && /attended foreground only/.test(result.err), `${result.out}\n${result.err}`);
+  must(!await exists(path.join(spaced, ".pandacorp/run/codex-attended-permit.json")), "permit issued before background rejection");
+  must(!await exists(path.join(spaced, ".pandacorp/run/build.lease/lease.json")), "lease acquired before background rejection");
 });
 
 await test("foreground launcher owns the process lifetime and forwards termination", async () => {
   const fx = await fixture(); const bin = await mkdtemp(path.join(os.tmpdir(), "pc-r11-fg-bin-")); projects.push(bin);
   await writeFile(path.join(bin, "codex"), "#!/bin/sh\ncase \"$1 $2\" in 'login status') echo logged-in;; *) echo codex-cli-test;; esac\n");
   await writeFile(path.join(bin, "curl"), "#!/bin/sh\nexit 0\n");
-  await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\n[ \"${1:-}\" = -h ] && exit 0\ntrap 'exit 0' INT TERM HUP\nwhile [ $# -gt 0 ]; do [ \"$1\" = -w ] && { shift; target=$1; break; }; shift; done\nwhile kill -0 \"$target\" 2>/dev/null; do sleep 0.05; done\n");
+  await writeFile(path.join(bin, "caffeinate"), "#!/bin/sh\necho invoked > \"$R11_CAFFEINATE_MARKER\"\nexit 99\n");
   for (const file of ["codex", "curl", "caffeinate"]) await chmod(path.join(bin, file), 0o755);
   const stub = path.join(bin, "executor-stub.mjs"); await writeFile(stub, `setInterval(()=>{},1000);for(const s of['SIGINT','SIGTERM','SIGHUP'])process.on(s,()=>process.exit(26));`);
-  const child = spawn("bash", [await provenLauncher(), fx.project, "4", "60", "0", "1", "chosen-change", "frd-foreground", "auto", "foreground"], { cwd: fx.project, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub }, stdio: ["ignore", "pipe", "pipe"] });
+  const marker=path.join(fx.project,".pandacorp/run/caffeinate-invoked");const child = spawn("bash", [await provenLauncher(), fx.project, "4", "60", "0", "1", "chosen-change", "", "auto", "foreground"], { cwd: fx.project, env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, PANDACORP_CODEX_BIN: path.join(bin, "codex"), PANDACORP_EXECUTOR_PATH: stub, R11_CAFFEINATE_MARKER: marker }, stdio: ["ignore", "pipe", "pipe"] });let launchOut="",launchErr="";child.stdout.on("data",d=>launchOut+=d);child.stderr.on("data",d=>launchErr+=d);
   const receiptPath=path.join(fx.project,".pandacorp/run/codex-launch.json"); for(let i=0;i<300&&!await exists(receiptPath);i++) await sleep(10);
-  const receipt=JSON.parse(await read(receiptPath)); must(receipt.launch_mode==="foreground"&&receipt.launcher_pid===child.pid&&receipt.resume_argv.at(-1)==="foreground"&&receipt.resume_argv.at(-2)===receipt.run_id,JSON.stringify(receipt));
-  for(const pid of [child.pid,receipt.supervisor_pid,receipt.sleep_inhibitor_pid]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(alive,`foreground process ${pid} was not live`)}
+  must(await exists(receiptPath),`launcher exited before receipt:\n${launchOut}\n${launchErr}\n${await read(path.join(fx.project,".pandacorp/run/codex-executor.log")).catch(()=>"")}`);const receipt=JSON.parse(await read(receiptPath)); must(receipt.launch_mode==="foreground"&&receipt.execution_profile==="attended_foreground"&&receipt.launcher_pid===child.pid&&receipt.sleep_inhibitor_pid===0,JSON.stringify(receipt));must(!await exists(marker),"attended launcher invoked caffeinate");
+  for(const pid of [child.pid,receipt.supervisor_pid]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(alive,`foreground process ${pid} was not live`)}
   child.kill("SIGTERM"); await new Promise(resolve=>child.on("close",resolve));
-  for(let i=0;i<750;i++){let alive=false;for(const pid of [receipt.supervisor_pid,receipt.sleep_inhibitor_pid])try{process.kill(pid,0);alive=true}catch{}if(!alive)break;await sleep(20)}
-  for(const [label,pid] of [["supervisor",receipt.supervisor_pid],["inhibitor",receipt.sleep_inhibitor_pid]]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(!alive,`foreground ${label} ${pid} survived SIGTERM`)}
+  for(let i=0;i<750;i++){let alive=false;try{process.kill(receipt.supervisor_pid,0);alive=true}catch{}if(!alive)break;await sleep(20)}
+  let alive=true;try{process.kill(receipt.supervisor_pid,0)}catch{alive=false}must(!alive,`foreground supervisor ${receipt.supervisor_pid} survived SIGTERM`);
 });
+
+await test("Ctrl-C through the attended launcher quiesces the real executor, lease and tree",async()=>{const fx=await fixture();const bin=await mkdtemp(path.join(os.tmpdir(),"pc-attended-real-bin-"));projects.push(bin);const codex=path.join(bin,"codex");await writeFile(codex,"#!/bin/sh\n[ \"${1:-}\" = login ] && exit 0\nexec node \"$R11_REAL_WORKER\" \"$@\"\n");await chmod(codex,0o755);const before=(await run("git",["status","--porcelain"],fx.project)).out;const child=spawn("bash",[await provenLauncher(),fx.project,"4","60","0","1","","frd-01-r11","auto","foreground"],{cwd:fx.project,detached:true,env:{...process.env,PATH:`${bin}:${process.env.PATH}`,PANDACORP_CODEX_BIN:codex,R11_REAL_WORKER:fx.worker,R11_SCENARIO:"hang",PANDACORP_LEASE_TTL_SECONDS:"3",PANDACORP_LEASE_RENEW_MS:"500"},stdio:["ignore","pipe","pipe"]});let out="",err="";child.stdout.on("data",d=>out+=d);child.stderr.on("data",d=>err+=d);const lease=path.join(fx.project,".pandacorp/run/build.lease/lease.json"),receiptPath=path.join(fx.project,".pandacorp/run/codex-launch.json");for(let i=0;i<500&&(!await exists(lease)||!await exists(receiptPath));i++)await sleep(10);must(await exists(lease)&&await exists(receiptPath),`real executor never reached launch receipt+lease\n${out}\n${err}\n${await read(path.join(fx.project,".pandacorp/run/codex-executor.log")).catch(()=>"")}`);const receipt=JSON.parse(await read(receiptPath));const closed=new Promise(resolve=>child.on("close",resolve));process.kill(-child.pid,"SIGINT");await closed;for(let i=0;i<300&&await exists(lease);i++)await sleep(10);must(!await exists(lease),"lease survived Ctrl-C");const status=await read(path.join(fx.project,".pandacorp/status.yaml"));must(/running: false/.test(status),status);must((await run("git",["status","--porcelain"],fx.project)).out===before,"Ctrl-C left a dirty tree");for(const pid of [receipt.supervisor_pid]){let alive=true;try{process.kill(pid,0)}catch{alive=false}must(!alive,`process ${pid} survived Ctrl-C`);}});
 
 await test("evidence collector reads the real normalized journal schema and fails closed", async () => {
   const fx = await fixture(); const runDir = path.join(fx.project, ".pandacorp/run"); const runId = "r11-evidence"; const started = "2026-07-11T00:00:00.000Z", terminal = "2026-07-11T00:05:00.000Z";

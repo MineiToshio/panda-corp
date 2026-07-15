@@ -1,11 +1,19 @@
 ---
 name: implement
-description: Starts and runs the build of a Pandacorp project. Launches a dynamic workflow that builds FEATURE BY FEATURE (FRD), reading state from the work-order frontmatter (implementation_status) and each blueprint's Build Plan, with one review/test gate per FRD. ALWAYS launched together with a live supervisor that watches the build and notifies the owner (phone) on stalls/errors/end. Runs in the background, resumable. Use inside the project after /pandacorp:architecture.
+description: Starts and runs the build of a Pandacorp project through the active runtime's governed executor. Claude Code uses its Dynamic Workflow. Codex has a candidate attended foreground profile for one exact FRD/change, but remains blocked while policy is FALLBACK. Use inside the project after /pandacorp:architecture.
 ---
 
 # /pandacorp:implement
 
-**This is the command that starts (and resumes) the build.** It launches a **dynamic workflow** (`pandacorp-build`, a native Claude Code JS script that runs in the background) that builds in **GLOBAL WAVES** (DR-050 + BL-0021): each wave takes the READY work orders of **all** FRDs — `dependsOn` satisfied, artifacts disjoint (DR-060), capped at the mode's wave size — so independent features build **in parallel** instead of single-file; it reads each blueprint's **Build Plan** (the work-order DAG) and each work order's frontmatter **`implementation_status`** (the source of truth), builds the `PLANNED`/`IN_PROGRESS` ones, and runs **one review + integration gate per FRD** → `VERIFIED`, gates **serialized at wave boundaries** (they always see a quiet tree). It runs IN the project. On start the launch SOP (§Unattended operation, step 1) writes `.pandacorp/status.yaml → phase: implementation` (the ONE place the architecture→implementation transition is set — no manual skill touches `phase`, DR-032) and `running: true`; when it stops/finishes, `running: false`.
+**This is the command that starts (and resumes) the build. The active runtime selects its own executor; runtimes never call one another.** Under Claude Code it launches the **dynamic workflow** `pandacorp-build`, a native Claude Code JS script that runs in the background and builds in **GLOBAL WAVES** (DR-050 + BL-0021). Codex has a separately governed **candidate** `attended_foreground` profile, but it is not normal write authority while canonical policy says `FALLBACK`. Both executors read each blueprint's Build Plan and the work-order frontmatter **`implementation_status`** as canonical state, and both require an independent review/test gate before an FRD becomes `VERIFIED`.
+
+## Runtime selection — do this before interpreting the rest of the skill
+
+- **Claude Code:** keep the existing path unchanged. Use `pandacorp-build` + the Claude supervisor, Claude agents/models and the Unattended operation SOP below. Its normal bare/global, targeted and unattended capabilities remain available.
+- **Codex:** first read canonical capability policy. While `implement.codex` is `FALLBACK`, **STOP before launch and do not mutate build state**; tell the owner the `attended_foreground` candidate still requires a green installed Codex-only canary. After that evidence is recorded and policy is explicitly changed to `EXPERIMENTAL`, use only `plugin/scripts/launch-codex-implement.sh`: exactly one FRD or ready change, foreground, cumulative duration `<= 7200` seconds, zero automatic restarts, independent review + deterministic verification + mutation gate, terminal `phase: implementation`. Bare/global, hardening/release, background/unattended and cross-runtime remain denied.
+- **Any other runtime:** apply PORT-5. No build-state writes are authorized unless that runtime has its own explicitly promoted executor profile.
+
+The remainder of this file describes the full Claude build contract unless a paragraph explicitly names the Codex `attended_foreground` profile. Shared governance—frontmatter states, leases, independent review, `verify.sh`, mutation evidence, safe points and human gates—does not degrade.
 
 > **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the marker `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing one in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (DR-048) so the project's `.claude/engines/pandacorp-build.js` and structure are current. Don't proceed over a missing/stale structure.
 >
@@ -28,6 +36,8 @@ description: Starts and runs the build of a Pandacorp project. Launches a dynami
 
 **Targeted change build — when the owner asks to implement a specific pending change from the queue:** parse the change name from `$ARGUMENTS` (the filename without `.md` or a recognizable substring) and pass it as `args.change`. The workflow processes the change FIRST (creating/updating FRDs+WOs), then builds the resulting FRDs. If the change is `draft` (the only pre-`ready` queue status, DR-069), the engine stops immediately and tells the owner to flip it to `ready` first. If the resulting FRDs have unsatisfied deps, the dep gate fires as usual.
 
+> **Codex candidate narrowing (not current permission).** Once the installed canary is green and policy becomes `EXPERIMENTAL`, `attended_foreground` means **exactly one** FRD OR **exactly one** ready change, not a subset/list. The official launcher stays foreground with a ceiling no greater than 7200 seconds; direct executor/supervisor invocation is forbidden. Until that policy change, the launcher must fail closed before lease acquisition.
+
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
 > This is the **Claude-local executor**. It dispatches only Claude agents and never invokes, messages
 > or delegates to Codex. Under Codex, the same skill contract routes to the separately certified
@@ -46,14 +56,11 @@ Control the **concurrency and models** of the workflow (DR-014), not "team size"
 
 ## Unattended operation — the build supervisor (run and walk away SAFELY)
 
-> **Codex launcher lifetime (BL-0065; promotion gates still apply).** On a host whose command shell
-> persists, the historical launcher mode remains `background`. Codex Desktop and any ephemeral
-> orchestration shell MUST use the ninth positional argument `foreground` (or
-> `PANDACORP_CODEX_LAUNCH_MODE=foreground`) so the launcher remains the process-tree owner, forwards
-> INT/TERM/HUP to the supervisor and sleep inhibitor, and does not return until the run stops. The
-> atomic receipt records `launch_mode`, `launcher_pid`, child PIDs, and the exact 11-element resume
-> argv. This lifecycle fix does not bypass PORT-5: do not launch Codex build writes until R10/R11 are
-> promoted.
+> **Codex is not part of this unattended SOP.** Its still-blocked candidate profile is
+> `attended_foreground`: after a future promotion the ninth positional argument MUST be `foreground`,
+> the caller stays present, cumulative duration is at most 7200 seconds and the supervisor has zero automatic restarts.
+> `background`, sleep-and-walk-away, overnight and bare/global Codex builds remain unavailable. The
+> Claude Dynamic Workflow and supervisor below retain their existing unattended behavior unchanged.
 
 ### Launch checklist (run in order — mechanized, not prose)
 1. **Preflight (read-only):** `bash "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-implement.sh" <projectDir> --target-runtime claude --run-mode auto`. Every line must read `PASS` (exit 0), including the logical build-run intent classification from the shared resolver; it never asks the owner for an ID. A `FAIL` STOPS the launch: *another build ACTIVE* → abort; *STALE LOCK* → it prints the reset commands (it never auto-resets — the next step's `launch-implement.sh` takes a fresh lock); a readiness/overlay/`NEEDS CLARIFICATION` fail routes back to `/pandacorp:architecture` or `/pandacorp:upgrade`.

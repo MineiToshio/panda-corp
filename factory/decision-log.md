@@ -1,5 +1,14 @@
 # Decision Log — Factory
 
+## 2026-07-14 — Codex build candidate is attended, targeted and canary-gated
+
+BL-0081 implements one narrow Codex profile instead of coupling useful local execution to Dynamic
+Workflow parity: one exact FRD or ready change, foreground, at most 7200 cumulative seconds, zero
+automatic restarts, independent JUDGE + deterministic verification + mutation gate, and a terminal
+safe point that remains in `implementation`. Policy stays `FALLBACK` until its installed Codex-only
+canary is green; only then may it become `EXPERIMENTAL`. Claude keeps its Dynamic Workflow. Global,
+hardening/release, unattended/overnight and cross-runtime capabilities remain separate future gates.
+
 ## 2026-07-14 — One terminal transition has one timestamp
 
 BL-0080 makes the Codex executor's terminal checkpoint atomic in time: `terminal_at` and `updated_at`

@@ -16,7 +16,7 @@ Piensa en un edificio con dos puertas que llevan al mismo taller:
 |---|---|---|
 | **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo + plugin Codex instalado; ignora sólo `CLAUDE.md` |
 | **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | Plugin Codex + `.agents/skills` (symlink) + `.codex/agents/*.toml` (generados) |
-| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | `runtime/codex/executor.mjs` + supervisor Codex; solo agentes/modelos Codex, cuando PORT-5 lo promocione |
+| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | Candidato `attended_foreground` implementado, pero bloqueado en FALLBACK hasta el canario instalado |
 | **El núcleo que ambos operan** | `AGENTS.md` + `factory/` (manual y estándares) · `plugin/skills/` (los 25 SKILL.md) · el estado en ficheros (`status.yaml`, frontmatter de work orders, colas de inbox) | idem — es el MISMO conjunto de ficheros |
 
 Nadie elige runtime con un switch: **cada herramienta se auto-selecciona por lo que es capaz de leer**. El diagrama fuente está en `docs/assets/multi-runtime-two-doors.svg` (repo de la fábrica).
@@ -60,16 +60,20 @@ El detalle completo (matriz de capacidades, tiers de modelo, tabla de traducció
 
 ## Qué funciona igual y qué degrada
 
-**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. **Eso no autoriza todavía escritura de build desde Codex.** R2/R3/R6, R7/R8 offline y el cambio en frío bidireccional R10 en fixture están verdes; falta probar ese cambio entre las aplicaciones instaladas y certificar R11 desatendido. Hasta entonces, Codex es solo lectura/review sobre el estado de construcción.
+**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. Claude conserva toda su ruta actual. Codex todavía no puede escribir un build normal: la política sigue `FALLBACK`. El perfil `attended_foreground` está implementado como candidato, pero no se habilita hasta que pase un canario instalado Codex-only y la política cambie explícitamente a `EXPERIMENTAL`.
 
-R11 separa tres evidencias que no se pueden confundir: `OFFLINE_ACCELERATED` (fallos inyectados y
-relojes acelerados), `LIVE_SHORT` (proveedor real por pocos minutos) y `LIVE_OVERNIGHT` (varias horas
-reales). Las dos primeras están verdes, incluido el `LIVE_SHORT` del código actual: terminó en 114
-segundos con proveedor real, gasto y heartbeat durables, terminal del supervisor y lease liberado. El
-overnight sigue pendiente. El launcher comprueba host,
-credenciales, red, sandbox, árbol limpio y prevención de sueño, y deja un recibo reanudable en
-`.pandacorp/run/codex-launch.json`. Esto mejora la seguridad del camino, pero no abre el permiso hasta
-completar también el canario instalado R10 y el overnight R11.
+Después de esa promoción, el perfil exigirá exactamente **un FRD o una change lista**, foreground, una duración acumulada máxima
+de 7200 segundos y cero reinicios automáticos. El launcher, supervisor y executor validan el mismo
+alcance y consumen un permiso de un solo uso antes de mutar el build. Codex implementa secuencialmente,
+usa un JUDGE independiente, vuelve a correr `verify.sh` y exige un mutation gate parseable y verde.
+Ausencia, timeout, salida ambigua o score insuficiente dejan el FRD sin verificar. El progreso se
+escribe en `progress.md`, los tiempos en `track.jsonl` y el cierre libera la lease manteniendo
+`phase: implementation`.
+
+No están habilitados en Codex: build sin objetivo, varios FRDs, hardening global, avance a `release`,
+background, noche/desatendido ni cambio Claude↔Codex. R10 y R11 quedan como certificaciones separadas
+si más adelante se quiere abrir el relevo entre runtimes o el overnight; no bloquean este perfil
+Codex-only atendido.
 
 El cierre Codex también es una sola transición observable: el checkpoint captura una única hora y la
 reutiliza como `terminal_at` y `updated_at`. El recolector falla cerrado si el evento de cierre, la
@@ -117,13 +121,13 @@ explícita `new` crean un run nuevo. La identidad del proceso o sesión de cada 
 nunca se usa como sustituto.
 
 **Degrada con honestidad en Codex:**
-- El build (`implement`) sigue **habilitado sólo en Claude**. R10 prueba el contrato en un proyecto desechable, no el comportamiento de las dos aplicaciones instaladas.
-- **La Fragua**: Codex puede leer la evidencia existente, pero no emite eventos de build mientras sea read/review-only.
+- El build (`implement`) sigue bloqueado. `attended_foreground` es el candidato: un objetivo y máximo 7200 segundos sólo después de su canario y promoción.
+- **La Fragua**: Codex puede leer evidencia existente; los eventos de un build candidato no cuentan como permiso ni sustituyen archivos/commits canónicos.
 - La política, los adaptadores y las proyecciones de hooks/config de Codex están certificados en fuente, pero el enforcement activo requiere instalar el plugin y dar trust explícito a sus definiciones. Hasta cerrar ese canario (BL-0030), `AGENTS.md` sigue siendo el piso vinculante y no se reclama paridad automática.
 
 ## Cómo probar que funciona
 
 1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 25 skills (`/skills`).
-2. **Codex, revisión segura**: abre un proyecto detenido en un safe point y pídele revisar work orders, commits y evidencia del gate sin mutar estado de construcción. El build se habilita sólo después del canario live R10 y R11.
+2. **Codex, canario atendido**: usa únicamente el fixture desechable y protocolo autorizado. Un proyecto normal debe seguir rechazado mientras policy sea `FALLBACK`. Si el canario queda verde, registra la evidencia y recién entonces promueve la policy a `EXPERIMENTAL`.
 3. **Claude, intacto**: la misma prueba vía `/pandacorp:implement` — motor background, supervisor y Fragua completa, como siempre.
-4. **Harness Codex desatendido**: desde la fábrica, ejecuta `node plugin/scripts/test-codex-unattended.mjs`; debe quedar verde. El canario real corto se repite con `node plugin/scripts/run-codex-live-short-canary.mjs --keep`. El overnight usa el comando y conserva la evidencia descrita en `plugin/runtime/codex/R11-CERTIFICATION.md`.
+4. **Fronteras negativas**: comprueba que Codex rechaza un build sin target, varios FRDs, background y duración >7200 antes de tomar la lease. Los harness R10/R11 son opcionales y sólo aplican a capacidades futuras de cambio de runtime/overnight.

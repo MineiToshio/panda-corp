@@ -5,7 +5,7 @@
   },
   "overrides": {
     "design": { "codex": { "status": "FALLBACK", "fallback": "Use the documented navigable HTML mockup path; no DesignSync canvas." } },
-    "implement": { "codex": { "status": "FALLBACK", "fallback": "Use Claude for normal governed builds. Only the exact one-shot R10 Stage 2 and R11 LIVE_OVERNIGHT disposable certification permits may write while FALLBACK; installed R10 plus R11 LIVE_OVERNIGHT remain pending." } },
+    "implement": { "codex": { "status": "FALLBACK", "candidate_profile": "attended_foreground", "scope": "targeted-only", "fallback": "The targeted attended_foreground profile is implemented but remains canary-gated. Bare/global, hardening, release, background and unattended Codex builds are unavailable; Claude keeps its Dynamic Workflow path." } },
     "implement-backlog": { "codex": { "status": "FALLBACK", "fallback": "Single-item mode only; drain-all remains Claude-owned until its independent E2E passes." } },
     "review-launch": { "codex": { "status": "FALLBACK", "fallback": "Use documented PostHog queries when the connected analytics tool is unavailable." } }
   }

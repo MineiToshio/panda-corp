@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { appendFile, chmod, copyFile, lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setPendingDecisions, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
 import { createRuntimeEventEmitter } from "../event-transport.mjs";
+import { consumeByExecutor } from "./attended-permit.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const plugin = path.resolve(here, "../..");
@@ -34,6 +36,13 @@ const codexBin = process.env.PANDACORP_CODEX_BIN || "codex";
 const requestedChange = arg("change", "");
 const requestedFrds = arg("frds", "").split(",").map((item) => item.trim()).filter(Boolean);
 const targeted = Boolean(requestedChange || requestedFrds.length);
+const executionProfile = arg("execution-profile", "");
+const attendedPermit = arg("attended-permit", "");
+const attendedFd = numberArg("attended-fd", 0);
+if (!new Set(["attended_foreground", "certification"]).has(executionProfile)) throw Object.assign(new Error("explicit Codex execution profile required"), { code: "PROFILE" });
+const exactAttendedTarget = Boolean(requestedChange) !== Boolean(requestedFrds.length) && requestedFrds.length <= 1 && (!requestedChange || /^[a-z0-9-]+$/.test(requestedChange)) && (!requestedFrds.length || /^frd-[a-z0-9-]+$/.test(requestedFrds[0]));
+if (executionProfile === "attended_foreground" && (certificationReceipt || !exactAttendedTarget || maxDuration > 7200 || !attendedPermit || attendedFd < 3)) throw Object.assign(new Error("attended_foreground requires one exact target, an inherited secret FD, a consumable permit and max-duration <= 7200"), { code: "PROFILE" });
+if (executionProfile === "certification" && !certificationReceipt) throw Object.assign(new Error("certification profile requires its consumed receipt"), { code: "PROFILE" });
 if (certificationReceipt) {
   const receiptPath = await assertRealRuntimePath(certificationReceipt, "file");
   const receipt = JSON.parse(await readFile(receiptPath, "utf8"));
@@ -47,6 +56,7 @@ if (certificationReceipt) {
   const exactScope = !requestedChange && Array.isArray(receipt.frds) && receipt.frds.join(",") === requestedFrds.join(",");
   if (!contract || receiptPath !== canonicalPath || receipt.status !== "consumed" || receipt.run_id !== runId || receipt.stage !== contract.stage || !exactLimits || !exactScope) throw Object.assign(new Error("invalid, drifted or unconsumed certification receipt"), { code: "CERTIFICATION" });
 }
+if (executionProfile === "attended_foreground") await consumeByExecutor(project, attendedPermit, { runId, change: requestedChange, frds: requestedFrds[0] || "", maxSpend, maxDuration, maxRetries, maxBlocks }, readFileSync(attendedFd,"utf8").trim());
 const runDir = path.join(project, ".pandacorp/run");
 const checkpointFile = path.join(runDir, "codex-checkpoint.json");
 const journalFile = path.join(runDir, "codex-executor.jsonl");
@@ -56,7 +66,7 @@ const wholeFrdOracle = reviewerSource.match(/<!-- WHOLE_FRD_ORACLE_START -->([\s
 if (!wholeFrdOracle) throw Object.assign(new Error("canonical whole-FRD reviewer oracle is unavailable"), { code: "CONTRACT" });
 const schema = path.join(here, "result.schema.json");
 const changeSchema = path.join(here, "change-result.schema.json");
-const startedAt = Date.now();
+let budgetStartedAt = Date.now();
 const testAfterDispatchDelay = Number(process.env.PANDACORP_TEST_AFTER_DISPATCH_MS || 0);
 let lease;
 let stopping = false;
@@ -65,11 +75,11 @@ let activeChild = null;
 let activeClose = null;
 let signalRequested = null;
 let shutdownStarted = false;
-let state = { version: 2, run_id: runId, inflight: null, attempts: {}, implementation_commits: {}, attempt_commits: {}, consecutive_blocks: 0, terminal_reason: null, change_plan_pending: null, active_change_frds: {}, deferred_changes: [] };
+let state = { version: 2, run_id: runId, budget_started_at: new Date(budgetStartedAt).toISOString(), inflight: null, attempts: {}, implementation_commits: {}, attempt_commits: {}, consecutive_blocks: 0, terminal_reason: null, change_plan_pending: null, active_change_frds: {}, deferred_changes: [] };
 
 const EXIT = { complete: 0, "needs-owner": 20, budget: 21, rethink: 22, duration: 23, breaker: 24, uncertain: 25, stopped: 26, error: 2 };
 const runtimePath = (file) => file === ".pandacorp/run" || file.startsWith(".pandacorp/run/");
-const governedPath = (file) => file === ".pandacorp/status.yaml" || /^docs\/frds\/[^/]+\/(frd|blueprint)\.md$/.test(file) || /^docs\/frds\/[^/]+\/work-orders\/wo-[^/]+\.md$/.test(file);
+const governedPath = (file) => file === ".pandacorp/status.yaml" || file === ".pandacorp/track.jsonl" || /^docs\/frds\/[^/]+\/(frd|blueprint)\.md$/.test(file) || /^docs\/frds\/[^/]+\/work-orders\/wo-[^/]+\.md$/.test(file);
 const testPath = (file) => /(^|\/)(__tests__|tests?|e2e)(\/|$)|\.(test|spec)\.[^.]+$/i.test(file);
 const atomic = async (file, value) => { const tmp = `${file}.tmp-${process.pid}-${randomUUID()}`; await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }); await rename(tmp, file); };
 const checkpoint = async (patch = {}, transitionAt = new Date().toISOString()) => { state = { ...state, ...patch, version: 2, run_id: runId, updated_at: transitionAt }; await atomic(checkpointFile, state); };
@@ -187,8 +197,10 @@ async function commitPaths(message, paths, kind) {
   if (JSON.stringify(staged) !== JSON.stringify([...files].sort())) throw Object.assign(new Error(`staging ownership mismatch: ${staged.join(",")}`), { code: "OWNERSHIP" });
   result = await exec("git", ["commit", "-m", message]); if (result.code) throw Object.assign(new Error(result.err), { code: "GIT" }); return (await exec("git", ["rev-parse", "HEAD"])).out.trim();
 }
-const stateFiles = (wo) => [wo.file, `docs/frds/${wo.frd}/frd.md`, `docs/frds/${wo.frd}/blueprint.md`, ".pandacorp/status.yaml"];
-async function stateCommit(message, wo) { const items = Array.isArray(wo) ? wo : wo ? [wo] : []; return commitPaths(message, items.length ? items.flatMap(stateFiles) : [".pandacorp/status.yaml"], "state"); }
+const stateFiles = (wo) => [wo.file, `docs/frds/${wo.frd}/frd.md`, `docs/frds/${wo.frd}/blueprint.md`, ".pandacorp/status.yaml", ".pandacorp/track.jsonl"];
+async function stateCommit(message, wo) { const items = Array.isArray(wo) ? wo : wo ? [wo] : []; return commitPaths(message, items.length ? items.flatMap(stateFiles) : [".pandacorp/status.yaml", ".pandacorp/track.jsonl"], "state"); }
+const appendTrack = async (kind, data = {}) => appendFile(path.join(project, ".pandacorp/track.jsonl"), `${JSON.stringify({ at: new Date().toISOString(), kind, project: path.basename(project), runtime: "codex", run_id: runId, ...data })}\n`);
+const appendProgress = async (line) => { const file = path.join(project, ".pandacorp/comms/progress.md"); await mkdir(path.dirname(file), { recursive: true }); await appendFile(file, `\n- ${new Date().toISOString()} — ${line}\n`); };
 
 function validateResult(value) { if (!value || typeof value !== "object" || typeof value.done !== "boolean" || !["green", "red", "needs-owner", "retry"].includes(value.verdict) || typeof value.summary !== "string" || !Array.isArray(value.findings) || value.findings.some((item) => typeof item !== "string")) throw Object.assign(new Error("Codex result violates result.schema.json"), { code: "INVALID_RESULT" }); return value; }
 function validateReviewResult(value) {
@@ -213,13 +225,25 @@ async function dispatch({ id, tier, prompt, units = 1, outputSchema = schema, va
   throwIfStopping();
   await reserveDispatch(project, lease.token, lease.epoch, { id, units, limit: maxSpend }); const resultFile = path.join(runDir, `${id}.result.json`); await checkpoint({ inflight: { id, tier, result_file: resultFile, started_at: new Date().toISOString() } }); await event("dispatch_started", { dispatch_id: id, tier });
   const mapping = tiers[tier].codex; const args = ["exec", "--ignore-user-config", "--strict-config", "--json", "--output-schema", outputSchema, "--output-last-message", resultFile, "-C", project, "-s", "workspace-write", "-m", mapping.model, "-c", `model_reasoning_effort=\"${mapping.effort}\"`, prompt];
-  const result = await exec(codexBin, args, { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - startedAt)), managed: true });
+  const result = await exec(codexBin, args, { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - budgetStartedAt)), managed: true });
   throwIfStopping();
   if (result.code !== 0) { const errorClass = classifyProviderFailure(result); const uncertain = { ...state.inflight, error_class: errorClass, exit_code: result.code, timed_out: result.timedOut }; await event("dispatch_uncertain", { dispatch_id: id, code: result.code, signal: result.signal, timed_out: result.timedOut, error_class: errorClass }); await checkpoint({ uncertain }); throw Object.assign(new Error(`Codex dispatch outcome is uncertain: ${id}; provider class=${errorClass}; blind retry forbidden`), { code: result.timedOut ? "DURATION" : "UNCERTAIN", providerClass: errorClass }); }
   const parsed = validator(JSON.parse(await readFile(resultFile, "utf8"))); await event("dispatch_finished", { dispatch_id: id, verdict: parsed.verdict }); await checkpoint({ inflight: null, uncertain: null, last_dispatch: id }); if (process.env.PANDACORP_TEST_AFTER_DISPATCH_BARRIER === "1") { await writeFile(path.join(runDir, "after-dispatch.barrier"), `${id}\n`); while (!signalRequested) await wait(10); } else if (testAfterDispatchDelay > 0) await wait(Math.min(testAfterDispatchDelay, 5000)); throwIfStopping(); return parsed;
 }
-async function verify(label) { throwIfStopping(); const result = await exec("bash", [".pandacorp/verify.sh"], { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - startedAt)), managed: true }); throwIfStopping(); await event("verify_finished", { label, code: result.code, signal: result.signal, timed_out: result.timedOut, output_tail: `${result.out}\n${result.err}`.slice(-4000) }); return result.code === 0 && !result.timedOut; }
-async function safePoint() { if (signalRequested) return "stopped"; if (Date.now() - startedAt >= maxDuration * 1000) return "duration"; try { await stat(path.join(runDir, "stop")); return "stopped"; } catch {} const status = await readFile(path.join(project, ".pandacorp/status.yaml"), "utf8"); if (/^rethink_pending:\s*true\s*$/m.test(status)) return "rethink"; if (state.consecutive_blocks >= maxBlocks) return "breaker"; return null; }
+async function verify(label) { throwIfStopping(); const result = await exec("bash", [".pandacorp/verify.sh"], { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - budgetStartedAt)), managed: true }); throwIfStopping(); await event("verify_finished", { label, code: result.code, signal: result.signal, timed_out: result.timedOut, output_tail: `${result.out}\n${result.err}`.slice(-4000) }); return result.code === 0 && !result.timedOut; }
+async function mutationGate(frd) {
+  if (executionProfile !== "attended_foreground") return true;
+  throwIfStopping();
+  const commits = state.implementation_commits[frd] || []; if (!commits.length) return false;
+  const remaining = Math.max(2000, maxDuration * 1000 - (Date.now() - budgetStartedAt));
+  const result = await exec("node", [path.join(plugin, "scripts/run-frd-mutation-gate.mjs"), "--project", project, "--frd", frd, "--commits", commits.join(","), "--timeout-ms", String(Math.max(1000, remaining - 1000))], { timeoutMs: remaining, managed: true });
+  throwIfStopping();
+  let receipt = null; try { receipt = JSON.parse(result.out); } catch {}
+  const green = result.code === 0 && !result.timedOut && receipt?.schema === 1 && receipt?.frd === frd && receipt?.verdict === "green";
+  await event(green ? "test.green" : "test.failed", { label: `mutation-${frd}`, code: result.code, receipt, output_tail: `${result.out}\n${result.err}`.slice(-4000) });
+  return green;
+}
+async function safePoint() { if (signalRequested) return "stopped"; if (Date.now() - budgetStartedAt >= maxDuration * 1000) return "duration"; try { await stat(path.join(runDir, "stop")); return "stopped"; } catch {} const status = await readFile(path.join(project, ".pandacorp/status.yaml"), "utf8"); if (/^rethink_pending:\s*true\s*$/m.test(status)) return "rethink"; if (state.consecutive_blocks >= maxBlocks) return "breaker"; return null; }
 async function honorSafePoint(stop) { if (!stop) return false; finalReason = stop; await terminal(stop); return true; }
 const changeDirectory = path.join(project, ".pandacorp/inbox/changes");
 const cardField = (body, key) => body.match(new RegExp(`^${key}:\\s*(.+)$`, "m"))?.[1]?.trim() || "";
@@ -238,6 +262,20 @@ async function processChange(card) {
 }
 async function drainReadyChanges() { if (targeted) return []; const affected = []; for (const card of await changeCards("ready")) { if ((state.deferred_changes || []).includes(card.file)) continue; affected.push(...await processChange(card)); } return [...new Set(affected)]; }
 async function reconcileChangeCards() { for (const card of await changeCards("building")) { const result = await reconcileBuildingChange(project, lease.token, lease.epoch, { changeFile: card.file }); if (result.action === "reset-ready") { state.deferred_changes = [...new Set([...(state.deferred_changes || []), card.file])]; await checkpoint(); } await event("change_reconciled", { change_file: card.file, action: result.action }); } }
+async function reconcileAnsweredDecisions(allowedFrds) {
+  const file = path.join(project, ".pandacorp/inbox/decisions.md"); let body = ""; try { body = await readFile(file, "utf8"); } catch (error) { if (error.code === "ENOENT") return []; throw error; }
+  const blocks = body.split(/^##\s+/m).slice(1); const terminal = (block) => /\*\*Estado:\*\*\s*(RESUELTO|OBSOLETO)\b/i.test(block) || /^.*\((resuelto|obsoleto)\)/mi.test(block); const terminalBlocks = blocks.filter(terminal);
+  await setPendingDecisions(project, lease.token, lease.epoch, blocks.filter((block) => !terminal(block)).length);
+  const answeredIds = new Set(terminalBlocks.flatMap((block) => block.match(/\bWO-[A-Za-z0-9-]+\b/g) || [])); if (!answeredIds.size) return [];
+  const reopened = [];
+  for (const wo of await workOrders()) {
+    if (!answeredIds.has(wo.id) || wo.status !== "BLOCKED" || targeted && !allowedFrds.has(wo.frd)) continue;
+    const content = await readFile(path.join(project, wo.file), "utf8"); if (!/^blocked_reason:\s*needs-owner\s*$/m.test(content)) continue;
+    await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "PLANNED" }); await appendTrack("wo_reopen", { frd: wo.frd, wo: wo.id, cause: "answered-decision" }); reopened.push(wo);
+  }
+  if (reopened.length) { await stateCommit("chore: reopen work answered by owner", reopened); await appendProgress(`Decisión resuelta: se reabrió ${reopened.map((wo) => wo.id).join(", ")} para continuar la implementación.`); }
+  return reopened;
+}
 async function terminal(reason, detail = {}) { const transitionAt = new Date().toISOString(); await checkpoint({ inflight: null, ...detail, terminal_reason: reason, terminal_at: transitionAt }, transitionAt); await event(reason === "complete" ? "build.complete" : "build.stopped", { reason, ...detail }); }
 async function needsOwner(subject, summary, code = "NEEDS_OWNER") { await pauseForOwner(project, lease.token, lease.epoch, { subject, summary }); await stateCommit("chore: persist owner-decision state", null); await terminal("needs-owner", { subject, summary }); throw Object.assign(new Error(summary), { code }); }
 async function reconcileInflight(cp) { if (!cp?.inflight && !cp?.uncertain) return; const inflight = cp.uncertain || cp.inflight; const errorClass = inflight.error_class || "unknown"; await event("uncertain_requires_owner", { dispatch_id: inflight.id, error_class: errorClass }); await needsOwner(inflight.id, `A previous Codex dispatch ended without a trustworthy terminal result (provider class: ${errorClass}). No retry was launched; inspect its durable result and git delta before deciding.`, "UNCERTAIN"); }
@@ -253,6 +291,7 @@ let finalReason = "error";
 try {
   await mkdir(runDir, { recursive: true });
   try { const saved = JSON.parse(await readFile(checkpointFile, "utf8")); if (saved.run_id === runId) state = { ...state, ...saved }; } catch {}
+  budgetStartedAt = Date.parse(state.budget_started_at); if (!Number.isFinite(budgetStartedAt) || budgetStartedAt > Date.now()) throw Object.assign(new Error("durable duration origin is invalid"), { code: "EVIDENCE" }); await checkpoint({ budget_started_at: new Date(budgetStartedAt).toISOString() });
   const baseline = (await changedPaths()).filter((file) => !runtimePath(file)); if (baseline.length && !state.inflight && !state.uncertain && !state.change_plan_pending) throw Object.assign(new Error(`dirty baseline: ${baseline.join(",")}`), { code: "DIRTY" });
   const prior = await currentLease(project); if (prior) { if (prior.runtime !== "codex" || prior.run_id !== runId || isFresh(prior)) throw Object.assign(new Error("foreign or still-live lease"), { code: "CONTENDED" }); lease = await reclaim(project, { runtime: "codex", runId, ttlSeconds: leaseTtlSeconds }); } else lease = await acquire(project, { runtime: "codex", runId, ttlSeconds: leaseTtlSeconds });
   await event("executor_started", { epoch: lease.epoch, targeted, lease_ttl_seconds: leaseTtlSeconds, heartbeat_interval_ms: renewIntervalMs }); renewTimer = setInterval(() => renew(project, lease.token, lease.epoch).catch(async (error) => { await event("lease_lost", { error: error.message }); process.kill(process.pid, "SIGTERM"); }), renewIntervalMs); renewTimer.unref(); await reconcileInflight(state); if (state.change_plan_pending) await applyPendingChangePlan(state.change_plan_pending); else await recoverOrphanChangeTransactions();
@@ -263,7 +302,7 @@ try {
   let passes = 0;
   while (true) {
     const stop = await safePoint(); if (await honorSafePoint(stop)) break;
-    await reconcileChangeCards(); await drainReadyChanges(); const every = await workOrders(); const all = scopeFrds.size ? every.filter((wo) => scopeFrds.has(wo.frd)) : every; if (!all.length && scopeFrds.size) await needsOwner("target-scope", `Targeted FRDs have no work orders: ${[...scopeFrds].join(", ")}`); if (all.every((wo) => wo.status === "VERIFIED")) { await reconcileChangeCards(); finalReason = targeted ? "complete" : every.every((wo) => wo.status === "VERIFIED") ? "hardening" : "complete"; break; }
+    await reconcileChangeCards(); await reconcileAnsweredDecisions(scopeFrds); await drainReadyChanges(); const every = await workOrders(); const all = scopeFrds.size ? every.filter((wo) => scopeFrds.has(wo.frd)) : every; if (!all.length && scopeFrds.size) await needsOwner("target-scope", `Targeted FRDs have no work orders: ${[...scopeFrds].join(", ")}`); if (all.every((wo) => wo.status === "VERIFIED")) { await reconcileChangeCards(); finalReason = targeted ? "complete" : every.every((wo) => wo.status === "VERIFIED") ? "hardening" : "complete"; break; }
     let progress = false;
     for (const frd of [...new Set(all.map((wo) => wo.frd))]) {
       let group = (await workOrders()).filter((wo) => wo.frd === frd); if (group.every((wo) => wo.status === "VERIFIED" || wo.status === "BLOCKED")) continue;
@@ -272,22 +311,22 @@ try {
         const fresh = await workOrders(); const byId = new Map(fresh.map((item) => [item.id, item])); const ready = wo.deps.every((id) => { const dep = byId.get(id); return dep.status === "VERIFIED" || (dep.frd === wo.frd && dep.status === "IN_REVIEW"); }); if (!ready) continue;
         const stopNow = await safePoint(); if (await honorSafePoint(stopNow)) break;
         if (wo.status === "IN_PROGRESS") await needsOwner(wo.id, "WO remained IN_PROGRESS without an inflight dispatch; deterministic ownership cannot be reconstructed.");
-        await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "IN_PROGRESS" }); await stateCommit(`chore(${wo.id}): start work order`, wo);
+        await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "IN_PROGRESS" }); await appendTrack("wo_start", { frd: wo.frd, wo: wo.id }); await stateCommit(`chore(${wo.id}): start work order`, wo);
         const before = await snapshot(); const preserved = await preservedContext(frd); const result = await dispatch({ id: `implement-${wo.id}-p${passes}`, tier: "STANDARD", prompt: `Implement exactly ${wo.file}. Read the authoritative Build Plan, FRD, blueprint and acceptance criteria. ${preserved} TDD; production code and tests only. Never edit governed frontmatter/status, .pandacorp/run, lease, ledger or phase. Do not commit. Return schema JSON; green means your bounded self-test passed.` }); const files = await delta(before); throwIfStopping();
         if (files.some(governedPath)) throw Object.assign(new Error(`implementer touched governed state: ${files.filter(governedPath)}`), { code: "OWNERSHIP" });
         const sha = await commitPaths(`feat(${wo.id}): implementation attempt`, files, "implementation"); await recordCommit(frd, sha, true);
         if (result.verdict === "needs-owner") { await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "BLOCKED", reason: "needs-owner" }); await stateCommit(`chore(${wo.id}): block for owner`, wo); await needsOwner(wo.id, result.summary); }
         if (result.verdict !== "green") { await rollback(frd, state.attempts[frd] || 0, files); await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "PLANNED" }); await stateCommit(`chore(${wo.id}): reset failed implementation`, wo); continue; }
-        await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "IN_REVIEW" }); await stateCommit(`chore(${wo.id}): hand off for review`, wo); progress = true;
+        await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "IN_REVIEW" }); await appendTrack("wo_end", { frd: wo.frd, wo: wo.id, state: "in_review" }); await stateCommit(`chore(${wo.id}): hand off for review`, wo); progress = true;
       }
       if (finalReason !== "error") break;
       group = (await workOrders()).filter((wo) => wo.frd === frd); if (!group.every((wo) => ["IN_REVIEW", "VERIFIED"].includes(wo.status))) continue;
-      const attempt = state.attempts[frd] || 0; const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, validator: validateReviewResult, prompt: `Independently review ${frd} as a fresh judge. ${wholeFrdOracle} ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Your schema verdict must include traceability for every normative contract class; use explicit not-applicable entries where the FRD has none. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
-      let green = review.verdict === "green" && await verify(`review-${frd}-a${attempt}`); let evidenceFiles = [...reviewFiles];
-      if (!green && review.verdict !== "needs-owner") { const repairBefore = await snapshot(); const repair = await dispatch({ id: `repair-${frd}-a${attempt}`, tier: "STANDARD", prompt: `Repair only the recorded review findings for ${frd}. Bounded production/test changes; no governed state or commits. Return green only after your focused checks pass.` }); const repairFiles = await delta(repairBefore); if (repairFiles.some(governedPath)) throw Object.assign(new Error("repair touched governed state"), { code: "OWNERSHIP" }); const repairSha = await commitPaths(`fix(${frd}): review repair attempt ${attempt}`, repairFiles, "implementation"); await recordCommit(frd, repairSha); evidenceFiles.push(...repairFiles); green = repair.verdict === "green" && await verify(`repair-${frd}-a${attempt}`); }
+      const attempt = state.attempts[frd] || 0; await appendTrack("review_start", { frd, attempt }); const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, validator: validateReviewResult, prompt: `Independently review ${frd} as a fresh judge. ${wholeFrdOracle} ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Your schema verdict must include traceability for every normative contract class; use explicit not-applicable entries where the FRD has none. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
+      let green = review.verdict === "green" && await verify(`review-${frd}-a${attempt}`) && await mutationGate(frd); let evidenceFiles = [...reviewFiles];
+      if (!green && review.verdict !== "needs-owner") { const repairBefore = await snapshot(); const repair = await dispatch({ id: `repair-${frd}-a${attempt}`, tier: "STANDARD", prompt: `Repair only the recorded review findings for ${frd}. Bounded production/test changes; no governed state or commits. Return green only after your focused checks pass.` }); const repairFiles = await delta(repairBefore); if (repairFiles.some(governedPath)) throw Object.assign(new Error("repair touched governed state"), { code: "OWNERSHIP" }); const repairSha = await commitPaths(`fix(${frd}): review repair attempt ${attempt}`, repairFiles, "implementation"); await recordCommit(frd, repairSha); evidenceFiles.push(...repairFiles); green = repair.verdict === "green" && await verify(`repair-${frd}-a${attempt}`) && await mutationGate(frd); }
       if (review.verdict === "needs-owner") { const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "BLOCKED", reason: "needs-owner" }); await stateCommit(`chore(${frd}): block for owner`, active); await needsOwner(frd, review.summary); }
-      if (green) { const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "VERIFIED" }); await stateCommit(`chore(${frd}): verify feature`, active); const sha = (await exec("git", ["rev-parse", "--short", "HEAD"])).out.trim(); await stampLastGreen(project, lease.token, lease.epoch, sha); await stateCommit(`chore(${frd}): stamp green`, null); state.consecutive_blocks = 0; await setHealth(project, lease.token, lease.epoch, 0); await checkpoint(); }
-      else { await rollback(frd, attempt, evidenceFiles); state.attempts[frd] = attempt + 1; const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: state.attempts[frd] > maxRetries ? "BLOCKED" : "PLANNED", reason: "error" }); await stateCommit(`chore(${frd}): record rejected gate`, active); if (state.attempts[frd] > maxRetries) { state.consecutive_blocks++; await setHealth(project, lease.token, lease.epoch, state.consecutive_blocks); } await checkpoint(); }
+      if (green) { const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "VERIFIED" }); await appendTrack("review_end", { frd, verdict: "pass" }); await appendTrack("frd_end", { frd }); await stateCommit(`chore(${frd}): verify feature`, active); const sha = (await exec("git", ["rev-parse", "--short", "HEAD"])).out.trim(); await stampLastGreen(project, lease.token, lease.epoch, sha); await stateCommit(`chore(${frd}): stamp green`, null); await appendProgress(`${frd} verificado: sus work orders pasaron revisión independiente, pruebas completas y mutation gate.`); state.consecutive_blocks = 0; await setHealth(project, lease.token, lease.epoch, 0); await checkpoint(); }
+      else { await appendTrack("review_end", { frd, verdict: "red" }); await rollback(frd, attempt, evidenceFiles); state.attempts[frd] = attempt + 1; const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: state.attempts[frd] > maxRetries ? "BLOCKED" : "PLANNED", reason: "error" }); await stateCommit(`chore(${frd}): record rejected gate`, active); if (state.attempts[frd] > maxRetries) { state.consecutive_blocks++; await setHealth(project, lease.token, lease.epoch, state.consecutive_blocks); } await checkpoint(); }
       progress = true;
     }
     if (finalReason !== "error") break;

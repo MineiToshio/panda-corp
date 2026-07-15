@@ -28,12 +28,34 @@ subagents do not reliably inherit, without sharing either runtime's orchestratio
 
 ## Codex executor
 
-`launch-codex-implement.sh` starts a controllable local supervisor and a separate PID-bound sleep
-inhibitor (`caffeinate -w` on macOS), recording both in an atomic receipt. Its backward-compatible
-`background` mode remains for durable shells. Ephemeral shells such as Codex Desktop must select
-`foreground`: the launcher remains alive as the process-tree owner, forwards INT/TERM/HUP, waits for
-the supervisor and reaps the inhibitor. The receipt records the launch mode, launcher/child PIDs and
-the exact mode-preserving resume argv. The executor uses only
+### Candidate surface: `attended_foreground` (FALLBACK until installed canary)
+
+Normal Codex project writes remain unavailable while capability policy is `FALLBACK`. The implemented
+candidate is intentionally narrow, but code presence is not authority: the official launcher must
+reject a normal invocation before lease acquisition until the installed Codex-only canary is green
+and policy is explicitly changed to `EXPERIMENTAL`. After that promotion, it accepts exactly one
+normalized FRD OR one exact ready-change target, foreground only, with cumulative duration at most
+7200 seconds and zero automatic restarts. It issues a one-run attended permit bound to the project,
+logical run, exact target and ceilings; launcher, supervisor and executor each validate the profile
+and consume their stage before lease-owned mutation. Direct controller invocation, missing or
+ambiguous scope, background mode and larger duration fail closed.
+
+The profile implements sequentially with Codex STANDARD, reviews independently with Codex JUDGE,
+reruns `verify.sh` and requires a parsed green mutation receipt. Missing, timed-out, ambiguous or
+below-threshold mutation evidence cannot stamp `VERIFIED` or `last_green_sha`. It appends owner-facing
+milestones to `.pandacorp/comms/progress.md` and timings to `.pandacorp/track.jsonl`. On success or
+bounded stop it quiesces/releases and keeps `phase: implementation`; bare/global drain, project-wide
+hardening, `phase: release`, background/unattended/overnight execution and Claude cross-runtime
+continuation are outside the candidate promotion.
+
+Claude's Dynamic Workflow, agents, supervisor and capabilities are unchanged. The Codex executor
+never invokes Claude and this profile does not require R10/R11 cross-runtime or overnight evidence.
+
+After promotion, `launch-codex-implement.sh` starts a controllable local supervisor and records it in an atomic receipt.
+The profile requires `foreground`: the launcher remains alive as the process-tree owner,
+forwards INT/TERM/HUP and waits for the supervisor. Sleep inhibition/background support exists only
+for the separate certification machinery and is not normal attended authority. The receipt records
+the launch mode, execution profile, launcher/child PIDs and exact resume argv. The executor uses only
 `codex exec --ignore-user-config --json --output-schema` child processes: unrelated user MCPs cannot
 control the run, while project-local Codex config/rules remain mandatory. Strict config and the
 workspace-write sandbox apply; approval/sandbox bypass flags never do. Work is sequential in the shared checkout.
@@ -76,11 +98,12 @@ reuse, budget/rethink/breakers, hardening separation, process-group shutdown, po
 races, two-phase release, and supervisor terminal-reason handling. The usage limit later cleared and
 R11's real disposable `LIVE_SHORT` canary completed two provider dispatches and the full controller
 close-out. That closes the old R7 live-transport blocker. It still does **not** promote Codex
-`implement` to PROVEN: the installed bidirectional R10 canary and a real several-hours R11
-`LIVE_OVERNIGHT` canary remain mandatory.
+`implement` to unrestricted `PROVEN`: cross-runtime and several-hours unattended execution remain
+open.
 
-Therefore `skill-capabilities.json` correctly keeps Codex `implement` at `FALLBACK`. The existence of
-the executor, its mock suite and a short provider success do not grant production build-write permission.
+Therefore capability policy truthfully remains `FALLBACK` with `candidate_profile:
+attended_foreground`. The existence of the executor, its mock suite and a short provider success do
+not grant normal build-write permission.
 
 ## R8 product change-queue verdict — offline contract green
 
@@ -106,7 +129,8 @@ one integration commit. Every archive path—including `status: done` re-entry a
 after an `archive-card` crash—runs the same SHA, required-path and current-content validator before
 rename. Offline evidence on 2026-07-11: `test-build-state.mjs` **21/21** and
 `test-codex-executor.mjs` **23/23**. R8 therefore removes `R8-ready-change-drain` as a promotion
-blocker; R10 installed-runtime switching and R11 overnight certification remain binding.
+blocker. R10 installed-runtime switching and R11 overnight certification remain binding only for
+their broader cross-runtime/unattended capabilities, not for `attended_foreground`.
 
 Factory backlog drain-all is a separate R8 decision. Its Claude engine corpus is green (26/26), but Codex
 still supports only single-item mode; `plugin/runtime/codex/R8-BACKLOG-SPIKE.md` records the explicit
@@ -147,10 +171,11 @@ JUDGE review ended uncertain with sanitized class `usage_limit`; the executor di
 the lease and left `running: false`. BL-0066 and BL-0067 fix the green-snapshot and crash-evidence
 contracts in plugin 9.93.0 / overlay 8.74.0, but fixture B remains immutable failed evidence.
 
-Certification must restart on a distinct clean fixture C using the repaired overlay and foreground
-Codex stage. The installed R10 retry and R11 unattended canary remain mandatory promotion gates.
-Codex `implement` stays `FALLBACK`; the two
-deployed recurring routines and factory-backlog drain-all remain Claude-owned. Full evidence and
+Certification may restart on a distinct clean fixture C if cross-runtime continuation is pursued.
+The installed R10 retry and R11 unattended canary remain gates for that broader promotion. Codex
+`implement` stays `FALLBACK`; its separate installed Codex-only canary gates the narrower
+`attended_foreground` candidate. The two deployed recurring routines and
+factory-backlog drain-all remain Claude-owned. Full evidence and
 retry requirements are canonical in `plugin/runtime/codex/R10-CERTIFICATION.md`.
 
 Cold continuation uses one logical build `run_id` across runtimes. Both launchers consume the same
@@ -184,7 +209,7 @@ supervisor terminal, fenced release, and no implementer dispatch for its already
 disposable fixture was removed and the exact summary lives in
 `plugin/runtime/codex/evidence/r11-live-short-2026-07-11.json`.
 
-This evidence is intentionally **not** `LIVE_OVERNIGHT`. The parity gate stays open until a
+This evidence is intentionally **not** `LIVE_OVERNIGHT`. The unattended gate stays open until a
 representative multi-FRD run completes at least three real wall-clock hours without owner interaction,
 followed by the cold return canary. Commands, evidence retention and the fail-closed collector are in
 `plugin/runtime/codex/R11-CERTIFICATION.md`.

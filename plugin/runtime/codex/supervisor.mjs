@@ -1,10 +1,13 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { appendFile, readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { consumeBySupervisor, terminalAttendedPermit } from "./attended-permit.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const pluginRoot = path.resolve(here,"../..");
 const args = process.argv.slice(2);
 const value = (name, required = true) => { const index = args.indexOf(`--${name}`); if (index < 0 || !args[index + 1]) { if (required) throw new Error(`missing --${name}`); return ""; } return args[index + 1]; };
 const project = path.resolve(value("project"));
@@ -15,7 +18,18 @@ const executorPath = process.env.PANDACORP_EXECUTOR_PATH || path.join(here, "exe
 const leaseTtlMs = Number(process.env.PANDACORP_LEASE_TTL_SECONDS || 600) * 1000;
 const restartWaitMs = Number(process.env.PANDACORP_SUPERVISOR_RESTART_WAIT_MS || leaseTtlMs + 10000);
 const certificationReceipt = value("certification-receipt", false);
-const maxCrashes = certificationReceipt ? 1 : Number(process.env.PANDACORP_SUPERVISOR_MAX_CRASHES || 3);
+const executionProfile = value("execution-profile");
+const change = value("change", false), frds = value("frds", false);
+const targeted = Boolean(change) !== Boolean(frds) && (!change || /^[a-z0-9-]+$/.test(change)) && (!frds || /^frd-[a-z0-9-]+$/.test(frds));
+const maxDuration = Number(value("max-duration"));
+const attendedPermit = value("attended-permit", false);
+const attendedFd = Number(value("attended-fd", false));
+if (!new Set(["attended_foreground", "certification"]).has(executionProfile)) throw new Error("unsupported Codex execution profile");
+if (executionProfile === "attended_foreground" && (certificationReceipt || !targeted || !Number.isSafeInteger(maxDuration) || maxDuration > 7200 || !attendedPermit || !Number.isSafeInteger(attendedFd) || attendedFd < 3)) throw new Error("attended_foreground supervisor contract violated");
+if (executionProfile === "certification" && !certificationReceipt) throw new Error("certification supervisor requires a receipt");
+let executorSecret = "";
+if (executionProfile === "attended_foreground") { const policy=JSON.parse(await readFile(path.join(pluginRoot,"runtime/skill-runtime-policy.json"),"utf8"));if(policy.overrides?.implement?.codex?.status!=="EXPERIMENTAL")throw new Error("attended_foreground is not enabled by canonical policy");const preflight=spawnSync("bash",[path.join(pluginRoot,"scripts/preflight-implement.sh"),project,"--target-runtime","codex","--run-mode","auto"],{cwd:project,encoding:"utf8"});if(preflight.status!==0)throw new Error(`attended supervisor preflight failed: ${preflight.stdout}${preflight.stderr}`);const launcherSecret=readFileSync(attendedFd,"utf8").trim(); ({ executorSecret } = await consumeBySupervisor(project, attendedPermit, { runId, change, frds, maxSpend: Number(value("max-spend")), maxDuration, maxRetries: Number(value("max-retries")), maxBlocks: Number(value("max-blocks")) }, launcherSecret)); }
+const maxCrashes = executionProfile === "attended_foreground" || certificationReceipt ? 1 : Number(process.env.PANDACORP_SUPERVISOR_MAX_CRASHES || 3);
 if (!Number.isSafeInteger(restartWaitMs) || restartWaitMs < 1 || !Number.isSafeInteger(maxCrashes) || maxCrashes < 1) throw new Error("invalid supervisor recovery configuration");
 const terminalReasons = new Set(["complete", "needs-owner", "budget", "rethink", "duration", "breaker", "uncertain", "stopped"]);
 let child;
@@ -28,8 +42,9 @@ const wait = (ms) => new Promise((resolve) => {
 });
 const terminal = async () => { try { const value = JSON.parse(await readFile(checkpoint, "utf8")); return value.run_id === runId ? value.terminal_reason || null : null; } catch { return null; } };
 const launch = () => new Promise((resolve) => {
-  const command = ["node", executorPath, ...args];
-  child = spawn(command[0], command.slice(1), { cwd: project, stdio: "inherit", env: process.env }); event("worker_started", { pid: child.pid }); child.on("close", (code, signal) => resolve({ code, signal }));
+  const childArgs=[...args]; if(executionProfile==="attended_foreground"){const i=childArgs.indexOf("--attended-fd");childArgs[i+1]="3";}
+  const command = ["node", executorPath, ...childArgs];
+  child = spawn(command[0], command.slice(1), { cwd: project, stdio: executionProfile==="attended_foreground" ? ["ignore","inherit","inherit","pipe"] : "inherit", env: process.env }); if(executionProfile==="attended_foreground") child.stdio[3].end(executorSecret); event("worker_started", { pid: child.pid }); child.on("close", (code, signal) => resolve({ code, signal }));
 });
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, () => {
   stopping = true;
@@ -52,3 +67,4 @@ while (!stopping) {
   const boundedBackoffMs = Math.min(restartWaitMs * (2 ** (crashes - 1)), restartWaitMs * 4);
   await event("restart_wait", { attempt: crashes, seconds: boundedBackoffMs / 1000, reason: "unclassified-crash" }); await wait(boundedBackoffMs);
 }
+if (executionProfile === "attended_foreground") await terminalAttendedPermit(project, attendedPermit, await terminal() || (stopping ? "stopped" : "supervisor-exit"));
