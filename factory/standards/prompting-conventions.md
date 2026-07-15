@@ -2,7 +2,7 @@
 
 > Domain: Factory operation · Severity: **SHOULD** (PROMPT-4/5 are **MUST**) · Enforcement: manual (edit ritual + fresh-context verifier pass, PROMPT-6) + `claude plugin validate` + the derived-drift gate (frontmatter side). **factory-internal — not injected** into product projects. See DR-114 (2026-07-04, Fable sprint WS3).
 
-How the factory's prompt surface — `plugin/agents/*.md` (14) and `plugin/skills/*/SKILL.md` (25) — is written and edited. These files are consumed daily by **Opus 4.8 / Sonnet-class models**: capable instruction-followers that reason well from goals and constraints, degrade when shouted at in triplicate, and over-trigger on absolutist imperatives written for weaker models. The conventions below keep the prompts effective for the models actually in use without ever softening the factory's governance.
+How the factory's prompt surface — `plugin/agents/*.md` (14) and `plugin/skills/*/SKILL.md` (25) — plus the dispatch prompts that engines/skills synthesize at runtime for ephemeral subagents (PROMPT-8) — is written and edited. These files are consumed daily by **Opus 4.8 / Sonnet-class models**: capable instruction-followers that reason well from goals and constraints, degrade when shouted at in triplicate, and over-trigger on absolutist imperatives written for weaker models. The conventions below keep the prompts effective for the models actually in use without ever softening the factory's governance.
 
 ## Rule — PROMPT-1 Goals and constraints over step enumeration
 
@@ -32,11 +32,16 @@ After recalibrating a prompt file, an INDEPENDENT fresh-context pass (a differen
 
 Agent files target ≤ ~120 lines; a section a maintainer cannot skim in one screen gets subsectioned or tabled. Prefer: the role in one line → the binding rules (grouped by lens/concern) → the SOP/hand-off contract. Shared boilerplate that must appear in several agents (e.g. the memory-RETRIEVE block, DR-047) is kept byte-identical across them (grep-verifiable) so a future change can sweep it mechanically — divergent near-copies are how sweeps decay (audit-20 D2).
 
+## Rule — PROMPT-8 Runtime-synthesized dispatch prompts are self-contained on-camera briefs
+
+The third prompt surface: briefs that engines/skills compose at runtime for ephemeral subagents (the build engine's builder/reviewer/patch dispatch prompts in `.claude/engines/pandacorp-build.js`, and any skill that assembles a subagent prompt on the fly). These prompts render live on La Fragua (`dashboard-events.ndjson`) and seed the retry/diagnosis loop, so a pointer spec starves both the observer and the recovery. Every dispatch prompt opens with the role and its boundary (what it must NOT touch), names the files/artifacts the worker owns, embeds the run/verify commands it needs, states its output contract explicitly, and inlines the load-bearing context verbatim (the DR-108 context pack: the WO file path + the exact EARS AC lines it owns) — never "read the work order and do what it says". Pointer references are reserved for standing, session-read prompts (the PROMPT-1..7 surface); an ephemeral worker is stateless and cannot ask questions. The engine's `woCtx()` context-pack injector is the reference implementation. Promoted from LESSON-0147 (ringer mining, 2026-07-10).
+
 ## How it is verified
 
 - **PROMPT-4/5:** the fresh-context verifier pass (PROMPT-6) checks them per edit; frontmatter drift additionally trips `check-derived-drift.sh` (the Codex TOMLs regenerate from frontmatter+body) and `claude plugin validate`.
 - **PROMPT-1/2/3/7:** manual — reviewer/self-check at edit time against this file; the owner spot-checks.
 - **PROMPT-6:** review-only (the edit ritual itself); its evidence is the verifier's checklist recorded in the editing session/decision log.
+- **PROMPT-8:** manual — edit-time self-check when touching engine/skill dispatch-prompt construction; the reviewer of an engine change asserts the dispatched briefs stay self-contained (reference: the DR-108 `woCtx` injector in `pandacorp-build.js`).
 
 ## Why
 

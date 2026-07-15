@@ -9,11 +9,11 @@ source: "external-repo mining of github.com/NateBJones-Projects/ringer, 2026-07-
 provenance: agent-inferred
 created: 2026-07-12
 status: candidate
-promotion: none
+promotion: approved
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [PROMPT-8, factory/standards/prompting-conventions.md]
 ---
 
 **Situation:** a build engine dispatches a subagent (builder/reviewer/patch-writer) with a prompt it

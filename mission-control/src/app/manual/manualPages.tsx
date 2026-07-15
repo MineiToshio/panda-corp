@@ -712,7 +712,7 @@ function ConceptEstandares(): React.JSX.Element {
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~131
+          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~132
           reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
           verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
           <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
