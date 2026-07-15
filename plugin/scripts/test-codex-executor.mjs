@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { consumeBySupervisor } from "../runtime/codex/attended-permit.mjs";
+import { assertStrictStructuredOutputSchema } from "../runtime/codex/schema-contract.mjs";
 
 const root = path.resolve(new URL("../..", import.meta.url).pathname);
 const executor = path.join(root, "plugin/runtime/codex/executor.mjs");
@@ -56,11 +57,14 @@ async function fixture({ planDeps = "—", frontmatterDeps = "[]", rethink = fal
   const fake = path.join(project, "fake-codex.mjs");
   await writeFile(fake, `#!/usr/bin/env node
 import{writeFileSync,mkdirSync,appendFileSync,readFileSync}from'node:fs';import{join}from'node:path';import{spawn}from'node:child_process';
-const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],prompt=a[a.length-1],scenario=process.env.FAKE_SCENARIO||'success';
+const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],s=a[a.indexOf('--output-schema')+1],prompt=a[a.length-1],scenario=process.env.FAKE_SCENARIO||'success';
 const label=prompt.includes('Integrate queued change')?'process-change':prompt.includes('Implement exactly')?'implement':prompt.includes('Independently review')?'review':prompt.includes('Repair only')?'repair':prompt.includes('READ-ONLY independent final audit')?'hardening-audit':prompt.includes('separate hardening implementer')?'hardening-fix':'other';appendFileSync('.pandacorp/run/fake-calls.log',label+'\\n');
+appendFileSync('.pandacorp/run/fake-schemas.log',label+':'+s.split('/').pop()+'\\n');
 if(prompt.includes('preserved RED baseline'))appendFileSync('.pandacorp/run/preserved-consumed','1\\n');
 if(scenario==='hang-tree'&&prompt.includes('Implement exactly')){spawn('sh',['-c','sleep 2; echo late > late-write'],{stdio:'ignore'});await new Promise(()=>{})}
 if(scenario==='uncertain'&&prompt.includes('Implement exactly')){writeFileSync('feature.txt','uncertain\\n');process.exit(7)}
+if(scenario==='stdout-rate-limit'&&prompt.includes('Implement exactly')){process.stderr.write('429 Too Many Requests: rate limit reached; API_TOKEN=super-secret\\n');process.exit(1)}
+if(scenario.startsWith('rollout-')&&prompt.includes('Implement exactly')){const root=join(process.env.CODEX_HOME,'sessions','2026','07','15');mkdirSync(root,{recursive:true});const now=new Date(),stamp=scenario==='rollout-stale'?new Date(now.getTime()-60000).toISOString():now.toISOString(),foreign=scenario==='rollout-foreign'?join(process.cwd(),'foreign'):process.cwd(),used=['rollout-one-percent','rollout-reached'].includes(scenario)?1:100,reached=scenario==='rollout-reached'?'primary':null,lines=[{timestamp:stamp,type:'session_meta',payload:{source:'exec',cwd:foreign}},{timestamp:stamp,type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:prompt}]}},{timestamp:stamp,type:'event_msg',payload:{type:'token_count',rate_limits:{primary:{used_percent:used,resets_at:1784730769},rate_limit_reached_type:reached}}}].map(JSON.stringify).join('\\n')+'\\n';writeFileSync(join(root,'rollout-a.jsonl'),scenario==='rollout-malformed'?'{broken\\n':lines);if(scenario==='rollout-ambiguous')writeFileSync(join(root,'rollout-b.jsonl'),lines);process.exit(1)}
 let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
@@ -111,8 +115,14 @@ const tickingClock = async (project) => {
 const addChange=async(fx,slug,type="feature")=>{await mkdir(path.join(fx.project,".pandacorp/inbox/changes"),{recursive:true});await writeFile(path.join(fx.project,`.pandacorp/inbox/changes/${slug}.md`),`---\ntype: ${type}\nclass: standard\nstatus: ready\n---\n\nCambio ${slug}\n`);};
 const addLastPendingTarget=async(fx)=>{const aRoot=path.join(fx.project,"docs/frds/frd-01-a");for(const file of ["frd.md","blueprint.md","work-orders/wo-01.md"]){const absolute=path.join(aRoot,file);await writeFile(absolute,(await read(absolute)).replace("implementation_status: PLANNED","implementation_status: VERIFIED"));}const bRoot=path.join(fx.project,"docs/frds/frd-02-b");await mkdir(path.join(bRoot,"work-orders"),{recursive:true});await writeFile(path.join(bRoot,"frd.md"),"---\nimplementation_status: PLANNED\n---\n");await writeFile(path.join(bRoot,"blueprint.md"),"---\nimplementation_status: PLANNED\n---\n\n## Build Plan\n\n| WO | Depends on | Artifacts | Foundation | Parallel with |\n|---|---|---|---|---|\n| WO-02 | — | `feature-b.txt` | false | — |\n");await writeFile(path.join(bRoot,"work-orders/wo-02.md"),"---\nid: WO-02\nimplementation_status: PLANNED\ndependsOn: []\n---\n");await run("git",["add","-A"],fx.project);await run("git",["commit","-qm","test: seed last pending target"],fx.project);return read(path.join(aRoot,"work-orders/wo-01.md"));};
 
+await test("all Codex output schemas satisfy recursive Structured Outputs strictness", async () => {
+  for (const file of ["result.schema.json", "review-result.schema.json", "change-result.schema.json"]) assertStrictStructuredOutputSchema(JSON.parse(await read(path.join(root, "plugin/runtime/codex", file))));
+  let rejected = false; try { assertStrictStructuredOutputSchema({ type: "object", properties: { optional: { type: "string" } }, required: [], additionalProperties: false }); } catch { rejected = true; } ok(rejected, "optional property escaped strict validator");
+});
+
 await test("success E2E uses precise staging, ignores runtime artifacts and reaches release", async () => {
   const fx = await fixture(); const result = await execute(fx); ok(result.code === 0, result.err); const status = await read(path.join(fx.project, ".pandacorp/status.yaml")); ok(/phase: ["']?release/.test(status) && /running: false/.test(status), status); const wo = await read(path.join(fx.project, "docs/frds/frd-01-a/work-orders/wo-01.md")); ok(/VERIFIED/.test(wo), wo); const cp = await checkpoint(fx.project); ok(cp.terminal_reason === "complete" && cp.implementation_commits["frd-01-a"].length === 1, JSON.stringify(cp)); const trackedRun = await run("git", ["ls-files", ".pandacorp/run"], fx.project); ok(!trackedRun.out.trim(), "runtime files were staged");
+  const schemas = await read(path.join(fx.project, ".pandacorp/run/fake-schemas.log")); ok(/review:review-result\.schema\.json/.test(schemas) && /implement:result\.schema\.json/.test(schemas), schemas);
 });
 
 await test("terminal checkpoint captures one atomic instant even when the clock ticks between reads", async () => {
@@ -169,6 +179,22 @@ await test("cold restart with orphan IN_PROGRESS stops for owner before any repl
 
 await test("uncertain dispatch is never retried and persists an owner decision", async () => {
   const fx = await fixture(); const result = await execute(fx, "uncertain"); ok(result.code === 25, `exit ${result.code}`); const calls = await read(path.join(fx.project, ".pandacorp/run/fake-calls.log")); ok(calls.trim().split("\n").filter(Boolean).length === 1, calls); const cp = await checkpoint(fx.project); ok(cp.terminal_reason === "uncertain" && cp.uncertain.id.startsWith("implement-"), JSON.stringify(cp)); const decisions = await read(path.join(fx.project, ".pandacorp/inbox/decisions.md")); ok(/without a trustworthy terminal result/.test(decisions), decisions);
+});
+
+await test("exact post-dispatch exec rollout classifies a silent exit as usage_limit with reset_at", async () => {
+  const fx = await fixture(); const codexHome = path.join(fx.project, "codex-home"); const result = await execute(fx, "rollout-limit", [], { CODEX_HOME: codexHome }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "usage_limit" && cp.uncertain.reset_at === 1784730769, JSON.stringify(cp)); const events = (await read(path.join(fx.project, ".pandacorp/run/test-events.ndjson"))).split("\n").filter(Boolean).map(JSON.parse); const uncertain = events.find((entry) => entry.semantic_name === "dispatch.uncertain"); ok(uncertain?.data?.reset_at === 1784730769, JSON.stringify(uncertain));
+});
+
+await test("explicit reached-limit telemetry classifies usage_limit even below 100 percent", async () => {
+  const fx = await fixture(); const result = await execute(fx, "rollout-reached", [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "usage_limit" && cp.uncertain.reset_at === 1784730769, JSON.stringify(cp));
+});
+
+for (const scenario of ["rollout-one-percent", "rollout-foreign", "rollout-stale", "rollout-ambiguous", "rollout-malformed"]) await test(`${scenario} rollout evidence is ignored fail-closed`, async () => {
+  const fx = await fixture(); const result = await execute(fx, scenario, [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "unknown" && !("reset_at" in cp.uncertain), JSON.stringify(cp));
+});
+
+await test("stdout rate-limit classification persists only a sanitized bounded diagnostic tail", async () => {
+  const fx = await fixture(); const result = await execute(fx, "stdout-rate-limit"); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "rate_limit", JSON.stringify(cp)); ok(cp.uncertain.diagnostic_tail.includes("[REDACTED_SECRET]") && !cp.uncertain.diagnostic_tail.includes("API_TOKEN") && !cp.uncertain.diagnostic_tail.includes("super-secret") && cp.uncertain.diagnostic_tail.length <= 1200, cp.uncertain.diagnostic_tail);
 });
 
 await test("needs-owner blocks the WO, persists the decision and quiesces before review", async () => {

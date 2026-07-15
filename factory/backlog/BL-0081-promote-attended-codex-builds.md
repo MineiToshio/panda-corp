@@ -65,5 +65,25 @@ promotion beyond the attended targeted profile requires a later canary.
   `/Users/Shared/Proyectos/pandacorp-canaries/codex-attended-9959-final`, seed `80586c2d`, temporary plugin
   `/tmp/pandacorp-candidate-final.Tg9wIx/plugin` at exact candidate `bb7640c9` plus only the policy/capability
   projection, target `frd-01-safe-add`, foreground limits `6/900/1/1`. Its preflight is `PASS`.
-- Result: **NO-GO for policy promotion while provider quota is unavailable**. Keep `FALLBACK`; the prepared
-  final canary must not be retried or launched without the required external capacity and authorization.
+- Result at that checkpoint: **NO-GO for policy promotion**. Keep `FALLBACK`; the prepared final canary must
+  not be retried or launched without fresh authorization. The quota hypothesis was later disproved below.
+
+## Final canary diagnosis and correction (2026-07-15)
+
+- The final installed canary remains **NO-GO** and policy remains `FALLBACK`. Its first Codex dispatch exited
+  with code 1 and no result because `result.schema.json` violated OpenAI Structured Outputs strictness:
+  `traceability` was declared in `properties` but omitted from `required`. This was a local schema defect,
+  not evidence that the account quota was exhausted.
+- The matching Codex rollout reported `primary.used_percent: 1.0`,
+  `rate_limit_reached_type: null`, and `resets_at: 1784730769` (2026-07-22 09:32:49 Lima). In this telemetry
+  `1.0` means one percent used, so the reset timestamp is ordinary window metadata and not a quota blocker.
+- Patch 9.95.10 separates the ordinary worker schema from a strict review schema where every property,
+  including nested traceability fields, is required; the executor validates all output schemas recursively
+  before acquiring build ownership. A silent failed dispatch may inspect only one safely correlated, fresh
+  `source=exec` rollout from the exact real project cwd. It classifies `usage_limit` only when
+  `rate_limit_reached_type` is present or the percentage is at least 100, and otherwise stays `unknown`.
+  Sanitized, bounded stdout/stderr tails and a validated reset timestamp are durable diagnostics; prompts and
+  secrets are never persisted.
+- Adversarial coverage freezes exact-cwd/prompt correlation, stale/foreign/ambiguous/malformed rejection,
+  one-percent non-classification, true 100-percent classification, stdout rate-limit classification and secret
+  redaction. No provider or canary launch is part of this correction.

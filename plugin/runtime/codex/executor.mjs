@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setPendingDecisions, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
 import { createRuntimeEventEmitter } from "../event-transport.mjs";
 import { consumeByExecutor } from "./attended-permit.mjs";
+import { diagnoseUsageLimitFromRollouts, sanitizedDiagnosticTail } from "./failure-diagnostics.mjs";
+import { assertStrictStructuredOutputSchema } from "./schema-contract.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const plugin = path.resolve(here, "../..");
@@ -65,7 +67,9 @@ const reviewerSource = await readFile(path.join(plugin, "agents/reviewer.md"), "
 const wholeFrdOracle = reviewerSource.match(/<!-- WHOLE_FRD_ORACLE_START -->([\s\S]*?)<!-- WHOLE_FRD_ORACLE_END -->/)?.[1]?.trim().replace(/\s+/g, " ");
 if (!wholeFrdOracle) throw Object.assign(new Error("canonical whole-FRD reviewer oracle is unavailable"), { code: "CONTRACT" });
 const schema = path.join(here, "result.schema.json");
+const reviewSchema = path.join(here, "review-result.schema.json");
 const changeSchema = path.join(here, "change-result.schema.json");
+for (const file of [schema, reviewSchema, changeSchema]) assertStrictStructuredOutputSchema(JSON.parse(await readFile(file, "utf8")));
 let budgetStartedAt = Date.now();
 const testAfterDispatchDelay = Number(process.env.PANDACORP_TEST_AFTER_DISPATCH_MS || 0);
 let lease;
@@ -225,9 +229,21 @@ async function dispatch({ id, tier, prompt, units = 1, outputSchema = schema, va
   throwIfStopping();
   await reserveDispatch(project, lease.token, lease.epoch, { id, units, limit: maxSpend }); const resultFile = path.join(runDir, `${id}.result.json`); await checkpoint({ inflight: { id, tier, result_file: resultFile, started_at: new Date().toISOString() } }); await event("dispatch_started", { dispatch_id: id, tier });
   const mapping = tiers[tier].codex; const args = ["exec", "--ignore-user-config", "--strict-config", "--json", "--output-schema", outputSchema, "--output-last-message", resultFile, "-C", project, "-s", "workspace-write", "-m", mapping.model, "-c", `model_reasoning_effort=\"${mapping.effort}\"`, prompt];
+  const dispatchStartedAtMs = Date.now();
   const result = await exec(codexBin, args, { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - budgetStartedAt)), managed: true });
   throwIfStopping();
-  if (result.code !== 0) { const errorClass = classifyProviderFailure(result); const uncertain = { ...state.inflight, error_class: errorClass, exit_code: result.code, timed_out: result.timedOut }; await event("dispatch_uncertain", { dispatch_id: id, code: result.code, signal: result.signal, timed_out: result.timedOut, error_class: errorClass }); await checkpoint({ uncertain }); throw Object.assign(new Error(`Codex dispatch outcome is uncertain: ${id}; provider class=${errorClass}; blind retry forbidden`), { code: result.timedOut ? "DURATION" : "UNCERTAIN", providerClass: errorClass }); }
+  if (result.code !== 0) {
+    let errorClass = classifyProviderFailure(result); let resetAt = null;
+    if (errorClass === "unknown") {
+      const rollout = await diagnoseUsageLimitFromRollouts({ projectReal, prompt, startedAtMs: dispatchStartedAtMs });
+      if (rollout) { errorClass = rollout.errorClass; resetAt = rollout.resetAt; }
+    }
+    const diagnosticTail = sanitizedDiagnosticTail({ ...result, prompt });
+    const diagnostic = { ...(resetAt ? { reset_at: resetAt } : {}), ...(diagnosticTail ? { diagnostic_tail: diagnosticTail } : {}) };
+    const uncertain = { ...state.inflight, error_class: errorClass, exit_code: result.code, timed_out: result.timedOut, ...diagnostic };
+    await event("dispatch_uncertain", { dispatch_id: id, code: result.code, signal: result.signal, timed_out: result.timedOut, error_class: errorClass, ...diagnostic }); await checkpoint({ uncertain });
+    throw Object.assign(new Error(`Codex dispatch outcome is uncertain: ${id}; provider class=${errorClass}; blind retry forbidden`), { code: result.timedOut ? "DURATION" : "UNCERTAIN", providerClass: errorClass });
+  }
   const parsed = validator(JSON.parse(await readFile(resultFile, "utf8"))); await event("dispatch_finished", { dispatch_id: id, verdict: parsed.verdict }); await checkpoint({ inflight: null, uncertain: null, last_dispatch: id }); if (process.env.PANDACORP_TEST_AFTER_DISPATCH_BARRIER === "1") { await writeFile(path.join(runDir, "after-dispatch.barrier"), `${id}\n`); while (!signalRequested) await wait(10); } else if (testAfterDispatchDelay > 0) await wait(Math.min(testAfterDispatchDelay, 5000)); throwIfStopping(); return parsed;
 }
 async function verify(label) { throwIfStopping(); const result = await exec("bash", [".pandacorp/verify.sh"], { timeoutMs: Math.max(1000, maxDuration * 1000 - (Date.now() - budgetStartedAt)), managed: true }); throwIfStopping(); await event("verify_finished", { label, code: result.code, signal: result.signal, timed_out: result.timedOut, output_tail: `${result.out}\n${result.err}`.slice(-4000) }); return result.code === 0 && !result.timedOut; }
@@ -321,7 +337,7 @@ try {
       }
       if (finalReason !== "error") break;
       group = (await workOrders()).filter((wo) => wo.frd === frd); if (!group.every((wo) => ["IN_REVIEW", "VERIFIED"].includes(wo.status))) continue;
-      const attempt = state.attempts[frd] || 0; await appendTrack("review_start", { frd, attempt }); const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, validator: validateReviewResult, prompt: `Independently review ${frd} as a fresh judge. ${wholeFrdOracle} ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Your schema verdict must include traceability for every normative contract class; use explicit not-applicable entries where the FRD has none. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
+      const attempt = state.attempts[frd] || 0; await appendTrack("review_start", { frd, attempt }); const reviewBefore = await snapshot(); const preserved = await preservedContext(frd); const review = await dispatch({ id: `review-${frd}-a${attempt}`, tier: "JUDGE", units: 2, outputSchema: reviewSchema, validator: validateReviewResult, prompt: `Independently review ${frd} as a fresh judge. ${wholeFrdOracle} ${preserved} Write adversarial TESTS only; never production code or governed state. Run .pandacorp/verify.sh, but report facts honestly—the controller independently reruns it. Your schema verdict must include traceability for every normative contract class; use explicit not-applicable entries where the FRD has none. Return needs-owner only for a genuine owner gate.` }); const reviewFiles = await delta(reviewBefore); throwIfStopping(); const reviewSha = await commitPaths(`test(${frd}): adversarial review attempt ${attempt}`, reviewFiles, "review"); await recordCommit(frd, reviewSha);
       let green = review.verdict === "green" && await verify(`review-${frd}-a${attempt}`) && await mutationGate(frd); let evidenceFiles = [...reviewFiles];
       if (!green && review.verdict !== "needs-owner") { const repairBefore = await snapshot(); const repair = await dispatch({ id: `repair-${frd}-a${attempt}`, tier: "STANDARD", prompt: `Repair only the recorded review findings for ${frd}. Bounded production/test changes; no governed state or commits. Return green only after your focused checks pass.` }); const repairFiles = await delta(repairBefore); if (repairFiles.some(governedPath)) throw Object.assign(new Error("repair touched governed state"), { code: "OWNERSHIP" }); const repairSha = await commitPaths(`fix(${frd}): review repair attempt ${attempt}`, repairFiles, "implementation"); await recordCommit(frd, repairSha); evidenceFiles.push(...repairFiles); green = repair.verdict === "green" && await verify(`repair-${frd}-a${attempt}`) && await mutationGate(frd); }
       if (review.verdict === "needs-owner") { const active = group.filter((x) => x.status === "IN_REVIEW"); for (const wo of active) await transitionWorkOrder(project, lease.token, lease.epoch, { file: wo.file, to: "BLOCKED", reason: "needs-owner" }); await stateCommit(`chore(${frd}): block for owner`, active); await needsOwner(frd, review.summary); }

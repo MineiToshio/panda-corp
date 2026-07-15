@@ -44,7 +44,7 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   cp "$HERE/plugin/runtime/build-state.mjs" "$d/plugin/runtime/"
   cp "$HERE/plugin/runtime/event-transport.mjs" "$d/plugin/runtime/"
   mkdir -p "$d/plugin/runtime/codex"
-  cp "$HERE/plugin/runtime/codex/"{certification-permit.mjs,executor.mjs,supervisor.mjs,result.schema.json} "$d/plugin/runtime/codex/"
+  cp "$HERE/plugin/runtime/codex/"{attended-permit.mjs,certification-permit.mjs,executor.mjs,failure-diagnostics.mjs,schema-contract.mjs,supervisor.mjs,change-result.schema.json,result.schema.json,review-result.schema.json} "$d/plugin/runtime/codex/"
   cp "$HERE/plugin/runtime/codex/"{R10-CERTIFICATION.md,R11-CERTIFICATION.md} "$d/plugin/runtime/codex/"
   cp "$HERE/factory/standards/agent-portability.md" "$d/factory/standards/"
   mkdir -p "$d/plugin/runtime/prompts" "$d/plugin/templates/shared/.claude/engines"
