@@ -70,7 +70,7 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "FALLBACK: candidato atendido requiere canario instalado verde",
+    codex: "EXPERIMENTAL: 1 FRD/change, foreground, ≤7200 s, sin autorestart",
     status: "degrades",
   },
   {

@@ -44,15 +44,15 @@ result = await run(["--mode", "consume", ...common, "--run-id", "r10-test"]); ok
 result = await run(["--mode", "terminal", ...common, "--run-id", "r10-test", "--terminal-reason", "test-green"]); const receipt = JSON.parse(await readFile(path.join(project, ".pandacorp/run/r10-certification-receipt.json"))); ok(result.code === 0 && receipt.status === "revoked", "terminal path revokes permit");
 result = await run(["--mode", "check", ...common]); ok(result.code !== 0 && /already consumed/.test(result.out), "revoked permit remains one-shot");
 
-// BL-0077: while implement is FALLBACK, the normal launcher must not turn an omitted
-// authorization into permission to write build state.
+// BL-0081: promotion is targeted-only. Empty certification authorization never widens
+// EXPERIMENTAL attended authority into a bare/global build.
 const bin = path.join(base, "bin"); await mkdir(bin); const fakeCodex = path.join(bin, "codex");
 await writeFile(fakeCodex, "#!/bin/sh\n[ \"${1:-}\" = login ] && exit 0\nexit 99\n"); await chmod(fakeCodex, 0o755);
 try {
-  await exec("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), project, "4", "900", "0", "1", "", "frd-b-multiply", "auto", "foreground", ""], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
-  ok(false, "empty authorization fails closed while Codex implement is FALLBACK");
+  await exec("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), project, "4", "900", "0", "1", "", "", "auto", "foreground", ""], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
+  ok(false, "empty authorization cannot widen EXPERIMENTAL Codex implement to bare/global");
 } catch (error) {
-  ok(/FALLBACK.*normal execution is unavailable/i.test(`${error.stdout || ""}${error.stderr || ""}`), "empty authorization fails closed while Codex implement is FALLBACK");
+  ok(/requires exactly one change or FRD target/i.test(`${error.stdout || ""}${error.stderr || ""}`), "empty authorization cannot widen EXPERIMENTAL Codex implement to bare/global");
 }
 
 // R11 is a distinct one-shot contract. It binds the Codex-only executor surfaces,

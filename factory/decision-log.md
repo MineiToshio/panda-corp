@@ -1,5 +1,15 @@
 # Decision Log — Factory
 
+## 2026-07-15 — Codex may build one attended target experimentally
+
+BL-0081 closes after the installed Codex-only canary completed one exact FRD with independent review,
+deterministic and mutation gates, a clean implementation safe point and released ownership. PORT-5 now
+permits only `EXPERIMENTAL/attended_foreground/targeted-only`: one FRD or ready change, foreground,
+<=7200 cumulative seconds and zero auto-restarts. Every broader Codex build remains denied; Claude's
+Dynamic Workflow is unchanged. Plugin 9.95.11 carries the promotion.
+The propagated project instruction changes in overlay 8.76.5 so upgraded projects receive the same
+narrow permission boundary; DR-113 and PORT-5 remain the policy sources.
+
 ## 2026-07-14 — Codex build candidate is attended, targeted and canary-gated
 
 BL-0081 implements one narrow Codex profile instead of coupling useful local execution to Dynamic

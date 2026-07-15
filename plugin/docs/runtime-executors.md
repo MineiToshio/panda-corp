@@ -28,12 +28,10 @@ subagents do not reliably inherit, without sharing either runtime's orchestratio
 
 ## Codex executor
 
-### Candidate surface: `attended_foreground` (FALLBACK until installed canary)
+### Promoted surface: `attended_foreground` (EXPERIMENTAL)
 
-Normal Codex project writes remain unavailable while capability policy is `FALLBACK`. The implemented
-candidate is intentionally narrow, but code presence is not authority: the official launcher must
-reject a normal invocation before lease acquisition until the installed Codex-only canary is green
-and policy is explicitly changed to `EXPERIMENTAL`. After that promotion, it accepts exactly one
+Codex project writes are available only through the intentionally narrow canonical
+`EXPERIMENTAL/attended_foreground/targeted-only` profile. The official launcher accepts exactly one
 normalized FRD OR one exact ready-change target, foreground only, with cumulative duration at most
 7200 seconds and zero automatic restarts. It issues a one-run attended permit bound to the project,
 logical run, exact target and ceilings; launcher, supervisor and executor each validate the profile
@@ -46,12 +44,12 @@ below-threshold mutation evidence cannot stamp `VERIFIED` or `last_green_sha`. I
 milestones to `.pandacorp/comms/progress.md` and timings to `.pandacorp/track.jsonl`. On success or
 bounded stop it quiesces/releases and keeps `phase: implementation`; bare/global drain, project-wide
 hardening, `phase: release`, background/unattended/overnight execution and Claude cross-runtime
-continuation are outside the candidate promotion.
+continuation remain outside the promotion.
 
 Claude's Dynamic Workflow, agents, supervisor and capabilities are unchanged. The Codex executor
 never invokes Claude and this profile does not require R10/R11 cross-runtime or overnight evidence.
 
-After promotion, `launch-codex-implement.sh` starts a controllable local supervisor and records it in an atomic receipt.
+`launch-codex-implement.sh` starts a controllable local supervisor and records it in an atomic receipt.
 The profile requires `foreground`: the launcher remains alive as the process-tree owner,
 forwards INT/TERM/HUP and waits for the supervisor. Sleep inhibition/background support exists only
 for the separate certification machinery and is not normal attended authority. The receipt records
@@ -90,7 +88,7 @@ separate STANDARD implementer applies fixes/evidence; the controller checks the 
 telemetry `## Verification` and full deterministic gate. A false-green candidate is committed only as
 a rollback unit, immediately reverted, and cannot advance the phase.
 
-## R7 certification verdict — live transport green; promotion still gated
+## BL-0081 promotion verdict — attended target GO
 
 The offline disposable harness is green for the controller contract, including precise staging,
 Build Plan drift, no-blind-retry uncertainty, owner quiescence, multipass rollback, preserved-test
@@ -101,9 +99,19 @@ close-out. That closes the old R7 live-transport blocker. It still does **not** 
 `implement` to unrestricted `PROVEN`: cross-runtime and several-hours unattended execution remain
 open.
 
-Therefore capability policy truthfully remains `FALLBACK` with `candidate_profile:
-attended_foreground`. The existence of the executor, its mock suite and a short provider success do
-not grant normal build-write permission.
+The dedicated installed canary `codex-attended-99510-final`, pinned to factory
+`792d96ac7134ca0dc580055383ac160ea2109b93` and plugin 9.95.10, completed run
+`codex-20260715T151508Z-99530` at clean final HEAD
+`9c2ea16c5b82a7df71b3eb793e0bd4c57554399b`. It recorded exactly one green STANDARD worker and one
+green independent JUDGE, a green deterministic gate, mutation score 100% (2/2 killed), complete
+whole-FRD traceability, reachable `last_green_sha: 05489da`, terminal `complete`,
+`phase: implementation`, `running: false` and a released lease. The independent postflight is green.
+Its audit runner calls a project-relative mutation script, so the audit must run with the fixture as
+CWD; an outside-CWD invocation is a harness error, not product evidence.
+
+Capability policy is therefore `EXPERIMENTAL` with `profile: attended_foreground` and
+`scope: targeted-only`. It remains deliberately narrower than unrestricted `PROVEN`: cross-runtime,
+bare/global, hardening/release, background and unattended execution remain unavailable.
 
 ## R8 product change-queue verdict — offline contract green
 
@@ -173,8 +181,8 @@ contracts in plugin 9.93.0 / overlay 8.74.0, but fixture B remains immutable fai
 
 Certification may restart on a distinct clean fixture C if cross-runtime continuation is pursued.
 The installed R10 retry and R11 unattended canary remain gates for that broader promotion. Codex
-`implement` stays `FALLBACK`; its separate installed Codex-only canary gates the narrower
-`attended_foreground` candidate. The two deployed recurring routines and
+`implement` now has only the separate EXPERIMENTAL Codex-only
+`attended_foreground` target. The two deployed recurring routines and
 factory-backlog drain-all remain Claude-owned. Full evidence and
 retry requirements are canonical in `plugin/runtime/codex/R10-CERTIFICATION.md`.
 
@@ -195,9 +203,10 @@ separate sleep inhibitor to its PID, health-checks both, and writes an atomic JS
 array that preserves paths containing spaces. Supervisor restart uses bounded backoff and a crash
 circuit breaker; executor renewal is mechanically constrained to `<= TTL/3`.
 
-BL-0077 also makes the launcher consult the canonical capability policy before any build path. While
-`implement` is `FALLBACK`, an empty authorization is a hard stop. The sole R11 write path is a distinct
-one-shot foreground permit bound to a standalone canary, exact HEAD/UUID, plugin/overlay, executor,
+BL-0077 also makes the launcher consult the canonical capability policy before any build path. The
+promoted attended single-target profile needs no R11 authorization; every R11 unattended/multi-FRD
+certification run still requires a distinct one-shot foreground permit bound to a standalone canary,
+exact HEAD/UUID, plugin/overlay, executor,
 supervisor and launcher hashes, exact multi-FRD scope and limits. It is consumed before lease ownership
 and revoked on terminal/recovery; R10 keeps its existing schema and receipt unchanged.
 

@@ -4,6 +4,22 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.95.11 — 2026-07-15 (PATCH): Codex attended target is EXPERIMENTAL
+
+**What:** BL-0081 promotes only `implement.codex` profile `attended_foreground`, scope
+`targeted-only`, to `EXPERIMENTAL`: exactly one FRD or one ready change, foreground, cumulative
+duration at most 7200 seconds, zero automatic restarts and terminal `phase: implementation`.
+
+**Why:** installed canary `codex-attended-99510-final` completed run
+`codex-20260715T151508Z-99530` at clean HEAD `9c2ea16`, with one STANDARD worker, one independent
+JUDGE, green deterministic and mutation gates, complete traceability, released lease and clean
+postflight. The audit's mutation script is project-relative; postflight must run from the fixture CWD.
+
+**Impact:** normal Codex projects may use this one attended target profile. Bare/global, multiple-FRD,
+hardening/release, background/unattended and cross-runtime Codex execution remain denied. Claude's
+Dynamic Workflow and its unattended capabilities are unchanged. Overlay 8.76.5 propagates the exact
+boundary to project `AGENTS.md` files.
+
 ## v9.95.10 — 2026-07-15 (PATCH): strict schemas and correlated Codex failure diagnostics
 
 **What:** BL-0081 splits ordinary worker and JUDGE review Structured Outputs schemas, makes every declared

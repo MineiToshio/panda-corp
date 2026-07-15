@@ -1,16 +1,16 @@
 ---
 name: implement
-description: Starts and runs the build of a Pandacorp project through the active runtime's governed executor. Claude Code uses its Dynamic Workflow. Codex has a candidate attended foreground profile for one exact FRD/change, but remains blocked while policy is FALLBACK. Use inside the project after /pandacorp:architecture.
+description: Starts and runs the build through the active runtime's governed executor. Claude Code uses its Dynamic Workflow. Codex EXPERIMENTAL supports one exact FRD or ready change in attended foreground mode. Use inside the project after /pandacorp:architecture.
 ---
 
 # /pandacorp:implement
 
-**This is the command that starts (and resumes) the build. The active runtime selects its own executor; runtimes never call one another.** Under Claude Code it launches the **dynamic workflow** `pandacorp-build`, a native Claude Code JS script that runs in the background and builds in **GLOBAL WAVES** (DR-050 + BL-0021). Codex has a separately governed **candidate** `attended_foreground` profile, but it is not normal write authority while canonical policy says `FALLBACK`. Both executors read each blueprint's Build Plan and the work-order frontmatter **`implementation_status`** as canonical state, and both require an independent review/test gate before an FRD becomes `VERIFIED`.
+**This is the command that starts (and resumes) the build. The active runtime selects its own executor; runtimes never call one another.** Under Claude Code it launches the **dynamic workflow** `pandacorp-build`, a native Claude Code JS script that runs in the background and builds in **GLOBAL WAVES** (DR-050 + BL-0021). Codex has a separately governed `EXPERIMENTAL` `attended_foreground` profile for exactly one target. Both executors read each blueprint's Build Plan and the work-order frontmatter **`implementation_status`** as canonical state, and both require an independent review/test gate before an FRD becomes `VERIFIED`.
 
 ## Runtime selection — do this before interpreting the rest of the skill
 
 - **Claude Code:** keep the existing path unchanged. Use `pandacorp-build` + the Claude supervisor, Claude agents/models and the Unattended operation SOP below. Its normal bare/global, targeted and unattended capabilities remain available.
-- **Codex:** first read canonical capability policy. While `implement.codex` is `FALLBACK`, **STOP before launch and do not mutate build state**; tell the owner the `attended_foreground` candidate still requires a green installed Codex-only canary. After that evidence is recorded and policy is explicitly changed to `EXPERIMENTAL`, use only `plugin/scripts/launch-codex-implement.sh`: exactly one FRD or ready change, foreground, cumulative duration `<= 7200` seconds, zero automatic restarts, independent review + deterministic verification + mutation gate, terminal `phase: implementation`. Bare/global, hardening/release, background/unattended and cross-runtime remain denied.
+- **Codex:** read canonical capability policy and require `implement.codex.status: EXPERIMENTAL`, `profile: attended_foreground` and `scope: targeted-only`; otherwise STOP before launch. Use only `plugin/scripts/launch-codex-implement.sh`: exactly one FRD or one `status: ready` change, foreground, cumulative duration `<= 7200` seconds, zero automatic restarts, independent review + deterministic verification + mutation gate, terminal `phase: implementation`. Bare/global, multiple-FRD, hardening/release, background/unattended and cross-runtime remain denied.
 - **Any other runtime:** apply PORT-5. No build-state writes are authorized unless that runtime has its own explicitly promoted executor profile.
 
 The remainder of this file describes the full Claude build contract unless a paragraph explicitly names the Codex `attended_foreground` profile. Shared governance—frontmatter states, leases, independent review, `verify.sh`, mutation evidence, safe points and human gates—does not degrade.
@@ -36,7 +36,7 @@ The remainder of this file describes the full Claude build contract unless a par
 
 **Targeted change build — when the owner asks to implement a specific pending change from the queue:** parse the change name from `$ARGUMENTS` (the filename without `.md` or a recognizable substring) and pass it as `args.change`. The workflow processes the change FIRST (creating/updating FRDs+WOs), then builds the resulting FRDs. If the change is `draft` (the only pre-`ready` queue status, DR-069), the engine stops immediately and tells the owner to flip it to `ready` first. If the resulting FRDs have unsatisfied deps, the dep gate fires as usual.
 
-> **Codex candidate narrowing (not current permission).** Once the installed canary is green and policy becomes `EXPERIMENTAL`, `attended_foreground` means **exactly one** FRD OR **exactly one** ready change, not a subset/list. The official launcher stays foreground with a ceiling no greater than 7200 seconds; direct executor/supervisor invocation is forbidden. Until that policy change, the launcher must fail closed before lease acquisition.
+> **Codex EXPERIMENTAL narrowing.** `attended_foreground` means **exactly one** FRD OR **exactly one** ready change, never a subset/list. The official launcher stays foreground with cumulative duration no greater than 7200 seconds and zero automatic restarts; direct executor/supervisor invocation is forbidden. It always quiesces in `phase: implementation`.
 
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
 > This is the **Claude-local executor**. It dispatches only Claude agents and never invokes, messages
@@ -56,8 +56,8 @@ Control the **concurrency and models** of the workflow (DR-014), not "team size"
 
 ## Unattended operation — the build supervisor (run and walk away SAFELY)
 
-> **Codex is not part of this unattended SOP.** Its still-blocked candidate profile is
-> `attended_foreground`: after a future promotion the ninth positional argument MUST be `foreground`,
+> **Codex is not part of this unattended SOP.** Its available EXPERIMENTAL profile is
+> `attended_foreground`: the ninth positional argument MUST be `foreground`,
 > the caller stays present, cumulative duration is at most 7200 seconds and the supervisor has zero automatic restarts.
 > `background`, sleep-and-walk-away, overnight and bare/global Codex builds remain unavailable. The
 > Claude Dynamic Workflow and supervisor below retain their existing unattended behavior unchanged.

@@ -47,9 +47,10 @@ disposable fixture. The canonical evidence JSON at
 `LIVE_OVERNIGHT` remains **PENDING** until a real several-hours window completes; no accelerated clock,
 short provider call or mock worker may promote it. Full unattended parity is therefore not yet claimed.
 
-While Codex `implement` remains `FALLBACK`, the normal launcher is fail-closed even when its optional
-authorization argument is omitted. R11 therefore has one certification-only exception, separate from
-R10. It is evidence machinery, not normal-project permission and not promotion.
+Codex `implement` now exposes one narrow `EXPERIMENTAL` normal-project profile: exactly one FRD or one
+ready change, `attended_foreground`, cumulative duration `<=7200`, zero automatic restarts, ending in
+`implementation`. R11 remains a separate certification-only exception for unattended/multi-FRD
+coverage. It is evidence machinery and does not widen the promoted attended profile.
 
 Two 2026-07-11 overnight attempts are retained as explicit **NO-GO** evidence and do not count toward
 promotion. In the first disposable checkout (`codex-20260711T193340Z-40302`), the launcher receipt was
@@ -149,6 +150,7 @@ requires the lease directory to be absent. The terminal checkpoint is one atomic
 timestamps must follow their causal order and cannot be future-dated past collection. Each counted
 FRD requires its exact JUDGE dispatch, a green `dispatch.finished` record and its real green result
 artifact. The revoked receipt must carry the complete permit identity and match the committed marker
-plus owner authorization; a minimal or reconstructed receipt is not evidence. While policy remains `FALLBACK`, a three-hour result without
+plus owner authorization; a minimal or reconstructed receipt is not evidence. While unattended and
+multi-FRD execution remain outside the promoted `EXPERIMENTAL` profile, a three-hour result without
 that exact receipt is rejected rather than promoted. Mixed/corrupt evidence, duplicate event IDs, a
 forged terminal chain, a live receipt or a surviving lease fails closed.

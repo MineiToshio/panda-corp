@@ -3,12 +3,12 @@ id: BL-0081
 type: change
 area: build-engine
 title: "Promote attended Codex builds after closing the governed-executor gaps"
-status: doing
+status: done
 severity: p0
 opened: 2026-07-14
-closed:
+closed: 2026-07-15
 source: "owner/conversation — narrowed Codex-only implementation scope"
-closes:
+closes: ["plugin 9.95.11", "PORT-5 EXPERIMENTAL attended_foreground"]
 links: [DR-047, DR-050, DR-085, DR-113]
 ---
 
@@ -50,7 +50,7 @@ uncertified. Claude's existing Dynamic Workflow path must remain unchanged.
 ## Out of scope
 - Bare/global Codex builds, hardening, lesson harvest, release, overnight/unattended operation, cross-runtime
   live takeover, Claude↔Codex messaging, and parity with Claude Dynamic Workflows. Those remain FALLBACK;
-promotion beyond the attended targeted profile requires a later canary.
+  promotion beyond the attended targeted profile requires a later canary.
 
 ## Candidate canary evidence
 
@@ -88,3 +88,20 @@ promotion beyond the attended targeted profile requires a later canary.
   failed-terminal proof, historical-success rejection, one-percent non-classification, true 100-percent
   classification, reset plausibility and in-memory-only stdout classification. No provider or canary launch is
   part of this correction.
+
+## Promotion canary GO (2026-07-15)
+
+- Disposable fixture: `/Users/Shared/Proyectos/pandacorp-canaries/codex-attended-99510-final`, factory
+  source `792d96ac7134ca0dc580055383ac160ea2109b93`, plugin 9.95.10, exact target
+  `frd-01-safe-add`, limits `max_spend=6`, `max_duration=900`, `max_retries=1`, `max_blocks=1`, foreground.
+- Run `codex-20260715T151508Z-99530` completed at clean final HEAD
+  `9c2ea16c5b82a7df71b3eb793e0bd4c57554399b`: exactly one green STANDARD worker, one green independent
+  JUDGE, deterministic verify green, mutation score 100% (2/2 killed), complete traceability, reachable
+  `last_green_sha: 05489da`, terminal `complete`, `phase: implementation`, `running: false`, no inflight or
+  uncertain dispatch, and lease released.
+- Independent postflight: **PASS**. Audit gotcha corrected: `.pandacorp/mutation.sh` uses project-relative
+  paths, so the audit must execute with the fixture as CWD. An outside-CWD failure is a harness invocation
+  error, not canary evidence; rerunning the frozen postflight from the fixture CWD passed with a clean tree.
+- Verdict: **GO** for only `EXPERIMENTAL / attended_foreground / targeted-only`. Exactly one FRD or one
+  ready change, foreground, cumulative <=7200 seconds, zero automatic restarts, terminal implementation.
+  Bare/global, multiple-FRD, background/unattended, hardening/release and cross-runtime remain FALLBACK/denied.

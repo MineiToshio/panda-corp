@@ -5,7 +5,7 @@
   },
   "overrides": {
     "design": { "codex": { "status": "FALLBACK", "fallback": "Use the documented navigable HTML mockup path; no DesignSync canvas." } },
-    "implement": { "codex": { "status": "FALLBACK", "candidate_profile": "attended_foreground", "scope": "targeted-only", "fallback": "The targeted attended_foreground profile is implemented but remains canary-gated. Bare/global, hardening, release, background and unattended Codex builds are unavailable; Claude keeps its Dynamic Workflow path." } },
+    "implement": { "codex": { "status": "EXPERIMENTAL", "profile": "attended_foreground", "scope": "targeted-only", "fallback": "Available only for exactly one FRD or one ready change, foreground, cumulative duration <=7200 seconds and zero automatic restarts; it ends in implementation. Bare/global, hardening, release, background, unattended and cross-runtime Codex builds remain unavailable; Claude keeps its Dynamic Workflow path.", "evidence": { "kind": "installed-codex-attended-canary", "verified_at": "2026-07-15", "verifier": "codex-attended-99510-final / 9c2ea16" } } },
     "implement-backlog": { "codex": { "status": "FALLBACK", "fallback": "Single-item mode only; drain-all remains Claude-owned until its independent E2E passes." } },
     "review-launch": { "codex": { "status": "FALLBACK", "fallback": "Use documented PostHog queries when the connected analytics tool is unavailable." } }
   }

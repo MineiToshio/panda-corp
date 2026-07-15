@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-07-15 — Manual marks the narrow Codex attended build as available
+
+After the installed BL-0081 canary GO, the Manual presents Codex `implement` as
+`EXPERIMENTAL/attended_foreground/targeted-only`: one FRD or ready change, foreground, <=7200 cumulative
+seconds, no automatic restart and terminal implementation. It continues to label bare/global,
+multiple-FRD, hardening/release, background/unattended and cross-runtime Codex execution unavailable.
+Claude's Dynamic Workflow presentation is unchanged. FRD-08 encodes the same distinction so pending
+R10/R11 expansion gates cannot be rendered as a total Codex build prohibition.
+
 ## 2026-07-14 — Manual exposes the canary-gated Codex attended-build candidate
 
 The multi-runtime Manual keeps Codex `implement` at `FALLBACK` and describes its implemented

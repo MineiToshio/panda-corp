@@ -216,14 +216,14 @@
           }
         },
         "codex": {
-          "status": "FALLBACK",
-          "fallback": "The targeted attended_foreground profile is implemented but remains canary-gated. Bare/global, hardening, release, background and unattended Codex builds are unavailable; Claude keeps its Dynamic Workflow path.",
+          "status": "EXPERIMENTAL",
+          "fallback": "Available only for exactly one FRD or one ready change, foreground, cumulative duration <=7200 seconds and zero automatic restarts; it ends in implementation. Bare/global, hardening, release, background, unattended and cross-runtime Codex builds remain unavailable; Claude keeps its Dynamic Workflow path.",
           "evidence": {
-            "kind": "static-contract-only",
-            "verified_at": "2026-07-11",
-            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+            "kind": "installed-codex-attended-canary",
+            "verified_at": "2026-07-15",
+            "verifier": "codex-attended-99510-final / 9c2ea16"
           },
-          "candidate_profile": "attended_foreground",
+          "profile": "attended_foreground",
           "scope": "targeted-only"
         }
       }

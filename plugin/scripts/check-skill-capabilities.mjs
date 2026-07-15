@@ -23,4 +23,10 @@ for (const skill of matrix.skills) {
     if (!existsSync(sidecar) || !/allow_implicit_invocation:\s*false/.test(readFileSync(sidecar, "utf8"))) fail(`${skill.slug} internal sidecar missing fail-closed policy`);
   } else if (existsSync(sidecar)) fail(`${skill.slug} has an unnecessary Codex sidecar`);
 }
+const implementCodex = matrix.skills.find((skill) => skill.slug === "implement")?.runtimes.codex;
+if (implementCodex?.status !== "EXPERIMENTAL" || implementCodex.profile !== "attended_foreground" || implementCodex.scope !== "targeted-only") fail("implement/Codex promotion is not the exact attended targeted profile");
+for (const boundary of ["one FRD", "one ready change", "foreground", "<=7200", "zero automatic restarts", "Bare/global", "hardening", "release", "unattended", "cross-runtime"]) if (!implementCodex.fallback.includes(boundary)) fail(`implement/Codex boundary missing from capability projection: ${boundary}`);
+const ownership = JSON.parse(readFileSync(path.join(root, "plugin/runtime/capability-ownership.json"), "utf8"));
+const executor = ownership.capabilities?.codex_product_executor;
+if (executor?.certification !== "EXPERIMENTAL" || executor.profile !== "attended_foreground" || executor.scope !== "targeted-only") fail("Codex executor ownership disagrees with the promoted skill policy");
 console.log(`PASS  exact skill capability coverage ${slugs.length}/${dirs.length}`);

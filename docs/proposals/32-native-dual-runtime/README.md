@@ -360,7 +360,7 @@ The common lease must be acquired atomically before any build mutation. Reuse th
 
 Acquire uses atomic `mkdir`; writing/renewing `owner.json` uses temporary-file + atomic `mv` only after confirming the owner token. Every executor renews at `≤ TTL/3`. Stale reclaim requires both the lease heartbeat and all legacy signals to be stale, records a tombstone/journal entry, and uses its own atomic election so two reclaimers cannot win. Release compares the owner token before deleting `owner.json` and removing the empty lease directory. A non-owner release fails loud.
 
-Special hazard: Claude's Stop gate stands aside when it sees fresh build signals. A non-certified Codex controller must not be allowed to create those signals, or it could disable verification for a later or accidentally overlapping Claude session. In lease mode, the Stop gate stands aside only for a fresh lease whose `verification_owner` and `capability_version` are certified. R2 closed the former `jq`-missing fail-open path and the source/fixture ownership corpus is green; Codex still remains read/review-only under PORT-5 until the installed R10 switch and R11 `LIVE_OVERNIGHT` canaries pass.
+Special hazard: Claude's Stop gate stands aside when it sees fresh build signals. A non-certified Codex controller must not be allowed to create those signals, or it could disable verification for a later or accidentally overlapping Claude session. In lease mode, the Stop gate stands aside only for a fresh lease whose `verification_owner` and `capability_version` are certified. R2 closed the former `jq`-missing fail-open path and the source/fixture ownership corpus is green. PORT-5 now permits only the installed-canary-certified `EXPERIMENTAL/attended_foreground/targeted-only` Codex profile; the installed R10 switch and R11 `LIVE_OVERNIGHT` canaries still gate cross-runtime and unattended/overnight expansion.
 
 ## 9. Corrected target architecture
 
@@ -397,7 +397,7 @@ flowchart TD
 Key properties:
 
 - Claude's executor remains the known-good default.
-- R2, R3, R6, offline R7/R8 and the R10 bidirectional fixture are green. Codex nevertheless remains read/review-only for project build state until the installed Claude→Codex→Claude R10 canary and the several-hours R11 `LIVE_OVERNIGHT` canary also pass.
+- R2, R3, R6, offline R7/R8, the R10 bidirectional fixture and the installed attended single-target canary are green. Codex may therefore write only through `EXPERIMENTAL/attended_foreground/targeted-only`; the installed Claude→Codex→Claude R10 canary and several-hours R11 `LIVE_OVERNIGHT` canary still gate runtime switching and unattended/overnight expansion.
 - Codex unattended durability is a baseline release requirement; parallel shared-tree writes remain a separate promotion.
 - Runtime locality is enforced at dispatch: the active adapter may resolve only agents and models belonging to its own runtime.
 - Both runtimes are denied direct writes after a transition slice migrates; Claude reaches the CLI through a subagent, Codex may call it directly or through its agent.
@@ -724,8 +724,9 @@ Required live scenarios:
 
 R11 is a release gate for claiming `implement` parity. It certifies a manually launched Codex build; it does not copy the two Claude-owned recurring routines.
 
-While the capability policy remains `FALLBACK`, this gate runs only through the R11 one-shot
-certification permit. The normal launcher rejects an empty authorization. The permit is bound to one
+Because unattended and multi-FRD execution remain outside the promoted `EXPERIMENTAL`
+`attended_foreground` profile, this gate runs only through the R11 one-shot certification permit. The
+normal launcher rejects an empty authorization for that broader scope. The permit is bound to one
 standalone disposable fixture, current HEAD/UUID, plugin/overlay plus executor/supervisor/launcher
 hashes, an exact multi-FRD scope, foreground mode and exact limits; it is consumed before the lease
 and revoked on every terminal path. It is separate from and backward-compatible with R10, and grants
@@ -742,8 +743,9 @@ no normal-project write permission.
 Failure blocks the claim that Codex `implement` has full parity. It does not regress Claude or block Codex read/review and certified non-build skills.
 - Prove the same durable spend brake used by R7; unattended execution never trusts only in-memory counts.
 
-Failure or continued deferral leaves Claude as the supported build writer and Codex in safe
-read/review mode. It does not turn the certification exception into attended normal-project permission.
+Failure or continued deferral leaves Claude as the supported unattended/global build writer. Codex
+retains only its separately certified attended single-target profile; the certification exception does
+not widen that normal-project permission.
 
 **Implementation evidence (2026-07-11):** `OFFLINE_ACCELERATED` is green through
 `plugin/scripts/test-codex-unattended.mjs`; it covers preflight failures, supervisor crash/restart and
@@ -930,20 +932,20 @@ Resolved defaults, requiring no additional owner decision:
 The owner authorized implementation on 2026-07-11. The rollout now stands as follows:
 
 - R0–R9 are implemented and their source/offline gates are green.
-- R10 is green at source/fixture level, including bidirectional cold continuation with one logical run identity; the installed Claude→Codex→Claude live canary remains pending.
+- R10 is green at source/fixture level, including bidirectional cold continuation with one logical run identity. The installed attended single-target canary is also green (`codex-20260715T151508Z-99530`, final HEAD `9c2ea16c5b82a7df71b3eb793e0bd4c57554399b`); broader installed bidirectional scope remains pending.
 - R11 `OFFLINE_ACCELERATED` and the current-head real-provider `LIVE_SHORT` are green; `LIVE_OVERNIGHT` remains pending because no short or accelerated run can substitute for the several-hours gate.
 - Claude Code operation, its Dynamic Workflow controller, supervisor and the two deployed recurring routines remain unchanged and Claude-owned.
-- Codex `implement` remains `FALLBACK` and read/review-only on project build state until both pending live gates pass. No local launcher invocation or fixture result overrides PORT-5.
+- Codex `implement` is `EXPERIMENTAL` only for exactly one FRD or one ready change, attended in the foreground, cumulative `<=7200`, zero automatic restarts and ending in `implementation`. Bare/global/background/unattended/hardening/release/cross-runtime forms remain `FALLBACK`/denied until their own gates pass.
 
 ## 17. Recommended verdict
 
-**Implementation is substantially complete, but native Codex build-write parity is not yet certified. Keep Codex `implement` at `FALLBACK` until the installed R10 switch and R11 `LIVE_OVERNIGHT` gates are green.**
+**The attended single-target Codex build profile is certified and available as `EXPERIMENTAL`; full native build-write parity is not yet certified. Keep every broader form denied until its installed R10/R11 gate is green.**
 
 The implemented architecture preserves one source of truth, strict runtime-local dispatch, an atomic
 fenced lease, durable spend/health facts, generated transition prompts, a separate sequential Codex
 executor and adapter-aware Mission Control observability. The remaining work is certification, not a
-second implementation architecture: prove the installed cold switch and a representative unattended
-run before changing the permission claim.
+second implementation architecture: prove the broader installed cold switch and a representative
+unattended run before widening the permission claim.
 
 ## 18. Claude review disposition appendix
 

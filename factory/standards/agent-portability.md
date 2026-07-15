@@ -29,11 +29,11 @@ Which portable-core capability each supported runtime provides. When a cell is a
 | SKILL.md discovery | native (`plugin/`) | `$REPO_ROOT/.agents/skills/` + `~/.agents/skills/` | native (skills support) | `.agents/skills/`, `.claude/skills/`, `.opencode/skills/` |
 | Skill discovery path in this repo | `plugin/skills/` | `.agents/skills` → `plugin/skills` (committed symlink) | same symlink | same symlink |
 | Subagents | native (`Agent`/`Task`, per-spawn model) | `.codex/agents/*.toml` (model baked in, explicit-request-only, depth 1, ≤ `max_threads`) | limited/none | limited/none |
-| Build execution | native Dynamic Workflow: targeted or bare/global, background/unattended, resumable | **FALLBACK:** `attended_foreground` is implemented as a candidate but unavailable until its installed Codex-only canary is green | none | none |
+| Build execution | native Dynamic Workflow: targeted or bare/global, background/unattended, resumable | **EXPERIMENTAL:** `attended_foreground` for exactly one FRD or one ready change, foreground, <=7200 s cumulative, zero auto-restarts; ends in implementation | none | none |
 | Hooks (lifecycle enforcement) | native (`hooks.json` + `${CLAUDE_PLUGIN_ROOT}`) | **source-certified for Codex CLI 0.144.1**: generated `PreToolUse` + `Stop` registration, strict payload adapter and execpolicy; each installation/update still requires explicit plugin install + hook trust | none wired | none wired |
 | MCP | native | native (`.mcp.json`) | native | native |
 
-**Reading the matrix:** AGENTS.md + SKILL.md discovery + MCP are the portable floor present everywhere, but **not by themselves permission to write the build state machine**. Codex remains denied while policy is `FALLBACK`; candidate code and a one-run permit are not authority. Subagents are shallow/absent outside Claude Code (degrade to sequential, PORT-3). Hook availability alone never grants or widens build permission.
+**Reading the matrix:** AGENTS.md + SKILL.md discovery + MCP are the portable floor present everywhere, but **not by themselves permission to write the build state machine**. Codex write authority is only the exact `EXPERIMENTAL/attended_foreground/targeted-only` profile above; every broader form remains denied. Subagents are shallow/absent outside Claude Code (degrade to sequential, PORT-3). Hook availability alone never grants or widens build permission.
 
 ## Rule — PORT-2 Neutral model tiers
 
@@ -79,14 +79,13 @@ When the owner asks for a phase (`/pandacorp:x`, "ejecuta la fase x", `$x`) on a
 
 ## Rule — PORT-5 Build execution and cold runtime continuation
 
-### Current permission boundary — Codex remains FALLBACK pending its installed canary
+### Current permission boundary — Codex EXPERIMENTAL attended target
 
-Codex MUST NOT write normal project build state while canonical capability policy resolves
-`implement.codex` to `FALLBACK`. The implemented `attended_foreground` profile is a promotion candidate,
-not permission: the official launcher must stop before lease acquisition until one installed
-Codex-only disposable canary is green and the policy is explicitly changed to `EXPERIMENTAL`.
+Canonical capability policy resolves `implement.codex` to `EXPERIMENTAL` only for
+`attended_foreground` + `targeted-only`. The installed Codex-only disposable canary is green; the
+official launcher grants no authority beyond the exact profile below.
 
-The candidate profile contract, which becomes operative only after that promotion, is fail-closed at launcher, supervisor and executor:
+The promoted profile contract is fail-closed at launcher, supervisor and executor:
 
 - exactly **one** explicit target: one normalized FRD slug OR one exact `status: ready` change slug;
 - foreground ownership for the full run, with cumulative `max-duration <= 7200` seconds;
@@ -100,12 +99,12 @@ The candidate profile contract, which becomes operative only after that promotio
   cannot enter project-wide hardening, advance `phase: release`, drain an untargeted project, run in
   background/unattended/overnight mode, or invoke/delegate to Claude.
 
-After promotion, the launcher issues a single-use attended permit bound to the project, run, exact target and limits;
+The launcher issues a single-use attended permit bound to the project, run, exact target and limits;
 the supervisor and executor consume their own stages before build mutation. Directly invoking either
 controller without the profile and permit is denied before lease acquisition. The permit is authority
 for this one attended run, not a reusable certification receipt.
 
-Before promotion, **all** normal Codex build forms remain denied. After the narrow promotion, these broader forms remain denied: bare/global `/pandacorp:implement`, multiple FRDs,
+These broader Codex forms remain denied: bare/global `/pandacorp:implement`, multiple FRDs,
 hardening/release, background/unattended operation and factory-backlog drain-all. Cursor, OpenCode and
 other non-Claude runtimes remain read/review-only on build state until separately promoted. Claude Code
 keeps its Dynamic Workflow, Claude-only agents, supervisor and unattended behavior unchanged.
@@ -148,9 +147,9 @@ spend/duration/retry/block ceilings. The duration ceiling must permit at least t
 `codex-live-overnight`. The collector, not elapsed narration, decides whether the result qualifies as
 `LIVE_OVERNIGHT`. Full procedure: `plugin/runtime/codex/R11-CERTIFICATION.md`.
 
-### Governed sequential contract (candidate for Codex `attended_foreground`)
+### Governed sequential contract (Codex `attended_foreground`)
 
-The Codex `attended_foreground` executor is implemented against the applicable targeted subset of this contract, but may not exercise it on a normal project until the installed canary and policy promotion; whole-project/hardening clauses remain future gates:
+The Codex `attended_foreground` executor may exercise the applicable targeted subset of this contract on a normal project; whole-project/hardening clauses remain unavailable:
 
 - **Same governed state machine.** Build Plan order, `implementation_status` frontmatter (`PLANNED → IN_PROGRESS → IN_REVIEW → VERIFIED`), the same per-FRD gate (fresh reviewer pass + `verify.sh`), the same per-WO commits and safe-point rules.
 - **VERIFIED is never rebuilt.** A cold successor derives pending work from canonical files only after the prior executor stopped and released the atomic lease.
@@ -183,8 +182,8 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 
 | Claude-only capability | Why it doesn't port | What still binds every runtime |
 |---|---|---|
-| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex's candidate sequential executor remains unavailable while policy is FALLBACK; it never calls or replaces this Claude engine |
-| Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; Codex has a candidate foreground supervisor but no promoted build profile | After promotion the caller stays attached for ≤7200 s; background/overnight and the two Claude-owned recurring schedules remain unavailable in Codex |
+| Background build engine (`pandacorp-build.js`, Dynamic Workflows) | injected `agent()`/`phase()`/`budget`, `Workflow({...})`, `TaskStop` — no identical non-Claude vehicle | Codex's promoted executor is sequential and foreground-only; it never calls or replaces this Claude engine |
+| Supervisor stack (`Monitor`, `ScheduleWakeup`, `PushNotification`, worktrees) | Claude uses native tools; Codex has an attended foreground supervisor only | The caller stays attached for ≤7200 s; background/overnight and the two Claude-owned recurring schedules remain unavailable in Codex |
 | Hooks enforcement (safety gate, Stop verify-gate, telemetry) | registrations remain runtime-local; Codex uses a generated adapter and must re-trust changed hook definitions | shared policy is source-tested for Codex 0.144.1; an uninstalled/untrusted adapter fails the activation gate and does not grant build writes |
 | Mission Control live telemetry | each runtime emits its own additive stream; Claude transcripts remain Claude-only | Mission Control reads both transports through the canonical vocabulary, while `status.yaml`, WO frontmatter and progress files remain truth |
 | Claude Design canvas (`DesignSync`) | Claude-native tool | documented HTML-mockup fallback (DR-058 Plan B, PORT-3) |
@@ -192,7 +191,7 @@ These have no cross-runtime analogue and remain Claude-side; the **rules they en
 ## How it is verified
 
 - **PORT-1/PORT-2/PORT-3/PORT-4:** manual — the agent self-checks the translation on each skill invocation under a non-Claude runtime; the injection point is AGENTS.md (always in context), so the worst case is the agent stops and asks. Cross-checked by the owner's Codex test plan (proposal Part 4).
-- **PORT-5:** while policy is `FALLBACK`, verify every normal Codex launch fails before lease acquisition. The candidate implementation must also reject missing profile/permit, zero-or-multiple targets, background, duration >7200, restart, bare/global, hardening and release. A disposable installed Codex-only canary must prove one real targeted FRD and leave `phase: implementation`, a released lease and a clean tree; only then may policy change to `EXPERIMENTAL/attended_foreground`. R10/R11 remain separate future evidence for cross-runtime/overnight capability.
+- **PORT-5:** policy is `EXPERIMENTAL/attended_foreground/targeted-only` after installed canary `codex-attended-99510-final` completed run `codex-20260715T151508Z-99530` at clean HEAD `9c2ea16`, with one STANDARD worker, one independent JUDGE, green deterministic + mutation gates, `phase: implementation`, terminal `complete` and released lease. Verify the launcher still rejects missing profile/permit, zero-or-multiple targets, background, duration >7200, restart, bare/global, hardening and release. R10/R11 remain separate future evidence for cross-runtime/overnight capability.
 - **PORT-6:** Claude keeps its existing registration untouched. Codex enforcement is generated from `plugin/runtime/enforcement-policy.json` and tested by `test-codex-enforcement.mjs`; promotion additionally requires a disposable install, explicit hook trust and the live deny/Stop canaries in `plugin/docs/codex-activation.md`. Cursor/OpenCode remain instruction-only.
 
 ## Why

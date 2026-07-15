@@ -2242,17 +2242,15 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <MultiRuntimeDiagram />
       </Panel>
       <NotePanel icon="ti-lock" iconColor="var(--color-warn)">
-        <B weight={600}>Codex sigue bloqueado mientras policy sea FALLBACK.</B> El perfil candidato
-        <Code>attended_foreground</Code> ya está implementado, pero no concede permiso hasta que un
-        canario instalado Codex-only quede verde y la policy cambie explícitamente a EXPERIMENTAL.
-        En ese momento exigirá un FRD o change exacto, foreground, máximo 7200 segundos, cero
-        reinicios, review JUDGE, <Code>verify.sh</Code> y mutation gate verdes.
+        <B weight={600}>Codex tiene un perfil EXPERIMENTAL acotado.</B> El perfil
+        <Code>attended_foreground</Code> permite exactamente un FRD o una change lista, foreground,
+        máximo acumulado de 7200 segundos y cero reinicios automáticos. Exige review JUDGE,
+        <Code>verify.sh</Code> y mutation gate verdes, y termina en implementation.
       </NotePanel>
       <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
-        <B weight={600}>Límites honestos.</B> Codex todavía no puede ejecutar un build sin objetivo,
+        <B weight={600}>Límites honestos.</B> Codex no puede ejecutar un build sin objetivo,
         varios FRDs, hardening global, avance a release, background, overnight ni relevo con Claude.
-        R10/R11 quedan como certificaciones futuras independientes; el candidato atendido tiene su
-        propio canario instalado antes de habilitarse. Claude conserva intacto su Dynamic Workflow.
+        R10/R11 quedan como certificaciones futuras independientes. Claude conserva intacto su Dynamic Workflow.
       </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
@@ -2338,14 +2336,13 @@ function ConceptMultiRuntime(): React.JSX.Element {
             ),
           },
           {
-            title: <>Codex, canario atendido</>,
+            title: <>Codex, build atendido</>,
             body: (
               <>
-                Mientras policy sea <Code>FALLBACK</Code>, un proyecto normal debe rechazarse antes
-                de ownership. Ejecuta sólo el fixture desechable autorizado. Si completa review
-                JUDGE, <Code>verify.sh</Code>, mutation gate, lease liberada, árbol limpio y
-                <Code>phase: implementation</Code>, registra la evidencia; recién entonces puede
-                promoverse la policy a <Code>EXPERIMENTAL/attended_foreground</Code>.
+                Pide exactamente un FRD o una change <Code>ready</Code> y mantén la tarea abierta.
+                Debe completar review JUDGE, <Code>verify.sh</Code>, mutation gate, liberar la lease,
+                dejar árbol limpio y conservar <Code>phase: implementation</Code>. Sin target,
+                varios FRDs, background o más de 7200 segundos deben rechazarse antes de ownership.
               </>
             ),
           },

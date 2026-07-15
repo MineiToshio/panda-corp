@@ -16,7 +16,7 @@ Piensa en un edificio con dos puertas que llevan al mismo taller:
 |---|---|---|
 | **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo + plugin Codex instalado; ignora sólo `CLAUDE.md` |
 | **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | Plugin Codex + `.agents/skills` (symlink) + `.codex/agents/*.toml` (generados) |
-| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | Candidato `attended_foreground` implementado, pero bloqueado en FALLBACK hasta el canario instalado |
+| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | `EXPERIMENTAL attended_foreground`: exactamente 1 FRD o 1 change lista, foreground, <=7200 s, sin autorestart |
 | **El núcleo que ambos operan** | `AGENTS.md` + `factory/` (manual y estándares) · `plugin/skills/` (los 25 SKILL.md) · el estado en ficheros (`status.yaml`, frontmatter de work orders, colas de inbox) | idem — es el MISMO conjunto de ficheros |
 
 Nadie elige runtime con un switch: **cada herramienta se auto-selecciona por lo que es capaz de leer**. El diagrama fuente está en `docs/assets/multi-runtime-two-doors.svg` (repo de la fábrica).
@@ -60,9 +60,9 @@ El detalle completo (matriz de capacidades, tiers de modelo, tabla de traducció
 
 ## Qué funciona igual y qué degrada
 
-**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. Claude conserva toda su ruta actual. Codex todavía no puede escribir un build normal: la política sigue `FALLBACK`. El perfil `attended_foreground` está implementado como candidato, pero no se habilita hasta que pase un canario instalado Codex-only y la política cambie explícitamente a `EXPERIMENTAL`.
+**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. Claude conserva toda su ruta actual. Codex puede escribir únicamente mediante el perfil `EXPERIMENTAL attended_foreground` que pasó su canario instalado.
 
-Después de esa promoción, el perfil exigirá exactamente **un FRD o una change lista**, foreground, una duración acumulada máxima
+El perfil exige exactamente **un FRD o una change lista**, foreground, una duración acumulada máxima
 de 7200 segundos y cero reinicios automáticos. El launcher, supervisor y executor validan el mismo
 alcance y consumen un permiso de un solo uso antes de mutar el build. Codex implementa secuencialmente,
 usa un JUDGE independiente, vuelve a correr `verify.sh` y exige un mutation gate parseable y verde.
@@ -121,13 +121,13 @@ explícita `new` crean un run nuevo. La identidad del proceso o sesión de cada 
 nunca se usa como sustituto.
 
 **Degrada con honestidad en Codex:**
-- El build (`implement`) sigue bloqueado. `attended_foreground` es el candidato: un objetivo y máximo 7200 segundos sólo después de su canario y promoción.
-- **La Fragua**: Codex puede leer evidencia existente; los eventos de un build candidato no cuentan como permiso ni sustituyen archivos/commits canónicos.
+- El build (`implement`) está disponible solo como `EXPERIMENTAL attended_foreground`: exactamente un objetivo, foreground, máximo acumulado de 7200 segundos y cero reinicios automáticos.
+- **La Fragua**: los eventos de un build atendido no sustituyen archivos/commits canónicos.
 - La política, los adaptadores y las proyecciones de hooks/config de Codex están certificados en fuente, pero el enforcement activo requiere instalar el plugin y dar trust explícito a sus definiciones. Hasta cerrar ese canario (BL-0030), `AGENTS.md` sigue siendo el piso vinculante y no se reclama paridad automática.
 
 ## Cómo probar que funciona
 
 1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 25 skills (`/skills`).
-2. **Codex, canario atendido**: usa únicamente el fixture desechable y protocolo autorizado. Un proyecto normal debe seguir rechazado mientras policy sea `FALLBACK`. Si el canario queda verde, registra la evidencia y recién entonces promueve la policy a `EXPERIMENTAL`.
+2. **Codex, build atendido**: en un proyecto preparado, pide exactamente un FRD o una change `ready`; mantén la tarea abierta. Debe terminar en `phase: implementation`, sin lease y con árbol limpio. Sin objetivo, varios FRDs, background o más de 7200 segundos deben rechazarse antes de tomar ownership.
 3. **Claude, intacto**: la misma prueba vía `/pandacorp:implement` — motor background, supervisor y Fragua completa, como siempre.
 4. **Fronteras negativas**: comprueba que Codex rechaza un build sin target, varios FRDs, background y duración >7200 antes de tomar la lease. Los harness R10/R11 son opcionales y sólo aplican a capacidades futuras de cambio de runtime/overnight.
