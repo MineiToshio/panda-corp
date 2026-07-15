@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setPendingDecisions, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
 import { createRuntimeEventEmitter } from "../event-transport.mjs";
 import { consumeByExecutor } from "./attended-permit.mjs";
-import { diagnoseUsageLimitFromRollouts, sanitizedDiagnosticTail } from "./failure-diagnostics.mjs";
+import { diagnoseUsageLimitFromRollouts } from "./failure-diagnostics.mjs";
 import { assertStrictStructuredOutputSchema } from "./schema-contract.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -235,13 +235,12 @@ async function dispatch({ id, tier, prompt, units = 1, outputSchema = schema, va
   if (result.code !== 0) {
     let errorClass = classifyProviderFailure(result); let resetAt = null;
     if (errorClass === "unknown") {
-      const rollout = await diagnoseUsageLimitFromRollouts({ projectReal, prompt, startedAtMs: dispatchStartedAtMs });
+      const rollout = await diagnoseUsageLimitFromRollouts({ projectReal, prompt, startedAtMs: dispatchStartedAtMs, dispatchFailed: true });
       if (rollout) { errorClass = rollout.errorClass; resetAt = rollout.resetAt; }
     }
-    const diagnosticTail = sanitizedDiagnosticTail({ ...result, prompt });
-    const diagnostic = { ...(resetAt ? { reset_at: resetAt } : {}), ...(diagnosticTail ? { diagnostic_tail: diagnosticTail } : {}) };
+    const diagnostic = { ...(resetAt ? { reset_at: resetAt } : {}) };
     const uncertain = { ...state.inflight, error_class: errorClass, exit_code: result.code, timed_out: result.timedOut, ...diagnostic };
-    await event("dispatch_uncertain", { dispatch_id: id, code: result.code, signal: result.signal, timed_out: result.timedOut, error_class: errorClass, ...diagnostic }); await checkpoint({ uncertain });
+    await event("dispatch_uncertain", { dispatch_id: id, error_class: errorClass, exit_code: result.code, timed_out: result.timedOut, ...diagnostic }); await checkpoint({ uncertain });
     throw Object.assign(new Error(`Codex dispatch outcome is uncertain: ${id}; provider class=${errorClass}; blind retry forbidden`), { code: result.timedOut ? "DURATION" : "UNCERTAIN", providerClass: errorClass });
   }
   const parsed = validator(JSON.parse(await readFile(resultFile, "utf8"))); await event("dispatch_finished", { dispatch_id: id, verdict: parsed.verdict }); await checkpoint({ inflight: null, uncertain: null, last_dispatch: id }); if (process.env.PANDACORP_TEST_AFTER_DISPATCH_BARRIER === "1") { await writeFile(path.join(runDir, "after-dispatch.barrier"), `${id}\n`); while (!signalRequested) await wait(10); } else if (testAfterDispatchDelay > 0) await wait(Math.min(testAfterDispatchDelay, 5000)); throwIfStopping(); return parsed;

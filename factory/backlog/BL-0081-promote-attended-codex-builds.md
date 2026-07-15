@@ -82,8 +82,9 @@ promotion beyond the attended targeted profile requires a later canary.
   before acquiring build ownership. A silent failed dispatch may inspect only one safely correlated, fresh
   `source=exec` rollout from the exact real project cwd. It classifies `usage_limit` only when
   `rate_limit_reached_type` is present or the percentage is at least 100, and otherwise stays `unknown`.
-  Sanitized, bounded stdout/stderr tails and a validated reset timestamp are durable diagnostics; prompts and
-  secrets are never persisted.
+  Only whitelisted structured fields and a plausible reset timestamp are durable diagnostics; stdout, stderr,
+  prompts and secrets are never persisted.
 - Adversarial coverage freezes exact-cwd/prompt correlation, stale/foreign/ambiguous/malformed rejection,
-  one-percent non-classification, true 100-percent classification, stdout rate-limit classification and secret
-  redaction. No provider or canary launch is part of this correction.
+  failed-terminal proof, historical-success rejection, one-percent non-classification, true 100-percent
+  classification, reset plausibility and in-memory-only stdout classification. No provider or canary launch is
+  part of this correction.

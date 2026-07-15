@@ -8,16 +8,17 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 **What:** BL-0081 splits ordinary worker and JUDGE review Structured Outputs schemas, makes every declared
 property required recursively, and validates that contract before the executor can acquire ownership. Silent
-nonzero Codex exits now retain only a sanitized bounded diagnostic tail and may recover usage-limit telemetry
-from one fresh `source=exec` rollout correlated by exact real cwd and exact in-memory prompt. Foreign, stale,
-ambiguous and malformed rollouts fail closed.
+nonzero Codex exits persist no free-form output and may recover usage-limit telemetry from one fresh
+`source=exec` rollout correlated by exact real cwd, exact in-memory prompt and an empty failed terminal event.
+Foreign metadata is rejected from a bounded first-line read before its body; successful, stale, ambiguous and
+malformed rollouts fail closed.
 
 **Why:** the final installed canary exposed an invalid base schema: optional `traceability` was rejected by
 the provider before any worker ran. Its rollout also showed `used_percent: 1.0`, which is one percent—not an
 exhausted quota—so treating every value at or above one as a limit would create a false diagnosis.
 
-**Impact:** `usage_limit` requires explicit reached-limit telemetry or at least 100 percent; a validated
-`reset_at` may be recorded without persisting prompts or secrets. The owner-facing route does not change, so
+**Impact:** `usage_limit` requires explicit reached-limit telemetry or at least 100 percent plus failed-terminal
+proof; a time-bounded `reset_at` may be recorded without persisting stdout, stderr, prompts or secrets. The owner-facing route does not change, so
 the Manual is unchanged. Policy remains `FALLBACK`; Claude Dynamic Workflows are untouched and no provider
 canary was launched by this patch.
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env node
-import { chmod, mkdir, mkdtemp, readFile, readdir, rename, rm, symlink, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { createHmac, randomBytes } from "node:crypto";
 import { consumeBySupervisor } from "../runtime/codex/attended-permit.mjs";
 import { assertStrictStructuredOutputSchema } from "../runtime/codex/schema-contract.mjs";
+import { diagnoseUsageLimitFromRollouts } from "../runtime/codex/failure-diagnostics.mjs";
 
 const root = path.resolve(new URL("../..", import.meta.url).pathname);
 const executor = path.join(root, "plugin/runtime/codex/executor.mjs");
@@ -63,8 +64,8 @@ appendFileSync('.pandacorp/run/fake-schemas.log',label+':'+s.split('/').pop()+'\
 if(prompt.includes('preserved RED baseline'))appendFileSync('.pandacorp/run/preserved-consumed','1\\n');
 if(scenario==='hang-tree'&&prompt.includes('Implement exactly')){spawn('sh',['-c','sleep 2; echo late > late-write'],{stdio:'ignore'});await new Promise(()=>{})}
 if(scenario==='uncertain'&&prompt.includes('Implement exactly')){writeFileSync('feature.txt','uncertain\\n');process.exit(7)}
-if(scenario==='stdout-rate-limit'&&prompt.includes('Implement exactly')){process.stderr.write('429 Too Many Requests: rate limit reached; API_TOKEN=super-secret\\n');process.exit(1)}
-if(scenario.startsWith('rollout-')&&prompt.includes('Implement exactly')){const root=join(process.env.CODEX_HOME,'sessions','2026','07','15');mkdirSync(root,{recursive:true});const now=new Date(),stamp=scenario==='rollout-stale'?new Date(now.getTime()-60000).toISOString():now.toISOString(),foreign=scenario==='rollout-foreign'?join(process.cwd(),'foreign'):process.cwd(),used=['rollout-one-percent','rollout-reached'].includes(scenario)?1:100,reached=scenario==='rollout-reached'?'primary':null,lines=[{timestamp:stamp,type:'session_meta',payload:{source:'exec',cwd:foreign}},{timestamp:stamp,type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:prompt}]}},{timestamp:stamp,type:'event_msg',payload:{type:'token_count',rate_limits:{primary:{used_percent:used,resets_at:1784730769},rate_limit_reached_type:reached}}}].map(JSON.stringify).join('\\n')+'\\n';writeFileSync(join(root,'rollout-a.jsonl'),scenario==='rollout-malformed'?'{broken\\n':lines);if(scenario==='rollout-ambiguous')writeFileSync(join(root,'rollout-b.jsonl'),lines);process.exit(1)}
+if(scenario==='stdout-rate-limit'&&prompt.includes('Implement exactly')){process.stderr.write('429 Too Many Requests: rate limit reached '+JSON.stringify(prompt)+' PASSWORD phrase top-secret ghp_supersecret123 -----BEGIN PRIVATE KEY-----\\n');process.exit(1)}
+if(scenario.startsWith('rollout-')&&prompt.includes('Implement exactly')){const root=join(process.env.CODEX_HOME,'sessions','2026','07','15');mkdirSync(root,{recursive:true});const now=new Date(),stamp=scenario==='rollout-stale'?new Date(now.getTime()-60000).toISOString():now.toISOString(),foreign=scenario==='rollout-foreign'?join(process.cwd(),'foreign'):process.cwd(),used=['rollout-one-percent','rollout-reached'].includes(scenario)?1:100,reached=scenario==='rollout-reached'?'primary':null,reset=scenario==='rollout-reset-implausible'?9999999999:1784730769,successful=scenario==='rollout-successful',events=[{timestamp:stamp,type:'session_meta',payload:{source:'exec',cwd:foreign}},{timestamp:stamp,type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:prompt}]}},{timestamp:stamp,type:'event_msg',payload:{type:'token_count',rate_limits:{primary:{used_percent:used,resets_at:reset},rate_limit_reached_type:reached}}},...(successful?[{timestamp:stamp,type:'response_item',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'done'}]}}]:[]),{timestamp:stamp,type:'event_msg',payload:{type:'task_complete',...(successful?{last_agent_message:'done'}:{last_agent_message:null})}}],lines=events.map(JSON.stringify).join('\\n')+'\\n';writeFileSync(join(root,'rollout-a.jsonl'),scenario==='rollout-malformed'?'{broken\\n':lines);if(scenario==='rollout-ambiguous')writeFileSync(join(root,'rollout-b.jsonl'),lines);process.exit(1)}
 let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
@@ -189,12 +190,24 @@ await test("explicit reached-limit telemetry classifies usage_limit even below 1
   const fx = await fixture(); const result = await execute(fx, "rollout-reached", [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "usage_limit" && cp.uncertain.reset_at === 1784730769, JSON.stringify(cp));
 });
 
+await test("historical successful 100-percent rollout is not failure evidence", async () => {
+  const fx = await fixture(); const result = await execute(fx, "rollout-successful", [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "unknown" && !("reset_at" in cp.uncertain), JSON.stringify(cp));
+});
+
+await test("implausible reset timestamp is discarded while verified limit class remains", async () => {
+  const fx = await fixture(); const result = await execute(fx, "rollout-reset-implausible", [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "usage_limit" && !("reset_at" in cp.uncertain), JSON.stringify(cp));
+});
+
+await test("foreign rollout is rejected from bounded meta without reading its body", async () => {
+  const fx = await fixture(); const codexHome = path.join(fx.project, "foreign-meta-home"), sessions = path.join(codexHome, "sessions", "2026", "07", "15"), foreign = path.join(fx.project, "foreign"); await mkdir(sessions, { recursive: true }); await mkdir(foreign); const startedAtMs = Date.now() - 1000, timestamp = new Date().toISOString(); await writeFile(path.join(sessions, "rollout-foreign.jsonl"), `${JSON.stringify({ timestamp, type: "session_meta", payload: { source: "exec", cwd: foreign } })}\nBODY_MUST_NOT_BE_READ\n`); let bodyReads = 0; const result = await diagnoseUsageLimitFromRollouts({ codexHome, projectReal: await realpath(fx.project), prompt: "dispatch", startedAtMs, dispatchFailed: true, readBody: async () => { bodyReads++; throw new Error("foreign body read"); } }); ok(result === null && bodyReads === 0, `result=${JSON.stringify(result)} reads=${bodyReads}`);
+});
+
 for (const scenario of ["rollout-one-percent", "rollout-foreign", "rollout-stale", "rollout-ambiguous", "rollout-malformed"]) await test(`${scenario} rollout evidence is ignored fail-closed`, async () => {
   const fx = await fixture(); const result = await execute(fx, scenario, [], { CODEX_HOME: path.join(fx.project, "codex-home") }); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "unknown" && !("reset_at" in cp.uncertain), JSON.stringify(cp));
 });
 
-await test("stdout rate-limit classification persists only a sanitized bounded diagnostic tail", async () => {
-  const fx = await fixture(); const result = await execute(fx, "stdout-rate-limit"); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "rate_limit", JSON.stringify(cp)); ok(cp.uncertain.diagnostic_tail.includes("[REDACTED_SECRET]") && !cp.uncertain.diagnostic_tail.includes("API_TOKEN") && !cp.uncertain.diagnostic_tail.includes("super-secret") && cp.uncertain.diagnostic_tail.length <= 1200, cp.uncertain.diagnostic_tail);
+await test("stdout classifier remains in-memory and persists no prompt or secret text", async () => {
+  const fx = await fixture(); const result = await execute(fx, "stdout-rate-limit"); ok(result.code === 25, `exit ${result.code}`); const cp = await checkpoint(fx.project); ok(cp.uncertain.error_class === "rate_limit" && !("diagnostic_tail" in cp.uncertain), JSON.stringify(cp)); const durable = `${await read(path.join(fx.project, ".pandacorp/run/codex-checkpoint.json"))}\n${await read(path.join(fx.project, ".pandacorp/run/codex-executor.jsonl"))}\n${await read(path.join(fx.project, ".pandacorp/run/test-events.ndjson"))}\n${await read(path.join(fx.project, ".pandacorp/inbox/decisions.md"))}`; for (const secret of ["Implement exactly", "PASSWORD phrase", "top-secret", "ghp_supersecret123", "BEGIN PRIVATE KEY"]) ok(!durable.includes(secret), `durable leak: ${secret}`);
 });
 
 await test("needs-owner blocks the WO, persists the decision and quiesces before review", async () => {
