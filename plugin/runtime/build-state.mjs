@@ -154,7 +154,7 @@ const fmStatus = (body) => body.match(/^implementation_status:\s*(PLANNED|IN_PRO
 const setFmStatus = (body, status) => /^implementation_status:/m.test(body) ? body.replace(/^implementation_status:.*$/m, `implementation_status: ${status}`) : body.replace(/^---\s*$/m, `---\nimplementation_status: ${status}`);
 const setFmKey = (body, key, value) => { const line = `${key}: ${value}`; const re = new RegExp(`^${key}:.*$`, "m"); return re.test(body) ? body.replace(re, line) : body.replace(/^---\s*$/m, `---\n${line}`); };
 const rollup = (states) => states.every((s) => s === "VERIFIED") ? "VERIFIED" : states.some((s) => s === "BLOCKED") ? "BLOCKED" : states.some((s) => s === "PLANNED") ? "PLANNED" : states.some((s) => s === "IN_PROGRESS") ? "IN_PROGRESS" : "IN_REVIEW";
-async function syncRollupsUnlocked(project, lease) {
+async function syncRollupsUnlocked(project, lease, correctFolders = null) {
     const root = path.join(project, "docs", "frds"); const folders = (await readdir(root, { withFileTypes: true })).filter((e) => e.isDirectory()).map((e) => e.name).sort();
     const counts = { PLANNED: 0, IN_PROGRESS: 0, IN_REVIEW: 0, VERIFIED: 0, BLOCKED: 0 }; let corrected = 0;
     for (const folder of folders) {
@@ -162,7 +162,7 @@ async function syncRollupsUnlocked(project, lease) {
       const states = [];
       for (const name of names) { const state = fmStatus(await readFile(path.join(woDir, name), "utf8")); if (!state) throw Object.assign(new Error(`missing implementation_status: ${folder}/${name}`), { code: "INVALID_STATE" }); states.push(state); counts[state]++; }
       if (!states.length) continue; const desired = rollup(states);
-      for (const doc of ["frd.md", "blueprint.md"]) { const file = path.join(root, folder, doc); const body = await readFile(file, "utf8"); if (fmStatus(body) !== desired) { await atomicText(file, setFmStatus(body, desired)); corrected++; } }
+      if (!correctFolders || correctFolders.has(folder)) for (const doc of ["frd.md", "blueprint.md"]) { const file = path.join(root, folder, doc); const body = await readFile(file, "utf8"); if (fmStatus(body) !== desired) { await atomicText(file, setFmStatus(body, desired)); corrected++; } }
     }
     const now = iso(); const total = Object.values(counts).reduce((a, b) => a + b, 0);
     await yamlSet(paths(project).status, { work_orders_total: total, work_orders_done: counts.VERIFIED, work_orders_planned: counts.PLANNED, work_orders_in_progress: counts.IN_PROGRESS, work_orders_in_review: counts.IN_REVIEW, work_orders_blocked: counts.BLOCKED, work_orders_verified: counts.VERIFIED, last_event_at: now, updated_at: now });
@@ -184,7 +184,7 @@ export async function transitionWorkOrder(project, token, epoch, { file, to, rea
     body = setFmStatus(body, to); if (to === "BLOCKED") body = setFmKey(body, "blocked_reason", reason || "error"); else if (/^blocked_reason:/m.test(body)) body = body.replace(/^blocked_reason:.*\n?/m, "");
     if (to === "PLANNED" && from === "IN_REVIEW") { const current = Number(body.match(/^reopen_count:\s*(\d+)/m)?.[1] || 0); body = setFmKey(body, "reopen_count", current + 1); }
     if (to === "VERIFIED") body = setFmKey(body, "reopen_count", 0);
-    await atomicText(actual, body); const derived = await syncRollupsUnlocked(project, lease); return { file, from, to, derived };
+    const folder=path.relative(actualRoot,actual).split(path.sep)[0]; await atomicText(actual, body); const derived = await syncRollupsUnlocked(project, lease, new Set([folder])); return { file, from, to, derived };
   });
 }
 export async function stampLastGreen(project, token, epoch, sha) {
