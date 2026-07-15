@@ -54,12 +54,16 @@ promotion beyond the attended targeted profile requires a later canary.
 
 ## Candidate canary evidence
 
-- Candidate commit: `1797806a`; temporary plugin copy differed only in policy + derived capability projection.
-- Disposable fixture: `pandacorp-canaries/codex-attended-9959`, seed `0342fc38`, exact target `frd-c-subtract`.
-- Run `codex-20260715T014911Z-30356` stopped fail-closed on its first provider dispatch with
-  `usage_limit`; no retry occurred and the lease was released.
+- Main candidate: `bb7640c9`. Codex plugin `9.95.9` is installed and enabled, while the canonical
+  `implement` policy remains `FALLBACK`; no promotion flip has been made.
+- The diagnostic canary stopped fail-closed on its first provider dispatch with `usage_limit`; no retry
+  occurred, the lease was released, and the diagnostic protocol was subsequently identified as incorrect.
 - The diagnostic run exposed an out-of-scope rollup correction on inconsistent FRD A/B fixture state. The
   candidate was corrected so a WO transition rolls up only its owning FRD while global counters remain
   derived globally; regression coverage now freezes out-of-scope WO, FRD and blueprint bytes.
-- This was diagnostic evidence, not the canonical promotion protocol. Result: **NO-GO for policy promotion**.
-  Keep `FALLBACK` until the exact authorized canary completes green.
+- The exact final fixture is prepared but has not been launched:
+  `/Users/Shared/Proyectos/pandacorp-canaries/codex-attended-9959-final`, seed `80586c2d`, temporary plugin
+  `/tmp/pandacorp-candidate-final.Tg9wIx/plugin` at exact candidate `bb7640c9` plus only the policy/capability
+  projection, target `frd-01-safe-add`, foreground limits `6/900/1/1`. Its preflight is `PASS`.
+- Result: **NO-GO for policy promotion while provider quota is unavailable**. Keep `FALLBACK`; the prepared
+  final canary must not be retried or launched without the required external capacity and authorization.
