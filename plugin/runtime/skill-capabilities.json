@@ -2,6 +2,31 @@
   "generated_from": "plugin/skills/*/SKILL.md + plugin/runtime/skill-runtime-policy.json",
   "skills": [
     {
+      "slug": "absorb",
+      "source": "plugin/skills/absorb/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          }
+        }
+      }
+    },
+    {
       "slug": "adopt",
       "source": "plugin/skills/adopt/SKILL.md",
       "user_invocable": true,

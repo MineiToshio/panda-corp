@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.96.0 — 2026-07-15 (MINOR): new skill `/pandacorp:absorb` — study an external source into a factory-improvement memo
+
+**What:** new owner-invocable skill `plugin/skills/absorb/SKILL.md`. The owner passes ONE URL
+(GitHub repo, article/blog, another agent's skill, doc/paper, or YouTube video); the skill fetches
+it read-only into a **throwaway `pandacorp-research/` sibling** of the repo (path resolved via
+`git rev-parse --show-toplevel`, never hardcoded — portable across machines), investigates it with
+**parallel model-tiered subagents** (comprehension=sonnet, technical deep-dive=sonnet↑opus,
+external context=sonnet, fit-with-Pandacorp=opus), writes a **plain-language summary FIRST**
+(what it is / features) and only THEN a plane-tagged **improvement proposal**, runs a **mandatory
+adversarial red team (opus)** whose verdict is visible in the memo, and lands everything as
+`docs/proposals/NN-absorb-<slug>.md`. YouTube support extracts the transcript via
+`youtube-transcript-api` in an **auto-provisioned private venv** under `pandacorp-research/.tooling/`
+(fallback `yt-dlp`; honest "no captions" path). It is a **two-step gate**: step 1 is the memo; step
+2 executes ONLY on owner approval and **routes each accepted item to the EXISTING engines**
+(`learn` / `implement-backlog` / `memory`) — it builds no new implementation machinery (DR-103,
+native-primitives).
+
+**Why:** the factory had no front door for *learning from the outside world* — mining an external
+repo/article/skill/video for concrete, red-teamed improvements to Pandacorp itself. Owner-requested,
+designed and red-teamed in-conversation across three decisions: (1) reuse existing planes instead of
+a parallel executor; (2) portable sibling folder + committed memo in `docs/proposals/`
+(names `absorb`, `pandacorp-research`, `docs/proposals/` chosen by the owner); (3) YouTube support
+proven live before committing to it (transcript fetch verified on a real video).
+
+**Impact:** owner gains `/pandacorp:absorb`. Source content is always treated as DATA (injection-safe,
+never executed). Human gates and language rules (committed memo English / owner chat Spanish)
+unchanged. No existing skill/agent/engine touched; Codex mirrors unaffected (no `plugin/agents/`
+change). Activation: commit + `claude plugin update pandacorp@panda-corp` + restart.
+
 ## v9.95.11 — 2026-07-15 (PATCH): Codex attended target is EXPERIMENTAL
 
 **What:** BL-0081 promotes only `implement.codex` profile `attended_foreground`, scope
