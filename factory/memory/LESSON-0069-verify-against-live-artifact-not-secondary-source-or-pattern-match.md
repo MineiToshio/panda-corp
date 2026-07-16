@@ -9,7 +9,7 @@ source: "synthesized from LESSON-0027 (stale audit claim), LESSON-0047 (preview-
 provenance: agent-inferred
 created: 2026-07-04
 status: candidate
-promotion: none
+promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/conventions.md CONV-13: CONV-13 ("evidence before assertion") already codifies the OWNER-FACING-CLAIM half of this lesson (owner-stated 2026-06-20, promoted commit b026cc16); this lesson's scope is broader — it also covers re-verifying a doc/audit/past-finding BEFORE building an internal diagnosis or fix plan from it (not just before telling the owner), a facet CONV-13 does not name. Propose widening CONV-13's rule text to explicitly cover fix-plan/diagnosis grounding, not only owner-facing statements. 6-lesson synthesis hub (LESSON-0027/0047/0057/0058/0067/0068, plus LESSON-0140 citing it since) across panda-corp + personal-page-v2 — the single most cross-referenced lesson in the store.
 confidence: medium
 times_applied: 0
 applied_in: []

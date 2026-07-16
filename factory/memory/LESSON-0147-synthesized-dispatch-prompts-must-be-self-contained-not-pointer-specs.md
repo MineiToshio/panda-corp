@@ -11,8 +11,8 @@ created: 2026-07-12
 status: candidate
 promotion: approved
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [PROMPT-8, factory/standards/prompting-conventions.md]
 ---
 

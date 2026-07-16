@@ -5,11 +5,11 @@ domain: factory-engineering
 tags: [agents, delegation, background-task, ScheduleWakeup, polling, resume]
 context: orchestrating or waiting on a long-running background research/investigation agent
 trigger: use this when tempted to schedule a polling wakeup or spawn a placeholder/bridge agent just to wait for a background agent's completion
-source: "mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — a ScheduleWakeup + fresh Agent used to wait for a background research agent got confused on resume, recursively spawned duplicate investigation agents plus several sleep-N background tasks, leaving ~8 stray running tasks and a stray CronCreate wakeup"
+source: "mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — a ScheduleWakeup + fresh Agent used to wait for a background research agent got confused on resume, recursively spawned duplicate investigation agents plus several sleep-N background tasks, leaving ~8 stray running tasks and a stray CronCreate wakeup. Corroborating instance: panda-corp _inbox.md 2026-07-16 (pandacorp-memory-review sweep) — `ScheduleWakeup` is scoped to `/loop` dynamic-mode pacing (it expects the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly); reaching for it as a generic 'wait for my background Agent-tool subagents' fallback OUTSIDE `/loop` is a misuse, caught before it fired and cancelled with `stop: true`."
 provenance: agent-inferred
 created: 2026-07-06
 status: candidate
-promotion: none
+promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/agent-portability.md (or a new agent-orchestration convention alongside CONV-11/12): codify "a background Agent-tool dispatch already delivers a completion notification — never schedule a ScheduleWakeup or spawn a bridge/placeholder agent just to wait for it" as a standing rule, plus the scoping fact that ScheduleWakeup itself only reliably re-fires under `/loop` dynamic-mode pacing (the `<<autonomous-loop-dynamic>>` sentinel). Corroborated across 2 distinct projects (mission-control original 2026-07-06, panda-corp corroboration 2026-07-16, a genuine misuse caught and cancelled before it fired).
 confidence: medium
 times_applied: 0
 applied_in: []
@@ -33,4 +33,7 @@ where a plain mechanism (the automatic notification) already suffices.
 **Apply next time:** when a background agent is running, just let its completion notification arrive —
 do not schedule a polling `ScheduleWakeup` or launch a placeholder/bridge agent to wait for it. If the
 background agent appears stuck, resume IT directly via `SendMessage`, never spawn a parallel duplicate
-to investigate or continue the same work.
+to investigate or continue the same work. `ScheduleWakeup` itself is scoped to `/loop` dynamic-mode
+pacing (it needs the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly) —
+outside a `/loop` run, don't reach for it as a generic "wait for my subagents" mechanism at all; the
+harness already resumes the session automatically when a dispatched Agent-tool call completes.

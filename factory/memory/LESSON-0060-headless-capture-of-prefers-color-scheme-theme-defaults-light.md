@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0047]
 ---
 
 **Situation:** capturing an HTML prototype whose theme is driven purely by `prefers-color-scheme`, a

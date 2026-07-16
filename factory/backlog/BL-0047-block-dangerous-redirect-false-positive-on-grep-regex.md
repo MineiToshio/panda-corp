@@ -52,6 +52,17 @@ as a redirect once `.pandacorp/*` also appeared elsewhere in the same command. W
 confirms the false-positive surface now also covers a routine git trailer format, not just prose/version
 strings.
 
+## Corroborating occurrence (2026-07-14, panda-corp itself, via _inbox.md)
+A FIFTH live occurrence, on a NEW target class: a genuinely real, harmless `>` redirect writing the
+single-line gitignored sweep-timestamp stamp file (`factory/memory/_last-sweep`, intentionally overwritten
+every sweep, unlike append-only `_inbox.md`/`lessons.md`) was blocked as if truncating protected append-only
+state. A separate command that only WROTE PROSE describing that same redirect (an inbox note) was also
+blocked — same whole-command-string scanning class. Worked around by using the Write/Edit tool instead of
+a bash heredoc/redirect for that file. See `factory/memory/LESSON-0105` (updated) for the generalized
+workaround; consider adding `_last-sweep`-style single-line overwrite-intended stamp files to an explicit
+known-false-positive allowlist alongside the fix below, since these are legitimately meant to be truncated
+on every write (unlike the append-only files the guard is protecting).
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument

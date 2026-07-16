@@ -9,7 +9,7 @@ source: "panda-corp — factory backup layer shipped after the unexplained missi
 provenance: agent-inferred
 created: 2026-07-05
 status: candidate
-promotion: none
+promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/infra.md "pandacorp-vault" section: the concrete backup MACHINERY (backup-pandacorp-state.sh covering run/*.sh + run/lessons.md) already shipped and is documented there, but the standing PRINCIPLE this lesson distills — "when introducing any new gitignored state, ask whether its loss is a real incident, and verify a write/regeneration trigger actually fires, not just that a reader+fallback exist" — is not yet a checklist item any future feature is held to; also codify the worktree addendum (write a raw capture-inbox note to the MAIN checkout's copy, not the worktree's, since the worktree's copy is lost on removal) which has no home anywhere yet. 4 corroborating instances across 3 distinct projects (panda-corp, mission-control, personal-page-v2).
 confidence: medium
 times_applied: 0
 applied_in: []

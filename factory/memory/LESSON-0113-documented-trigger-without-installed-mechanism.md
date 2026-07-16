@@ -9,7 +9,7 @@ source: "panda-corp — this recurring meta-pattern ('promesa-sin-mecanismo') wa
 provenance: agent-inferred
 created: 2026-07-07
 status: candidate
-promotion: none
+promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/documentation.md (or build-orchestration.md's trigger/gate conventions): no existing standard states the general rule "a doc/README/standard asserting 'X triggers Y' or 'this MUST happen' must name its actual hook/gate/CLI call site, or ship the wiring in the same change / file a tracked backlog item for the gap immediately" — codify as a standing MUST for anyone authoring a trigger-dependent design. Recurred across 2 distinct projects/layers (panda-corp's own standards-catalog audit, mission-control's FRD-23 read-model build) with no existing enforcement gate covering it.
 confidence: medium
 times_applied: 0
 applied_in: []
