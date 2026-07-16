@@ -9,11 +9,11 @@ source: "panda-corp R11 first live canary, 2026-07-11 — factory/decision-log.m
 provenance: agent-inferred
 created: 2026-07-12
 status: candidate
-promotion: none
+promotion: approved
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: ["factory/standards/quality.md (QUAL-14, owner-attended live attempts — promoted 2026-07-15, /pandacorp:learn)"]
 ---
 
 **Situation:** R11's first REAL live canary (not a mock) asked a model to produce "Verification

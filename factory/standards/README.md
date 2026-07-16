@@ -24,7 +24,7 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 | **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
 | **Accessibility** | [accessibility.md](accessibility.md) (WCAG 2.2 AA, tap-target tiers, focus, motion — canonical behind `rules/accessibility.md`) |
 | **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C) |
-| **Quality / Testing** | [quality.md](quality.md) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |
+| **Quality / Testing** | [quality.md](quality.md) · [debugging.md](debugging.md) (incident investigation SOP: reproduce-first, suspects incl. parallel writers/the harness, attribution guards) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |
 | **Security** | [web-security.md](web-security.md) (+ constitution §12, DR-017, `security-auditor` agent) · [auth.md](auth.md) (RBAC, sessions, resource-level authz) · [dependency-lifecycle.md](dependency-lifecycle.md) (update cadence, audit, licenses) |
 | **Operation / Observability** | [infra.md](infra.md) (local dev, backup/restore, incidents) · [observability.md](observability.md) (production) · [resilience.md](resilience.md) (timeouts, retries, bulkheads) · [background-jobs.md](background-jobs.md) · [external-services.md](external-services.md) (accounts, secrets, payments, provisioning — DR-035..038) |
 | **Data / Privacy** | [privacy.md](privacy.md) · [data-modeling.md](data-modeling.md) (entities, deletion policy, N+1, seeds) |

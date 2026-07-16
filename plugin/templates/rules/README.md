@@ -32,7 +32,8 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 | `code-conventions.md` | `always` | Language, naming, strict typing, constants, imports, handlers, comments/commits, env vars, deps |
 | `clean-code.md` | `always` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility |
 | `project-structure.md` | `always` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion |
-| `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits) |
+| `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy |
+| `debugging.md` | `always` | Incident investigation SOP: reproduce-first, timeline, suspects incl. parallel writers/the harness, confirmed-cause criterion, sibling audit, attribution guards |
 | `documentation-and-decisions.md` | `always` | Canonical doc + decision log discipline, two-layer docs |
 | `error-handling.md` | `always` | Expected vs unexpected taxonomy, typed results, never swallow, honest failure |
 | `resilience.md` | `always` | Timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs |

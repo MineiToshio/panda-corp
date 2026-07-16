@@ -667,11 +667,13 @@ function ConceptEstandares(): React.JSX.Element {
     <>
       <DocH title="Estándares y reglas" level={1} />
       <Lead>
-        El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>27</B>{" "}
-        estándares en <B weight={600}>9 dominios</B> — desde convenciones y arquitectura hasta
-        manejo de errores, resiliencia, auth, modelado de datos, disciplina de implementación con IA
-        y las convenciones de prompting de la propia fábrica (DR-114: la forma se recalibra para los
-        modelos en uso, el contenido se verifica, la gobernanza es intocable). Cada uno sigue la{" "}
+        El know-how de cómo se construye se inyecta en cada proyecto. Son <B weight={600}>31</B>{" "}
+        estándares en <B weight={600}>11 dominios</B> — desde convenciones y arquitectura hasta
+        manejo de errores, resiliencia, auth, modelado de datos, disciplina de implementación con
+        IA, la investigación de incidentes (<Code>debugging.md</Code>: reproducir primero,
+        sospechosos con evidencia, guardas de atribución) y las convenciones de prompting de la
+        propia fábrica (DR-114: la forma se recalibra para los modelos en uso, el contenido se
+        verifica, la gobernanza es intocable). Cada uno sigue la{" "}
         <B weight={600}>plantilla ejecutable</B>: Regla + «cómo se verifica» con su check NOMBRADO +
         por qué. Y las <B weight={600}>reglas de decisión</B> son los defaults pre-aprobados para
         que la IA no te pregunte cada vez. Todo el detalle en{" "}
@@ -686,18 +688,21 @@ function ConceptEstandares(): React.JSX.Element {
             marginBottom: "8px",
           }}
         >
-          Los 8 dominios de estándares
+          Los 11 dominios de estándares
         </div>
         <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
           {[
             "Programación",
             "Arquitectura",
             "Diseño",
+            "Accesibilidad",
             "Tecnología",
             "Calidad",
             "Seguridad",
             "Operación",
             "Datos/Privacidad",
+            "Producto/Docs",
+            "Fábrica/Portabilidad",
           ].map((d) => (
             <Chip key={d} tone="secondary">
               {d}
@@ -712,7 +717,7 @@ function ConceptEstandares(): React.JSX.Element {
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~132
+          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~138
           reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
           verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
           <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
@@ -2331,7 +2336,7 @@ function ConceptMultiRuntime(): React.JSX.Element {
             body: (
               <>
                 Abre panda-corp en la app de Codex → debe hablarte en <B weight={500}>español</B> y
-                listar los 25 skills (<Code>/skills</Code>).
+                listar los 26 skills (<Code>/skills</Code>).
               </>
             ),
           },

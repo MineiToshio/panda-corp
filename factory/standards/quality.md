@@ -64,6 +64,17 @@ A reader/parser of an internal artifact MUST tell **"the source is empty"** apar
 ## Gate canary — prove the gates still bite (DR-079)
 Constitution §24 corollary: a check that cannot fail proves nothing. The factory keeps a small fixture set of **deliberately-broken** inputs (a console-erroring route, a malformed data fixture, a contrast/token violation, a removed nav destination) that each gate (smoke / reader-conformance / a11y / shell) MUST reject. `verify.sh --canary` runs them on each `/pandacorp:upgrade`: a gate that should RED but stays GREEN on its broken fixture **has rotted** (a renamed selector, a disabled rule, a swallowed exit code) → that is a RED. Canary fixtures live OUTSIDE `src/` and run only in canary mode, so they never red-lock a normal build. Complements DR-059/076 (which prove the gate FILES propagate, NOT that they still functionally reject).
 
+## Owner-attended live attempts — red-team the failure matrix first
+> Severity: **MUST** · Enforcement: manual (a NAMED pre-request step in any flow about to ask the owner for a live run; owner spot-check). Owner-stated 2026-07-12; promoted from the R10 certification series + LESSON-0152.
+
+An **owner-attended live attempt** — a certification canary, an external production release, a "try it now" on the owner's machine, any gate only the owner can run — is the factory's scarcest and most expensive gate. **Repeated failed live attempts are themselves a release-gate failure**, not a normal iteration loop. Before asking the owner to consume another one:
+
+1. **Enumerate the complete failure matrix of this attempt class** — every prior live failure (decision-log entries, build journal, backlog items), not just the most recent one.
+2. **Red-team the current fix against EACH row** — state why that failure class cannot recur. A fix that only addresses the newest failure does not qualify for a new live attempt.
+3. **Prove the rehearsal exercises the real boundary.** A mock/fixture always speaks the parser's exact dialect by construction (LESSON-0152), so a green mocked suite is not evidence the real runtime will pass: keep at least one real (non-mocked) element in the pre-flight, and prove the negative corpus still goes RED (the QUAL-10 canary spirit applied to the rehearsal itself).
+
+Evidence behind the rule: the R10 installed-certification series consumed repeated owner-attended canaries (R10-C/I/J/K…), each NO-GO exposing a failure class that a full-matrix red-team before the run could have caught.
+
 ## How it is verified
 This standard is its own verification map: the **HARD vs ADVISORY** section above names every gate and its mechanism (`verify.sh` fail-closed suite, the browser gates, the canary, doc-lint). The process rules (TDD per WO, adversarial review, builder-blind suite, migration review) are enforced by the **build engine + the `reviewer`'s FRD gate** (manual, named steps in `build-orchestration.md`). Mutation/property-based run at FRD close + CI toward main.
 

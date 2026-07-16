@@ -41,3 +41,7 @@ source: Pandacorp standard — quality
 ## E2E & independent verification
 - E2E only on critical flows; select by `data-testid`, not brittle text/CSS; leave NO persistent test data (deterministic teardown or an ephemeral DB).
 - Generator ≠ verifier: re-run the evidence; never trust a claim of "tests pass".
+
+## Owner-attended live attempts
+- A gate only the owner can run (a production release, a live certification canary, a "try it now") is the scarcest, most expensive gate; repeated failed live attempts are themselves a release-gate failure.
+- Before asking the owner to consume another: enumerate the COMPLETE matrix of prior failures of that attempt class; red-team the current fix against EACH row (why can't it recur?); and prove the rehearsal exercises the real boundary — a mock speaks the parser's exact dialect by construction, so keep ≥1 non-mocked element in the pre-flight and prove the negative corpus still goes RED.

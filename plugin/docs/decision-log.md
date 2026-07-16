@@ -4,6 +4,26 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.97.0 — 2026-07-15 (MINOR): injectable debugging SOP + evidence-before-assertion + live-attempt economy
+
+**What:** the rules library gains `rules/debugging.md` (`applies_when: always` — the DEBUG-1..4
+incident-investigation SOP: reproduce-first, timeline, suspects incl. parallel writers and the
+harness/environment, confirmed-cause criterion, sibling audit, attribution guards) and
+`rules/quality-and-testing.md` gains the owner-attended live-attempt economy rule (QUAL-14). The
+project overlay's `AGENTS.md.tpl` gains the CONV-13 evidence-before-assertion paragraph next to
+DR-110/DR-111. Overlay 8.76.5 → **8.77.0** so `/pandacorp:upgrade` carries all three into projects.
+
+**Why:** `/pandacorp:learn` promotion of three owner-approved process gaps (see
+`factory/decision-log.md` 2026-07-15, "Three conversational/investigative process gaps become
+committed standards"): the canonical standards live in `factory/standards/`
+(conventions.md CONV-13 · quality.md QUAL-14 · new debugging.md); a standard that isn't injected is
+dead on arrival (DR-051).
+
+**Impact:** every upgraded project receives `docs/rules/debugging.md`, the extended
+quality-and-testing rule and the new AGENTS.md paragraph. No skill/agent/hook behavior changes; no
+Codex mirror regen needed (no `plugin/agents/*.md` touched). Version note: 9.96.0 was taken by a
+parallel session's `/pandacorp:absorb` skill (entry below); this change lands as 9.97.0 in both manifests.
+
 ## v9.96.0 — 2026-07-15 (MINOR): new skill `/pandacorp:absorb` — study an external source into a factory-improvement memo
 
 **What:** new owner-invocable skill `plugin/skills/absorb/SKILL.md`. The owner passes ONE URL

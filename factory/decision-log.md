@@ -1,5 +1,35 @@
 # Decision Log — Factory
 
+## 2026-07-15 — Three conversational/investigative process gaps become committed standards
+
+A gap analysis of the owner's senior-engineering process against the codified catalog (full-registry
+inventory + adversarial verification of every evidence citation) found the factory dense on build-time
+verification but thin on the conversational/investigative layer. With the owner's gate passed
+("ok, implementa todo"), three standards land (all `manual` with NAMED steps, registry 132→138 rules):
+
+- **CONV-13 — owner-facing claims: evidence before assertion** (`conventions.md` + AGENTS.md rule 12 +
+  the project overlay's AGENTS.md.tpl). The owner-stated hard rule of 2026-06-20 ("verify-before-telling")
+  lived only in gitignored personal assistant memory — named in this log and DR-068's nota, but binding
+  no subagent and no non-Claude runtime. Now committed: no fact asserted without an in-session tool
+  observation; recorded state and subagent reports are re-verified; the unverified is labeled.
+- **QUAL-14 — owner-attended live attempts: red-team the failure matrix first** (`quality.md`). Promoted
+  from the owner-stated 2026-07-12 inbox note plus the R10 installed-certification series (repeated
+  NO-GO canaries, each exposing a preventable failure class) and LESSON-0152 (a mock speaks the parser's
+  dialect by construction; `promotion: approved`, back-linked).
+- **DEBUG-1..4 — debugging/incident SOP** (new `debugging.md`, injectable `rules/debugging.md`,
+  `applies_when: always`). Generalizes the BL-0035 precedent (timeline, suspect enumeration incl. a
+  parallel runtime, the "attributable rather than mysterious" close) plus LESSON-0040 and the
+  2026-07-13/15 misattribution incidents (sandbox curl read as "service down"; frozen-app auto-decline
+  read as an owner refusal). DR-093 prevents collisions but codified no investigative method; DR-117's
+  ladder is build-engine-only.
+
+Killed at the gate (anti-smoke): premise-vs-presentation check (evidence consumed by discover v2),
+"do nothing" option / reversal-evidence verdicts / numeric break-scenario mechanics (no incident
+evidence; CONV-11 covers the spirit). Propagation per DR-051: rules library (`quality-and-testing.md`
+extended, `debugging.md` new) + overlay 8.77.0 + plugin 9.97.0; Manual concept page updated in the same
+change. Note: `check-standards.sh` still FAILs on two PRE-EXISTING missing registry representations
+(document-consistency.md, single-source-of-truth.md) — already tracked as BL-0055, untouched here.
+
 ## 2026-07-15 — Codex may build one attended target experimentally
 
 BL-0081 closes after the installed Codex-only canary completed one exact FRD with independent review,

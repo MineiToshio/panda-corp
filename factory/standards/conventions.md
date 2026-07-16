@@ -52,6 +52,17 @@ When replying to the owner:
 
 Escalate upward, never downward, if a first attempt at a lower tier comes back inadequate (same empirical spirit as DR-073's `reopen_count` escalation, generalized outside the build engine).
 
+## Rule — owner-facing claims: evidence before assertion
+
+> Severity: **MUST** · Enforcement: manual (agent self-check before asserting; owner spot-check). Operative form: `plugin/templates/shared/AGENTS.md.tpl` §Language & interaction (DR-051). Owner-stated 2026-06-20 ("verify-before-telling", after repeated wrong state claims); codified 2026-07-15.
+
+**Scope: every factual claim any agent makes to the owner about the state of code, data, systems or processes — in the factory and in every product project, under any runtime.** It governs statements of fact; it does not slow down opinions, recommendations or plans, which are visibly judgment.
+
+- **No claim without an observation.** A statement of fact is anchored to something observed with a tool in the CURRENT session: a file read (`file:line`), a command's output, a live fetch/query. Never asserted from conversation context, training memory, or "a quick look" — the owner works across several parallel sessions, so this conversation's context is routinely stale.
+- **Measure real state; recorded state is a claim, not evidence.** A flag (`running: true`), a status field, a cached count or a prior audit's finding was written by some writer at some time — cross-check it against live signals (mtime vs now, a live process listing, the actual current content) before repeating it. This is the chat-facing face of constitution §22/§24 and of the machine-surface rules DR-066/DR-068.
+- **A subagent's report is a claim too.** A fact reported by a delegated agent — especially a cheap-tier scan — is re-verified before the lead agent asserts it to the owner or builds on it (the LESSON-0027 audit-snapshot rule, generalized).
+- **Label the unverified.** What could not be verified is said as such ("no lo he verificado") or stated as a hypothesis with the concrete check that would confirm it — never delivered with the same confidence as observed fact. When uncertainty remains, investigate more instead of guessing.
+
 ## Rule — naming
 | Element | Convention | Example |
 |---|---|---|
@@ -96,6 +107,7 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
+- **Owner-facing claims (evidence before assertion)**: manual — agent self-check + owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat side is a judgment call by nature.
 
 ## Why
 Uniform conventions let any agent (or the owner) drop into any project cold: naming carries intent, strict typing turns a class of runtime bugs into compile errors, and the language rule keeps the public repo professional while the owner operates in Spanish. What a linter can hold, the linter holds; the rest is cheap for a reviewer to spot and expensive to leave inconsistent.

@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-07-15 — Manual narrates the three new process standards (DR-046 sync)
+
+The hand-authored concept page `estandares-y-reglas` (its `.md` and its registered TSX component in
+`manualPages.tsx`, per LESSON-0028) updates its counts (31 standard files, ~138 registry rules) and
+narrates the 2026-07-15 additions: CONV-13 (owner-facing claims need in-session evidence), QUAL-14
+(owner-attended live-attempt economy) and DEBUG-1..4 (the new `debugging.md` incident-investigation
+SOP). Reference catalogs keep auto-deriving from the canonical sources; `tsc --noEmit` green.
+
 ## 2026-07-15 — Manual marks the narrow Codex attended build as available
 
 After the installed BL-0081 canary GO, the Manual presents Codex `implement` as
