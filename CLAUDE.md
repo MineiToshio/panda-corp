@@ -19,7 +19,7 @@ This file adds ONLY what is specific to running the factory under **Claude Code*
 
 The plugin is installed from this repo's local marketplace (`claude plugin install pandacorp@panda-corp`, user scope). **After editing anything in `plugin/`**:
 
-1. **Bump the version** in `plugin/.claude-plugin/plugin.json` per semver (DR-034): PATCH = fix/adjustment/doc that doesn't change skill/agent behavior; MINOR = new compatible capability (new skill or agent, new option); MAJOR = breaking change (renaming/removing a skill, incompatible flow change). **Keep `plugin/.codex-plugin/plugin.json` at the SAME version** (the Codex manifest, DR-113).
+1. **Bump the version** in `plugin/runtime/plugin-metadata.json` (the SOURCE — both manifests are generated projections, DR-113) per semver (DR-034): PATCH = fix/adjustment/doc that doesn't change skill/agent behavior; MINOR = new compatible capability (new skill or agent, new option); MAJOR = breaking change (renaming/removing a skill, incompatible flow change). Then **regenerate the manifests** — `node plugin/scripts/generate-plugin-manifests.mjs` — which keeps `plugin/.claude-plugin/plugin.json` and `plugin/.codex-plugin/plugin.json` at the same version; never hand-edit those two (the derived-drift Stop gate REDs on it).
 2. If `plugin/agents/*.md` changed: **regenerate the Codex mirrors** — `node plugin/scripts/generate-codex-agents.mjs`.
 3. Note the reason in `plugin/docs/decision-log.md`; commit.
 4. `claude plugin update pandacorp@panda-corp` (changes apply on session restart). Validate with `claude plugin validate plugin/`.
