@@ -56,7 +56,7 @@ Antes de trabajo no trivial, cada agente builder lee **`factory/memory/INDEX.md`
 
 ### 5. Promoción a estándar, regla o skill
 
-Cuando ≥3 proyectos citan una lección, el script la auto-encola (`promotion: proposed`). El buzón de **Propuestas** (FRD-17) la muestra y `/pandacorp:learn` la aplica con gate tierado (DR-047): un `SHOULD` con verificador determinista puede aplicarse solo (notificando al dueño); un `MUST`, una regla o un skill siempre esperan el gate humano. Tras promover: back-link a la lección y `promotion: approved`/`rejected` — la lección nunca se borra.
+Una lección llega a `promotion: proposed` por dos vías: el **escalador automático** (≥3 proyectos la citan → el script la auto-encola) o el barrido manual de `/pandacorp:memory review`. El buzón de **Propuestas** (FRD-17) la muestra y `/pandacorp:learn` la aplica con gate tierado (DR-047): un `SHOULD` con verificador determinista puede aplicarse solo (notificando al dueño); un `MUST`, una regla o un skill siempre esperan el gate humano. `/pandacorp:learn` también puede promoverla **directamente dentro de la misma conversación**, sin pasar antes por `promotion: proposed`, cuando el dueño la aprueba ahí mismo (así llegó LESSON-0147 a PROMPT-8, 2026-07-15). Tras promover, por cualquiera de las dos rutas: back-link a la lección y `promotion: approved`/`rejected` — la lección nunca se borra.
 
 ## Qué NO es autoaprendizaje
 

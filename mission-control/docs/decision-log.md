@@ -1,5 +1,17 @@
 # Decision Log — Mission Control
 
+## 2026-07-15 — Manual drift fixes: counts re-derived from canonical sources + both promotion paths documented
+
+A post-PROMPT-8 documentation audit (2026-07-15) found the Manual's standards/skills counts stale and
+internally self-contradictory — a "27 estándares / 9 dominios" figure that didn't match its own "8
+dominios" chip list, and a stale "25 skills" — plus the `autoaprendizaje` concept page documenting only
+the automatic citation escalator (≥3 projects), omitting the `/pandacorp:memory review` queuing path and
+the direct owner-approved `/pandacorp:learn` promotion path (as used for LESSON-0147 → PROMPT-8). Counts
+were re-derived from `factory/standards/README.md`'s categories table (11 domains; the file count
+converged with a concurrent in-flight fix to 31, `factory/standards/*.md` minus the two meta/index
+files) and a live `ls plugin/skills/*/` (26 skills). Both the `.md` source and its `manualPages.tsx`
+mirror were fixed in lockstep per LESSON-0028.
+
 ## 2026-07-15 — Manual narrates the three new process standards (DR-046 sync)
 
 The hand-authored concept page `estandares-y-reglas` (its `.md` and its registered TSX component in

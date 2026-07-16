@@ -1446,6 +1446,10 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         conversación. La ves en el <B weight={500}>buzón de Propuestas</B> de Mission Control o en
         el reporte de la rutina diaria, el día que quieras, sin presión. Apruebas →{" "}
         <Code>/learn</Code> la asciende; rechazas → sigue siendo lección útil, solo que no regla.
+        Una tercera vía: <Code>/learn</Code> también puede promover una lección{" "}
+        <B weight={500}>directo, en la misma conversación</B>, sin pasar antes por{" "}
+        <Code>promotion: proposed</Code>, cuando el dueño la aprueba ahí mismo (así llegó
+        LESSON-0147 a PROMPT-8, 2026-07-15).
       </p>
       <Panel>
         <ChipFlow>

@@ -30,7 +30,7 @@ Regla: una sola fuente por cosa; lo demás es symlink, import o artefacto genera
 
 | Pieza | Fuente única | El "otro lado" es… |
 |---|---|---|
-| Los 25 skills | `plugin/skills/*/SKILL.md` | **symlink** (`.agents/skills → plugin/skills`): el mismo fichero físico |
+| Los 26 skills | `plugin/skills/*/SKILL.md` | **symlink** (`.agents/skills → plugin/skills`): el mismo fichero físico |
 | El manual operativo | `AGENTS.md` (raíz) | **import** (`CLAUDE.md` lo referencia, no lo copia) |
 | Estándares, registry, docs | `factory/…` | compartido tal cual (ambos leen el mismo fichero) |
 | Los 14 agentes del equipo | `plugin/agents/*.md` | **generado** (`.codex/agents/*.toml`, script `generate-codex-agents.mjs`; cabecera "do not edit") |
@@ -127,7 +127,7 @@ nunca se usa como sustituto.
 
 ## Cómo probar que funciona
 
-1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 25 skills (`/skills`).
+1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 26 skills (`/skills`).
 2. **Codex, build atendido**: en un proyecto preparado, pide exactamente un FRD o una change `ready`; mantén la tarea abierta. Debe terminar en `phase: implementation`, sin lease y con árbol limpio. Sin objetivo, varios FRDs, background o más de 7200 segundos deben rechazarse antes de tomar ownership.
 3. **Claude, intacto**: la misma prueba vía `/pandacorp:implement` — motor background, supervisor y Fragua completa, como siempre.
 4. **Fronteras negativas**: comprueba que Codex rechaza un build sin target, varios FRDs, background y duración >7200 antes de tomar la lease. Los harness R10/R11 son opcionales y sólo aplican a capacidades futuras de cambio de runtime/overnight.
