@@ -1,5 +1,25 @@
 # Decision Log — Factory
 
+## 2026-07-20 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
+scope). Two qualified, both re-verified with live evidence rather than trusted from the prior 2026-07-13
+note (CONV-13): **Mission Control** — confirmed the `com.pandacorp.mission-control` launchd service has a
+live PID and commit cadence on the factory ran daily through 2026-07-16 (a 3-4 day gap since, not treated
+as abandonment); verdict unchanged, **no aplica** (`return_type: personal`, no market hypothesis to
+instrument). **PersonalPage v2** — re-checked `.env.local` (`NEXT_PUBLIC_POSTHOG_KEY` still empty) and the
+PostHog MCP connection (`organizations-list` still returns only "JobLeap AI" / project "Redirector" — the
+project's own PostHog account is not reachable from this session); verdict unchanged, **hold — sin datos**.
+Now day 19 of the 60-day reach kill-signal window (build closed 2026-07-01, closes 2026-08-30); still
+before the 30-day metrics checkpoint (2026-07-31), so no meaningful re-check is possible yet either way.
+
+**Why:** DR-043's post-launch loop, run as a scheduled `/loop` job — closing it honestly (`sin datos` with
+the reason, re-verified each run rather than carried forward from memory) per CONV-13 and the "read real or
+honest empty" rule.
+
+**Impact:** `factory/portfolio.md` (Veredicto/Última sync rows for both projects, dates only — no verdict
+change). No kill/archive action taken (owner's decision, DR-043).
+
 ## 2026-07-15 — Three conversational/investigative process gaps become committed standards
 
 A gap analysis of the owner's senior-engineering process against the codified catalog (full-registry
