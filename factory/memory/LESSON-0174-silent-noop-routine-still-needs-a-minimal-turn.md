@@ -5,7 +5,7 @@ domain: factory-engineering
 tags: [scheduled-routines, silent-mode, chat-harness, closing-message]
 context: a skill/routine instructs the agent to "exit silently" / produce no report on a no-op run
 trigger: use this when a skill/routine's SOP says to "exit silently" or "no report" on a no-op/nothing-to-do run
-source: "panda-corp factory/memory/_inbox.md, two independent no-op runs of pandacorp-memory-review's PASO 0 (2026-07-17 and 2026-07-20) — on the second occurrence the agent had just re-read the 2026-07-17 corrective note in the same inbox scan and still drifted"
+source: "panda-corp factory/memory/_inbox.md, THREE independent no-op runs of pandacorp-memory-review's PASO 0 (2026-07-17, 2026-07-20, 2026-07-22) — on the second occurrence the agent had just re-read the 2026-07-17 corrective note in the same inbox scan and still drifted; the third occurrence identified the actual mechanism: the harness itself detected the turn's empty visible output and injected a system reminder forcing a continuation"
 provenance: agent-inferred
 created: 2026-07-21
 status: candidate
@@ -27,7 +27,11 @@ way to end a turn with literally zero output, so "exit silently" as worded names
 rather than the achievable one. Re-reading the corrective note in the same session was not enough to
 prevent the same drift, because the instruction's literal wording still doesn't map onto anything the
 harness can actually produce. The achievable version is "shortest possible non-report acknowledgment"
-(a single neutral line), not true silence.
+(a single neutral line), not true silence. The THIRD occurrence (2026-07-22) named the actual mechanism
+sharper than the first two: the harness itself detects a turn's empty visible output and injects a
+system reminder forcing a continuation ("Please continue and produce a user-visible response") — so
+"true silence" isn't just unrewarded, it is actively intercepted and overridden by the harness before
+the turn can end.
 
 **Apply next time:** before composing the closing message on a genuine no-op scheduled run, don't try to
 satisfy "silent" literally — emit the shortest possible non-report line instead of summarizing the checks

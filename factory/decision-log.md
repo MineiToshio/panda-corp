@@ -1,5 +1,35 @@
 # Decision Log — Factory
 
+## 2026-07-24 — Memory review/prune sweep (Phase 4, post-harvest)
+
+**What:** Ran the review pass over `factory/memory/` following the 2026-07-24 harvest (which added
+LESSON-0181/0182 and updated LESSON-0174 with a 3rd corroborating instance; not redone here). Confirmed
+prune-freeze verdict live via `validate-memory.sh`: **INACTIVE** (`applied_in` union = 3 distinct
+projects: mission-control, panda-corp, personal-page-v2), same as the 2026-07-21 sweep. Audited all 169
+lessons (14 active / 155 candidate) for deprecate/reconcile/merge/drop/promote candidates: **no
+deprecations** — even with the freeze inactive, no candidate is both never-retrieved AND genuinely stale
+(most 0-citation candidates are narrow-trigger domain knowledge from the last ~3.5 weeks whose trigger
+simply hasn't matched yet, not proven useless); **no reconciliations** (no contradicting evidence found
+across the 5 `library-verdict` lessons or elsewhere); **no merges** (the obvious clusters — preview-tooling,
+design-canvas, worktree-isolation, agent-verification — already have synthesis hubs from prior sweeps:
+LESSON-0047, LESSON-0141, LESSON-0125, LESSON-0069); **no new reflection-pattern lesson** — considered the
+LESSON-0175/0176/0177 Agent-tool cluster (steerability, cost lever, failure/resume) but rejected a synthesis
+as premature (same single session/project, already adequately linked, no emergent insight beyond a list) and
+instead added the missing cross-links (0177 <-> 0175/0176) as a minor safe curation edit. Promotion queue
+unchanged at 11 lessons with `promotion: proposed` (LESSON-0005, 0040, 0069, 0078, 0090, 0096, 0105, 0109,
+0113, 0119, 0123) — all already carry an adequately specific target + rationale, none needed refinement.
+`INDEX.md` already matched the active set (14 lines); no delta edit needed.
+
+**Why:** DR-047's Phase 4 prune/review loop, run on demand. Conservative-by-design per the loop-v2 anti-
+poisoning stance: an inactive freeze lifts the *mechanism* for non-retrieval deprecation, it doesn't lower
+the bar for what counts as "genuinely stale" — a young, fast-growing store (oldest lesson ~3.5 weeks) still
+needs real time for narrow-trigger candidates to get a chance at retrieval before non-citation is read as
+uselessness.
+
+**Impact:** `factory/memory/LESSON-0175/0176/0177-*.md` (`links:` cross-references added only). No
+`status`/`promotion` changes, no deprecations, no file deletions. `factory/memory/INDEX.md` unchanged
+(verified in sync). Validator re-run clean post-edit: 169 lessons, schema-valid.
+
 ## 2026-07-20 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
