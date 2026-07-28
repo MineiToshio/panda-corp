@@ -74,3 +74,15 @@ a free-text value with an embedded comma (`pandacorp-build.js Hardening phase (a
 which YAML's flow-sequence syntax splits into two bogus array entries — inflating the distinct-project
 count (3 real projects read as 5). Flagged separately (not this item's scope); see the spawned follow-up
 task for the data-quality fix.
+
+## Corroborating occurrence (2026-07-24, panda-corp itself, `_inbox.md` note harvested 2026-07-28)
+A second live measurement of the exact overcount mechanism, this time on the factory's own inbox alone:
+a `pandacorp-memory-review` PASO 0 run applied a naive `grep -v` non-empty/non-`#`-line count directly over
+`factory/memory/_inbox.md` and got **427** "pending" lines, when the true pending-note count was **0** (the
+inbox and all 3 portfolio projects' `.pandacorp/run/lessons.md` were fully drained as of 2026-07-24 — every
+one of those 427 lines lived inside a `<!-- Drained YYYY-MM-DD harvest: ... -->` block). Same root cause
+already documented above (2026-07-10: 50-80x overcount); this instance is a full-inbox worst case (a true
+count of 0 read as 427, i.e. no upper bound on the overcount ratio once enough drain history accumulates in
+a single file) — reinforces that PASO 0's full-sweep trigger (`>= 20` pending) will misfire on ANY
+sufficiently-drained inbox unless the fix (strip `<!--...-->` blocks before counting) ships. No new backlog
+item filed — same fix plan, same scope, this is corroboration only.
