@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [standards/document-consistency.md]
+links: [standards/document-consistency.md, LESSON-0184]
 ---
 
 **Situation:** when the plugin manifests became GENERATED projections of `plugin-metadata.json`,

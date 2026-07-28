@@ -9,7 +9,7 @@ source: "mission-control .pandacorp/run/lessons.md 2026-07-07 (two occurrences: 
 provenance: agent-inferred
 created: 2026-07-07
 status: candidate
-promotion: proposed   # 2026-07-07 (librarian review) — target factory/standards/infra.md (hooks section): recurred 3x across 2 distinct projects (mission-control x2, personal-page-v2); document the redirect-guard's known false-positive surface + the rephrase/-F workaround as a standing convention until BL-0047 ships the quote-aware fix
+promotion: proposed   # 2026-07-28 (librarian review, refined from 2026-07-07) — target factory/standards/infra.md (hooks section): now corroborated SEVEN times across 3 distinct projects (mission-control x2, personal-page-v2 x2, panda-corp x3) and 4 distinct trigger surfaces (commit-message prose, a Co-Authored-By trailer, a genuine single-line-stamp redirect, and a grep search pattern/OR-alternation containing an arrow token); document the redirect-guard's known false-positive surface + the rephrase/`-F`/Read-tool workarounds as a standing convention until BL-0047 ships the quote-aware fix
 confidence: medium
 times_applied: 0
 applied_in: []

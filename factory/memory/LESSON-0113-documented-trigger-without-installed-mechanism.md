@@ -13,7 +13,7 @@ promotion: proposed   # 2026-07-16 (librarian review) — target factory/standar
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [BL-0052, LESSON-0101]
+links: [BL-0052, LESSON-0101, LESSON-0184]
 ---
 
 **Situation:** twice now, a design specified a rule or trigger in prose — a MUST-level standard with no gate to enforce it, and separately a README describing "the read-model regenerates on every commit via a post-commit or Stop hook" — and in both cases the actual wiring was never installed. The design looked complete (it was written down, reviewed, and referenced elsewhere as if it were live behavior) but nothing in the system actually executed it; the gap only surfaced when someone checked for the hook/gate directly.

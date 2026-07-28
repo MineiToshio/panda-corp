@@ -9,7 +9,7 @@ source: "mission-control .pandacorp/run/lessons.md 2026-07-07 (worktree-bootstra
 provenance: agent-inferred
 created: 2026-07-07
 status: candidate
-promotion: none
+promotion: proposed   # 2026-07-28 (librarian review) — target factory/standards/infra.md or a git-workflow section of conventions.md: codify "if `git add <tracked-path>` is refused as ignored even though `git check-ignore` returns nothing for that exact path, the path is a previously-tracked file under a directory added to .gitignore later — use `git add -f <path>`, do not weaken .gitignore" as a standing rule. Corroborated across 2 distinct projects (mission-control, panda-corp), no existing standard names this gotcha.
 confidence: medium
 times_applied: 0
 applied_in: []

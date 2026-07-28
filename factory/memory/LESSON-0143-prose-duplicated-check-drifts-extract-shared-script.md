@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0077]
+links: [LESSON-0077, LESSON-0184]
 ---
 
 **Situation:** `/pandacorp:upgrade`'s active-build guard checked only `supervisor_heartbeat` while

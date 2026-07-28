@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0074, BL-0069]
+links: [LESSON-0074, BL-0069, LESSON-0184]
 ---
 
 **Situation:** a mining pass over an external, verification-obsessed tool (ringer) found it shipped a
