@@ -13,7 +13,7 @@ promotion: approved
 confidence: high
 times_applied: 3
 applied_in: [panda-corp]
-links: [BL-0012, DR-085, DR-017]
+links: [BL-0012, DR-085, DR-017, LESSON-0183]
 ---
 
 **Situation:** DR-085 folds the hardening (security audit + telemetry verification + quality close-out)

@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0069]
+links: [LESSON-0069, LESSON-0183]
 ---
 
 **Situation:** the agent told the owner FRD-17 was "partial", repeating a stale audit finding, when the
