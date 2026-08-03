@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0187]
 ---
 
 **Situation:** a certification launcher started a durable process with `nohup` from inside a short-lived

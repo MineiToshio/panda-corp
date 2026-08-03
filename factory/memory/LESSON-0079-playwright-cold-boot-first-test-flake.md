@@ -13,7 +13,7 @@ promotion: none
 confidence: low
 times_applied: 0
 applied_in: []
-links: [LESSON-0040, LESSON-0066]
+links: [LESSON-0040, LESSON-0066, LESSON-0185]
 ---
 
 **Situation:** a Playwright spec that opens a lightbox/modal and asserts on an element inside it

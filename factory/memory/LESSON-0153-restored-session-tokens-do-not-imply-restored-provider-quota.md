@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0187]
 ---
 
 **Situation:** during Codex unattended-certification work, a restored conversation (session/transcript

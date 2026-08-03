@@ -13,7 +13,7 @@ promotion: proposed   # 2026-07-07 (librarian review) — target factory/standar
 confidence: medium
 times_applied: 1
 applied_in: [mission-control]
-links: [BL-0037, BL-0049]
+links: [BL-0037, BL-0049, LESSON-0185]
 ---
 
 **Situation:** Playwright's e2e `webServer` defaults to port 3000 (`playwright.config.ts`). A sibling

@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0040]
+links: [LESSON-0040, LESSON-0185]
 ---
 
 **Situation:** one spec in an otherwise-consistent e2e suite used `waitUntil: "networkidle"` (against the

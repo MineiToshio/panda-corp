@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0154, LESSON-0155]
+links: [LESSON-0154, LESSON-0155, LESSON-0187]
 ---
 
 **Situation:** a certification harness paused an executor at a signal barrier (blocking in the foreground

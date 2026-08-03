@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0176, LESSON-0177]
+links: [LESSON-0176, LESSON-0177, LESSON-0186]
 ---
 
 **Situation:** designing an orchestrator flow that needed to accept a NEW task the owner injects mid-run,

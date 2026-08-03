@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0040, LESSON-0066, LESSON-0079]
+links: [LESSON-0040, LESSON-0066, LESSON-0079, LESSON-0185]
 ---
 
 **Situation:** a Playwright spec navigated with `waitUntil: "domcontentloaded"` and immediately clicked an

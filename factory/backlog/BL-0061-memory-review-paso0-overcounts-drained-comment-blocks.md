@@ -86,3 +86,24 @@ count of 0 read as 427, i.e. no upper bound on the overcount ratio once enough d
 a single file) — reinforces that PASO 0's full-sweep trigger (`>= 20` pending) will misfire on ANY
 sufficiently-drained inbox unless the fix (strip `<!--...-->` blocks before counting) ships. No new backlog
 item filed — same fix plan, same scope, this is corroboration only.
+
+## Note (annotated 2026-08-02) — the naive stripper this item must NOT ship
+
+A concrete failure mode was found live in this file's own history and must be designed around when this
+item is worked, sharpening the Fix plan above: several `<!-- Drained ... -->` blocks in
+`factory/memory/_inbox.md` DISCUSS the block-dangerous.sh arrow-token false-positive (LESSON-0105/BL-0047)
+and, in doing so, QUOTE example patterns that themselves contain the literal three-character HTML-comment
+close token (e.g. a grep pattern shown as a worked example that ends with that token). A single-marker
+state machine that toggles "in comment" on the FIRST line containing that closing token — the obvious naive
+implementation — closes the comment block too early at that quoted occurrence, and everything between the
+premature close and the block's REAL closing token then reads as live/pending content. This was reproduced
+live during the 2026-08-02 harvest pass (an ad hoc per-line stripper written to sanity-check this very item
+got the right count only by luck, not by design — same fragile shape this note flags). **Fix must therefore
+not close on the first occurrence of the closing token after the block's opening marker; it must find the
+token that actually terminates that specific block** — e.g. a DOTALL/multiline regex matching from an
+opening marker to the LAST occurrence of the close token before the NEXT opening marker or EOF, not a
+line-by-line first-close state machine. Whoever implements the Fix plan should add this exact case (a
+quoted worked example ending in the comment-close token, nested inside a live drained block) as a fixture,
+not just a plain single-comment happy path. See also LESSON-0008 (line-anchored-parsing-not-substring-greedy,
+updated 2026-08-02 with this as a third corroborating instance) for the general principle this is an
+instance of.

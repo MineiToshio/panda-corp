@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0175, LESSON-0176]
+links: [LESSON-0175, LESSON-0176, LESSON-0186]
 ---
 
 **Situation:** a background subagent running a ~7-minute inventory scan was killed mid-response by a

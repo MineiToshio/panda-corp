@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [DR-118]
+links: [DR-118, LESSON-0187]
 ---
 
 **Situation:** a build baseline treated `.pandacorp/run/gate-worktree` as disposable run state and
