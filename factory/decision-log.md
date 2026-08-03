@@ -1,5 +1,27 @@
 # Decision Log — Factory
 
+## 2026-08-03 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
+scope). Two qualified, both re-verified with live evidence (CONV-13), not trusted from the prior
+2026-07-28 note: **Mission Control** — `com.pandacorp.mission-control` launchd service has a live PID
+(28958) and answers HTTP 200 on `:1987`; factory commit cadence continues daily through today — verdict
+unchanged, **no aplica** (`return_type: personal`, no market hypothesis to instrument, usage signal is
+positive). **PersonalPage v2** — re-fetched `toshiominei.com` live: still serves the pre-rebuild Pages
+Router site (old font/CSS fingerprints, `/en/projects` still 404, `/en/blog` still the old post) — the
+same DNS/Vercel cutover gap found 2026-07-28, unchanged after 6 days with no cutover commit in
+`personal-page-v2`'s git log. `NEXT_PUBLIC_POSTHOG_KEY` still empty; the only PostHog org reachable from
+this session is still "JobLeap AI" (Redirector) — provenance check (review-launch step 2b) fails, so no
+numbers were read, only the documented queries left for the owner. Verdict unchanged: **hold**, blocked
+by the same operational (not market) issue. The 60-day reach kill-signal window (0 contacts AND <100
+visitors, due ~2026-08-30) keeps running against a site the public can't actually see.
+
+**Why:** DR-043's post-launch loop, run unattended as a scheduled `/loop` job. It only measures and
+records — it never kills/archives (owner gate).
+
+**Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date only, verdicts
+unchanged). No code, no deploy, no PostHog config touched — those remain the owner's action.
+
 ## 2026-07-24 — Memory review/prune sweep (Phase 4, post-harvest)
 
 **What:** Ran the review pass over `factory/memory/` following the 2026-07-24 harvest (which added
