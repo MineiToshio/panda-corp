@@ -107,3 +107,41 @@ quoted worked example ending in the comment-close token, nested inside a live dr
 not just a plain single-comment happy path. See also LESSON-0008 (line-anchored-parsing-not-substring-greedy,
 updated 2026-08-02 with this as a third corroborating instance) for the general principle this is an
 instance of.
+
+## Note (annotated 2026-08-11) — a concrete tag-anchored count formula, alternative to comment-stripping
+
+A different, simpler counting approach was proposed and worth recording alongside the Fix plan's
+comment-stripping approach: instead of stripping `<!--...-->` blocks before counting non-empty lines,
+count only lines that START with one of the raw-capture tag prefixes actually used in these files —
+`grep -cE '^(gotcha|gap|pattern|lesson|verdict|nota|note)\s*·' <file>`. Since every genuinely pending note
+in `_inbox.md`/`lessons.md` begins one of these tags at the start of the line (per the file's own
+documented bullet shape), and no drained-history prose inside a `<!-- Drained ... -->` block happens to
+start a line with one of these exact tag-prefix-plus-middle-dot patterns, this regex is a cheap,
+single-command alternative to the DOTALL comment-stripping pre-pass — it sidesteps the naive-stripper
+failure mode documented in the 2026-08-02 annotation above entirely, because it never has to find where a
+comment block ends. Whoever implements the Fix plan should evaluate this as the simpler primary approach
+(one `grep -cE`, no stripping pass) before building the DOTALL stripper, and apply the SAME regex-anchored
+count uniformly to each portfolio project's own `.pandacorp/run/lessons.md`, not just the factory inbox.
+Caveat to verify before relying on it as the sole fix: confirm no `<!-- Drained ... -->` block's own prose
+ever quotes a worked example that itself starts a line with one of these tag prefixes (the same class of
+quoted-worked-example trap the 2026-08-02 annotation found for the comment-close token) — spot-checked
+against this file's own history as of 2026-08-11, no such line found, but the implementer should still
+add a fixture for it. Source: factory/memory/_inbox.md agent-inferred note (2026-08-11 harvest).
+
+## Note (annotated 2026-08-11, 2nd) — an mtime-based shortcut that avoids reading/counting entirely
+
+A THIRD approach, orthogonal to both counting formulas above, was proposed and reportedly used
+successfully during the 2026-08-11 sweep itself: for the PER-PROJECT half of PASO 0 (checking each
+portfolio project's `.pandacorp/run/lessons.md`), skip reading/counting the file's content altogether —
+compare the file's mtime (`stat -f '%Sm' -t '%Y-%m-%dT%H:%M:%SZ'`) against that project's `status.yaml`
+`last_harvest` timestamp. Since both files are only ever written by a capture event or a harvest drain, an
+mtime not newer than `last_harvest` proves nothing changed since, with no need to open or parse the file
+at all. This is the cheapest of the three approaches for the per-project check specifically (it doesn't
+apply as directly to the factory's own `_inbox.md`, which has no equivalent external `last_harvest`
+pointer to compare against other than its own drain-history — the tag-anchored `grep -cE` formula above
+remains the right approach there). See `factory/memory/LESSON-0190`
+(mtime-vs-last-processed-timestamp-beats-recounting-append-only-log-content) for the generalized pattern
+and its relationship to LESSON-0180's stamp-then-commit lag-tolerance guidance (BL-0086). Whoever
+implements this item's Fix plan should evaluate combining: mtime-shortcut for the per-project check, plus
+the tag-anchored `grep -cE` count (or the DOTALL stripper) for the factory inbox itself. Source:
+factory/memory/_inbox.md agent-inferred note (2026-08-11 harvest, landed mid-drain).
