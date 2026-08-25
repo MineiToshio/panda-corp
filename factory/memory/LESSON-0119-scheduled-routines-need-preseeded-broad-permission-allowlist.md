@@ -9,7 +9,7 @@ source: "panda-corp — routines-unattended-allowlist fix 2026-07-08, factory/me
 provenance: owner-stated
 created: 2026-07-09
 status: candidate
-promotion: proposed
+promotion: proposed   # 2026-08-25 (librarian review, rationale added — none previously recorded) — target plugin/docs/routines.md (still has zero hits for "allowlist"/"permissions.allow"/"defaultMode" as of the 2026-07-09 harvest that opened BL-0054 for this exact doc gap, unconfirmed fixed since): codify "pre-seed a broad, wildcard-anchored (never per-version/per-exact-command) permission allowlist before relying on a scheduled/unattended routine to run hands-off; a routine that 'never runs by itself' with no error is a silent permission-prompt stall, not a scheduling bug" as a standing rule for anyone authoring a new `/loop`/scheduled-tasks routine. owner-stated, high confidence, single project but provenance satisfies the eval-gate's corroboration exception — no existing standard names this gotcha.
 confidence: high
 times_applied: 0
 applied_in: []
