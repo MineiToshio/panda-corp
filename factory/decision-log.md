@@ -1,5 +1,31 @@
 # Decision Log — Factory
 
+## 2026-08-31 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
+scope). Two qualified, both re-verified with live evidence (CONV-13), not trusted from the prior
+2026-08-03 note. **Mission Control** — `com.pandacorp.mission-control` launchd service has a live PID
+(20228) and answers HTTP 200 on `:1987`; verdict unchanged, **no aplica** (`return_type: personal`, no
+market hypothesis). Corrected an over-assertion from the prior sweep: the "commits llegan a diario" claim
+no longer holds live — last factory commit is 2026-08-25, a 6-day gap as of this check — noted honestly,
+not treated as an abandonment signal on its own. **PersonalPage v2** — re-fetched `toshiominei.com` live:
+still serves the pre-rebuild Pages Router site (old font/CSS fingerprints, `/en/projects` still 404), the
+same DNS/Vercel cutover gap found 2026-07-28, over a month with no cutover commit in `personal-page-v2`'s
+git log. `NEXT_PUBLIC_POSTHOG_KEY` still empty; PostHog provenance check still fails (only "JobLeap AI" org
+reachable) — no real numbers read. **New this sweep:** the PRD's 60-day reach kill-signal window nominally
+expires ~2026-08-30 — today is 2026-08-31, past that date — but the window is defined from a "shared
+launch" (posted to LinkedIn + dev communities) that never happened, since the site was never actually cut
+over. Formally applying the reach-kill verdict against a precondition that was never met would be
+fabricating a reading off a non-event; verdict stays **hold** on the operational blocker, not a kill-signal
+determination. Flagged for the owner in the summary below rather than silently letting the date lapse.
+
+**Why:** DR-043's post-launch loop, run unattended as a scheduled `/loop` job. It only measures and
+records — it never kills/archives (owner gate). CONV-13 requires re-verifying live rather than trusting
+the prior note's wording, which is what surfaced the Mission Control commit-cadence correction.
+
+**Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged).
+No code, no deploy, no PostHog config touched — those remain the owner's action.
+
 ## 2026-08-03 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
