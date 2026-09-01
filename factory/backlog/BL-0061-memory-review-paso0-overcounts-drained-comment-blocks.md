@@ -145,3 +145,21 @@ and its relationship to LESSON-0180's stamp-then-commit lag-tolerance guidance (
 implements this item's Fix plan should evaluate combining: mtime-shortcut for the per-project check, plus
 the tag-anchored `grep -cE` count (or the DOTALL stripper) for the factory inbox itself. Source:
 factory/memory/_inbox.md agent-inferred note (2026-08-11 harvest, landed mid-drain).
+
+## Corroborating occurrences (2026-08-26, 2026-08-28, 2026-08-29) — three consecutive scheduled-run hits, no new information
+
+Three more live PASO 0 runs hit this exact bug on three of four consecutive scheduled `pandacorp-memory-review`
+days (4th, 5th and 6th occurrences overall): naive line counts of 552/626/630 "pending" lines in the factory
+inbox (true live count 0, then 0, then 2) plus 136/271/28 in mission-control/personal-page-v2/pandacast's
+`lessons.md` (true live count 0/0/0 throughout) would each have force-triggered a full sweep. Each was caught
+by hand-walking the drained blocks instead of trusting the count — no false sweep actually ran. The three
+notes explicitly say they add no new design information beyond the two already-recorded fix formulas
+(tag-anchored `grep -cE` and the mtime-vs-`last_harvest` shortcut, both above, still unimplemented) — this is
+recorded as a single aggregated entry rather than three, per this item's own precedent of not re-deriving
+already-established facts. Net signal: the bug is now confirmed on a near-daily cadence on a real recurring
+scheduled job (not a one-off/hypothetical), which strengthens — but does not change — the existing
+prioritize-the-fix case already made by the 2026-08-26/28 notes; severity kept at `p2` since no false sweep
+has yet actually executed (the manual workaround still catches it every time, at the cost of a few extra
+Read/Bash calls per run). No further occurrence needs logging here unless a run's naive count actually
+triggers a false full sweep, or a new trigger surface/count mechanism is found — the existing two fix designs
+are ready to implement as-is.

@@ -4,8 +4,8 @@ type: gotcha
 domain: agent-verification
 tags: [review-launch, dr-043, status-yaml, release-phase, deploy-verification, dns-cutover, kill-signal]
 context: a scheduled review-launch (or any post-launch check) is about to read the value of a market/kill-signal window, or state a product is "live", by trusting the project's status.yaml phase field
-trigger: use this when about to treat status.yaml's phase:release (or any recorded phase/state transition) as evidence that an EXTERNAL action (a production deploy, a DNS cutover, a public rollout) actually happened, rather than curling/inspecting the live public artifact directly
-source: "personal-page-v2 2026-07-28 — scheduled /pandacorp:review-launch sweep curled https://toshiominei.com instead of trusting status.yaml's phase:release; found the domain Vercel-hosted but still serving the OLD pre-rebuild site (Firebase-Storage blog images, Disqus, jQuery-era CSS) — /en/projects 404s, /en/blog renders the old 'Welcome!' post, not the new MDX rebuild. .pandacorp/comms/progress.md's close-out only documents the internal integration gate going green; no entry records the external deploy/DNS-cutover step of /pandacorp:release ever running. Net effect: the 60-day reach kill-signal window has been measuring a site the public never saw. docs/decision-log.md 2026-07-28 entry."
+trigger: use this when about to treat status.yaml's phase:release (or any recorded phase/state transition) as evidence that an EXTERNAL action (a production deploy, a DNS cutover, a public rollout, a shared-launch post) actually happened, rather than curling/inspecting the live public artifact directly — and, more broadly, whenever computing a kill-signal/metric window's elapsed time from a convenient recorded timestamp instead of verifying the window's actual named triggering event occurred at all
+source: "personal-page-v2 2026-07-28 — scheduled /pandacorp:review-launch sweep curled https://toshiominei.com instead of trusting status.yaml's phase:release; found the domain Vercel-hosted but still serving the OLD pre-rebuild site (Firebase-Storage blog images, Disqus, jQuery-era CSS) — /en/projects 404s, /en/blog renders the old 'Welcome!' post, not the new MDX rebuild. .pandacorp/comms/progress.md's close-out only documents the internal integration gate going green; no entry records the external deploy/DNS-cutover step of /pandacorp:release ever running. Net effect: the 60-day reach kill-signal window has been measuring a site the public never saw. docs/decision-log.md 2026-07-28 entry. SECOND corroborating instance, a distinct facet: personal-page-v2 2026-08-31 scheduled review-launch sweep — the PRD's 60-day reach kill-signal window is defined as starting from an actual shared-launch event ('posted to LinkedIn + dev communities'), but the portfolio's prior date math counted the 60 days from build/status-transition timestamps instead, because the real triggering event (the site still never DNS-cut-over/shared) never happened; plain elapsed-time arithmetic off the easier-to-read status.yaml timestamps would have read the window as expired against a precondition that was never met, producing a fabricated kill verdict."
 provenance: agent-inferred
 created: 2026-07-28
 status: candidate
@@ -45,3 +45,14 @@ product is "live". If evidence of the external action's execution is missing fro
 (`progress.md`, `status.yaml`, decision log), treat that absence as a fail-loud signal, not as "presumably
 fine" — flag the operational gap explicitly rather than let a downstream metric quietly measure the wrong
 thing.
+
+**Second facet (2026-08-31):** the same blind spot recurs even without touching `status.yaml` at all,
+whenever a kill-signal/metric window is defined against a NAMED triggering event (here, "in the first 60
+days after a shared launch — posted to LinkedIn + dev communities") but the elapsed-time math is done
+against a DIFFERENT, more convenient recorded timestamp (a build/status-transition date) instead of
+confirming the named event itself occurred. Plain date arithmetic off the easy-to-read timestamp would have
+read the window as "expired" against a precondition (an actual shared launch) that was never met — a
+fabricated verdict, not a stale-artifact miss, but the same root cause: a stand-in (a convenient timestamp)
+substitutes for verifying the real thing (did the specific named event actually happen). Apply the same
+discipline: before treating N-days-elapsed as meaningful, confirm the window's own defined start condition
+was actually satisfied, not just that some other date in the record is N days old.

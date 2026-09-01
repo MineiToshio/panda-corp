@@ -5,7 +5,7 @@ domain: agent-verification
 tags: [audit, verification, stale-claim, mission-control, self-report]
 context: citing a prior audit/proposal finding about a feature's build state without re-checking the live artifact
 trigger: use this when about to assert a project/feature's state by citing a prior audit or proposal finding rather than checking the current code
-source: "panda-corp 2026-07-02 — owner correction after a false 'FRD-17 is partial' claim; owner-stated: MC siempre debería decirme lo real. Corroborating instance: panda-corp v9.84.0 skills-audit-batch, plugin/docs/decision-log.md 2026-07-10 entry — an adversarial red-team over a 42-item improvement plan killed 8 items before execution, one for a false premise (a proposed fix targeted a defect that was already fixed / didn't exist in the live file)"
+source: "panda-corp 2026-07-02 — owner correction after a false 'FRD-17 is partial' claim; owner-stated: MC siempre debería decirme lo real. Corroborating instance: panda-corp v9.84.0 skills-audit-batch, plugin/docs/decision-log.md 2026-07-10 entry — an adversarial red-team over a 42-item improvement plan killed 8 items before execution, one for a false premise (a proposed fix targeted a defect that was already fixed / didn't exist in the live file). THIRD corroborating instance: panda-corp 2026-08-31 scheduled review-launch sweep — the portfolio's 2026-08-03 note for Mission Control asserted 'commits sobre el repo de la fábrica siguen llegando a diario' as ongoing evidence for a no-aplica verdict; re-verified live and the last factory commit was 6 days stale, but the claim had simply been carried forward unchecked across 4 weeks of sweeps because it read as background context, not a headline finding."
 provenance: owner-stated
 created: 2026-07-03
 status: active
@@ -35,4 +35,7 @@ prior finding.
 executing a fix/change proposed by an earlier audit, re-check the live artifact (grep the code, read the
 frontmatter, run the relevant gate) — never assert a state, or act on a claimed defect, from memory of a
 past finding alone. For a multi-item improvement plan, run an adversarial red-team pass that re-verifies
-each item against the live file before execution, not just before reporting.
+each item against the live file before execution, not just before reporting. This applies even to a
+NARRATIVE/CONTEXT claim carried forward between recurring sweeps (a "still true, nothing changed" aside
+supporting a verdict) — it is easy to skip re-checking exactly because it doesn't read as the headline
+finding; re-verify it with the same rigor as the verdict itself, every sweep, not just on first write.
