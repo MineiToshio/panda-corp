@@ -79,8 +79,16 @@ describe("readGuildState — single source of truth", () => {
 
     // The invariant every consumer relies on: level is derived from THESE outcomes.
     expect(state.level).toEqual(computeGuildLevel(state.outcomes));
+    // eventsSnapshot is deliberately null here, not state.eventsSnapshot: readGuildState()
+    // (5ee83d4e, DR-073/WO-09-006) never feeds raw event transports into the live-outcomes
+    // derivation — "Event-derived XP enters only through the durable ledger reconciler" — so
+    // greenTestRuns comes from mergeLedgerOutcomes(liveOutcomes, readLedger()), not from a
+    // live re-scan of ~/.claude/dashboard-events.ndjson (which would also make this
+    // assertion non-hermetic, coupled to whatever real events happen to exist on the
+    // machine running the test). The temp factory's ledger is empty, so the merge is a
+    // no-op here and this equals the live derivation.
     expect(state.outcomes).toEqual(
-      deriveGuildOutcomes({ statuses: state.statuses, eventsSnapshot: state.eventsSnapshot }),
+      deriveGuildOutcomes({ statuses: state.statuses, eventsSnapshot: null }),
     );
   });
 

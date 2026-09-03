@@ -63,6 +63,13 @@ vi.mock("@/lib/gamification/gamification", async (importOriginal) => {
 // factory/gamification-ledger.json (gitignored) and would floor the outcomes to its
 // historical maximum — fabricating the honest-zero XP bar (FRD-09, AC-10-005.3).
 // Mocking only readLedger keeps the real mergeLedgerOutcomes MAX semantics under test.
+//
+// realInProject is also stubbed to true (5ee83d4e / DR-115 added this real fs
+// symlink-guard to guildState.ts's status read): the fixture portfolio below uses a
+// fake, non-existent path ("/fake/project"), which the real guard would correctly
+// reject, silently falling back to `present: false` and defeating the mocked
+// readStatusWithLiveInboxCounts. The guard's own behavior is exercised by ledger's
+// own test suite, not here.
 vi.mock("@/lib/gamification/ledger", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/gamification/ledger")>();
   return {
@@ -72,6 +79,7 @@ vi.mock("@/lib/gamification/ledger", async (importOriginal) => {
       updatedAt: new Date(0).toISOString(),
       totals: { workOrdersDone: 0, phasesCompleted: 0, releases: 0 },
     }),
+    realInProject: vi.fn().mockReturnValue(true),
   };
 });
 

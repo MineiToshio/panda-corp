@@ -58,7 +58,7 @@ export type LedgerReadResult =
   | { readonly ok: true; readonly ledger: GamificationLedgerV2; readonly migrated: boolean }
   | { readonly ok: false; readonly reason: "corrupt"; readonly ledger: GamificationLedgerV2 };
 
-export function zeroLedger(): GamificationLedgerV2 {
+function zeroLedger(): GamificationLedgerV2 {
   return {
     version: 2,
     updatedAt: new Date(0).toISOString(),

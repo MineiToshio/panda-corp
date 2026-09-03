@@ -204,7 +204,7 @@ export type PluginSyncState = {
   };
 };
 
-export type RuntimePluginSyncVerdict = {
+type RuntimePluginSyncVerdict = {
   readonly runtime: "claude" | "codex";
   readonly installedVersion: string | null;
   readonly sourceVersion: string | null;

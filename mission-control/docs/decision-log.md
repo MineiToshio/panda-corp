@@ -1,5 +1,58 @@
 # Decision Log — Mission Control
 
+## 2026-09-03 — Full `verify.sh` baseline green again (4 pre-existing defects from 5ee83d4e, 2026-07-11)
+
+Ran the mandated FULL (non-`--since`) `.pandacorp/verify.sh` and fixed the 4 pre-existing defects
+flagged (but not fixed) by this same day's earlier FRD-24 entry above and by the 2026-09-02 upgrade
+entry below — all four stale since a single commit, `5ee83d4e` ("feat(factory): add native Codex
+runtime portability", 2026-07-11), invisible to every `--since`-scoped gate run in the seven weeks
+between. Behavior-preserving throughout — no FRD/AC changed, confirmed by `pnpm tsc --noEmit` +
+`pnpm biome check . --error-on-warnings` + `pnpm knip` + `pnpm madge --circular` + `pnpm vitest run`
++ the full `verify.sh` (including the Playwright browser layer) all green after.
+
+1. **6 stale `knip` unused-export findings** (`src/lib/events/event-contract.ts`,
+   `src/lib/gamification/ledger.ts`, `src/lib/plugin-sync/plugin-sync.ts`). Two were genuinely dead
+   (no importer anywhere, not even within their own file) and deleted outright: `legacyEventId` and
+   `EVENT_VOCABULARY_VERSION`. The other four (`eventSubject`, `semanticLedgerKey`, `zeroLedger`,
+   the `RuntimePluginSyncVerdict` type) are real internal helpers — used inside their own file, just
+   never imported by anything else — so only their `export` keyword was removed (de-exported, not
+   deleted); confirmed via `grep` across the whole tree (including tests/e2e) that nothing outside
+   the defining file references any of the six.
+2. **1 `madge` import cycle** (`lib/events/events.ts` ↔ `lib/events/event-contract.ts`): `events.ts`
+   imports `normalizeEventName` from `event-contract.ts`, which in turn imported the `Event` type
+   (and friends) back from `events.ts` — a type-only edge, but `madge` still flags it at the file
+   level. Fixed by moving the shared type surface (`Event`, `EventRuntime`, `EventPhase`,
+   `EventActivity`, `EventMode`) to a new pure leaf module, `src/lib/events/event-types.ts`, which
+   imports from neither of the two — `events.ts` and `event-contract.ts` both now import types FROM
+   it, never from each other for types. `events.ts` re-exports `Event` (`export type { Event } from
+   "./event-types"`) so its ~15 existing external importers (`ledger.ts` and others) need no change.
+   Zero runtime behavior change — pure type relocation.
+3. **`achievements/_tests/page.test.tsx`** — "shows non-zero shipped count when portfolio has a
+   release-phase (launched) project" expected `1`, got `0`. Root cause: `guildState.ts`'s
+   `readGuildState()` (added by the same `5ee83d4e` commit) now guards every status read with
+   `realInProject()` (a real-filesystem symlink/existence check, `ledger.ts`) before trusting
+   `readStatusWithLiveInboxCounts` — a legitimate security hardening, not a bug. The test's fixture
+   portfolio path (`/fake/project`) fails that real check, so the mocked status reader was never
+   reached regardless of its mock return value. **Fixed the test** (the guard is documented,
+   intentional behavior, not something the test's FRD asks to remove): the existing
+   `vi.mock("@/lib/gamification/ledger", ...)` block (which already overrides `readLedger` for
+   hermetic empty-factory rendering, WO-09-006/DR-073) now also stubs `realInProject` to `true`,
+   since this fixture's whole point is a non-existent path standing in for a real project directory.
+4. **`gamification/_tests/guildState.test.ts`** — "returns a level that is exactly
+   computeGuildLevel(outcomes) (no divergence)" expected `state.outcomes` to equal
+   `deriveGuildOutcomes({ statuses: state.statuses, eventsSnapshot: state.eventsSnapshot })`;
+   `greenTestRuns` diverged (2 vs 0). Root cause: the same `5ee83d4e` commit deliberately changed
+   `readGuildState()`'s live-outcomes derivation to always pass `eventsSnapshot: null` — its own
+   inline comment: "Raw transports are live telemetry, not an accounting oracle. Event-derived XP
+   enters only through the durable ledger reconciler" (WO-09-006/DR-073's hermetic-ledger design,
+   the same invariant the achievements test file already documents in its own comment). The test
+   was never updated to match and, worse, was non-hermetic — feeding the REAL
+   `~/.claude/dashboard-events.ndjson` snapshot into a direct `deriveGuildOutcomes` call, so its
+   result depended on whatever `test_ok` events happen to exist on the machine running it. **Fixed
+   the test** (the code's `eventsSnapshot: null` is the documented, intentional contract): changed
+   the assertion to `deriveGuildOutcomes({ statuses: state.statuses, eventsSnapshot: null })`, with
+   an inline comment explaining why, matching what `readGuildState()` actually computes.
+
 ## 2026-09-03 — FRD-24 (shared decision-id emitter) materialized; DRAFT-blocked on an Anthropic Opus outage
 
 Ran the `iterate` PM step by hand on the queue's `decision-id-shared-emitter.md` card (`BL-0062`,

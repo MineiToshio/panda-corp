@@ -1,11 +1,9 @@
-import { createHash } from "node:crypto";
+import type { Event } from "./event-types";
 import vocabulary from "./event-vocabulary.json";
-import type { Event } from "./events";
 
 /** Sentinel for a true result whose historical occurrence time has no durable oracle. */
 export const UNKNOWN_ACCOUNTING_AT = "1970-01-01T12:00:00.000Z";
 
-export type EventRuntime = "claude" | "codex" | "unknown";
 type VocabularyEntry = { readonly display: string; readonly aliases: readonly string[] };
 const entries = vocabulary.events as Record<string, VocabularyEntry>;
 const aliases = new Map<string, { semanticName: string; display: string }>();
@@ -18,11 +16,7 @@ export function normalizeEventName(name: string): { semanticName: string; displa
   return aliases.get(name) ?? { semanticName: `legacy.${name}`, display: name };
 }
 
-export function legacyEventId(rawLine: string, runtime: EventRuntime): string {
-  return `legacy:${runtime}:${createHash("sha256").update(rawLine.trim()).digest("hex")}`;
-}
-
-export function eventSubject(event: Event): string {
+function eventSubject(event: Event): string {
   return (
     event.subject ??
     event.workOrder ??
@@ -34,7 +28,7 @@ export function eventSubject(event: Event): string {
   );
 }
 
-export function semanticLedgerKey(event: Event): string {
+function semanticLedgerKey(event: Event): string {
   const semanticName = event.semanticName ?? normalizeEventName(event.event).semanticName;
   return `${event.runId ?? event.session ?? "legacy"}\u0000${semanticName}\u0000${eventSubject(event)}`;
 }
@@ -64,5 +58,3 @@ export function accountingEvents(input: {
   if (process.env.NODE_ENV === "test") return semanticLedger(input.eventsSnapshot?.events ?? []);
   return [];
 }
-
-export const EVENT_VOCABULARY_VERSION = vocabulary.version;
