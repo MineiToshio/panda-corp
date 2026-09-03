@@ -8,7 +8,7 @@ trigger: use this when a prompt asks a model to produce a section a deterministi
 source: "panda-corp R11 first live canary, 2026-07-11 — factory/decision-log.md 'R11 separates accelerated, short-live and overnight evidence' entry ('a real canary also caught a prompt heading that disagreed with the deterministic gate')"
 provenance: agent-inferred
 created: 2026-07-12
-status: candidate
+status: active
 promotion: approved
 confidence: medium
 times_applied: 0

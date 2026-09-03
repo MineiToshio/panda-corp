@@ -56,6 +56,13 @@ files.each do |f|
   errors << "#{base}: invalid confidence '#{fm['confidence']}'" unless CONF.include?(fm['confidence'])
   errors << "#{base}: invalid provenance '#{fm['provenance']}'" unless PROV.include?(fm['provenance'])
   errors << "#{base}: invalid promotion '#{fm['promotion']}'" unless PROMO.include?(fm['promotion'])
+  # BL-0088: a promotion the owner already approved is by definition corroborated/trusted
+  # evidence (DR-047) — it must never sit at status: candidate/deprecated. learn's promotion-apply
+  # step sets status: active in the same edit that sets promotion: approved; catch drift here
+  # instead of waiting on the next review sweep to notice.
+  if fm['promotion'] == 'approved' && fm['status'] != 'active'
+    errors << "#{base}: promotion: approved requires status: active (got '#{fm['status']}') — BL-0088"
+  end
   errors << "#{base}: id must match LESSON-NNNN"                unless fm['id'].to_s =~ /\ALESSON-\d+\z/
   ids[fm['id'].to_s] << base if fm['id']
   fn = base[/\ALESSON-(\d+)/, 1]

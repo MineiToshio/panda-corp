@@ -8,7 +8,7 @@ trigger: use this when a build engine or skill is about to hand a runtime-synthe
 source: "external-repo mining of github.com/NateBJones-Projects/ringer, 2026-07-10 (factory/decision-log.md same-date entry); ringer SKILL.md 'the spec is on camera'"
 provenance: agent-inferred
 created: 2026-07-12
-status: candidate
+status: active
 promotion: approved
 confidence: medium
 times_applied: 1

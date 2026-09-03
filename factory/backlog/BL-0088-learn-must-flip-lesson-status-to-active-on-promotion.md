@@ -3,12 +3,12 @@ id: BL-0088
 type: bug
 area: plugin-skill
 title: "learn approves a lesson promotion but never flips its status: candidate -> active"
-status: open
+status: done
 severity: p2
 opened: 2026-08-03
-closed:
+closed: 2026-09-02
 source: "librarian review sweep 2026-08-03, factory/memory audit"
-closes:
+closes: "plugin/skills/learn/SKILL.md promotion-apply step + validate-memory.sh promotion/status check, plugin v9.98.1"
 links: [LESSON-0147, LESSON-0152, DR-047]
 ---
 

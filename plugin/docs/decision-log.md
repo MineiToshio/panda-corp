@@ -4,6 +4,27 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.1 — 2026-09-02 (PATCH): `learn` promotion-apply now flips `status: active` (BL-0088)
+
+**What:** `plugin/skills/learn/SKILL.md`'s promotion-apply step ("Self-learning loop (DR-047)") only
+set `promotion: approved` and back-linked the source lesson — it never touched `status:`, so an
+owner-approved, already-codified lesson could sit at `status: candidate` forever (excluded from
+`INDEX.md` and the eval-gate's activation path). Two lessons already promoted to shipped standards were
+found stuck this way: `LESSON-0147` (→ `PROMPT-8`) and `LESSON-0152` (→ `QUAL-14`).
+
+**Fix:** (1) `learn`'s promotion-apply paragraph now names the flip: after `promotion: approved`, also
+set `status: active` (an owner approval via `/pandacorp:learn` is itself corroboration stronger than
+the eval-gate's normal cross-project bar) and add the lesson's line to `INDEX.md` if missing. (2)
+`plugin/scripts/validate-memory.sh` now fails loud on drift: a `promotion: approved` lesson with any
+`status` other than `active` is a schema error, not a warning. (3) Backfilled `LESSON-0147` and
+`LESSON-0152` to `status: active` and added their `INDEX.md` lines. (4) Mission Control's Manual
+(`content/manual/concepts/autoaprendizaje.md` + the rendering `ConceptAutoaprendizaje` component in
+`src/app/manual/manualPages.tsx`, DR-046) documents the flip.
+
+**Why:** a promoted, owner-approved lesson is by definition trusted evidence (DR-047) — leaving it at
+`status: candidate` hid it from every retrieval surface that reads only `INDEX.md`/`active` lessons,
+silently discarding the value of the promotion it just received.
+
 ## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
 
 **What:** two owner decisions from `docs/proposals/33-model-era-audit.md` §12 land in the plugin.

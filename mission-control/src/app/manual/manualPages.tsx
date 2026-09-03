@@ -1462,6 +1462,12 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
           <Chip tone="secondary">rejected</Chip>
         </ChipFlow>
       </Panel>
+      <NotePanel icon="ti-check" iconColor="var(--color-ok)">
+        Al aprobar, <Code>/learn</Code> hace back-link a la lección y marca{" "}
+        <Code>promotion: approved</Code> <B weight={500}>y</B> <Code>status: active</Code>{" "}
+        (BL-0088): tu aprobación ya es corroboración más fuerte que el umbral cruzado de proyectos,
+        así que una lección aprobada nunca se queda invisible en <Code>status: candidate</Code>.
+      </NotePanel>
 
       <DocH title="Tipos de lección" />
       <Panel>
