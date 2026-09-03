@@ -4,6 +4,21 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.4 — 2026-09-03 (PATCH): the standards-catalog gate gets its trigger (BL-0055)
+
+**What:** `factory/standards/check-standards.sh` had no caller anywhere in the repo, so it had been RED on
+a clean tree since 2026-07-09 without anyone noticing. It now has two named triggers, both inside the
+plugin: **step 0 of the `pandacorp-consistency-sweep` routine** (`plugin/docs/routines.md`) — it runs the
+script, reports the exit code, and files any FAIL as a `BL-*` instead of editing it, which matches the
+sweep's advisory-only contract — and **`learn` step 5c** (`plugin/skills/learn/SKILL.md`), which runs it
+whenever the change touched `factory/standards/` and forbids closing on a FAIL the change itself
+introduced. Chosen over a Stop hook deliberately: the defect class can only be introduced by a standards
+edit, so a per-turn hook would pay on every session to watch a door that opens twice a month.
+
+**Why PATCH:** no skill, agent or capability changes behavior for the owner; two prompts gain a verification
+step. The substantive half of BL-0055 (the nine missing `DOCC-*`/`SSOT-*` registry rows that made the gate
+green) is factory-side and recorded in `factory/decision-log.md`.
+
 ## v9.98.3 — 2026-09-02 (PATCH): SessionStart dedup + async housekeeping (BL-0092)
 
 **What:** removed duplicate `backup-pandacorp-state.sh` invocation and marked housekeeping hooks as non-blocking.
@@ -73,7 +88,6 @@ the eval-gate's normal cross-project bar) and add the lesson's line to `INDEX.md
 **Why:** a promoted, owner-approved lesson is by definition trusted evidence (DR-047) — leaving it at
 `status: candidate` hid it from every retrieval surface that reads only `INDEX.md`/`active` lessons,
 silently discarding the value of the promotion it just received.
-
 ## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
 
 **What:** two owner decisions from `docs/proposals/33-model-era-audit.md` §12 land in the plugin.

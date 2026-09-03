@@ -25,6 +25,9 @@ paid for does not run, which is the exact `LESSON-0113` pattern.
 ## Fix plan
 1. Give `check-standards.sh` a real caller — the `Stop` sequence in `plugin/hooks/hooks.json` or the CI
    workflow BL-0069 is opening; whichever is chosen, land it in ONE place, not both.
+   **Status 2026-09-02: BL-0055 satisfied this** — the script is called from `pandacorp-consistency-sweep`
+   step 0 (`plugin/docs/routines.md`) and from `learn` step 5c, and it is GREEN on a clean tree. Do not add a
+   second caller unless you deliberately replace those two.
 2. Same for `check-preflight-drift.sh` — wire it into `check-derived-drift.sh`'s Stop sequence, OR mark it
    explicitly manual-only in its header. Either is acceptable; silence is not.
 3. Replace `rule-registry.md:159-161`'s hardcoded sentence with a derived note, and add a ~5-line `awk`

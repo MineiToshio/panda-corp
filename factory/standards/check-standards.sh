@@ -2,6 +2,9 @@
 # check-standards.sh — validates the executable-standard template (factory/standards/README.md)
 # FAIL (exit 1): missing preamble, missing "How it is verified" (non-internal), file absent from the registry.
 # WARN (exit 0): aspirational MUST rules in rule-registry.md (the burn-down list — visible, not blocking).
+# Run by (BL-0055 — a checker with no trigger rots): the weekly `pandacorp-consistency-sweep` routine
+# (plugin/docs/routines.md, step 0) and /pandacorp:learn's closing step whenever the change touched
+# factory/standards/. Both report the exit code; it is also runnable by hand from anywhere.
 set -euo pipefail
 
 cd "$(dirname "$0")"

@@ -1,5 +1,49 @@
 # Decision Log — Factory
 
+## 2026-09-02 — The standards catalog gate goes green and gets a trigger (BL-0055)
+
+**What:** `bash factory/standards/check-standards.sh` exits **0** again. Two standards had shipped without
+their rows in `factory/standards/rule-registry.md` — `document-consistency.md` (DR-116) and
+`single-source-of-truth.md` (DR-115) — which held the catalog gate RED on a clean tree since 2026-07-09.
+Nine rows added, each derived from the standard's own *How it is verified* section and registered
+**honestly as `manual`** (none is `wired`; the enforcement is a NAMED step, not a script):
+`DOCC-1..4` (fresh-set verifier at the spec/architecture phase gates · supersession-completeness at
+`learn` 5b and `change`/`iterate` · bounded candidate-set detection · the advisory
+`pandacorp-consistency-sweep`) and `SSOT-1..5` (one writer per fact · derive-on-read through one resolver ·
+the honest-cache conditions · enforcement-by-construction when a stale copy is retired · the doc-lint
+`status.yaml` schema-drift flag). The counts paragraph was recounted live (`awk` over the rule rows,
+header/separator excluded): **146 rules → 31 wired · 114 manual · 1 aspirational SHOULD · 0 aspirational
+MUST** — the pre-existing header had already drifted from the live table (137, not the stated 138) before
+this change; the hardcoded-count defect itself and its automated recount stay with BL-0091.
+
+**The decision (the item offered two options):** the checker gets its trigger from **the routine + the
+skill**, not from a Stop hook. `check-standards.sh` now runs (a) as step 0 of the weekly
+`pandacorp-consistency-sweep` routine — where a FAIL is filed as a `BL-*` like any other confirmed
+contradiction, never edited away — and (b) at `learn` step 5c, whenever a change touched
+`factory/standards/`, reporting its exit code. A Stop hook would fire on every turn of every session to
+catch a class of defect that can only be *introduced* by a standards edit; the two named triggers sit
+exactly where that edit happens and cost nothing the rest of the time. The triggers are documented in the
+script's own header, so the next reader learns who runs it from the file itself.
+
+**Why it mattered:** a red gate nobody can go green on stops being read — and this one had no caller at
+all (`grep -rn check-standards` found none), so the omission it exists to catch landed and sat for eight
+weeks, and every later `/pandacorp:learn` had to reason about whether it caused the pre-existing red.
+Promise-without-mechanism one level up: the *checker* of the catalog had no trigger. Proof: RED before
+(exit 1, the two FAILs), GREEN after (exit 0, 31 files), and a canary — a throwaway `zz-canary.md` with a
+valid preamble and no registry row still REDs the gate, so it detects the next omission.
+
+**Docs touched:** `factory/standards/rule-registry.md` (rows, preamble, counts),
+`factory/standards/check-standards.sh` (Run-by header), `plugin/docs/routines.md` (sweep step 0),
+`plugin/skills/learn/SKILL.md` (step 5c), `factory/backlog/BL-0055-*` (closed) and a pointer in BL-0091,
+whose Fix-plan step 1 this satisfies. Out of scope, unchanged: re-auditing the other rows'
+enforcement status (docs/proposals/24).
+
+**Side finding, recorded not fixed (out of this item's Fix plan):** `single-source-of-truth.md` is also
+absent from the `factory/standards/README.md` category index (`document-consistency.md` is there) — the same
+shipped-without-registering omission, in the one place `check-standards.sh` does not look. No id was claimed
+for it here to avoid racing a `BL-*` number with the parallel dispatcher; it needs one line in the
+Engineering/Data row and, ideally, an index check in the same script.
+
 ## 2026-09-02 — Codex runtime freeze (DR-120): every non-Claude runtime is read/review-only again
 
 **What:** the owner took `docs/proposals/33-model-era-audit.md` §12.1 **option (B)**. Codex's build-write

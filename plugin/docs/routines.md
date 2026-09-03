@@ -82,6 +82,8 @@ Trabaja en /Users/Shared/Proyectos/panda-corp (la fábrica PandaCorp). Habla al 
 
 DEFINICIÓN de contradicción (vinculante): dos enunciados autoritativos, ACTUALES y mutuamente excluyentes sobre el mismo hecho. NO es contradicción: distinciones soft/hard, patrones "default salvo X", texto marcado como superado/tombstoned, ni un registro histórico fechado (una entrada de decision-log — era cierta cuando se escribió, es append-only). Ignora esos.
 
+PASO 0 — Gate del catálogo de estándares (determinista, barato). Ejecuta `bash factory/standards/check-standards.sh` y reporta su código de salida. Si sale 1, cada FAIL es una contradicción estructural confirmada (un estándar sin fila en `rule-registry.md`, un preámbulo incompleto, una forma operativa que no existe): NO la edites — fíchala en PASO 3 como cualquier otra, citando la línea FAIL literal. Este es el único disparador del script (BL-0055): si nadie lo corre, se pudre.
+
 PASO 1 — Fan-out sobre slices del corpus. Reparte el corpus en 4 slices y revisa cada uno buscando pares de enunciados que se contradigan (el mismo hecho/regla/contrato afirmado de dos formas incompatibles en docs distintos):
   (a) factory/standards/ + factory/constitution.md
   (b) plugin/skills/*/SKILL.md + plugin/agents/*.md

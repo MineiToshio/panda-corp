@@ -3,12 +3,12 @@ id: BL-0055
 type: bug
 area: standards
 title: "check-standards.sh is RED: document-consistency.md and single-source-of-truth.md have no rule-registry.md rows"
-status: open
+status: done
 severity: p1
 opened: 2026-07-09
-closed:
+closed: 2026-09-03
 source: "panda-corp 2026-07-09, promoting LESSON-0001 via /pandacorp:learn — `bash factory/standards/check-standards.sh` exits 1 with two FAILs unrelated to that change"
-closes:
+closes: "factory/standards/rule-registry.md rows DOCC-1..4 + SSOT-1..5 (honest recount: 146 rules -> 31 wired/114 manual/1 aspirational SHOULD); check-standards.sh triggered from pandacorp-consistency-sweep step 0 and learn step 5c; plugin v9.98.4; factory decision-log entry 2026-09-02"
 links: [DR-116, DR-115]
 ---
 
