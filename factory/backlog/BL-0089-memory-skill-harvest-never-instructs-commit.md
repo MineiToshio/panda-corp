@@ -3,12 +3,12 @@ id: BL-0089
 type: bug
 area: plugin-skill
 title: "memory skill's harvest mode never instructs committing its own drained-inbox + LESSON output"
-status: open
+status: done
 severity: p2
 opened: 2026-08-25
-closed:
+closed: 2026-09-02
 source: "factory/memory/_inbox.md 2026-08-25 note (agent-inferred), corroborating the 2026-07-14 abandoned-harvest incident named in factory/standards/debugging.md's Why section"
-closes:
+closes: "plugin v9.98.2 -- plugin/skills/memory/SKILL.md harvest step 6 + review/prune step 12 (Commit), plugin/docs/decision-log.md v9.98.2 entry"
 links: [BL-0061, LESSON-0113]
 ---
 

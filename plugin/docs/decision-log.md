@@ -4,6 +4,34 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.2 — 2026-09-02 (PATCH): memory skill's harvest/review modes now instruct committing their own output (BL-0089)
+
+**What:** `plugin/skills/memory/SKILL.md`'s `## Mode: harvest (Phase 1)` step list gains a new step 6
+**"Commit."**, inserted between the existing "stamp `last_harvest`" step (now 5, unchanged) and "report to
+the owner" (renumbered 6→7): stage and commit every path the harvest touched — the drained inbox file(s)
+(`factory/memory/_inbox.md` and/or the project's `.pandacorp/run/lessons.md`), any new/updated
+`LESSON-*.md`/`INDEX.md`, any new `factory/backlog/BL-*.md` split off per DR-103, and the stamped
+`.pandacorp/status.yaml` — BEFORE reporting, with an explicit English commit message, and explicitly
+regardless of whether harvest ran standalone, from the factory, from inside a project, or as part of the
+`/loop` `pandacorp-memory-review` sweep. The same gap existed in `## Mode: review / prune (Phase 4)`
+(cross-checked per the fix plan): a new step 12 **"Commit."** follows the existing apply step (renumbered
+7→8, 8→9, 9→10, 10→11) so status edits / `promotion: proposed` flags / `INDEX.md` deltas / merges are
+committed before reporting or handing off to `/pandacorp:learn`. The status mode step (11→13) and its
+lone forward self-reference (`## Mode: harvest`'s intro, "it lands on **status** (step 11)") were
+renumbered to stay consistent. **Why:** grepping the skill for `git add`/`git commit` returned zero hits
+(BL-0089) — the harvest SOP wrote durable output (new LESSON files, drained inbox, BL splits) and stamped
+`last_harvest`, then stopped at "report", relying on some LATER unrelated session to notice the
+uncommitted diff via `git status`. Concretely bit once already: the 2026-08-11 harvest sat uncommitted
+until the 2026-08-15 sweep caught it by chance — a second instance of the "abandoned harvest" pattern
+named in `factory/standards/debugging.md`'s Why section (2026-07-14 incident), this time the routine
+leaving its OWN output uncommitted rather than mis-measuring a build's state. Every other skill that
+mutates committed state in this repo either commits explicitly in its own SOP or hands off to a step that
+does; `memory` was the outlier. PATCH: fixes an existing skill's behavior, adds no new capability. No
+`plugin/agents/*.md` changed → no Codex mirror regen needed. DR-046: this is an internal SOP-completeness
+fix to an existing mode's step list (harvest/review already commit their output per DR-033's "committed
+know-how" framing) — no new flow/gate/concept surfaces to the owner, so no Manual narrative page changes.
+Closes BL-0089.
+
 ## v9.98.1 — 2026-09-02 (PATCH): `learn` promotion-apply now flips `status: active` (BL-0088)
 
 **What:** `plugin/skills/learn/SKILL.md`'s promotion-apply step ("Self-learning loop (DR-047)") only
