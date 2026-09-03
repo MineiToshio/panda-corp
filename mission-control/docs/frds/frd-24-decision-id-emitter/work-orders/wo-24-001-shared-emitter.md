@@ -6,7 +6,7 @@ title: 'WO-24-001 — Extract `parseDecisionBlocks` + the `decision-id-cli` entr
 status: ACTIVE
 parent: FRD-24
 foundation: false
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 blocked_reason:
 difficulty: low
 reopen_count: 0
@@ -63,5 +63,60 @@ skill, via Bash) can get the exact same ordered id list without re-deriving the 
 None — this is the foundation WO of FRD-24.
 
 ## Status Note
-(filled by the implementer on close: the exact export signature, any naming deviation from this WO,
-and confirmation the pre-existing `readDecisions` test suite passed unmodified.)
+
+**Built exactly per scope, no naming deviation.**
+
+- `src/lib/docs/activity.ts` gains `export function parseDecisionBlocks(content: string):
+  DecisionPoint[]` — the loop `readDecisions()` ran before this change, lifted verbatim (identical
+  `_consumeLine`/`_pushDecision`/`IdCounters` helpers, unchanged), now taking a content string. No new
+  or adjusted derivation logic — pure relocation.
+- `readDecisions(projectPath: string): DecisionPoint[]` keeps its exact guard order (empty path →
+  `[]`; non-existent path → `[]`; missing `decisions.md` → `[]`; unreadable file → `[]`, caught) and
+  now ends with `return parseDecisionBlocks(content);` after `fs.readFileSync`. Never throws, as before.
+- New `scripts/decisions/decision-id-cli.mjs`: plain Node ESM script (no framework import), reuses
+  `scripts/read-model/ts-loader.mjs` (no new loader) to import `parseDecisionBlocks` straight from
+  `src/lib/docs/activity.ts`. Reads `process.argv[2]` as the target path; missing arg or unreadable
+  file → one-line message to `stderr` + `process.exit(1)` (loud-failure boundary, deliberately
+  different from the library's fail-soft `[]` — a CLI misuse should be visible, not silently empty).
+  On success, prints one `id` per line to stdout, in file order (`decision.id`, nothing else — no
+  header, no trailing blank line beyond the final `\n`).
+- `package.json`: new script `"decisions:ids": "node --loader ./scripts/read-model/ts-loader.mjs
+  scripts/decisions/decision-id-cli.mjs"`. Invocation: `pnpm decisions:ids <path-to-decisions.md>`
+  (verified live end-to-end against a real fixture file and against a missing path — both match the
+  test suite's assertions).
+
+**Integration seam for the CLI's caller (`/pandacorp:decide`, a different repo):** invoke
+`pnpm decisions:ids <absolute-path-to-that-project's-.pandacorp/inbox/decisions.md>` from the Mission
+Control repo root (matches the existing `scripts/read-model/*.mjs` invocation convention already used
+by `stats:regen`/`stats:factory`/etc.); stdout is the ordered id list, one per line, UTF-8, no other
+output on success. A missing/unreadable path exits non-zero with a message on stderr — a caller should
+treat any non-zero exit as "could not derive ids", not parse stdout.
+
+**Assumptions/decisions inherited by consumers:** (1) the CLI takes exactly one positional arg (the
+`decisions.md` file path itself, not a project root — the caller resolves
+`<project>/.pandacorp/inbox/decisions.md` before invoking); (2) id derivation itself is untouched —
+this WO does not change the id scheme (per the FRD's explicit non-goal); (3) `parseDecisionBlocks` has
+no filesystem/guard behavior at all — a caller wanting the existing fail-soft `[]` semantics for a
+missing file should call `readDecisions(projectPath)`, not `parseDecisionBlocks` directly.
+
+**Test coverage:**
+- `src/lib/docs/_tests/docs.wo24001.test.ts` (new, this WO): AC-24-001.1 — `parseDecisionBlocks`
+  exported, `parseDecisionBlocks(content)` produces the exact same ordered `DecisionPoint[]` (ids
+  included) as `readDecisions(projectPath)` for identical content, over a fixture exercising same-date
+  dated headings, legacy `OPEN`/`CLOSED` headings, and an obsolete dated heading; empty-string input;
+  genuine-Array check; `readDecisions`' pre-existing guards (empty path / non-existent path / missing
+  file → `[]`, never throws) reconfirmed post-refactor. AC-24-001.2 — the CLI file exists, running it
+  via `execFileSync(process.execPath, ["--loader", ts-loader, cli, filePath])` against the fixture
+  prints the identical ordered id list `parseDecisionBlocks` returns; the CLI's source imports no
+  `next`/`react` module; a missing path exits non-zero with a non-empty stderr message.
+- `src/lib/docs/_tests/docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` — **unmodified**, both
+  still 100% green (123 total tests across the three files), proving the extraction is behavior-neutral
+  (AC-24-001.1).
+
+**Self-test run:** `pnpm biome check .` clean (only the pre-existing, unrelated schema-version info
+note); `pnpm tsc --noEmit` clean; `pnpm vitest run` on `docs.wo24001.test.ts` +
+`docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` — 123/123 passed. Live-verified
+`pnpm decisions:ids <fixture path>` and the missing-path case by hand outside the test runner.
+
+No factory-memory lesson (`LESSON-NNNN`) applied — this is a mechanical, well-specified relocation
+with no novel gotcha encountered; none logged to `.pandacorp/comms/progress.md`.

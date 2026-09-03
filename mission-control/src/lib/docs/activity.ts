@@ -170,6 +170,24 @@ export function readDecisions(projectPath: string): DecisionPoint[] {
     return [];
   }
 
+  return parseDecisionBlocks(content);
+}
+
+/**
+ * Pure derivation: parse `.pandacorp/inbox/decisions.md` CONTENT (already read into a
+ * string) into an ordered array of DecisionPoint objects. Extracted out of
+ * `readDecisions` (WO-24-001, FRD-24, AC-24-001.1) so it takes a content string instead
+ * of a project path — no filesystem access, no guards, no framework import — so it is
+ * callable from a plain Node script outside the Next.js runtime (AC-24-001.2), e.g.
+ * `scripts/decisions/decision-id-cli.mjs`.
+ *
+ * Zero behavior change from the loop `readDecisions()` ran before this extraction: same
+ * id derivation, same heading/recommendation/estado parsing, same ordering.
+ *
+ * @param content - The raw text of a `decisions.md` file.
+ * @returns `DecisionPoint[]` — genuine JS Array, ordered as the headings appear in `content`.
+ */
+export function parseDecisionBlocks(content: string): DecisionPoint[] {
   // Regression I3: genuine Array built with push.
   const result: DecisionPoint[] = [];
 
