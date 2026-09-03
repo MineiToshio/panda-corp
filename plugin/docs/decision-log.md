@@ -4,6 +4,35 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.5 — 2026-09-03 (PATCH): BL-0093 — /loop is not the durable recurring mechanism
+
+**What:** `plugin/skills/review-launch/SKILL.md` and `plugin/skills/memory/SKILL.md` (frontmatter
+`description` + body prose) presented `/loop` as the way the two recurring jobs ("review-launch over the
+portfolio", "the memory review sweep") actually recur. A Claude Code `/loop` recurring task is
+session-scoped and expires 7 days after creation (does not survive past that window unattended) —
+per code.claude.com/docs/en/scheduled-tasks (accessed 2026-09-02) — so it cannot be the durable
+mechanism either job depends on. The durable mechanism, already running live and verified 2026-09-02, is
+the two machine-local Desktop scheduled tasks documented at `plugin/docs/routines.md`:
+`pandacorp-review-launch` (weekly) and `pandacorp-memory-review` (daily).
+
+**Fix (option (a) from the BL-0093 card):** both skills now name the scheduled routine as the durable
+unattended form and keep `/loop` as the attended, single-session alternative, stating its 7-day expiry
+inline. Same correction propagated to every place that repeated the old `/loop`-is-durable claim:
+`CLAUDE.md`'s "Recurring jobs run via `/loop`" line, and the Manual's live text
+(`mission-control/src/lib/manual/skill-flows.ts` — the `review-launch` explainer + `loop` line, and the
+`memory` skill's `loop` line — plus `mission-control/content/manual/concepts/despues-de-lanzar.md` and its
+rendered counterpart in `mission-control/src/app/manual/manualPages.tsx`). `plugin/docs/routines.md` did
+not need a reciprocal pointer — it was already the canonical definition the skills now cite. Left alone:
+`mission-control/docs/design/prototype/index.html` (explicitly marked HISTORICAL SNAPSHOT, superseded),
+`mission-control/docs/design/components.md`'s `loop` node-type label, `manualPages.tsx:1148`'s unrelated
+"the workflow IS the loop" note about `/pandacorp:implement`'s build engine, and the frd-21 pending-merge
+docs' unrelated `/loop`/cron check driver — none of these describe the two recurring jobs this card
+targets.
+
+**Why:** BL-0093 (`docs/proposals/33-model-era-audit.md` §6 R-72, LESSON-0113 promise-without-mechanism
+pattern) — a job cannot be "designed to run" on a mechanism that structurally cannot outlive a week.
+
+
 ## v9.98.4 — 2026-09-03 (PATCH): the standards-catalog gate gets its trigger (BL-0055)
 
 **What:** `factory/standards/check-standards.sh` had no caller anywhere in the repo, so it had been RED on
@@ -87,8 +116,7 @@ the eval-gate's normal cross-project bar) and add the lesson's line to `INDEX.md
 
 **Why:** a promoted, owner-approved lesson is by definition trusted evidence (DR-047) — leaving it at
 `status: candidate` hid it from every retrieval surface that reads only `INDEX.md`/`active` lessons,
-silently discarding the value of the promotion it just received.
-## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
+silently discarding the value of the promotion it just received.## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
 
 **What:** two owner decisions from `docs/proposals/33-model-era-audit.md` §12 land in the plugin.
 

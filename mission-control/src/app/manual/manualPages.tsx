@@ -1844,8 +1844,10 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       </NotePanel>
       <NotePanel icon="ti-layout-dashboard" iconColor="var(--color-accent)">
         Alimenta el portfolio con columnas de negocio —Usuarios / Retorno / Veredicto— para ver
-        ganadores vs zombies. Puede correr a demanda o como un job <Code>/loop</Code> autopautado
-        sobre el portfolio lanzado: sin nadie presente, solo mide, registra y avisa.
+        ganadores vs zombies. Puede correr a demanda, en sesión atendida como un job{" "}
+        <Code>/loop</Code> (se auto-expira a los 7 días), o de forma durable vía la rutina semanal
+        programada <Code>pandacorp-review-launch</Code> (<Code>plugin/docs/routines.md</Code>) que
+        barre todo el portfolio lanzado: sin nadie presente, solo mide, registra y avisa.
       </NotePanel>
     </>
   );

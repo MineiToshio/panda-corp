@@ -617,7 +617,7 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "review-launch",
     explainer:
-      "Cierra la mitad posterior del arco económico: lee las métricas REALES del producto (PostHog) contra la hipótesis de valor y las kill-signals del PRD, y te da un veredicto kill / hold / double-down. NO mata nada solo — matar/archivar es tu decisión. Es la iteración post-lanzamiento: corre en un proyecto ya en release (lanzado), a demanda o como job /loop sobre el portfolio.",
+      "Cierra la mitad posterior del arco económico: lee las métricas REALES del producto (PostHog) contra la hipótesis de valor y las kill-signals del PRD, y te da un veredicto kill / hold / double-down. NO mata nada solo — matar/archivar es tu decisión. Es la iteración post-lanzamiento: corre en un proyecto ya en release (lanzado), a demanda, en sesión atendida como job /loop, o de forma durable vía la rutina semanal programada pandacorp-review-launch sobre el portfolio.",
     runsIn: "project",
     steps: [
       {
@@ -647,7 +647,7 @@ const FLOWS: SkillFlow[] = [
         note: "DR-038",
       },
     ],
-    loop: "Diseñado para correr como job /loop sobre el portfolio: sin humano presente solo mide, registra y notifica — nunca mata por su cuenta.",
+    loop: "La forma durable es la rutina semanal programada pandacorp-review-launch sobre el portfolio: sin humano presente solo mide, registra y notifica — nunca mata por su cuenta. Un job /loop la corre igual pero atendido, y se auto-expira a los 7 días — no es el mecanismo recurrente.",
   },
   {
     slug: "iterate",
@@ -1067,7 +1067,7 @@ const FLOWS: SkillFlow[] = [
           "Modo status: cuentas por tipo/estado, la cola de promociones, las más aplicadas, las más viejas sin uso y las candidatas pendientes de corroborar.",
       },
     ],
-    loop: "Cadencia: la captura es siempre-on al inbox crudo; harvest (refinar) corre como barrido /loop sobre el portfolio + a demanda (lo surge el recordatorio de salud de memoria de Mission Control).",
+    loop: "Cadencia: la captura es siempre-on al inbox crudo; harvest (refinar) corre al close-out del build, como barrido diario durable vía la rutina programada pandacorp-memory-review, o a demanda (lo surge el recordatorio de salud de memoria de Mission Control). Un job /loop puede correrlo atendido en una sesión, pero se auto-expira a los 7 días — no es el mecanismo recurrente.",
   },
   {
     slug: "scaffold",

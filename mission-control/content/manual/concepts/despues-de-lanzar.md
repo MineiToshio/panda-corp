@@ -42,4 +42,4 @@ Es **consciente del retorno**: juzga por la métrica que corresponde al `return_
 
 ## Alimenta el portfolio
 
-El portfolio gana **columnas de negocio** —Usuarios / Retorno / Veredicto— para que veas ganadores vs zombies de un vistazo. Una idea matada realimenta a `recommend` (que no vuelva a proponer la misma apuesta muerta). Puede correr **a demanda** o como un job **`/loop` autopautado** sobre el portfolio lanzado: sin nadie presente, solo mide, registra y avisa — nunca mata por sí solo.
+El portfolio gana **columnas de negocio** —Usuarios / Retorno / Veredicto— para que veas ganadores vs zombies de un vistazo. Una idea matada realimenta a `recommend` (que no vuelva a proponer la misma apuesta muerta). Puede correr **a demanda**, en sesión atendida como un job `/loop` (se auto-expira a los 7 días — no es el mecanismo recurrente), o de forma **durable** vía la rutina semanal programada `pandacorp-review-launch` (`plugin/docs/routines.md`), que barre todo el portfolio lanzado: sin nadie presente, solo mide, registra y avisa — nunca mata por sí solo.

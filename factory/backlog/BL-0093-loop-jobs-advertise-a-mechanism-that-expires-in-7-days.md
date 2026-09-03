@@ -3,12 +3,12 @@ id: BL-0093
 type: bug
 area: plugin-skill
 title: "The two recurring jobs are advertised as /loop jobs, but /loop tasks expire 7 days after creation"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-72"
-closes:
+closes: "plugin/skills/review-launch/SKILL.md + plugin/skills/memory/SKILL.md + CLAUDE.md + mission-control Manual text (skill-flows.ts, manualPages.tsx, despues-de-lanzar.md) rewritten to name the Desktop scheduled tasks (pandacorp-review-launch weekly, pandacorp-memory-review daily; plugin/docs/routines.md) as the durable recurring mechanism, with /loop kept as the attended/session-scoped alternative stating its 7-day expiry; plugin v9.98.5, plugin/docs/decision-log.md entry"
 links: [LESSON-0113]
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: review-launch
-description: Closes the post-launch loop of a Pandacorp project — reads the real product metrics (the PostHog event plan) against the PRD's value hypothesis and kill-signals, and gives the owner a kill / hold / double-down verdict. Runs IN a launched project (phase release). Designed to also run as a /loop self-paced job over the portfolio. It does NOT kill anything on its own — killing/archiving is the owner's decision.
+description: Closes the post-launch loop of a Pandacorp project — reads the real product metrics (the PostHog event plan) against the PRD's value hypothesis and kill-signals, and gives the owner a kill / hold / double-down verdict. Runs IN a launched project (phase release), on demand, in an attended session as a /loop job, or swept portfolio-wide by its durable form — the weekly scheduled routine `pandacorp-review-launch` at plugin/docs/routines.md §2 (a /loop job is session-scoped and expires after 7 days; it is not the recurring mechanism). It does NOT kill anything on its own — killing/archiving is the owner's decision.
 ---
 
 # /pandacorp:review-launch
@@ -31,4 +31,4 @@ The back half of the economic arc (DR-043), the **post-launch iteration loop UND
 - It **reads, recommends, and only writes** the portfolio business columns + a review note. It does NOT kill, archive, deploy or spend — those stay human gates (killing/archiving a shipped product aligns with DR-007/DR-011).
 - Evidence over vibes: every verdict cites the real numbers, never "it seems to be going well".
 - Return-aware (DR-042): judge by the metric that matches the idea's `return_type`, not always revenue. A `personal` tool the owner uses daily is a success even with $0.
-- Designed to run unattended as a **`/loop` self-paced** job over the shipped portfolio: with no human present it only measures, records and notifies — it never kills on its own.
+- **The durable unattended form is the machine-local weekly scheduled routine `pandacorp-review-launch`** (canonical definition committed at `plugin/docs/routines.md`; the installed copy is a deployment of it) — it sweeps every `phase: release` project in the portfolio: with no human present it only measures, records and notifies — it never kills on its own. An ad-hoc `/loop` job can run this attended within a single session, but `/loop` tasks are session-scoped and expire 7 days after creation — they are NOT a durable recurring mechanism.
