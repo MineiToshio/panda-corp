@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.8 — 2026-09-03 (PATCH): Wire the preflight-drift gate; derive registry counts instead of hardcoding them (BL-0091)
+
+**What:** one dormant enforcement gate wired, one already-dormant gate's status corrected, one hardcoded number replaced with a live derivation.
+
+- `plugin/scripts/check-preflight-drift.sh` (DR-045 preflight canonicalization gate, written for BL-0042/audit-20) is now a real entry in the Stop sequence — `plugin/hooks/hooks.json:73-78`, alongside `check-derived-drift.sh`. Verified end-to-end: `echo '{}' | bash plugin/scripts/check-preflight-drift.sh` exits 0 on a clean tree and exits 1 (with a named carrier) when a canonical span is corrupted in a fixture.
+- `factory/standards/check-standards.sh` is **not** touched by this item's wiring — it already had a real caller before this change, established by BL-0055: the `pandacorp-consistency-sweep` routine step 0 (`plugin/docs/routines.md:85`) and `/pandacorp:learn`'s closing step 5c (`plugin/skills/learn/SKILL.md:44`), both documented in the script's own header (`factory/standards/check-standards.sh:5-7`). **Correction:** the prior BL-0091 attempt on this branch claimed in this same decision log that the script "runs in the Stop hook via the verify gate" — that was false; `grep -rn check-standards plugin/ factory/` finds zero hook or `hooks.json` reference, and `plugin/scripts/verify-before-stop.sh` (the actual Stop-hook "verify gate") only invokes a project's own `.pandacorp/verify.sh`, never this script. No hook wiring was added or is needed here per the card's own note ("BL-0055 satisfied this... do not add a second caller").
+- `factory/standards/check-standards.sh` gained a ~20-line `awk` recount assertion that derives the live rule-registry count (total/wired/manual/aspirational) from the table itself, excluding the ~5 non-rule structural rows a naive `^\|` grep would pick up. It prints `registry-count: N rules → W wired · M manual · A aspirational` on every run (GREEN and RED alike).
+- `factory/standards/rule-registry.md`'s "Counts" section no longer hardcodes a number; it points to `check-standards.sh` as the source of truth and carries a dated snapshot (150/33/116/1, `bash factory/standards/check-standards.sh` output, 2026-09-03) instead of a stale prose figure that had already drifted (138 header vs. 137 live table before BL-0055 landed its two missing rows; BL-0055 itself recounted to 146/31/114/1, and the table has since grown further to 150/33/116/1 by the time this item rebased onto main).
 ## v9.98.7 — 2026-09-03 (PATCH): BL-0090 — eval-gate activation wired as an explicit write, 10-lesson backfill
 
 **What:** `plugin/skills/memory/SKILL.md`'s harvest-mode step 4 (eval-gate) was descriptive ("a candidate

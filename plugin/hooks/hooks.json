@@ -69,6 +69,12 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/check-derived-drift.sh\"",
             "timeout": 30,
             "statusMessage": "Pandacorp derived-drift gate"
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/check-preflight-drift.sh\"",
+            "timeout": 30,
+            "statusMessage": "Pandacorp preflight-drift gate"
           }
         ]
       }

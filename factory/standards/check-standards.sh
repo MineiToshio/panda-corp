@@ -66,6 +66,38 @@ if [[ "$asp_must" -gt 0 ]]; then
   grep '| MUST.*| aspirational |' "$REGISTRY" | sed 's/^/  /'
 fi
 
+# --- Rule-registry recount assertion (BL-0091) ----------------------------------------
+# Derived count: excludes header row, separator, and non-rule structural rows.
+# Alert if the table structure changes without updating the prose narrative.
+counts=$(awk -F'|' '
+  /^## Burn-down: aspirational rules/ { found_table = 0 }
+  /^\| ID \| Rule \|/ { found_table = 1; next }
+  found_table && NF >= 6 {
+    id = $2
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", id)
+    if (id == "Rule" || id ~ /^-+$/ || id == "" || id == "ID") next
+    status = $(NF-1)
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", status)
+    if (status ~ /^-+$/ || status == "") next
+    total++
+    if (status == "wired") wired++
+    else if (status == "manual") manual++
+    else if (status == "aspirational") aspirational++
+  }
+  END { print total, wired, manual, aspirational }
+' "$REGISTRY")
+read -r total wired manual aspirational <<< "$counts"
+echo "registry-count: $total rules → $wired wired · $manual manual · $aspirational aspirational"
+
+# Assertion: every counted row must land in exactly one recognized enforcement-status bucket
+# (wired/manual/aspirational). If the three buckets don't sum to the total, some row carries a
+# malformed/unrecognized status value — a real registry defect, not a display nit.
+sum=$((wired + manual + aspirational))
+if [[ "$sum" -ne "$total" ]]; then
+  echo "FAIL $REGISTRY: registry-count mismatch — $total rows counted but $sum landed in a recognized status (wired/manual/aspirational); $((total - sum)) row(s) carry an unrecognized enforcement-status value"
+  fail=1
+fi
+
 if [[ "$fail" -eq 0 ]]; then
   echo "OK: all standards conform to the template ($(ls *.md | grep -cv -e README -e rule-registry) files checked)"
 fi

@@ -3,12 +3,12 @@ id: BL-0091
 type: bug
 area: standards
 title: "Wire the two dormant self-check scripts and derive the rule-registry counts instead of hardcoding them"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-40 + R-41 (trigger half) + R-43"
-closes:
+closes: "plugin/hooks/hooks.json v9.98.7 wires check-preflight-drift.sh into the Stop sequence (plugin/hooks/hooks.json:73-78); factory/standards/check-standards.sh gains a live awk recount + a mismatch assertion (registry rows without a recognized wired/manual/aspirational status FAIL); factory/standards/rule-registry.md's Counts section replaced with a derived note + dated snapshot. check-standards.sh's own caller (routines.md:85 + learn/SKILL.md:44) predates this item (BL-0055) and was left untouched per the card's own note."
 links: [BL-0055, BL-0069, LESSON-0113]
 ---
 
