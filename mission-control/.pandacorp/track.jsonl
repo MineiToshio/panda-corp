@@ -48,3 +48,5 @@
 {"kind":"frd_end","frd":"frd-23-materialized-stats-read-model","at":"2026-07-07T04:59:42.920Z"}
 {"kind":"wo_start","frd":"frd-24-decision-id-emitter","wo":"WO-24-001","at":"2026-09-03T17:51:27Z"}
 {"kind":"wo_end","frd":"frd-24-decision-id-emitter","wo":"WO-24-001","state":"in_review","at":"2026-09-03T17:54:36Z"}
+{"kind":"wo_start","frd":"frd-24-decision-id-emitter","wo":"WO-24-002","at":"2026-09-03T17:56:31Z"}
+{"kind":"wo_end","frd":"frd-24-decision-id-emitter","wo":"WO-24-002","state":"in_review","at":"2026-09-03T17:58:47Z"}
