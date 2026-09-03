@@ -3,12 +3,12 @@ id: BL-0116
 type: change
 area: plugin-skill
 title: "Spike the native /deep-research against discover's hand-rolled multi-source research playbook"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-23"
-closes:
+closes: "plugin/docs/decision-log.md v9.99.1 entry (2026-09-03)"
 links: []
 ---
 

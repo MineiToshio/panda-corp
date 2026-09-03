@@ -4,6 +4,70 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.3 — 2026-09-03 (PATCH): Spike verdict — REJECT `/deep-research` as a replacement for `discover`'s hand-rolled research (BL-0116)
+
+**What:** closes BL-0116 (proposal 33 §6 R-23). Bounded spike, no code/skill change — the item only asked
+whether `/deep-research` (Claude Code's bundled dynamic-workflow command) fits in place of
+`plugin/agents/researcher.md` + `plugin/skills/discover/sources.md`'s hand-rolled multi-source playbook.
+**Verdict: REJECT** adopting `/deep-research` as a replacement for, or wrapper around, `discover`'s
+Phase 1 lens sweep. Not filed for re-litigation without new information (the card's "done when").
+
+**Primary source, verified live this session:** https://code.claude.com/docs/en/workflows, fetched
+2026-09-03. Confirms `/deep-research` is GA ("Claude Code includes `/deep-research` as a built-in
+workflow"): it "fans out web searches on a question across several angles, fetches and cross-checks the
+sources it finds, votes on each claim, and returns a cited report with claims that didn't survive
+cross-checking filtered out," requires the WebSearch tool, and runs as a background dynamic-workflow
+Reach gated by a per-run approval prompt (or an explicit `Workflow` allow-rule / `Auto`-mode consent) in
+an interactive session.
+
+**Side-by-side run, same lens.** Ran ONE real `discover` Phase-1 lens live in this session (app-enhancement
+extensions, via the `researcher` subagent against `sources.md`'s actual recipe — Chrome Web Store 1★
+reviews, Firefox add-on reviews) and produced 2 genuine teaser-scope candidates with real, dated,
+first-hand evidence URLs (a Checker-Plus-for-Gmail CASA-scope gap and an abandoned-Unhook-fork gap),
+in `discover`'s exact field schema (Problema/Evidencia/Hoy lo resuelven/Solución/Viabilidad
+técnica/Complejidad). Diffed that output shape against `/deep-research`'s documented report shape:
+
+| Dimension | `discover` (live-run evidence) | `/deep-research` (primary-doc evidence) |
+|---|---|---|
+| Output unit | N structured candidates, fixed fields, feeding `idea-card-example.md`'s byte-authoritative frontmatter+template verbatim | One narrative cited report per question; no field schema |
+| Input shape | A LENS fanned across a pre-verified source playbook → N ideas | One question in → one report out; no "sweep a lens for N ideas" concept |
+| Source discipline | Hand-tested per-source access ledger (`sources.md`): which endpoints 403/JS-block/OAuth-wall, exact query mechanics (e.g. Reddit = one short quoted phrase via WebSearch only) | Generic WebSearch/fetch fan-out; no pre-loaded niche-source ledger — would rediscover G2/Trustpilot/Play-Store dead ends at cost each run |
+| Verification | Prompt-enforced rules (researcher.md rule 1 "no link = no claim", rule 5 skeptical section) | Structural: independent agents cross-check and vote per claim; unreachable claims marked "unverified," not silently dropped — a genuinely stronger primitive (see below) |
+| Owner-in-the-loop | Owner picks 2-3 of 8-12 teasers BEFORE Phase 2 spend; reactions feed taste-learning (DR-053) | Fully autonomous; no mid-run gate, no taste hook |
+| Memory/dedup | Persists to `factory/ideas/_drafts/discover-*.md`; dedup vs. the full board incl. `discarded` (Gate 3.0); rejection-pattern learning | No ideas-base contract; no dedup, no discard memory |
+| Runtime fit | Ordinary `Agent` dispatch — works unattended/scheduled (SKILL.md: Phase 1 runs as a no-human scheduled job) and inside any delegated context | Bundled Workflow, gated behind interactive per-run approval/allowlisting; **empirically absent from this very session's tool list** (a delegated worktree/backlog-implementer agent) — though a top-level interactive `discover` run may well have it, so this point is context-dependent, not decisive on its own |
+| Cost model | Designed cheap: researcher.md rule 9 caps teaser depth to one-line bet + one link, no full evidence pack | Explicit cost warning in the primary doc (meaningfully more tokens per run; flags >25 agents/>1.5M tokens as "Large workflow") — no lever to hold it at teaser-cheap depth |
+
+**Why REJECT, not partial-adopt of the whole thing:** the two solve different problems. `discover` is a
+PM-governed, taste-gated, schema-constrained idea-sweep; `/deep-research` is a general-purpose
+cited-report generator for one question. Bolting it in would need (a) a translation layer turning one
+narrative report into N card-schema candidates — the exact "costs more than it saves" risk the card
+asked to check, confirmed by the table above, (b) re-deriving the hand-tested source-access ledger it
+doesn't carry, and (c) building the owner-pick/dedup/taste-learning hooks it has none of.
+
+**What's worth a future look, out of scope here (card excludes replacing `researcher`/`sources.md` in
+this item):** `/deep-research`'s cross-check-and-vote verification primitive is a real improvement over
+`researcher.md`'s current single-agent self-check, independent of the output-shape mismatch above. Not
+filed as a follow-up BL — noted here for `/pandacorp:learn` to pick up if/when evidence quality on a real
+`discover` run becomes a live complaint; the verdict above is decisive on its own for the item as scoped.
+
+**Red-team:** (1) *"You should have literally invoked `/deep-research` instead of reasoning from the
+primary doc."* — Not attempted: no `Workflow` tool is available to this delegated worktree session (a
+subprocess `claude -p` invocation would spend real, uncapped multi-agent API budget without the owner's
+prior go-ahead — a "spending money" human gate per `AGENTS.md` rule 3 — disproportionate to an M-effort
+bounded spike). The primary doc is detailed enough (mechanics, output shape, explicit cost warnings) to
+diff structurally without a live run, and the `discover`-side artifact above WAS produced live in this
+session, so the comparison is not built entirely on documentation. (2) *"Reject is too strong given the
+verification primitive is genuinely better."* — The reject targets adopting the bundled workflow AS-IS
+for the lens sweep (the card's literal ask); it does not foreclose borrowing the cross-check pattern into
+`researcher.md`'s own prompt later, which is exactly why that idea is flagged above rather than silently
+dropped. (3) *"The runtime-unavailability finding might not hold where `discover` actually runs."* —
+Correct, and stated as context-dependent in the table; it is not load-bearing for the verdict, which
+rests on the output-shape/translation-cost and missing-domain-ledger findings, both runtime-independent.
+
+**Scope:** no `plugin/` skill, agent or hook logic changed — this is a documentation-only decision-log
+entry, hence the PATCH bump. Sequential PATCH after BL-0103's v9.102.2.
+
 ## v9.102.2 — 2026-09-03 (PATCH): Routine permission posture — allowlist refresh wired, `dontAsk` toggle left as owner-only manual step (BL-0103, DR-121)
 
 **What:** partial close of BL-0103 (`status: doing`, not `done` — see its own "Attempt evidence"
