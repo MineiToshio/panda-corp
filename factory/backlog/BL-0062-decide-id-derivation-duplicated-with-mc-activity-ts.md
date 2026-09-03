@@ -3,7 +3,7 @@ id: BL-0062
 type: change
 area: mission-control
 title: "Deterministic decision-id emitter shared between the decide skill and Mission Control"
-status: open
+status: doing
 severity: p2
 opened: 2026-07-10
 closed:
@@ -69,3 +69,29 @@ Changing the id SCHEME itself (format, counting rule) — this item is only abou
 duplicated derivation, not redesigning what ids look like. Building this inside the factory
 (`plugin/scripts/`) instead of Mission Control — the emitter's authoritative home stays MC-side
 since that is where `activity.ts` already lives and where MC's own build/test pipeline can gate it.
+
+## Note (blocked, 2026-09-03 — implement-backlog dispatch attempt)
+Attempted via the `pandacorp-backlog` dispatch, isolated in `git worktree`
+`.claude/worktrees/bl-BL-0062` (branch `bl/BL-0062`) per the standard recipe. The Fix plan's own
+routing step — file a change-request in `mission-control/.pandacorp/inbox/changes/` — cannot be
+performed from that isolation: `mission-control/.pandacorp/inbox/` is gitignored (root `.gitignore`
++ `mission-control/.gitignore` both exclude `.pandacorp/inbox/`), so a fresh `git worktree` never
+materializes it (confirmed: `mission-control/.pandacorp/inbox/` does not exist in the worktree,
+only the tracked siblings — `guide.md`, `status.yaml`, `verify.sh`, etc. — are checked out).
+A card written inside the worktree would (a) not exist where MC's own build actually drains its
+queue (the real, gitignored inbox lives only in the main checkout) and (b) never reach the main
+checkout via the merge phase either, since `git merge` cannot move an untracked/gitignored file —
+so it would be silent no-op work, not the routing this item actually needs. The dispatch's own hard
+boundary ("do all work inside the worktree, never touch the main checkout's working tree") is
+therefore structurally incompatible with this item's Fix plan, which targets **owner-state, not
+tracked source** — the same class of asset `/pandacorp:change` writes directly, attended, with no
+git operation involved at all.
+
+**Recommendation:** this item should NOT be re-dispatched through `implement-backlog`'s worktree
+pipeline. Either (a) an attended agent files the change-request directly in the main checkout's
+`mission-control/.pandacorp/inbox/changes/` (the same way `/pandacorp:change` itself operates, no
+isolation needed since it's gitignored owner state, not a tracked-file edit that could race the
+merge queue), or (b) the owner runs `/pandacorp:change` against mission-control themselves with the
+Fix plan's shape (pure id-derivation function/CLI + golden vectors + `decide/SKILL.md` pointing at
+them) as the description. Left `status: doing` (not reverted to `open`) to record that a dispatch
+attempt happened and hit a structural wall, not a coding fault.
