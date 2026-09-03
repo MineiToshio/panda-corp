@@ -1,0 +1,63 @@
+---
+id: WO-24-002
+type: work-order
+slug: golden-vectors
+title: 'WO-24-002 — Golden-vector regression suite (library ↔ CLI agreement)'
+status: DRAFT
+parent: FRD-24
+foundation: false
+implementation_status: PLANNED
+blocked_reason:
+difficulty: low
+reopen_count: 0
+artifacts: [src/lib/docs/_tests/fixtures/decisions-golden.md, src/lib/docs/_tests/decision-id-golden.test.ts]
+source_requirements: [REQ-24-002]
+dependsOn: [WO-24-001]
+last_updated: '2026-09-03'
+---
+
+# WO-24-002 — Golden-vector regression suite (library ↔ CLI agreement)
+
+> Source-of-truth: [`blueprint.md`](../blueprint.md) §4 · depends on [WO-24-001](wo-24-001-shared-emitter.md).
+
+## Summary
+A committed fixture `decisions.md` plus a test proving `parseDecisionBlocks` (the library function)
+and `decision-id-cli.mjs` (the CLI, spawned as a real subprocess) produce the exact same ordered id
+list for it — and that list matches a committed expected-ids array — so the two independent call
+paths this FRD creates can never silently drift apart.
+
+## Scope
+- `src/lib/docs/_tests/fixtures/decisions-golden.md` (new fixture): a realistic `decisions.md` with
+  (a) two `##` headings sharing the exact same date, (b) at least one legacy `OPEN:`/`CLOSED:`/
+  `RESOLVED:` heading, (c) a mix of pending and resolved dated blocks.
+- `src/lib/docs/_tests/decision-id-golden.test.ts` (new):
+  1. A committed `EXPECTED_IDS: string[]` literal (the golden vector).
+  2. `parseDecisionBlocks(fs.readFileSync(fixturePath, "utf-8")).map(d => d.id)` deep-equals
+     `EXPECTED_IDS`.
+  3. `execFileSync("node", ["--loader", "./scripts/read-model/ts-loader.mjs",
+     "scripts/decisions/decision-id-cli.mjs", fixturePath], { cwd: repoRoot })` — split stdout on
+     newlines (drop the trailing empty line), non-empty lines deep-equal `EXPECTED_IDS` too (matches
+     the subprocess-spawning pattern already used in
+     `src/lib/achievements/read-model/_tests/gitFixture.ts`).
+  4. A CLI-boundary case: invoking the CLI with a nonexistent path exits non-zero and writes a
+     message to stderr (no silent empty stdout).
+
+## Out of scope
+- The extraction itself (WO-24-001) — this WO only adds coverage on top of it.
+- Editing `plugin/skills/decide/SKILL.md` — out of scope for this project, tracked separately.
+
+## Acceptance criteria (REQ-24-002)
+- **AC-24-002.1** — Both the library call and the CLI subprocess call, run against
+  `decisions-golden.md`, produce the SAME ordered id list, and that list equals the committed
+  `EXPECTED_IDS`.
+- **AC-24-002.2** — The suite is a real regression gate: it fails if either call path's output
+  diverges from `EXPECTED_IDS` OR from each other (asserted as two independent equality checks
+  against the same golden array, not one derived from the other).
+
+## Dependencies
+`WO-24-001` — needs `parseDecisionBlocks` and the CLI to exist first.
+
+## Status Note
+(filled by the implementer on close: fixture contents summary, final `EXPECTED_IDS` count, and
+confirmation both call paths were exercised as real, independent invocations — not one mocking the
+other.)

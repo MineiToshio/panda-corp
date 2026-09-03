@@ -1,5 +1,44 @@
 # Decision Log — Mission Control
 
+## 2026-09-03 — FRD-24 (shared decision-id emitter) materialized; DRAFT-blocked on an Anthropic Opus outage
+
+Ran the `iterate` PM step by hand on the queue's `decision-id-shared-emitter.md` card (`BL-0062`,
+proposal 33) ahead of the owner-approved first supervised build — chosen over the other `ready` card
+(`portada-seal-coverage-commits-funnel-ideas.md`, older/FIFO-first but requires the PM to pick among
+three open options, not "materialize a bounded FRD") because it has a concrete, bounded, 2-WO scope.
+Produced `docs/frds/frd-24-decision-id-emitter/` (frd.md with REQ-24-001/002 + EARS ACs, blueprint.md,
+work-orders/{README,wo-24-001-shared-emitter,wo-24-002-golden-vectors}.md) and added its row to
+`docs/product/prd.md`'s Feature landscape. Scope: extract `activity.ts`'s existing `readDecisions()`
+id-derivation loop into a pure `parseDecisionBlocks(content)` + a `decision-id-cli.mjs` (mirroring the
+existing `scripts/read-model/*.mjs` pattern) so the factory's `/pandacorp:decide` skill can invoke the
+exact same rule instead of restating it in prose, plus a golden-vector regression suite proving both
+call paths agree. Explicitly out of this FRD (factory-repo, cross-repo, tracked separately in the
+queue card and the FRD's Non-goals): updating `plugin/skills/decide/SKILL.md` step 1 to point at the
+new emitter.
+
+**Blocked at the DRAFT→ACTIVE gate — external, not a content defect.** Architecture's three
+independent JUDGE-tier (opus) gates (DR-100 readiness, DR-102 repo-grounding, DR-116 contradiction)
+could not be run: 10 dispatch attempts across all three gates over ~25 minutes all failed with
+`HTTP 529 Overloaded` on `claude-opus-5`. Independently confirmed via `status.claude.com`: an ACTIVE
+Anthropic incident (`461yvfrzpwtt`, "Elevated errors for multiple models", opened 13:26 UTC the same
+day) explicitly names Opus 5/4.8/4.6 and Fable 5/5.1 as affected. Per DR-111 the JUDGE tier is never
+downgraded automatically, so the blueprint and both work orders correctly remain `status: DRAFT`
+rather than being force-flipped to `ACTIVE` on an incomplete review. Confirmed empirically via
+`preflight-implement.sh mission-control`: this DRAFT state fails preflight check 5 ("un-gated DRAFT
+work order") for the WHOLE project, so **no `/pandacorp:implement` launch can proceed on
+mission-control until the three gates run and pass** (or these work orders are reverted). Noted in
+the queue card (`.pandacorp/inbox/changes/decision-id-shared-emitter.md`, its `frd:` field now points
+at `frd-24-decision-id-emitter` so a future session doesn't re-materialize a duplicate) and in the
+blueprint's own header. Next step: re-run the architecture skill's step 9/9b/9b-consistency gates once
+Opus availability recovers.
+
+Also surfaced by the mandated FULL (non `--since`) `.pandacorp/verify.sh` baseline run this session —
+unrelated to FRD-24, pre-existing since a 2026-07-11 commit, flagged to the owner as separate follow-up
+work rather than fixed here: 6 stale `knip` unused-export findings, 1 `madge` circular dependency
+(`lib/events/events.ts` ↔ `lib/events/event-contract.ts`), and 2 test failures (`achievements page.test.tsx`
+shipped-count assertion; `guildState.test.ts`'s outcomes-divergence check, possibly a non-hermetic read
+of the real `~/.claude/dashboard-events.ndjson`).
+
 ## 2026-09-03 — Pandacorp overlay upgraded 8.69.0 → 8.81.0 (prep for the first supervised real build, proposal 33 §12.5)
 
 Ran `/pandacorp:upgrade` ahead of the owner-approved single supervised `powerful --max-frds 1` build. Compatible
