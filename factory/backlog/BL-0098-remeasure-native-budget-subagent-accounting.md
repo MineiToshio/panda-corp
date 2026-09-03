@@ -67,3 +67,37 @@ an owner-authorized Claude Code session that can read `budget.spent()`/`budget.t
 result against the run's `usage_summary` line. The `implement-backlog`/build-engine track is the right
 place to pick this measurement up the next time a real `powerful` build runs — do not fabricate or
 estimate the comparison instead (DR-078/CONV-13).
+
+## Attempt evidence — 2026-09-03 (post wf_ddcc95c6-1d7)
+
+The owner's supervised `powerful` build ran the same day (`wf_ddcc95c6-1d7`, mission-control, FRD-24,
+`maxAgents: 30`, `maxFrds: 1`, 17:41:44Z→~18:41Z, `stopReason: "maxFrds"`). Checked (CONV-13, this
+session) whether it qualifies as BL-0098's run — it does **not**: the Fix plan requires
+`args.maxAgents` **unset** and `args.maxSpend` at a known ceiling so `budget.spent()` is the operative
+brake being isolated. This run had `maxAgents: 30` **set** (confirmed via the `BuildLaunch` event,
+`~/.claude/dashboard-events.ndjson`: `{"event":"BuildLaunch","at":"2026-09-03T17:42:04Z",...,"maxAgents":30,"targeted":true}`)
+and no `maxSpend` recorded anywhere (`mission-control/.pandacorp/status.yaml` has no `maxSpend` field;
+`BuildLaunch`'s own printf, `.claude/engines/pandacorp-build.js:233`, doesn't even echo it, and the
+in-engine check that reads `budget.spent()` — `pandacorp-build.js:1846`, `if (MAX_SPEND && budget.spent() >= MAX_SPEND)` —
+short-circuits false whenever `MAX_SPEND` is null, meaning the code path that calls `budget.spent()` most
+likely never executed at all this run). So this run gives **zero signal** on BL-0098's actual question,
+in either direction.
+
+**Measurement table (what IS available from this run, for the record — not a substitute for the real test):**
+
+| Source | Figure |
+|---|---|
+| Engine `budget.spent()` at quiesce | **not logged anywhere** — no `BuildLaunch`/`BuildComplete`/`gate` event in `dashboard-events.ndjson` carries a `spent`/`budget` field, and `status.yaml` has no such field either. Gap confirmed live (grepped the full event window `17:41`–`18:48Z` and `status.yaml`). |
+| Engine's internal weighted `agentSpawned` at quiesce | **not logged anywhere** either (same grep — no event/`status.yaml` field carries it). |
+| External reconstruction (this session, from the run's own transcripts) | 22 raw `agent-*.jsonl` files under the run's transcript dir; by first-seen `message.model` per file: 6 `claude-opus-5`, 3 `claude-sonnet-5`, 13 `claude-haiku-4-5-20251001`. Applying the engine's own `COST(m) = m==='opus'?3:1` (`pandacorp-build.js:141`) as a proxy: 6×3 + 3×1 + 13×1 = **34 weighted units** against `maxAgents: 30` — i.e. the run's own internal counter, if it uses the same weighting, likely finished *above* the nominal cap; it never tripped `stopReason: "agents"` because `stopReason: "maxFrds"` (only 1 FRD in scope) ended the run first. This is a proxy from transcript files, not the engine's own logged value — it cannot stand in for `budget.spent()`. |
+| BL-0096 `usage_summary` rollup (real $/tokens) | `calls_total: 876`; sonnet 164 calls/$2.1997; opus 413 calls/$17.864173; haiku 299 calls/$0.7954; **`cost_usd_total: 20.859274`** (`mission-control/.pandacorp/track.jsonl`, last line). |
+
+**Verdict: still open, `doing`.** Neither side of BL-0098's actual comparison (`budget.spent()` vs
+real subagent spend) was produced by this run — the run's shape didn't call for it (`maxSpend` unset) and
+the engine doesn't persist `budget.spent()` or its own final `agentSpawned` value anywhere retrievable
+after the fact even when it would. Two things to carry forward, neither actioned here (out of scope /
+no permission to edit `build-orchestration.md` from this card-only pass):
+1. The still-unmet Fix plan: a `powerful` targeted build with `maxAgents` unset + `maxSpend` set.
+2. **Proposed follow-up (not filed):** *"Log `budget.spent()` and final weighted `agentSpawned` in the
+   `BuildComplete` event / `status.yaml` at quiesce"* — without it, even a qualifying future run leaves
+   the comparison to ad-hoc transcript reconstruction instead of a first-class engine figure.
