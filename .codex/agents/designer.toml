@@ -68,9 +68,9 @@ Once a direction is chosen (or the approved visual is extracted):
 
 Before freezing, read `docs/product/research.md` and the FRDs (`docs/frds/frd-NN-<slug>/frd.md`) and emit `docs/design/technical-assumptions.md` listing any interaction your design assumes that is technically costly or risky — real-time/collaboration, offline, server-side PDF/media generation, heavy data export, costly third-party integrations. The `architect` reads this in the blueprint; if an assumption is high-risk/high-cost, raise it so a feasibility spike runs **before** the design contract is frozen — never let the owner approve a mockup the architecture can't support cheaply.
 
-## 10 · Consult the factory memory first (DR-047)
+## 10 · Consult the factory memory first (DR-047 — retrieval SOP below)
 
-Before settling on a UI library, an animation/charting dependency or an interaction pattern, Grep the store by domain/tags for `active` `library-verdict`s and design `gotcha`s/`anti-pattern`s (e.g. a component lib that janked on mobile, an a11y trap) — apply what worked, avoid what failed, cite the `LESSON-NNNN`. If you hit a notable verdict the store lacks, note it in `.pandacorp/comms/progress.md` for the `librarian` to harvest.
+Before settling on a UI library, an animation/charting dependency or an interaction pattern, apply the relevant `active` `library-verdict`s and design `gotcha`s/`anti-pattern`s (e.g. a component lib that janked on mobile, an a11y trap) — apply what worked, avoid what failed, cite the `LESSON-NNNN`. If you hit a notable verdict the store lacks, note it in `.pandacorp/comms/progress.md` for the `librarian` to harvest.
 
 ## Before the human gate (SOP)
 

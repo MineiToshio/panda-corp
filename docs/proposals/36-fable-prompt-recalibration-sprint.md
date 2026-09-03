@@ -193,3 +193,103 @@ owner-facing closing step per §5 of proposal 36.
 ## 9. Decision line
 
 The owner said **"proceed"** in chat on 2026-09-03, after the sprint's scope, cost bound and success criteria were presented per proposal 33 §12.2 option (ii) and DR-114's precedent. This note is the record of that contract: it fixes what the Fable sprint may touch (§2), what it costs at most (§4, hard ceiling $50), and what "done" means (§6, 11 checkable criteria) — before any Fable API call is made. The remaining condition, an explicit owner go **at launch time**, is separate from writing this note and must still be obtained by whoever runs the sprint. This authorization is single-use and scoped to `BL-0111`; it does not stand as precedent for any other Fable use without its own fresh opt-in per CONV-12/DR-111.
+
+## 10. Sprint log (Fable executor, 2026-09-03 — branch `sprint/fable-prompts`, worktree `.claude/worktrees/fable-sprint`)
+
+Appended by the executor; §1–9 untouched. Everything below was checked with a tool in the worktree (CONV-13). The independent Opus red-team pass (§5.5) has NOT run yet — this log is its input, hunk by hunk. Baseline = `main` @ `98e6a17f` (the branch was rebased once onto `main` @ `b2439490` — the commit that landed this very proposal — with no conflicts; the 41 in-scope files are identical at both commits).
+
+### 10.1 Per-file table (all 41 in-scope files)
+
+`wc -l` before/after are identical on every file (the edits shorten prose inside lines), so word counts are also given. Verdicts: **34 LEAVE · 7 LIGHT-DEDUP · 0 RESTRUCTURE** — 9 hunks (8 `dedup`, 1 `prosthesis`, 0 `generation-wording`).
+
+| File | Lines before | Lines after | Words before | Words after | Hunks | Tags | Verdict |
+|---|---:|---:|---:|---:|---:|---|---|
+| `plugin/agents/analytics.md` | 21 | 21 | 614 | 614 | 0 | — | LEAVE |
+| `plugin/agents/architect.md` | 45 | 45 | 1242 | 1242 | 0 | — | LEAVE |
+| `plugin/agents/backend-dev.md` | 34 | 34 | 790 | 790 | 0 | — | LEAVE |
+| `plugin/agents/copywriter.md` | 26 | 26 | 579 | 579 | 0 | — | LEAVE |
+| `plugin/agents/designer.md` | 89 | 89 | 1898 | 1899 | 1 | dedup | LIGHT-DEDUP |
+| `plugin/agents/devops.md` | 21 | 21 | 553 | 553 | 0 | — | LEAVE |
+| `plugin/agents/frontend-dev.md` | 43 | 43 | 1037 | 1037 | 0 | — | LEAVE |
+| `plugin/agents/implementer.md` | 45 | 45 | 1112 | 1112 | 0 | — | LEAVE |
+| `plugin/agents/librarian.md` | 55 | 55 | 1275 | 1275 | 0 | — | LEAVE |
+| `plugin/agents/product-manager.md` | 52 | 52 | 1378 | 1378 | 0 | — | LEAVE |
+| `plugin/agents/researcher.md` | 24 | 24 | 495 | 495 | 0 | — | LEAVE |
+| `plugin/agents/reviewer.md` | 101 | 101 | 2840 | 2807 | 2 | dedup · prosthesis | LIGHT-DEDUP |
+| `plugin/agents/security-auditor.md` | 30 | 30 | 461 | 461 | 0 | — | LEAVE |
+| `plugin/agents/test-writer.md` | 30 | 30 | 527 | 527 | 0 | — | LEAVE |
+| `plugin/skills/absorb/SKILL.md` | 108 | 108 | 1834 | 1844 | 2 | dedup | LIGHT-DEDUP |
+| `plugin/skills/adopt/SKILL.md` | 89 | 89 | 3603 | 3603 | 0 | — | LEAVE |
+| `plugin/skills/architecture/SKILL.md` | 68 | 68 | 4224 | 4224 | 0 | — | LEAVE |
+| `plugin/skills/bug/SKILL.md` | 27 | 27 | 710 | 710 | 0 | — | LEAVE |
+| `plugin/skills/change/SKILL.md` | 45 | 45 | 1557 | 1557 | 0 | — | LEAVE |
+| `plugin/skills/decide/SKILL.md` | 47 | 47 | 1575 | 1575 | 0 | — | LEAVE |
+| `plugin/skills/design/SKILL.md` | 72 | 72 | 3511 | 3502 | 1 | dedup | LIGHT-DEDUP |
+| `plugin/skills/discover/SKILL.md` | 119 | 119 | 4748 | 4726 | 1 | dedup | LIGHT-DEDUP |
+| `plugin/skills/explore/SKILL.md` | 48 | 48 | 1066 | 1066 | 0 | — | LEAVE |
+| `plugin/skills/implement-backlog/SKILL.md` | 61 | 61 | 1937 | 1937 | 0 | — | LEAVE |
+| `plugin/skills/implement/SKILL.md` | 173 | 173 | 7501 | 7447 | 1 | dedup | LIGHT-DEDUP |
+| `plugin/skills/iterate/SKILL.md` | 31 | 31 | 1370 | 1370 | 0 | — | LEAVE |
+| `plugin/skills/learn/SKILL.md` | 57 | 57 | 2093 | 2087 | 1 | dedup | LIGHT-DEDUP |
+| `plugin/skills/memory/SKILL.md` | 59 | 59 | 1751 | 1751 | 0 | — | LEAVE |
+| `plugin/skills/new-idea/SKILL.md` | 42 | 42 | 1127 | 1127 | 0 | — | LEAVE |
+| `plugin/skills/new-version/SKILL.md` | 30 | 30 | 664 | 664 | 0 | — | LEAVE |
+| `plugin/skills/onboarding/SKILL.md` | 124 | 124 | 1468 | 1468 | 0 | — | LEAVE |
+| `plugin/skills/recommend/SKILL.md` | 28 | 28 | 459 | 459 | 0 | — | LEAVE |
+| `plugin/skills/release/SKILL.md` | 42 | 42 | 1365 | 1365 | 0 | — | LEAVE |
+| `plugin/skills/review-launch/SKILL.md` | 34 | 34 | 834 | 834 | 0 | — | LEAVE |
+| `plugin/skills/scaffold/SKILL.md` | 52 | 52 | 960 | 960 | 0 | — | LEAVE |
+| `plugin/skills/spec/SKILL.md` | 42 | 42 | 2114 | 2114 | 0 | — | LEAVE |
+| `plugin/skills/sync-portfolio/SKILL.md` | 47 | 47 | 720 | 720 | 0 | — | LEAVE |
+| `plugin/skills/sync/SKILL.md` | 54 | 54 | 1859 | 1859 | 0 | — | LEAVE |
+| `plugin/skills/upgrade/SKILL.md` | 99 | 99 | 3224 | 3224 | 0 | — | LEAVE |
+| `plugin/skills/work-orders/SKILL.md` | 36 | 36 | 1402 | 1402 | 0 | — | LEAVE |
+| **Total** | **2250** | **2250** | **68477** | **68364** | **9** | 8 dedup · 1 prosthesis | 34 L · 7 LD |
+
+`factory/standards/prompting-conventions.md` read as the rulebook, not edited (R-02(a), §1). Generation-wording grep (`opus 4|sonnet-class|weaker model|older model|claude 3|claude 4`, case-insensitive) over the 40 files in the worktree: **zero matches** — confirms §2's finding.
+
+### 10.2 Per-hunk rationale (one line each; tag → what changed → where the rule now lives)
+
+1. `designer.md` §10 — **dedup** (PROMPT-3 one-home): the inline *grep-first* memory retrieval contradicted the byte-identical INDEX-first DR-047 block at the foot of the same file; the heading now points at "retrieval SOP below" and the rule keeps its domain triggers, `LESSON-NNNN` citation, `.pandacorp/comms/progress.md` note and `librarian` hand-off. Same fix v9.70.0 applied to implementer/backend-dev/frontend-dev. The block itself is untouched (§9 item 12).
+2. `reviewer.md` §6 STOP RULE — **dedup**: "Grinding a passing feature on nits is the #1 cause of a build that never finishes" already closes the ADVISORY paragraph of the same section ("Rejecting on nits … is the #1 cause of the build never finishing — DON'T"); the STOP RULE keeps "when only cosmetic gaps remain, you are DONE" and its whole structural-vs-cosmetic list.
+3. `reviewer.md` §6 Fidelity judgment — **prosthesis** (PROMPT-3 origin-as-pointer): the 17-un-sharded-surfaces retelling reduced to "(the Mission Control un-sharded-surfaces incident)"; the rule ("never no-op the per-route check just because per-FRD mocks are absent") and the DR-091 fallback chain are intact.
+4. `absorb/SKILL.md` `## Rules` — **dedup**: six bullets restated Preflight 2 / Step 0 / Step 1 / Steps 2–4 / Step 6 in full; each is now the invariant plus a pointer at its operative step. Kept **verbatim**: the human-gates sentence (PROMPT-4), the DR-009 language bullet, the plugin-lifecycle bullet, the `pandacorp-research` protected-path warning.
+5. `absorb/SKILL.md` Rules, Portability bullet — **dedup** (second pass on 4): the mechanics (`git rev-parse`, venv provisioning) live in Preflight 2 / Step 0; the bullet keeps the two prohibitions (never hardcode the path; never touch the system Python / install globally).
+6. `design/SKILL.md` Rules — **dedup**: the DR-054 bullet restated Step 0's ADOPT-VISUAL path; it now points there and at Step 4, keeping "the build must look like it" (the only clause not in Step 0) and the "only when there is no approved visual" condition. Stale deixis "path below" (the path is *above*) re-anchored to "(Step 4)".
+7. `discover/SKILL.md` 1c — **dedup**: the app-enhancement parenthetical restated the App-enhancement lens-table row (the bar) plus its rationale; it now names the bar, both disqualifiers (minority gripe on a beloved app; trivially-copyable feature) and the drop-or-flag action. Kill criterion 3f #4 left as the operative kill statement.
+8. `implement/SKILL.md` §Unattended, "1. Launch + set the ceiling" — **dedup** (PROMPT-2/3): the paragraph re-stated the ARG-ECHO gate text verbatim (its home: Launch checklist step 4, unchanged) and the maxSpend/maxFrds ceilings (homes: `$ARGUMENTS`, §How a run stops, unchanged); it now points at both. "For an overnight run, always pass `maxAgents`" stays bold in the paragraph; §9 item 6 (MAX_AGENTS primary brake) untouched.
+9. `learn/SKILL.md` Rules — **dedup**: the skill-naming rule duplicated step 5's convention in a second phrasing; now a pointer that still names the path shape, the `/pandacorp:<slug>` invocation, the never-hardcode-the-prefix rule and the `review-launch` example.
+
+### 10.3 PROMPT-6 receipts (executor self-check; the Opus pass re-does this independently)
+
+Method per changed file: every normative element of the OLD hunk text — rules, gates, thresholds, file paths, state tokens, DR/BL/LESSON references — listed and located in the NEW file (same hunk or the named home).
+
+- **designer.md**: DR-047 ✓ · triggers (UI library / animation-charting dep / interaction pattern) ✓ · `active` `library-verdict`/`gotcha`/`anti-pattern` ✓ · cite `LESSON-NNNN` ✓ · `.pandacorp/comms/progress.md` ✓ · `librarian` harvest ✓ · "Grep the store by domain/tags" → superseded on purpose by the canonical block's INDEX-first-then-Grep SOP (intentional removal — the point of the hunk). Byte-identical DR-047 block unchanged.
+- **reviewer.md**: DR-072 STOP RULE structure (3 in-loop cycles, reopen cap, cosmetic-class list, `.pandacorp/comms/visual-punch-list.md`, PASS, structural-class list, Layer A red, shell-presence gate) ✓ · "#1 cause of the build never finishing" ✓ (ADVISORY paragraph) · DR-091 fallback chain 1/2/3, `node e2e/screenshot-prototype.mjs` harness, `visual_source`, `ui: true` ✓ · intro DR-015 trust-boundary lines, VERIFIED/BLOCKED tokens, reopen cap ≥3, patch-first DR-073 — untouched.
+- **absorb/SKILL.md**: source-is-data + never execute/install/run hooks + quote to owner ✓ · `git rev-parse --show-toplevel` derivation ✓ (Preflight 2) · `$RESEARCH_DIR/.tooling/` venv, no global installs ✓ · Steps 2→3–4 ordering ✓ · red team mandatory + visible ✓ · two-step owner gate ✓ · **human-gates sentence verbatim** ✓ · no new engine, routes to `learn`/`implement-backlog`/`memory` ✓ · CONV-12/DR-111 ✓ · DR-009 language verbatim ✓ · plugin-lifecycle bullet verbatim (`plugin-metadata.json`, `generate-plugin-manifests.mjs`, DR-113, `plugin/docs/decision-log.md`) ✓ · protected-path warning verbatim ✓.
+- **design/SKILL.md**: DR-054 ✓ · fidelity over novelty ✓ · reproduce in tokens/`DESIGN.md` ✓ · no alternative directions ✓ · build must look like it ✓ · 3 directions only without an approved visual ✓ (+ Step 0 / Step 4 pointers). All other DR rules in the file untouched.
+- **discover/SKILL.md**: strong+widespread pain that hurt the incumbent (rating dropped / many asking) ✓ · not a minority gripe on a beloved high-rated app ✓ · not trivially copyable in one update ✓ · dropped-or-flagged ✓ · "~10 users, not a market / isn't a business" rationale ✓ (lens-table row). Gate 3.0, 3a–3f, the discarded-card auto-record and every owner rule — untouched.
+- **implement/SKILL.md**: ARG-ECHO gate text (`· maxAgents <N> ·`, `maxAgents OFF`, `args arrived as a <type>, NOT an object`, `TaskStop` + relaunch) ✓ verbatim in Launch checklist step 4 · overnight → always `maxAgents` ✓ (paragraph 1 + §How a run stops + Budget-ceiling bullet) · `maxSpend` secondary via `budget.spent()` ✓ (`$ARGUMENTS`, §How a run stops) · `maxFrds` test-only ✓ (same homes) · DR-032 single writer of `phase: implementation`, DR-063 lock, BL-0022 pins, `JSON.parse` fail-loud shim, immutable-commit safe point ✓ (same paragraph). Every DR-120 STOP statement, the concurrent-run guard, the DR-045 preflight, leases, the DR-067/069/070/072/073 rules — untouched.
+- **learn/SKILL.md**: `plugin/skills/<kebab-slug>/SKILL.md` ✓ · slug in English ✓ · no `pandacorp:` prefix in directory or `name:` ✓ · invoked as `/pandacorp:<slug>` ✓ · `review-launch` example ✓ · "must match all the others" ✓.
+
+**Criterion 10 (BL-0111 acceptance test — `reviewer.md` + `designer.md`)**: the v9.67.0 baseline shape (reviewer: sectioned lenses with the explicit BLOCKS vs ADVISORY split; designer: labeled sub-rules 3/4/7) is preserved verbatim except for the three hunks above; no never-degrade item (human gate, language, doc discipline, fail-closed semantics, state token) appears in any changed hunk. GREEN by the executor's read — to be re-run by the Opus pass.
+
+### 10.4 Gates (exit codes observed in the worktree, after the rebase)
+
+| Gate | Exit | Evidence |
+|---|---:|---|
+| `bash factory/standards/check-standards.sh` | 0 | `registry-count: 157 rules → 34 wired · 123 manual · 0 aspirational` · `OK: all standards conform (31 files)` |
+| `bash plugin/scripts/check-preflight-drift.sh` | 0 | A1 byte-identical across change/bug/iterate/new-version/release; A2 across those + sync |
+| `bash plugin/scripts/check-derived-drift.sh` | 0 | TOMLs regenerate identical; manifests both 9.102.5; `.agents/skills` link ok (linked-worktree note: the gitignored personal-ledger check is skipped, DR-033) |
+| `claude plugin validate plugin/` | 0 | `✔ Validation passed` |
+| `node plugin/scripts/test-pandacorp-backlog.mjs` | 0 | `RESULT: 32 passed, 0 failed` |
+| Frontmatter invariance (14 agents vs `git show main:`) | 0 | md5 of each `---` block IDENTICAL on all 14 |
+| `factory/standards/rule-registry.md` vs `main` | — | byte-identical (zero rows removed, criterion 2) |
+| Codex mirrors | — | `designer.toml`/`reviewer.toml` regenerated; the diff carries no `model`/`effort`/`name`/`description`/`tools`/`sandbox` field (body-only) |
+
+### 10.5 Close-out and cost
+
+- Version: `plugin/runtime/plugin-metadata.json` 9.102.4 → **9.102.5 (PATCH)** on the coordinator's instruction (form-only, CLAUDE.md's PATCH definition); §5.8 suggested MINOR — recorded in `plugin/docs/decision-log.md` (v9.102.5 entry) so the red-team can overrule. `factory/decision-log.md` deliberately NOT touched (outside the executor's allowed close-out files; §5.8 names it — for the merging session).
+- One commit on `sprint/fable-prompts` (§5.4 asked for per-file commits; this run's contract asked for one — the per-hunk table above is the revert unit for the red team: `git checkout main -- <file>` on any rejected file, then regenerate mirrors if it is an agent).
+- Cost: no live token metering exists (proposal 33 R-12). Executor estimate from its own session: ~18 turns, ≈3.5M cache-read tokens ($0.25/MTok ≈ $0.90) + ≈0.4M fresh input ($10/MTok ≈ $4.00) + ≈55k output ($50/MTok ≈ $2.75) ⇒ **≈ $7.7, ≤ $12 with error margin — well under the $50 cap (§4)**. No abort triggered; all 41 files triaged.
+- Deliberately left untouched (and why): DR-045 preflight blocks (byte-identical carrier spans); the DR-047 memory-retrieve block (6 agents, grep-verifiable); every DR-120 STOP statement in `implement` (one day old, fail-closed runtime boundary — PORT-5's home, not this sprint's); `adopt` Step 2/6b (DR-119 phase-derivation contract, state tokens); `architecture` step 9's long paragraph (a verbatim re-sectioning carries none of the three sanctioned tags, so it does not ship — candidate for a future pass); `backend-dev`/`frontend-dev` rule 7/8 bold hand-off contracts (state-machine text, PROMPT-4 verbatim-stable); `implement-backlog`'s BL-0100 haiku-drift note (owner-instructed retention, verified 2026-09-03); `prompting-conventions.md` and `registry.yaml:661` (R-02(a)).
