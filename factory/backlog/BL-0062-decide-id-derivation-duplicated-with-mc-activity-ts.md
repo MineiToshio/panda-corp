@@ -95,3 +95,18 @@ merge queue), or (b) the owner runs `/pandacorp:change` against mission-control 
 Fix plan's shape (pure id-derivation function/CLI + golden vectors + `decide/SKILL.md` pointing at
 them) as the description. Left `status: doing` (not reverted to `open`) to record that a dispatch
 attempt happened and hit a structural wall, not a coding fault.
+
+## Note (2026-09-03) — routed and materialized; still not Done
+
+The (b) recommendation above landed: an attended session filed
+`mission-control/.pandacorp/inbox/changes/decision-id-shared-emitter.md` (status ready) and ran the
+`iterate` PM step by hand, materializing `mission-control/docs/frds/frd-24-decision-id-emitter/`
+(frd.md + blueprint.md + WO-24-001/WO-24-002, commit `0c864913`). **This item's own Done-when is
+still not met**: it requires the shared emitter (or golden-vector equivalence test) to EXIST AND BE
+GREEN, `decide/SKILL.md` step 1 repointed, and the MC decision-log entry — i.e. merged, tested code,
+not just the FRD/WO documents. FRD-24's blueprint is still `status: DRAFT` (JUDGE-tier gates never
+ran — Opus outage, see commit message) and neither work order has been implemented.
+
+> **blocked-by: mission-control FRD-24 build** — WO-24-001 (shared emitter) and WO-24-002 (golden
+> vectors) must actually run through `/pandacorp:implement` and land, and `decide/SKILL.md` step 1
+> must be repointed, before this item can close. Left `status: doing`.
