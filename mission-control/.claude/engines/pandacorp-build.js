@@ -95,6 +95,8 @@ const TRACK_PATH = PROJECT_DIR === '.' ? '.pandacorp/track.jsonl' : `${PROJECT_D
 const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJECT_DIR} — cd there FIRST; every relative path below is relative to it.\n`
 // GENERATED from plugin/runtime/prompts/sync-rollups.md — do not hand-edit this fragment.
 const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE_CLI_COMMAND}} sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
+// GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
+const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`${STATE_CLI_COMMAND} quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`${STATE_CLI_COMMAND} finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
 const INSPECT_STOP = `${STATE_CLI_COMMAND} inspect-stop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"`
@@ -427,12 +429,22 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
   properties: { wo: { type: 'string' }, finding: { type: 'string', description: 'the specific bounded fault, with file:line' }, failingTest: { type: 'string', description: 'the RED-proven test (path / describe-it / a snippet) that fails without the fix and passes with it' }, files: { type: 'array', items: { type: 'string' }, description: 'the file(s) the fix should touch' } },
 } }
 const FRD_GATE_SCHEMA = {
-  type: 'object', required: ['green'],
+  type: 'object', required: ['green', 'traceability'],
   properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
+    traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory. It includes requirements, acceptance-criteria, invariant, edge-case, limit, error and exclusion entries; missing coverage is RED.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } } } } },
     // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
     // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
     testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
   },
+}
+const REQUIRED_TRACE_CLASSES = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion']
+function enforceWholeFrdTraceability(result) {
+  const trace = result && result.traceability
+  const missing = !Array.isArray(trace) || REQUIRED_TRACE_CLASSES.some((kind) => !trace.some((entry) => entry && entry.contractClass === kind))
+  const invalidBoundary = Array.isArray(trace) && trace.some((entry) => entry && ['edge-case', 'limit'].includes(entry.contractClass) && entry.status === 'pass' && (!Array.isArray(entry.tests) || entry.tests.length === 0))
+  const waivedFailure = result && result.green === true && Array.isArray(trace) && trace.some((entry) => entry && entry.status === 'fail')
+  if (missing || invalidBoundary || waivedFailure) return { green: false, traceability: Array.isArray(trace) ? trace : [], failure: 'whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict' }
+  return result
 }
 // ── Split-gate schemas (proposal 31 T1.2) ────────────────────────────────────
 // The FIND stage's finders each report a flat list of {file, claim, evidence, severity}. `severity`
@@ -565,7 +577,7 @@ if (precheck && precheck.green === true) {
   baseline = await agent(
     `You are the Pandacorp baseline-repair engineer (DR-067 reconciliation + verify). The cheap pre-check found the tree DIRTY or HEAD beyond the certified last_green snapshot/pointer pair${precheck && precheck.dirty ? ' (tree is dirty)' : ''}.
     **STEP 0 — FAIL-LOUD project-root guard (BL-0022/BL-0068):** execute exactly \`${INSPECT_STOP}\`; if it fails, return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" } and do nothing else. NEVER use shell \`test\` or \`[\` for this guard.
-    **STEP 1 — DR-067 RECONCILIATION (only if the tree is dirty/conflicted):** read \`last_green_sha\` from status.yaml. If the working tree has uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), RESTORE the tracked MODIFIED files to the last green: \`git checkout <last_green_sha> -- <those modified tracked files>\` (surgical — NEVER \`git reset --hard\` the whole tree, which would discard verified work). Drop stale build stashes: inspect \`git stash list\` and drop entries that are leftover build stashes (DR-067 — never stash-pop across a moved tree). Remove leftover temp preview pages: any \`preview-wo*\` scratch page/route the build created. Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
+    **STEP 1 — DR-067 RECONCILIATION (only if the tree is dirty/conflicted):** read \`last_green_sha\` from status.yaml. The valid active fence makes \`.pandacorp/status.yaml\` controller-owned: NEVER checkout or restore \`.pandacorp/status.yaml\`; renew/sync-rollups deterministically re-derive its active projection from the fenced lease. If the working tree has other uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), RESTORE only those other tracked MODIFIED files to the last green: \`git checkout <last_green_sha> -- <those modified tracked files except .pandacorp/status.yaml>\` (surgical — NEVER \`git reset --hard\` the whole tree, which would discard verified work). Drop stale build stashes: inspect \`git stash list\` and drop entries that are leftover build stashes (DR-067 — never stash-pop across a moved tree). Remove leftover temp preview pages: any \`preview-wo*\` scratch page/route the build created. Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
     **STEP 2 —${GATE_SKIP} THEN run \`bash ${PROJECT_DIR}/.pandacorp/verify.sh\`:**
     - GREEN → return { green: true }, change nothing further.
     - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }. (A route quarantined above is NOT yours to fix — it waits on the owner; do not touch it.)
@@ -752,6 +764,10 @@ async function buildWO(wo, frd) {
   if (P.split && plan.hasFrontend) {
     // DR-073 cost-weighting: 3 build agents at woModel + 1 worker-model closer (self-test).
     agentSpawned += 3 * COST(woModel) + 1
+    // INTENTIONAL ASYMMETRY (BL-0115, owner decision 2026-09-02): test-writer stays at P.worker even when
+    // the implementers below escalate to woModel/opus. Reason is DR-015 builder/verifier diversity — holding
+    // the test author at the worker model is what keeps builder and verifier on DIFFERENT models exactly on
+    // the hard/reopened work orders where that independence is worth the most. Do not "fix" this to match.
     await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}.${woCtx(wo, frd)} No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
     await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}.${woCtx(wo, frd)} Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits this work order (serialized single writer) when it greens (Option B).`,
@@ -812,14 +828,14 @@ async function frdGate(frd, reviewIds, workFrom) {
     const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
     if (remaining >= splitGateEstimatedCost()) {
       const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom)
-      if (!split || !split.__splitFailed) return split   // sentinel __splitFailed → all finders died → fall to serial
+      if (!split || !split.__splitFailed) return enforceWholeFrdTraceability(split)   // sentinel __splitFailed → all finders died → fall to serial
     } else {
       log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
     }
   } else if (P.reviewSplit) {
     log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
   }
-  return await frdGateSerial(frd, reviewIds, attemptNo, workFrom)
+  return enforceWholeFrdTraceability(await frdGateSerial(frd, reviewIds, attemptNo, workFrom))
 }
 
 // ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
@@ -842,6 +858,8 @@ async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom) {
   **THE GATE IS SPLIT (DR-072) — this is what makes the build converge instead of churning. Two categories with DIFFERENT consequences:**
   • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd} — the required behavior/sections/elements EXIST and work), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch** (the surface is not RECOGNIZABLY the designed thing — e.g. a flat text list where the mock shows a multi-panel/pixel-art layout; a section missing entirely). These BLOCK.
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
+
+  ${WHOLE_FRD_ORACLE}
 
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.${PREVIEW_SMOKE(frd)}
@@ -955,6 +973,8 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom) {
   **THE GATE IS SPLIT (DR-072) — two categories with DIFFERENT consequences:**
   • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd}), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch**. These BLOCK. The survivors above are your starting set — CONFIRM each independently against the code before you act; you may also add a blocking correction the sweep missed if you find one exercising the feature (the sweep is a head-start, not a ceiling).
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
+
+  ${WHOLE_FRD_ORACLE}
 
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
   2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green. It must pass clean.${PREVIEW_SMOKE(frd)}
@@ -1083,7 +1103,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null) {
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
   **SELF-REPAIR BUDGET (DR-107) — a red introduced by YOUR OWN edits does not end the patch:** if the re-gate fails on something YOUR patch just added or touched (a type/lint error in a file you created or edited — e.g. a TS2345 in your own new test file), FIX that and re-gate. You may spend up to 2 such internal fix-and-re-gate cycles. (The real incident this exists for: a 1-line i18n patch was discarded — and its whole work order rebuilt from scratch — because its own new a11y spec had a trivial type error the old contract forbade fixing.)
   **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope), staging \`.pandacorp/build-journal.jsonl\` too (append-only — your attempt line) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
-  **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it, EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line, which is a durable record of this attempt and is swept by the engine's next commit — do NOT undo it),${PATCH_RESULT(frd, 'gate-test-defective')} and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
+  **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — **or (BL-0051) it is a BLESSED test asserting a contract that a work order of THIS FRD intentionally DEROGATES**, which no correct implementation of the new contract can satisfy either — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it, EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line, which is a durable record of this attempt and is swept by the engine's next commit — do NOT undo it),${PATCH_RESULT(frd, 'gate-test-defective')} and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
   **If you CANNOT green it in place** (the ORIGINAL build genuinely fails beyond the findings, or your self-repair budget is spent): UNDO all your own edits the same way — leave the tree exactly as you found it (do NOT commit, do NOT revert the WO; the engine reverts cleanly), EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line (a durable record of this attempt — leave it; the engine's next commit sweeps it),${PATCH_RESULT(frd, 'code-fail')} and return { green: false, cause: 'code', failure: <why> }.`,
     { label: `patch:${frd}`, phase: 'Review', model: 'opus', effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
@@ -1095,14 +1115,23 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null) {
 // sends the flow back to the normal revert fallback. This is the second exit DR-073 lacked — one
 // fallback for two causes meant a defective test could grind a correct build through rebuild loops
 // that could never converge (LESSON-0002).
-async function repairGateTest(frd, defectiveTests, reviewIds) {
+async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
   agentSpawned += COST(P.judge)
   const list = (defectiveTests || []).map((t) => `• ${t.path}: ${t.why}`).join('\n  ') || '(see the patch output)'
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate-test-repair' })}GATE-TEST REPAIR (BL-0001) for ${frd}. The patch agent flagged these reviewer adversarial test(s) as DEFECTIVE — internally inconsistent or unsatisfiable by ANY correct implementation:
+  // BL-0051: the same INDEPENDENT reviewer also owns the DEADLOCK BREAK — when the diagnoser classified
+  // `deadlocked-contract`, the flagged test is not internally inconsistent: it asserts a contract a SIBLING
+  // work order of this same FRD intentionally derogates (LESSON-0104). Same role, same DR-080 boundary,
+  // different framing of the judgment — so the build breaks the cycle itself instead of stopping for a
+  // human to hand-edit the blessed test.
+  const head = deadlock
+    ? `GATE-TEST RE-BLESS — DEADLOCK BREAK (BL-0051) for ${frd}. The diagnoser classified this failure **deadlocked-contract** (confidence ${(deadlock && deadlock.confidence) || 'medium'}): a BLESSED reviewer test still asserts a contract that a work order of THIS SAME FRD intentionally DEROGATES, while the work order that would re-bless it \`dependsOn\` the derogating one — neither can ever go green (LESSON-0104). Diagnosis: ${(deadlock && deadlock.seam && deadlock.seam.why) || (deadlock && deadlock.decisionRecord) || '(see the build journal)'}. The blessed test(s) at issue:`
+    : `GATE-TEST REPAIR (BL-0001) for ${frd}. The patch agent flagged these reviewer adversarial test(s) as DEFECTIVE — internally inconsistent, unsatisfiable by ANY correct implementation, or asserting a contract this FRD's own work orders intentionally derogate (BL-0051):`
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate-test-repair' })}${head}
   ${list}
   You are an INDEPENDENT reviewer (you own the gate's tests; the patcher may not touch them). For EACH flagged test, judge the claim on the evidence — do not take the patcher's word:
   - **Genuinely defective** (the assertion contradicts its own setup/config, or no correct implementation of the FRD's acceptance criteria could satisfy it): REPAIR the test so it correctly asserts the FRD's REAL acceptance criterion (fix the assertion/setup — e.g. force the viewport it assumed; NEVER delete the coverage or weaken what the AC requires).
-  - **Actually right** (the build really violates it): change NOTHING and return { green: false, cause: 'code', failure: 'test upheld: <why the build is wrong>' } — the engine falls back to the normal revert.
+  - **DEROGATED CONTRACT (BL-0051 deadlock break)** (the test is internally consistent, but the contract it encodes was intentionally SUPERSEDED by a work order of THIS FRD): before you accept this, PROVE the derogation is DECLARED — read ${frd}'s \`frd.md\`, its blueprint and the sibling work orders **including their \`dependsOn\` graph**, and confirm a work order states the new contract. Only then RE-BLESS the test: rewrite the assertion(s) to the NEW contract the FRD now specifies (never delete the coverage, never weaken what the acceptance criteria require — the re-blessed test must still FAIL against an implementation that gets the NEW contract wrong). **DR-080 stays intact:** you are the INDEPENDENT reviewer who OWNS this test, which is exactly why this edit is yours and never the implementer's/patcher's. If NO work order declares the derogation, it is not a derogation — fall through to "Actually right".
+  - **Actually right** (the build really violates it, or the claimed derogation is undeclared): change NOTHING and return { green: false, cause: 'code', failure: 'test upheld: <why the build is wrong>' } — the engine falls back to the normal revert (or, for a deadlock claim, to the needs-owner block).
   After repairing: re-run the repaired test file(s) + the FULL FRD test files for ${frd} AND whole-project \`pnpm biome check .\` + \`pnpm tsc --noEmit\` against the EXISTING build (work orders this cycle: ${(reviewIds || []).join(', ')}). If everything is clean, COMMIT only the test repair(s) (Conventional Commits, scope; note WHY each test was defective in the commit body) and return { green: true } — an independent verifier still re-runs the objective gate and stamps. If red remains, change nothing further and return { green: false, cause: 'code', failure }.`,
     { label: `gate-test-repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
 }
@@ -1391,10 +1420,10 @@ async function diagnoseFailure(frd, gate, reviewIds) {
   Classify the failure and recommend the CHEAPEST SAFE recovery. RULES:
   - A diagnosis with NO file:line anchor is confidence:low and CANNOT justify a block or an 'architectural' classification. **Default to 'point' unless the evidence forces otherwise.**
   - Adversarially RE-CHECK every prior diagnosis in the journal against the CURRENT code — any you cannot reproduce NOW goes in \`supersededPriors\` (poison self-purge), and is NOT counted as a recurrence.
-  - classification signals: **architectural** = findings spread over MORE than ${FINDING_SPREAD_THRESHOLD} files, OR the same \`findingKey\` recurring across >= 2 attempts (read the journal), OR an acceptance criterion that is unsatisfiable against the blueprint. **deadlocked-contract** = a blessed/preserved test asserts a contract that a SIBLING work order (a \`dependsOn\` relation) intentionally derogates (LESSON-0104 — in the decisionRecord, recommend folding the derogation + the re-bless into ONE work order). **gate-test-defective** = a reviewer adversarial test is internally inconsistent / unsatisfiable by any correct implementation (route to the existing gate-test repair). **Otherwise → point** (a bounded fault).
+  - classification signals: **architectural** = findings spread over MORE than ${FINDING_SPREAD_THRESHOLD} files, OR the same \`findingKey\` recurring across >= 2 attempts (read the journal), OR an acceptance criterion that is unsatisfiable against the blueprint. **deadlocked-contract** = a blessed/preserved test asserts a contract that a SIBLING work order (a \`dependsOn\` relation) intentionally derogates (LESSON-0104). When you classify this, \`seam.files\` MUST list the BLESSED TEST file(s) that encode the superseded contract (not the production files) — the engine hands exactly those to an INDEPENDENT gate-test reviewer to RE-BLESS them to the derogated contract (BL-0051), so a wrong seam sends the wrong file for repair; in the decisionRecord, still recommend folding the derogation + the re-bless into ONE work order so the next plan cannot re-create the deadlock. **gate-test-defective** = a reviewer adversarial test is internally inconsistent / unsatisfiable by any correct implementation (route to the existing gate-test repair). **Otherwise → point** (a bounded fault).
   - \`seam\`: the file(s)/symbol the fault localizes to, \`why\`, and \`cleanlySeparable\` (true iff reverting ONLY those files cleanly isolates the fault WITHOUT unwinding good work — this gates the PARTIAL revert).
   - \`repeatsPrior\`: true iff this SAME fault (\`findingKey\`) already appears in the journal for this WO on a prior attempt, AFTER your \`supersededPriors\` purge.
-  - \`recommendation\` ∈ patch | partial-revert | full-revert | block-needs-owner. Recommend **block-needs-owner ONLY** for architectural/deadlocked-contract at confidence medium|high (never on a weak diagnosis).
+  - \`recommendation\` ∈ patch | partial-revert | full-revert | block-needs-owner. Recommend **block-needs-owner ONLY** for architectural/deadlocked-contract at confidence medium|high (never on a weak diagnosis) — note that for deadlocked-contract the engine first attempts the independent gate-test RE-BLESS (BL-0051) and only blocks if that claim does not hold.
   - \`decisionRecord\`: a SPANISH, owner-facing paragraph (what keeps failing, your diagnosis, what the owner must decide) — meaningful when you recommend block-needs-owner; a one-liner otherwise.
   BUILD-JOURNAL (A1) — record YOUR kind:"diagnosis" line (you are the diagnoser; this is the trust-split's diagnosis half):${diagJournal}
   Return { classification, seam, repeatsPrior, supersededPriors, recommendation, decisionRecord, confidence }.`,
@@ -1527,9 +1556,34 @@ async function gateConverge(f, reviewIds, gate) {
         await revertAndReopen(f.frd, gate.reopen)
         return await inRunRetry(f, gate.reopen, reviewIds, diag)
       }
-      // (b) architectural / deadlocked-contract at confidence medium|high → EARLY BLOCK needs-owner:
-      // do NOT burn the remaining reopens on a spec only the owner can fix.
-      if ((cls === 'architectural' || cls === 'deadlocked-contract') && (conf === 'medium' || conf === 'high')) {
+      // (b0) BL-0051 DEADLOCK BREAK — a BLESSED reviewer test asserts a contract a work order of this
+      // same FRD intentionally derogates, and the work order that would re-bless it `dependsOn` the
+      // derogating one (LESSON-0104): WO-B cannot run until WO-A verifies, and WO-A cannot verify while
+      // the blessed test encodes the pre-change contract. Circular. Blocking here is what forced a human
+      // to hand-edit the blessed test — the exact DR-080-sensitive action the automation is supposed to
+      // own. So route it to the INDEPENDENT gate-test-repair reviewer (who OWNS the gate's tests; the
+      // implementer still never touches them) to RE-BLESS the derogated contract. Fail-closed: a claim
+      // the reviewer does NOT uphold, or a re-bless the independent verifier cannot confirm, still lands
+      // on the needs-owner block — this breaks a deadlock, it never rubber-stamps a red build.
+      if (cls === 'deadlocked-contract' && (conf === 'medium' || conf === 'high')) {
+        const blessedTests = (seam && seam.files && seam.files.length)
+          ? seam.files.map((path) => ({ path, why: (seam && seam.why) || 'asserts a contract a sibling work order of this FRD intentionally derogates (deadlocked-contract)' }))
+          : [{ path: '(see the diagnosis)', why: (seam && seam.why) || 'asserts a contract a sibling work order of this FRD intentionally derogates (deadlocked-contract)' }]
+        log(`⚖ ${f.frd}: diagnosis = deadlocked-contract (confidence ${conf}) — breaking the deadlock via the INDEPENDENT gate-test RE-BLESS instead of stopping for a manual unblock (BL-0051)`)
+        const tr = await repairGateTest(f.frd, blessedTests, reviewIds, diag)
+        if (tr && tr.green === true) {
+          const iv = await verifyPatched(f.frd, reviewIds)
+          if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (deadlocked contract re-blessed by the independent reviewer, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          log(`⊘ ${f.frd}: the re-bless greened but the independent verification failed (${iv?.failure || 'red'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
+        } else log(`⊘ ${f.frd}: the blessed test was UPHELD (${tr?.failure || 'no declared derogation'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
+        await blockEarlyNeedsOwner(f.frd, gate.reopen, diag)
+        blockFrd(f.frd, 'needs-owner')
+        return 'blocked'
+      }
+      // (b) architectural at confidence medium|high → EARLY BLOCK needs-owner: do NOT burn the remaining
+      // reopens on a spec only the owner can fix. (A deadlocked-contract only reaches here at
+      // confidence:low, which falls through to 'point' like any other weak diagnosis.)
+      if (cls === 'architectural' && (conf === 'medium' || conf === 'high')) {
         log(`⊘ ${f.frd}: diagnosis = ${cls} (confidence ${conf}) — early BLOCK needs-owner, NOT burning the remaining reopens on a doomed spec (A3)`)
         await blockEarlyNeedsOwner(f.frd, gate.reopen, diag)
         blockFrd(f.frd, 'needs-owner')
@@ -2016,7 +2070,9 @@ if (builtFrds.length) {
 // ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
 phase('Review')
 const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
-const allDone = !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
+// Project-wide hardening/release is authority a bare whole-project run owns. A targeted FRD/change
+// run closes as a scoped partial run even when its final gate happens to make every global WO VERIFIED.
+const allDone = !TARGETED && !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
 let closed
 if (allDone) {
   // ── DR-085 HARDENING (BL-0012, fail-closed): security + telemetry are construction's LAST STEP.

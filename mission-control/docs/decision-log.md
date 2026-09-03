@@ -1,5 +1,56 @@
 # Decision Log — Mission Control
 
+## 2026-09-03 — Pandacorp overlay upgraded 8.69.0 → 8.81.0 (prep for the first supervised real build, proposal 33 §12.5)
+
+Ran `/pandacorp:upgrade` ahead of the owner-approved single supervised `powerful --max-frds 1` build. Compatible
+bump (same MAJOR `8`) — applied silently per DR-048:
+
+- **Machinery regenerated**: `.claude/engines/pandacorp-build.js` re-synced to the canonical template (pulls in
+  the whole-FRD source-oracle traceability requirement + the BL-0051 blessed-test-derogation defective-test
+  path + the DR-067 `.pandacorp/status.yaml` controller-owned reconciliation guard, none of which mission-control
+  had). No leftover `.claude/workflows/pandacorp-build.js` to remove.
+- **Gate-config conformance (DR-059)**: `.pandacorp/verify.sh` and `.pandacorp/canary.sh` overwritten from
+  `stack-a-nextjs` (template additions only — the F4 token-fidelity advisory check and the PERF-3 barrel-file
+  canary; the project's copies were never ahead). `biome.json`/`knip.json` were already byte-identical to the
+  template (`detect-gate-config-newer.sh` confirmed `template-current`, no back-port needed). All seven e2e
+  verbatim files + `playwright.config.ts` were already conformant.
+- **`docs/rules/` re-sync**: added the two other `always` files that drifted (`code-conventions.md`,
+  `quality-and-testing.md`, verbatim overwrite) and the one that was missing entirely (`debugging.md`, an
+  `always` rule not present at 8.69.0). The tech-gated additions since 8.69.0 (`analytics-and-errors.md`,
+  `auth.md`, `data-modeling.md`, `i18n-next-intl.md`, `prisma.md`, `web-security.md`) correctly do NOT apply —
+  mission-control has no PostHog/Sentry, no auth, no Prisma, no next-intl, and is `deploy_target: internal`
+  (not public-web). Regenerated `docs/rules/README.md` to the canonical scaffold-skill shape (a one-line
+  directive + one `@file.md` import per rule present + a table), which it had never actually had — the prior
+  copy was a verbatim clone of the plugin's own source catalog (listing rules that were never copied into this
+  project, e.g. `prisma.md`/`auth.md`).
+- **`AGENTS.md` managed block reconciled**: the project's copy predated DR-110/CONV-13/DR-111/DR-113 and was
+  missing the "Interaction style", "Evidence before assertion", "Subagent model selection" and "Other runtimes"
+  sections entirely; added verbatim from the current `AGENTS.md.tpl`. `CLAUDE.md` and `.pandacorp/guide.md`
+  were already at parity with their templates — no change.
+- **Toolchain conformance**: already fully current — `knip`/`madge`/`@playwright/test`/`vitest`/
+  `@biomejs/biome`/`@axe-core/playwright` all present, `test:smoke`/`test:visual`/`test:responsive`/`test:shell`
+  scripts present, `tsconfig.json` already `strict` + `noUncheckedIndexedAccess`. Nothing to install.
+- **DR-079 canary**: `.pandacorp/verify.sh --canary` — 10/10 gates proven still-RED on a broken fixture
+  (biome, biome PERF-3, structure-guard, api-error-contract, DR-100 readiness, tsc, madge, vitest, knip,
+  Playwright spec discovery). No rotted gate.
+- **DR-076 amendment (BL-0003) full baseline run** — the FIRST full (non-`--since`) `verify.sh` run since the
+  `last_green_sha` recorded 2026-07-07, surfaced ONE format defect unrelated to this upgrade: `biome check`
+  reddened on `src/app/manual/manualPages.tsx` (last touched by the unrelated same-day commit `9d9e4616`,
+  "docs(learn): promote 12 memory lessons…", never run through the formatter before landing). Config drift was
+  ruled out first (`biome.json`/`knip.json` confirmed byte-identical to the template, so the conformance sync
+  did not cause it) before fixing it as its own commit (`style(mission-control): reformat manualPages.tsx per
+  biome`, whitespace/line-wrap only). **Left unresolved, flagged separately (not part of this upgrade):** the
+  same full run also found 5 unused exports (`legacyEventId`, `eventSubject`, `semanticLedgerKey`,
+  `EVENT_VOCABULARY_VERSION` in `src/lib/events/event-contract.ts`, `zeroLedger` in
+  `src/lib/gamification/ledger.ts`) and 1 unused exported type (`RuntimePluginSyncVerdict` in
+  `src/lib/plugin-sync/plugin-sync.ts`) — knip findings, stale since `5ee83d4e` (2026-07-11), invisible to
+  every `--since`-scoped gate run in between. This is genuine product-code judgment (delete vs. de-export)
+  outside the overlay-upgrade's "never touch product code" mandate, so `verify.sh` currently still exits
+  non-zero on this ONE pre-existing, orthogonal knip defect — reported to the owner as a build-readiness
+  blocker rather than fixed here.
+
+`overlay_version` bumped `8.69.0` → `8.81.0` in `.pandacorp/status.yaml`.
+
 ## 2026-09-02 — Manual re-synced to the Codex freeze (DR-120); BL-0084 closed
 
 The owner froze the Codex build-write capability on 2026-09-02 (DR-120 — see `factory/decision-log.md`):

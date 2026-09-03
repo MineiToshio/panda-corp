@@ -16,7 +16,8 @@
 # set, so they stay aligned across projects).
 #
 # COVERAGE — every fail-closed gate verify.sh runs:
-#   biome (lint+format) · test-placement structure guard · data-layer isolation (STRUCT-2, if Prisma) ·
+#   biome (lint+format) · biome PERF-3 barrel-file ban (performance domain) · test-placement structure
+#   guard · data-layer isolation (STRUCT-2, if Prisma) ·
 #   api-error-contract (API-1, if API routes) · DR-100 readiness · tsc (types) ·
 #   madge (circular deps) · vitest (tests) · knip (dead code) · Playwright spec DISCOVERY
 #   (smoke/visual/responsive/shell/headers — proves the config still finds the specs so the e2e layer can't
@@ -51,6 +52,17 @@ mkdir -p "$SBX_SRC"
 printf 'export function canaryRot(value:any){return value}\n' > "$SBX_SRC/lint_violation.ts"
 if reddened pnpm biome check "$SBX_SRC/lint_violation.ts" --error-on-warnings; then pass "biome (lint+format)"; else rot "biome (lint+format)"; fi
 rm -f "$SBX_SRC/lint_violation.ts"
+
+# --- 1b) biome performance domain (PERF-3 barrel-file ban) — the real `biome check` -----------------
+# A barrel file (`export * from`) is the anti-pattern PERF-3 forbids: Biome's `noBarrelFile` +
+# `noReExportAll` (performance domain, canonical biome.json) ban it outright so a hot-path import can
+# never reach one (BL-0112). If either rule is disabled or the domain preset regresses, this stays
+# green → rotted.
+mkdir -p "$SBX_SRC/__barrel__"
+printf 'export * from "./concrete";\n' > "$SBX_SRC/__barrel__/index.ts"
+printf 'export const canaryBarrelSource = 1;\n' > "$SBX_SRC/__barrel__/concrete.ts"
+if reddened pnpm biome check "$SBX_SRC/__barrel__" --error-on-warnings; then pass "biome (PERF-3 barrel file / noBarrelFile+noReExportAll)"; else rot "biome (PERF-3 barrel file / noBarrelFile+noReExportAll)"; fi
+rm -rf "$SBX_SRC/__barrel__"
 
 # --- 2) test-placement structure guard (mirrors verify.sh) -----------------------------------------
 # verify.sh REDs a *.test.ts(x) outside a `_tests/` folder. Plant one and run the same find.
