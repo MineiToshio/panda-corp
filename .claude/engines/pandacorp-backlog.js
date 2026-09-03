@@ -43,7 +43,13 @@ const SCAN_SCHEMA = {
         type: 'object',
         required: ['id', 'path', 'title', 'status', 'tier'],
         properties: {
-          id: { type: 'string' },
+          // BL-0101: pattern forces the model to retry rather than accept a filename-derived
+          // slug (e.g. "BL-0001-dr073-two-cause-fallback-gate-test-repair") in place of the
+          // frontmatter's own literal `id:` value — observed live 2026-09-02 (wf_0a4ec703-81d),
+          // where 9 requested args.items silently matched nothing. Script-side normalization
+          // below is a second, independent layer in case a non-conforming backend ever slips past
+          // schema retry.
+          id: { type: 'string', pattern: '^BL-\\d{4}$' },
           path: { type: 'string' },
           title: { type: 'string' },
           // Scan returns the complete store so resume can exclude already-closed
@@ -86,9 +92,23 @@ phase('Scan')
 
 const tierRubric = 'CONV-12/DR-111 (factory/standards/conventions.md): a one-line doc/prose/copy tweak or a mechanical rename -> haiku; the common case (a skill/script/template change with real logic, a routine build-engine adjustment) -> sonnet (the default floor); a change to the build engine\'s own core orchestration, a cross-cutting standard, or anything genuinely architectural/high-judgment -> opus. Fable is never chosen automatically.'
 
+// BL-0101: this dispatch used to run at 'haiku' (MECH tier) even though its rubric asks the
+// agent to JUDGE how much each item's Fix plan touches — a violation of CONV-12 (MECH = zero
+// judgment, grep-and-report only). A diff canary (2026-09-03, plugin/docs/decision-log.md) ran
+// the same tier judgment across the 68 open|doing items and found severity does NOT predict
+// tier: severity=p2 alone spanned haiku/sonnet/opus, and severity=p1 spanned sonnet/opus — so a
+// deterministic severity->tier table (Fix plan's option (b)) would badly mis-tier real items
+// (e.g. dispatching an opus-worthy architectural item at only sonnet). Escalated to 'sonnet'
+// instead (option (a)): the inference stays agent-driven, but the agent doing it is no longer
+// MECH-tier.
 const scan = await agent(
-  `${ANCHOR}Read every file matching \`${FACTORY_ROOT}/factory/backlog/BL-*.md\` (skip \`_item-template.md\` and \`README.md\`). For each, parse its YAML frontmatter and return {id, path, title, status, tier} where \`path\` is the file's ABSOLUTE path (anchored at ${FACTORY_ROOT}, never a relative/cwd-derived path) and \`status\` is the frontmatter's own \`status\` field verbatim. Compute \`tier\` per this rubric — ${tierRubric} — by reading the item's own \`severity\` field and how much its \`## Fix plan\` section actually touches (read the file body, not just the frontmatter, to judge this). Return ALL items regardless of status (open, doing, AND done) — the caller filters; do not pre-filter yourself. Return { items: [] } if the directory has no BL-*.md files (an honest empty list, never an error for a genuinely empty backlog).`,
-  { label: 'scan', phase: 'Scan', model: 'haiku', agentType: 'pandacorp:implementer', schema: SCAN_SCHEMA },
+  `${ANCHOR}Read every file matching \`${FACTORY_ROOT}/factory/backlog/BL-*.md\` (skip \`_item-template.md\` and \`README.md\`). For each, parse its YAML frontmatter and return {id, path, title, status, tier} where:
+- \`id\` is the EXACT, LITERAL value of the frontmatter's own \`id:\` field — never the filename, never a slug derived from the title, never anything else. Schema: {"id": "BL-0042", "path": "/abs/path/BL-0042-some-slug.md", "title": "...", "status": "open", "tier": "sonnet"}. WRONG: {"id": "BL-0042-some-title-slug", ...} — that is the filename stem, not the frontmatter id, and will be rejected.
+- \`path\` is the file's ABSOLUTE path (anchored at ${FACTORY_ROOT}, never a relative/cwd-derived path).
+- \`status\` is the frontmatter's own \`status\` field verbatim.
+- \`tier\` is computed per this rubric — ${tierRubric} — by reading the item's own \`severity\` field and how much its \`## Fix plan\` section actually touches (read the file body, not just the frontmatter, to judge this).
+Return ALL items regardless of status (open, doing, AND done) — the caller filters; do not pre-filter yourself. Return { items: [] } if the directory has no BL-*.md files (an honest empty list, never an error for a genuinely empty backlog).`,
+  { label: 'scan', phase: 'Scan', model: 'sonnet', agentType: 'pandacorp:implementer', schema: SCAN_SCHEMA },
 )
 
 const scannedAll = (scan && scan.items) || []
@@ -97,15 +117,48 @@ if (!scan || !Array.isArray(scan.items)) {
   throw new Error('pandacorp-backlog: scan phase produced no usable result')
 }
 
+// BL-0101 (live incident 2026-09-02, wf_0a4ec703-81d): the scan agent returned filename-stem
+// slugs instead of the frontmatter's literal id (e.g. "BL-0001-dr073-two-cause-fallback-gate-test-
+// repair"), so the exact-match filter below dropped all 9 requested args.items SILENTLY — the
+// workflow returned {done:[],blocked:[]} with zero warning. The SCAN_SCHEMA pattern above forces a
+// retry on a non-conforming id; this normalization is the second, independent layer — reduce
+// every id (scanned AND requested) to its canonical `BL-NNNN` prefix before any matching.
+const normalizeId = (raw) => {
+  const match = String(raw == null ? '' : raw).match(/^BL-\d{4}/)
+  return match ? match[0] : String(raw == null ? '' : raw)
+}
+for (const it of scannedAll) {
+  const normalized = normalizeId(it.id)
+  if (normalized !== it.id) {
+    log(`Scan: normalized a non-canonical id "${it.id}" -> "${normalized}" (agent returned a slug/derived value instead of the frontmatter id — see BL-0101).`)
+    it.id = normalized
+  }
+}
+
 let candidates = scannedAll.filter((it) => it.status === 'open' || it.status === 'doing')
 
+// BL-0101: requested-but-not-dispatched ids are ALWAYS surfaced in the returned `skipped` array —
+// never just a log line — so a caller (or its own drift) can never mistake a fully-dropped run
+// for "nothing to do." Populated here from args.items misses, and below from args.maxItems caps.
+const skipped = []
+
 if (ITEMS_FILTER) {
-  const wanted = new Set(ITEMS_FILTER)
+  const wantedIds = ITEMS_FILTER.map(normalizeId)
+  const wanted = new Set(wantedIds)
   const before = candidates.length
   candidates = candidates.filter((it) => wanted.has(it.id))
-  const missing = ITEMS_FILTER.filter((id) => !candidates.some((it) => it.id === id))
-  if (missing.length) {
-    log(`args.items requested ${missing.join(', ')} but they were not found among open|doing backlog items (already done, or don't exist) — skipping them.`)
+  for (let i = 0; i < ITEMS_FILTER.length; i++) {
+    const rawId = ITEMS_FILTER[i]
+    const id = wantedIds[i]
+    const found = scannedAll.find((it) => it.id === id)
+    if (!found) {
+      skipped.push({ id: rawId, reason: 'not found among any BL-*.md item (no matching frontmatter id in the scan)' })
+    } else if (found.status !== 'open' && found.status !== 'doing') {
+      skipped.push({ id: rawId, reason: `found but status is "${found.status}", not open/doing` })
+    }
+  }
+  if (skipped.length) {
+    log(`args.items requested ${skipped.length} item(s) that will NOT be dispatched: ${skipped.map((s) => `${s.id} (${s.reason})`).join('; ')}`)
   }
   log(`Filtered by args.items: ${before} open|doing candidates -> ${candidates.length} matched.`)
 }
@@ -113,14 +166,19 @@ if (ITEMS_FILTER) {
 if (candidates.length > MAX_ITEMS) {
   const dropped = candidates.slice(MAX_ITEMS)
   candidates = candidates.slice(0, MAX_ITEMS)
+  for (const it of dropped) skipped.push({ id: it.id, reason: `args.maxItems=${MAX_ITEMS} capped this run — not dispatched, relaunch to pick it up` })
   log(`args.maxItems=${MAX_ITEMS} caps this run — dropped ${dropped.length} item(s) NOT dispatched this run: ${dropped.map((it) => it.id).join(', ')}. Relaunch to pick them up (frontmatter-driven resume).`)
 }
 
 log(`Scan: ${scannedAll.length} total backlog file(s), ${candidates.length} dispatched this run (haiku=${candidates.filter((it) => it.tier === 'haiku').length}, sonnet=${candidates.filter((it) => it.tier === 'sonnet').length}, opus=${candidates.filter((it) => it.tier === 'opus').length}).`)
 
 if (candidates.length === 0) {
-  log('Nothing to drain — every requested item is already done or the backlog is empty.')
-  return { done: [], blocked: [] }
+  if (ITEMS_FILTER && skipped.length) {
+    log(`Nothing to drain — every requested item was skipped: ${skipped.map((s) => `${s.id} (${s.reason})`).join('; ')}.`)
+  } else {
+    log('Nothing to drain — every requested item is already done or the backlog is empty.')
+  }
+  return { done: [], blocked: [], skipped }
 }
 
 // ── Implement (parallel, one isolated worktree per item) ───────────────────
@@ -211,6 +269,10 @@ phase('Report')
 const done = merged.map((m) => ({ id: m.id, reason: m.summary || 'merged' }))
 const blocked = [...blockedFromImplement, ...blockedFromMerge]
 
-log(`Drain complete: ${done.length} done, ${blocked.length} blocked.`)
+log(`Drain complete: ${done.length} done, ${blocked.length} blocked${skipped.length ? `, ${skipped.length} skipped` : ''}.`)
 
-return { done, blocked }
+// BL-0101: `skipped` (requested-but-never-dispatched ids, populated above from args.items
+// misses and args.maxItems caps) rides along on EVERY return path, not just this one — the
+// empty-candidates early return above carries it too — so a caller can never mistake a fully
+// skipped run for an honestly-empty one.
+return { done, blocked, skipped }

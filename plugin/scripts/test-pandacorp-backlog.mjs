@@ -209,5 +209,129 @@ try {
   rmSync(tmp, { recursive: true, force: true })
 }
 
+// ── BL-0101 regression #1 ────────────────────────────────────────────────
+// Live incident 2026-09-02 (wf_0a4ec703-81d): the scan agent returned the filename STEM
+// ("BL-0001-dr073-two-cause-fallback-gate-test-repair") instead of the frontmatter's literal
+// `id:` value for every item, so the exact-match filter against args.items dropped all 9
+// requested ids silently — {done:[],blocked:[]}, no warning. Reproduce that exact shape (scan
+// returns a slug) and prove the fix: normalization recovers the canonical id, the item still
+// dispatches and merges, and the engine logs what it normalized.
+{
+  const tmp2 = mkdtempSync(path.join(os.tmpdir(), 'pandacorp-backlog-bl0101a-'))
+  const repo2 = path.join(tmp2, 'factory')
+  const backlog2 = path.join(repo2, 'factory/backlog')
+  const worktrees2 = path.join(repo2, '.claude/worktrees')
+  try {
+    mkdirSync(backlog2, { recursive: true })
+    mkdirSync(worktrees2, { recursive: true })
+    writeFileSync(path.join(repo2, '.gitignore'), '.claude/worktrees/\n')
+    writeFileSync(path.join(backlog2, 'BL-2001-slug-id-fixture.md'), item('BL-2001', 'open', 'p3', 'Slug-id regression fixture'))
+    git(repo2, 'init', '-b', 'main')
+    git(repo2, 'config', 'user.email', 'bl0101a@example.invalid')
+    git(repo2, 'config', 'user.name', 'BL-0101a fixture')
+    git(repo2, 'add', '.')
+    git(repo2, 'commit', '-m', 'test: seed BL-0101 slug-id regression fixture')
+
+    function validateMain2() {
+      return readdirSync(backlog2).filter((f) => /^BL-.*\.md$/.test(f)).every((f) => /^status:\s*(open|doing|done)$/m.test(readFileSync(path.join(backlog2, f), 'utf8')))
+    }
+
+    async function agent2(prompt, opts = {}) {
+      if (opts.label === 'scan') {
+        // Reproduce the incident verbatim: id = the filename stem, NOT frontmatter's `id:`.
+        const items = readdirSync(backlog2).filter((f) => /^BL-.*\.md$/.test(f)).sort().map((name) => {
+          const file = path.join(backlog2, name)
+          const fm = parseFrontmatter(file)
+          return { id: name.replace(/\.md$/, ''), path: file, title: fm.title, status: fm.status, tier: 'haiku' }
+        })
+        return { items }
+      }
+      if (opts.label?.startsWith('implement:')) {
+        const id = opts.label.slice('implement:'.length)
+        const wt = path.join(worktrees2, `bl-${id}`)
+        const branch = `bl/${id}`
+        git(repo2, 'worktree', 'add', wt, '-b', branch)
+        const filename = readdirSync(path.join(wt, 'factory/backlog')).find((f) => f.startsWith(id))
+        const file = path.join(wt, 'factory/backlog', filename)
+        replaceStatus(file, 'done')
+        git(wt, 'add', '.')
+        git(wt, 'commit', '-m', `fix(backlog): ${id} — fixture`)
+        return { id, branch, status: 'done', summary: 'fixture done' }
+      }
+      if (opts.label?.startsWith('merge:')) {
+        const id = opts.label.slice('merge:'.length)
+        const wt = path.join(worktrees2, `bl-${id}`)
+        const branch = `bl/${id}`
+        git(repo2, 'merge', '--ff-only', branch)
+        if (!validateMain2()) return { id, merged: false, validator: 'red', reason: 'fixture validator rejected' }
+        git(repo2, 'worktree', 'remove', wt)
+        git(repo2, 'branch', '-d', branch)
+        return { id, merged: true, validator: 'green' }
+      }
+      throw new Error(`BL-0101 regression #1: unexpected agent label: ${opts.label}`)
+    }
+
+    const logs2 = []
+    const result2 = await new AsyncFunction('agent', 'log', 'args', 'phase', 'parallel', source)(
+      agent2,
+      (line) => logs2.push(String(line)),
+      { factoryRoot: repo2, items: ['BL-2001'] },
+      () => {},
+      (thunks) => Promise.all(thunks.map((t) => t())),
+    )
+    ok(result2.done.some((d) => d.id === 'BL-2001'), 'BL-0101: a scan-returned slug id is normalized so the requested item still dispatches and merges')
+    ok(Array.isArray(result2.skipped) && result2.skipped.length === 0, 'BL-0101: a successfully dispatched requested item is never also reported skipped')
+    ok(logs2.some((l) => /normalized a non-canonical id/.test(l)), 'BL-0101: engine logs the slug -> canonical-id normalization it performed')
+  } finally {
+    rmSync(tmp2, { recursive: true, force: true })
+  }
+}
+
+// ── BL-0101 regression #2 ────────────────────────────────────────────────
+// A requested id that genuinely does not exist (or is already done/not actionable) must be
+// reported in the returned `skipped` array with a reason — the run must never come back as a
+// bare, unexplained {done:[],blocked:[]} when items were explicitly requested.
+{
+  const tmp3 = mkdtempSync(path.join(os.tmpdir(), 'pandacorp-backlog-bl0101b-'))
+  const repo3 = path.join(tmp3, 'factory')
+  const backlog3 = path.join(repo3, 'factory/backlog')
+  try {
+    mkdirSync(backlog3, { recursive: true })
+    mkdirSync(path.join(repo3, '.claude/worktrees'), { recursive: true })
+    writeFileSync(path.join(repo3, '.gitignore'), '.claude/worktrees/\n')
+    writeFileSync(path.join(backlog3, 'BL-3001-unrelated-fixture.md'), item('BL-3001', 'open', 'p2', 'Unrelated fixture'))
+    git(repo3, 'init', '-b', 'main')
+    git(repo3, 'config', 'user.email', 'bl0101b@example.invalid')
+    git(repo3, 'config', 'user.name', 'BL-0101b fixture')
+    git(repo3, 'add', '.')
+    git(repo3, 'commit', '-m', 'test: seed BL-0101 missing-id regression fixture')
+
+    async function agent3(prompt, opts = {}) {
+      if (opts.label === 'scan') {
+        const items = readdirSync(backlog3).filter((f) => /^BL-.*\.md$/.test(f)).sort().map((name) => {
+          const file = path.join(backlog3, name)
+          const fm = parseFrontmatter(file)
+          return { id: fm.id, path: file, title: fm.title, status: fm.status, tier: 'sonnet' }
+        })
+        return { items }
+      }
+      throw new Error(`BL-0101 regression #2: unexpected agent label (Implement/Merge must never run): ${opts.label}`)
+    }
+
+    const result3 = await new AsyncFunction('agent', 'log', 'args', 'phase', 'parallel', source)(
+      agent3,
+      () => {},
+      { factoryRoot: repo3, items: ['BL-9999'] },
+      () => {},
+      (thunks) => Promise.all(thunks.map((t) => t())),
+    )
+    ok(result3.done.length === 0 && result3.blocked.length === 0, 'BL-0101: a wholly-missing args.items request never reaches Implement/Merge')
+    ok(Array.isArray(result3.skipped) && result3.skipped.length === 1 && result3.skipped[0].id === 'BL-9999', 'BL-0101: the missing requested id is reported in `skipped`, never silently dropped')
+    ok(/not found/.test(result3.skipped[0].reason), 'BL-0101: the skipped reason explains why the requested id was not dispatched')
+  } finally {
+    rmSync(tmp3, { recursive: true, force: true })
+  }
+}
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

@@ -3,12 +3,12 @@ id: BL-0101
 type: bug
 area: build-engine
 title: "The backlog-scan step asks a haiku (MECH) agent to judge how much each item's Fix plan touches"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-05 + §7's non-agent re-tier"
-closes:
+closes: "plugin v9.98.10 — .claude/engines/pandacorp-backlog.js Scan dispatch re-tiered haiku->sonnet + id normalization/skipped reporting; plugin/docs/decision-log.md 2026-09-03 entry"
 links: [LESSON-0076]
 ---
 
