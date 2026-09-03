@@ -3,12 +3,12 @@ id: BL-0099
 type: bug
 area: plugin-skill
 title: "LESSON-0096 calls ScheduleWakeup outside /loop a misuse, while implement/SKILL.md mandates exactly that"
-status: doing
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-71 (blocks R-37 / LESSON-0096's promotion)"
-closes:
+closes: "plugin v9.102.6, plugin/docs/decision-log.md"
 links: [LESSON-0096]
 ---
 
@@ -107,3 +107,18 @@ files, not `plugin/docs/decision-log.md` or `LESSON-0096` itself. The verdict ab
 verbatim; remaining steps (owner or a follow-up session): (1) write this verdict into
 `plugin/docs/decision-log.md`, (2) run `learn` to narrow `LESSON-0096`'s wording per the recommendation
 above, (3) then R-37's promotion sequence (§12.4) is unblocked.
+
+## Closing evidence — 2026-09-03
+
+The verdict above is transcribed verbatim into `plugin/docs/decision-log.md` (v9.102.6 entry): option
+**(a)** — narrow `LESSON-0096` to carve out a no-agent-spawned liveness/lease-renewal tick, don't
+condemn the supervisor's `Monitor`-carried heartbeat. Recommended follow-ups recorded there rather than
+applied by this pass: (i) promote `LESSON-0096` with the corrected scope via `/pandacorp:learn` (not
+done here — that step is `learn` + the owner gate, DR-047); (ii) reword `implement/SKILL.md`'s
+Operative-constants table/prose from "dedicated ~2-min `ScheduleWakeup` heartbeat" to "a dedicated
+~2-min tick (Monitor loop or ScheduleWakeup)" — left as a recommendation only, since this card's Fix
+plan scoped it to the lesson-vs-skill contradiction verdict, not to editing `SKILL.md`'s prose; not
+applied here. `plugin/runtime/plugin-metadata.json` + both manifests bumped 9.102.5 → 9.102.6 (PATCH,
+decision-log-only change, precedent v9.102.3/BL-0116). `claude plugin validate plugin/`,
+`check-preflight-drift.sh`, and `check-derived-drift.sh` all clean. `LESSON-0096` and
+`implement/SKILL.md` remain untouched by this card, as scoped.

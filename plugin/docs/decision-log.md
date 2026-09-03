@@ -4,6 +4,57 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.6 — 2026-09-03 (PATCH): verdict — narrow LESSON-0096, don't condemn the ~2-min liveness tick (BL-0099)
+
+**What:** closes BL-0099. `LESSON-0096` calls a `ScheduleWakeup` outside `/loop` "a misuse", while
+`implement/SKILL.md:69,76,90` mandates exactly that as the ~2-min supervisor liveness/lease-renewal tick —
+a literal contradiction that was blocking `LESSON-0096`'s promotion (`promotion: proposed` since
+2026-07-16, R-37). The owner's one supervised `powerful` build (mission-control, FRD-24, run
+`wf_ddcc95c6-1d7`, 2026-09-03 17:41:44Z→18:47:17Z quiesce) carried a live canary for this exact question.
+Evidence, checked live against `~/.claude/dashboard-events.ndjson` in the run window: **34
+`SupervisorTick` events**, `project:"mission-control"`, steady cadence (min 51 s / max 121 s / mean
+~116 s) for the full ~66-minute run — the ~2-min liveness/lease tick was carried entirely by the
+`Monitor` bash-loop path, with no stale-lock false positive (`status.yaml`'s lease/heartbeat fields
+tracked cleanly to quiesce). **Zero `ScheduleWakeup`/heartbeat firings** occurred in the same window
+(grepped for the literal event, not narrative text) — not even the separate ~20–30 min owner-visible
+health heartbeat (0 firings in 66 min, where the ~25 min cadence would predict at least one).
+
+**Verdict: Fix plan option (a).** `LESSON-0096`'s real incident shape — scheduling a `ScheduleWakeup`
+and/or spawning a placeholder Agent to *wait for one background task's completion*, which recursively
+spawned duplicate investigation agents — is materially different from a periodic, no-agent-spawned
+liveness/lease-renewal timer that only touches a lock file and appends one event. The lesson is to be
+**narrowed, not the supervisor contract condemned**: `LESSON-0096` should explicitly carve out "a
+periodic liveness/lease-renewal tick that spawns no agent and does not wait on another agent's
+completion" from the anti-pattern, keeping its core teaching (don't spawn a bridge Agent, don't
+poll-wait for a background completion notification) intact. This run also shows the two mechanisms
+weren't even in tension in practice here: the 2-min tick that would be the point of friction with
+`LESSON-0096` was carried by `Monitor`, not `ScheduleWakeup`, in this live run.
+
+**Recommended follow-ups (not applied by this pass):**
+1. Promote `LESSON-0096` with the corrected/narrowed scope above via `/pandacorp:learn` — the lesson
+   text itself is not edited here (that promotion step is `learn` + the owner gate, DR-047); this then
+   unblocks R-37's promotion sequence (proposal 33 §12.4).
+2. `implement/SKILL.md`'s Operative-constants table and prose (lines 69, 76, 90) literally name the
+   ~2-min liveness tick a "dedicated `ScheduleWakeup`", which this run's evidence shows is not how the
+   supervisor was actually operated (`Monitor` alone carried full liveness/lease duty; `ScheduleWakeup`
+   fired zero times). Recommended wording: "a dedicated ~2-min tick (Monitor loop or ScheduleWakeup)" in
+   place of "dedicated ~2-min `ScheduleWakeup` heartbeat" — left as a recommendation, not made in this
+   pass, since BL-0099's Fix plan scoped this card to the lesson-vs-skill contradiction verdict, not to
+   editing `SKILL.md`'s prose.
+
+**Why:** `LESSON-0096` was queued at `promotion: proposed` since 2026-07-16 with two independent
+near-miss incidents behind it (proposal 33 §6 R-71); promoting it as originally worded would have
+codified a rule the factory's largest skill's supervisor contract appears to violate. One supervised
+live build gave a real, non-simulated observation of which mechanism actually carries the tick, settling
+the question with evidence instead of re-reading the two texts against each other.
+
+**Impact:** `plugin/docs/decision-log.md` (this entry), `factory/backlog/BL-0099-*.md` (`status: done`).
+No skill/agent/hook/template behavior changed by this pass — `plugin/runtime/plugin-metadata.json` +
+both manifests → 9.102.6 per the standing policy of versioning every `plugin/` change, including a
+decision-log-only entry (precedent: v9.102.3/BL-0116). `LESSON-0096` itself and
+`implement/SKILL.md` are **not** edited here — both are explicitly out of this card's scope (recommended
+follow-ups above). Activation: commit + `claude plugin update pandacorp@panda-corp` + restart.
+
 ## v9.102.5 — 2026-09-03 (PATCH): prompt-surface recalibration for the Claude 5 generation — Fable sprint (proposal 36, BL-0111)
 
 **What:** the DR-114 audit-then-recalibrate method (`factory/standards/prompting-conventions.md`, PROMPT-1/2/3/7) re-run over the whole prompt surface — 14 `plugin/agents/*.md` + 26 `plugin/skills/*/SKILL.md` — by a single pre-authorized Fable 5.1 agent on the sprint branch `sprint/fable-prompts` (contract: `docs/proposals/36-fable-prompt-recalibration-sprint.md`; sprint log with the per-file table, per-hunk rationale and PROMPT-6 receipts in its §10). Verdict per file: **33 LEAVE**, **7 LIGHT-DEDUP**, **0 RESTRUCTURE** over the 40 edit-eligible files (the 41st, `prompting-conventions.md`, is verify-only) — 9 hunks total, all tagged `dedup` except one `prosthesis`, none `generation-wording` (the contract's grep found zero literal model-version references in scope; confirmed again in the worktree). Changed: `designer.md` (§10 memory rule: the drifted grep-first inline retrieval reduced to a pointer at the canonical INDEX-first byte-identical block — the same PROMPT-3 fix v9.70.0 applied to implementer/backend-dev/frontend-dev; the block itself untouched), `reviewer.md` (the STOP RULE's "#1 cause of a build that never finishes" rationale, already stated in the same section's ADVISORY paragraph, collapsed to one home; the 17-un-sharded-surfaces narrative reduced to a terse incident pointer), `absorb/SKILL.md` (the never-swept newest skill: its `## Rules` restated six step rules in full — now invariants pointing at their operative step; the human-gate, language, plugin-lifecycle and protected-path bullets kept verbatim), `design/SKILL.md` (the DR-054 rule bullet pointed at Step 0/Step 4 instead of restating them; a stale "path below" deixis re-anchored to "(Step 4)"), `discover/SKILL.md` (triage 1c's app-enhancement parenthetical pointed at the lens-table bar instead of restating it; both disqualifiers and the drop-or-flag action kept), `implement/SKILL.md` (the "Launch + set the ceiling" paragraph no longer re-states the ARG-ECHO gate text and the maxSpend/maxFrds ceilings verbatim — Launch checklist step 4, `$ARGUMENTS` and §How a run stops remain their homes), `learn/SKILL.md` (the skill-naming rule pointed at step 5's convention). Every DR/BL/LESSON reference, file path, state token, gate and human gate of the old text survives in the new text or in its named home in the same file (PROMPT-6 self-check per hunk in proposal 36 §10). **Red team (independent Opus 5 pass, §5.5 — 2026-09-03, fresh context): 9 ACCEPT · 0 REJECT, nothing reverted** — every "already lives at X" claim re-opened at the cited path and confirmed, no hunk touches a §9 "what NOT to change" item, and a mechanical normative-survival sweep across all 7 changed files lost zero DR/BL/LESSON refs and zero capital-emphasis tokens (`NEVER` 4→4, `MUST` 4→4). All 11 §6 success criteria PASS; gates re-run green (`check-standards.sh`, `check-preflight-drift.sh`, `check-derived-drift.sh`, `claude plugin validate`, `test-pandacorp-backlog.mjs` 32/32); mirrors re-generated by the red team → `git status .codex/` clean. The red team **confirms PATCH** over §5.8's MINOR suggestion (no capability added, no behaviour changed) and declines to overrule. Verdict table + criteria matrix: proposal 36 §10.6. Frontmatter byte-identical on all 14 agents (asserted against `main`). Codex mirrors regenerated (`designer.toml`, `reviewer.toml` — body-only changes); both manifests → 9.102.5. Line count 2,250 → 2,250 (the edits shorten prose within lines: 68,477 → 68,364 words).
