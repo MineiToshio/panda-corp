@@ -3,12 +3,12 @@ id: BL-0097
 type: change
 area: hooks
 title: "Measure the Stop-hook path — up to 345 s synchronous per Stop, never measured"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-70"
-closes:
+closes: "plugin/docs/decision-log.md v9.98.13 — real Stop-hook timings (5 runs) vs BL-0092's SessionStart ceiling"
 links: [BL-0082]
 ---
 

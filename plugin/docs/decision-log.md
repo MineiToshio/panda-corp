@@ -79,6 +79,70 @@ separately as BL-0107. `factory/backlog/BL-0096` → done.
 - Out of scope (unchanged, deliberately): the DR-045 preflight byte-identical spans — that extraction was
   already audited and rejected; its missing enforcement is tracked separately as BL-0091.
 
+## v9.98.13 — 2026-09-03 (PATCH): Stop-hook path measured — real numbers vs BL-0092's SessionStart ceiling (BL-0097)
+
+**What:** measured, rather than assumed, the wall-clock cost of the Stop-hook path. No hook's behaviour changed
+(this item is scoped as a measurement — BL-0097's own Out-of-scope forbids touching `verify-before-stop.sh`'s
+behaviour or narrowing BL-0082 here).
+
+**Correction to the item's own framing first:** BL-0097's problem statement (filed 2026-09-02) counts **three**
+Stop hooks summing to "up to 345 s" — but `plugin/hooks/hooks.json`'s current Stop array has **four**:
+`verify-before-stop.sh` (300 s) + `capture-lessons-reminder.sh` (15 s) + `check-derived-drift.sh` (30 s) +
+`check-preflight-drift.sh` (30 s) = **up to 375 s**. `check-preflight-drift.sh` was wired to Stop back on
+2026-07-10 (`ecfda618`, BL-0091) — well before BL-0097 was filed — so the "345 s / three hooks" figure was
+already stale on arrival. This entry measures the real, current four-hook chain.
+
+**Method:** invoked all four Stop hook scripts unmodified, with the same JSON-on-stdin payload shape Claude
+Code sends on a real Stop (`cwd`, a fresh `session_id` per run so `capture-lessons-reminder.sh`'s once-per-session
+cache never short-circuits, a real 1.8 MB / 801-line production transcript for its turn-count check,
+`stop_hook_active: false`, `pandacorp_runtime: "claude"`), against this worktree (the factory repo, no
+`.pandacorp/verify.sh` at its root — a Pandacorp *product* project has one, the factory repo itself does not).
+5 runs, `date`-based millisecond timing per hook, no changes to the scripts or to `hooks.json`.
+
+**Result — 5 runs, factory repo, per-hook wall-clock (ms):**
+
+| hook | run1 | run2 | run3 | run4 | run5 | avg |
+|---|---|---|---|---|---|---|
+| `verify-before-stop.sh` | 23 | 24 | 24 | 23 | 23 | 23.4 |
+| `capture-lessons-reminder.sh` | 42 | 37 | 39 | 39 | 36 | 38.6 |
+| `check-derived-drift.sh` | 291 | 282 | 286 | 286 | 284 | 285.8 |
+| `check-preflight-drift.sh` | 38 | 38 | 37 | 37 | 41 | 38.2 |
+| **total per Stop** | 394 | 381 | 386 | 385 | 384 | **386.0 (0.386 s)** |
+
+Real, measured cost in the factory repo: **~0.39 s per Stop**, three orders of magnitude below the 375 s
+theoretical ceiling. `verify-before-stop.sh` — the hook carrying the 300 s budget and the one BL-0082 is
+deciding about — exits in ~23 ms here because its very first scope check (`[ -f "$cwd/.pandacorp/verify.sh" ]
+|| exit 0`) is false at the factory repo root: there is no project `verify.sh` to run. The heaviest hook by
+far is `check-derived-drift.sh` (~286 ms, ~74% of the total), which shells out to `node` five times
+(`check-runtime-sources.mjs`, `generate-codex-agents.mjs`, `generate-skill-capabilities.mjs` +
+`check-skill-capabilities.mjs`, `check-rollup-writer-boundary.mjs`, `generate-codex-enforcement.mjs`,
+`generate-event-vocabulary.mjs`) — process-spawn overhead, not I/O or a slow gate.
+
+**Comparison to BL-0092's SessionStart figures:** BL-0092 (2026-09-02) never recorded a real measurement
+either, despite its own Done-when asking for one — only the theoretical ceilings. For a fair side-by-side,
+both sides here are the same kind of number (theoretical worst case), since that is the only figure that
+exists for SessionStart:
+
+| path | theoretical worst-case ceiling | real measured (factory repo) |
+|---|---|---|
+| SessionStart, before BL-0092 | ~115 s (two synchronous `backup-pandacorp-state.sh` + 3 sync hooks) | not recorded |
+| SessionStart, after BL-0092 | ~40 s sync (`decision-log-reminder.sh` 10 s + `vault-overlay-sync.sh` 30 s; backup + `rotate-events.sh` now async) | not recorded |
+| Stop, as BL-0097's problem statement assumed | ~345 s (3 hooks, stale count) | — |
+| Stop, current (4 hooks) | ~375 s | **~0.39 s avg (5 runs, this entry)** |
+
+**Why this matters for BL-0082:** the raw ceiling comparison (~375 s Stop vs ~40 s SessionStart) makes the
+Stop path look ~9x heavier, but the ceiling is never realized in the factory repo — the empirical Stop cost
+here is negligible. The 300 s budget on `verify-before-stop.sh` is a per-*product-project* worst case (a
+real `.pandacorp/verify.sh` — e.g. `mission-control/.pandacorp/verify.sh` — running with no live build
+lease/lock to skip it), not a factory-repo cost; measuring THAT scenario is a separate exercise outside this
+item's scope (BL-0097 measures "the factory repo" per its own Fix plan). BL-0082's scope decision should
+weigh the SessionStart ceiling against a product-project Stop measurement, not against this factory-repo
+number — but for sessions parked at the factory repo root specifically, the Stop path is not a latency
+concern today.
+
+**Out of scope, unchanged:** no edits to `verify-before-stop.sh`'s behaviour, `hooks.json`'s Stop array, or
+BL-0082's scope narrowing. Closes BL-0097.
+
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 
 **What:** the plugin-side half of the `/pandacorp:learn` promotion sitting (proposal 33 §12.4; full record and the
