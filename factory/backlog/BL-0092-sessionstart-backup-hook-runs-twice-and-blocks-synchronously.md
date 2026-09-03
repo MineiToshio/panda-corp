@@ -3,12 +3,12 @@ id: BL-0092
 type: bug
 area: hooks
 title: "backup-pandacorp-state.sh runs twice on every factory SessionStart, and both housekeeping hooks block synchronously"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-02
 source: "docs/proposals/33-model-era-audit.md §6 R-69 + R-19"
-closes:
+closes: "plugin/hooks/hooks.json + .claude/settings.json (SessionStart dedup + async housekeeping)"
 links: []
 ---
 

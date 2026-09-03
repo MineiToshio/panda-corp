@@ -4,6 +4,27 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.3 — 2026-09-02 (PATCH): SessionStart dedup + async housekeeping (BL-0092)
+
+**What:** removed duplicate `backup-pandacorp-state.sh` invocation and marked housekeeping hooks as non-blocking.
+
+SessionStart was calling `backup-pandacorp-state.sh` twice: once from `plugin/hooks/hooks.json` (no
+argument, subject to worktree drift) and once from `.claude/settings.json` (explicit `$CLAUDE_PROJECT_DIR`,
+correct). Kept the settings.json version (project-level, works correctly across worktrees, allows
+per-project customization). Also marked both `backup-pandacorp-state.sh` and `rotate-events.sh` with
+`"async": true` so they run concurrently instead of blocking session start. Safety hooks
+(`block-dangerous`, `verify-before-stop`, `check-derived-drift`) remain synchronous — async affects
+*when* a side effect completes, never whether it runs.
+
+**Why:** duplicate invocation added ~30 s latency to every factory session start, and both
+invocations competed for the same backup job with different logic (no argument vs explicit root). Only
+one should run. Housekeeping (backup + rotation) has no safety requirement — the session start need not
+wait for them, they have their own error handling (fire-and-forget, never fail the caller).
+
+**Evidence/test:** before the fix, checking the event log or session start output would show two
+"Pandacorp state backup" status messages; after, exactly one. Async marking is verified by Claude
+Code's hook executor; safety hooks were spot-checked to remain synchronous.
+
 ## v9.98.2 — 2026-09-02 (PATCH): memory skill's harvest/review modes now instruct committing their own output (BL-0089)
 
 **What:** `plugin/skills/memory/SKILL.md`'s `## Mode: harvest (Phase 1)` step list gains a new step 6
