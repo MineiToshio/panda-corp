@@ -3,12 +3,12 @@ id: BL-0100
 type: change
 area: plugin-skill
 title: "Verify the implement-backlog ANCHOR cwd-drift workaround against the current haiku — test first, keep meanwhile"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-54"
-closes:
+closes: "plugin v9.98.13 — implement-backlog/SKILL.md ANCHOR hardening line dated/verified; plugin/docs/decision-log.md v9.98.13 entry"
 links: [LESSON-0076]
 ---
 

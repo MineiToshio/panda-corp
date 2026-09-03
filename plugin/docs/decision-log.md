@@ -143,6 +143,32 @@ concern today.
 **Out of scope, unchanged:** no edits to `verify-before-stop.sh`'s behaviour, `hooks.json`'s Stop array, or
 BL-0082's scope narrowing. Closes BL-0097.
 
+## v9.98.13 — 2026-09-03 (PATCH): BL-0100 — verify the implement-backlog ANCHOR cwd-drift workaround against the current haiku
+
+**What:** `implement-backlog/SKILL.md`'s `ANCHOR` hardening note (proposal 31 T1.1) carried no date, no
+model and no re-verification outcome, so it could never be re-verified or retired (BL-0100). Ran the
+**Scan phase only** of `.claude/engines/pandacorp-backlog.js` as a real (non-mocked) canary — the existing
+`plugin/scripts/test-pandacorp-backlog.mjs` harness only exercises a JS-mocked `agent()` seam, which cannot
+observe a real model's cwd-drift behavior — via the standalone `claude -p` CLI, model `haiku` (resolved to
+`claude-haiku-4-5-20251001`, canonical `claude-haiku-4-5`, the current haiku as of this date), cwd = a
+disposable sibling git repo unrelated to the factory (`/private/tmp/.../bl0100-sibling-repo`), tools
+restricted to `Glob,Read` (read-only, no worktree, no writes, no merge, matching the item's Out of scope).
+Ran the identical scan prompt (read every `factory/backlog/BL-*.md`, return `{id, path, title, status,
+tier}`) twice: once with the production `ANCHOR` preamble prepended, once without it.
+
+**Result:** BOTH runs returned all 121/121 items (independently re-verified against a real `ls` count per
+LESSON-0076 — never trust a cheap-tier subagent's own inventory count) with every `path` an absolute path
+correctly anchored under the real `FACTORY_ROOT` (`/Users/Shared/Proyectos/panda-corp`), in both the
+with-ANCHOR and without-ANCHOR condition. The original 2026-07-06 drift (a haiku implementer reasoning
+against the real factory instead of a prompt-given path) **did not reproduce** on this model/date/harness.
+Per the item's own instruction, a single negative result does not retire a hardening guard — the `ANCHOR`
+preamble and worktree-ownership check are **retained, marked "last verified 2026-09-03"** in the skill file
+itself (not removed). No engine/skill behavior changed — PATCH.
+
+- `plugin/skills/implement-backlog/SKILL.md` — hardening-lesson line gains the verification date, model and
+  outcome, pointing here for the full comparison.
+- Closes `BL-0100`.
+
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 
 **What:** the plugin-side half of the `/pandacorp:learn` promotion sitting (proposal 33 §12.4; full record and the
