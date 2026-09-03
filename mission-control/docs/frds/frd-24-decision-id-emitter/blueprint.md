@@ -62,7 +62,12 @@ two call paths (library function, CLI) never disagree.
   and a non-zero exit (a CLI is a boundary; unlike the library's fail-soft reader, a caller invoking it
   wrong should see a loud failure, not a silent empty list).
 - **`package.json`** (edit) — new script `"decisions:ids": "node --loader ./scripts/read-model/ts-loader.mjs scripts/decisions/decision-id-cli.mjs"` so the CLI has one documented, stable invocation
-  (`pnpm decisions:ids <path>`) for `/pandacorp:decide` to reference instead of a raw `node` command.
+  (`pnpm --silent decisions:ids <path>`) for `/pandacorp:decide` to reference instead of a raw `node` command.
+  The `--silent` is part of the published seam, not decoration: pnpm writes its own run banner
+  (`> mission-control@0.1.0 …`, `> node --loader …`) to **stdout** ahead of the script's output, so a
+  flagless `pnpm decisions:ids` run hands a caller two banner lines it would parse as decision ids.
+  Any documented invocation must carry `--silent` (or `-s` / `--reporter=silent`); the raw
+  `node --loader` form is already id-only on stdout and needs no flag.
 
 ## 4. Golden-vector contract
 

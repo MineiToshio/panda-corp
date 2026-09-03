@@ -23,7 +23,7 @@ last_updated: '2026-09-03'
 ## Summary
 Lift the existing `readDecisions()` line-scanning loop in `src/lib/docs/activity.ts` into a new
 exported pure function `parseDecisionBlocks(content: string): DecisionPoint[]`, and add a one-shot
-CLI (`scripts/decisions/decision-id-cli.mjs`, wired as `pnpm decisions:ids <path>`) that calls it
+CLI (`scripts/decisions/decision-id-cli.mjs`, wired as `pnpm --silent decisions:ids <path>`) that calls it
 against a file path — so a caller outside the Next.js runtime (the factory's `/pandacorp:decide`
 skill, via Bash) can get the exact same ordered id list without re-deriving the rule in prose.
 
@@ -55,7 +55,7 @@ skill, via Bash) can get the exact same ordered id list without re-deriving the 
   existing `src/lib/docs/_tests/docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` suites covering
   `readDecisions` stay green unmodified —
   proof the extraction is behavior-neutral).
-- **AC-24-001.2** — `pnpm decisions:ids <path-to-a-decisions.md>` (or the equivalent raw `node
+- **AC-24-001.2** — `pnpm --silent decisions:ids <path-to-a-decisions.md>` (or the equivalent raw `node
   --loader ...` invocation) prints the same ids `parseDecisionBlocks` would return for that file's
   content, one per line, with no Next.js/React import anywhere on the CLI's module graph.
 
@@ -81,16 +81,23 @@ None — this is the foundation WO of FRD-24.
   On success, prints one `id` per line to stdout, in file order (`decision.id`, nothing else — no
   header, no trailing blank line beyond the final `\n`).
 - `package.json`: new script `"decisions:ids": "node --loader ./scripts/read-model/ts-loader.mjs
-  scripts/decisions/decision-id-cli.mjs"`. Invocation: `pnpm decisions:ids <path-to-decisions.md>`
-  (verified live end-to-end against a real fixture file and against a missing path — both match the
-  test suite's assertions).
+  scripts/decisions/decision-id-cli.mjs"`. Invocation: `pnpm --silent decisions:ids <path-to-decisions.md>`
+  (verified live end-to-end against a real fixture file with stdout captured on its own fd — exactly
+  the 7 golden ids, exit 0 — and against a missing path; both match the test suite's assertions).
+  The `--silent` was added at the FRD gate: the originally published flagless form of
+  `pnpm decisions:ids` leaked pnpm's run banner onto stdout ahead of the ids (see the seam below).
 
 **Integration seam for the CLI's caller (`/pandacorp:decide`, a different repo):** invoke
-`pnpm decisions:ids <absolute-path-to-that-project's-.pandacorp/inbox/decisions.md>` from the Mission
+`pnpm --silent decisions:ids <absolute-path-to-that-project's-.pandacorp/inbox/decisions.md>` from the Mission
 Control repo root (matches the existing `scripts/read-model/*.mjs` invocation convention already used
-by `stats:regen`/`stats:factory`/etc.); stdout is the ordered id list, one per line, UTF-8, no other
-output on success. A missing/unreadable path exits non-zero with a message on stderr — a caller should
-treat any non-zero exit as "could not derive ids", not parse stdout.
+by `stats:regen`/`stats:factory`/etc.). **The `--silent` is load-bearing, not cosmetic:** pnpm prints
+its own run banner (`> mission-control@0.1.0 decisions:ids …` and `> node --loader …`, plus blank
+lines) to **stdout**, ahead of the script's output — so a flagless `pnpm decisions:ids` run hands a
+caller splitting stdout two banner lines it would parse as decision ids. With `--silent` (or `-s` /
+`--reporter=silent`) stdout is the ordered id list, one per line, UTF-8, and nothing else on success;
+the raw `node --loader …` form is id-only on stdout with no flag needed. A missing/unreadable path
+exits non-zero with a message on stderr — a caller should treat any non-zero exit as "could not
+derive ids", not parse stdout.
 
 **Assumptions/decisions inherited by consumers:** (1) the CLI takes exactly one positional arg (the
 `decisions.md` file path itself, not a project root — the caller resolves
@@ -116,7 +123,19 @@ missing file should call `readDecisions(projectPath)`, not `parseDecisionBlocks`
 **Self-test run:** `pnpm biome check .` clean (only the pre-existing, unrelated schema-version info
 note); `pnpm tsc --noEmit` clean; `pnpm vitest run` on `docs.wo24001.test.ts` +
 `docs.wo04002.test.ts` + `docs.wo04002.reviewer.test.ts` — 123/123 passed. Live-verified
-`pnpm decisions:ids <fixture path>` and the missing-path case by hand outside the test runner.
+`pnpm --silent decisions:ids <fixture path>` and the missing-path case by hand outside the test runner.
 
-No factory-memory lesson (`LESSON-NNNN`) applied — this is a mechanical, well-specified relocation
-with no novel gotcha encountered; none logged to `.pandacorp/comms/progress.md`.
+**Gate patch (DR-073, this cycle) — the published seam was corrupting stdout.** The build published
+a flagless `pnpm decisions:ids` in the CLI docstring, blueprint §3 and five places in this WO. Run
+that way, pnpm writes its own banner (`> mission-control@0.1.0 decisions:ids …`, `> node --loader …`)
+to **stdout** ahead of the ids, so the very consumer this FRD exists for — a caller splitting stdout
+— would read two banner lines as decision ids. Neither builder suite covered it (both spawn only the
+raw `node --loader` form, which is genuinely id-only). Fix: every published invocation now carries
+`--silent`, and the seam paragraph states why. **No production logic changed** — `activity.ts`,
+`decision-id-cli.mjs`'s executable body and `package.json`'s script are byte-identical; only the
+documented invocation and the prose around it moved. Applies **LESSON-0113** (a documented mechanism
+is a proposal, not evidence it works): this WO's own Status Note asserted "stdout is the ordered id
+list … no other output on success" as *verified live end-to-end*, but the check had only ever been
+run through the raw `node` form — the published command was never executed with stdout on its own
+fd. Corrected above; re-verified this cycle with `pnpm --silent decisions:ids <golden fixture>
+2>/dev/null | od -c` → exactly the 7 golden ids, exit 0.

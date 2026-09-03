@@ -9,8 +9,11 @@
  *
  * Run from the Mission Control repo root:
  *   node --loader ./scripts/read-model/ts-loader.mjs scripts/decisions/decision-id-cli.mjs <path-to-decisions.md>
- * or via the documented package script:
- *   pnpm decisions:ids <path-to-decisions.md>
+ * or via the documented package script — the stdout-silencing flag is REQUIRED, not optional:
+ *   pnpm --silent decisions:ids <path-to-decisions.md>
+ * (without it, `pnpm decisions:ids` writes pnpm's own run banner — "> mission-control@0.1.0 …",
+ * "> node --loader …" — to STDOUT ahead of the ids, so a caller splitting stdout would parse those
+ * banner lines as decision ids. `--silent` / `-s` / `--reporter=silent` keeps stdout id-only.)
  *
  * Unlike `parseDecisionBlocks`/`readDecisions` (which fail-soft to `[]` — an absent/unreadable
  * decisions.md is a normal, expected state for a project's Summary tab), this CLI is a boundary: a
