@@ -2212,10 +2212,10 @@ function ConceptTuPerfil(): React.JSX.Element {
         </KvRow>
         <KvRow label="Fase 2" isFirst={false}>
           <B weight={500}>Deep-dive</B> (caro y estrecho): tú eliges los 2-3 que te chispean y solo
-          esos pasan por los gates duros —incluido un <B weight={500}>spike de viabilidad técnica</B>{" "}
-          que confirma que el dato/capacidad crítica se puede conseguir antes de construir— y el
-          memo-pitch. Tus reacciones al resto se destilan como patrones de atracción/rechazo en tu
-          perfil (DR-053).
+          esos pasan por los gates duros —incluido un{" "}
+          <B weight={500}>spike de viabilidad técnica</B> que confirma que el dato/capacidad crítica
+          se puede conseguir antes de construir— y el memo-pitch. Tus reacciones al resto se
+          destilan como patrones de atracción/rechazo en tu perfil (DR-053).
         </KvRow>
       </Panel>
       <NotePanel icon="ti-scale">
@@ -2273,24 +2273,25 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <MultiRuntimeDiagram />
       </Panel>
       <NotePanel icon="ti-lock" iconColor="var(--color-danger)">
-        <B weight={600}>Congelado el 2026-09-02 (DR-120): Codex es solo lectura/review.</B> El perfil{" "}
-        <Code>attended_foreground</Code> que existió entre el 2026-07-15 y el 2026-09-02 queda
-        retirado — no llegó a ejecutar un build real, mientras el protocolo de cambio dual se pagaba
-        en cada modificación. Ningún runtime que no sea Claude Code puede escribir estado de build.
+        <B weight={600}>Congelado el 2026-09-02 (DR-120): Codex es solo lectura/review.</B> El
+        perfil <Code>attended_foreground</Code> que existió entre el 2026-07-15 y el 2026-09-02
+        queda retirado — no llegó a ejecutar un build real, mientras el protocolo de cambio dual se
+        pagaba en cada modificación. Ningún runtime que no sea Claude Code puede escribir estado de
+        build.
       </NotePanel>
       <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
         <B weight={600}>Límites honestos.</B> Codex, Cursor y OpenCode leen, revisan y te reportan;
-        no lanzan <Code>implement</Code> en ninguna forma ni invocan launcher, supervisor o executor.
-        R10/R11 quedan <B weight={600}>suspendidas, no fallidas</B>. Disparador para reabrir, literal:{" "}
-        <i>&quot;Codex ships wake-capable local scheduling&quot;</i>. Claude conserva intacto su
-        Dynamic Workflow.
+        no lanzan <Code>implement</Code> en ninguna forma ni invocan launcher, supervisor o
+        executor. R10/R11 quedan <B weight={600}>suspendidas, no fallidas</B>. Disparador para
+        reabrir, literal: <i>&quot;Codex ships wake-capable local scheduling&quot;</i>. Claude
+        conserva intacto su Dynamic Workflow.
       </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
-        En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado
-        como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar, sincronizar
-        y cerrar; nunca intentan reconstruirla desde <Code>CLAUDE_PLUGIN_ROOT</Code>, porque ese entorno
-        no está garantizado dentro de un Workflow instalado. Una ruta ausente o relativa detiene el
-        engine antes de lanzar agentes.
+        En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de
+        estado como <Code>stateCli</Code>. Los subagentes usan esa capacidad explícita para renovar,
+        sincronizar y cerrar; nunca intentan reconstruirla desde <Code>CLAUDE_PLUGIN_ROOT</Code>,
+        porque ese entorno no está garantizado dentro de un Workflow instalado. Una ruta ausente o
+        relativa detiene el engine antes de lanzar agentes.
       </NotePanel>
 
       <DocH title="Qué funciona igual y qué degrada" />
@@ -2330,10 +2331,9 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <Code>~/.codex/dashboard-events.ndjson</Code>. Mission Control lee ambos y los normaliza con
         el vocabulario único de <Code>plugin/runtime/event-vocabulary.json</Code>, conservando los
         nombres visuales de La Fragua. El feed deduplica replays exactos por <Code>event_id</Code>.
-        Para XP/logros, la identidad
-        semántica es solo higiene: un hecho durable entra al ledger v2 únicamente cuando un oráculo
-        canónico de archivos, Git o artefactos lo confirma. Los eventos nunca deciden fase, work
-        order ni build: esos hechos siguen viniendo de archivos canónicos.
+        Para XP/logros, la identidad semántica es solo higiene: un hecho durable entra al ledger v2
+        únicamente cuando un oráculo canónico de archivos, Git o artefactos lo confirma. Los eventos
+        nunca deciden fase, work order ni build: esos hechos siguen viniendo de archivos canónicos.
       </Lead>
       <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
         El estado del plugin también separa puertas: Claude y Codex tienen veredictos de cache
@@ -2373,9 +2373,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
             body: (
               <>
                 Pide exactamente un FRD o una change <Code>ready</Code> y mantén la tarea abierta.
-                Debe completar review JUDGE, <Code>verify.sh</Code>, mutation gate, liberar la lease,
-                dejar árbol limpio y conservar <Code>phase: implementation</Code>. Sin target,
-                varios FRDs, background o más de 7200 segundos deben rechazarse antes de ownership.
+                Debe completar review JUDGE, <Code>verify.sh</Code>, mutation gate, liberar la
+                lease, dejar árbol limpio y conservar <Code>phase: implementation</Code>. Sin
+                target, varios FRDs, background o más de 7200 segundos deben rechazarse antes de
+                ownership.
               </>
             ),
           },
@@ -2814,8 +2815,8 @@ function WorkflowsOverview(): React.JSX.Element {
         Las señales de parada no dependen del shell. El motor inspecciona
         <Code>.pandacorp/run/stop</Code> mediante un recibo Node determinista, inmune a aliases como
         <Code>test=npm test</Code>. Si sale antes del planner, el cierre es un comando mecánico
-        cercado: rechaza cambios de producto, solo puede publicar <Code>status.yaml</Code> y devuelve
-        el recibo de rutas permitidas antes de liberar la lease.
+        cercado: rechaza cambios de producto, solo puede publicar <Code>status.yaml</Code> y
+        devuelve el recibo de rutas permitidas antes de liberar la lease.
       </NotePanel>
 
       <NotePanel icon="ti-tools" iconColor="var(--color-accent)">
@@ -2995,17 +2996,17 @@ function WorkflowBuild(): React.JSX.Element {
         <Code>wo_reopen</Code>).
       </Body>
       <NotePanel>
-        Si un corte deja <Code>.pandacorp/run/gate-worktree</Code>, el motor no lo borra: puede ser la
-        única evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente ese
-        worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
-        síncrono sobre el árbol principal.
+        Si un corte deja <Code>.pandacorp/run/gate-worktree</Code>, el motor no lo borra: puede ser
+        la única evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente
+        ese worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el
+        gate síncrono sobre el árbol principal.
       </NotePanel>
       <NotePanel icon="ti-shield-lock" iconColor="var(--color-accent)">
-        La lease también es la fuente de la proyección activa. Acquire, renovación, <Code>sync-rollups</Code>{" "}
-        y cierre reponen fase, run lógico, runtime, epoch y hora de inicio en <Code>status.yaml</Code>.
-        El cierre cambia únicamente la actividad a{" "}
-        <Code>running: false</Code>. El reparador de baseline puede restaurar otros residuos tracked,
-        pero nunca ese estado controlado mientras el writer siga cercado.
+        La lease también es la fuente de la proyección activa. Acquire, renovación,{" "}
+        <Code>sync-rollups</Code> y cierre reponen fase, run lógico, runtime, epoch y hora de inicio
+        en <Code>status.yaml</Code>. El cierre cambia únicamente la actividad a{" "}
+        <Code>running: false</Code>. El reparador de baseline puede restaurar otros residuos
+        tracked, pero nunca ese estado controlado mientras el writer siga cercado.
       </NotePanel>
 
       <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />
@@ -3050,9 +3051,10 @@ function WorkflowBuild(): React.JSX.Element {
         <Code>preflight-implement.sh</Code> comprueba que todo esté listo (el último verde, que no
         haya otro build corriendo — el candado de un-build-a-la-vez —, presupuesto y salud) y{" "}
         <Code>launch-implement.sh</Code> arranca el motor junto a su supervisor. Tú no corres nada a
-        mano: el skill le pasa también el alcance dirigido (<Code>--frds</Code> o <Code>--change</Code>)
-        y los topes de prueba al launcher, que valida todo antes de tomar el candado e imprime una sola
-        llamada JSON segura. Nunca se completa esa llamada a mano. A partir de ahí, mira el Party.
+        mano: el skill le pasa también el alcance dirigido (<Code>--frds</Code> o{" "}
+        <Code>--change</Code>) y los topes de prueba al launcher, que valida todo antes de tomar el
+        candado e imprime una sola llamada JSON segura. Nunca se completa esa llamada a mano. A
+        partir de ahí, mira el Party.
       </Body>
 
       <DocH title="Cómo retoma si se corta" />
