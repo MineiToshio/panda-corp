@@ -3,12 +3,12 @@ id: BL-0103
 type: change
 area: hooks
 title: "Set the scheduled routines to a dontAsk permission posture and keep the allowlist current with fewer-permission-prompts"
-status: doing
+status: done
 severity: p1
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-22 → R-18 (owner decision §12.6)"
-closes:
+closes: "DR-121, plugin/docs/routines.md Permission posture subsection"
 links: [BL-0054, BL-0085, LESSON-0119, DR-121]
 ---
 
@@ -90,3 +90,15 @@ documented in `routines.md` but was not found under `~/.claude/scheduled-tasks/`
 separate pre-existing gap, not introduced here) in the routines UI → permission-mode → **Don't ask**
 (explicitly not **Auto**) → save. Only after that literal click has this item's "the tasks are `dontAsk`"
 criterion become objectively true, closing this item.
+
+## Closing note — 2026-09-03
+
+Owner confirmed the UI flip on 2026-09-03 (not machine-verifiable from the repo). Re-checked
+`~/.claude/scheduled-tasks/pandacorp-memory-review/SKILL.md` and
+`~/.claude/scheduled-tasks/pandacorp-review-launch/SKILL.md`: each task directory holds only its
+`SKILL.md`, no sibling permission/mode file, and the frontmatter carries no permission field — the
+`dontAsk` toggle is genuinely UI-only state, invisible from disk, exactly as the blocker above says.
+This is not independently machine-verifiable; closing on the owner's word per the Fix plan's own design
+(the toggle is a manual, owner-only action by product design). The live proof of no permission stall is
+`pandacorp-memory-review`'s next scheduled run (daily, 09:03) — check that run's transcript for a clean
+completion with no permission-prompt stall, rather than assuming it here.
