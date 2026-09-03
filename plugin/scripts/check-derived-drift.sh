@@ -17,6 +17,7 @@
 
 set -u
 
+input=""
 if [ $# -ge 1 ]; then
   ROOT="$1"
 elif [ ! -t 0 ]; then
@@ -47,6 +48,42 @@ red() {
   echo "The portability layer (DR-113) has ONE source of truth per piece; a stale derived copy silently breaks non-Claude runtimes." >&2
   exit 2
 }
+
+# --- Session attribution guard (BL-0082, DR-099 spirit) ---------------------------------------
+# This gate is repo-wide, not session-scoped: it compares on-disk state against generated
+# manifests with no notion of WHO is mid-edit. In this solo-operator factory, parallel sessions
+# routinely have plugin/runtime/plugin-metadata.json (the manifest SOURCE) or a generated
+# manifest uncommitted mid-edit at the same moment — documented as expected, not anomalous
+# (factory-parallel-changes-normal). If that in-flight edit belongs to a DIFFERENT session than
+# the one stopping now, reddening THIS Stop is a false positive, and regenerating manifests from
+# here would stomp the other session's uncommitted source change. So: before letting any check
+# below block Stop on manifest drift, attribute it — same DR-099 spirit BL-0005 already gave
+# verify-before-stop.sh. Only engages when invoked as a Stop hook (stdin JSON carries a
+# session_id); the positional-arg / manual invocation path (no session context, e.g. this
+# script's own self-test or a human running it by hand) has nothing to attribute against and
+# keeps blocking exactly as before — fail-closed, never silently softened.
+if [ -n "$input" ]; then
+  _pc_sid=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
+  if [ -n "$_pc_sid" ]; then
+    _pc_attributable="plugin/runtime/plugin-metadata.json plugin/.claude-plugin/plugin.json plugin/.codex-plugin/plugin.json"
+    _pc_dirty=$(git -C "$ROOT" status --porcelain -- $_pc_attributable 2>/dev/null)
+    if [ -n "$_pc_dirty" ]; then
+      _pc_touched="$ROOT/.pandacorp/run/sessions/$_pc_sid.touched"
+      _pc_mine=""
+      [ -s "$_pc_touched" ] && _pc_mine=$(sed "s#^${ROOT}/##" "$_pc_touched" | sort -u)
+      _pc_mine_implicated=0
+      for _pc_p in $_pc_attributable; do
+        if printf '%s\n' "$_pc_mine" | grep -qx "$_pc_p"; then
+          _pc_mine_implicated=1
+        fi
+      done
+      if [ "$_pc_mine_implicated" = "0" ]; then
+        echo "Pandacorp derived-drift gate: WARN (not blocking Stop) — plugin/runtime/plugin-metadata.json or a generated manifest has an uncommitted change this session did not make. Treating it as a PARALLEL session's in-flight edit (DR-099 spirit / BL-0082): not blocking, not auto-regenerating over it. Re-check once that session commits/regenerates." >&2
+        exit 0
+      fi
+    fi
+  fi
+fi
 
 command -v jq >/dev/null 2>&1 || red "jq not available — cannot verify manifest sync (fail-closed)"
 command -v node >/dev/null 2>&1 || red "node not available — cannot verify .codex/agents drift (fail-closed)"

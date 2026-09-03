@@ -4,6 +4,40 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.101.2 — 2026-09-03 (PATCH): `check-derived-drift.sh` gains session attribution for foreign in-flight edits (BL-0082)
+
+**What:** closes BL-0082. `check-derived-drift.sh` (the Stop-hook manifest-drift gate) compared
+on-disk state against the generated plugin manifests with no notion of WHO caused the drift — repo-
+wide, not session-scoped. In this solo-operator factory, parallel sessions routinely have
+`plugin/runtime/plugin-metadata.json` (the manifest SOURCE) or a generated manifest uncommitted
+mid-edit at the same moment (documented as expected, not anomalous — see `factory-parallel-changes-
+normal`); an innocent session's Stop would red purely because a DIFFERENT session had that in-flight,
+not-yet-regenerated edit. Same class of hazard BL-0005 already fixed for `verify-before-stop.sh`
+(DR-099 session-isolation), recurring here for a different gate and a different signal (generated-
+manifest staleness vs. a failing test file).
+
+**Fix:** added a session-attribution guard, same DR-099 spirit as BL-0005. When the gate runs as a
+real Stop hook (stdin JSON carries a `session_id`) AND `git status --porcelain` shows `plugin/runtime/
+plugin-metadata.json` or either generated manifest dirty AND this session's own touched-file record
+(`.pandacorp/run/sessions/<sid>.touched`, written by `warn-adhoc-write.sh` for every edit) does NOT
+include any of those three paths → the drift is FOREIGN: the gate WARNS to stderr and exits 0 (allows
+Stop), never auto-regenerating over the other session's uncommitted source. If the current session's
+own edit set DOES touch one of those paths, the gate still REDs/blocks exactly as before — the
+attribution guard only ever softens a red it can prove isn't this session's. The manual/positional
+invocation path (no session context — e.g. this script's own self-test, or a human running it by hand)
+has nothing to attribute against and keeps blocking unchanged, fail-closed by construction.
+
+**Tests:** `plugin/scripts/test-check-derived-drift.sh` gained a `check_stop()` helper (simulates the
+real Stop-hook stdin-JSON contract with `cwd` + `session_id`, vs. the pre-existing `check()`'s
+positional-arg manual-invocation path) and 4 new cases: manual invocation still blocks on real drift
+(control, unchanged); a foreign session's dirty `plugin-metadata.json` WARNs and does not block Stop;
+the WARN path leaves the foreign edit untouched (no auto-regenerate); the current session's own
+touched-set including `plugin-metadata.json` still REDs/blocks (control). All 26 cases green
+(`bash plugin/scripts/test-check-derived-drift.sh`). Out of scope (per the item): fixing every other
+possible parallel-session race in the factory's hooks — this is `check-derived-drift.sh`'s own
+attribution gap only, same narrow scope BL-0005 took for `verify-before-stop.sh`. Sequential PATCH
+after BL-0112's v9.101.1.
+
 ## v9.101.1 — 2026-09-03 (PATCH): PERF-3 flipped `wired` — a canary for the barrel-file ban that was already there (BL-0112)
 
 **What:** closes BL-0112 (proposal 31 T1.1). The stack-a-nextjs canonical `biome.json` already banned barrel

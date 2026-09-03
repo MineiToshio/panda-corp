@@ -20,6 +20,19 @@ check() { # $1 label, $2 expected rc, $3 root
   fi
 }
 
+check_stop() { # $1 label, $2 expected rc, $3 root, $4 session_id -- simulates the REAL Stop-hook
+  # invocation contract (stdin JSON with cwd + session_id), used by the BL-0082 attribution tests.
+  local output rc payload
+  payload=$(printf '{"cwd":%s,"session_id":%s}' "$(jq -Rs . <<< "$3")" "$(jq -Rs . <<< "$4")")
+  output=$(printf '%s' "$payload" | bash "$GATE" 2>&1)
+  rc=$?
+  if [ "$rc" = "$2" ]; then
+    echo "  ✓ $1"; pass=$((pass+1))
+  else
+    echo "  ✗ $1 (expected rc=$2, got rc=$rc): $output"; fail=$((fail+1))
+  fi
+}
+
 make_fixture() { # builds a minimal factory-shaped tree from the real repo
   local d
   d=$(mktemp -d)
@@ -190,6 +203,48 @@ rm -rf "$wt"
 rm "$wx/factory/gamification-ledger.json"
 check "main checkout without ledger still REDs (unchanged, real signal)" 2 "$wx"
 rm -rf "$wx"
+
+# 9. BL-0082: session-attribution guard on a dirty plugin-metadata.json (parallel-session
+# in-flight edit, DR-099 spirit). Needs a real git repo (main checkout) so the gate's own
+# `git status --porcelain` can see the uncommitted source edit.
+gy=$(make_fixture)
+( cd "$gy" && git init -q \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" add -A \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "fixture baseline" )
+# The gate resolves ROOT via `git rev-parse --show-toplevel`, which realpath's away any symlink
+# in the fixture's mktemp path (e.g. macOS /var -> /private/var). Touched-file entries must be
+# written against that SAME resolved root, exactly like the real producer (warn-adhoc-write.sh)
+# does, or the attribution match below would spuriously miss on a symlinked tmpdir.
+gy_root=$(git -C "$gy" rev-parse --show-toplevel)
+
+# Simulate another session's in-flight, uncommitted edit to the manifest SOURCE (not yet
+# regenerated) -- this is exactly the 2026-07-15 PROMPT-8-vs-9.97.0 scenario from the BL.
+jq '.version = "0.0.1-inflight"' "$gy/plugin/runtime/plugin-metadata.json" > "$gy/tmp.json" \
+  && mv "$gy/tmp.json" "$gy/plugin/runtime/plugin-metadata.json"
+
+# Control (pre-existing behavior, unchanged): manual/positional invocation carries no session
+# context to attribute against, so it keeps blocking on the real drift exactly as before.
+check "BL-0082 manual invocation (no session context) still blocks on real drift" 2 "$gy"
+
+# This session (sid-innocent) never touched plugin-metadata.json or the manifests -> the dirty
+# source belongs to a PARALLEL session -> FOREIGN drift -> WARN, Stop is NOT blocked.
+mkdir -p "$gy/.pandacorp/run/sessions"
+: > "$gy/.pandacorp/run/sessions/sid-innocent.touched"
+check_stop "BL-0082 foreign in-flight edit WARNS, does not block Stop" 0 "$gy" "sid-innocent"
+
+version_after=$(jq -r '.version' "$gy/plugin/runtime/plugin-metadata.json")
+if [ "$version_after" = "0.0.1-inflight" ]; then
+  echo "  ✓ BL-0082 WARN path left the foreign in-flight source edit untouched (no auto-regenerate)"; pass=$((pass+1))
+else
+  echo "  ✗ BL-0082 WARN path modified the foreign session's source edit"; fail=$((fail+1))
+fi
+
+# Control: THIS session's OWN touched set DOES include plugin-metadata.json -> the drift is
+# attributable to this session -> still REDs/blocks exactly as today.
+printf '%s/plugin/runtime/plugin-metadata.json\n' "$gy_root" > "$gy/.pandacorp/run/sessions/sid-owner.touched"
+check_stop "BL-0082 own-session edit set still blocks (unchanged)" 2 "$gy" "sid-owner"
+
+rm -rf "$gy"
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

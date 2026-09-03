@@ -3,12 +3,12 @@ id: BL-0082
 type: bug
 area: hooks
 title: "check-derived-drift.sh Stop gate reddens an innocent session when a PARALLEL session has plugin-metadata edits in flight"
-status: open
+status: done
 severity: p2
 opened: 2026-07-16
-closed:
+closed: 2026-09-03
 source: "factory/memory/_inbox.md 2026-07-15 note (agent-inferred) — seen live: PROMPT-8/manual-fix session vs the 9.97.0 debugging-standard session"
-closes:
+closes: "plugin/scripts/check-derived-drift.sh session-attribution guard + plugin v9.101.2 (plugin/docs/decision-log.md)"
 links: [BL-0005]
 ---
 
