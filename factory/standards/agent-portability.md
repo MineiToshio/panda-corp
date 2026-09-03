@@ -49,6 +49,8 @@ One runtime-neutral tier vocabulary — **MECH / STANDARD / JUDGE** — mapped p
 | **JUDGE** | genuine judgment / adversarial (architecture, red-team, open-ended synthesis) | opus | `gpt-5.5` (effort high/xhigh) |
 | — | **never auto** (most expensive tier, owner request only) | Fable | (n/a) |
 
+**A documented STANDARD variant, not a fourth tier (proposal 33 R-06).** `sonnet` + `effort: high` is load-bearing in this repo — `analytics`/`devops`/`librarian`/`security-auditor` (`plugin/agents/*.md` frontmatter) all pin it — but it stays a *variant* of STANDARD, never a promoted tier: the vocabulary above remains exactly MECH/STANDARD/JUDGE. The variant is reserved for agents that run **once per project phase**; the plain-`sonnet` STANDARD default stays on the five high-volume build-loop workers (`backend-dev`/`frontend-dev`/`implementer`/`researcher`/`test-writer`) that run many times per work order/FRD, where a raised default effort would compound cost with no phase-once ceiling.
+
 **Rules (identical to CONV-12/DR-111, restated runtime-neutrally):**
 - **Compute the tier from the SUBTASK's complexity**, never from the parent conversation's own tier (a session on JUDGE must not silently fan out subtasks at JUDGE).
 - **Escalate upward, never downward** if a lower tier proves inadequate.

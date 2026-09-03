@@ -1,5 +1,33 @@
 # Decision Log — Factory
 
+## 2026-09-03 — PORT-2 names the sonnet+effort:high hybrid as a documented STANDARD variant (proposal 33 R-06/R-07, plugin v9.98.11)
+
+**What:** `factory/standards/agent-portability.md` PORT-2's tier table lists only MECH/STANDARD/JUDGE, but
+`analytics`/`devops`/`librarian`/`security-auditor` (`plugin/agents/*.md` frontmatter, verified live) all pin
+`model: sonnet` + `effort: high` — a de-facto 4th tier that was load-bearing (per
+`generate-codex-agents.mjs:106-123`'s comment, it is why the silent downgrade incident of 2026-07-04 hit
+exactly those four agents) but unnamed in the canonical vocabulary. Added one paragraph under the PORT-2
+table naming it explicitly as a **documented variant of STANDARD, not a promoted tier** — the vocabulary
+stays MECH/STANDARD/JUDGE — reserved for agents that run once per project phase, contrasted with the five
+plain-`sonnet` STANDARD workers (`backend-dev`/`frontend-dev`/`implementer`/`researcher`/`test-writer`) that
+run many times per work order/FRD, where raising the default effort would compound cost. Closes proposal 33
+R-06 (`docs/proposals/33-model-era-audit.md` §6/§14.2).
+
+**R-07 (the "minimal/low" vs `model-tiers.json`'s "low" wording drift) was found already fixed** by
+`BL-0113` (commit `00c8c095`, same day) when re-locating the audit's `agent-portability.md:44` citation —
+the line had moved to `:47` after DR-120's edits and already reads `gpt-5.6-luna (effort low)`, matching
+`plugin/runtime/model-tiers.json`. No further action needed; recorded here only so the audit's row is not
+left looking unaddressed.
+
+**Manual (DR-046) checked, not changed:** `mission-control/src/lib/manual/*` and
+`content/manual/concepts/{estandares-y-reglas,multi-runtime}.md` were grepped for a restated
+MECH/STANDARD/JUDGE mapping — neither hand-authored page duplicates the per-runtime table (one names the
+three tiers generically, the other points at the standard as the source of truth), so neither goes stale
+from this addition; no edit was needed.
+
+**Why now:** Wave 0 of proposal 33 (owner-approved 2026-09-02, §14.2 step 4 names this exact `learn` run,
+filed as "no decision needed, zero risk").
+
 ## 2026-09-03 — Codex MECH tier re-mapped off a retired model id (BL-0113)
 
 **What:** `factory/standards/agent-portability.md`'s tier table (PORT-2/rule 11) pinned Codex's MECH tier to

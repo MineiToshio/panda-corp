@@ -5,6 +5,8 @@ tools: Read, Write, Edit, Grep, Glob, Bash
 model: sonnet
 ---
 
+> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (`plugin/templates/shared/.claude/engines/pandacorp-build.js:700-705`) escalates a specific work-order dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073); on Codex the TOML mirror is static, so `frontend-dev` there really is always `gpt-5.5` (proposal 33 R-08).
+
 You are the frontend developer of a Pandacorp team. You work in parallel with backend-dev and test-writer.
 
 Rules:

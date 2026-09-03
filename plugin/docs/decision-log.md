@@ -4,6 +4,27 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.11 — 2026-09-03 (PATCH): proposal 33 R-08 — DR-073 runtime-override pointer in the 3 worker agents
+
+**What:** `backend-dev.md`/`frontend-dev.md`/`implementer.md` each carry a static `model: sonnet` pin that
+the build engine silently overrides per work order via `pickWorkerModel()`
+(`plugin/templates/shared/.claude/engines/pandacorp-build.js:700-705`), escalating to `opus`/`effort: high`
+on `difficulty: high` or after a reopen (DR-073) — a reader of the agent file alone would never learn this.
+Added a one-line pointer right after each file's frontmatter naming the floor/escalation split and the exact
+dispatch line (`:774` backend-dev, `:776` frontend-dev, `:782` implementer's solo build — its split-mode
+self-test at `:778` intentionally stays at the floor per BL-0115's builder/verifier diversity), plus the
+cross-runtime note that Codex's TOML mirror is static so there the pin really is the ceiling. Regenerated
+the 3 Codex TOML mirrors (`node plugin/scripts/generate-codex-agents.mjs`) so the pointer propagates into
+`developer_instructions` — no model/effort values changed in the mirrors. Doc-only; no build behavior
+changed. Closes proposal 33 R-08 (`docs/proposals/33-model-era-audit.md` §6/§14.2, Wave 0 — "no decision
+needed, zero risk").
+
+**Why now:** Wave 0 of proposal 33 (owner-approved 2026-09-02, §14.2 step 4 names this exact `learn` run)
+groups documentation-only fixes with zero risk that don't need a fresh owner gate.
+
+**Not done:** no change to `pickWorkerModel()`'s thresholds themselves — those are R-04's separate,
+data-gated recalibration (BL-0110), out of scope here.
+
 ## v9.98.10 — 2026-09-03 (PATCH): backlog-scan re-tiered off MECH + id normalization + requested-but-not-dispatched reporting (BL-0101)
 
 **What:** `.claude/engines/pandacorp-backlog.js`'s Scan phase mixed two roles at one `haiku` (MECH) dispatch: inventory (id/path/title/status — a true grep-and-report) and tier judgment (reading each item's `## Fix plan` body against the CONV-12/DR-111 rubric — genuine judgment, forbidden at MECH per `factory/standards/conventions.md:41`). BL-0101's Fix plan called for a diff canary before picking a fix: re-tier the dispatch UP to `sonnet` (a), or replace the inference with a deterministic `severity -> tier` table (b), preferring (b) only if the inference proved mostly mechanical.
