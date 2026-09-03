@@ -4,6 +4,55 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.99.0 — 2026-09-03 (MINOR): First cost/token telemetry anywhere — `usage_summary` (BL-0096)
+
+**What:** closes BL-0096 (proposal 33 §6 R-12, Phase 1's first item). Before this, "budget" meant a
+weighted count of subagent calls — never a real $ or token figure — anywhere in the factory: neither
+`track.jsonl`'s other kinds nor `dashboard-events.ndjson`'s deliberately slim payload (the E5 precedent)
+ever carried usage. New **`plugin/scripts/usage-rollup.mjs`** (deterministic CLI, 27-assertion harness
+`test-usage-rollup.mjs`) parses a build pass's OWN subagent transcripts (`agent-*.jsonl` under
+`~/.claude/projects/<slug>/<session>/subagents/workflows/<run-id>/` — the same directory the external
+`maxAgents` brake already resolves) and prints ONE `usage_summary` JSON line: per-model call counts,
+token totals and a cost estimate priced from `docs/proposals/33-model-era-audit.md` §3's dated table
+(USD/MTok; cache-creation tokens counted but never priced — no verified rate, CONV-13 forbids inventing
+one; an unrecognized model id is tallied and flagged in `unpriced_models`, never guessed). `implement/
+SKILL.md` gains a **"Per-run cost/token rollup"** supervisor duty (right before the guaranteed shutdown,
+once per Workflow pass) that pipes the CLI's stdout into `.pandacorp/track.jsonl`, fire-and-forget, like
+every other line there. `factory/standards/build-orchestration.md` documents the full shape.
+
+**Key finding (resolves the fix plan's `[UNVERIFIED]`):** transcripts DO carry usage. Verified live
+2026-09-03 against real, already-on-disk transcripts from a genuine historical mission-control build
+pass (`wf_a47b11b2-3b2`, 5 transcript files, 136 real assistant calls) — the CLI rolled it up cleanly:
+`{"calls_total":136,"models":{"claude-haiku-4-5-20251001":{...},"claude-sonnet-5":{...}},
+"cost_usd_total":0.681973,"unpriced_models":[]}`. A further sweep across every `subagents/workflows/
+wf_*` directory found on this machine (~40, spanning 4 different projects) parsed with zero crashes and
+exactly one (expected) unpriced hit — a synthetic test-fixture model id from an unrelated harness. This
+doubles as the item's "instrument one build" proof: a live, hours-long fresh build was out of scope for
+a backlog-item session, so the strongest available evidence is a correct rollup of a real, completed
+run's preserved transcripts, not a synthetic fixture alone (the RED/GREEN suite also covers a REAL
+transcript-shape fixture + a malformed one that must fail loud, per DR-078).
+
+**Why this shape, not the engine's own JS:** the transcript directory is only knowable from the
+LAUNCHING Claude Code session's own identity (project-slug/session-id/run-id) — the engine's in-process
+`agent()` calls have no access to that identity (confirmed by reading the existing external-brake
+mechanism, which is ALSO supervisor-side, never engine-side, for the same reason). Routing the rollup
+through the supervisor avoids inventing a chicken-and-egg "pass the run id into its own launch args"
+problem and reuses an already-battle-tested resolution path. Per **LESSON-0176** (cited): `model`, not
+`effort`, is the dominant cost lever (~10x between tiers) — informed keying the rollup per-model rather
+than per call site, which is exactly the axis proposal 33's re-tier claims (R-03/R-04/R-11/R-13/R-56)
+need falsified.
+
+**Impact:** `plugin/scripts/usage-rollup.mjs` (new), `plugin/scripts/test-usage-rollup.mjs` (new, 27
+assertions), `plugin/skills/implement/SKILL.md` (new supervisor duty + Launch-checklist step 3 note),
+`factory/standards/build-orchestration.md` ("Durable build timeline" — new `usage_summary` shape),
+both manifests → **v9.99.0** (MINOR — new, additive, backward-compatible telemetry capability; no
+skill/agent behavior changed for a pass that doesn't reach this step). No `OVERLAY_VERSION` bump — this
+lives entirely in the plugin's own scripts/skill/standard, not in the per-project engine template
+(`.claude/engines/pandacorp-build.js`) or any other project-scaffolded file. DR-046: internal build
+telemetry — no owner-facing flow/gate/concept changed (the owner never sees or acts on this rollup
+directly yet), so no Manual narrative page changed; the Reference catalogs auto-derive. **Out of
+scope, explicitly (per BL-0096):** Mission Control UI for this data and the OTel cross-check — tracked
+separately as BL-0107. `factory/backlog/BL-0096` → done.
 ## v9.98.13 — 2026-09-03 (PATCH): BL-0095 — dedupe the four-planes routing table + trim absorb's inline CONV-12 restatements
 
 **What:** two prose-duplication defects with no drift gate, closed per `docs/proposals/33-model-era-audit.md`

@@ -143,7 +143,34 @@ touches, the engine appends a per-project timing log: `wo_start` (when a work or
 It is **committed machine-state** (like `status.yaml`; staged by the WO commit + the gate), so it is a
 **durable** record — unlike the global `~/.claude/dashboard-events.ndjson`, which rotates and feeds the
 live Party view. This track is the source Mission Control's **Observabilidad → Línea de tiempo** reads
-(FRD-12): FRD ▸ work order ▸ review, real wall-clock durations, "keep the last attempt" per WO. Worktree-per-agent
+(FRD-12): FRD ▸ work order ▸ review, real wall-clock durations, "keep the last attempt" per WO.
+
+**Per-run cost/token rollup — `kind: "usage_summary"` (BL-0096).** Before proposal 33 (§6 R-12), NOTHING
+in the factory measured $ or tokens: `track.jsonl`'s other kinds are timing-only, and `dashboard-events.
+ndjson`'s deliberately slim payload (the E5 precedent) never carried usage either — 6,621 inspected event
+lines had zero usage fields, which is what settled the [UNVERIFIED] question in BL-0096's fix plan: the
+per-subagent transcript files (`agent-*.jsonl`, `type: "assistant"` entries carrying `message.model` +
+`message.usage`) are the ONLY place this data exists, confirmed live against real on-disk transcripts
+2026-09-03 (LESSON-0176: `model`, not `effort`, is the dominant cost lever — ~10x between tiers — so the
+rollup keys per-model, not per call site). The supervisor (never the engine's own in-process JS, which
+has no access to the launching session's identity) appends ONE line per Workflow pass, right before that
+pass's guaranteed shutdown (`implement/SKILL.md` "Per-run cost/token rollup"), by piping the deterministic
+`plugin/scripts/usage-rollup.mjs --dir <that pass's subagents/workflows/<run-id> dir>` CLI's stdout into
+`track.jsonl`. Shape: `{"kind":"usage_summary","at":<ISO8601Z>,"run_dir":<the transcript dir>,
+"calls_total":<int>,"models":{<model-id>:{"calls","input_tokens","output_tokens",
+"cache_creation_input_tokens","cache_read_input_tokens","cost_usd"}},"cost_usd_total":<number>,
+"cost_excludes":["cache_creation_input_tokens"],"unpriced_models":[<model-id>],
+"skipped_incomplete_lines":<int>}`. Pricing is the dated `docs/proposals/33-model-era-audit.md` §3
+table (USD/MTok, looked up by exact model id or its family after stripping a trailing `-YYYYMMDD`
+snapshot date); cache-CREATION tokens are counted but never priced (no verified cache-write rate —
+CONV-13 forbids inventing one), and an unrecognized model id is tallied with `cost_usd: null` and
+listed in `unpriced_models` rather than guessed. The reader fails LOUD (nonzero exit, no line printed)
+on a transcript line that fails to parse and is NOT the file's trailing line (DR-078 — a genuinely
+corrupted transcript is never silently rolled up as empty/zero); a trailing incomplete line (an
+in-flight streaming write) is tolerated and counted in `skipped_incomplete_lines`. `dashboard-events.
+ndjson` is never widened by this — the rollup script performs no writes at all, only reads +
+stdout. Mission Control UI for this data and the OTel cross-check are explicitly deferred (BL-0107).
+Worktree-per-agent
 was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
 isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
 is "partition the work so each teammate owns a different set of files" (worktrees are for independent,

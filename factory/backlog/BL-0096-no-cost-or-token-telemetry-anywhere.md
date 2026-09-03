@@ -3,12 +3,12 @@ id: BL-0096
 type: change
 area: build-engine
 title: "Add a per-run cost/token rollup to .pandacorp/track.jsonl — no $ or token telemetry exists anywhere"
-status: open
+status: done
 severity: p1
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-12 (Top-10 #4, Phase 1's FIRST item)"
-closes:
+closes: "plugin v9.99.0 — plugin/scripts/usage-rollup.mjs + implement/SKILL.md 'Per-run cost/token rollup' + factory/standards/build-orchestration.md 'usage_summary' shape"
 links: [LESSON-0176]
 ---
 
