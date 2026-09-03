@@ -37,3 +37,14 @@ to investigate or continue the same work. `ScheduleWakeup` itself is scoped to `
 pacing (it needs the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly) —
 outside a `/loop` run, don't reach for it as a generic "wait for my subagents" mechanism at all; the
 harness already resumes the session automatically when a dispatched Agent-tool call completes.
+
+**Promotion held 2026-09-03 — `blocked-by: BL-0099`.** This lesson stays `promotion: proposed`. Proposal 33
+R-71 found that it **contradicts the factory's own largest skill**: the lesson calls `ScheduleWakeup` outside
+`/loop` "a misuse", while `plugin/skills/implement/SKILL.md:70,77` MANDATES a dedicated ~2-minute
+`ScheduleWakeup` outside `/loop` as the build supervisor's lease-renewal timer, and the platform docs do not
+forbid that use. The lesson is `agent-inferred` at `confidence: medium`; promoting it as written would codify
+a rule the build engine violates by design. **BL-0099** resolves the contradiction on one supervised build
+(does the ~2-min heartbeat re-fire outside `/loop` for a full run with no duplicate spawns?). Promote only
+after that verdict — and then only the half the verdict supports (the "don't spawn a bridge agent / don't
+poll for a background completion notification" rule is unaffected by the contradiction; the "`ScheduleWakeup`
+is `/loop`-only" scoping claim is the disputed half).

@@ -9,11 +9,11 @@ source: "personal-page-v2 docs/voice/style-guide.md 2026-07-09 (owner-stated) �
 provenance: owner-stated
 created: 2026-07-09
 status: active
-promotion: proposed
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-15
 confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0015]
+links: [LESSON-0015, CONV-15, factory/standards/conventions.md#CONV-15]
 ---
 
 **Situation:** an owner reviewing site copy identified the em dash (`—`) as the single most reliable

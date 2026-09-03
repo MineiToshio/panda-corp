@@ -3,12 +3,12 @@ id: BL-0054
 type: change
 area: standards
 title: "Document the permission-allowlist prerequisite next to each routines.md cron definition"
-status: open
+status: done
 severity: p2
 opened: 2026-07-09
-closed:
+closed: 2026-09-03
 source: "factory/memory/_inbox.md note, 2026-07-08 — routines-unattended-allowlist fix session"
-closes:
+closes: "plugin/docs/routines.md now carries the unattended-permission prerequisite (wildcard-anchored allowlist + the residual bypassPermissions/per-task-UI gap); LESSON-0119 promoted there in the 2026-09-03 learn sitting (proposal 33 12.4)"
 links: [LESSON-0119]
 ---
 

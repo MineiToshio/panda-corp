@@ -8,12 +8,12 @@ trigger: use this when checking whether a gate/verify script passed and its outp
 source: "panda-corp — a piped `bash verify.sh | tail` reported the pipe's own exit code, masking a red gate as green; corroborated on a SECOND, distinct project (mission-control .pandacorp/run/lessons.md 2026-07-07, FRD-23 build) — the same `bash .pandacorp/verify.sh 2>&1 | tail` pattern made a red e2e ('Another next dev server is already running') read as exit 0, twice fooling the agent into believing the gate was green"
 provenance: agent-inferred
 created: 2026-07-05
-status: candidate
-promotion: proposed   # 2026-07-07 (librarian review) — target factory/standards/build-orchestration.md (verify.sh conventions): same false-green cost hit twice on 2 distinct projects (panda-corp, mission-control); codify "gate wrapper scripts must use set -o pipefail / capture the gate's own exit code, never a bare pipe's" as a standing rule
+status: active
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/build-orchestration.md#BUILD-2
 confidence: high
 times_applied: 0
 applied_in: []
-links: []
+links: [BUILD-2, factory/standards/build-orchestration.md#BUILD-2]
 ---
 
 **Situation:** running the gate as `bash verify.sh | tail` and then checking `$?` reported `tail`'s exit

@@ -8,12 +8,12 @@ trigger: use this when a legitimate command, commit message, canary test, or del
 source: "synthesized 2026-07-07 from three distinct incidents across two projects: LESSON-0092 (panda-corp, Fable canary pass 2026-07-04 — block-dangerous.sh blocked a canary test harness that only MENTIONED dangerous strings), LESSON-0075 (panda-corp, Fable hardening sprint 2026-07-05 — Fable's own safety classifier refused hardening-flavored prompts, silently falling back to an expensive tier), LESSON-0105 (mission-control + personal-page-v2, 2026-07-07 — block-dangerous.sh's redirect-truncation guard blocked ordinary git commit messages that merely contained a literal '>' character or a protected-looking path)"
 provenance: agent-inferred
 created: 2026-07-07
-status: candidate
-promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/infra.md (hooks section, alongside LESSON-0105's proposed entry) or ai-implementation.md: codify the general design principle "a safety/security gate that reasons over surface TEXT rather than runtime semantics will false-positive on legitimate content that textually resembles its trigger pattern — the fix is always to change how the intent is EXPRESSED (file instead of inline string, rephrase, de-securitize framing), never to weaken the gate" as a standing rule for building or reviewing ANY future gate/classifier the factory adds (PreToolUse hooks, model safety classifiers), not just block-dangerous.sh. Synthesizes 3 incidents across 2 mechanisms (deterministic hook + probabilistic model classifier) and 3 distinct projects (panda-corp, mission-control, personal-page-v2).
+status: active
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/infra.md#INFRA-6
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0092, LESSON-0075, LESSON-0105, BL-0047]
+links: [LESSON-0092, LESSON-0075, LESSON-0105, BL-0047, INFRA-6, factory/standards/infra.md#INFRA-6]
 ---
 
 **Situation:** three separate incidents, two different mechanisms (a deterministic regex-based hook and

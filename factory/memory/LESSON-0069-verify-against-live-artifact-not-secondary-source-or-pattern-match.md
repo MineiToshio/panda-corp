@@ -8,12 +8,12 @@ trigger: use this when about to base a diagnosis, a claim to the owner, or a "do
 source: "synthesized from LESSON-0027 (stale audit claim), LESSON-0047 (preview-tool false-signal modes), LESSON-0057 (component-inventory doc drift), LESSON-0058 (grid-collapse pattern-match without precondition check), LESSON-0067 (same-runtime review blind spots), LESSON-0068 (condensed-doc memory vs diff) — panda-corp + personal-page-v2, 2026-06-30..2026-07-04. Corroborated a SEVENTH time (2026-07-28, panda-corp review-launch scheduled sweep, project personal-page-v2): `status.yaml` read `phase: release` since 2026-07-01, and review-launch nearly reported the launch's real-world metrics as if the current build were live — but the production domain still served the pre-rebuild 2021 site (`/en/projects` 404s, `/en/blog` shows the old post). The `phase: release` flag certifies the internal build/hardening gate closed clean, NOT that the external deploy+DNS-cutover step actually ran — same causal shape as the other six (a recorded flag/doc/self-check stood in for a direct check of the live artifact, here the actual production HTTP response). See BL-0087 for the actionable fix (review-launch must curl/route-check the live domain before trusting the phase flag)."
 provenance: agent-inferred
 created: 2026-07-04
-status: candidate
-promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/conventions.md CONV-13: CONV-13 ("evidence before assertion") already codifies the OWNER-FACING-CLAIM half of this lesson (owner-stated 2026-06-20, promoted commit b026cc16); this lesson's scope is broader — it also covers re-verifying a doc/audit/past-finding BEFORE building an internal diagnosis or fix plan from it (not just before telling the owner), a facet CONV-13 does not name. Propose widening CONV-13's rule text to explicitly cover fix-plan/diagnosis grounding, not only owner-facing statements. 6-lesson synthesis hub (LESSON-0027/0047/0057/0058/0067/0068, plus LESSON-0140 citing it since) across panda-corp + personal-page-v2 — the single most cross-referenced lesson in the store.
+status: active
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-13
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0027, LESSON-0047, LESSON-0057, LESSON-0058, LESSON-0067, LESSON-0068, LESSON-0140, LESSON-0183]
+links: [LESSON-0027, LESSON-0047, LESSON-0057, LESSON-0058, LESSON-0067, LESSON-0068, LESSON-0140, LESSON-0183, CONV-13, factory/standards/conventions.md#CONV-13]
 ---
 
 **Situation:** across six independent incidents (two projects, different domains — audit claims, preview

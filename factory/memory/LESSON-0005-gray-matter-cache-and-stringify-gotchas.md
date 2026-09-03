@@ -9,10 +9,10 @@ source: factory/memory/_inbox.md (2026-06-16, factory validate-memory.sh authori
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: proposed
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-14
 confidence: high
 times_applied: 0
-links: []
+links: [CONV-14, factory/standards/conventions.md#CONV-14]
 ---
 
 **Situation:** Multiple readers (the factory's `validate-memory.sh`, Mission Control's `lib/memory.ts`,

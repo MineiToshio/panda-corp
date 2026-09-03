@@ -4,6 +4,32 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
+
+**What:** the plugin-side half of the `/pandacorp:learn` promotion sitting (proposal 33 §12.4; full record and the
+lesson→rule table in `factory/decision-log.md`, same date). No skill or agent behaviour changed, hence PATCH.
+
+- `plugin/docs/routines.md` — new top-level section **"Prerequisite for EVERY routine below: the unattended permission
+  surface"**, before the three per-routine definitions. Scheduled tasks run headless in permission mode `default`, so an
+  uncovered tool call raises a prompt that stalls the run silently and forever; the doc now says to pre-seed
+  `permissions.allow`, to anchor wildcards at the structural segment (`.../pandacorp/*/scripts/*:*`, never a pinned
+  version), and states the residual gap honestly (a genuinely new tool can still prompt once; only `bypassPermissions`
+  or the per-task UI mode closes it, tracked by BL-0103). Promoted from `LESSON-0119` (owner-stated). **Closes BL-0054**,
+  open since 2026-07-09 — the doc claimed to be sufficient to recreate the routines from scratch while omitting the one
+  prerequisite that makes them actually run.
+- `plugin/templates/rules/code-conventions.md` — two new bullet blocks (DR-051 propagation of CONV-14 and CONV-15):
+  **User-facing copy** (no em dash / sentence-separator en dash in product copy, the AI-prose tell — from LESSON-0123)
+  and **Verified traps** (no lexicographic ISO-8601 comparison across producers; `matter(content, { excerpt: false })`
+  never bare; `git add -u`/`-f` for a tracked path under a later-gitignored dir — from LESSON-0009/0005/0103).
+- `plugin/templates/shared/AGENTS.md.tpl` — CONV-13's scope widened to cover internal diagnoses, fix plans and "done"
+  declarations built on a stand-in for the live artifact, not only claims made to the owner (from LESSON-0069).
+- `plugin/templates/OVERLAY_VERSION` 8.78.0 → 8.79.0 so `/pandacorp:upgrade` carries the three rule changes into
+  existing projects on their next skill run.
+
+**Not touched, deliberately:** no rule-library entry for DOCC-5, INFRA-5/6 or BUILD-2/3 — `build-orchestration.md` is
+declared factory-internal/not-injected in its own preamble, the two infra rules govern the factory's own hooks and state
+layer, and `document-consistency.md` has never carried an operative rule file.
+
 ## v9.98.11 — 2026-09-03 (PATCH): proposal 33 R-08 — DR-073 runtime-override pointer in the 3 worker agents
 
 **What:** `backend-dev.md`/`frontend-dev.md`/`implementer.md` each carry a static `model: sonnet` pin that

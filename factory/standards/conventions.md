@@ -52,15 +52,16 @@ When replying to the owner:
 
 Escalate upward, never downward, if a first attempt at a lower tier comes back inadequate (same empirical spirit as DR-073's `reopen_count` escalation, generalized outside the build engine).
 
-## Rule — owner-facing claims: evidence before assertion
+## Rule — claims and diagnoses: evidence before assertion
 
-> Severity: **MUST** · Enforcement: manual (agent self-check before asserting; owner spot-check). Operative form: `plugin/templates/shared/AGENTS.md.tpl` §Language & interaction (DR-051). Owner-stated 2026-06-20 ("verify-before-telling", after repeated wrong state claims); codified 2026-07-15.
+> Severity: **MUST** · Enforcement: manual (agent self-check before asserting or before building a diagnosis/fix plan on a stand-in; owner spot-check). Operative form: `plugin/templates/shared/AGENTS.md.tpl` §Language & interaction (DR-051). Owner-stated 2026-06-20 ("verify-before-telling", after repeated wrong state claims); codified 2026-07-15; widened 2026-09-03 to internal diagnoses and fix plans (promoted from `LESSON-0069`, a 7-instance synthesis across panda-corp + personal-page-v2).
 
-**Scope: every factual claim any agent makes to the owner about the state of code, data, systems or processes — in the factory and in every product project, under any runtime.** It governs statements of fact; it does not slow down opinions, recommendations or plans, which are visibly judgment.
+**Scope: every factual claim any agent makes to the owner about the state of code, data, systems or processes — in the factory and in every product project, under any runtime — AND every internal diagnosis, fix plan or "done" declaration built on such a claim, even when nothing is said to the owner.** It governs statements of fact; it does not slow down opinions, recommendations or plans, which are visibly judgment.
 
 - **No claim without an observation.** A statement of fact is anchored to something observed with a tool in the CURRENT session: a file read (`file:line`), a command's output, a live fetch/query. Never asserted from conversation context, training memory, or "a quick look" — the owner works across several parallel sessions, so this conversation's context is routinely stale.
 - **Measure real state; recorded state is a claim, not evidence.** A flag (`running: true`), a status field, a cached count or a prior audit's finding was written by some writer at some time — cross-check it against live signals (mtime vs now, a live process listing, the actual current content) before repeating it. This is the chat-facing face of constitution §22/§24 and of the machine-surface rules DR-066/DR-068.
 - **A subagent's report is a claim too.** A fact reported by a delegated agent — especially a cheap-tier scan — is re-verified before the lead agent asserts it to the owner or builds on it (the LESSON-0027 audit-snapshot rule, generalized).
+- **The rule binds BEFORE the assertion, not only at it.** A doc, a past audit finding, a recognized failure pattern, a self-review, a recorded flag: each is a *stand-in* for the live artifact and can silently diverge from it. Before diagnosing a failure, building a fix plan, or declaring something done on top of one, insert one direct, tool-mediated read of the live artifact — the current code/frontmatter/state (not the audit that described it), the actual computed value (not the doc's claim about it), the real HTTP response (not the `phase` flag), a literal fact-by-fact diff (not a confident holistic re-read), and a check from the actual consuming runtime (not the one that built it). Ground truth beats a stand-in for ground truth, always.
 - **Label the unverified.** What could not be verified is said as such ("no lo he verificado") or stated as a hypothesis with the concrete check that would confirm it — never delivered with the same confidence as observed fact. When uncertainty remains, investigate more instead of guessing.
 
 ## Rule — naming
@@ -101,13 +102,30 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **Conventional Commits** with scope, in English: `feat(orders): add table selection`, `fix(api): handle null response`.
 - **Direct push to `main` is allowed** (solo operator): no mandatory feature-branch/PR — the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`, not human review. **Never force-push**; use a throwaway branch only for big/risky changes you may want to abort wholesale.
 
+## Rule — verified traps (each cost the factory the same bug twice)
+
+> Severity: **SHOULD** · Enforcement: review-only + the greppable `matter(` check below. Promoted 2026-09-03 from `LESSON-0005`, `LESSON-0009` and `LESSON-0103` — each corroborated on two distinct projects, each rediscovered from scratch the second time.
+
+- **Never compare ISO-8601 timestamp strings lexicographically** to pick the most recent one unless every producer is verified to stamp the identical offset AND the identical fractional-second precision (`…42Z` sorts *after* `…42.920Z` as raw characters). Compare via `Date.parse` at the point of comparison, or — when you own every emitter of a shared stream — pin one timestamp format at every emitter so the invariant holds structurally (`LESSON-0009`).
+- **`gray-matter@4` caches on the raw content string.** Always call `matter(content, { excerpt: false })`, never bare `matter(content)`: the internal LRU is keyed by content, so a second parse of the same string returns the cached result — and a first call that threw on malformed YAML still populates it, so the second call silently returns `{ data: {} }` instead of throwing. Round-trip check: `matter.stringify()` always appends a trailing newline, so normalize it before diffing written output against the pre-write body (`LESSON-0005`).
+- **`git add <path>` on an already-tracked file under a later-gitignored directory is refused** — and the refusal can persist even when `git check-ignore` on that exact path reports nothing. Try `git add -u -- <path>` first (only touches tracked paths, skips the ignore check); fall back to `git add -f -- <path>`. Never weaken `.gitignore` to work around it (`LESSON-0103`).
+
+## Rule — user-facing copy voice
+
+> Severity: **SHOULD** · Enforcement: reviewer + a `grep` check where an automated content pipeline exists. Operative form: `rules/code-conventions.md` (DR-051). Owner-stated 2026-07-09; promoted 2026-09-03 from `LESSON-0123`.
+
+- **The em dash (`—`), and the en dash (`–`) used as a sentence separator, are banned from user-facing product copy** — UI strings, i18n messages, MDX pages, blog posts, metadata, and anything an automated content generator drafts. They are the most reliable single tell of AI-generated prose. Substitute a period, colon, comma or parentheses. A normal hyphen inside compound words and a middle dot (`·`) as a structural separator stay fine.
+- This binds **product copy only** — not code, not committed technical docs, not the factory's own prose, and not chat with the owner (CONV-11). Where a content pipeline exists, make it a mechanical check on the pipeline's output (`grep` for the two characters), not a guideline a human remembers to apply.
+
 ## How it is verified
 - **Typing**: `tsc --noEmit` with `strict: true` (`verify.sh` gate, fail-closed); `any`/`@ts-ignore` → Biome `noExplicitAny` as error. `mypy --strict` on Python stacks.
 - **Imports**: Biome organize-imports + the `@/*` alias in `tsconfig` (toolchain conformance check on `/pandacorp:upgrade`); deep-relative imports → review-only.
 - **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
-- **Owner-facing claims (evidence before assertion)**: manual — agent self-check + owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat side is a judgment call by nature.
+- **Claims and diagnoses (evidence before assertion)**: manual — agent self-check before asserting *or* before building a diagnosis/fix plan on a stand-in, plus owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat and diagnosis sides are judgment calls by nature.
+- **Verified traps**: `matter(` called with a single argument is greppable (a lint/CI candidate); the timestamp and `git add` traps are review-only — they are recognized at the moment the symptom appears, not prevented by a gate.
+- **User-facing copy voice**: a `grep` for `—`/`– ` over the copy surface (i18n messages, MDX, generated drafts) is the mechanical check where a content pipeline exists; hand-written copy is reviewer + owner spot-check.
 
 ## Why
 Uniform conventions let any agent (or the owner) drop into any project cold: naming carries intent, strict typing turns a class of runtime bugs into compile errors, and the language rule keeps the public repo professional while the owner operates in Spanish. What a linter can hold, the linter holds; the rest is cheap for a reviewer to spot and expensive to leave inconsistent.

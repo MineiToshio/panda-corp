@@ -16,6 +16,14 @@ Two docs drifted, nobody intended two truths. This is always a defect. It is cau
 ### 2. Intentional supersession — never block the change itself
 The author *wants* to change a rule. The gate must never refuse the change; it requires only that the supersession be **complete**.
 
+### 3. Promise without mechanism — a documented trigger names its installed mechanism (`MUST`)
+
+A third way a corpus stops meaning one thing: a doc asserts a **trigger** ("this regenerates on every commit", "this MUST happen before release", "the hook fires on X") that nothing installed actually fires. Prose describing a mechanism is a *proposal* for it, never evidence it exists — and nothing fails loudly when it is missing, so everything downstream quietly assumes live behaviour that never runs.
+
+**The rule, at the moment the claim is written or edited:** a sentence asserting that something triggers, enforces or regenerates must **name the installed call site as a `path:line` pointer** (the hook config, the CI step, the routine, the script that calls it). If the wiring does not exist yet, exactly one of two closes the claim in the SAME change: ship the wiring, or file a tracked `factory/backlog/` `BL-*` item for it and cite that id inline. An un-pointed trigger claim is the defect; leaving it un-pointed *and* untracked is what this rule forbids.
+
+Scope note (so the rule stays cheap): it binds **new and edited** trigger claims, and any un-pointed claim a reader trips over. It is not a mandate to re-audit the whole corpus, and a claim whose gap already carries a `BL-*` id is already closed by this rule — do not re-file it. Promoted from `LESSON-0113` (the recurring "promise without mechanism" shape, named independently by the 2026-07-02 standards-catalog audit and the 2026-07-07 FRD-23 read-model build).
+
 ## Fresh-set blocking verifier — for newly generated sets (`MUST`)
 
 A **freshly generated set has no supersession intent** — it must come out internally coherent. The two sets:
@@ -57,6 +65,7 @@ Drift that slips through both gates is caught by a lightweight recurring version
 - **Fresh-set:** the `spec` and `architecture` skills spawn a fresh verifier before their advance/flip gate; a hard internal contradiction keeps the set `DRAFT` (checkable: the same evidence-stamp discipline as `readiness_gate`, so a downstream reader can tell the gate ran).
 - **Supersession-completeness:** the `change`/`iterate` and `learn` skills run the check on the edited corpus before the change is considered done; an incomplete propagation is reported back to the author, not silently passed.
 - **Advisory sweep:** the scheduled routine runs on cadence; its output is a report, never a mutation.
+- **Promise without mechanism:** author self-check at the moment the trigger claim is written (the `path:line` pointer, the shipped wiring, or the cited `BL-*` id is visible in the same diff) + the `reviewer`/sweep flagging an un-pointed trigger claim. The registry's own `aspirational MUST` burn-down (`check-standards.sh`, wired) is the standards-catalog slice of the same check.
 
 ## Why
 A rule is only as strong as the guarantee that it means one thing everywhere. The two-layer discipline (`documentation.md`) keeps each doc true and records the why; the single-writer law (`single-source-of-truth.md`) keeps each *fact* to one writer. This standard is their sibling for *rules*: it keeps a superseded rule from surviving in the shadows. It is cheap to run (bounded candidate set, at the moment of change) and very expensive to skip — the 21 findings are the receipt.

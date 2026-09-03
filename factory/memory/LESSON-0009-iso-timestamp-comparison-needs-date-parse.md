@@ -11,11 +11,11 @@ source: mission-control lessons.md — WO-12-001 freshness.ts (2026-06-16); corr
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: proposed   # 2026-07-28 (librarian review) — target factory/standards/conventions.md (or a new "coding gotchas" section): codify "never compare ISO-8601 timestamp strings lexicographically to find the most recent one unless every producer is verified to stamp the same offset; compare via Date.parse (or equivalent) instead" as a standing rule. Active, high-value, cross-project (mission-control WO-12-001 + panda-corp implement-audit ndjson stream), no existing standard names this gotcha.
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-14
 confidence: medium
 times_applied: 1
 applied_in: [mission-control]
-links: []
+links: [CONV-14, factory/standards/conventions.md#CONV-14]
 ---
 
 **Situation:** `freshness.ts` needed to find the max-at timestamp among several ISO 8601 strings.

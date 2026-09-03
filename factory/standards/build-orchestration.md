@@ -404,6 +404,11 @@ The build engine reviews and tests **per FRD**, not per work order:
   `blockedReasons:{baseline:error}`). The canary proves the gates still bite on a broken fixture; this run
   proves the REAL project still passes after the overwrite.
 
+**Gate-reading hygiene (`MUST`) — a gate's verdict is its OWN exit code, and a red gate is triaged before it is believed.** Both halves cost the factory the same wrong belief twice, on two distinct projects each; both are promoted here (`LESSON-0078`, `LESSON-0040`) as standing rules for any agent or script that reads a gate result.
+
+1. **Never take `$?` after a bare pipe as the gate's verdict.** `bash verify.sh 2>&1 | tail` reports `tail`'s exit code — almost always 0 — so a genuinely red gate reads green. Any wrapper that pipes a gate's output for readability must capture the gate's own status: `set -o pipefail`, or `${PIPESTATUS[0]}`, or simply run it un-piped. This is the false-GREEN direction, and it is the dangerous one: it lets a build close on a red tree.
+2. **A broad e2e / `webServer` failure is triaged before it is diagnosed as a regression.** Two independent, similarly-disguised causes come first: (a) **port collision** — another process (often a sibling project) already answering on the port, silently reused via Playwright's `reuseExistingServer`, so every test runs against the WRONG app; (b) **orphaned same-project lock** — a stray `next dev` from an earlier session tripping Next's *process-level* dev-server lock even when the reserved port is completely free, which no port-bind check catches. Pass the project's reserved `PORT` from `factory/ports.yaml` explicitly, check `lsof -i :<port>` and the running dev processes, and prefer a **fresh** server boot over reusing a long-lived one (accumulated HMR state produced false-red mobile-nav failures that passed clean on a clean boot). This is the false-RED direction: cheap to check, and it has burned six recorded runs across two projects. `BL-0037`/`BL-0049` track the code-side fix; until one lands, this triage is the mechanism.
+
 ## 5a. Concurrent gates — build and review finally overlap (DR-118)
 
 The per-FRD gate runs a whole-project `verify.sh` (biome/tsc/knip + the browser layer), which needs a **quiet

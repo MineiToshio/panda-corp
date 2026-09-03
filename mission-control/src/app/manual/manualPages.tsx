@@ -717,12 +717,26 @@ function ConceptEstandares(): React.JSX.Element {
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
-          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~138
+          <B weight={500}>El registro de reglas</B> (<Code>rule-registry.md</Code>) indexa las ~157
           reglas con su estado real de enforcement: <Chip tone="ok">wired</Chip> un script/gate la
           verifica solo · <Chip tone="warn">manual</Chip> un paso humano NOMBRADO ·{" "}
           <Chip tone="danger">aspirational</Chip> nada la verifica (un MUST aspiracional es un
           defecto — hoy hay <B weight={600}>cero</B>). <Code>check-standards.sh</Code> valida la
-          plantilla y avisa si reaparece uno.
+          plantilla, deriva los conteos en vivo y avisa si reaparece uno.{" "}
+          <B weight={500}>Sesión de promoción de memoria (2026-09-03):</B> 7 reglas nuevas nacidas
+          de lecciones corroboradas del store, todas <Chip tone="warn">manual</Chip>: CONV-14
+          (trampas verificadas: comparación léxica de ISO-8601, caché de gray-matter,{" "}
+          <Code>git add -f</Code> bajo un directorio ignorado después), CONV-15 (voz del copy de
+          producto: la raya larga está prohibida por ser el tell más fiable de prosa generada por
+          IA), DOCC-5 (promesa sin mecanismo: toda afirmación de que algo se dispara nombra su call
+          site instalado, envía el cableado, o cita un <Code>BL-*</Code>), INFRA-5 (estado nuevo
+          gitignoreado necesita backstop externo y un trigger de escritura que dispare de verdad),
+          INFRA-6 (los gates de seguridad matchean TEXTO: cambia cómo lo expresas, nunca el gate),
+          BUILD-2 (el veredicto de un gate es su propio exit code, nunca el de un pipe) y BUILD-3
+          (triaje de colisión de puerto y lock huérfano antes de llamar regresión a un e2e rojo).
+          CONV-13 se amplió en la misma sesión: la regla ya no cubre solo lo que le dices al owner,
+          sino también cualquier diagnóstico o plan de fix que construyas sobre un sustituto del
+          artefacto vivo.
         </div>
         <Divider />
         <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>

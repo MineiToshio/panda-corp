@@ -9,11 +9,11 @@ source: "personal-page-v2 .pandacorp/run/lessons.md + .pandacorp/comms/progress.
 provenance: agent-inferred
 created: 2026-07-03
 status: active
-promotion: proposed   # 2026-07-07 (librarian review) — target factory/standards/build-orchestration.md (verify.sh e2e preflight): recurred 3x across 2 distinct projects (personal-page-v2, mission-control x2) with no code-side fix; codify "check for orphaned dev-server lock + port collision before trusting a webServer failure as a regression" as a standing MUST, pending BL-0037/BL-0049
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/build-orchestration.md#BUILD-3
 confidence: medium
 times_applied: 1
 applied_in: [mission-control]
-links: [BL-0037, BL-0049, LESSON-0185]
+links: [BL-0037, BL-0049, LESSON-0185, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
 ---
 
 **Situation:** Playwright's e2e `webServer` defaults to port 3000 (`playwright.config.ts`). A sibling

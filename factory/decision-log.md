@@ -1,5 +1,59 @@
 # Decision Log — Factory
 
+## 2026-09-03 — Memory promotion sitting: 12 lessons promoted to standards, 1 held (proposal 33 §12.4)
+
+**What:** the owner's §12.4 decision (option i) was to clear the `promotion: proposed` queue in ONE `/pandacorp:learn`
+sitting instead of draining it organically. Thirteen lessons were queued (range 2026-06-30 → 2026-08-25, oldest 9 weeks).
+Twelve promoted, one held. Seven new registry rows, one widened rule; `check-standards.sh` recount 150 → 157.
+
+| Lesson | Target | Rule |
+|---|---|---|
+| LESSON-0113 | `document-consistency.md` §"Promise without mechanism" | **DOCC-5** (MUST) |
+| LESSON-0005 · LESSON-0009 · LESSON-0103 | `conventions.md` §"Verified traps" | **CONV-14** (SHOULD) |
+| LESSON-0069 | `conventions.md` CONV-13, scope widened | **CONV-13** (MUST) |
+| LESSON-0123 | `conventions.md` §"User-facing copy voice" | **CONV-15** (SHOULD) |
+| LESSON-0090 | `infra.md` (new gitignored state) | **INFRA-5** (MUST) |
+| LESSON-0105 · LESSON-0109 | `infra.md` §"Safety gates match TEXT" | **INFRA-6** (MUST) |
+| LESSON-0078 | `build-orchestration.md` §5 gate hygiene | **BUILD-2** (MUST) |
+| LESSON-0040 | `build-orchestration.md` §5 gate hygiene | **BUILD-3** (MUST) |
+| LESSON-0119 | `plugin/docs/routines.md` §"Prerequisite: unattended permissions" | doc rule; closes **BL-0054** |
+| LESSON-0096 | **HELD** — `blocked-by: BL-0099` | stays `promotion: proposed` |
+
+**Why LESSON-0096 was not promoted.** Proposal 33 R-71: the lesson calls a `ScheduleWakeup` outside `/loop` "a misuse",
+while `plugin/skills/implement/SKILL.md:70,77` MANDATES exactly that as the build supervisor's ~2-minute lease-renewal
+timer, and the platform docs do not forbid it. The lesson is `agent-inferred` at `confidence: medium`; promoting it as
+written would codify a rule the factory's largest skill violates by design. BL-0099 resolves it on one supervised build.
+A `blocked-by` note now lives in the lesson body, splitting the undisputed half (never spawn a bridge agent to wait for a
+background completion notification) from the disputed half (the `/loop`-only scoping claim).
+
+**Why LESSON-0113's promotion is deliberately narrow (R-36).** The audit counted ~12 instances of "promise without
+mechanism" and the existing loop had already DETECTED six (BL-0055/0063/0069/0088/0089/0090); what failed was closing
+them, which no new MUST-check fixes. So DOCC-5 is a forward obligation on the author of a trigger claim (name the
+installed call site as `path:line`, ship the wiring, or cite a tracked `BL-*`, in the same change) and explicitly NOT a
+mandate to re-audit or re-file already-tracked items. It reaches the genuinely untracked instances (R-43, R-47/R-48,
+R-12, R-72) by binding the next edit that touches them.
+
+**Propagation (DR-051).** CONV-14 and CONV-15 are project-facing: one bullet block each in
+`plugin/templates/rules/code-conventions.md` (`applies_when: always`); CONV-13's widened scope propagated to
+`plugin/templates/shared/AGENTS.md.tpl` and to `AGENTS.md` rule 12. `OVERLAY_VERSION` 8.78.0 → 8.79.0 so `upgrade`
+carries them into existing projects. DOCC-5, INFRA-5/6 and BUILD-2/3 ship NO rule-library entry, stated as a decision:
+`build-orchestration.md` is explicitly factory-internal/not-injected, the two infra rules govern the factory's own
+hooks/state layer, and `document-consistency.md` has never had an operative rule file.
+
+**Known compliance gap, not fixed here.** CONV-15 bans the em dash in product copy; Mission Control's own Manual copy is
+full of them. Retroactively rewriting it is out of scope for a promotion sitting and would be a large, purely cosmetic
+diff. New copy written from today complies; the existing corpus is left as-is deliberately rather than silently.
+
+**Lesson bookkeeping (BL-0088 contract).** Each promoted lesson carries `promotion: approved` + `status: active` + the
+target in `links:`; the seven that were `candidate` got their `INDEX.md` line. `validate-memory.sh` 0 (177 lessons, 33
+active), `check-standards.sh` 0 (157 rules → 33 wired · 123 manual · 1 aspirational SHOULD · 0 aspirational MUST).
+
+**Docs touched:** `factory/standards/{conventions,document-consistency,infra,build-orchestration,rule-registry}.md`,
+`AGENTS.md`, `plugin/docs/routines.md`, `plugin/templates/rules/code-conventions.md`,
+`plugin/templates/shared/AGENTS.md.tpl`, `plugin/templates/OVERLAY_VERSION`, the 13 lesson files + `INDEX.md`,
+`factory/backlog/BL-0054-*` (closed), Mission Control's `estandares-y-reglas` Manual page (DR-046, both the `.md` and
+the TSX component that actually renders it).
+
 ## 2026-09-03 — PORT-2 names the sonnet+effort:high hybrid as a documented STANDARD variant (proposal 33 R-06/R-07, plugin v9.98.11)
 
 **What:** `factory/standards/agent-portability.md` PORT-2's tier table lists only MECH/STANDARD/JUDGE, but

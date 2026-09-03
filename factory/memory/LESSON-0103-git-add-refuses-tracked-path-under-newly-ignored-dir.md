@@ -8,12 +8,12 @@ trigger: use this when `git add <path>` refuses with "The following paths are ig
 source: "mission-control .pandacorp/run/lessons.md 2026-07-07 (worktree-bootstrap.sh under the now-ignored .pandacorp/) — agent-inferred. Corroborating instance: panda-corp _inbox.md 2026-07-15 — mission-control/.pandacorp/status.yaml (a tracked file under the gitignored .pandacorp/): `git check-ignore` returned NOTHING for the exact path (git itself doesn't classify it as ignored), yet a plain `git add` and `git add -A <dir>` both still refused it; only `git add -f <path>` succeeded."
 provenance: agent-inferred
 created: 2026-07-07
-status: candidate
-promotion: proposed   # 2026-07-28 (librarian review) — target factory/standards/infra.md or a git-workflow section of conventions.md: codify "if `git add <tracked-path>` is refused as ignored even though `git check-ignore` returns nothing for that exact path, the path is a previously-tracked file under a directory added to .gitignore later — use `git add -f <path>`, do not weaken .gitignore" as a standing rule. Corroborated across 2 distinct projects (mission-control, panda-corp), no existing standard names this gotcha.
+status: active
+promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-14
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [CONV-14, factory/standards/conventions.md#CONV-14]
 ---
 
 **Situation:** `git add mission-control/.pandacorp/worktree-bootstrap.sh` refused with "The following paths

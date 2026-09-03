@@ -12,6 +12,30 @@ To (re)create a routine: ask the agent to create a scheduled task with the taskI
 below (the harness `create_scheduled_task` / `update_scheduled_task` tools), or use the Claude Code
 routines UI. Routines run only while the machine is on; a missed run fires on next launch.
 
+## Prerequisite for EVERY routine below: the unattended permission surface
+
+Recreating the task is not enough to make it run. **Scheduled tasks run headless in permission mode
+`default`**: any tool call not already covered by an allow-rule raises an interactive prompt, and an
+unattended run then **stalls silently and indefinitely** — it never times out, never auto-proceeds and
+never errors. A routine that "never runs by itself" with no error message is a permission-prompt stall,
+not a scheduling bug; suspect this first.
+
+So before relying on any routine here, **pre-seed its full tool surface in `permissions.allow`** (today:
+`.claude/settings.local.json` in the factory repo — gitignored and personal, so it is NOT recreated by
+cloning this repo; it is covered by the vault backup, `infra.md`). Two rules for those entries:
+
+- **Anchor the wildcard at the STRUCTURAL segment, never at a value that changes on release.** A rule
+  pinned to one plugin version (`.../pandacorp/9.71.0/scripts/*:*`) or to one exact command string breaks
+  the moment the plugin bumps or the command text shifts by a character, silently reintroducing the stall.
+  Write `.../pandacorp/*/scripts/*:*` — the Bash matcher's `*` spans path separators.
+- **Residual gap, stated honestly:** a genuinely NEW tool the routine has never used can still prompt once
+  even under a broad allowlist. `defaultMode` is repo-wide and cannot be scoped to a single task from
+  `settings.json`, so the only per-task zero-prompt guarantees are `bypassPermissions` or setting that one
+  task's mode in the app UI (not exposed via the `scheduled-tasks` MCP tool). `BL-0103` tracks moving the
+  tasks to a `dontAsk` posture, which converts the silent stall into a loud denial.
+
+Promoted from `LESSON-0119` (owner-stated, 2026-07-08 incident and fix); closes `BL-0054`.
+
 ---
 
 ## 1. `pandacorp-memory-review` — the daily self-learning sweep
