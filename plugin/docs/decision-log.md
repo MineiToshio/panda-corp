@@ -4,6 +4,36 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.100.0 — 2026-09-03 (MINOR): PreCompact runs the lesson-capture backstop (BL-0104)
+
+**What:** closes BL-0104 (proposal 33 §6 R-20). `plugin/hooks/hooks.json` wired only 4 of 33 documented
+hook events, and `capture-lessons-reminder.sh` (DR-047 rule 8's backstop) fired on `Stop` only
+(`:52-81`) — a session that compacts mid-conversation lost that window entirely: the backstop's
+re-scan never ran, so anything not captured in-the-moment before compaction was gone. Added a
+**`PreCompact`** block running the exact same `capture-lessons-reminder.sh` command (`hooks.json:82-93`
+new). **Add, don't relocate**, per the item's fix plan: the `Stop` entry is untouched byte-for-byte —
+verified by test, not just by eye. The script's existing four-way throttle (once-per-session marker,
+recent-inbox skip, <6-turn skip, scope-gate) needed zero changes: it already reads generic fields
+(`cwd`, `session_id`, `transcript_path`) that both event payloads carry, and gracefully no-ops on
+`stop_hook_active` (absent from `PreCompact`'s payload per the CLI's own hook-event table, confirmed by
+inspecting the installed 2.1.228 binary's embedded docs string — `PreCompact` carries `trigger:
+"manual"/"auto"`, not `stop_hook_active`). Confirmed from the same binary that a non-zero exit on this
+event actually blocks compaction (`"Compaction blocked by PreCompact hook"` string), so the existing
+`exit 2` reminder now also gates the compaction it used to miss, not just nudge a `Stop` that had
+already happened.
+
+**New test:** `plugin/scripts/test-capture-lessons-reminder.sh` (6 assertions) — proves the static
+wiring (PreCompact command == Stop's capture-check command; Stop retains all 4 original hooks) and the
+runtime behavior under a `PreCompact`-shaped payload (fires on a stale-inbox substantive session;
+throttle still suppresses on a recently-touched inbox). Verified RED before the `hooks.json` edit
+(`git stash` the diff → 1 failure) and GREEN after.
+
+**Impact:** `plugin/hooks/hooks.json` (+1 event block), `plugin/scripts/test-capture-lessons-reminder.sh`
+(new), both manifests → **v9.100.0** (MINOR — new, additive hook coverage; no existing skill/agent/hook
+behavior changed). No `OVERLAY_VERSION` bump — this is plugin-only wiring, not per-project scaffolding.
+DR-046: internal enforcement plumbing, no owner-facing flow/gate/concept changed. `factory/backlog/
+BL-0104` → done.
+
 ## v9.99.0 — 2026-09-03 (MINOR): First cost/token telemetry anywhere — `usage_summary` (BL-0096)
 
 **What:** closes BL-0096 (proposal 33 §6 R-12, Phase 1's first item). Before this, "budget" meant a

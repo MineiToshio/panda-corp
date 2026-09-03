@@ -79,6 +79,18 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/capture-lessons-reminder.sh\"",
+            "timeout": 15,
+            "statusMessage": "Pandacorp capture check (pre-compaction)"
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [

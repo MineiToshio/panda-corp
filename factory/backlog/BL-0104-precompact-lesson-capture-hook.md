@@ -3,12 +3,12 @@ id: BL-0104
 type: change
 area: hooks
 title: "Add a PreCompact hook running the lesson-capture check — compaction is an uncovered DR-047 window"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-20"
-closes:
+closes: "plugin v9.100.0 -- PreCompact hook wired to capture-lessons-reminder.sh (plugin/docs/decision-log.md)"
 links: []
 ---
 
