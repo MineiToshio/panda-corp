@@ -8,7 +8,7 @@ trigger: use this when a skill-authoring or prompt-distillation task needs real 
 source: "panda-corp 2026-07-11 — owner redirect during authoring of a personal skill (outside plugin/): owner did not recall specific cases and pointed the agent at factory/memory + factory/backlog + decision logs instead, which supplied working examples (the Party audit, discover v2, and the restart-vs-resume decision all served as grounding)"
 provenance: owner-stated
 created: 2026-07-12
-status: candidate
+status: active
 promotion: none
 confidence: medium
 times_applied: 0

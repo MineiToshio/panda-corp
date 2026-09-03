@@ -8,7 +8,7 @@ trigger: use this when producing portfolio/case-study screenshots of an internal
 source: "personal-page-v2 .pandacorp/run/lessons.md (owner-stated)"
 provenance: owner-stated
 created: 2026-07-03
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0

@@ -5,6 +5,8 @@
 # (context + a `source:` naming a checkable locator) — enforcing MEM-1
 # (factory/standards/memory-harvesting.md, from LESSON-0001: no lesson without evidence).
 # Skips _lesson-template.md and README.md by globbing LESSON-*.md only.
+# Also prints an ADVISORY (non-fail, BL-0090) for any owner-stated/ci-verified candidate
+# older than 14 days — the eval-gate's OR-clause means it should already be active.
 # Usage: bash validate-memory.sh [factory/memory]    Exit 0 = all valid, 1 = invalid.
 dir="${1:-factory/memory}"
 exec ruby -EUTF-8 - "$dir" <<'RUBY'
@@ -39,6 +41,11 @@ errors = []
 counts = Hash.new(0)
 ids    = Hash.new { |h, k| h[k] = [] }   # id => [files] — for the uniqueness check (BL-0013)
 applied_in_union = []                    # union of every lesson's applied_in — for the S8 prune-freeze verdict
+# BL-0090: advisory (non-fail) threshold — an owner-stated/ci-verified candidate that has sat
+# past the eval-gate's OR-clause bar this long is a wiring miss (harvest step 4 should have
+# activated it in the same write), not a normal pending review; flag it, never fail the gate on it.
+EVAL_GATE_ADVISORY_DAYS = 14
+advisories = []
 files  = Dir.glob(File.join(dir, 'LESSON-*.md')).sort
 files.each do |f|
   base = File.basename(f)
@@ -82,6 +89,17 @@ files.each do |f|
   if fm['applied_in'].is_a?(Array)
     fm['applied_in'].each { |p| applied_in_union << p.to_s.strip unless p.to_s.strip.empty? }
   end
+  # BL-0090: eval-gate wiring advisory — owner-stated/ci-verified candidates never need
+  # cross-project corroboration (DR-047's OR-clause), so one still sitting at `candidate`
+  # past the threshold is a missed activation write, not a normal pending review. Advisory
+  # only (never fails the gate) — a schema/contradiction call still belongs to a human/agent.
+  if fm['status'] == 'candidate' && %w[owner-stated ci-verified].include?(fm['provenance']) && fm['created'].respond_to?(:to_date)
+    age_days = (Date.today - fm['created'].to_date).to_i
+    if age_days >= EVAL_GATE_ADVISORY_DAYS
+      advisories << "#{fm['id']} (#{base}): provenance=#{fm['provenance']}, candidate for #{age_days}d " \
+                     "(>= #{EVAL_GATE_ADVISORY_DAYS}d) — eval-gate should have activated it; check harvest step 4"
+    end
+  end
 end
 # id uniqueness across the store (BL-0013) — a keyed store must reject collisions
 ids.each { |id, fs| errors << "duplicate id #{id} in: #{fs.sort.join(', ')}" if fs.size > 1 }
@@ -98,6 +116,10 @@ verdict = distinct_projects.size < 3 ? 'ACTIVE' : 'INACTIVE'
 cmp = distinct_projects.size < 3 ? '<' : '>='
 puts "applied_in union: #{distinct_projects.size} distinct project(s): #{distinct_projects.sort.join(', ')}"
 puts "prune-freeze: #{verdict} (#{distinct_projects.size} distinct measured projects #{cmp} 3)"
+unless advisories.empty?
+  puts "ADVISORY - #{advisories.size} eval-gate wiring miss(es) (non-fail, BL-0090):"
+  advisories.sort.each { |a| puts "  - #{a}" }
+end
 if errors.empty?
   puts "OK - all lessons valid"
   exit 0

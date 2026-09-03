@@ -8,7 +8,7 @@ trigger: use this when designing or reviewing a phase-inference/adoption step th
 source: "panda-corp Mission Control adoption incident, 2026-07-10 — bad reconstructed FRDs/blueprints/work-orders went undetected, a downstream build ran ~2 days on them; fixed by DR-119, factory/decisions/registry.yaml, plugin v9.85.0 (adopt Step 6b)"
 provenance: owner-stated
 created: 2026-07-12
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0

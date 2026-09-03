@@ -8,7 +8,7 @@ trigger: use this when drafting first-person case-study copy that needs to expla
 source: "personal-page-v2 .pandacorp/run/lessons.md, owner-stated — two separate copy-pass corrections on case-study drafts: (1) rejected copy built on clever paradoxes/untranslated jargon, wanted each technical term explained inline with concrete numbers; (2) rejected a draft with one 'I'd do it differently' confession per decision (three in a row), wanted exactly one per case study, with the other decisions led by the win"
 provenance: owner-stated
 created: 2026-07-10
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0

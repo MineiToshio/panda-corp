@@ -8,7 +8,7 @@ trigger: use this when writing or generating any user-facing copy and deciding w
 source: "personal-page-v2 docs/voice/style-guide.md 2026-07-09 (owner-stated) — the em dash (—) and en dash (–) as sentence-level separators are BANNED across all site copy (UI i18n, MDX, blog, metadata) as the single most reliable tell of AI-generated prose; replace with a period, colon, comma, or parentheses; a normal hyphen inside compound words and a middle-dot (·) as a structural eyebrow separator both remain fine; the rule also binds an automated blog-generator's drafts"
 provenance: owner-stated
 created: 2026-07-09
-status: candidate
+status: active
 promotion: proposed
 confidence: high
 times_applied: 0

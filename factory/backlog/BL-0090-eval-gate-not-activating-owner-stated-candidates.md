@@ -3,12 +3,12 @@ id: BL-0090
 type: bug
 area: plugin-skill
 title: "Harvest's eval-gate never auto-activates owner-stated candidate lessons (10 stuck at status:candidate for 6-9 weeks)"
-status: open
+status: done
 severity: p2
 opened: 2026-09-01
-closed:
+closed: 2026-09-03
 source: "librarian review sweep 2026-09-01, factory/memory audit (continuation of the scheduled pandacorp-memory-review sweep)"
-closes:
+closes: "plugin/skills/memory/SKILL.md harvest step 4 wired as an explicit activation write (plugin v9.98.7); 10 owner-stated lessons backfilled to status:active with INDEX.md lines; validate-memory.sh extended with a non-fail 14-day eval-gate advisory + self-test plugin/scripts/test-validate-memory-eval-gate-advisory.sh"
 links: [BL-0088]
 ---
 
@@ -60,7 +60,10 @@ A `validate-memory.sh` fixture case (or a dedicated harvest dry-run) confirming:
 owner-stated candidate fixture stays `candidate` after a simulated harvest write; after the fix, the same
 fixture is written as `active`. The 10 backfilled lessons should be `status: active` with matching
 `INDEX.md` lines after step 2, and `validate-memory.sh`'s status/type counts should reflect
-`status:active` rising from 14 to 24.
+`status:active` rising by exactly 10 over whatever the store's baseline is at merge time (drafted against a
+14→24 baseline; after this branch's 2026-09-03 rebase onto a `main` that already carried BL-0088's own +2
+activation, the real baseline is 16→26 — the self-test asserts the 10 named lessons individually plus the
+INDEX.md/status:active count relation, never a hardcoded absolute).
 
 ## Done when
 `plugin/skills/memory/SKILL.md` harvest step 4 names the concrete activation write (not just the

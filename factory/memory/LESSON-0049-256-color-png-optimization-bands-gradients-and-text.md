@@ -8,7 +8,7 @@ trigger: use this when about to reduce a UI screenshot's file size with a palett
 source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — owner spotted the pixelation (owner-stated)"
 provenance: owner-stated
 created: 2026-07-04
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0

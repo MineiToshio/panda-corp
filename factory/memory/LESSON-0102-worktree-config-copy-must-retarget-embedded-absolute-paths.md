@@ -8,7 +8,7 @@ trigger: use this when a script that bootstraps a git worktree copies/rewrites a
 source: "mission-control .pandacorp/run/lessons.md 2026-07-07, owner-stated — worktree-bootstrap.sh (DR-096); fixed same day, commit 71d78830"
 provenance: owner-stated
 created: 2026-07-07
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0

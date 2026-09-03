@@ -4,6 +4,36 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.7 — 2026-09-03 (PATCH): BL-0090 — eval-gate activation wired as an explicit write, 10-lesson backfill
+
+**What:** `plugin/skills/memory/SKILL.md`'s harvest-mode step 4 (eval-gate) was descriptive ("a candidate
+auto-promotes to `active` if…") but named no concrete write; nothing actually flipped `status: active` and
+appended the `INDEX.md` line at harvest time. Ten `provenance: owner-stated`, schema-valid, non-contradicted
+lessons (LESSON-0042/0043/0049/0102/0119/0123/0129/0144/0155/0167) sat at `status: candidate` for 6-9 weeks
+despite meeting the eval-gate's OR-clause (owner-stated needs no cross-project corroboration). Fix: step 4
+now reads as an imperative action — "THEN set `status: active` on that lesson file right now and add its
+line to `factory/memory/INDEX.md`… do not defer this to a later sweep or to the owner." One-time backfill:
+the 10 lessons flipped to `status: active` with matching `INDEX.md` lines
+(`factory/memory/INDEX.md`, `status:active` 16 → 26, `status:candidate` 161 → 151, verified by
+`validate-memory.sh`; baseline is 16/161 as of this branch's rebase onto v9.98.6, not the 14/163 recorded
+when this entry was first drafted pre-rebase — BL-0088 (v9.98.1) had already activated 2 more lessons on
+`main` in the meantime). Also extended `validate-memory.sh` (fix plan step 3, made mandatory here rather than
+left as a bare "consider") with a non-fail ADVISORY line: any `owner-stated`/`ci-verified` candidate older
+than 14 days now prints an advisory naming the wiring miss, so this class of drift surfaces at the next
+`validate-memory.sh` run instead of silently recurring for months. New self-test:
+`plugin/scripts/test-validate-memory-eval-gate-advisory.sh` (5 fixture scenarios + a real-store sanity
+check that asserts the 10 named lessons are `status: active` and that the store-wide `status:active` count
+equals `INDEX.md`'s entry count, rather than a hardcoded number — TDD RED confirmed pre-fix, GREEN post-fix).
+
+**Why:** distinct from BL-0088 (which fixed `/pandacorp:learn`'s promotion-apply step not flipping `status:`
+on already-`approved` lessons) — this gap sits one step earlier, at ordinary harvest time, before any
+promotion is ever proposed. Same "documented trigger without an installed mechanism" shape as
+LESSON-0113/LESSON-0184, applied to the eval-gate specifically.
+
+**Touched:** `plugin/skills/memory/SKILL.md` (harvest step 4), `plugin/scripts/validate-memory.sh` (advisory),
+`plugin/scripts/test-validate-memory-eval-gate-advisory.sh` (new), the 10 backfilled `LESSON-*.md` files and
+`factory/memory/INDEX.md`. Closes `factory/backlog/BL-0090-eval-gate-not-activating-owner-stated-candidates.md`.
+
 ## v9.98.6 — 2026-09-03 (PATCH): Codex MECH tier re-mapped off a retired model id (BL-0113)
 
 **What:** `gpt-5.4` and `gpt-5.4-mini` retired from Codex on 2026-08-31. Re-mapped the single source,

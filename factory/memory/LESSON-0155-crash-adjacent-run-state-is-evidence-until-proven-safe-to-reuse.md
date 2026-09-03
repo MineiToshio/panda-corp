@@ -8,7 +8,7 @@ trigger: use this when deciding whether to reuse, reset or clean a run-state pat
 source: "panda-corp R10 installed canary follow-up, 2026-07-11 — BL-0067 (factory/backlog/BL-0067-preserve-gate-worktree-crash-evidence.md), DR-118, plugin 9.92.8"
 provenance: owner-stated
 created: 2026-07-12
-status: candidate
+status: active
 promotion: none
 confidence: high
 times_applied: 0
