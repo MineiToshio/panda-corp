@@ -3,7 +3,7 @@ id: WO-24-001
 type: work-order
 slug: shared-emitter
 title: 'WO-24-001 — Extract `parseDecisionBlocks` + the `decision-id-cli` entry point'
-status: DRAFT
+status: ACTIVE
 parent: FRD-24
 foundation: false
 implementation_status: PLANNED

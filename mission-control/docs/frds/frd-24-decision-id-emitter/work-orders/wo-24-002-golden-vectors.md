@@ -3,7 +3,7 @@ id: WO-24-002
 type: work-order
 slug: golden-vectors
 title: 'WO-24-002 — Golden-vector regression suite (library ↔ CLI agreement)'
-status: DRAFT
+status: ACTIVE
 parent: FRD-24
 foundation: false
 implementation_status: PLANNED

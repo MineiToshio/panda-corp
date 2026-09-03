@@ -53,6 +53,33 @@ between. Behavior-preserving throughout — no FRD/AC changed, confirmed by `pnp
    the assertion to `deriveGuildOutcomes({ statuses: state.statuses, eventsSnapshot: null })`, with
    an inline comment explaining why, matching what `readGuildState()` actually computes.
 
+## 2026-09-03 — FRD-24 gates passed; blueprint + WO-24-001/002 flipped ACTIVE
+
+Follow-up to the entry immediately below. Main was free and `.pandacorp/verify.sh` was back to a
+genuine green baseline (commit `46bab5ad`, dead exports + import cycle + 2 stale tests fixed by a
+separate follow-up session), so the three architecture gates (step 9/9b/9b-consistency) were
+re-dispatched against `docs/frds/frd-24-decision-id-emitter/` once the Anthropic Opus incident
+(`461yvfrzpwtt`) cleared. All three passed as independent fresh JUDGE-tier (opus) reviews:
+- **DR-100 readiness**: READY — all 8 checks pass (REQ→component mapping, AC→WO 1:1 coverage, no
+  `TBD`, `dependsOn` acyclic and README-consistent, disjoint `artifacts`, clear foundation WO, no
+  `[NEEDS CLARIFICATION]`, no backend/API WO to own a contract for).
+- **DR-102 repo-grounding**: READY — all 6 claims verified against the real files (`activity.ts`'s
+  `readDecisions`/`DecisionPoint`/`_consumeLine`/`_pushDecision`/`_nextId`/`IdCounters`, the
+  `ts-loader.mjs` + `regen.mjs` CLI pattern, the `stats:*` script convention + Node compatibility,
+  `gitFixture.ts`'s subprocess-spawning pattern, and that `docs.wo04002.test.ts`/
+  `docs.wo04002.reviewer.test.ts` genuinely exist and test `readDecisions`).
+- **DR-116 contradiction**: COHERENT — all 6 checks pass (no WO/FRD/blueprint contradiction, no
+  stack/data-model conflict with `architecture.md`/the PRD, WO-24-001/002 agree on
+  `parseDecisionBlocks`'s and the CLI's contract, consistent terminology throughout, the
+  `decide/SKILL.md` Non-goal honored by both work orders, and the PRD's FRD-24 row matches `frd.md`).
+
+Per architecture step 9b2: `docs/frds/frd-24-decision-id-emitter/blueprint.md` frontmatter set to
+`status: ACTIVE` with `readiness_gate: passed 2026-09-03`, `grounding_gate: passed 2026-09-03`,
+`consistency_gate: passed 2026-09-03`; `WO-24-001` and `WO-24-002` frontmatter flipped
+`status: DRAFT → ACTIVE`. Confirmed via `preflight-implement.sh mission-control`: the project-wide
+"un-gated DRAFT work order" block from the entry below is gone — `/pandacorp:implement` can now
+launch on this project.
+
 ## 2026-09-03 — FRD-24 (shared decision-id emitter) materialized; DRAFT-blocked on an Anthropic Opus outage
 
 Ran the `iterate` PM step by hand on the queue's `decision-id-shared-emitter.md` card (`BL-0062`,

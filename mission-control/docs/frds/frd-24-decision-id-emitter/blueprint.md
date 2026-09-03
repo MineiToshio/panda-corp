@@ -2,26 +2,23 @@
 id: FRD-24-blueprint
 type: blueprint
 parent: FRD-24
-status: DRAFT
+status: ACTIVE
 implementation_status: PLANNED
+readiness_gate: passed 2026-09-03
+grounding_gate: passed 2026-09-03
+consistency_gate: passed 2026-09-03
 last_updated: '2026-09-03'
 ---
 # Feature blueprint — FRD-24 Shared decision-id emitter
 
-> **Gate status (2026-09-03): BLOCKED, not content — external outage.** The three mandatory
-> independent JUDGE-tier (opus) gates (DR-100 readiness, DR-102 repo-grounding, DR-116 contradiction —
-> architecture step 9/9b/9b-consistency) could not be run: every dispatch attempt (10 across ~25
-> minutes, spanning all three gates) failed with `HTTP 529 Overloaded` on `claude-opus-5`. Independently
-> confirmed via `status.claude.com`: an ACTIVE Anthropic incident ("Elevated errors for multiple
-> models", id `461yvfrzpwtt`, opened 13:26 UTC same day) explicitly names Opus 5/4.8/4.6 and Fable
-> 5/5.1 as affected, "continuing to work on a fix" as of the last check. Per DR-111 this tier is never
-> downgraded automatically. **This blueprint and both its work orders therefore correctly remain
-> `status: DRAFT`** — the flip to `ACTIVE` happens ONLY when all three gates pass; do not flip on a
-> partial pass or to silence the blocker. Confirmed via `preflight-implement.sh`: this DRAFT state
-> currently fails `/pandacorp:implement`'s preflight project-wide (check 5, "un-gated DRAFT work
-> order"), so **no build can launch on this project until either the gates run and pass, or these
-> work orders are reverted**. Next step: re-run the three gate reviews (readiness/grounding/
-> consistency, see the architecture skill step 9/9b/9b-consistency) once Opus availability recovers.
+> **Gate status (2026-09-03): ALL THREE PASSED — ACTIVE.** The DR-100 readiness gate (READY, all 8
+> checks pass), the DR-102 repo-grounding gate (READY, all 6 claims verified against the real
+> `activity.ts`/`ts-loader.mjs`/`_tests/` files), and the DR-116 contradiction gate (COHERENT, all 6
+> checks pass) each ran as an independent fresh JUDGE-tier (opus) reviewer once the earlier Anthropic
+> Opus incident (`461yvfrzpwtt`) cleared. `status: ACTIVE` + the three gate stamps above are set per
+> architecture step 9b2; both work orders are flipped `DRAFT -> ACTIVE` accordingly. Confirmed via
+> `preflight-implement.sh mission-control`: the project-wide "un-gated DRAFT work order" block is
+> gone.
 
 > **Source-of-truth hierarchy:** `FRD > FDD > design-tokens > blueprint > work order`.
 > This is the **feature blueprint** (DR-049): how FRD-24 is implemented on top of the platform
