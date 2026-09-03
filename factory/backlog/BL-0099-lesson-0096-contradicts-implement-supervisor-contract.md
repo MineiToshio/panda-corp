@@ -25,6 +25,9 @@ written would codify a rule the factory's largest skill violates.
 The lesson is `provenance: agent-inferred`, `confidence: medium`, and was generalized from two incidents
 into a categorical prohibition without checking it against the supervisor contract.
 
+## Depends on
+The owner funded **one supervised real `powerful` build** (proposal 33 §12.5, option ii-then-i, decided 2026-09-02 — see `factory/decision-log.md`). That single instrumented run carries four canaries at once: BL-0096 (cost/token telemetry), BL-0102 (`/goal` falsification), BL-0110 (DR-100 granularity measurement) and **this item's heartbeat check** — the ~2-minute `ScheduleWakeup` must be observed re-firing outside `/loop` for a full run with no duplicate spawns. Do not schedule a separate build for it.
+
 ## Fix plan
 Decide which side is wrong and write it down. Either (a) narrow `LESSON-0096` to the incident shape it
 actually covers (polling/spawning agents to wait), explicitly carving out the lease-renewal timer; or (b)

@@ -9,10 +9,14 @@ opened: 2026-09-02
 closed:
 source: "docs/proposals/33-model-era-audit.md §6 R-01 + R-74 + R-07 (owner decision §12.1 gates it)"
 closes:
-links: []
+links: [DR-120]
 ---
 
 ## Problem
+> **DR-120 (Codex freeze, 2026-09-02) does NOT close this item.** The owner froze Codex at read/review-only, but the `.codex/agents/*.toml` mirrors are still generated and still drift-gated, and a MECH-tier dispatch for a *read/review* task would hard-fail on a retired id exactly as a build dispatch would. Fix it; just do not treat it as Codex capability work.
+>
+> **Replacement mapping (source: https://learn.chatgpt.com/docs/models, accessed 2026-09-02, re-verified by the orchestrator):** *"GPT-5.4 and GPT-5.4 mini retire from Codex on August 31, 2026; replace `gpt-5.4` with `gpt-5.6-terra` and `gpt-5.4-mini` with `gpt-5.6-luna`."* So MECH -> `gpt-5.6-luna`. Step 3 below (the STANDARD/JUDGE cost inversion against `gpt-5.6-terra`/`gpt-5.6-sol`) still stands and must be decided explicitly, not inherited.
+
 `gpt-5.4` and `gpt-5.4-mini` were retired from Codex on **2026-08-31**, two days before the audit. Live pins
 verified 2026-09-02: `plugin/runtime/model-tiers.json:5` `"codex": { "model": "gpt-5.4-mini", "effort":
 "low" }`; `.codex/agents/tier-mech.toml:3` `model = "gpt-5.4-mini"` (generated — it follows the JSON);

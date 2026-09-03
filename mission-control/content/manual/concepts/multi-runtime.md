@@ -8,6 +8,8 @@ order: 20
 
 Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp o cualquier proyecto en la **app de Codex** (o su CLI, Cursor, OpenCode) y operar con las mismas reglas, los mismos skills y el mismo estado. Esta página explica cómo funciona, qué cambia según la puerta por la que entres, y cómo se mantiene sin duplicar nada.
 
+> **Congelado el 2026-09-02 (DR-120).** La puerta Codex sigue abierta para **leer y revisar**, pero ya no puede **escribir** estado de build. El perfil `EXPERIMENTAL attended_foreground` que existió entre el 2026-07-15 y el 2026-09-02 queda retirado: nunca llegó a ejecutar un build real, mientras que el protocolo de cambio dual se pagaba en cada modificación. R10 y R11 quedan **suspendidas, no fallidas**. Disparador para reabrir, literal: *"Codex ships wake-capable local scheduling"*. El resto de esta página describe el núcleo compartido (que sigue vivo) y, marcado como tal, el contrato de escritura que quedaría en pausa hasta ese día.
+
 ## Las dos puertas y el núcleo
 
 Piensa en un edificio con dos puertas que llevan al mismo taller:
@@ -16,7 +18,7 @@ Piensa en un edificio con dos puertas que llevan al mismo taller:
 |---|---|---|
 | **Qué lee al entrar** | `CLAUDE.md` → importa `AGENTS.md` y añade su capa | `AGENTS.md` directo + plugin Codex instalado; ignora sólo `CLAUDE.md` |
 | **Su capa propia** | Plugin instalado (`/pandacorp:*`), hooks, motor background | Plugin Codex + `.agents/skills` (symlink) + `.codex/agents/*.toml` (generados) |
-| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | `EXPERIMENTAL attended_foreground`: exactamente 1 FRD o 1 change lista, foreground, <=7200 s, sin autorestart |
+| **Ejecutor de `implement`** | Dynamic Workflow + supervisor; solo agentes/modelos Claude | **ninguno — solo lectura/review (congelado, DR-120)** |
 | **El núcleo que ambos operan** | `AGENTS.md` + `factory/` (manual y estándares) · `plugin/skills/` (los 25 SKILL.md) · el estado en ficheros (`status.yaml`, frontmatter de work orders, colas de inbox) | idem — es el MISMO conjunto de ficheros |
 
 Nadie elige runtime con un switch: **cada herramienta se auto-selecciona por lo que es capaz de leer**. El diagrama fuente está en `docs/assets/multi-runtime-two-doors.svg` (repo de la fábrica).
@@ -60,20 +62,20 @@ El detalle completo (matriz de capacidades, tiers de modelo, tabla de traducció
 
 ## Qué funciona igual y qué degrada
 
-**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. Claude conserva toda su ruta actual. Codex puede escribir únicamente mediante el perfil `EXPERIMENTAL attended_foreground` que pasó su canario instalado.
+**Igual en ambos mundos:** los gates humanos, el español contigo, la disciplina documental, la cola de cambios, el tablero y las fases. Claude conserva toda su ruta actual.
 
-El perfil exige exactamente **un FRD o una change lista**, foreground, una duración acumulada máxima
-de 7200 segundos y cero reinicios automáticos. El launcher, supervisor y executor validan el mismo
-alcance y consumen un permiso de un solo uso antes de mutar el build. Codex implementa secuencialmente,
-usa un JUDGE independiente, vuelve a correr `verify.sh` y exige un mutation gate parseable y verde.
-Ausencia, timeout, salida ambigua o score insuficiente dejan el FRD sin verificar. El progreso se
-escribe en `progress.md`, los tiempos en `track.jsonl` y el cierre libera la lease manteniendo
-`phase: implementation`.
+**Lo que Codex ya no puede hacer (DR-120):** escribir estado de build, de ninguna forma. Ni build sin
+objetivo, ni dirigido a un FRD o una change, ni hardening, ni avance a `release`, ni background,
+noche/desatendido, ni relevo Claude↔Codex. Tampoco puede invocar el launcher, el supervisor ni el
+executor de Codex. Lo que sí puede: leer los docs, los work orders y `status.yaml`, revisarlos y
+reportarte en español.
 
-No están habilitados en Codex: build sin objetivo, varios FRDs, hardening global, avance a `release`,
-background, noche/desatendido ni cambio Claude↔Codex. R10 y R11 quedan como certificaciones separadas
-si más adelante se quiere abrir el relevo entre runtimes o el overnight; no bloquean este perfil
-Codex-only atendido.
+> **Contrato en pausa.** Todo lo que sigue en esta sección describe el contrato que un ejecutor Codex
+> tendría que cumplir **si** el disparador de reapertura se cumpliera. Se conserva escrito para no
+> rediseñarlo desde cero, no como permiso vigente. El perfil exigía exactamente **un FRD o una change
+> lista**, foreground, una duración acumulada máxima de 7200 segundos y cero reinicios automáticos, con
+> un permiso de un solo uso consumido antes de mutar el build, implementación secuencial, un JUDGE
+> independiente, `verify.sh` y un mutation gate parseable y verde. R10 y R11 quedan **suspendidas**.
 
 El cierre Codex también es una sola transición observable: el checkpoint captura una única hora y la
 reutiliza como `terminal_at` y `updated_at`. El recolector falla cerrado si el evento de cierre, la
@@ -121,13 +123,13 @@ explícita `new` crean un run nuevo. La identidad del proceso o sesión de cada 
 nunca se usa como sustituto.
 
 **Degrada con honestidad en Codex:**
-- El build (`implement`) está disponible solo como `EXPERIMENTAL attended_foreground`: exactamente un objetivo, foreground, máximo acumulado de 7200 segundos y cero reinicios automáticos.
-- **La Fragua**: los eventos de un build atendido no sustituyen archivos/commits canónicos.
-- La política, los adaptadores y las proyecciones de hooks/config de Codex están certificados en fuente, pero el enforcement activo requiere instalar el plugin y dar trust explícito a sus definiciones. Hasta cerrar ese canario (BL-0030), `AGENTS.md` sigue siendo el piso vinculante y no se reclama paridad automática.
+- El build (`implement`) **no está disponible**: cero escritura de estado de build desde cualquier runtime que no sea Claude Code (DR-120).
+- **La Fragua**: sin build en Codex no hay eventos de build en Codex; los archivos/commits canónicos siguen siendo la verdad.
+- La política, los adaptadores y las proyecciones de hooks/config de Codex están certificados en fuente, pero el enforcement activo requiere instalar el plugin y dar trust explícito a sus definiciones. Bajo el congelamiento, **BL-0030 gana importancia (subido a p0)**: hoy `enforcement-policy.json` todavía declara `workspace-write`, así que la propiedad de solo-lectura es prosa y no configuración. Mientras tanto, `AGENTS.md` es el piso vinculante.
 
 ## Cómo probar que funciona
 
 1. **Codex, en frío**: abre panda-corp en la app de Codex → debe hablarte en español y listar los 26 skills (`/skills`).
-2. **Codex, build atendido**: en un proyecto preparado, pide exactamente un FRD o una change `ready`; mantén la tarea abierta. Debe terminar en `phase: implementation`, sin lease y con árbol limpio. Sin objetivo, varios FRDs, background o más de 7200 segundos deben rechazarse antes de tomar ownership.
+2. **Codex, frontera de escritura**: pídele un `implement` en un proyecto preparado. Debe **pararse antes de lanzar nada** y explicarte que es solo lectura/review (DR-120), sin tomar lease ni tocar ficheros.
 3. **Claude, intacto**: la misma prueba vía `/pandacorp:implement` — motor background, supervisor y Fragua completa, como siempre.
-4. **Fronteras negativas**: comprueba que Codex rechaza un build sin target, varios FRDs, background y duración >7200 antes de tomar la lease. Los harness R10/R11 son opcionales y sólo aplican a capacidades futuras de cambio de runtime/overnight.
+4. **La política, no la prosa**: `plugin/runtime/skill-runtime-policy.json` debe decir `implement.codex.status: FALLBACK` y `capability-ownership.json` `codex_product_executor.certification: FROZEN`; `node plugin/scripts/check-skill-capabilities.mjs` falla en rojo si alguien los repromociona en silencio.

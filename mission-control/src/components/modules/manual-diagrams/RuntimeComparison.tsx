@@ -70,13 +70,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "EXPERIMENTAL: 1 FRD/change, foreground, ≤7200 s, sin autorestart",
-    status: "degrades",
+    codex: "no habilitado — solo lectura/review (congelado, DR-120)",
+    status: "claude-only",
   },
   {
     capability: "Construcción nocturna",
     claude: "desatendida, corre por horas sin owner",
-    codex: "no habilitada; attended_foreground no se puede dejar solo",
+    codex: "no habilitada; sin ejecutor de build (congelado, DR-120)",
     status: "claude-only",
   },
   {

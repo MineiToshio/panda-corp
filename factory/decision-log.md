@@ -1,5 +1,165 @@
 # Decision Log — Factory
 
+## 2026-09-02 — Codex runtime freeze (DR-120): every non-Claude runtime is read/review-only again
+
+**What:** the owner took `docs/proposals/33-model-era-audit.md` §12.1 **option (B)**. Codex's build-write
+capability is **frozen**: Codex, Cursor, OpenCode and any other non-Claude runtime may read project build
+state, review it and report on it, and may write none of it. Three consequences, all recorded rather than
+implied:
+
+1. **PORT-5's `EXPERIMENTAL/attended_foreground/targeted-only` profile is WITHDRAWN.** Promoted 2026-07-15
+   by BL-0081, it authorized one FRD or one ready change, foreground, `<=7200` cumulative seconds, zero
+   automatic restarts, ending in `implementation`. It is gone — not narrowed, withdrawn.
+2. **R10 (installed cross-runtime switch) and R11 (`LIVE_OVERNIGHT`) are SUSPENDED, not failed.** Their
+   procedures stay in the standard verbatim, alongside the governed sequential contract and the executor
+   playbook, explicitly marked as specification rather than permission, so a reopen restarts from a written
+   contract instead of a redesign. No run is scheduled; no work may be scoped against them.
+3. **Proposal 32 §13.1's permanent dual-runtime change protocol survives only for what is still generated
+   and still drift-gated** — the two plugin manifests, the `.codex/agents/*.toml` mirrors, the
+   `.agents/skills` symlink and `check-derived-drift.sh`. No new Codex-side capability work until the
+   trigger fires.
+
+**Reopen trigger, verbatim** (proposal 32's independent review): *"Codex ships wake-capable local
+scheduling."* Nothing else lifts the freeze, and lifting it is the owner's call, not an agent's.
+
+**Why:** the evidence balance, re-read for this decision. The only rationale ever recorded for
+dual-runtime was cross-check (`docs/proposals/25:5`); a repo-wide grep for vendor-lock-in, resilience or
+cost rationales returns zero matches, so those were never argued or sized. The only demonstrated benefit
+was a single review that was self-referential — `LESSON-0067`, produced inside the very portability layer
+Codex was part of. The certified profile ran **zero production builds in the 49 days** it was available,
+while §13.1's protocol was paid on every factory change. The only recorded harm came from *write* access
+and its root cause is still **UNKNOWN** (BL-0035). Continuing (option A) meant a repeated three-hour-plus,
+owner-supervised, real-spend R11 run; dropping entirely (option C) would have made `LESSON-0067`'s
+cross-check structurally impossible and required superseding DR-113. Freezing is the reversible middle: it
+stops the spend now and keeps the design retrievable, with a falsifiable condition for resuming.
+
+**This explicitly reopens proposal 32 §15 decision #4** — *"Unattended Codex `implement` approved as
+mandatory. It is designed into the durable executor and certified by R11."* That decision is superseded:
+unattended Codex `implement` is not mandatory, is not certified, and is not being pursued. It was taken on
+2026-07-11 on the expectation that R11 would be run; 49 days of zero real usage is the new evidence that
+was not available then. Reopening it again requires re-taking that decision and re-recording DR-120.
+
+**Impact — the policy, not just the prose.** `factory/decisions/registry.yaml` gains **DR-120**
+(`requiere_humano: true`). `factory/standards/agent-portability.md`: the PORT-1 matrix row and its reading
+note, the PORT-5 permission-boundary section (rewritten), the R10/R11 headings, the governed sequential
+contract and executor playbook (banner-marked SUSPENDED), the Claude-only table, "How it is verified" and
+"Why". `factory/standards/rule-registry.md` PORT-5 row · `factory/standards/build-orchestration.md:489` ·
+`AGENTS.md:98` · `plugin/skills/implement/SKILL.md` (frontmatter description, runtime-selection block,
+targeted-build note, unattended SOP, BL-0074 note) · `plugin/templates/shared/AGENTS.md.tpl:31` ·
+`plugin/docs/runtime-executors.md` (the promoted-surface section banner-marked SUSPENDED) ·
+`plugin/scripts/verify-before-stop.sh:33` (a stale "until the later R6/R7 promotion" comment).
+**DR-113 was amended in the same change, not left to contradict DR-120:** its `default` used to state
+the narrow Codex write authority as policy, which would have been two authoritative registry entries
+disagreeing about the same fact (exactly DR-116's failure class). Its write clause now reads
+*"CODEX BUILD AUTHORITY IS ZERO — SUPERSEDED BY DR-120"* and points there; DR-113 keeps the read side
+(one AGENTS.md, one skill set, one set of standards, generated mirrors, neutral tiers, strict runtime
+locality), which the freeze does not touch.
+
+The machine-readable half matters more than the prose: `plugin/runtime/skill-runtime-policy.json`
+(`implement.codex.status: EXPERIMENTAL → FALLBACK`), `plugin/runtime/skill-capabilities.json` and
+`plugin/runtime/capability-ownership.json` (`codex_product_executor.certification: EXPERIMENTAL → FROZEN`,
+with the historical canary evidence retained as the record a reopen would resume from). **The freeze is
+therefore self-enforcing today:** `plugin/scripts/launch-codex-implement.sh:16` already exits 3 when the
+policy is not `EXPERIMENTAL`, and `plugin/runtime/codex/supervisor.mjs:31` already throws
+*"attended_foreground is not enabled by canonical policy"* — no new machinery was written, the existing
+fail-closed checks simply now deny. `plugin/scripts/check-skill-capabilities.mjs` was inverted to assert
+the frozen state, so a silent re-promotion fails the gate instead of passing it.
+
+**Codex backlog triage (each decided on its own evidence, none deleted).** `BL-0030` **raised p1 → p0 and
+kept live** — it is the *mechanism* of the freeze, not a casualty: `plugin/runtime/enforcement-policy.json`
+still says `sandbox_mode: "workspace-write"`, so read-only is prose against configuration, and that is the
+same configuration that preceded BL-0035. `BL-0032` kept live as a guardrail (stopping Codex from
+auto-invoking mutating internal engine skills matters more under read/review-only, not less). `BL-0031`
+annotated `blocked-by: DR-120` for its build-profile half, with its guardrail half folded into BL-0030.
+`BL-0113` (the retired `gpt-5.4-mini` MECH pin) **stays open and is not blocked**: the agent TOML mirrors
+are still generated and drift-gated, and a read/review dispatch to a retired id hard-fails exactly like a
+build dispatch would — its body now carries the verified replacement mapping. `BL-0044`, `BL-0051`,
+`BL-0052`, `BL-0069`, `BL-0074` and `BL-0082` were checked and left untouched: they mention Codex or R10/R11
+but none of them exists to serve Codex write capability. **The backlog schema has only
+`open | doing | done`** — there is no `wontfix`/`frozen`/`superseded` state and no tag field, so a frozen
+item stays `open` with an explicit `blocked-by` banner in its body rather than being falsely closed.
+
+**Closed by this change:** `BL-0094` (`CLAUDE.md:15` contradicting `AGENTS.md:98`) — closed with its
+preferred fix rather than the minimal one: `CLAUDE.md` no longer restates the runtime build boundary at
+all, it points at AGENTS.md §Runtime portability, so the restatement cannot drift again because it no
+longer exists. `BL-0084` (Mission Control's Manual asserting Codex is read-only) — the page was stale in
+the *other* direction and is now correct for the current policy, along with three sibling surfaces the card
+never named. DR-116's supersession-completeness sweep was run and is recorded below under Verification.
+
+## 2026-09-02 — Proposal 33 §12: the six remaining owner decisions (Fable, MC share, memory funnel, live validation, routine permissions, model tiers)
+
+**What:** the owner resolved the rest of `docs/proposals/33-model-era-audit.md` §12 in the same sitting as
+the Codex freeze. Each below is the decision plus what it does and does not authorize.
+
+**§12.2 Fable — (i) + (ii).** The opt-in-only policy is **unchanged**: Fable is never auto-selected
+(CONV-12/DR-111 stand as written). On top of that the owner **pre-authorized exactly one** Fable sprint, for
+**BL-0111**'s R-02 prompt-surface recalibration against the Claude 5 generation. Two conditions bind before
+any spend: a `docs/proposals/` note recording scope, expected cost (+$13.20 in call-units over the same
+sprint on Opus 5) and success criteria must exist first — exactly as proposal 26/DR-114 did — and the owner
+gives an explicit go at launch time. Recorded by **extending DR-111's `nota`** rather than filing a second
+model-tier DR: a single-use pre-authorization is not a recurring rule with a default, and duplicating the
+tier policy into a second entry is the drift class DR-115 exists to prevent.
+
+**§12.3 Mission Control's effort share — (i) accept, conditioned.** 900 of 1,172 commits (76.8%) go to a
+tool with `return_type: personal` and no market hypothesis — and it is also the only UI the owner uses
+daily, and its gamification is documented owner taste, so the memory evidence contradicts cutting it. The
+ratio is accepted **on the condition that the mirror function is funded first**, because the mirror function
+is what justifies the ratio and it has visibly drifted. Those two fixes are **R-47** (the `blueprint` slug
+orphaning the Manual's architecture page) and **R-48** (the skill-dir ↔ flow drift test). Neither is a
+factory backlog item and neither has a `BL-*` id: per AGENTS.md's routing rule and proposal 33 §14.1 ground
+rule 2, a Mission Control change goes to that project's own `.pandacorp/inbox/changes/` queue via
+`/pandacorp:change`. They are cited here as the condition, not filed here. No registry rule — this is a
+budget posture, not a recurring decision with a default.
+
+**§12.4 Memory funnel — (i).** Fix the three bugs in order **BL-0090 → BL-0088 → BL-0089**, then clear all
+13 `promotion: proposed` lessons in one `learn` sitting, in the order **LESSON-0113 first**, then — after
+**BL-0099** resolves the `ScheduleWakeup` contradiction — **LESSON-0096**, then the remaining eleven.
+Nothing was promoted in this change: promotion is `/pandacorp:learn` plus the owner (DR-047), and this
+sitting only records the decision and its sequence.
+
+**§12.5 Live validation of DR-117/DR-118 — (ii) then (i).** `gateConverge` is a ~140-line, five-branch state
+machine with no engine tests and no CI, and its only post-ship refinements came from the Codex canary track
+— which the freeze has just ended. So: **one supervised real `powerful` build first**, carrying four
+canaries simultaneously — **BL-0096** (cost/token telemetry), **BL-0102** (`/goal` falsification),
+**BL-0110** (DR-100 granularity measurement) and **BL-0099** (the ~2-minute heartbeat re-firing outside
+`/loop` with no duplicate spawns) — and **then** BL-0063's mock-worker harness as the durable fix. The
+dependency was written into BL-0099 and BL-0102 as an explicit `## Depends on` section so neither
+commissions its own build. The build itself is real spend and stays an owner gate (DR-005).
+
+**§12.6 Routine permission posture — (ii), and explicitly not (iii).** New registry rule **DR-121**: set each
+recurring Desktop task's per-task permission configuration to **`dontAsk`** and keep the allowlist current
+via `fewer-permission-prompts`, refreshing the allowlist **before** flipping the posture. `dontAsk` makes
+the allowlist the entire permission surface, which turns the recorded failure — a routine silently stalling
+on an approval nobody is there to give (BL-0054, BL-0085, LESSON-0119, three instances) — into a loud
+denial. `auto` was rejected on the merits: it is a per-action classifier that widens approval with nobody
+present, on a machine whose one permanent data loss still has root cause UNKNOWN. `--permission-prompts
+none` stays `[UNVERIFIED]` — it is not on the headless docs page and must not be treated as a mechanism.
+Implementation is **BL-0103**, not done here.
+
+**§12.7 Model tiers — four verdicts.** *Copywriter:* **blind A/B before any change** — the reason to move it
+off `opus` is tier coherence, not the $1–2.30 per project, and DR-114 rule 5 makes a frontmatter pin
+governance-gated so it can never be an agent's silent edit. No `BL-*` card covers this; it lives in this
+entry until someone runs the A/B. *Haiku 4.5:* **monitor only** — retirement is not sooner than 2026-10-15
+(platform.claude.com/docs/en/models/overview, accessed 2026-09-02) and only the **alias** is pinned, so
+there is nothing to migrate; pinning a dated id would re-introduce exactly the staleness BL-0113
+demonstrates on the Codex side. *DR-015 intra-family diversity:* **unchanged** — no repo evidence measures
+the 4→5 intra-family gap either way, and the alternative depended on routing the judge to a non-Claude
+family, which the Codex freeze has just removed from the table. *Test-writer escalation asymmetry
+(BL-0115):* **decided — the asymmetry is INTENTIONAL**, on DR-015 builder/verifier diversity: when the
+implementer escalates to opus, holding the test author at the worker model is what keeps builder and
+verifier on different models precisely on the hard work orders where that independence pays. Recorded as a
+comment at the engine dispatch site and **BL-0115 closed**.
+
+**Why (all six):** the audit's own framing — for §12.7's fourth item, *"the current silence is the actual
+defect"* — generalizes. Each of these had drifted into an unwritten default that nobody could cite. Writing
+them down costs one entry; leaving them undecided kept accruing the tax the audit measured.
+
+**Impact:** `factory/decisions/registry.yaml` — new **DR-121**, DR-111's `nota` extended (no duplicate
+entry). `factory/backlog/`: BL-0115 closed `done`; BL-0099 and BL-0102 gained `## Depends on`. Engine
+comment in `plugin/templates/shared/.claude/engines/pandacorp-build.js` at the `test-writer` dispatch.
+Nothing else was implemented — BL-0103, BL-0111, BL-0088/0089/0090, BL-0063 and the supervised build remain
+open work with their sequences now recorded.
+
 ## 2026-08-31 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of

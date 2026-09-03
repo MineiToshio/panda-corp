@@ -2250,16 +2250,18 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <Panel>
         <MultiRuntimeDiagram />
       </Panel>
-      <NotePanel icon="ti-lock" iconColor="var(--color-warn)">
-        <B weight={600}>Codex tiene un perfil EXPERIMENTAL acotado.</B> El perfil
-        <Code>attended_foreground</Code> permite exactamente un FRD o una change lista, foreground,
-        máximo acumulado de 7200 segundos y cero reinicios automáticos. Exige review JUDGE,
-        <Code>verify.sh</Code> y mutation gate verdes, y termina en implementation.
+      <NotePanel icon="ti-lock" iconColor="var(--color-danger)">
+        <B weight={600}>Congelado el 2026-09-02 (DR-120): Codex es solo lectura/review.</B> El perfil{" "}
+        <Code>attended_foreground</Code> que existió entre el 2026-07-15 y el 2026-09-02 queda
+        retirado — no llegó a ejecutar un build real, mientras el protocolo de cambio dual se pagaba
+        en cada modificación. Ningún runtime que no sea Claude Code puede escribir estado de build.
       </NotePanel>
       <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
-        <B weight={600}>Límites honestos.</B> Codex no puede ejecutar un build sin objetivo,
-        varios FRDs, hardening global, avance a release, background, overnight ni relevo con Claude.
-        R10/R11 quedan como certificaciones futuras independientes. Claude conserva intacto su Dynamic Workflow.
+        <B weight={600}>Límites honestos.</B> Codex, Cursor y OpenCode leen, revisan y te reportan;
+        no lanzan <Code>implement</Code> en ninguna forma ni invocan launcher, supervisor o executor.
+        R10/R11 quedan <B weight={600}>suspendidas, no fallidas</B>. Disparador para reabrir, literal:{" "}
+        <i>&quot;Codex ships wake-capable local scheduling&quot;</i>. Claude conserva intacto su
+        Dynamic Workflow.
       </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de estado

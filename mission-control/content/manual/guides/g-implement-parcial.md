@@ -6,11 +6,10 @@ order: 4
 
 # Build parcial: implementar un FRD o una change concreta
 
-Claude permite uno o varios FRDs con su Dynamic Workflow. En Codex, el perfil promovido es más
-estrecho: `EXPERIMENTAL attended_foreground` acepta **exactamente un FRD o una change `ready`**, debe
-permanecer en foreground, tiene un máximo acumulado de 7200 segundos, no se reinicia automáticamente
-y termina en `phase: implementation`. Codex rechaza el modo completo, varios FRDs, background,
-desatendido, hardening, release y cambio de runtime.
+Claude permite uno o varios FRDs con su Dynamic Workflow. **Desde el 2026-09-02 (DR-120) el build es
+exclusivo de Claude Code:** Codex, Cursor y OpenCode son solo lectura/review sobre el estado de build,
+así que ninguno lanza `implement` — ni completo, ni parcial, ni por change. El perfil
+`EXPERIMENTAL attended_foreground` que Codex tuvo entre el 2026-07-15 y el 2026-09-02 queda retirado.
 
 Normalmente `/pandacorp:implement` construye todo lo pendiente en orden de dependencias. Esta guía explica cómo pedirle que construya solo un FRD concreto, un subconjunto de FRDs, o que procese directamente una change de la cola — todo con el mismo motor, los mismos gates y la misma garantía de calidad que el build completo.
 
@@ -104,9 +103,9 @@ El identificador es el **nombre del archivo** en `.pandacorp/inbox/changes/` (si
 
 | Situación | Modo recomendado |
 |---|---|
-| Primera build del proyecto, o quieres construir todo lo pendiente | Sin argumentos (Claude; no disponible en Codex) |
+| Primera build del proyecto, o quieres construir todo lo pendiente | Sin argumentos (solo Claude Code) |
 | Los FRDs ya están documentados y quieres construir solo uno | Por FRD |
-| Quieres construir varios FRDs específicos (no todos) | Por FRD con múltiples argumentos en Claude; en Codex ejecuta uno por vez |
+| Quieres construir varios FRDs específicos (no todos) | Por FRD con múltiples argumentos (solo Claude Code) |
 | Quieres saber qué deps faltan antes de continuar con un FRD | Por FRD — el gate te dice exactamente cuáles faltan |
 | Hay una change en la cola que no quieres esperar al próximo build completo | Por change |
 | La change que quieres construir está en borrador | Primero `/pandacorp:change` para marcarla `ready`, luego `implement change:...` |

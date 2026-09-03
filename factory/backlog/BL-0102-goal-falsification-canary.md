@@ -21,6 +21,9 @@ at most **three** idle check-ins run per goal. What survives is a narrow optiona
 nudge in an **attended** session only. Impact: L. The value of this item is closing the question with
 evidence instead of leaving it re-litigable.
 
+## Depends on
+The same **one supervised real `powerful` build** the owner funded on 2026-09-02 (proposal 33 §12.5, option ii then i — see `factory/decision-log.md`), shared with BL-0096, BL-0110 and BL-0099. Ride that run; do not commission a build for this canary alone.
+
 ## Fix plan
 On ONE supervised build with `maxFrds 1`, set `/goal "the run has ended with phase: release or a BLOCKED
 reason recorded in status.yaml"` **alongside** the existing supervisor (never replacing any part of it), and

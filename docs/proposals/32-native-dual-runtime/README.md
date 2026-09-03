@@ -913,6 +913,17 @@ No backlog status changes are part of this proposal reconciliation.
 
 ## 15. Owner decisions — approved 2026-07-11
 
+> **SUPERSEDED IN PART, 2026-09-02 — decision #4 is reopened and reversed by DR-120 (the Codex freeze).**
+> Unattended Codex `implement` is **not** mandatory, **not** certified and **not** being pursued: every
+> non-Claude runtime is read/review-only on project build state, the `attended_foreground` profile is
+> withdrawn, and R10/R11 are suspended, not failed. Reason: the certified profile ran zero production
+> builds in the 49 days it existed while §13.1's change protocol was paid on every change. Decisions #1,
+> #2, #3 and #5 stand (#1 is in fact restored to its original R0 form). Reopen trigger, verbatim from this
+> proposal's own independent review: *"Codex ships wake-capable local scheduling."* Current truth:
+> `factory/standards/agent-portability.md` PORT-5; history: `factory/decision-log.md` (2026-09-02);
+> policy: DR-120 in `factory/decisions/registry.yaml`. This section is kept as written for the historical
+> record (DR-093) — read it as what was decided on 2026-07-11, not as current policy.
+
 All five architecture decisions are resolved. Hook re-trust remains an activation action, not an architecture choice.
 
 1. **R0 hotfix approved.** Until R2, Codex is read/review-only on projects with build state and switching tools requires a clean safe-point stop.

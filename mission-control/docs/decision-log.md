@@ -1,5 +1,45 @@
 # Decision Log — Mission Control
 
+## 2026-09-02 — Manual re-synced to the Codex freeze (DR-120); BL-0084 closed
+
+The owner froze the Codex build-write capability on 2026-09-02 (DR-120 — see `factory/decision-log.md`):
+every non-Claude runtime is back to read/review-only on project build state, the
+`EXPERIMENTAL attended_foreground` profile is withdrawn, and R10/R11 are suspended rather than failed, with
+the verbatim reopen trigger *"Codex ships wake-capable local scheduling"*. DR-046 makes the hand-authored
+Manual pages part of that same change, so they were updated here rather than deferred.
+
+Four surfaces carried the old claim and now carry the new one:
+
+- `content/manual/concepts/estandares-y-reglas.md:27` — this is **BL-0084**'s exact target. It was stale in
+  the *opposite* direction: it still described the pre-2026-07-15 "límite R0 … hasta que R2 + R3 + la
+  primera transición R6 certifiquen" wording. It now states the current policy directly. BL-0084 closed.
+- `content/manual/concepts/multi-runtime.md` — a freeze banner under the lead, the `implement` executor row
+  in the two-doors table, the "qué degrada" section (the write contract kept but explicitly banner-marked
+  as *contrato en pausa*, not permission), and the "cómo probar que funciona" checklist, whose Codex step
+  now tests that a Codex `implement` **stops before launching** and that the policy JSONs say `FALLBACK` /
+  `FROZEN`.
+- `src/app/manual/manualPages.tsx` — `ConceptMultiRuntime`'s two `NotePanel`s (the first re-toned to
+  `--color-danger`). This is the surface that actually renders: per LESSON-0028 the `.md` alone would not
+  have surfaced, since `estandares-y-reglas` and `multi-runtime` are registered in
+  `MANUAL_PAGE_COMPONENTS`.
+- `src/components/modules/manual-diagrams/RuntimeComparison.tsx` — the "Build (implement)" row flipped from
+  `degrades` to `claude-only`, and the "Construcción nocturna" row's Codex cell.
+- `content/manual/guides/g-implement-parcial.md` — its opening paragraph and two rows of the mode table
+  told the reader how to run a partial build *in Codex*; that path no longer exists.
+
+**Not done, deliberately:** BL-0084 also suggested *deriving* this paragraph from
+`factory/standards/agent-portability.md` instead of duplicating it (the spirit of the auto-derived
+Reference catalogs). That is a real design change to Mission Control's content pipeline, it belongs on the
+product plane via `/pandacorp:change`, and it is larger than the decision-recording change it would have
+been smuggled into. The duplication — and therefore the drift class — survives for this paragraph; BL-0084
+closes on the stale claim only.
+
+One row was left knowingly stale: `RuntimeComparison.tsx`'s "Tiers de modelo" still reads
+`gpt-5.4-mini / gpt-5.5 medium / gpt-5.5 high`, and `gpt-5.4-mini` was retired from Codex on 2026-08-31.
+That is **BL-0113**, which stays open under the freeze (the agent TOML mirrors are still generated, and a
+retired id breaks a read/review dispatch too) and now carries the verified replacement mapping. Fixing it
+here would have split that item across two changes.
+
 ## 2026-07-15 — Manual drift fixes: counts re-derived from canonical sources + both promotion paths documented
 
 A post-PROMPT-8 documentation audit (2026-07-15) found the Manual's standards/skills counts stale and

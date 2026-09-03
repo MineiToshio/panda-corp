@@ -7,12 +7,14 @@ status: open
 severity: p2
 opened: 2026-07-04
 closed:
-links: [DR-113]
+links: [DR-113, DR-120]
 source: "Codex independent verification of proposal 25 (2026-07-04), finding 6 — docs/proposals/25-codex-verification-handoff.md block D2"
 closes:
 ---
 
 ## Problem
+> **Kept LIVE under DR-120 (Codex freeze, 2026-09-02).** This is a guardrail, not a capability: it stops Codex auto-invoking internal engine skills (`bug`, `iterate`, `scaffold`, `work-orders`, `new-version`) that mutate a project. Under a read/review-only Codex that matters MORE, not less. Note also that `plugin/scripts/check-skill-capabilities.mjs` already fails closed if an internal skill lacks its `agents/openai.yaml` sidecar with `allow_implicit_invocation: false` — verify current state before assuming the gap is still open.
+
 Codex ignores our Claude-only `user-invocable: false` frontmatter, so internal engine skills (`bug`, `iterate`, `scaffold`, `work-orders`, `new-version`) surface as user-invocable and are eligible for implicit auto-invocation by description match. Codex's official sidecar `agents/openai.yaml` (per skill dir — https://developers.openai.com/codex/skills) supports `allow_implicit_invocation: false` and invocation policies, which is the native way to express "internal engine: reachable, but never auto-triggered".
 
 ## Fix plan

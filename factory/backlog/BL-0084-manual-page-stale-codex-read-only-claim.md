@@ -3,13 +3,13 @@ id: BL-0084
 type: bug
 area: mission-control
 title: "Manual page estandares-y-reglas.md:27 still asserts Codex is read-only/review, stale since PORT-5 promoted the attended_foreground Codex profile"
-status: open
+status: done
 severity: p2
 opened: 2026-07-16
-closed:
+closed: 2026-09-02
 source: "factory/memory/_inbox.md note (undated, agent-inferred); PORT-5 promoted e6533be6, 2026-07-15"
-closes:
-links: [DR-046, DR-113]
+closes: "DR-046 sync restored for the Manual's portability prose; the page now states DR-120's read/review-only freeze"
+links: [DR-046, DR-113, DR-120]
 ---
 
 ## Problem
@@ -51,3 +51,8 @@ gone; DR-046 sync discipline is restored for this page.
 ## Out of scope
 A general "detect drift between every Manual Guide/Concept page and its source standard" mechanism (a
 broader project) — this item only fixes the one page/paragraph named above.
+
+## Resolution — 2026-09-02
+Closed while recording DR-120 (the Codex freeze). The Manual no longer carries a stale claim in either direction: `mission-control/content/manual/concepts/estandares-y-reglas.md:27` now states the current policy (every non-Claude runtime read/review-only, the `attended_foreground` profile withdrawn, R10/R11 suspended, the verbatim reopen trigger) instead of the pre-2026-07-15 "R0 + R2/R3/R6" wording. The same sweep also corrected the surfaces the original card did not name but that render the same fact: `concepts/multi-runtime.md`, `ConceptMultiRuntime` in `mission-control/src/app/manual/manualPages.tsx`, `manual-diagrams/RuntimeComparison.tsx` and `guides/g-implement-parcial.md`.
+
+The card's optional suggestion — DERIVE the paragraph from `agent-portability.md` instead of duplicating it — was NOT done and is deliberately left undone: it is a Mission Control change (product plane, routed via `/pandacorp:change`), and the derivation design is bigger than this decision-recording change. The drift class therefore still exists for this paragraph; BL-0084 closes on the stale claim, not on the duplication.

@@ -3,13 +3,13 @@ id: BL-0094
 type: bug
 area: standards
 title: "CLAUDE.md still says other runtimes are read/review-only on build state, contradicting AGENTS.md and PORT-5"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-02
 source: "docs/proposals/33-model-era-audit.md §6 R-32"
-closes:
-links: [BL-0084]
+closes: "CLAUDE.md no longer restates the runtime build boundary — it points at AGENTS.md, so the drift class is removed rather than re-synced"
+links: [BL-0084, DR-120]
 ---
 
 ## Problem
@@ -41,3 +41,8 @@ across `factory/`, `plugin/`, `docs/` and fix every surviving assertion in this 
 
 ## Out of scope
 BL-0084 (the Mission Control Manual surface) — a separate item on the product plane.
+
+## Resolution — 2026-09-02
+Closed with the card's *preferred* option, not the minimal one: `CLAUDE.md:15` no longer restates the boundary at all. It now names AGENTS.md §Runtime portability, bullet "Build safety (`implement`)", plus `factory/standards/agent-portability.md` PORT-5 as the single place the boundary is stated, and says explicitly that it does not restate it. A restatement cannot drift if it does not exist.
+
+The DR-116 completeness sweep required by the "Done when" was run in the same change as part of recording DR-120: `grep -rn -i "attended_foreground|EXPERIMENTAL"` across `AGENTS.md`, `CLAUDE.md`, `factory/standards`, `plugin/skills`, `plugin/templates`, `plugin/runtime`, `mission-control/src` and `mission-control/content` returns only text consistent with the freeze (or explicitly dated history in decision logs and proposals, DR-093). `factory/decision-log.md` records it.

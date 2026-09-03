@@ -3,13 +3,13 @@ id: BL-0115
 type: change
 area: build-engine
 title: "test-writer is never escalated when its paired implementer is — decide the asymmetry either way and write it down"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-02
 source: "docs/proposals/33-model-era-audit.md §6 R-09 (owner decision §12.7)"
-closes:
-links: []
+closes: "the asymmetry is recorded as INTENTIONAL at the engine site with its DR-015 rationale; the silence that was the actual defect is gone"
+links: [DR-015, DR-073]
 ---
 
 ## Problem
@@ -36,3 +36,8 @@ saying it deliberately does not and why; `plugin/docs/decision-log.md` records t
 
 ## Out of scope
 Any change to `pickWorkerModel()`'s escalation triggers (that is BL-0110).
+
+## Resolution — 2026-09-02 (owner decision, proposal 33 §12.7)
+Option **(b): keep the asymmetry, record it as INTENTIONAL.** Rationale, now written at the engine site: **DR-015 builder/verifier diversity.** When `pickWorkerModel()` escalates the implementer to opus on a `difficulty: high` or reopened work order, holding `test-writer` at the worker model is what keeps the builder and the verifier on *different* models. Escalating both in step would collapse that diversity exactly on the work orders where it is worth the most — the hard ones. The effort asymmetry follows from the same choice. It also happens to avoid +$0.468 per escalated WO, but that is not the reason.
+
+Landed as a comment at the `test-writer` dispatch in `plugin/templates/shared/.claude/engines/pandacorp-build.js` (the canonical engine; the project overlay copy is generated from it by `/pandacorp:upgrade`). No behavior change, so no re-run baseline is needed — the "Tests" clause's branch (b) applies: the grep assertion for the rationale comment.

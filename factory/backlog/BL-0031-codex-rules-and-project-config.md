@@ -9,10 +9,14 @@ opened: 2026-07-04
 closed:
 source: "Codex independent verification of proposal 25 (2026-07-04), findings 5 + D2 — docs/proposals/25-codex-verification-handoff.md"
 closes:
-links: [DR-113, BL-0030]
+links: [DR-113, DR-120, BL-0030]
 ---
 
 ## Problem
+
+> **blocked-by: DR-120 (Codex freeze, 2026-09-02; reopen trigger: "Codex ships wake-capable local scheduling").** The owner froze every non-Claude runtime at read/review-only on project build state and suspended R10/R11. No new Codex-side capability work is scoped until the trigger fires. This item stays OPEN (the backlog schema has only `open | doing | done`, and a frozen item is not a done item) but must NOT be drained while the freeze holds.
+> **Scope split under the freeze.** The *profile* half of this item (mapping build modes pro/balanced/powerful/deep to Codex model + reasoning-effort combos) serves a build capability Codex no longer has — frozen. The *declarative guardrail* half (sandbox/approval defaults, denied command patterns in `.codex/config.toml` + rules) still has value for read/review sessions, but it is subsumed by BL-0030 (p0), which owns making read-only real. Work it there, not here.
+
 The Codex verification session flagged that not every shell path is covered by a PreToolUse-style hook, and Codex offers declarative surfaces we left unused: project-level `.codex/config.toml` (loaded when the project is trusted) and rules files for command policy. Today a Codex session in the factory or a product project has no declarative guardrails (sandbox/approval defaults, denied command patterns) and no profile mapping for our build modes (pro/balanced/powerful/deep → model + reasoning-effort combos).
 
 ## Fix plan
