@@ -31,10 +31,55 @@ cloning this repo; it is covered by the vault backup, `infra.md`). Two rules for
 - **Residual gap, stated honestly:** a genuinely NEW tool the routine has never used can still prompt once
   even under a broad allowlist. `defaultMode` is repo-wide and cannot be scoped to a single task from
   `settings.json`, so the only per-task zero-prompt guarantees are `bypassPermissions` or setting that one
-  task's mode in the app UI (not exposed via the `scheduled-tasks` MCP tool). `BL-0103` tracks moving the
-  tasks to a `dontAsk` posture, which converts the silent stall into a loud denial.
+  task's mode in the app UI (not exposed via the `scheduled-tasks` MCP tool).
 
 Promoted from `LESSON-0119` (owner-stated, 2026-07-08 incident and fix); closes `BL-0054`.
+
+### Permission posture: `dontAsk` + a current allowlist (DR-121, BL-0103)
+
+**Decided posture (owner-approved, proposal 33 §12.6 option ii):** each task's own permission
+configuration should be **`dontAsk`** — *"denies anything not in your `permissions.allow` rules or the
+read-only command set"* — which converts the silent stall above into a **loud, visible denial** the next
+run can be fixed from. **Explicitly NOT `auto`**: `auto` is a per-action classifier that *widens* approval
+with nobody present, on a machine whose one recorded permanent data loss (BL-0035) still has root cause
+UNKNOWN. Order matters: refresh the allowlist FIRST, flip the mode SECOND — the reverse turns every
+unlisted call into an immediate denial before the allowlist is ready.
+
+**Where the allowlist now lives.** `.claude/settings.local.json` (personal, gitignored) still holds the
+owner's ad hoc entries, but any entry a *routine itself* structurally depends on belongs in the
+project's tracked **`.claude/settings.json`** instead — it ships with the repo, so a fresh clone or a
+rebuilt machine gets it for free (this is what closes the "new machine hits the same stall" half of
+BL-0054). The bundled `fewer-permission-prompts` skill's own behaviour is to write there ("Scan your
+transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project
+`.claude/settings.json`"), which is why that is the target, not `settings.local.json`.
+
+**Refresh mechanism — run it, don't hand-author it again.** Run `/fewer-permission-prompts` interactively
+whenever a routine is added or its tool surface changes (folded into `pandacorp-memory-review`'s own
+sweep below, so the cadence is at least weekly-on-drift, not "whenever someone remembers"). It proposes
+additions; apply only the narrow, safe, structurally-anchored ones (read-only Bash/MCP calls, wildcards
+anchored at the structural segment per the rule above) — never a blanket rule for a domain-arbitrary
+network call (`curl`) or arbitrary code execution (`python3 -c`, `node -e`), which stay hand-reviewed
+case by case. A 2026-09-03 run against this repo's real transcript history (74 sessions, ~2800 recorded
+tool calls) found two concrete structural gaps and applied them to `.claude/settings.json`:
+`Bash(bash factory/standards/*.sh:*)` (the consistency-sweep's own PASO 0 calls
+`bash factory/standards/check-standards.sh` and had no covering rule) and `Bash(git check-ignore:*)`
+(the memory-review's inbox-drain step verifies `_inbox.md` isn't itself gitignored), plus the read-only
+`mcp__scheduled-tasks__list_scheduled_tasks` MCP tool. Candidates involving network egress or arbitrary
+code execution were deliberately excluded, not silently dropped.
+
+**What still has no tool — an owner-only manual step.** Setting a task's permission mode is **only
+exposed in the Claude Code app's routines UI**, not through `create_scheduled_task`/`update_scheduled_task`
+or any other tool an agent can call — no agent, in this factory or any other, can flip it. To finish this
+posture the owner needs to, per task (`pandacorp-memory-review`, `pandacorp-review-launch`, and
+`pandacorp-consistency-sweep` once it is installed): open the routine in the Claude Code routines UI →
+its permission-mode setting → select **Don't ask** (explicitly not **Auto**) → save. Do this only AFTER
+the allowlist above is current, per the ordering rule.
+
+Canary once the posture is live: fire `pandacorp-memory-review` and confirm a genuinely new, unlisted
+tool call now fails **loud** (an explicit denial in the run's record) instead of stalling silently
+forever; confirm a run that only touches allowlisted tools still completes unattended. A local proxy for
+this mechanism (same `dontAsk` semantics, exercised via `claude -p --permission-mode dontAsk` against an
+isolated sandbox project) is recorded as this work order's Tests evidence.
 
 ---
 
@@ -64,8 +109,9 @@ BARRIDO COMPLETO:
 1. Cosecha: invoca /pandacorp:memory harvest para la fábrica (drena factory/memory/_inbox.md con ruteo DR-103: defecto accionable → factory/backlog/ como BL-*, lección durable → factory/memory/, ambos → split) y /pandacorp:memory harvest <proyecto> para cada proyecto con notas pendientes o huérfano de cosecha (esto además corre count-lesson-citations.sh y estampa last_harvest en su status.yaml).
 2. Review: invoca /pandacorp:memory review — deprecar/fusionar/reconciliar solo lo seguro y reversible (nunca borrar archivos); proponer promociones (promotion: proposed con target y rationale; nunca promuevas tú — eso es /pandacorp:learn + el owner). RESPETA EL PRUNE FREEZE: mientras haya menos de 3 proyectos distintos en los applied_in del store, NO propongas deprecar por "nunca recuperada" (times_applied: 0 significa "no medido", no "inútil"). Verifica que INDEX.md refleje las lecciones activas (ediciones delta, jamás regenerarlo entero).
 3. Estado: invoca /pandacorp:memory status — conteos por tipo/estado, la cola de promociones (promotion: proposed), lecciones más citadas, candidatas pendientes, y la salud del backlog (bash plugin/scripts/validate-backlog.sh + los 3 BL-* abiertos más viejos, una línea cada uno).
-4. Escribe el timestamp ISO de ahora en factory/memory/_last-sweep (archivo gitignored).
-5. Reporte corto en español al owner: qué se drenó, qué se activó, qué espera su aprobación (la cola de promociones se aprueba con /pandacorp:learn), y la salud del backlog. Solo reporta cuando el barrido trabajó.
+4. Allowlist al día (BL-0103/DR-121): corre /fewer-permission-prompts. Aplica a .claude/settings.json SOLO agregados read-only/estructurales, anclados en el segmento estructural (nunca una regla amplia para curl/dominio arbitrario ni ejecución de código arbitrario tipo `python3 -c`/`node -e` — esas quedan fuera para revisión manual). Si no propone nada nuevo, sigue de largo.
+5. Escribe el timestamp ISO de ahora en factory/memory/_last-sweep (archivo gitignored).
+6. Reporte corto en español al owner: qué se drenó, qué se activó, qué espera su aprobación (la cola de promociones se aprueba con /pandacorp:learn), la salud del backlog, y si el paso 4 agregó algo al allowlist. Solo reporta cuando el barrido trabajó.
 ```
 
 ## 2. `pandacorp-review-launch` — the weekly post-launch loop (DR-043)

@@ -4,6 +4,31 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.2 — 2026-09-03 (PATCH): Routine permission posture — allowlist refresh wired, `dontAsk` toggle left as owner-only manual step (BL-0103, DR-121)
+
+**What:** partial close of BL-0103 (`status: doing`, not `done` — see its own "Attempt evidence"
+section). `plugin/docs/routines.md` gains a "Permission posture" subsection recording the decided
+mechanism (`dontAsk` + a current allowlist, explicitly not `auto`, per DR-121/proposal 33 §12.6) and the
+concrete per-task manual steps the owner still has to take (the permission-mode setting is exposed only
+in the app's routines UI, not via any tool). `.claude/settings.json` (the tracked file, not the personal
+`settings.local.json`) gains three narrow, structural, read-only allow rules mined from this repo's real
+transcript history (`Bash(bash factory/standards/*.sh:*)`, `Bash(git check-ignore:*)`,
+`mcp__scheduled-tasks__list_scheduled_tasks`) — this is the concrete "keep the allowlist current" action
+DR-121 already pre-approved (`requiere_humano: false`). `pandacorp-memory-review`'s canonical prompt (and
+its installed `~/.claude/scheduled-tasks/` copy) gains a step to re-run `/fewer-permission-prompts` on
+its own cadence, applying only similarly narrow additions.
+
+**Why:** confirmed via a live headless invocation that the bundled `fewer-permission-prompts` skill is
+real (it genuinely scans the transcript corpus) but cannot complete non-interactively (plan mode has no
+way to clear its own approval gate headless) — so the transcript-mining half of its documented behavior
+was reproduced directly against the real corpus instead of waiting on a run that structurally cannot
+finish unattended. The `dontAsk` mechanism itself (loud denial vs. silent stall) was demonstrated with a
+real `claude -p --permission-mode dontAsk` run against an isolated sandbox. What remains genuinely
+blocked is mechanical, not a judgment call: no tool (`create_scheduled_task`/`update_scheduled_task`
+included) exposes a task's permission-mode setting — only the app's routines UI does — so the item stays
+`doing` until the owner does that one click per task. See `factory/backlog/BL-0103-*.md` and
+`plugin/docs/routines.md`. Sequential PATCH after BL-0069's v9.102.1.
+
 ## v9.102.1 — 2026-09-03 (PATCH): CI trigger for the engine test corpus (BL-0069)
 
 **What:** closes BL-0069. The dozen `plugin/scripts/test-*.mjs` suites (the only proof for
