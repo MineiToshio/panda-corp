@@ -6,7 +6,7 @@ title: 'WO-24-002 — Golden-vector regression suite (library ↔ CLI agreement)
 status: ACTIVE
 parent: FRD-24
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 blocked_reason:
 difficulty: low
 reopen_count: 0

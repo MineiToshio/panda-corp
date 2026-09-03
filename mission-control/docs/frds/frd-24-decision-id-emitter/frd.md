@@ -3,7 +3,7 @@ id: FRD-24
 type: frd
 title: FRD-24 — Shared decision-id emitter (dedupe Mission Control ↔ the `decide` skill)
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: VERIFIED
 ui: false
 last_updated: '2026-09-03'
 ---

@@ -6,7 +6,7 @@ title: 'WO-24-001 — Extract `parseDecisionBlocks` + the `decision-id-cli` entr
 status: ACTIVE
 parent: FRD-24
 foundation: false
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 blocked_reason:
 difficulty: low
 reopen_count: 0

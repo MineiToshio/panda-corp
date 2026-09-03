@@ -50,3 +50,7 @@
 {"kind":"wo_end","frd":"frd-24-decision-id-emitter","wo":"WO-24-001","state":"in_review","at":"2026-09-03T17:54:36Z"}
 {"kind":"wo_start","frd":"frd-24-decision-id-emitter","wo":"WO-24-002","at":"2026-09-03T17:56:31Z"}
 {"kind":"wo_end","frd":"frd-24-decision-id-emitter","wo":"WO-24-002","state":"in_review","at":"2026-09-03T17:58:47Z"}
+{"kind":"review_start","frd":"frd-24-decision-id-emitter","at":"2026-09-03T18:00:10Z"}
+{"kind":"review_end","frd":"frd-24-decision-id-emitter","verdict":"reopen","at":"2026-09-03T18:18:18Z"}
+{"kind":"review_end","frd":"frd-24-decision-id-emitter","verdict":"pass","at":"2026-09-03T18:29:05Z"}
+{"kind":"frd_end","frd":"frd-24-decision-id-emitter","at":"2026-09-03T18:29:05Z"}

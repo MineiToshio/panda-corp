@@ -13,15 +13,15 @@ running: true
 run_started_at: "2026-09-03T17:41:44.886Z"
 run_completed_at: "2026-07-07T05:30:00Z"
 repo: ""
-updated_at: "2026-09-03T17:46:49.751Z"
-last_event_at: "2026-09-03T17:46:49.751Z"
+updated_at: "2026-09-03T18:28:41.572Z"
+last_event_at: "2026-09-03T18:28:41.572Z"
 work_orders_total: 106
-work_orders_verified: 104
+work_orders_verified: 106
 work_orders_in_review: 0
-work_orders_planned: 2
+work_orders_planned: 0
 work_orders_in_progress: 0
 work_orders_blocked: 0
-work_orders_done: 104
+work_orders_done: 106
 pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
@@ -46,7 +46,7 @@ _release_prior_note: true  # RELEASE (DR-085): whole-project cross-feature INTEG
 # FRD-23 (materialized stats read-model) VERIFIED at the split-gate CLOSE. WO-23-004 (aggregate index + Stop/post-commit regeneration + one-shot backfill) — reverted last run for AC-23-003.1 being unwired — was REBUILT and is now wired end-to-end: page.tsx reads the O(1) aggregate (readStatsAggregate + resolvePortadaFromAggregate), the sync-portfolio skill (step 5c) invokes `pnpm stats:sync-aggregate`, and the stats:regen/stats:sync-aggregate/stats:backfill scripts + scripts/read-model/*.mjs exist. The preserved reviewer adversarial spec (aggregateWiring.reviewer.test.ts, the RED baseline that forced the revert) now passes GREEN and was restored into the tree as a permanent gate + a new reviewer integration spec (aggregateChain.reviewer.test.ts) proves the honest-fallback chain never fabricates a zero (DR-078). Full suite 7538 tests GREEN, tsc + biome clean. The Playwright layer hit a transient orphaned-dev-server port/lock (LESSON-0040 / BL-0049, another session's PID) — /achievements verified live at HTTP 200; FRD-23 is ui:false. All 102 WOs VERIFIED. NOTE (owner, not a WO defect): the approved per-project portada embeds factory-wide facts (phaseTransitions/scalars.projects/scalars.decisions/lessons) that a per-project seal can't validate — a latent SSOT concern in the FRD/ADR design itself, logged to inbox/decisions.md. 2026-07-06
 blocked: []  # WO-23-005 gate-test-defective RESOLVED: the blessed aggregateChain.reviewer.test.ts:111-137 was re-blessed to the SSOT-split contract (fresh portada → factory-wide from live/factory-store) at the WO-23-006 gate; all 104 WOs VERIFIED.
 pending_changes: 0
-supervisor_heartbeat: "2026-09-03T17:45:14.918Z"
+supervisor_heartbeat: "2026-09-03T18:29:15.874Z"
 build_run_id: "run_20260903T174144Z_12608"
 build_runtime: "claude"
 build_lease_epoch: 1
