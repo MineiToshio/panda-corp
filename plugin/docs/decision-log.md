@@ -4,6 +4,28 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.4 — 2026-09-03 (PATCH): `test-codex-executor.mjs` fixture no longer depends on a fixed date (BL-0122)
+
+**What:** closes BL-0122. `plugin/scripts/test-codex-executor.mjs` was failing 2 of 51 assertions
+("... classifies a silent exit as usage_limit with reset_at" and "explicit reached-limit telemetry
+classifies usage_limit even below 100 percent") because the shared rollout fixture hardcoded
+`resets_at: 1784730769` (2026-07-22T14:32:49Z) — a value that was in the future when the test was
+authored and lapsed into the past by 2026-09-03, tripping `failure-diagnostics.mjs`'s own
+`safeResetAt()` plausibility check (`parsed >= startSeconds`), which rejected the now-stale reset and
+degraded the outcome to a reset-less `uncertain`. Live instance of the rot class LESSON-0151 names and
+exactly what BL-0069's new CI trigger exists to surface.
+
+**Fix:** the fake-codex fixture now computes `resets_at` as `Math.floor(Date.now()/1000)+3600` (resets
+one hour out) at its own run time, matching how the neighboring `rollout-stale`/`rollout-reset-implausible`
+scenarios already compute their timestamps relative to `now` instead of a fixed literal. The two
+assertions were changed from an exact-literal match to a new `isNearFutureReset()` helper (a plausible
+near-future integer, not a fixed number) since the fixture's reset is now itself computed at test-run
+time and the assertion runs in a separate process a moment later — an exact-equality check would
+reintroduce a timing-coupled flake. Verified: `node plugin/scripts/test-codex-executor.mjs` → 51/51
+passed (was 49/51); `grep -n 1784730769 plugin/scripts/test-codex-executor.mjs` → no matches, no
+hardcoded absolute timestamp literal remains in the file; `bash plugin/scripts/check-derived-drift.sh`
+clean.
+
 ## v9.102.3 — 2026-09-03 (PATCH): Spike verdict — REJECT `/deep-research` as a replacement for `discover`'s hand-rolled research (BL-0116)
 
 **What:** closes BL-0116 (proposal 33 §6 R-23). Bounded spike, no code/skill change — the item only asked

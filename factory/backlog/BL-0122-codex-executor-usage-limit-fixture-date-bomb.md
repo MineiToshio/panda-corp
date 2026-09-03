@@ -3,12 +3,12 @@ id: BL-0122
 type: bug
 area: build-engine
 title: "test-codex-executor.mjs usage_limit fixtures hardcode a now-lapsed reset_at timestamp -- 2 assertions fail"
-status: open
+status: done
 severity: p2
 opened: 2026-09-03
-closed:
+closed: 2026-09-03
 source: "implementer session for BL-0069 (wiring CI for the plugin/scripts/test-*.mjs corpus), 2026-09-03 -- found while proving the new run-engine-tests.sh runner against the REAL corpus (agent-inferred)"
-closes:
+closes: "plugin v9.102.4, plugin/docs/decision-log.md"
 links: [LESSON-0151, BL-0069]
 ---
 
@@ -56,3 +56,24 @@ absolute hardcoded timestamp that will lapse again.
 Any other pre-existing failure in the `plugin/scripts/test-*.mjs` corpus not covered by this file;
 auditing every other suite for similar date-bombs (a good candidate for a follow-up sweep, not this
 item).
+
+## Closing evidence — 2026-09-03
+
+Fixed exactly per the Fix plan: the fake-codex fixture's `reset=` computation
+(`plugin/scripts/test-codex-executor.mjs`) now reads `scenario==='rollout-reset-implausible'?9999999999
+:(Math.floor(Date.now()/1000)+3600)` — resets one hour out from whenever the test actually runs,
+matching how `rollout-stale`/`rollout-reset-implausible` already compute relative to `now`. The two
+assertions that compared `reset_at` against the literal `1784730769` now use a new `isNearFutureReset()`
+helper (`Number.isSafeInteger(value) && value > nowSeconds && value <= nowSeconds + 3700`) instead of an
+exact-equality match, since the fixture value and the assertion now run in two different processes a
+moment apart. `node plugin/scripts/test-codex-executor.mjs` -> `RESULT: 51 passed, 0 failed` (was 49
+passed, 2 failed). `grep -n 1784730769 plugin/scripts/test-codex-executor.mjs` -> no matches: no
+hardcoded absolute timestamp literal remains anywhere in the file. `bash
+plugin/scripts/check-derived-drift.sh` and `claude plugin validate plugin/` both clean.
+
+The Tests section's "re-run a day later / with the clock advanced" is satisfied by construction rather
+than executed literally (advancing the system clock is out of bounds for this session): the fixture's
+reset value and the assertion's plausibility window are now BOTH derived from `Date.now()` at their own
+call time, with no fixed literal in between, so there is no absolute date left in the file that could
+lapse again -- the previous failure mode (a value that is fine today, stale in six weeks) cannot recur
+here.
