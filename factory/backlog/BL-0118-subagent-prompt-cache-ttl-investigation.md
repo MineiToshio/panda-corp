@@ -3,12 +3,12 @@ id: BL-0118
 type: change
 area: plugin-agent
 title: "Determine which cache-TTL knob applies to workflow-spawned agents before asserting a cache gap exists"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-25"
-closes:
+closes: "plugin v9.98.13 — plugin/docs/decision-log.md 2026-09-03 entry records both reachable knobs (subagentPromptCacheTtl setting, experimental.cacheTtl frontmatter) and their precedence, resolving the R-25 [UNVERIFIED] positive; no adoption made (deferred pending a measured hit-ratio comparison)"
 links: [LESSON-0176]
 ---
 

@@ -212,6 +212,48 @@ the owner actually runs it live and finds it doesn't help in practice (this dry 
 a substitute for that). `factory/standards/agent-portability.md:70`'s `AskUserQuestion → ask in chat`
 fallback for non-Claude runtimes is unaffected — the option list is a Claude-Code-only presentation
 of the same prose question. **Closes BL-0114.**
+## v9.98.13 — 2026-09-03 (PATCH): BL-0118 -- which cache-TTL knob governs workflow-spawned agents
+
+**What:** resolves proposal 33 §6 R-25's `[UNVERIFIED]` open question (`docs/proposals/33-model-era-audit.md`
+-- a read-only audit snapshot, not re-edited here, matching this proposal's own precedent for its other
+closed rows). Read `LESSON-0176` first per the item's own ordering. Established against three primary
+sources, fetched live this session (2026-09-03):
+
+- `code.claude.com/docs/en/workflows` ("Prompt caching in a fan-out"): a workflow agent's requests fall
+  OUTSIDE the main conversation's cache bucket, defaulting to a five-minute TTL "including on a Claude
+  subscription," and names `subagentPromptCacheTtl` as the way to extend it to an hour.
+- `code.claude.com/docs/en/settings-reference` (`subagentPromptCacheTtl`): confirms scope explicitly --
+  "applies to subagents, workflows, and Claude Code's own background and helper requests." A `settings.json`
+  key (any file), default `"5m"`, values `"5m"`/`"1h"`.
+- `code.claude.com/docs/en/prompt-caching` ("Choose the TTL yourself" precedence list): a SECOND knob also
+  reaches this same bucket -- the per-agent `experimental.cacheTtl` frontmatter field, read only from the
+  subagent's own definition file (`plugin/agents/<name>.md`), regardless of whether that agent is dispatched
+  via the Agent/Task tool or a Workflow's `agent()` call. Precedence, highest first: `FORCE_PROMPT_CACHING_5M=1`
+  > the bucket's env var (`CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`) > the bucket's SETTING
+  (`subagentPromptCacheTtl`) > the agent's `experimental.cacheTtl` frontmatter > `ENABLE_PROMPT_CACHING_1H=1`
+  > the five-minute default.
+
+**Verdict:** `[UNVERIFIED]` resolved POSITIVE, and more precisely than the proposal anticipated -- it framed
+this as either/or ("the documented lever is the setting, not the per-agent field") and worried frontmatter
+might be unreachable for workflow agents at all. Both knobs are reachable and they COMPOSE:
+`subagentPromptCacheTtl` is a global, repo-wide override (every subagent + workflow + background request),
+while `experimental.cacheTtl` on a single agent file (e.g. `plugin/agents/implementer.md`, the proposal's own
+"one plausible candidate") is the surgical lever -- but it only takes effect while the global setting stays
+unset (today it does, factory-wide, so every workflow-spawned agent including `implementer` sits on the
+five-minute default right now). One more gotcha the precedence list surfaces: Claude Code ignores a `1h` in
+agent frontmatter "while your Claude subscription is using usage credits" -- relevant since the factory
+currently runs on a subscription, not raw API billing.
+
+**Not done -- deliberately:** the item's own fix-plan step 3 (measure the prompt-cache hit-ratio delta across
+one real FRD build at 5m vs 1h TTL, via `/usage`'s per-session prompt-cache line) was NOT run this session --
+a paired live FRD build under two different TTL settings is a real-cost, real-time experiment disproportionate
+to a documentation/investigation backlog item, and the item's own "Done when" only requires that *if* an
+adoption happens it be measurement-backed, not that an adoption happen. No `cacheTtl` value was set anywhere
+this session (not `plugin/agents/implementer.md`, not any `settings.json`) -- this closes the research
+question only, `[UNVERIFIED]` resolved, no code/behavior change. A future adoption attempt should set
+`experimental: {cacheTtl: "1h"}` on `plugin/agents/implementer.md` specifically (not the global setting) so
+the comparison stays scoped to the proposal's named candidate.
+
 
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 
