@@ -597,8 +597,18 @@ patched the one bug). So the default is **patch-first**:
     `BLOCKED: needs-owner`, file the Spanish `decisionRecord` in `inbox/decisions.md` **with the journal digest
     inlined** — don't burn the remaining reopens on a spec only the owner can fix.
   - **`deadlocked-contract`** — a blessed/preserved test asserts a contract a `dependsOn` sibling WO
-    intentionally derogates (LESSON-0104; the record recommends folding the derogation + re-bless into ONE WO).
-    Same early-block routing as `architectural` at `medium|high`.
+    intentionally derogates (LESSON-0104): WO-B can't run until WO-A verifies, and WO-A can't verify while the
+    blessed test still encodes the pre-change contract. At `confidence: medium|high` the engine **BREAKS the
+    deadlock instead of blocking (BL-0051)**: it hands the diagnosed `seam.files` (which for this class MUST be
+    the blessed TEST file(s)) to the same independent `repairGateTest` reviewer, framed as a **RE-BLESS** — prove
+    the derogation is DECLARED in this FRD's work orders/blueprint (`dependsOn` graph included), then rewrite the
+    assertions to the NEW contract without weakening coverage. **DR-080 is routed, never relaxed:** only the
+    reviewer who owns the gate's tests may touch them; the implementer/patcher still may not. **Fail-closed:** a
+    test the reviewer UPHOLDS (no declared derogation), or a re-bless the independent `verifyPatched` can't
+    confirm, still lands on the `architectural` early-block (`needs-owner`). The `decisionRecord` still
+    recommends folding the derogation + re-bless into ONE WO so the next plan can't re-create the deadlock.
+    Before BL-0051 this rung terminated the run and a human had to hand-edit the blessed test — exactly the
+    DR-080-sensitive action the automation is supposed to own.
   - **`gate-test-defective`** — routes to the existing `repairGateTest` valve (BL-0001), never a rebuild of
     correct work.
   A partial or full revert still **increments `reopen_count`** (the non-progress cap is untouched); a weak

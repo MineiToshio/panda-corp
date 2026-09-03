@@ -13,7 +13,7 @@ promotion: approved   # 2026-07-01 — codified as the DR-073 two-cause fallback
 confidence: high
 times_applied: 1
 applied_in: [mission-control]
-links: [BL-0001, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001]
+links: [BL-0001, BL-0051, DR-073, DR-074, DR-070, DR-072, DR-015, LESSON-0001, LESSON-0104]
 ---
 
 **Situation:** During personal-page-v2's FRD-01 gate, the reviewer found ONE real, bounded CORRECTION
@@ -60,6 +60,12 @@ escape valve (flag-and-escalate), or it converts a defective-test situation into
 > The concrete engine/agent/registry fix (the discriminated `gate-test-defective` verdict, the
 > gate-test-repair path, the reviewer viewport standard, the DR-073 amendment) is an **actionable defect**,
 > tracked as **BL-0001** in `factory/backlog/` — not part of this durable lesson (DR-103).
+>
+> **Deadlock-shaped sibling — LESSON-0104 / BL-0051.** The same escape valve has a second shape: the
+> blocking test is not internally inconsistent at all, it is a **blessed** test asserting a contract a
+> sibling work order intentionally DEROGATES, with the re-blessing WO `dependsOn` the derogating one —
+> circular, so the valve existed but was scheduling-locked. BL-0051 routes that case through the same
+> independent `repairGateTest` reviewer as a RE-BLESS (DR-080 routed, never relaxed).
 
 **Why it matters:** this is the same class as DR-073's own origin ("no tiene sentido descartar todo por
 un 1% que falla") — but one level deeper: here the discarded work was already a CORRECT patch, and the

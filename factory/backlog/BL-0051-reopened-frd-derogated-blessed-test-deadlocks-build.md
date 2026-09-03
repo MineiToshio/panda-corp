@@ -3,13 +3,13 @@ id: BL-0051
 type: bug
 area: build-engine
 title: "Reopened-FRD WO that derogates a blessed reviewer test deadlocks the build (gate-test repair can't run before its dependent WO)"
-status: open
+status: done
 severity: p1
 opened: 2026-07-07
-closed:
+closed: 2026-09-03
 source: "owner/conversation — Mission Control FRD-23 SSOT split, build run wf_3215e43e-5c1 (2026-07-07)"
-closes:
-links: [LESSON-0002, DR-080]
+closes: "plugin v9.102.0 / OVERLAY_VERSION 8.81.0 — engine deadlocked-contract RE-BLESS rung + test-side supersession planning rule (architecture/iterate) + build-orchestration.md ladder"
+links: [LESSON-0002, LESSON-0104, DR-080, DR-117]
 ---
 
 ## Problem

@@ -1,5 +1,31 @@
 # Decision Log — Factory
 
+## 2026-09-03 — BL-0051: a derogated blessed reviewer test is RE-BLESSED by the independent reviewer, not escalated to the owner
+
+**What:** `factory/standards/build-orchestration.md`'s recovery-ladder section is amended: the
+`deadlocked-contract` rung no longer shares `architectural`'s "early block needs-owner" routing. A blessed test
+asserting a contract a `dependsOn` sibling WO intentionally derogates is now BROKEN in-run — the engine hands the
+diagnosed blessed TEST file(s) to the independent `repairGateTest` reviewer as a **RE-BLESS** (prove the
+derogation is declared in the FRD's work orders, then rewrite the assertions to the new contract without
+weakening coverage), and only falls back to the `needs-owner` block when the reviewer UPHOLDS the test or the
+independent verification can't confirm the re-bless. The standard now states the fail-closed conditions and that
+`seam.files` for this class must be the blessed test path(s).
+
+**Why:** the ladder documented a class the engine could recognize but not resolve. On Mission Control's FRD-23
+SSOT split (run `wf_3215e43e-5c1`, 2026-07-07) a *correct* build ended `blockedReasons: {frd-23: "error"}` after
+11 agents, and a human had to hand-edit a blessed reviewer test — exactly the DR-080-sensitive action the
+automation exists to own. DR-080 is not relaxed by this: the edit was always the reviewer's to make; the change
+routes it to that role instead of to the owner's inbox. The prevention half (a plan must never put the re-bless
+behind a `dependsOn` edge on the derogating WO) lives in the `architecture`/`iterate` planning skills — see
+`plugin/docs/decision-log.md` v9.102.0 for the full change.
+
+**Impact:** `factory/standards/build-orchestration.md` · `factory/backlog/BL-0051-*` (→ `status: done`) ·
+`factory/memory/LESSON-0002` + `LESSON-0104` (back-linked; LESSON-0104's manual unblock is now the historical
+branch, and a harvest line is queued in the gitignored `factory/memory/_inbox.md` for the librarian to
+merge/promote). No constitution or `registry.yaml` change — this refines an existing DR-117 rung rather than
+adding a new decision rule. Plugin/engine side: v9.102.0, OVERLAY_VERSION 8.81.0 (sequential after BL-0112's
+8.80.0).
+
 ## 2026-09-03 — BL-0112: PERF-3 flipped `aspirational` → `wired` — the mechanism already existed, the registry hadn't caught up
 
 **What:** closes BL-0112 (proposal 31 T1.1). `factory/standards/rule-registry.md` marked **PERF-3** (no

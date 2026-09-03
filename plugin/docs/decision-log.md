@@ -4,6 +4,55 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.0 — 2026-09-03 (MINOR): The deadlocked-contract rung now BREAKS the deadlock — a derogated blessed test is RE-BLESSED, not escalated (BL-0051)
+
+**What:** closes BL-0051. When a build reopens an FRD with a change that **derogates a contract a blessed
+reviewer test already encodes**, and the plan puts the re-blessing in a work order that `dependsOn` the
+derogating one, the two are mutually unsatisfiable: WO-B can't run until WO-A verifies, and WO-A can't verify
+while the blessed test still asserts the pre-change contract. The engine classified this correctly
+(`deadlocked-contract`, LESSON-0104) and did every individual thing right — refused to let the implementer edit
+the blessed test (DR-080), refused to rebuild correct code — but its only exit was to STOP, so a human had to
+hand-apply the gate-test repair (Mission Control FRD-23 SSOT split, run `wf_3215e43e-5c1`, 11 agents burnt to an
+`error` block). Two gaps closed, prevention + recovery:
+
+1. **Recovery (engine).** The A3 ladder's `deadlocked-contract` branch no longer shares `architectural`'s
+   early-block. At `confidence: medium|high` it now hands the diagnosed `seam.files` — which for this class MUST
+   be the **blessed TEST file(s)** (the diagnoser prompt now says so explicitly) — to the same independent
+   `repairGateTest` reviewer, framed as a **RE-BLESS**: prove the derogation is DECLARED in this FRD's work
+   orders/blueprint (`dependsOn` graph included), then rewrite the assertions to the NEW contract without
+   deleting coverage or weakening any AC. Green → `verifyPatched` → VERIFIED, no manual step. **DR-080 is
+   ROUTED, never relaxed:** only the reviewer who owns the gate's tests may touch them; the implementer/patcher
+   prohibition is untouched (and re-asserted verbatim in the prompt). **Fail-closed:** an UPHELD test ("no work
+   order declares this derogation") or a re-bless the independent verifier can't confirm still lands on
+   `blockEarlyNeedsOwner`. `repairGateTest` gained an optional 4th arg (the diagnosis) that switches the prompt
+   head; the patcher's own `gate-test-defective` description now also names the derogated-blessed-test shape, so
+   both entry points reach the same valve.
+2. **Prevention (planning).** `architecture/SKILL.md` (step 9, WO decomposition) and `iterate/SKILL.md` (new
+   step **2c**, the test-side analogue of 2b's DR-116 doc-side supersession) now forbid the deadlock shape at
+   plan time: when a WO derogates a contract a blessed reviewer test asserts, the re-bless is either folded into
+   the SAME WO or placed in one that does NOT `dependsOn` it, so both land in one wave and the FRD gate sees the
+   recomposed feature against the re-blessed contract.
+
+**Tests (RED → GREEN):** three new scenarios in `plugin/scripts/test-pandacorp-build.mjs` — **G12a** the full
+deadlock shape (derogating WO + a re-blessing WO that `dependsOn` it + a blessed test asserting the old
+contract) verifies with zero blocks and zero manual intervention; **G12b** an upheld blessed test still reaches
+the `needs-owner` block (no rubber stamp); **G12c** the repair prompt carries the DEROGATED CONTRACT judgment,
+the `dependsOn` check and DR-080 without relaxing the patcher prohibition. All three failed against the previous
+engine (8 + 1 + 3 red assertions) and pass now: **64 passed, 0 failed**.
+
+**Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js` (`repairGateTest` +
+`gateConverge` ladder branch b0 + the diagnoser/patcher prompts) · `plugin/scripts/test-pandacorp-build.mjs` ·
+`plugin/skills/{architecture,iterate}/SKILL.md` · `factory/standards/build-orchestration.md` (§ recovery ladder,
+the `deadlocked-contract` rung) · `factory/memory/LESSON-0002` + `LESSON-0104` (back-links; the manual unblock is
+now marked historical) · `plugin/runtime/plugin-metadata.json` → **v9.102.0** (MINOR — additive, back-compat
+recovery capability; manifests regenerated with `generate-plugin-manifests.mjs`) · `plugin/templates/OVERLAY_VERSION`
+→ **8.81.0** (the engine template changed; projects re-sync via `/pandacorp:upgrade`). No `plugin/agents/*.md`
+changed → no Codex mirror regen. **Known drift, out of scope:** `mission-control/.claude/engines/pandacorp-build.js`
+is a project copy already behind the template (it predates the whole-FRD traceability oracle) — MC picks this up
+through its own `/upgrade`, not from here. DR-046: internal build machinery, no new operable surface — the
+skills/standards Reference catalogs auto-derive; no Manual narrative page changed. Activation: commit +
+`claude plugin update pandacorp@panda-corp` + restart. Sequential MINOR after BL-0082's v9.101.2.
+
 ## v9.101.2 — 2026-09-03 (PATCH): `check-derived-drift.sh` gains session attribution for foreign in-flight edits (BL-0082)
 
 **What:** closes BL-0082. `check-derived-drift.sh` (the Stop-hook manifest-drift gate) compared

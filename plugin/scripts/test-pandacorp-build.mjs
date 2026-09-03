@@ -1680,6 +1680,95 @@ SCENARIOS.push({
   },
 })
 
+
+// ── G12. BL-0051 deadlocked-contract — a REOPENED FRD whose WO derogates a contract a BLESSED reviewer
+// test still asserts, with the re-blessing WO `dependsOn` the derogating one (LESSON-0104). The engine
+// used to stop (blockedReasons error/needs-owner) and wait for a human to hand-edit the blessed test —
+// exactly the DR-080-sensitive action the automation is supposed to own. Now the deadlock is BROKEN by
+// the independent gate-test-repair reviewer re-blessing the derogated contract; the implementer still
+// never touches that test. Only a re-bless that does NOT hold falls back to the needs-owner block.
+SCENARIOS.push({
+  name: 'G12a. deadlocked-contract — diagnosis routes to the gate-test RE-BLESS lane and the FRD verifies (no block, no manual unblock)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g9-deadlock',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g9-005', 'PLANNED', { frd: 'frd-g9-deadlock', artifacts: ['src/g9/split/**'] }),                             // derogates the blessed contract
+      mkWo('wo-g9-006', 'PLANNED', { frd: 'frd-g9-deadlock', artifacts: ['src/g9/read/**'], deps: ['wo-g9-005'] }),         // recomposes + would re-bless — scheduling-locked behind wo-g9-005
+    ],
+  }]),
+  responses: [
+    { label: 'gate:frd-g9-deadlock', times: 1, response: { green: false, reopen: ['wo-g9-005'], findings: [{ wo: 'wo-g9-005', finding: 'aggregateChain.reviewer.test.ts:42 expects phaseTransitions NOT to be called for a fresh portada — the pre-split contract', failingTest: 'src/lib/achievements/read-model/_tests/aggregateChain.reviewer.test.ts', files: ['src/g9/split/portada.ts'] }] } },
+    { label: 'patch:frd-g9-deadlock', response: { green: false, cause: 'code', failure: 'no correct implementation satisfies the blessed assertion after the split' } },
+    { label: 'diagnose:frd-g9-deadlock', response: { classification: 'deadlocked-contract', repeatsPrior: false, recommendation: 'block-needs-owner', confidence: 'high', seam: { files: ['src/lib/achievements/read-model/_tests/aggregateChain.reviewer.test.ts'], symbol: 'aggregateChain', why: 'the blessed test asserts the pre-split contract that sibling wo-g9-006 intentionally derogates', cleanlySeparable: false } } },
+    // gate-test-repair + verify-patch green via the defaults (REPAIR_SCHEMA → { green: true })
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'diagnose:frd-g9-deadlock').length === 1, 'the A3 diagnosis ran and classified the deadlock')
+    t.ok(byLabel(run, 'gate-test-repair:frd-g9-deadlock').length === 1, 'the engine routed to the INDEPENDENT gate-test repair (re-bless), not to a block')
+    t.ok(byLabel(run, 'block-needs-owner:frd-g9-deadlock').length === 0, 'NO early needs-owner block — the deadlock is broken autonomously (BL-0051)')
+    t.ok(byLabel(run, 'verify-patch:frd-g9-deadlock').length === 1, 'an independent verifier re-ran the gate (constitution rule 4)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g9-deadlock'), 'the FRD VERIFIES — no manual intervention, no error/needs-owner block')
+    t.ok(run.result && !(run.result.blockedFrds || []).includes('frd-g9-deadlock'), 'the FRD is not blocked')
+    t.ok(hasLog(run, /deadlocked-contract/ ) && hasLog(run, /BL-0051/), 'the deadlock-break route is logged, citing BL-0051')
+    const repair = byLabel(run, 'gate-test-repair:frd-g9-deadlock')[0]
+    t.ok(repair && /derogat/i.test(repair.prompt), 'the repair prompt frames the test as asserting a DEROGATED contract, not an internally inconsistent one')
+    t.ok(repair && /wo-g9-005/.test(repair.prompt), 'the repair prompt names the reviewed work order(s) whose change derogated the contract')
+  },
+})
+
+// (b) the re-bless must not become a rubber stamp: if the reviewer UPHOLDS the blessed test (the
+// derogation claim is wrong), the engine still falls back to the needs-owner block — fail-closed.
+SCENARIOS.push({
+  name: 'G12b. deadlocked-contract — an UPHELD blessed test still falls back to the needs-owner block (fail-closed)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g9b-upheld',
+    deps: [],
+    workOrders: [mkWo('wo-g9b-001', 'PLANNED', { frd: 'frd-g9b-upheld', artifacts: ['src/g9b/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g9b-upheld', response: { green: false, reopen: ['wo-g9b-001'], findings: [{ wo: 'wo-g9b-001', finding: 'x at src/g9b/a.ts:3', files: ['src/g9b/a.ts'] }] } },
+    { label: 'patch:frd-g9b-upheld', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'diagnose:frd-g9b-upheld', response: { classification: 'deadlocked-contract', repeatsPrior: false, recommendation: 'block-needs-owner', confidence: 'high', seam: { files: ['e2e/blessed.spec.ts'], why: 'claims a sibling derogates it', cleanlySeparable: false } } },
+    { label: 'gate-test-repair:frd-g9b-upheld', response: { green: false, cause: 'code', failure: 'test upheld: the derogation is not declared in any work order' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate-test-repair:frd-g9b-upheld').length === 1, 'the re-bless lane was attempted first')
+    t.ok(byLabel(run, 'verify-patch:frd-g9b-upheld').length === 0, 'no independent verification runs when the re-bless was refused')
+    t.ok(byLabel(run, 'block-needs-owner:frd-g9b-upheld').length === 1, 'an upheld blessed test still reaches the needs-owner block — fail-closed, never a rubber stamp')
+    t.ok(run.result && (run.result.blockedFrds || []).includes('frd-g9b-upheld'), 'the FRD is blocked when the deadlock claim does not hold')
+  },
+})
+
+// (c) DR-080 contract: the gate-test repair prompt must keep the derogation judgment routed to the
+// INDEPENDENT reviewer and must still forbid the implementer/patcher from touching a blessed test.
+SCENARIOS.push({
+  name: 'G12c. gate-test repair prompt carries the derogated-contract judgment WITHOUT relaxing DR-080',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g9c-prompt',
+    deps: [],
+    workOrders: [mkWo('wo-g9c-001', 'PLANNED', { frd: 'frd-g9c-prompt', artifacts: ['src/g9c/**'] })],
+  }]),
+  responses: [
+    { label: 'gate:frd-g9c-prompt', times: 1, response: { green: false, reopen: ['wo-g9c-001'], findings: [{ wo: 'wo-g9c-001', finding: 'y at src/g9c/a.ts:1', files: ['src/g9c/a.ts'] }] } },
+    { label: 'patch:frd-g9c-prompt', response: { green: false, cause: 'gate-test-defective', defectiveTests: [{ path: 'e2e/blessed.spec.ts', why: 'asserts the pre-split contract' }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const repair = byLabel(run, 'gate-test-repair:frd-g9c-prompt')[0]
+    t.ok(repair, 'the gate-test repair ran')
+    t.ok(repair && /DEROGATED CONTRACT/.test(repair.prompt), 'the prompt offers the THIRD judgment: the contract was intentionally derogated (BL-0051)')
+    t.ok(repair && /dependsOn/.test(repair.prompt), 'the prompt tells the reviewer to check the sibling work orders / dependsOn graph for the declared derogation')
+    t.ok(repair && /DR-080/.test(repair.prompt), 'the prompt still cites DR-080 — only the independent reviewer may touch a blessed test')
+    t.ok(repair && /patcher may not touch them/.test(repair.prompt), 'the implementer/patcher prohibition survives (the rule is routed, never relaxed)')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
