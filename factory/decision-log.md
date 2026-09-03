@@ -1,5 +1,35 @@
 # Decision Log — Factory
 
+## 2026-09-03 — BL-0111: Fable prompt-surface recalibration sprint merged (proposal 36)
+
+**What:** closes BL-0111 (R-02's recalibration half, proposal 33 §12.2). One pre-authorized Fable 5.1
+agent re-ran the DR-114 audit-then-recalibrate method over the whole prompt surface (14
+`plugin/agents/*.md` + 26 `plugin/skills/*/SKILL.md`) on `sprint/fable-prompts` (contract
+`docs/proposals/36-fable-prompt-recalibration-sprint.md`), producing 9 hunks across 7 files
+(`designer.md`, `reviewer.md`, `absorb/design/discover/implement/learn`'s `SKILL.md`) — all `dedup`
+except one `prosthesis`, zero `generation-wording` (no literal model-version references found in
+scope). An independent Opus 5 red-team pass (fresh context, §5.5/§8.2) returned **9 ACCEPT · 0
+REJECT**; a mechanical normative-survival sweep found zero DR/BL/LESSON references lost and
+unchanged capital-emphasis counts (`NEVER` 4→4, `MUST` 4→4); frontmatter byte-identical on all 14
+agents. All 11 §6 success criteria PASS (full table: proposal 36 §10.6). Version bumped
+`plugin/runtime/plugin-metadata.json` 9.102.4 → **9.102.5 (PATCH)**, not §5.8's suggested MINOR
+(form-only, no new capability or behaviour change; the red team reviewed the divergence and declined
+to overrule — see the v9.102.5 entry in `plugin/docs/decision-log.md`). Both manifests → 9.102.5;
+`designer.toml`/`reviewer.toml` regenerated body-only.
+
+**Why:** `prompting-conventions.md`'s own stated trigger (a model-generation change) recurred with the
+Claude 5 defaults; proposal 33 §12.2 pre-authorized exactly this one Fable sprint under the $50 cost
+ceiling (§4) and its two-step gate (scope note first, owner go at launch). The audit's own finding
+stands: the surface's residual defect is form (in-file rule repeats, war-story parentheticals), not
+model-specific scaffolding.
+
+**Impact:** `plugin/agents/{designer,reviewer}.md`, `plugin/skills/{absorb,design,discover,implement,
+learn}/SKILL.md`, `.codex/agents/{designer,reviewer}.toml`, `plugin/runtime/plugin-metadata.json` +
+both manifests → 9.102.5. Spend `[ESTIMATED, NOT MEASURED — CONV-13]`: ≈$7.7 (≤$12 with margin), well
+under the $50 cap — no live token metering exists (proposal 33 R-12). `factory/backlog/BL-0111-*.md`
+→ `done`. Full sprint log, per-file table and red-team verdict matrix:
+`docs/proposals/36-fable-prompt-recalibration-sprint.md` §10.
+
 ## 2026-09-03 — BL-0069: CI vehicle for the factory's own engine test corpus is GitHub Actions
 
 **What:** closes BL-0069 (the factory's dozen `plugin/scripts/test-*.mjs` suites — the only proof

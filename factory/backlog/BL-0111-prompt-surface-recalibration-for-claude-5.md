@@ -3,12 +3,12 @@ id: BL-0111
 type: change
 area: standards
 title: "Re-run a DR-114-style fresh-context PROMPT-6 pass over the 14 agents and 26 skills against Claude 5"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-02 (recalibration half; owner decision §12.2)"
-closes:
+closes: "proposal 36 sprint + red-team (commits dd3442ee, 33f06792)"
 links: []
 ---
 
