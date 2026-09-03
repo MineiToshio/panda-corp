@@ -168,6 +168,50 @@ itself (not removed). No engine/skill behavior changed — PATCH.
 - `plugin/skills/implement-backlog/SKILL.md` — hardening-lesson line gains the verification date, model and
   outcome, pointing here for the full comparison.
 - Closes `BL-0100`.
+## v9.99.0 — 2026-09-03 (MINOR): BL-0114 — `AskUserQuestion` trial in `decide` — verdict ADOPT
+
+**What:** trialed `AskUserQuestion` in **`plugin/skills/decide/SKILL.md`** ONLY (source: proposal
+33 §6 R-29 — every owner gate was freeform prose, zero hits for the tool across all skills). No other
+skill touched, per the item's explicit out-of-scope. Design: the tool never replaces the prose — the
+question's header/description IS the full context (the diagnosis, researched options, the AI's
+recommendation and rationale) exactly as the skill already assembled it; the tool's option list is
+built FROM the decision block's own `- **Opciones:** A) … · B) …` field, always plus a free-text
+fallback so an answer outside the researched options (or "your recommendation", or marking it
+obsolete) still works. If a decision has fewer than 2 `Opciones`, the tool is skipped and the skill
+falls back to plain prose — no regression on an open-ended decision. Applied at both the step-2
+staleness confirm (binary: sigue vigente / ya no aplica) and step-3's answer-capture, all four paths
+(id-scoped, disambiguation-by-id, no-id-with-text, list-all).
+
+**Methodology (recorded honestly).** This BL item was dispatched by the automated `pandacorp-backlog`
+engine (proposal 31 T1.1), which runs without a live, interactive owner turn and without
+`AskUserQuestion` available to the implementing session itself (tool not in its toolset). A literal
+"run `/pandacorp:decide` and have the owner judge in the moment" per the item's Tests section was
+therefore genuinely infeasible in THIS dispatch. Substituted a **documented manual dry run** against
+the one real (non-fixture) `.pandacorp/inbox/decisions.md` in the portfolio —
+`mission-control/.pandacorp/inbox/decisions.md` — instead of a synthetic fixture:
+- Its FRD-23/WO-23-004 entry has a clean, real two-option recommendation ("A — Completar el
+  cableado" / "B — Descopar de FRD-23"), embedded as prose paragraphs rather than the template's
+  short lettered bullet. Built the exact `AskUserQuestion` payload it would produce (header = full
+  diagnosis + both options' trade-offs, 2 labeled options with a short description each) — this is a
+  concrete capture improvement: the owner picks instead of retyping "A"/"B" or the option text, and
+  losing nothing (full rationale still shown up front).
+- Its FRD-23 CIERRE/SSOT-note entry has only ONE recommendation, no lettered alternatives — the
+  `<2 Opciones` fallback fires correctly and the skill stays plain prose, confirming the guardrail
+  degrades safely on an open-ended decision instead of forcing a false binary.
+- **Candid finding:** neither real entry uses the template's literal `- **Opciones:** A) … · B) …`
+  bullet (`templates/docs/decisions-inbox-template.md`) — agents write free-form diagnostic prose with
+  options named inline. `git log -p` on this file shows zero historical hits for that exact bullet
+  shape. The tool's benefit is real when it applies but currently conditional on how consistently
+  future decision blocks populate that field; this trial gives agents authoring decisions a concrete
+  reason to keep using it going forward (a lettered `Opciones` field now feeds tooling, not just
+  reading).
+
+**Verdict: ADOPT in `decide`**, scoped exactly as designed above — never on `design`'s open-ended
+visual feedback or `explore`'s conversation (explicitly out of scope), and revisable the first time
+the owner actually runs it live and finds it doesn't help in practice (this dry run is evidence, not
+a substitute for that). `factory/standards/agent-portability.md:70`'s `AskUserQuestion → ask in chat`
+fallback for non-Claude runtimes is unaffected — the option list is a Claude-Code-only presentation
+of the same prose question. **Closes BL-0114.**
 
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 

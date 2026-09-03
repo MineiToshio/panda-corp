@@ -3,12 +3,12 @@ id: BL-0114
 type: change
 area: plugin-skill
 title: "Trial AskUserQuestion in the decide skill only — every owner gate is currently freeform prose"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-29"
-closes:
+closes: "plugin/docs/decision-log.md v9.99.0 (2026-09-03) -- verdict ADOPT in decide"
 links: []
 ---
 
