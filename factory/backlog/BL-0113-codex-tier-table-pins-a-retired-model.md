@@ -3,12 +3,12 @@ id: BL-0113
 type: bug
 area: plugin-agent
 title: "The Codex MECH tier pins gpt-5.4-mini, retired from Codex on 2026-08-31 — a dispatch would hard-fail"
-status: open
+status: done
 severity: p1
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-01 + R-74 + R-07 (owner decision §12.1 gates it)"
-closes:
+closes: "MECH re-mapped gpt-5.4-mini -> gpt-5.6-luna in plugin/runtime/model-tiers.json (regenerated .codex/agents/tier-mech.toml); prose fixed in factory/standards/agent-portability.md, AGENTS.md rule 11, RuntimeComparison.tsx (closes N3); R-07 effort wording fixed; STANDARD/JUDGE left on gpt-5.5 (explicit, cost-inversion recorded); OpenAI-side-alias question checked and recorded [UNVERIFIED, single source]; plugin v9.98.6; decision-log entries in plugin/docs/decision-log.md and factory/decision-log.md"
 links: [DR-120]
 ---
 

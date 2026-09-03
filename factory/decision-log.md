@@ -1,5 +1,28 @@
 # Decision Log — Factory
 
+## 2026-09-03 — Codex MECH tier re-mapped off a retired model id (BL-0113)
+
+**What:** `factory/standards/agent-portability.md`'s tier table (PORT-2/rule 11) pinned Codex's MECH tier to
+`gpt-5.4-mini`, retired from Codex 2026-08-31. Re-mapped to `gpt-5.6-luna` per the verified replacement
+table at https://learn.chatgpt.com/docs/models (accessed 2026-09-02): *"replace `gpt-5.4` with
+`gpt-5.6-terra` and `gpt-5.4-mini` with `gpt-5.6-luna`"*. Also corrected the effort wording ("minimal/low"
+→ "low", matching what `generate-codex-agents.mjs` actually emits — closes proposal 33's R-07). `AGENTS.md`
+rule 11's inline Codex mapping and Mission Control's `RuntimeComparison.tsx` Manual row updated in the same
+change so no copy of the table is left stale (closes the sweep's finding N3, open since 2026-07-05 per
+`docs/proposals/30-factory-contradiction-sweep.md:108`).
+
+**Left unchanged, deliberately:** `STANDARD`/`JUDGE` stay on `gpt-5.5`, even though it is now cost-inverted
+against `gpt-5.6-sol`/`gpt-5.6-terra` — the card (`factory/backlog/BL-0113-*.md`) scopes this fix to the
+*retired* id only; re-tiering the other two is a separate, undecided call, left explicit rather than
+silently folded in.
+
+**Checked, not fixed:** whether Codex offers alias ids (so a tier could point at a rolling alias the way
+the Claude half does via `model-tiers.json`'s `haiku`/`sonnet`/`opus` aliases) — `[UNVERIFIED, single
+source]`, learn.chatgpt.com/docs/models shows only dated ids, no alias mechanism. Full detail:
+`plugin/docs/decision-log.md` v9.98.1. Does not reopen or extend DR-120 (Codex build-write remains frozen);
+this is maintenance of already-generated, drift-gated machinery so a read/review dispatch does not
+hard-fail on a dead id.
+
 ## 2026-09-02 — The standards catalog gate goes green and gets a trigger (BL-0055)
 
 **What:** `bash factory/standards/check-standards.sh` exits **0** again. Two standards had shipped without
@@ -43,7 +66,6 @@ absent from the `factory/standards/README.md` category index (`document-consiste
 shipped-without-registering omission, in the one place `check-standards.sh` does not look. No id was claimed
 for it here to avoid racing a `BL-*` number with the parallel dispatcher; it needs one line in the
 Engineering/Data row and, ideally, an index check in the same script.
-
 ## 2026-09-02 — Codex runtime freeze (DR-120): every non-Claude runtime is read/review-only again
 
 **What:** the owner took `docs/proposals/33-model-era-audit.md` §12.1 **option (B)**. Codex's build-write

@@ -4,6 +4,36 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.6 — 2026-09-03 (PATCH): Codex MECH tier re-mapped off a retired model id (BL-0113)
+
+**What:** `gpt-5.4` and `gpt-5.4-mini` retired from Codex on 2026-08-31. Re-mapped the single source,
+`plugin/runtime/model-tiers.json` (`MECH.codex.model`): `gpt-5.4-mini` → **`gpt-5.6-luna`**, per the
+verified replacement table at https://learn.chatgpt.com/docs/models (accessed 2026-09-02): *"replace
+`gpt-5.4` with `gpt-5.6-terra` and `gpt-5.4-mini` with `gpt-5.6-luna`"*. Regenerated
+`.codex/agents/tier-mech.toml` with `node plugin/scripts/generate-codex-agents.mjs` (never hand-edited —
+verified idempotent against the JSON). Fixed the two prose copies of the tier table —
+`factory/standards/agent-portability.md:44` and `AGENTS.md` rule 11 — and Mission Control's
+`RuntimeComparison.tsx` "Tiers de modelo" row (DR-046 Manual sync). Also folded in R-07/finding N3: PORT-2
+said Codex MECH effort was "minimal/low"; the generator only ever emits `"low"` — corrected to match.
+
+**Explicitly NOT changed (per the card and proposal 33 R-01):** `STANDARD`/`JUDGE` stay pinned to `gpt-5.5`.
+This is a known **cost inversion** — `gpt-5.5` is $0.88/call-unit against `gpt-5.6-sol` ($0.624) and
+`gpt-5.6-terra` ($0.352) — but the card scopes this fix to what is *retired*, not what is merely
+costlier, and Codex is frozen read/review-only (DR-120) so there is no live spend to optimize right now.
+Re-tiering STANDARD/JUDGE to the 5.6 family is left as a follow-on decision, not silently folded in here.
+
+**Checked per R-01 step 4 (does an OpenAI-side alias exist so Codex could stop pinning dated ids?):**
+`[UNVERIFIED, single source]` — the same learn.chatgpt.com/docs/models page (re-fetched 2026-09-03) shows
+no generic/`-latest` alias for any Codex model; every reference, including the retirement notice itself, is
+a specific dated id. So the Claude-side fix (alias the tier, DR-113/R-59) has **no Codex-side equivalent
+today** — a future retirement will again require a manual re-map here. Not re-litigated further because
+Codex is frozen (DR-120) and this is explicitly out of scope as capability work.
+
+**Why not superseded by DR-120:** the freeze stops Codex from *writing* build state; it does not stop a
+Codex **read/review** dispatch, and a `tier-mech` dispatch on the retired id would still 400/404 for that
+narrower use. Fixing the pin is maintenance of already-generated, still drift-gated machinery, not new
+Codex capability.
+
 ## v9.98.5 — 2026-09-03 (PATCH): BL-0093 — /loop is not the durable recurring mechanism
 
 **What:** `plugin/skills/review-launch/SKILL.md` and `plugin/skills/memory/SKILL.md` (frontmatter
@@ -116,8 +146,9 @@ the eval-gate's normal cross-project bar) and add the lesson's line to `INDEX.md
 
 **Why:** a promoted, owner-approved lesson is by definition trusted evidence (DR-047) — leaving it at
 `status: candidate` hid it from every retrieval surface that reads only `INDEX.md`/`active` lessons,
-silently discarding the value of the promotion it just received.## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
+silently discarding the value of the promotion it just received.
 
+## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
 **What:** two owner decisions from `docs/proposals/33-model-era-audit.md` §12 land in the plugin.
 
 *§12.1 — the Codex freeze (DR-120).* The `EXPERIMENTAL/attended_foreground/targeted-only` profile promoted

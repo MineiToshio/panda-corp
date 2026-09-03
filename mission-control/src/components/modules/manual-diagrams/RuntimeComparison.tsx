@@ -88,7 +88,7 @@ const ROWS: readonly Row[] = [
   {
     capability: "Tiers de modelo",
     claude: "haiku / sonnet / opus",
-    codex: "gpt-5.4-mini / gpt-5.5 medium / gpt-5.5 high",
+    codex: "gpt-5.6-luna / gpt-5.5 medium / gpt-5.5 high",
     status: "same",
   },
   {

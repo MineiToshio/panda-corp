@@ -44,7 +44,7 @@ One runtime-neutral tier vocabulary — **MECH / STANDARD / JUDGE** — mapped p
 
 | Tier | Meaning | Claude Code | Codex |
 |---|---|---|---|
-| **MECH** | mechanical, zero judgment (a commit, a rename, a one-line tweak, grep-and-report) | haiku | `gpt-5.4-mini` (effort minimal/low) |
+| **MECH** | mechanical, zero judgment (a commit, a rename, a one-line tweak, grep-and-report) | haiku | `gpt-5.6-luna` (effort low) |
 | **STANDARD** | real work, the default floor (implementation, research fan-out, most execution) | sonnet | `gpt-5.5` (effort medium) |
 | **JUDGE** | genuine judgment / adversarial (architecture, red-team, open-ended synthesis) | opus | `gpt-5.5` (effort high/xhigh) |
 | — | **never auto** (most expensive tier, owner request only) | Fable | (n/a) |

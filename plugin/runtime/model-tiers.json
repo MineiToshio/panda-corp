@@ -2,7 +2,7 @@
   "tiers": {
     "MECH": {
       "aliases": ["haiku"],
-      "codex": { "model": "gpt-5.4-mini", "effort": "low" }
+      "codex": { "model": "gpt-5.6-luna", "effort": "low" }
     },
     "STANDARD": {
       "aliases": ["sonnet"],
