@@ -1,5 +1,32 @@
 # Decision Log — Factory
 
+## 2026-09-03 — BL-0117: Artifacts publish path for design mockups investigated and rejected — local server stays
+
+**What:** Proposal 33 R-62 flagged that Anthropic's Artifacts feature has zero uses in the factory while design
+mockups are served locally (`.claude/launch.json` → `python3 -m http.server` on :4000/:4180) — filed as BL-0117
+with the fix plan "publish one mockup set as an Artifact from the `design` skill's flow, keeping the local server
+as fallback." Investigated directly rather than assumed: (1) no agent in `plugin/agents/*.md` — including
+`designer.md`, the agent that owns the `design` skill's mockup generation — lists an `Artifact`-creation tool in
+its `tools:` frontmatter, and this session's own tool grant has none either; (2) no MCP config or cached
+`docs/en/artifacts` reference exists anywhere in the repo describing a programmatic publish call; (3) Artifacts,
+per Anthropic's own docs, render and publish **inside an interactive claude.ai/Claude Desktop chat** — the owner
+clicks "Publish" on content Claude just generated in that conversation. There is no tool surface for an
+autonomous skill (running headless via Claude Code's `Read`/`Write`/`Edit`/`Bash`/`WebSearch`/`WebFetch`) to
+create or publish one on its own, unlike even `DesignSync` (DR-058), which at least exposes `list_files`/`get_file`
+for polling — Artifacts expose nothing at all to any agent here.
+
+**Verdict:** same shape as the DR-058 `DesignSync` precedent (owner-driven surface, agent cannot pilot it) but
+with no partial automation available at all — the "design skill's flow" framing in the fix plan is not
+achievable as written. This is the Tests section's documented alternate branch ("a 'no, the local server is fine'
+verdict closes the item as tried-and-rejected"), reached here by technical infeasibility rather than a taste
+call: the local `python3 -m http.server` review surface (`.claude/launch.json`) **stays**, and `plugin/skills/design/SKILL.md`
+is not changed. If Anthropic ships a tool-callable Artifacts publish API reachable from a headless Claude Code
+session, this verdict should be revisited.
+
+**Why:** DR-103 routes a factory-tooling defect/change through `factory/backlog/`; BL-0117 is closed
+`done` per its own "Done when" bullet 2 (decision-log records why the local server stays) — no code or skill
+prose touched, `Out of scope` (Mission Control itself, the Claude Design canvas flow) respected.
+
 ## 2026-09-03 — Memory promotion sitting: 12 lessons promoted to standards, 1 held (proposal 33 §12.4)
 
 **What:** the owner's §12.4 decision (option i) was to clear the `promotion: proposed` queue in ONE `/pandacorp:learn`

@@ -3,12 +3,12 @@ id: BL-0117
 type: change
 area: plugin-skill
 title: "Publish design mockups as Artifacts instead of serving them from a local python3 http.server"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-62"
-closes:
+closes: "factory/decision-log.md 2026-09-03 entry — Artifacts publish path investigated and rejected (no tool surface exists for any agent to create/publish an Artifact headlessly); local python3 http.server review surface stays"
 links: []
 ---
 
