@@ -3,12 +3,12 @@ id: BL-0112
 type: change
 area: standards
 title: "Wire PERF-3 — the last aspirational SHOULD — as a Biome/import-graph rule for barrel imports in hot paths"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-42"
-closes:
+closes: "factory/standards/rule-registry.md PERF-3 row (wired) + plugin v9.101.1 decision-log entry + OVERLAY_VERSION 8.80.0"
 links: []
 ---
 

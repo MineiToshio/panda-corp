@@ -70,6 +70,7 @@ fi
 # Derived count: excludes header row, separator, and non-rule structural rows.
 # Alert if the table structure changes without updating the prose narrative.
 counts=$(awk -F'|' '
+  BEGIN { total = 0; wired = 0; manual = 0; aspirational = 0 }
   /^## Burn-down: aspirational rules/ { found_table = 0 }
   /^\| ID \| Rule \|/ { found_table = 1; next }
   found_table && NF >= 6 {

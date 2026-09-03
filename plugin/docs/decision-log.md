@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.101.1 — 2026-09-03 (PATCH): PERF-3 flipped `wired` — a canary for the barrel-file ban that was already there (BL-0112)
+
+**What:** closes BL-0112 (proposal 31 T1.1). The stack-a-nextjs canonical `biome.json` already banned barrel
+files project-wide (`performance.noBarrelFile`/`noReExportAll`, error, since v8.22.0) and `verify.sh` already
+ran it fail-closed — but `factory/standards/rule-registry.md`'s PERF-3 row still said `review-only |
+aspirational`, the last such row in the registry. Full detail + live RED/GREEN proof in
+`factory/decision-log.md`'s matching BL-0112 entry. This version adds `plugin/templates/stack-a-nextjs/
+canary.sh` step 1b: seeds a barrel file under `src/__canary__/__barrel__/` and asserts `biome check
+--error-on-warnings` rejects it, so the gate's "still goes RED" guarantee (DR-079) now covers this rule too.
+`OVERLAY_VERSION` 8.79.0 → 8.80.0 carries the canary addition into existing projects on their next
+`/pandacorp:upgrade`. PATCH, not MINOR: no new skill/agent/option, a gate got a regression test and a
+registry row got corrected. Sequential PATCH after BL-0105's v9.101.0.
+
 ## v9.101.0 — 2026-09-03 (MINOR): Wire a `WorktreeRemove` soft warning for unmerged work (BL-0105)
 
 **What:** closes BL-0105 (proposal 33 §6 R-21). Before this, `plugin/templates/shared/.pandacorp/

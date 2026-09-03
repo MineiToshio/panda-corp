@@ -1,5 +1,38 @@
 # Decision Log — Factory
 
+## 2026-09-03 — BL-0112: PERF-3 flipped `aspirational` → `wired` — the mechanism already existed, the registry hadn't caught up
+
+**What:** closes BL-0112 (proposal 31 T1.1). `factory/standards/rule-registry.md` marked **PERF-3** (no
+waterfalls/dedup/barrel imports in hot paths) `SHOULD | review-only | aspirational` — the sole surviving
+aspirational row across 157 rules. Investigated before building anything new: Biome's `noBarrelFile` +
+`noReExportAll` (`performance` domain) were **already** set to `error` in the canonical
+`plugin/templates/stack-a-nextjs/biome.json` (added 2026-06-19, commit `6d1e3790`, v8.22.0) and already run
+fail-closed by `verify.sh`'s `pnpm biome check . --error-on-warnings`. `plugin/templates/rules/
+web-performance.md` even already documented this in prose ("mechanically banned by Biome noBarrelFile/
+noReExportAll in the canonical biome.json"). So the barrel-import half of PERF-3 was already wired — the
+registry row was simply stale documentation debt, not a missing mechanism.
+
+**Verified live (not assumed, CONV-13):** sandboxed the canonical `biome.json` in a throwaway git repo and ran
+`npx @biomejs/biome@2.5.1 check . --error-on-warnings` against two fixtures — RED: a seeded barrel file
+(`export * from "./button"`) + a hot-path import from it (`@/components`) → exit 1, both
+`lint/performance/noBarrelFile` and `lint/performance/noReExportAll` fired. GREEN: the same import rewritten
+against the concrete file (`@/components/button`, no barrel) → exit 0, silent. Both the "fires on a seeded
+violation" and "stays silent on a legitimate one" halves of the item's Tests section are proven.
+
+**What shipped:** a permanent regression canary — `plugin/templates/stack-a-nextjs/canary.sh` step 1b seeds the
+same barrel-file fixture under `src/__canary__/__barrel__/` and asserts `biome check --error-on-warnings`
+rejects it (DR-079: a canary that only proves "still RED", never "stays GREEN", by design — the GREEN half is
+proven by every clean build already). Registry row flipped: PERF-3 now `wired`, naming the real checker
+(`noBarrelFile`+`noReExportAll` in `verify.sh`, canary-proven). Burn-down prose updated: **0 aspirational rows**
+(MUST and SHOULD) for the first time. `OVERLAY_VERSION` 8.79.0 → 8.80.0 (new canary check, compatible) and
+plugin `9.101.0` → `9.101.1` (PATCH — a gate-strengthening fix, no new skill/agent capability, per plugin/docs/
+decision-log.md).
+
+**Out of scope (per the item):** did not introduce a new `MUST` (learn's own rule: new MUSTs start as SHOULD/
+warning) and did not attempt to mechanically check the waterfall/dedup/dynamic-import thirds of PERF-3 (runtime
+data-fetching shape, not a static import-graph fact — stays review-only; the row is `wired` because a real
+checker now backs at least one of its named failure modes, the same bar every other `wired` row clears).
+
 ## 2026-09-03 — BL-0117: Artifacts publish path for design mockups investigated and rejected — local server stays
 
 **What:** Proposal 33 R-62 flagged that Anthropic's Artifacts feature has zero uses in the factory while design
