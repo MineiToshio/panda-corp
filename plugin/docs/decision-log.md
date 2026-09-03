@@ -4,6 +4,32 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.13 — 2026-09-03 (PATCH): BL-0095 — dedupe the four-planes routing table + trim absorb's inline CONV-12 restatements
+
+**What:** two prose-duplication defects with no drift gate, closed per `docs/proposals/33-model-era-audit.md`
+§6 R-52/R-53. No skill behaviour changed — only where the routing/rubric prose lives — hence PATCH.
+
+- **Four-planes table (R-52).** `AGENTS.md`'s `## Changing the factory itself — route by plane (DR-103)` table
+  stays the ONE canonical copy. The three restatements in `plugin/skills/learn/SKILL.md` (step 0),
+  `plugin/skills/memory/SKILL.md` (the "Memory is not an action queue" Rule) and `plugin/skills/absorb/SKILL.md`
+  (the plane-tagging line in Step 3 and the routing bullets in Step 6) are replaced with an explicit
+  **"read AGENTS.md's four-planes routing table now ... it is binding here"** pointer (the `canvas-procedure.md`
+  precedent — a pointer is only followed when the skill says to follow it), keeping only the elaboration each
+  skill genuinely adds beyond the table (e.g. `learn`'s backlog-id mechanics and drain ritual, `absorb`'s
+  slash-command entry points).
+- **CONV-12 restatement (R-53).** `absorb/SKILL.md`'s two inline restatements of the tier rubric
+  (`MECH=haiku, STANDARD=sonnet, JUDGE=opus; escalate up, never down...`) are replaced with the same pointer
+  form `implement-backlog/SKILL.md:52` already uses: "the tier rubric is `factory/standards/conventions.md`'s
+  CONV-12 (DR-111); don't re-derive it here." `learn/SKILL.md:41` (the DR-116 supersession step, where CONV-12
+  is only cited as the rationale for delegating a grep) was deliberately left untouched — the audit's citation
+  there was corrected, it is not a rubric restatement.
+- Proved with a grep assertion (RED on the pre-fix commit: 0 occurrences of the pointer phrase in the three
+  consumers, the CONV-12 enumeration present in `absorb`; GREEN after: the table's distinctive row text appears
+  in exactly one file (`AGENTS.md`), each consumer has both the pointer and an explicit read instruction, the
+  CONV-12 enumeration is gone from `absorb`) plus `claude plugin validate plugin/`.
+- Out of scope (unchanged, deliberately): the DR-045 preflight byte-identical spans — that extraction was
+  already audited and rejected; its missing enforcement is tracked separately as BL-0091.
+
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 
 **What:** the plugin-side half of the `/pandacorp:learn` promotion sitting (proposal 33 §12.4; full record and the

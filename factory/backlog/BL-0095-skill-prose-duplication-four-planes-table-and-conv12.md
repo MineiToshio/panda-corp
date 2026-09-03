@@ -3,12 +3,12 @@ id: BL-0095
 type: change
 area: plugin-skill
 title: "Extract the four-planes routing table to a shared reference and trim absorb's inline CONV-12 restatements"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-52 + R-53"
-closes:
+closes: "plugin/docs/decision-log.md v9.98.13 -- AGENTS.md's four-planes table kept as the one canonical copy (learn/memory/absorb now point to it); absorb's CONV-12 restatements replaced with the implement-backlog:52 pointer form"
 links: []
 ---
 

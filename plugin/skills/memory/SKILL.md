@@ -43,10 +43,12 @@ The self-learning loop's operator surface. Runs IN panda-corp. It accumulates du
 13. Summarize the store: counts by `type` and `status`; **the promotions queue** — every lesson with **`promotion: proposed`** (the rules awaiting your approval, with their target + rationale), so you can review the full list and decide whenever; the most-applied lessons; the oldest never-retrieved; and the pending `candidate`s awaiting corroboration. **Also report the factory backlog's health** (run `bash plugin/scripts/validate-backlog.sh` — repo-relative, matching `implement-backlog`): open/doing/done counts + the top 3 oldest OPEN `BL-*` items, one line each — the plane-3 queue drains through visibility (audit-20; DR-103 built the queue, this surfaces it).
 
 ## Rules
-- **Memory is not an action queue (DR-103).** A defect/change to the factory's own tooling is an actionable,
-  closeable item → `factory/backlog/` (a `BL-*` item), NOT a lesson. Only durable, retrievable knowledge
-  lands in `factory/memory/`. A dual-nature item is split (defect → backlog, generalizable lesson → memory,
-  linked). A product-project defect → that project's `.pandacorp/inbox/changes/` (via `/change`), never here.
+- **Memory is not an action queue (DR-103) — read AGENTS.md's four-planes routing table
+  (`## Changing the factory itself — route by plane (DR-103)`) before routing anything; it is binding
+  here.** Only durable, retrievable knowledge lands in `factory/memory/`; an actionable defect/change to
+  the factory's own tooling, or to a product project, routes per that table instead — never as a lesson.
+  A dual-nature item is split (defect → wherever the table sends it, generalizable lesson → memory,
+  linked).
 - **Propose, don't promote.** Turning a lesson into a standard/DR/skill is HIGH-RISK (DR-047) → always `/pandacorp:learn` + the owner gate. This skill never edits `factory/standards/`, `registry.yaml` or `plugin/`.
 - **Evidence or nothing** (LESSON-0001): no candidate without a concrete anchor; never harvest reflections.
 - **Never delete** — deprecate (DR-047/DR-011/DR-007). Contradictions are reconciled, not erased.
