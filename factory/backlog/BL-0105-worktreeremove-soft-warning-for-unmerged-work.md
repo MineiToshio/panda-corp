@@ -3,12 +3,12 @@ id: BL-0105
 type: change
 area: hooks
 title: "Wire a WorktreeRemove soft warning for unmerged work — today the check only exists as an owner-run script"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-09-03
 source: "docs/proposals/33-model-era-audit.md §6 R-21"
-closes:
+closes: "plugin v9.101.0 -- plugin/scripts/warn-worktree-remove.sh wired to the WorktreeRemove hook"
 links: []
 ---
 

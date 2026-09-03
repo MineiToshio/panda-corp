@@ -4,6 +4,37 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.101.0 — 2026-09-03 (MINOR): Wire a `WorktreeRemove` soft warning for unmerged work (BL-0105)
+
+**What:** closes BL-0105 (proposal 33 §6 R-21). Before this, `plugin/templates/shared/.pandacorp/
+pending-work.sh` was the ONLY place that unioned surviving worktrees with `git branch --no-merged`
+to catch unmerged work about to be lost — but it only ran when the owner remembered to invoke it by
+hand. New **`plugin/scripts/warn-worktree-remove.sh`**, wired to the (previously unused) `WorktreeRemove`
+hook event in `plugin/hooks/hooks.json`, applies the same invariant automatically the moment Claude
+Code removes a worktree (session exit, a subagent's `isolation:"worktree"` finishing, or a background-
+session delete): if the worktree's branch has unmerged commits ahead of the default branch, or the
+tree is dirty, it fires a VISIBLE warning (desktop notification via `osascript` when available, plus
+stderr) naming the branch and the reason. A fully-merged, clean worktree stays silent.
+
+**Confirmed live** (per Claude Code's own hooks reference, fetched 2026-09-03): `WorktreeRemove` hooks
+have **no decision control whatsoever** — Claude Code discards every JSON output field (`systemMessage`,
+`continue`, etc.) and the exit code is only logged in debug mode on failure, never blocking. So the
+warning MUST be a side effect (notification + stderr), never an attempted block — which also settles
+the fix plan's own instruction: a hard block dies (`registry.yaml:574`'s DR-099 precedent — a
+`PreToolUse` deny on this class of action was explicitly rejected in favor of a visible warning). This
+hook cannot have blocked removal even if it tried to.
+
+Self-test `plugin/scripts/test-warn-worktree-remove.sh` (5 assertions, real `git worktree` fixtures):
+an unmerged-and-committed branch warns, a dirty/uncommitted tree warns, a fully-merged clean worktree
+stays silent, and malformed/gone `worktree_path` input never crashes (exit 0 always — matching the
+event's own no-decision-control contract). `CLAUDE.md`'s hook-lineup line updated to name it.
+
+**Impact:** `plugin/hooks/hooks.json` (+1 event block), `plugin/scripts/warn-worktree-remove.sh` (new),
+`plugin/scripts/test-warn-worktree-remove.sh` (new), both manifests → **v9.101.0** (MINOR — new,
+additive hook coverage; no existing skill/agent/hook behavior changed; sequential MINOR after BL-0104's
+v9.100.0). No `OVERLAY_VERSION` bump — plugin-only wiring, not per-project scaffolding. DR-046: internal
+enforcement plumbing, no owner-facing flow/gate/concept changed. `factory/backlog/BL-0105` → done.
+
 ## v9.100.0 — 2026-09-03 (MINOR): PreCompact runs the lesson-capture backstop (BL-0104)
 
 **What:** closes BL-0104 (proposal 33 §6 R-20). `plugin/hooks/hooks.json` wired only 4 of 33 documented
