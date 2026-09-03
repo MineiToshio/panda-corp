@@ -104,5 +104,5 @@ Update the memo's Iteration/Plan with what was routed where, and confirm to the 
 - **No new engine** — step 6 routes to `learn` / `implement-backlog` / `memory`; `absorb` studies and proposes, it never re-implements what those engines already do.
 - **Model tiers** — size each subagent from its OWN subtask (CONV-12/DR-111), escalate up only, launch independent ones concurrently. The Fable-class tier is never chosen automatically.
 - **Language** — committed memo in English (DR-009); every word to the owner in Spanish (Rule 1).
-- **Document everything** — creating this skill and any change to it follows the plugin lifecycle: bump `plugin/.claude-plugin/plugin.json` (and keep `.codex-plugin/plugin.json` at the same version), record it in `plugin/docs/decision-log.md`.
+- **Document everything** — creating this skill and any change to it follows the plugin lifecycle: bump `plugin/runtime/plugin-metadata.json`'s `version` (the SOURCE, DR-113 — never hand-edit the generated `plugin.json` manifests), then run `node plugin/scripts/generate-plugin-manifests.mjs` to keep both manifests at the same version, record it in `plugin/docs/decision-log.md`.
 - **`pandacorp-research/` is a throwaway cache** — outside the repo, safe to clean; it is NOT a protected-state path. Never confuse it with `.pandacorp/` or `factory/{ideas,memory,profile.md,portfolio.md}`.

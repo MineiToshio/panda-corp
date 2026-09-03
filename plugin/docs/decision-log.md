@@ -4,6 +4,37 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.97.1 — 2026-09-02 (PATCH): implement-backlog stops telling agents to hand-edit the generated plugin.json — BL-0119
+
+**What:** fixed every place `implement-backlog`'s own machinery instructed an executing or merging
+agent to bump `plugin/.claude-plugin/plugin.json`'s `version` by hand: `plugin/skills/implement-backlog/SKILL.md`
+step 5 and its Merge-phase hotspot rule, `.claude/engines/pandacorp-backlog.js`'s Implement-phase
+recipe (line ~142) and Merge-phase conflict-resolution recipe (line ~184), plus one more copy of the
+same stale instruction found in `plugin/skills/absorb/SKILL.md`'s "Document everything" bullet (a
+DR-116 completeness sweep, not in the original bug report). All five now say: bump
+`plugin/runtime/plugin-metadata.json` (the SOURCE, DR-113), then run
+`node plugin/scripts/generate-plugin-manifests.mjs` to regenerate both `plugin.json` manifests,
+and commit source + generated files together — never hand-edit or hand-resolve the manifests
+themselves, including in a merge conflict. `plugin-templates/` carries no copy of this instruction
+(checked, none found).
+
+**Why:** `CLAUDE.md`'s "Plugin maintenance" section has said since DR-113 that both `plugin.json`
+manifests are generated projections and the derived-drift Stop gate REDs on a hand-edit — but
+`implement-backlog`'s own skill text and engine prompts predated that split and still told every
+item-implementing and item-merging agent to hand-edit the generated file directly. Filed live as
+`BL-0119` (`factory/backlog/BL-0119-*.md`) while planning the filing of `docs/proposals/33-model-era-audit.md`'s
+29 other items — a multi-item backlog drain following the old instruction literally would have
+REDed the derived-drift gate on every single item that touched `plugin/`.
+
+**Impact:** `plugin/skills/implement-backlog/SKILL.md` · `plugin/skills/absorb/SKILL.md` ·
+`.claude/engines/pandacorp-backlog.js` (no `plugin/agents/*.md` touched → no Codex mirror regen) ·
+`plugin/runtime/plugin-metadata.json` bumped 9.97.0 → **9.97.1** (PATCH — pure fix, no
+skill/agent-behavior capability change), manifests regenerated via
+`node plugin/scripts/generate-plugin-manifests.mjs`. Verified: `claude plugin validate plugin/`
+passes; `node plugin/scripts/test-pandacorp-backlog.mjs` — 26/26 passed; `bash
+plugin/scripts/check-derived-drift.sh` green; `bash plugin/scripts/validate-backlog.sh` green
+(120 items, 0 errors). `BL-0119` closed `status: done`.
+
 ## v9.97.0 — 2026-07-15 (MINOR): injectable debugging SOP + evidence-before-assertion + live-attempt economy
 
 **What:** the rules library gains `rules/debugging.md` (`applies_when: always` — the DEBUG-1..4
