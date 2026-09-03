@@ -254,6 +254,25 @@ question only, `[UNVERIFIED]` resolved, no code/behavior change. A future adopti
 `experimental: {cacheTtl: "1h"}` on `plugin/agents/implementer.md` specifically (not the global setting) so
 the comparison stays scoped to the proposal's named candidate.
 
+## v9.98.13 — 2026-09-03 (PATCH): gate fix — false-positive elimination in the redirect-truncation rule (BL-0120)
+
+**What:** `plugin/scripts/block-dangerous.sh`'s redirect-truncation check (BL-0035/WS-A F3) blocked two harmless
+commands: a redirect to `/dev/null` chained after other text, and — the real bug — a `>` sitting inside a *quoted*
+string (e.g. a commit trailer `"...<noreply@host.com>"`). Root cause: the redirect-target regex ran directly on the
+raw command text with no quote-awareness; for the quoted-email case it extracted a bare trailing quote, stripped it
+to an **empty token**, and `_protected_under("")` returns true by design (the bare-root fail-closed case) — so an
+artifact of naive extraction was misclassified as "protected", producing the exact observed message
+`redirect '> ' truncates a protected Pandacorp state path to zero`.
+
+**Fix:** (1) strip single/double-quoted regions from the command text BEFORE running the redirect-extraction regex,
+so a `>` inside quotes is never mistaken for a shell redirect operator; (2) skip empty extracted tokens explicitly
+in the redirect loop, so an extraction artifact never falls into `_protected_under`'s `""` case. Both are narrowly
+scoped to the redirect-truncation block; the `rm`/`find`/`git clean` protected-path rules and the `""` bare-root
+semantics they still rely on are untouched.
+
+**Regression coverage:** `plugin/scripts/test-block-dangerous.sh` gained a `BL-0120` section — redirect to
+`/dev/null` PASSes, the quoted-email-trailer commit PASSes, and a real `echo "data" > factory/memory/_inbox.md`
+truncation still BLOCKs (BL-0035 protection intact). Full matrix: 57/57 green. Closes BL-0120.
 
 ## v9.98.12 — 2026-09-03 (PATCH): Memory promotion sitting — routines permission prerequisite + rule-library propagation
 

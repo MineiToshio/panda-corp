@@ -98,9 +98,18 @@ fi
 # Redirect-truncation of a protected state file (`: > f`, `cat /dev/null > f`, `cmd > f`): a single
 # `>` (not `>>`) truncates an append-only, historyless owner-state file to zero — the same BL-0035
 # loss class as a delete (WS-A F3). Test each single-`>` redirect target against the protected set.
-redirs=$(printf '%s' "$cmd" | grep -oE '[^>]>[[:space:]]*[^[:space:]<>|;&]+' | sed -E 's/^[^>]>[[:space:]]*//')
+#
+# BL-0120: strip quoted regions FIRST — a `>` inside a single/double-quoted string (e.g. a commit
+# trailer `"...<noreply@host.com>"`) is text, not a shell redirect operator, and must never feed the
+# extraction below. Naive quote-stripping (this is a heuristic gate, not a shell parser) is enough:
+# it eliminates the false-positive class without touching the real-redirect detection.
+unquoted_cmd=$(printf '%s' "$cmd" | sed -E "s/\"[^\"]*\"//g; s/'[^']*'//g")
+redirs=$(printf '%s' "$unquoted_cmd" | grep -oE '[^>]>[[:space:]]*[^[:space:]<>|;&]+' | sed -E 's/^[^>]>[[:space:]]*//')
 for tok in $redirs; do
   tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+  # An empty token is an extraction artifact (e.g. a trailing quote left over), never a real redirect
+  # target — do NOT let it fall into _protected_under's "" case, which returns true (BL-0120).
+  [ -n "$tok" ] || continue
   if _protected_under "$tok"; then
     block "redirect '> $tok' truncates a protected Pandacorp state path to zero — this append-only layer has no git history; never reset it in place, archive/move instead or ask the owner (BL-0035)"
   fi

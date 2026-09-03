@@ -3,12 +3,12 @@ id: BL-0120
 type: bug
 area: hooks
 title: "block-dangerous.sh false-positive: any `>` in the command text (commit trailer, `>/dev/null`) is blocked as a protected-path truncation"
-status: open
+status: done
 severity: p2
 opened: 2026-09-03
-closed:
+closed: 2026-09-03
 source: "orchestrator session 2026-09-03 (proposal 33 implementation, wave 0 drain preflight) — (agent-inferred)"
-closes:
+closes: "plugin v9.98.13 — plugin/scripts/block-dangerous.sh redirect-truncation quote-stripping fix + plugin/docs/decision-log.md entry"
 links: [BL-0035]
 ---
 

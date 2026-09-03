@@ -93,6 +93,10 @@ check "APPEND >> to state is safe"         0 "$fx" "echo hi >> myapp/.pandacorp/
 check "redirect to a normal build file"    0 "$fx" "node gen.js > src/out.txt"
 check "git stash push"                     0 "$fx" "git stash push -m wip"
 check "git stash pop"                      0 "$fx" "git stash pop"
+echo "== BL-0120: quoted '>' / non-protected redirect targets must not false-positive =="
+check "redirect to /dev/null"              0 "$fx" 'bash plugin/scripts/validate-backlog.sh >/dev/null 2>&1; echo "done"'
+check "quoted email trailer in commit msg" 0 "$fx" 'git commit -m "Fix thing" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'
+check "still blocks real truncation"       2 "$fx" 'echo "data" > factory/memory/_inbox.md'
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
