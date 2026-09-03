@@ -4,6 +4,26 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.102.1 — 2026-09-03 (PATCH): CI trigger for the engine test corpus (BL-0069)
+
+**What:** closes BL-0069. The dozen `plugin/scripts/test-*.mjs` suites (the only proof for
+load-bearing engine behavior — DR-117 recovery classes, DR-118 gate-worktree lifecycle, DR-060
+serialization, R10/R11 runtime-switch contracts) previously ran only when an agent remembered to
+invoke them by hand; LESSON-0151 names this rot pattern. New **`plugin/scripts/run-engine-
+tests.sh`** globs every `plugin/scripts/test-*.mjs`, runs each with `node`, and fails loud (non-
+zero, naming every failed suite; refuses to report success on an empty directory, DR-078) if any
+one fails. New **`.github/workflows/factory-engine-tests.yml`** invokes it on push to `main`
+touching `plugin/**`, a daily cron (catches environment/date drift with no push) and
+`workflow_dispatch`; `github.com/MineiToshio/panda-corp` is public so Actions minutes are free
+(verified live via `gh repo view`), recorded in `factory/decision-log.md`. Proven by new
+`plugin/scripts/test-run-engine-tests.sh` (synthetic all-passing / one-broken / empty-directory
+fixtures for the aggregation logic + a structural check of the workflow YAML + a run against the
+real corpus, which does not assume it is green). No skill/agent behavior changed — PATCH.
+
+**Notable finding:** the real corpus surfaced `test-codex-executor.mjs` already RED (a hardcoded
+rollout fixture timestamp, 2026-07-22, has now lapsed) — filed as BL-0122, fix deferred there
+(out of scope for this item, which only wires the trigger for what already exists). Sequential PATCH after BL-0051's v9.102.0.
+
 ## v9.102.0 — 2026-09-03 (MINOR): The deadlocked-contract rung now BREAKS the deadlock — a derogated blessed test is RE-BLESSED, not escalated (BL-0051)
 
 **What:** closes BL-0051. When a build reopens an FRD with a change that **derogates a contract a blessed

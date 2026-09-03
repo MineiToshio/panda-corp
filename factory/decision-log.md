@@ -1,5 +1,40 @@
 # Decision Log — Factory
 
+## 2026-09-03 — BL-0069: CI vehicle for the factory's own engine test corpus is GitHub Actions
+
+**What:** closes BL-0069 (the factory's dozen `plugin/scripts/test-*.mjs` suites — the only proof
+for load-bearing engine behavior like DR-117 recovery classes, DR-118 gate-worktree lifecycle,
+DR-060 serialization, R10/R11 runtime-switch contracts — were previously run only when an agent
+remembered to invoke them by hand; LESSON-0151 names this rot pattern). The Fix plan's step 4
+required this item to record its own vehicle choice rather than assume one: **GitHub Actions**,
+not a local scheduled routine. Reasoning: `github.com/MineiToshio/panda-corp` is a **public** repo
+(verified live via `gh repo view --json visibility` this session) — GitHub Actions minutes are free
+for public repos, so the cost concern the item raised as the alternative's rationale (avoiding
+Actions spend) does not apply. GitHub Actions also gives a genuinely push-independent trigger
+(`on.schedule`) plus a native, owner-visible status check on every commit, which a local routine
+would have to reinvent.
+
+**What shipped:** `.github/workflows/factory-engine-tests.yml` — triggers on push to `main` touching
+`plugin/**`, a daily cron (`17 6 * * *`, to catch environment/date drift even without a push) and
+`workflow_dispatch`. It runs `plugin/scripts/run-engine-tests.sh` (new), which globs every
+`plugin/scripts/test-*.mjs`, runs each with `node`, and fails loud (non-zero exit, naming every
+failed suite) if any one of them does — including refusing to report success if the directory is
+empty (DR-078: no silent green). Proven by `plugin/scripts/test-run-engine-tests.sh`: synthetic
+all-passing/one-broken/empty fixtures for the aggregation logic, plus a run against the REAL corpus
+(structural proof: workflow YAML parses and wires push+schedule+the runner; a real Actions trigger
+cannot be exercised from a local script).
+
+**Notable finding while proving this against the real corpus:** `test-codex-executor.mjs` is
+currently RED (2/51 assertions failing) — a hardcoded rollout fixture timestamp
+(`1784730769` = 2026-07-22T14:32:49Z) has lapsed relative to today (2026-09-03), so the dispatcher's
+plausibility check now rejects it. This is a live instance of exactly the rot LESSON-0151 describes
+and exactly what this new CI trigger exists to surface — filed as **BL-0122** (fix deferred there,
+out of scope for BL-0069 itself, which only wires the trigger for what already exists).
+
+**Why:** DR-103 routes a factory-tooling change through `factory/backlog/`; the vehicle choice is
+an infra/CI decision affecting how the factory verifies itself, hence recorded here per the item's
+own "Done when" (decision log records the choice) rather than left implicit in the commit.
+
 ## 2026-09-03 — BL-0051: a derogated blessed reviewer test is RE-BLESSED by the independent reviewer, not escalated to the owner
 
 **What:** `factory/standards/build-orchestration.md`'s recovery-ladder section is amended: the

@@ -3,13 +3,13 @@ id: BL-0069
 type: change
 area: build-engine
 title: "Wire a CI workflow to continuously run the factory's own engine test suite"
-status: open
+status: done
 severity: p2
 opened: 2026-07-12
-closed:
+closed: 2026-09-03
 source: "external-repo mining of github.com/NateBJones-Projects/ringer, 2026-07-10 (factory/decision-log.md same-date entry: 'the factory has no CI today'); confirmed live 2026-07-12 — no .github/workflows/ directory in the repo, while plugin/scripts/test-*.mjs already has 12 engine test scripts (test-pandacorp-build.mjs, test-build-state.mjs, test-runtime-switch.mjs, test-codex-enforcement.mjs, test-codex-unattended.mjs, test-codex-executor.mjs, test-engine-lease-lifecycle.mjs, test-build-run-id.mjs, test-event-transport.mjs, test-executor-contract.mjs, test-pandacorp-backlog.mjs, test-build-engine.mjs) that only ever run when an agent remembers to invoke them by hand"
-closes:
-links: [LESSON-0151, LESSON-0074]
+closes: "factory/decision-log.md 2026-09-03 entry (GitHub Actions chosen vehicle) — .github/workflows/factory-engine-tests.yml + plugin/scripts/run-engine-tests.sh + plugin/scripts/test-run-engine-tests.sh"
+links: [LESSON-0151, LESSON-0074, BL-0122]
 ---
 
 ## Problem

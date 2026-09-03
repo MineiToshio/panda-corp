@@ -1,0 +1,31 @@
+name: Factory engine tests
+
+# BL-0069: the factory's own engine correctness (pandacorp-build.js and its dozen
+# plugin/scripts/test-*.mjs suites -- the only proof for load-bearing behavior like DR-117
+# recovery classes, DR-118 gate-worktree lifecycle, DR-060 serialization, R10/R11 runtime-
+# switch contracts) was previously verified ONLY when an agent or the owner manually ran the
+# relevant script. This workflow gives that corpus a trigger that does not depend on anyone
+# remembering (LESSON-0151). Chosen vehicle: GitHub Actions (this repo is public, so Actions
+# minutes are free -- see factory/decision-log.md for the recorded choice).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "plugin/**"
+  schedule:
+    # Daily, so environment/date drift (e.g. a hardcoded timestamp fixture going stale) is
+    # caught even on a week with no push touching plugin/**.
+    - cron: "17 6 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  engine-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Run plugin/scripts/test-*.mjs corpus
+        run: bash plugin/scripts/run-engine-tests.sh
