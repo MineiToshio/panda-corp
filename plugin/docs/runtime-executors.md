@@ -28,9 +28,18 @@ subagents do not reliably inherit, without sharing either runtime's orchestratio
 
 ## Codex executor
 
-### Promoted surface: `attended_foreground` (EXPERIMENTAL)
+### Promoted surface: WITHDRAWN — Codex is read/review-only (FROZEN 2026-09-02, DR-120)
 
-Codex project writes are available only through the intentionally narrow canonical
+> **Everything in this section describes a SUSPENDED contract, not a live permission.** The owner
+> froze the Codex build-write capability on 2026-09-02 (DR-120): canonical policy now resolves
+> `implement.codex` to `FALLBACK`, every non-Claude runtime is read/review-only on project build
+> state, and R10/R11 are suspended rather than failed. The launcher and supervisor already enforce
+> this — `launch-codex-implement.sh` exits 3 and `supervisor.mjs` throws when the policy is not
+> `EXPERIMENTAL`. The text below is preserved verbatim as the contract a reopen would resume from.
+> Reopen trigger, verbatim: *"Codex ships wake-capable local scheduling."* Canonical:
+> `factory/standards/agent-portability.md` PORT-5; history: `factory/decision-log.md` (2026-09-02).
+
+Codex project writes **were** available only through the intentionally narrow canonical
 `EXPERIMENTAL/attended_foreground/targeted-only` profile. The official launcher accepts exactly one
 normalized FRD OR one exact ready-change target, foreground only, with cumulative duration at most
 7200 seconds and zero automatic restarts. It issues a one-run attended permit bound to the project,

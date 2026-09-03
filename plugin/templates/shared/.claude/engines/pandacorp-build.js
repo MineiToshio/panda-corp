@@ -764,6 +764,10 @@ async function buildWO(wo, frd) {
   if (P.split && plan.hasFrontend) {
     // DR-073 cost-weighting: 3 build agents at woModel + 1 worker-model closer (self-test).
     agentSpawned += 3 * COST(woModel) + 1
+    // INTENTIONAL ASYMMETRY (BL-0115, owner decision 2026-09-02): test-writer stays at P.worker even when
+    // the implementers below escalate to woModel/opus. Reason is DR-015 builder/verifier diversity — holding
+    // the test author at the worker model is what keeps builder and verifier on DIFFERENT models exactly on
+    // the hard/reopened work orders where that independence is worth the most. Do not "fix" this to match.
     await agent(`${EMIT('test-writer', wo.id, { frd, activity: 'test' })}${TRACK('wo_start', `,"frd":"${frd}","wo":"${wo.id}"`)} Write the acceptance tests (RED) for work order ${wo.id} from the EARS criteria of FRD ${frd}: ${wo.summary || ''}.${woCtx(wo, frd)} No production code.`,
       { label: `test:${wo.id}`, phase: 'Build', model: P.worker, agentType: 'pandacorp:test-writer' })
     await agent(`${EMIT('backend-dev', wo.id, { frd, activity: 'backend' })}First read the \`## Status Note\` of the work orders ${wo.id} depends on (their exposed interfaces). Then implement the backend of ${wo.id} (TDD until green): ${wo.summary || ''}.${woCtx(wo, frd)} Publish YOUR API contract at docs/api/${wo.id}.md (your own per-WO file — DR-060: never a shared docs/api.md, which races across parallel WOs). Do NOT call git — you never commit; the engine commits this work order (serialized single writer) when it greens (Option B).`,

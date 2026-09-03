@@ -23,10 +23,16 @@ for (const skill of matrix.skills) {
     if (!existsSync(sidecar) || !/allow_implicit_invocation:\s*false/.test(readFileSync(sidecar, "utf8"))) fail(`${skill.slug} internal sidecar missing fail-closed policy`);
   } else if (existsSync(sidecar)) fail(`${skill.slug} has an unnecessary Codex sidecar`);
 }
+// DR-120 (2026-09-02): the Codex build-write capability is FROZEN at read/review-only. These assertions
+// are the mechanism — they fail closed if any surface silently re-promotes a non-Claude build writer.
 const implementCodex = matrix.skills.find((skill) => skill.slug === "implement")?.runtimes.codex;
-if (implementCodex?.status !== "EXPERIMENTAL" || implementCodex.profile !== "attended_foreground" || implementCodex.scope !== "targeted-only") fail("implement/Codex promotion is not the exact attended targeted profile");
-for (const boundary of ["one FRD", "one ready change", "foreground", "<=7200", "zero automatic restarts", "Bare/global", "hardening", "release", "unattended", "cross-runtime"]) if (!implementCodex.fallback.includes(boundary)) fail(`implement/Codex boundary missing from capability projection: ${boundary}`);
+if (implementCodex?.status !== "FALLBACK") fail("implement/Codex must be FALLBACK (read/review-only) while DR-120's freeze holds");
+if (implementCodex.profile || implementCodex.scope) fail("implement/Codex must carry no write profile/scope while DR-120's freeze holds");
+for (const boundary of ["READ/REVIEW-ONLY", "FROZEN", "DR-120", "WITHDRAWN", "Reopen trigger"]) if (!implementCodex.fallback.includes(boundary)) fail(`implement/Codex freeze statement missing from capability projection: ${boundary}`);
 const ownership = JSON.parse(readFileSync(path.join(root, "plugin/runtime/capability-ownership.json"), "utf8"));
 const executor = ownership.capabilities?.codex_product_executor;
-if (executor?.certification !== "EXPERIMENTAL" || executor.profile !== "attended_foreground" || executor.scope !== "targeted-only") fail("Codex executor ownership disagrees with the promoted skill policy");
+if (executor?.certification !== "FROZEN" || executor.scope !== "read-review-only") fail("Codex executor ownership disagrees with DR-120's frozen read/review-only policy");
+if (!executor.reopen_trigger) fail("Codex executor freeze must record its reopen trigger");
+const policy = JSON.parse(readFileSync(path.join(root, "plugin/runtime/skill-runtime-policy.json"), "utf8"));
+if (policy.overrides?.implement?.codex?.status !== "FALLBACK") fail("skill-runtime-policy disagrees with DR-120's frozen read/review-only policy");
 console.log(`PASS  exact skill capability coverage ${slugs.length}/${dirs.length}`);

@@ -241,15 +241,13 @@
           }
         },
         "codex": {
-          "status": "EXPERIMENTAL",
-          "fallback": "Available only for exactly one FRD or one ready change, foreground, cumulative duration <=7200 seconds and zero automatic restarts; it ends in implementation. Bare/global, hardening, release, background, unattended and cross-runtime Codex builds remain unavailable; Claude keeps its Dynamic Workflow path.",
+          "status": "FALLBACK",
+          "fallback": "READ/REVIEW-ONLY. No build-state writes from any non-Claude runtime: FROZEN 2026-09-02 by DR-120. The former EXPERIMENTAL attended_foreground/targeted-only profile (one FRD or one ready change, foreground, cumulative <=7200 seconds, zero automatic restarts) is WITHDRAWN. Bare/global, multiple-FRD, targeted, hardening, release, background, unattended and cross-runtime Codex builds are all unavailable; Claude keeps its Dynamic Workflow path. Reopen trigger: \"Codex ships wake-capable local scheduling\".",
           "evidence": {
-            "kind": "installed-codex-attended-canary",
-            "verified_at": "2026-07-15",
-            "verifier": "codex-attended-99510-final / 9c2ea16"
-          },
-          "profile": "attended_foreground",
-          "scope": "targeted-only"
+            "kind": "owner-decision-freeze",
+            "verified_at": "2026-09-02",
+            "verifier": "DR-120 / docs/proposals/33-model-era-audit.md §12.1 option (B)"
+          }
         }
       }
     },

@@ -45,14 +45,20 @@ result = await run(["--mode", "terminal", ...common, "--run-id", "r10-test", "--
 result = await run(["--mode", "check", ...common]); ok(result.code !== 0 && /already consumed/.test(result.out), "revoked permit remains one-shot");
 
 // BL-0081: promotion is targeted-only. Empty certification authorization never widens
-// EXPERIMENTAL attended authority into a bare/global build.
+// normal Codex authority into a bare/global build.
+// DR-120 (2026-09-02): with the Codex freeze the launcher denies EARLIER — at the capability-policy
+// check (`implement.codex.status` is FALLBACK, not EXPERIMENTAL), before it ever reaches the
+// one-exact-target check. Both denials are accepted here: the invariant under test is that a bare/global
+// launch WITHOUT a certification authorization is refused, not which fail-closed check refuses it. If the
+// freeze is ever lifted, the targeted-only message becomes the live one again with no test edit.
 const bin = path.join(base, "bin"); await mkdir(bin); const fakeCodex = path.join(bin, "codex");
 await writeFile(fakeCodex, "#!/bin/sh\n[ \"${1:-}\" = login ] && exit 0\nexit 99\n"); await chmod(fakeCodex, 0o755);
 try {
   await exec("bash", [path.join(root, "plugin/scripts/launch-codex-implement.sh"), project, "4", "900", "0", "1", "", "", "auto", "foreground", ""], { env: { ...process.env, PATH: `${bin}:${process.env.PATH}` } });
-  ok(false, "empty authorization cannot widen EXPERIMENTAL Codex implement to bare/global");
+  ok(false, "empty authorization cannot widen normal Codex implement to bare/global");
 } catch (error) {
-  ok(/requires exactly one change or FRD target/i.test(`${error.stdout || ""}${error.stderr || ""}`), "empty authorization cannot widen EXPERIMENTAL Codex implement to bare/global");
+  const out = `${error.stdout || ""}${error.stderr || ""}`;
+  ok(/requires exactly one change or FRD target/i.test(out) || /normal execution is unavailable/i.test(out), "empty authorization cannot widen normal Codex implement to bare/global");
 }
 
 // R11 is a distinct one-shot contract. It binds the Codex-only executor surfaces,

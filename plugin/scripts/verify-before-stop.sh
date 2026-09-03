@@ -30,8 +30,9 @@ verify="$cwd/.pandacorp/verify.sh"
 [ -f "$verify" ] || exit 0
 
 # R2/R3 ownership rule: a lease suppresses this Stop gate only for the SAME certified runtime.
-# Codex is deliberately NOT a verification owner yet: R3 arms its hooks, but build writes remain
-# read/review-only until the later R6/R7 promotion. Therefore a Codex hook always runs verify.sh;
+# Codex is deliberately NOT a verification owner: R3 arms its hooks, but build writes are
+# read/review-only for every non-Claude runtime, frozen by DR-120 (2026-09-02) with no promotion
+# path open until its reopen trigger fires. Therefore a Codex hook always runs verify.sh;
 # a crashed/foreign Codex lease can never silence verification. Claude keeps the known-good skip.
 lease="$cwd/.pandacorp/run/build.lease/lease.json"
 lease_live=0

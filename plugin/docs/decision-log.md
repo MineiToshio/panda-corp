@@ -4,6 +4,63 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.0 — 2026-09-02 (MINOR): Codex build capability withdrawn (DR-120 freeze) + test-writer asymmetry recorded (BL-0115)
+
+**What:** two owner decisions from `docs/proposals/33-model-era-audit.md` §12 land in the plugin.
+
+*§12.1 — the Codex freeze (DR-120).* The `EXPERIMENTAL/attended_foreground/targeted-only` profile promoted
+in v9.95.11 is **withdrawn**; every non-Claude runtime is read/review-only on project build state, and
+R10/R11 are suspended (not failed). Canonical policy moved, not just prose:
+`plugin/runtime/skill-runtime-policy.json` (`implement.codex.status: EXPERIMENTAL → FALLBACK`),
+`plugin/runtime/skill-capabilities.json` (same row in the projection) and
+`plugin/runtime/capability-ownership.json` (`codex_product_executor.certification: EXPERIMENTAL → FROZEN`,
+`scope: read-review-only`, with `reopen_trigger` recorded and the 2026-07-15 canary evidence preserved as
+`historical_evidence`; `codex_unattended_certification` and `sequential_runtime_switch` marked
+`SUSPENDED_BY_DR-120`). `plugin/scripts/check-skill-capabilities.mjs`'s three Codex assertions were
+**inverted**: they used to fail closed if the exact attended profile was absent, they now fail closed if
+anything re-promotes a non-Claude build writer, and they additionally require the freeze's reopen trigger
+to be recorded and `skill-runtime-policy.json` to agree. `plugin/skills/implement/SKILL.md` rewritten
+wherever it described the profile — frontmatter `description`, the runtime-selection block (Codex now
+**STOP**, with the permitted read/review surface spelled out), the targeted-build note, the executor
+paragraph, the unattended SOP note and the BL-0074 evidence note.
+`plugin/templates/shared/AGENTS.md.tpl` carries the same boundary into every project, so
+`OVERLAY_VERSION` 8.77.0 → **8.78.0**.
+
+*§12.7 — BL-0115.* The `test-writer` dispatch in
+`plugin/templates/shared/.claude/engines/pandacorp-build.js` now carries a comment recording that its
+non-escalation is **intentional**: DR-015 builder/verifier diversity — when `pickWorkerModel()` escalates
+the implementer to opus, holding the test author at the worker model is what keeps builder and verifier on
+different models exactly on the hard/reopened work orders. No behavior change.
+
+**Why:** the profile ran zero production builds in the 49 days it was available while proposal 32 §13.1's
+dual-runtime change protocol was paid on every change; the owner froze it with a falsifiable reopen
+trigger (*"Codex ships wake-capable local scheduling"*). Full evidence balance and the backlog triage are
+in `factory/decision-log.md` (2026-09-02). BL-0115 existed because the asymmetry was undocumented — the
+audit's verdict was that *the silence was the defect*, not the asymmetry.
+
+**No new machinery was written, and none was needed:** `plugin/scripts/launch-codex-implement.sh:16`
+already exits 3 when the policy is not `EXPERIMENTAL`, and `plugin/runtime/codex/supervisor.mjs:31`
+already throws *"attended_foreground is not enabled by canonical policy"*. Flipping the policy JSON turns
+both existing fail-closed checks into the enforcement of the freeze. `plugin/runtime/codex/*` and
+`plugin/scripts/launch-codex-implement.sh` were deliberately **left intact** — the freeze suspends the
+capability, it does not delete the implementation, and a reopen must not require re-deriving it. The Codex
+test suites keep their own promoted fixtures (they copy `plugin/` into a sandbox and set `EXPERIMENTAL`
+there), so they still exercise the suspended contract without re-promoting the real policy.
+
+**Semver:** MINOR, not PATCH and not MAJOR. It changes skill behavior (`implement`'s Codex preflight now
+STOPs where it used to launch), which is more than a PATCH; it removes no skill and does not change any
+Claude-side flow, so the only production runtime is unaffected. The symmetric promotion (v9.95.11) was
+filed as a PATCH, which under-stated it; this entry does not repeat that.
+
+**Impact:** `plugin/runtime/plugin-metadata.json` 9.97.1 → **9.98.0**, both manifests regenerated via
+`node plugin/scripts/generate-plugin-manifests.mjs`. No `plugin/agents/*.md` touched → **no Codex mirror
+regen needed**. `plugin/templates/OVERLAY_VERSION` 8.77.0 → **8.78.0** (AGENTS.md.tpl + the engine
+comment), so `/pandacorp:upgrade` carries both into projects. Verified: `claude plugin validate plugin/`
+passes · `node plugin/scripts/check-skill-capabilities.mjs` PASS (26/26) · `node
+plugin/scripts/check-runtime-sources.mjs` exit 0 · `bash plugin/scripts/check-derived-drift.sh` green ·
+`bash plugin/scripts/validate-backlog.sh` green (119 items). Closed: **BL-0115**, **BL-0094**, **BL-0084**.
+BL-0030 raised to **p0** as the freeze's mechanism.
+
 ## v9.97.1 — 2026-09-02 (PATCH): implement-backlog stops telling agents to hand-edit the generated plugin.json — BL-0119
 
 **What:** fixed every place `implement-backlog`'s own machinery instructed an executing or merging
