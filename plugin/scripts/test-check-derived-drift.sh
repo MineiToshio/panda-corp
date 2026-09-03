@@ -168,5 +168,28 @@ check "F12 drift caught from plugin/ subdir"       2 "$gx/plugin"
 check "F12 drift caught from a deep subdir"        2 "$gx/plugin/deep"
 rm -rf "$gx"
 
+# 8. BL-0121: a linked `git worktree` never inherits gitignored per-machine state
+# (factory/gamification-ledger.json, DR-033) — its absence there must PASS, while a main
+# checkout missing it must still RED (real precious-state loss, not worktree noise).
+wx=$(make_fixture)
+( cd "$wx" \
+    && git init -q \
+    && printf 'factory/gamification-ledger.json\n' > .gitignore \
+    && git add .gitignore \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" add -A \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "fixture baseline" )
+wt=$(mktemp -d) && rm -rf "$wt"
+( cd "$wx" && git worktree add -q "$wt" -b bl-0121-test-worktree >/dev/null 2>&1 )
+check "linked worktree without ledger PASSES (was wrongly RED)" 0 "$wt"
+cp "$wx/factory/gamification-ledger.json" "$wt/factory/gamification-ledger.json"
+check "linked worktree WITH ledger present still passes" 0 "$wt"
+rm "$wt/factory/gamification-ledger.json"
+check "linked worktree without ledger still passes after removal" 0 "$wt"
+( cd "$wx" && git worktree remove -f "$wt" >/dev/null 2>&1 )
+rm -rf "$wt"
+rm "$wx/factory/gamification-ledger.json"
+check "main checkout without ledger still REDs (unchanged, real signal)" 2 "$wx"
+rm -rf "$wx"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

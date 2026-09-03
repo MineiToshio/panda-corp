@@ -4,6 +4,16 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.98.9 — 2026-09-03 (PATCH): worktree-safety fix — derived-drift gate tolerates a missing gitignored ledger inside linked worktrees (BL-0121)
+
+**What:** during the 2026-09-03 backlog drain, 3 implementer agents (BL-0055, BL-0090, BL-0093) each hit `check-derived-drift.sh` exit 2 inside a fresh `.claude/worktrees/bl-BL-XXXX` because `factory/gamification-ledger.json` (gitignored per-machine state, `.gitignore:43`) — declared as `durable_gamification_accounting`'s output in `plugin/runtime/source-graph.json:118-119` — does not exist in a fresh linked `git worktree`, and `check-runtime-sources.mjs`'s output-existence loop (line 73) fails closed on it. Each agent worked around it by manually copying the file from the main checkout.
+
+- `plugin/scripts/check-derived-drift.sh`: added `_is_linked_worktree()` (compares `git rev-parse --git-common-dir` vs `--git-dir`, BL-0121's fix plan step 3) right before Check 0. When the checkout IS a linked worktree AND the ledger is absent, it prints a one-line notice and exports `PANDACORP_SKIP_LEDGER_OUTPUT_CHECK=1`; a main checkout missing the ledger is unaffected — that path is untouched.
+- `plugin/scripts/check-runtime-sources.mjs`: the output-existence loop now skips `factory/gamification-ledger.json` specifically when that env var is set (targeted, not a blanket early-exit) — so the fix softens only the one false-positive signal, never the manifest-version/symlink/TOML-drift checks the gate exists for.
+- Audit (fix plan step 2): swept every `check-*.sh` for `factory/`/`.pandacorp/` assumptions. `check-preflight-drift.sh`'s hits are prose guidance (not existence checks); `check-unbacked-precious.sh` already classifies `factory/gamification-ledger.json` and every other gitignored precious path as `is_backed_up`/`is_disposable`. This gate's Check 0 was the only unclassified blind assumption; now documented and fixed inline.
+- `plugin/scripts/test-check-derived-drift.sh` gained 4 cases (§8): a real linked worktree (via `git worktree add` off a synthetic fixture, ledger excluded via `.gitignore` so it's never committed) passes without the ledger, passes with it manually seeded, passes again after removing it, while the main checkout fixture missing the ledger still REDs. Full suite: 22/22 pass (18 pre-existing + 4 new), verified with `bash plugin/scripts/test-check-derived-drift.sh`.
+- End-to-end proof: ran `bash plugin/scripts/check-derived-drift.sh` inside this item's own worktree (`.claude/worktrees/bl-BL-0121`, real `factory/gamification-ledger.json` never copied there) → exit 0 with the notice printed.
+
 ## v9.98.8 — 2026-09-03 (PATCH): Wire the preflight-drift gate; derive registry counts instead of hardcoding them (BL-0091)
 
 **What:** one dormant enforcement gate wired, one already-dormant gate's status corrected, one hardcoded number replaced with a live derivation.

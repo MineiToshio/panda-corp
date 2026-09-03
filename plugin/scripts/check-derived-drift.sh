@@ -51,6 +51,27 @@ red() {
 command -v jq >/dev/null 2>&1 || red "jq not available — cannot verify manifest sync (fail-closed)"
 command -v node >/dev/null 2>&1 || red "node not available — cannot verify .codex/agents drift (fail-closed)"
 
+# --- Worktree-safety: factory/gamification-ledger.json is gitignored per-machine state (DR-033,
+# .gitignore line 43) that a linked `git worktree` never inherits (BL-0121). Its absence there is
+# expected, not drift — main checkouts stay strict (missing it there IS a real signal, since
+# backup-pandacorp-state.sh and vault-overlay-sync.sh both expect it). Audit (BL-0121 step 2) of
+# every other check-*.sh touching factory/ or .pandacorp/: check-preflight-drift.sh's hits are
+# prose guidance, not existence checks; check-unbacked-precious.sh already classifies this exact
+# file (and every other gitignored precious path) as backed_up/disposable. This gate's Check 0 was
+# the only unclassified blind assumption — fixed below by skipping ONLY the ledger's existence
+# check, so every other drift signal (stale manifest, broken symlink, tampered TOML) still REDs.
+_is_linked_worktree() {
+  local common_dir git_dir
+  common_dir=$(git -C "$ROOT" rev-parse --git-common-dir 2>/dev/null)
+  git_dir=$(git -C "$ROOT" rev-parse --git-dir 2>/dev/null)
+  [ -n "$common_dir" ] && [ "$common_dir" != "$git_dir" ]
+}
+
+if _is_linked_worktree && [ ! -f "$ROOT/factory/gamification-ledger.json" ]; then
+  echo "Pandacorp derived-drift gate: linked worktree, skipping the gitignored personal-state ledger check (factory/gamification-ledger.json, DR-033)." >&2
+  export PANDACORP_SKIP_LEDGER_OUTPUT_CHECK=1
+fi
+
 # --- Check 0: canonical runtime sources + complete manifest projections -----------------------
 node "$ROOT/plugin/scripts/check-runtime-sources.mjs" "$ROOT" \
   || red "runtime source graph, tier mapping, or full manifest projection is invalid. Regenerate manifests with: node plugin/scripts/generate-plugin-manifests.mjs"

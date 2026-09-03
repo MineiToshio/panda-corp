@@ -63,6 +63,13 @@ for (const worker of workers.workers || []) {
   if (!tiers.tiers[worker.tier]) fail(`tier worker ${worker.name} references unknown tier ${worker.tier}`);
 }
 
+// BL-0121: factory/gamification-ledger.json is gitignored per-machine state (DR-033) that a
+// linked `git worktree` never inherits. check-derived-drift.sh sets this env var when it has
+// already confirmed (a) the checkout IS a linked worktree and (b) the ledger is absent there —
+// a main checkout missing it still fails below, unchanged.
+const skipLedgerOutputCheck = process.env.PANDACORP_SKIP_LEDGER_OUTPUT_CHECK === "1";
+const LEDGER_OUTPUT = "factory/gamification-ledger.json";
+
 const outputs = new Set();
 for (const [fact, node] of Object.entries(graph.facts || {})) {
   if (node.source && !existsSync(path.join(root, node.source))) fail(`${fact} source is missing: ${node.source}`);
@@ -70,6 +77,7 @@ for (const [fact, node] of Object.entries(graph.facts || {})) {
     if (outputs.has(output)) fail(`output ${output} has more than one producer`);
     outputs.add(output);
     if (output === node.source) fail(`${fact} declares its source as an output`);
+    if (skipLedgerOutputCheck && output === LEDGER_OUTPUT) continue;
     if (!existsSync(path.join(root, output))) fail(`${fact} output is missing: ${output}`);
   }
 }

@@ -3,12 +3,12 @@ id: BL-0121
 type: bug
 area: hooks
 title: "Backlog-drain worktrees lack gitignored personal state (`factory/gamification-ledger.json`) so `check-derived-drift.sh` is RED inside every fresh worktree"
-status: open
+status: done
 severity: p2
 opened: 2026-09-03
-closed:
+closed: 2026-09-03
 source: "orchestrator session 2026-09-03, proposal 33 implementation (wave 0 drain) — (agent-inferred)"
-closes:
+closes: "plugin/scripts/check-derived-drift.sh v9.98.9 adds _is_linked_worktree() (git rev-parse --git-common-dir vs --git-dir) and skips only the factory/gamification-ledger.json output-existence check (via PANDACORP_SKIP_LEDGER_OUTPUT_CHECK, honored in plugin/scripts/check-runtime-sources.mjs) when the checkout is a linked worktree and the ledger is absent; a main checkout missing it still REDs, unchanged. plugin/scripts/test-check-derived-drift.sh gains 4 cases using a real `git worktree add` fixture (22/22 pass). Audit of every check-*.sh referencing factory/ or .pandacorp/ found no other unclassified blind assumption (check-preflight-drift.sh's hits are prose; check-unbacked-precious.sh already classifies the ledger as backed_up). End-to-end verified inside this item's own worktree: exit 0 without ever copying the ledger."
 links: [BL-0035]
 ---
 
