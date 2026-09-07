@@ -487,10 +487,18 @@ No code, no deploy, no PostHog config touched — those remain the owner's actio
 
 ## 2026-09-07 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
-**What:** Same two `Fase: release` projects, re-verified live rather than trusted from the 2026-08-31 note
-(CONV-13). **Mission Control** — launchd service alive under a new PID (41498, was 20228 — service
-restarted at some point, not a concern on its own), HTTP 200 on `:1987`; verdict unchanged, **no aplica**.
-Last commit touching `mission-control/` is 2026-09-03, a normal 4-day gap — no cadence concern this time.
+**What:** Same two `Fase: release` projects per the portfolio, re-verified live rather than trusted from the
+2026-08-31 note (CONV-13). **Mission Control** — launchd service alive under a new PID (41498, was 20228 —
+service restarted at some point, not a concern on its own), HTTP 200 on `:1987`; last commit touching
+`mission-control/` is 2026-09-03, a normal 4-day gap. **Correction, same sweep:** `mission-control/.pandacorp/status.yaml`
+(the source of truth, rule 5) actually reads `phase: implementation`, not `release` — the portfolio row was
+stale. This is the SAME divergence a 2026-09-04 memory note already caught and left unresolved
+(`factory/memory/_inbox.md`); it's now corroborated a second time three days later, so `/pandacorp:sync-portfolio`
+is worth checking for why it isn't picking this up. Corrected `factory/portfolio.md`'s Fase column to
+`implementation` and marked the Veredicto column out of review-launch's scope (no market hypothesis applies
+either way — `return_type: personal` — but a project not actually in `release` shouldn't carry a
+release-phase verdict at all). Context for the owner: 106/106 work orders VERIFIED, `safe_to_test: true` —
+this reads as ready for a phase-advance confirmation, not as an abandoned or broken project.
 **PersonalPage v2** — re-fetched `toshiominei.com` live via browser: still the pre-rebuild site (jQuery-era
 project list — "GEOSERVICE", "SOUTHERN COPPER", "SCOTI CHATBOT"), `/en/projects` still 404s, no cutover
 commit in `git log`. Same operational blocker as 2026-07-28 and 2026-08-31, six weeks running now. **What
