@@ -485,6 +485,33 @@ the prior note's wording, which is what surfaced the Mission Control commit-cade
 **Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged).
 No code, no deploy, no PostHog config touched — those remain the owner's action.
 
+## 2026-09-07 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
+
+**What:** Same two `Fase: release` projects, re-verified live rather than trusted from the 2026-08-31 note
+(CONV-13). **Mission Control** — launchd service alive under a new PID (41498, was 20228 — service
+restarted at some point, not a concern on its own), HTTP 200 on `:1987`; verdict unchanged, **no aplica**.
+Last commit touching `mission-control/` is 2026-09-03, a normal 4-day gap — no cadence concern this time.
+**PersonalPage v2** — re-fetched `toshiominei.com` live via browser: still the pre-rebuild site (jQuery-era
+project list — "GEOSERVICE", "SOUTHERN COPPER", "SCOTI CHATBOT"), `/en/projects` still 404s, no cutover
+commit in `git log`. Same operational blocker as 2026-07-28 and 2026-08-31, six weeks running now. **What
+did move:** the build itself — `status.yaml` recorded its first fully green gate since 2026-07-01 on
+2026-09-06 (713 unit + 150 e2e), an A5.1 truthfulness pass fixed six overstated claims in `/about` and the
+case studies, and `NEXT_PUBLIC_POSTHOG_KEY` is now populated in `.env.local` (was empty on 2026-08-31).
+Telemetry is still unreadable from this session regardless — the only PostHog org reachable stays "JobLeap
+AI" ([[posthog-mcp-scoped-to-jobleap.md]]). The project now looks code-complete-adjacent; the DNS/Vercel
+cutover is the one remaining step, and it's an external-production human gate, not something review-launch
+or the build engine can do on its own.
+
+**Why:** DR-043's post-launch loop, run unattended as the weekly scheduled routine. Measures and records
+only — never kills/archives (owner gate). Re-verifying live (not trusting the prior note) is what caught
+that the build had progressed even though the market-facing blocker hadn't moved — a nuance a stale read
+would have missed either direction (silently declaring "no change" or missing the progress).
+
+**Impact:** `factory/portfolio.md` rows for both projects refreshed (evidence + date; verdicts unchanged —
+Mission Control no aplica, PersonalPage v2 hold). `personal-page-v2/docs/decision-log.md` also got a
+matching entry (project-local canonical doc for this finding). No code, no deploy, no PostHog config
+touched.
+
 ## 2026-08-03 — `/pandacorp:review-launch` sweep over `release`-phase portfolio (DR-043, scheduled run)
 
 **What:** Scanned `factory/portfolio.md` for `Fase: release` projects (PandaCast stays `product`, out of
