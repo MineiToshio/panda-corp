@@ -5,7 +5,7 @@ domain: web-performance
 tags: [scroll-reveal, intersection-observer, visual-baseline, playwright, screenshot]
 context: a scroll-reveal animation primitive (opacity:0 until IntersectionObserver fires) combined with a fullPage Playwright visual-baseline gate captured at scroll position 0
 trigger: use this when a page uses a scroll-reveal/IntersectionObserver animation primitive and a Playwright fullPage screenshot baseline is failing to bless (looks blank below the fold)
-source: "personal-page-v2 .pandacorp/run/lessons.md — useReveal (.reveal/.stagger, WO-01-001), home (FRD-02) and projects (FRD-03) shipped blessed:false"
+source: "personal-page-v2 .pandacorp/run/lessons.md — useReveal (.reveal/.stagger, WO-01-001), home (FRD-02) and projects (FRD-03) shipped blessed:false. Corroborated/extended 2026-09-06 (harvested 2026-09-07): the gate was confirmed STRUCTURALLY unable to catch a broken page here — six surfaces were left `blessed:false` because of exactly this mechanism, and the ONE surface that WAS blessed (`/contact`) had content missing from its own blessed baseline (a gate that would have passed GREEN while the page was broken). The shipped fix revealed the settled state when `navigator.webdriver` is true (plus `@media print`, since a printed page is never scrolled either) — matching this lesson's own option (b). Making reveals visible under automation then immediately surfaced FOUR pre-existing responsive overflows the Responsive Gate had never been able to measure (they were invisible) and one wall-clock-relative date that would have expired every 'Now' baseline on its own — a second wave of findings that only appeared because the fix made previously-unmeasured content measurable."
 provenance: agent-inferred
 created: 2026-07-03
 status: candidate
@@ -32,6 +32,12 @@ it.
 **Apply next time:** when building a scroll-reveal primitive intended to coexist with an automated visual
 baseline, either (a) have the visual gate programmatically scroll through the full page before capturing
 (triggering every observer), or (b) give the "frozen for capture" mode a CSS rule that forces
-`opacity:1`/`is-visible` on ALL reveal nodes regardless of intersection state (e.g.
-`html.tl-frozen .reveal { opacity: 1 !important; }`), not just a transition-disabling rule. Fix this at
-the primitive level, not per-page — every surface using the primitive inherits the same failure.
+`opacity:1`/`is-visible` on ALL reveal nodes regardless of intersection state — e.g. reveal the settled
+state whenever `navigator.webdriver` is true, and also under `@media print` (a printed page is never
+scrolled either) — not just a transition-disabling rule. Fix this at the primitive level, not per-page —
+every surface using the primitive inherits the same failure. **Check what a baseline actually CONTAINS,
+not just whether it blessed:** a gate can silently degrade to asserting almost nothing when a
+scroll-triggered reveal meets a screenshot gate — even a `blessed:true` baseline can be missing content if
+it was captured before this class of fix. **Budget for a second wave of findings** after shipping this
+fix: making previously-invisible content visible under automation tends to surface pre-existing issues
+(responsive overflows, stale relative dates, etc.) that were simply never measurable before.

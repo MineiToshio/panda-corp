@@ -128,6 +128,35 @@ quoted-worked-example trap the 2026-08-02 annotation found for the comment-close
 against this file's own history as of 2026-08-11, no such line found, but the implementer should still
 add a fixture for it. Source: factory/memory/_inbox.md agent-inferred note (2026-08-11 harvest).
 
+## Note (annotated 2026-09-05) — an orphan `-->` line passes a naive `startswith('-')` filter
+
+A further refinement to the tag-anchored counting approach (2026-08-11 annotation above): implementing the
+correct count by stripping drained `<!-- ... -->` blocks and counting only lines that begin with `-`
+surfaced a false positive. After stripping, a `-->` token that ends up alone on its own line (the residue
+of a block's closing delimiter) ALSO starts with `-` and is counted as a live note by a naive
+`startswith('-')` filter — on the 2026-09-05 run this produced 7 "live notes" (6 real + 1 `-->` artifact)
+instead of 6. Whoever implements the Fix plan must exclude lines that are exactly `-->` (or start with
+`-->`) after stripping — a plain `startswith('-')` filter is not sufficient, and the tag-anchored
+`grep -cE '^(gotcha|gap|pattern|lesson|verdict|nota|note)\s*·'` formula from the 2026-08-11 annotation
+already sidesteps this specific trap (it never matches `-->`), reinforcing it as the preferred primary
+approach over a bare `-` prefix check. This did not change the 2026-09-05 sweep's outcome (7 vs. 6 was
+still under the `>= 20` threshold) but would affect a run near the threshold. Source:
+factory/memory/_inbox.md agent-inferred note (2026-09-05 harvest, harvested 2026-09-07).
+
+## Note (annotated 2026-09-06) — the block-boundary anchor itself must be `^-->\s*$`, not a substring search
+
+A THIRD, distinct trap (2026-09-06): to find where the LAST drained block ends, an unanchored
+`grep -n -- '-->' <file> | tail -1` (matching the substring `-->` anywhere in any line, not anchored to
+line-start) picked the file's OWN LAST LINE as the boundary — because that line (the 2026-09-05 note
+above, discussing the close token as data) contains the literal three-character token `-->` inside its own
+prose, not at line-start. With that wrong boundary, PASO 0 counted 0 pending notes when 7 were actually
+live. The correct anchor is `grep -n '^-->$'` (a line that IS exactly `-->`, nothing else). Any
+implementation of this item's Fix plan must anchor the drained-block boundary to `^-->\s*$`, never to an
+unanchored substring search — otherwise any future note that mentions the closing token in its own text
+(as both the 2026-09-05 and this 2026-09-06 note do) breaks boundary detection itself, not just the
+downstream count. Source: factory/memory/_inbox.md agent-inferred note (2026-09-06 harvest, harvested
+2026-09-07).
+
 ## Note (annotated 2026-08-11, 2nd) — an mtime-based shortcut that avoids reading/counting entirely
 
 A THIRD approach, orthogonal to both counting formulas above, was proposed and reportedly used
@@ -146,7 +175,7 @@ implements this item's Fix plan should evaluate combining: mtime-shortcut for th
 the tag-anchored `grep -cE` count (or the DOTALL stripper) for the factory inbox itself. Source:
 factory/memory/_inbox.md agent-inferred note (2026-08-11 harvest, landed mid-drain).
 
-## Corroborating occurrences (2026-08-26, 2026-08-28, 2026-08-29) — three consecutive scheduled-run hits, no new information
+## Corroborating occurrences (2026-08-26, 2026-08-28, 2026-08-29, 2026-09-03) — four consecutive scheduled-run hits, no new information
 
 Three more live PASO 0 runs hit this exact bug on three of four consecutive scheduled `pandacorp-memory-review`
 days (4th, 5th and 6th occurrences overall): naive line counts of 552/626/630 "pending" lines in the factory
@@ -160,6 +189,13 @@ already-established facts. Net signal: the bug is now confirmed on a near-daily 
 scheduled job (not a one-off/hypothetical), which strengthens — but does not change — the existing
 prioritize-the-fix case already made by the 2026-08-26/28 notes; severity kept at `p2` since no false sweep
 has yet actually executed (the manual workaround still catches it every time, at the cost of a few extra
-Read/Bash calls per run). No further occurrence needs logging here unless a run's naive count actually
-triggers a false full sweep, or a new trigger surface/count mechanism is found — the existing two fix designs
-are ready to implement as-is.
+Read/Bash calls per run).
+
+A SEVENTH occurrence (2026-09-03, panda-corp itself, harvested 2026-09-07): PASO 0 again used `wc -l`/
+`grep -c '.'` and reported 682/602 "pending notes" in `factory/memory/_inbox.md`; stripping the drained
+`<!-- ... -->` blocks and counting only live `^- ` entries gave the true count: 2. All three checked
+portfolio projects' `.pandacorp/run/lessons.md` (mission-control, personal-page-v2, pandacast) showed 0
+live notes despite non-zero raw line counts too. Same no-new-information shape as the 4th-6th occurrences
+above — the naive count would again have force-triggered a full sweep on a nearly-empty inbox. No further
+occurrence needs logging here unless a run's naive count actually triggers a false full sweep, or a new
+trigger surface/count mechanism is found — the existing two fix designs are ready to implement as-is.

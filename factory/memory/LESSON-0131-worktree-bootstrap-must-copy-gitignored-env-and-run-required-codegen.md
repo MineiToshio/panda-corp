@@ -42,7 +42,15 @@ to copy the env file(s) and run that codegen step — do this BEFORE the first w
 after a false red. If a fresh worktree's `verify.sh` fails immediately with a missing-env or
 missing-generated-artifact error, check first whether the project has a `.pandacorp/worktree-setup.sh` at
 all before suspecting either the checked-out code or the shared `worktree-bootstrap.sh` template.
-**Known-recurring case:** as of 2026-07-12, personal-page-v2 has hit this twice (2026-07-10, 2026-07-12)
-without creating the hook — if you land on this project again and see the same symptom, the fix is to
-create `.pandacorp/worktree-setup.sh` in THIS project via its own `/pandacorp:change`, not another factory
-investigation.
+**Known-recurring case:** as of 2026-09-06, personal-page-v2 has hit this at least a THIRD/FOURTH time
+(2026-07-10, 2026-07-12, 2026-09-06 — harvested 2026-09-07) without creating the hook — if you land on
+this project again and see the same symptom, the fix is to create `.pandacorp/worktree-setup.sh` in THIS
+project via its own `/pandacorp:change`, not another factory investigation. **Correction/refinement from
+the 2026-09-06 occurrence:** the earlier `npx @content-collections/cli build` fix suggestion is no longer
+accurate for this project's current content-collections setup — `.content-collections` is generated only
+by the Next content-collections plugin during `build`/`dev`; there is no standalone CLI, so the hook needs
+a `next build` step instead. Also confirmed: `.env.local` is correctly BLOCKED from being auto-copied into
+a worktree by a sandbox deny rule (so a route depending on it fails loud rather than silently using
+stale/wrong secrets) — meaning any automated env-copy fix must account for owner-held secrets a sandboxed
+bootstrap script cannot itself copy, not just "copy the file automatically". See BL-0029's corroborating
+occurrence for the same detail.

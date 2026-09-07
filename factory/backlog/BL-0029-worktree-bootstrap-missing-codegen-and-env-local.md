@@ -49,3 +49,18 @@ already run, and typecheck/build succeed without any manual intervention.
 ## Out of scope
 Generalizing to every possible codegen tool up front — start with a documented opt-in convention (a
 declared script) rather than trying to auto-detect every framework's codegen step.
+
+## Corroborating occurrence (2026-09-06, personal-page-v2, harvested 2026-09-07)
+The same gap recurred a further time, with two new details worth folding into the fix design: (1) a fresh
+worktree run via `.pandacorp/worktree-bootstrap.sh` REDed 11 unit tests with "Failed to resolve import
+content-collections" — `.content-collections` is generated only by the Next content-collections plugin
+during `build`/`dev`, there is no standalone CLI to pre-run it (this project has since moved past the
+`npx @content-collections/cli build` workaround recorded in `factory/memory/LESSON-0131`'s original
+source — that specific command is no longer the right fix for this project's current content-collections
+setup; a `next build` invocation is needed instead). (2) `.env.local` is correctly NOT copied into the
+worktree by a sandbox deny rule (so the contact route fails loud rather than silently using stale/wrong
+secrets) — meaning the automated-copy half of this item's Fix plan needs to account for owner-held secrets
+that a sandboxed bootstrap script cannot itself copy, not just "copy it automatically". Net: the worktree
+escape hatch for a gate run currently needs a build step plus owner-held secrets; it is not yet a full
+way around a busy main-checkout dev server. See `factory/memory/LESSON-0131` (updated) for the
+generalized lesson.

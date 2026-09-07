@@ -67,3 +67,19 @@ above; plugin version bumped per semver.
 ## Out of scope
 BL-0037's port-occupant-by-a-different-process case (already tracked separately); building a general
 process-management daemon.
+
+## Corroborating occurrences (2026-09-06, personal-page-v2, harvested 2026-09-07)
+Two further live hits of this same class, same project, no new fix-design information but sharpening the
+symptom surface: (1) `.pandacorp/verify.sh` cannot run at all from the main checkout while the owner has a
+dev server up — the failure message ("Another next dev server is already running") never names the fix
+(stop the dev server, or run the gate in a worktree), even though the gate's own NOTE at line ~130 already
+anticipates dev/process contention and defers the fix to worktree isolation. (2) `preview_stop` reported
+"Server ... stopped" but the underlying `next-server` process survived and kept holding Next 16's
+per-directory dev lock, so the NEXT `verify.sh` run REDed the same way — confirming `preview_stop`'s own
+"stopped" report is not sufficient evidence the lock is actually free; a live port check
+(`lsof -nP -iTCP:<port> -sTCP:LISTEN`) plus checking process ancestry (a server parented by `Claude.app` is
+not automatically "this session's own and safe to kill" — the owner can start one through the app too;
+compare start time against what the owner was doing) is the reliable discriminator. See
+`factory/memory/LESSON-0040` (updated) for the generalized gotcha this corroborates. No new backlog item —
+same root cause, same fix plan, this is corroboration plus a sharper symptom description for the eventual
+fix's error-message/detection design.
