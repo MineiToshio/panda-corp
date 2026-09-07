@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0040]
+links: [LESSON-0040, LESSON-0185]
 ---
 
 **Situation:** e2e interaction tests failed (a theme toggle stayed `[disabled]`, a drawer and a Lightbox

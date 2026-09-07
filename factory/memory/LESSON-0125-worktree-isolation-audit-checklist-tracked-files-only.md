@@ -5,7 +5,7 @@ domain: build-orchestration
 tags: [worktree, dr-096, isolation, checklist, synthesis]
 context: adopting, extending, or debugging git-worktree isolation (DR-096) anywhere in the factory or a product project — dispatch, backup, deploy, gitignored-state reads, or test-runner config
 trigger: use this when standing up a NEW use of git-worktree isolation (a new parallel-dispatch pattern, a new daemonized/deploy path, a new derive function, a new test-runner config) and deciding what to audit up front, or when debugging a symptom that only reproduces "inside a worktree" / "only when a parallel session is active"
-source: "synthesis over 5 evidence-anchored candidates, all panda-corp, 2026-07-04..2026-07-09: LESSON-0073 (subagent dispatched into a worktree still edited the main checkout), LESSON-0090 (gitignored backup/machinery/cache swept with no external backstop), LESSON-0093 (launchd-served worktree deploy missing PATH/port/data-root), LESSON-0111 (a derive reading gitignored state silently empties inside a worktree, false-reds a 'real repo' test), LESSON-0124 (a test runner's glob swept a sibling worktree's WIP files and node_modules, cross-worktree dependency contamination) — librarian reflection pass, 2026-07-09"
+source: "synthesis over 5 evidence-anchored candidates, all panda-corp, 2026-07-04..2026-07-09: LESSON-0073 (subagent dispatched into a worktree still edited the main checkout), LESSON-0090 (gitignored backup/machinery/cache swept with no external backstop), LESSON-0093 (launchd-served worktree deploy missing PATH/port/data-root), LESSON-0111 (a derive reading gitignored state silently empties inside a worktree, false-reds a 'real repo' test), LESSON-0124 (a test runner's glob swept a sibling worktree's WIP files and node_modules, cross-worktree dependency contamination) — librarian reflection pass, 2026-07-09. Folded in later: LESSON-0131 (personal-page-v2, 2026-07-10 — a project that never populates the `.pandacorp/worktree-setup.sh` bootstrap hook gets a verify.sh false red indistinguishable from broken shared tooling); LESSON-0158 (personal-page-v2, 2026-07-12, corroborated 2026-09-05 — the shared merge-queue.sh landing checkout is serial even though editing is parallel: ANY uncommitted WIP anywhere in the one shared main checkout blocks every worktree's landing, not just the branch that caused it) — librarian review, 2026-09-07."
 provenance: agent-inferred
 created: 2026-07-09
 status: candidate
@@ -23,7 +23,7 @@ generic glob was told to skip.** Each incident was diagnosed and fixed independe
 noticed they were the same class; by the fifth instance the pattern was explicit and worth compressing
 into one checklist rather than re-discovering it a sixth time.
 
-**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of FIVE separate guarantees
+**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of SEVEN separate guarantees
 that each have to be individually engineered — the DR-096 mechanism (a second checkout with its own
 working tree) does not automatically provide any of them:
 1. **Dispatch fidelity** (LESSON-0073) — a sub-agent told to work in a worktree can still resolve paths
@@ -44,9 +44,14 @@ working tree) does not automatically provide any of them:
    (`.pandacorp/worktree-setup.sh`) for one-time "new machine" setup (copying gitignored env files,
    running a codegen/content-compiler build); a project that never creates that hook gets a verify.sh
    false red indistinguishable, from the symptom side, from the shared tooling being broken.
+7. **Shared-checkout landing serialization** (LESSON-0158, personal-page-v2, 2026-07-12, corroborated
+   2026-09-05) — editing is parallel (each worktree has its own tree) but LANDING is still serial: the
+   `merge-queue.sh` preflight fails fast on ANY uncommitted change in the one shared main checkout, not
+   just the branch being landed, so an unrelated abandoned session's stray WIP silently freezes every
+   OTHER worktree session's landings until someone clears it.
 
 **Apply next time:** when a new capability adopts or touches DR-096 worktree isolation, run this
-six-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
+seven-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
 actually resolves paths relative to the worktree it was handed — check `git status` in both trees after
 a parallel wave; (2) if the worktree (or the main checkout) holds gitignored state that would be a real
 loss, confirm it has an external backstop, independent of the worktree; (3) if a process is
@@ -56,5 +61,8 @@ never assume `cwd` is the real repo; (5) audit every whole-tree glob (test runne
 add the worktree-nesting path to its exclude list up front; (6) if the project reads its own gitignored env
 file(s) or needs a one-time codegen/build step, confirm its `.pandacorp/worktree-setup.sh` hook exists and
 does that work — don't assume the shared bootstrap script covers project-specific state just because it
-ran without error. A symptom that reproduces "only inside a worktree" or "only when a parallel session is
-active" is the tell to reach for this checklist before assuming a genuine logic regression.
+ran without error; (7) before starting a batch of parallel sessions, verify the shared main checkout is
+clean, and if a landing fails at the preflight, check whether the dirt belongs to a DIFFERENT session
+before assuming it's your own branch's fault. A symptom that reproduces "only inside a worktree" or "only
+when a parallel session is active" is the tell to reach for this checklist before assuming a genuine logic
+regression.

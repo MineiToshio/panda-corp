@@ -9,7 +9,7 @@ source: "mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) —
 provenance: agent-inferred
 created: 2026-07-06
 status: candidate
-promotion: proposed   # 2026-07-16 (librarian review) — target factory/standards/agent-portability.md (or a new agent-orchestration convention alongside CONV-11/12): codify "a background Agent-tool dispatch already delivers a completion notification — never schedule a ScheduleWakeup or spawn a bridge/placeholder agent just to wait for it" as a standing rule, plus the scoping fact that ScheduleWakeup itself only reliably re-fires under `/loop` dynamic-mode pacing (the `<<autonomous-loop-dynamic>>` sentinel). Corroborated across 2 distinct projects (mission-control original 2026-07-06, panda-corp corroboration 2026-07-16, a genuine misuse caught and cancelled before it fired).
+promotion: proposed   # 2026-09-07 (librarian review) — narrowed + unblocked per BL-0099 verdict (plugin/docs/decision-log.md v9.102.6): target factory/standards/agent-portability.md (or a new agent-orchestration convention alongside CONV-11/12): codify "don't spawn a bridge/placeholder agent, and don't poll, to wait for a background Agent-tool dispatch's completion — the harness's own notification already suffices" as a standing rule, explicitly carving out a no-agent-spawned periodic liveness/lease-renewal tick (e.g. the build supervisor's ~2-min heartbeat) from the anti-pattern. Corroborated across 2 distinct projects (mission-control 2026-07-06, panda-corp 2026-07-16) plus the 2026-09-03 live-build reconciliation (wf_ddcc95c6-1d7).
 confidence: medium
 times_applied: 0
 applied_in: []
@@ -33,18 +33,27 @@ where a plain mechanism (the automatic notification) already suffices.
 **Apply next time:** when a background agent is running, just let its completion notification arrive —
 do not schedule a polling `ScheduleWakeup` or launch a placeholder/bridge agent to wait for it. If the
 background agent appears stuck, resume IT directly via `SendMessage`, never spawn a parallel duplicate
-to investigate or continue the same work. `ScheduleWakeup` itself is scoped to `/loop` dynamic-mode
-pacing (it needs the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly) —
-outside a `/loop` run, don't reach for it as a generic "wait for my subagents" mechanism at all; the
-harness already resumes the session automatically when a dispatched Agent-tool call completes.
+to investigate or continue the same work.
 
-**Promotion held 2026-09-03 — `blocked-by: BL-0099`.** This lesson stays `promotion: proposed`. Proposal 33
-R-71 found that it **contradicts the factory's own largest skill**: the lesson calls `ScheduleWakeup` outside
-`/loop` "a misuse", while `plugin/skills/implement/SKILL.md:70,77` MANDATES a dedicated ~2-minute
-`ScheduleWakeup` outside `/loop` as the build supervisor's lease-renewal timer, and the platform docs do not
-forbid that use. The lesson is `agent-inferred` at `confidence: medium`; promoting it as written would codify
-a rule the build engine violates by design. **BL-0099** resolves the contradiction on one supervised build
-(does the ~2-min heartbeat re-fire outside `/loop` for a full run with no duplicate spawns?). Promote only
-after that verdict — and then only the half the verdict supports (the "don't spawn a bridge agent / don't
-poll for a background completion notification" rule is unaffected by the contradiction; the "`ScheduleWakeup`
-is `/loop`-only" scoping claim is the disputed half).
+**Scope carve-out (2026-09-03, BL-0099 verdict — `plugin/docs/decision-log.md` v9.102.6):** this anti-pattern
+does NOT cover a periodic **liveness/lease-renewal tick that spawns no agent and does not wait on another
+agent's completion** — e.g. the build supervisor's ~2-minute heartbeat (`implement/SKILL.md`), which only
+touches a lock file and appends one event. That mechanism is structurally different from this lesson's
+incident shape (a `ScheduleWakeup` and/or a placeholder Agent spawned specifically to *wait for one
+background task's completion*, which then recursively self-delegated into duplicates). A live supervised
+build (`wf_ddcc95c6-1d7`, 2026-09-03) confirmed the ~2-min tick ran cleanly for a full ~66-minute run
+carried by a `Monitor` bash-loop, with zero `ScheduleWakeup` firings and no stale-lock false positive —
+so the two mechanisms were not even in tension in that run. The earlier blanket claim that `ScheduleWakeup`
+outside `/loop` is categorically "a misuse" is retracted; the surviving, corroborated core teaching is:
+don't spawn a bridge/placeholder Agent to wait for a background completion, and don't poll for a
+notification the harness already delivers automatically.
+
+**Promotion status: unblocked.** BL-0099 (closed 2026-09-03) resolved the contradiction with proposal 33
+R-71 (`plugin/skills/implement/SKILL.md`'s mandated liveness tick); this lesson's scope is narrowed above
+per that verdict and no longer conflicts with the supervisor contract. `promotion: proposed` stands —
+target `factory/standards/agent-portability.md` (or a new agent-orchestration convention alongside
+CONV-11/12): codify "don't spawn a bridge/placeholder agent, and don't poll, to wait for a background
+Agent-tool dispatch's completion — the harness's own notification already suffices; a no-agent-spawned
+periodic liveness/lease tick is not this anti-pattern." Corroborated across 2 distinct projects
+(mission-control 2026-07-06, panda-corp 2026-07-16) plus this narrowing pass's live-build reconciliation.
+Still `agent-inferred`/`confidence: medium` — promotion decision remains the owner's via `/pandacorp:learn`.

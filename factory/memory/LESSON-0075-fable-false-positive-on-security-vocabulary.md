@@ -33,3 +33,15 @@ audit, adversarial guard-bypass hunting) to a cheap tier, either (a) route it de
 capable tier instead of fighting the classifier, or (b) de-securitize the prompt's language for the
 sub-tasks that genuinely can run cheap — frame by neutral objective ("improve input validation on this
 script") rather than security terms ("harden the command gate against bypass").
+
+**Contradiction flagged 2026-09-07 (librarian review) — NOT reconciled, needs owner/further check.** This
+lesson (2026-07-05) calls "Fable-class" the CHEAP/fast tier that fell back to the more expensive Opus.
+The current tier terminology (`factory/standards/agent-portability.md`, DR-111/CONV-12,
+`factory/standards/conventions.md:51`) instead names **Fable as the MOST expensive tier** ("never
+auto-selected... owner request only"), separate from and above haiku/sonnet/opus. Either the "Fable"
+codename was repurposed/renamed across a model-era transition (see the 2026-09-02 model-era-audit sprint,
+proposal 33/36) and this lesson's tier label is now stale terminology while its underlying finding
+(a safety classifier can false-positive on the factory's own security-adjacent vocabulary and silently
+force an escalation to a costlier tier) likely still holds under whatever tier plays that "cheap" role
+today — or the two docs are describing genuinely different things and are not in conflict. Left as
+`status: candidate`, not deprecated/edited further; flagging only, per DR-047 (reconcile, never erase).
