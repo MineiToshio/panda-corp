@@ -11,8 +11,8 @@ created: 2026-07-09
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → plugin/docs/routines.md#unattended-permissions
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0030, BL-0054, plugin/docs/routines.md#unattended-permissions]
 ---
 

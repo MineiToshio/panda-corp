@@ -11,7 +11,7 @@ created: 2026-07-01
 status: active
 promotion: approved
 confidence: high
-times_applied: 3
+times_applied: 1
 applied_in: [panda-corp]
 links: [BL-0012, DR-085, DR-017, LESSON-0183]
 ---

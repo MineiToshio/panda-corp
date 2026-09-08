@@ -53,3 +53,17 @@ closing note; plugin version bumped per DR-034 if code changed.
 ## Out of scope
 Re-architecting the portfolio's derivation model (AGENTS.md rule 5 already defines it correctly) — this
 item is scoped to why ONE known instance went stale and closing that specific gap.
+
+## Corroborating occurrences
+
+**2026-09-07 (`pandacorp-review-launch` sweep).** The SAME drift, unresolved: the row still read `release`
+three days after the 2026-09-04 finding above, with `status.yaml` still `phase: implementation` (106/106
+WOs VERIFIED, `safe_to_test: true`). Re-confirmed live and corrected the row by hand in the same session
+(`factory/portfolio.md`, commit `8accdef8`); Mission Control was also excluded from that sweep's business
+verdict (internal tool, out of `review-launch` scope). This sharpens the root-cause step: **before**
+distinguishing (a) timing-gap vs (b) read/write bug (fix-plan step 1), first check **whether
+`/pandacorp:sync-portfolio` even ran at all during the 3-day window** — a third possible cause, (c) the
+routine simply didn't execute (a scheduling/dispatch gap, not a phase-logic bug), which would need a
+different fix (wire/verify the recurring task) than either (a) or (b). No new fix-design information
+otherwise; folded here per this item's own no-redundancy precedent (see BL-0061's aggregated-corroboration
+handling for the same pattern).

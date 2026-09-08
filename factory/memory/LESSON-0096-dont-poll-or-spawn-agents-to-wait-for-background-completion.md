@@ -11,8 +11,8 @@ created: 2026-07-06
 status: candidate
 promotion: proposed   # 2026-09-07 (librarian review) — narrowed + unblocked per BL-0099 verdict (plugin/docs/decision-log.md v9.102.6): target factory/standards/agent-portability.md (or a new agent-orchestration convention alongside CONV-11/12): codify "don't spawn a bridge/placeholder agent, and don't poll, to wait for a background Agent-tool dispatch's completion — the harness's own notification already suffices" as a standing rule, explicitly carving out a no-agent-spawned periodic liveness/lease-renewal tick (e.g. the build supervisor's ~2-min heartbeat) from the anti-pattern. Corroborated across 2 distinct projects (mission-control 2026-07-06, panda-corp 2026-07-16) plus the 2026-09-03 live-build reconciliation (wf_ddcc95c6-1d7).
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0094]
 ---
 
