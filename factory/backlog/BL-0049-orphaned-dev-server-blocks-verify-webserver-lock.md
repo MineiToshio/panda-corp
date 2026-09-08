@@ -83,3 +83,15 @@ compare start time against what the owner was doing) is the reliable discriminat
 `factory/memory/LESSON-0040` (updated) for the generalized gotcha this corroborates. No new backlog item —
 same root cause, same fix plan, this is corroboration plus a sharper symptom description for the eventual
 fix's error-message/detection design.
+
+## Corroborating occurrence (2026-09-07/08, personal-page-v2, harvested 2026-09-08)
+A further live hit, this time firing from the automated Stop-hook path rather than a manual run:
+`verify-before-stop.sh`'s own hook-triggered `verify.sh` invocation produced 25 spurious Playwright
+failures (smoke/visual/shell/fidelity, every page) right after 9 clean commits with zero source diff since
+the last green gate log; `lsof -i :4010` showed the owner's own long-lived `pnpm dev` squatting the gate's
+reserved port, reused via `reuseExistingServer`. Same root cause and fix plan as above — this occurrence
+adds no new fix-design information, but confirms the preflight check (step 1 of the fix plan) needs to
+cover the Stop-hook's own invocation path too, not just manual/upgrade-triggered `verify.sh` runs, and
+sharpens the recommended detection signature: a broad, page-spanning regression reported immediately after
+a recently-green gate with zero source diff. See `factory/memory/LESSON-0040` (updated, ninth
+corroboration) for the generalized gotcha.
