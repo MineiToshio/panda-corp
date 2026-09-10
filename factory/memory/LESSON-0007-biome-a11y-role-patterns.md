@@ -9,7 +9,7 @@ source: mission-control lessons.md — WO-01-003, WO-12-004, WO-18-003, WO-02-00
 provenance: agent-inferred
 created: 2026-06-30
 status: active
-promotion: none
+promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/accessibility.md, add as a "Biome 2.5 + React a11y quick-reference" (the 5-rule set in this lesson's body). Corroborated across 2 distinct projects (mission-control: 5 separate WO occurrences 2026-06-16..18; personal-page-v2: a 5th rule 2026-09-09) with zero contradicting evidence — the same handful of Biome a11y rejections recurs on every React+Tailwind+Biome project, so codifying it as a standing standard section saves the rediscovery cost this lesson's own source describes.
 confidence: high
 times_applied: 0
 links: []
@@ -41,6 +41,4 @@ and work orders over 3 days, each time re-discovered from scratch.
    reader users, not just the test).
 
 **Apply next time:** Before adding an ARIA role/label to a non-semantic element, check this rule set
-first — it is the dominant class of a11y lint churn in a React+Tailwind+Biome project. Candidate for
-`promotion: proposed` into `factory/standards/` (a per-stack a11y quick-reference) given the recurrence
-count within a single project.
+first — it is the dominant class of a11y lint churn in a React+Tailwind+Biome project.

@@ -5,7 +5,7 @@ domain: factory-engineering
 tags: [agents, delegation, background-task, ScheduleWakeup, polling, resume]
 context: orchestrating or waiting on a long-running background research/investigation agent
 trigger: use this when tempted to schedule a polling wakeup or spawn a placeholder/bridge agent just to wait for a background agent's completion
-source: "mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — a ScheduleWakeup + fresh Agent used to wait for a background research agent got confused on resume, recursively spawned duplicate investigation agents plus several sleep-N background tasks, leaving ~8 stray running tasks and a stray CronCreate wakeup. Corroborating instance: panda-corp _inbox.md 2026-07-16 (pandacorp-memory-review sweep) — `ScheduleWakeup` is scoped to `/loop` dynamic-mode pacing (it expects the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly); reaching for it as a generic 'wait for my background Agent-tool subagents' fallback OUTSIDE `/loop` is a misuse, caught before it fired and cancelled with `stop: true`."
+source: "mission-control .pandacorp/run/lessons.md 2026-07-06 (FRD-17 build) — a ScheduleWakeup + fresh Agent used to wait for a background research agent got confused on resume, recursively spawned duplicate investigation agents plus several sleep-N background tasks, leaving ~8 stray running tasks and a stray CronCreate wakeup. Corroborating instance: panda-corp _inbox.md 2026-07-16 (pandacorp-memory-review sweep) — `ScheduleWakeup` is scoped to `/loop` dynamic-mode pacing (it expects the `<<autonomous-loop-dynamic>>` sentinel or a `/loop` prompt to re-fire correctly); reaching for it as a generic 'wait for my background Agent-tool subagents' fallback OUTSIDE `/loop` is a misuse, caught before it fired and cancelled with `stop: true`. Fourth corroboration, 2026-09-10 (same routine): the tool itself hard-rejected the same misuse shape (missing required `prompt`) before any wait happened — see body."
 provenance: agent-inferred
 created: 2026-07-06
 status: candidate
@@ -57,3 +57,14 @@ Agent-tool dispatch's completion — the harness's own notification already suff
 periodic liveness/lease tick is not this anti-pattern." Corroborated across 2 distinct projects
 (mission-control 2026-07-06, panda-corp 2026-07-16) plus this narrowing pass's live-build reconciliation.
 Still `agent-inferred`/`confidence: medium` — promotion decision remains the owner's via `/pandacorp:learn`.
+
+**Fourth corroborating occurrence (2026-09-10, same routine):** after dispatching two background
+`pandacorp:librarian` harvest agents and running out of immediate work, the orchestrating session again
+reached for `ScheduleWakeup` to wait for their completion. New facet vs the three prior instances
+(2026-07-06, 2026-07-16, 2026-09-01/08): this is the first time the **tool itself hard-rejected the
+misuse** — the first call errored with "prompt is required when stop is not true" instead of silently
+accepting a polling wakeup, and the follow-up `stop: true` call reported "no pending wakeup to cancel"
+(nothing had actually been armed). Zero side effects. This sharpens the lesson: the tool's own
+validation is already a partial backstop against this exact anti-pattern, not just agent judgment — but
+it does not replace the rule, since a differently-shaped call (e.g. one that supplies a throwaway
+`prompt`) would still succeed and misfire.

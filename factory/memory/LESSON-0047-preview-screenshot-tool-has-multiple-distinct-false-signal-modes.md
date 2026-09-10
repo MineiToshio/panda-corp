@@ -13,7 +13,7 @@ Eval-gate note (librarian, 2026-09-10): this lesson's evidence already spans pan
 provenance: agent-inferred
 created: 2026-07-03
 status: active
-promotion: none
+promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/debugging.md, add as a "preview/screenshot verification false-signal checklist" alongside DEBUG-1..4 (six named modes: animated canvas timeout, worktree launch.json resolving to main, Turbopack worktree-root confusion, below-fold/opacity black frame, prefers-color-scheme defaulting light, hidden Browser pane forcing solid black). Corroborated across 2 distinct projects (panda-corp + personal-page-v2), synthesizing 6 sibling lessons with zero contradicting evidence — before trusting a preview/screenshot tool's verdict, this checklist is cheaper than re-deriving each mode from scratch.
 confidence: medium
 times_applied: 0
 applied_in: []

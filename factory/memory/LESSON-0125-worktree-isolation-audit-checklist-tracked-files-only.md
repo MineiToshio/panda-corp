@@ -15,7 +15,7 @@ facet) — activating `status: active` per the cross-project corroboration crite
 provenance: agent-inferred
 created: 2026-07-09
 status: active
-promotion: none
+promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the DR-096 worktree-isolation section), add as its debugging-checklist counterpart: the 8 audit facets this lesson folds (dispatch fidelity, gitignored-state backstop, daemon PATH/port/data-root, git-common-dir root resolution for derives, test-glob hygiene against sibling worktrees, the worktree-setup.sh bootstrap hook, shared-checkout landing serialization, EnterWorktree branching from origin/main not local). Richest synthesis in the store on this topic — corroborated across 2 distinct projects (mission-control + personal-page-v2, 8 folded facets, zero contradicting evidence) — codifying it as a standing pre-flight checklist would catch most of these before they reproduce as a debugging session.
 confidence: medium
 times_applied: 0
 applied_in: []
