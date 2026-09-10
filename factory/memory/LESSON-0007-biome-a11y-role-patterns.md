@@ -5,7 +5,7 @@ domain: react
 tags: [biome, a11y, react, aria, role, semantic-html]
 context: recurring Biome accessibility-lint traps hit repeatedly while building Mission Control's UI (React + Tailwind, biome 2.5)
 trigger: use this when adding ARIA roles or labels to non-semantic elements in a React project linted by Biome's a11y rules
-source: mission-control lessons.md — WO-01-003, WO-12-004, WO-18-003, WO-02-007, WO-09-006, WO-06-... (2026-06-16 through 2026-06-18); the same trap recurred at least 5 times across different components/work orders
+source: mission-control lessons.md — WO-01-003, WO-12-004, WO-18-003, WO-02-007, WO-09-006, WO-06-... (2026-06-16 through 2026-06-18); the same trap recurred at least 5 times across different components/work orders. Folded in a 5th rule (personal-page-v2 .pandacorp/run/lessons.md 2026-09-09, agent-inferred) — an unnamed section not exposed as role region without aria-labelledby, a distinct testing-library/ARIA-tree fact adjacent to this project's Biome-lint list
 provenance: agent-inferred
 created: 2026-06-30
 status: active
@@ -33,6 +33,12 @@ and work orders over 3 days, each time re-discovered from scratch.
 4. **`<nav role="tablist">` is rejected** (`noNoninteractiveElementToInteractiveRole` — `<nav>` is a
    landmark, not a tablist container). Use `<div role="tablist">` for tab bars. Same for
    `<li role="button">` — wrap a real `<button>` inside the `<li>` instead.
+5. **A `<section>` with no accessible name is NOT exposed as `role="region"` in the accessibility tree**
+   (personal-page-v2, 2026-09-09, agent-inferred) — `getAllByRole("region")` will not find it. Landmark
+   sections only get the implicit `region` role once they have an accessible name; giving a `<section>` an
+   `id` anchor (for deep-linking) does not by itself make it query/landmark-discoverable. Fix: add
+   `aria-labelledby` pointing at the section's own `<h2>` (this also improves the landmark list for screen
+   reader users, not just the test).
 
 **Apply next time:** Before adding an ARIA role/label to a non-semantic element, check this rule set
 first — it is the dominant class of a11y lint churn in a React+Tailwind+Biome project. Candidate for

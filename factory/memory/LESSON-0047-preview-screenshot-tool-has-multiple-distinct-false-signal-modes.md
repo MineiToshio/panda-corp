@@ -5,10 +5,14 @@ domain: preview-tooling
 tags: [preview-screenshot, verification, worktree, false-negative, false-positive]
 context: using the preview/screenshot verification tools (preview_screenshot, dev-server DOM checks) to confirm a UI change actually landed
 trigger: use this when a preview/screenshot verification tool returns an unexpected result (timeout, black/blank image, or stale content) and you are about to conclude that the UI itself is broken or unchanged
-source: "panda-corp + personal-page-v2 2026-07-03 harvest — synthesized from LESSON-0033 (canvas timeout), LESSON-0034 (worktree launch.json resolves to main), LESSON-0039 (next dev worktree lockfile confusion), LESSON-0041 (black screenshot on below-fold/opacity content). Folded in 2026-07-16 (librarian review): LESSON-0060 (personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — headless capture defaults to light `prefers-color-scheme` even when the shipped theme is dark), a 5th distinct failure mode created the day after this synthesis and never previously folded in."
+source: "panda-corp + personal-page-v2 2026-07-03 harvest — synthesized from LESSON-0033 (canvas timeout), LESSON-0034 (worktree launch.json resolves to main), LESSON-0039 (next dev worktree lockfile confusion), LESSON-0041 (black screenshot on below-fold/opacity content). Folded in 2026-07-16 (librarian review): LESSON-0060 (personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — headless capture defaults to light `prefers-color-scheme` even when the shipped theme is dark), a 5th distinct failure mode created the day after this synthesis and never previously folded in. Folded in a SIXTH mode (personal-page-v2,
+2026-09-09, `.pandacorp/run/lessons.md`): a hidden Browser pane makes `computer.screenshot` return solid
+black regardless of DOM state, and the `playwright screenshot` CLI mis-times staggered reveal transitions.
+Eval-gate note (librarian, 2026-09-10): this lesson's evidence already spans panda-corp and personal-page-v2
+— activating `status: active`."
 provenance: agent-inferred
 created: 2026-07-03
-status: candidate
+status: active
 promotion: none
 confidence: medium
 times_applied: 0
@@ -46,3 +50,16 @@ the fold or behind an opacity/IntersectionObserver reveal (LESSON-0041)? (5) doe
 on `prefers-color-scheme` — was the intended theme forced explicitly before capture, rather than trusting
 the headless browser's default color-scheme preference (LESSON-0060)? Only after ruling these out
 should an unexpected preview result be treated as evidence of a real rendering defect.
+
+**Sixth mode (2026-09-09, personal-page-v2):** when the Browser pane is hidden (`tabs_context` reports
+"pane is currently hidden"), `computer.screenshot` returns a solid BLACK image even though the DOM is
+fully rendered (opacity 1, reveals already `is-visible`) — this is a property of the screenshot tool
+capturing a hidden pane's backing surface, not the page. Fix: capture via Playwright script directly
+(`page.locator(sel).screenshot({ animations: "disabled" })`), not the pane-screenshot tool. The CLI
+`playwright screenshot` command is ALSO unreliable for a site using staggered scroll-reveal transitions —
+it can capture mid-animation (only the first revealed child, hero H1 missing) because it does not disable
+`transitionDelay` the way the primitive's own capture-mode CSS does.
+
+**Apply next time (addendum):** (6) is the Browser pane hidden, or are you relying on the `playwright
+screenshot` CLI on a page with staggered reveal transitions — prefer a Playwright script call that
+explicitly disables animations over either the pane-screenshot tool or the bare CLI command.

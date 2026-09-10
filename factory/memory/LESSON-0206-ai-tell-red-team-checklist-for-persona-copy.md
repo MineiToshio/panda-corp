@@ -11,10 +11,18 @@ created: 2026-09-08
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [personal-page-v2]
 links: [LESSON-0129, LESSON-0123, LESSON-0204, LESSON-0205]
 ---
+
+**Corroboration (2026-09-08, personal-page-v2, owner-stated):** a separate About-page copy pass drew a
+distinct owner correction not about AI-tells but about internal coherence: bullets under a section heading
+("Cómo trabajo") must each directly RESPOND to that heading, not merely be an adjacent, loosely-related
+fact ("Salir de un atasco" doesn't answer "how do you work"). The owner's fix instruction was explicit:
+review the coherence of the WHOLE section as one narrative, not bullet-by-bullet in isolation — the same
+meta-lesson the traceability/duplication checks already teach (an isolated per-item check misses a
+structural defect visible only in aggregate).
 
 **Situation:** an About-page copy pass needed to satisfy an explicit owner bar ("doesn't feel
 machine-made", scannable, correctly calibrated formality) that a first AI-drafted pass failed on
@@ -34,7 +42,9 @@ over clever, exactly one hedge), but targets prose AUTHENTICITY tells rather tha
 **Apply next time:** before shipping AI-drafted first-person persona copy, run an explicit adversarial
 red-team against a fixed criteria list covering at minimum: traceability (every claim sourced to an owner
 interview, per LESSON-0204), privacy, positioning balance (LESSON-0205), native-language phrasing per
-target language, scannability, coherence with the rest of the site, and a dedicated "sounds like AI" pass
+target language, scannability, per-item coherence (does each bullet/label under a heading actually answer
+that heading, reviewed as a whole section rather than item-by-item), coherence with the rest of the site,
+and a dedicated "sounds like AI" pass
 checking for missing contractions, "the AI" with an article, impersonal comparative aphorisms, and any
 target-language-specific tells. Ask the owner up front for their concrete acceptance bar (formality level,
 tone words to avoid) rather than guessing it.

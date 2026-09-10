@@ -16,6 +16,18 @@ applied_in: []
 links: [LESSON-0204]
 ---
 
+**Corroboration/new facet (2026-09-08, personal-page-v2, owner-stated):** a separate correction on the
+same project named a third, more specific trap beyond dropping a pole: TEMPORAL framing. The owner flagged
+a site-wide rule — never frame hand-coding as the past and AI-orchestration as the present ("this is how
+I used to do it, now I don't"), even when both poles are individually mentioned. That framing implies a
+discontinuity/obsolescence the owner does not hold; the correct read is that both are equally current,
+parallel capabilities. This is a distinct check from "is either pole missing" (the original lesson): copy
+can keep BOTH poles visible and still fail by sequencing them as before/after rather than both/and.
+
+**Apply next time (addendum):** when auditing positioning copy for pole balance, also scan for temporal or
+sequencing language ("no longer", "used to", "back when", "now instead") applied to either capability —
+even balanced copy fails if it implies one pole superseded the other.
+
 **Situation:** a portfolio rebuild consistently over-indexed on "codes with AI" across multiple
 independent surfaces (hero copy, a metrics strip, a dedicated "how I use AI" section, supporting blurbs),
 and separately overcorrected into implying hand-coding as unchanged default practice. Both readings were

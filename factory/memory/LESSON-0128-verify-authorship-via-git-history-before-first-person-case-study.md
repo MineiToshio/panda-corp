@@ -5,7 +5,13 @@ domain: content-generation
 tags: [case-study, authorship, git-history, portfolio, first-person, verification]
 context: drafting a first-person case-study narrative (portfolio, blog post) about a past project that had more than one contributor
 trigger: use this when about to write or finalize first-person copy ("I designed...", "I decided...") attributing a technical decision to the author, for a project that was not solo-built
-source: "personal-page-v2 .pandacorp/run/lessons.md (agent-inferred) — a case-study draft attributed 6 decisions to the author in first person; checking `git log --diff-filter=A` (who created each file) and per-file commit counts (who actually maintained it) showed 4 of the 6 were a teammate's work, not the author's"
+source: "personal-page-v2 .pandacorp/run/lessons.md (agent-inferred) — a case-study draft attributed 6 decisions to the author in first person; checking `git log --diff-filter=A` (who created each file) and per-file commit counts (who actually maintained it) showed 4 of the 6 were a teammate's work, not the author's. New facets (personal-page-v2, LinkedIn-rewrite
+session, 2026-09-10, agent-inferred): (1) attributing a project to one of two overlapping LinkedIn
+positions at the same company was settled by the product repo's first commit date (`git log --reverse`),
+not by recollection; (2) a LinkedIn-stated claim (Reduced dev time 20% via new architecture) directly
+contradicted the paired case study's own code-verified attribution (no architecture decisions made) — a
+generalization of this lesson's git-log check: LinkedIn copy is itself a source to cross-check against the
+case study's ground truth, not a source to reuse at face value."
 provenance: agent-inferred
 created: 2026-07-10
 status: candidate
@@ -32,4 +38,8 @@ is the git log.
 **Apply next time:** before finalizing any first-person claim in a case study or portfolio piece about a
 multi-contributor project, check `git log --diff-filter=A -- <path>` (who created it) and commit counts per
 file/area (who maintained it) for every decision being claimed in first person. Rewrite any claim the
-history contradicts to the accurate voice (team-credited, or dropped) before publishing.
+history contradicts to the accurate voice (team-credited, or dropped) before publishing. The same check
+extends to TIME-based attribution: use `git log --reverse` for a project's first commit date to resolve
+which of two overlapping roles/positions it belongs under. And treat LinkedIn (or any other externally
+published bio copy) the same way as memory — cross-check its claims against the code-verified case study
+before reusing them, rather than assuming a public profile is itself ground truth.

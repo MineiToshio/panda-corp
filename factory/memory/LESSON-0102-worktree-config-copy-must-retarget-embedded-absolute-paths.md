@@ -5,7 +5,7 @@ domain: build-orchestration
 tags: [worktree, dr-096, launch-json, absolute-paths, silent-failure]
 context: adapting a gitignored config file that carries ABSOLUTE paths (e.g. a `launch.json` with `runtimeArgs` pointing into the checkout) into a git worktree copy
 trigger: use this when a script that bootstraps a git worktree copies/rewrites a gitignored config that embeds absolute filesystem paths (launch configs, local dev-server configs, anything with a hardcoded checkout path)
-source: "mission-control .pandacorp/run/lessons.md 2026-07-07, owner-stated — worktree-bootstrap.sh (DR-096); fixed same day, commit 71d78830"
+source: "mission-control .pandacorp/run/lessons.md 2026-07-07, owner-stated — worktree-bootstrap.sh (DR-096); fixed same day, commit 71d78830. NEW MECHANISM, same symptom class, personal-page-v2 .pandacorp/run/lessons.md 2026-09-09 (agent-inferred): worktree-bootstrap.sh writes launch.json cwd as the ${workspaceFolder} variable, which the desktop app resolves to the main repo root regardless of the worktree the config came from — a third distinct way this symptom recurs."
 provenance: owner-stated
 created: 2026-07-07
 status: active
@@ -38,3 +38,16 @@ DESTINATION (the worktree lives nested inside the main checkout, so a straightfo
 "any path starting with `$MAIN_WT/` becomes `$WORKTREE/` + the remainder" — produces the correct nested
 path), while leaving paths OUTSIDE the repo (a `/tmp` scratchpad, etc.) untouched. Verify by inspecting the
 actual copied config after bootstrap, not just that the bootstrap script ran without error.
+
+**New mechanism, same symptom (2026-09-09, personal-page-v2):** the same "worktree preview shows main's
+stale content" symptom recurred through a THIRD distinct mechanism (after the absolute-path token above
+and LESSON-0034's launch.json-resolved-from-main-checkout): `worktree-bootstrap.sh` writes launch.json
+entries with `"cwd": "${workspaceFolder}"` rather than a literal path — the desktop app resolves that
+variable to the MAIN repo root regardless of which worktree's launch.json it came from, so `next dev`
+launched via `preview_start` from a worktree session serves the main tree's code while the worktree's own
+gate (whose Playwright webServer sets its own cwd explicitly) correctly serves the new code — same symptom,
+opposite files agreeing/disagreeing. Fix: write the ABSOLUTE worktree path, not a variable that resolves
+relative to the app's own workspace concept. **Process guard for any of these three mechanisms:** before
+handing a preview URL to the owner for review, curl-verify a distinctive string known to be new (from the
+actual change under review) on the served port — don't trust that the URL "should" be pointed correctly
+just because the bootstrap/config edits look right.

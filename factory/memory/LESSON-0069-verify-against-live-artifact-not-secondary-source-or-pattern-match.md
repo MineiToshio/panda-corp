@@ -5,7 +5,12 @@ domain: agent-verification
 tags: [verification, secondary-source, pattern-matching, ground-truth, diff, computed-state]
 context: an agent is about to trust a secondary source (a doc, a prior audit, a pattern-match by sight, its own memory of a review, or a same-runtime self-check) instead of directly inspecting the live artifact
 trigger: use this when about to base a diagnosis, a claim to the owner, or a "done"/"verified" declaration on a doc, a past finding, a recognized failure pattern, or a self-review — rather than on a fresh, direct read of the live artifact
-source: "synthesized from LESSON-0027 (stale audit claim), LESSON-0047 (preview-tool false-signal modes), LESSON-0057 (component-inventory doc drift), LESSON-0058 (grid-collapse pattern-match without precondition check), LESSON-0067 (same-runtime review blind spots), LESSON-0068 (condensed-doc memory vs diff) — panda-corp + personal-page-v2, 2026-06-30..2026-07-04. Corroborated a SEVENTH time (2026-07-28, panda-corp review-launch scheduled sweep, project personal-page-v2): `status.yaml` read `phase: release` since 2026-07-01, and review-launch nearly reported the launch's real-world metrics as if the current build were live — but the production domain still served the pre-rebuild 2021 site (`/en/projects` 404s, `/en/blog` shows the old post). The `phase: release` flag certifies the internal build/hardening gate closed clean, NOT that the external deploy+DNS-cutover step actually ran — same causal shape as the other six (a recorded flag/doc/self-check stood in for a direct check of the live artifact, here the actual production HTTP response). See BL-0087 for the actionable fix (review-launch must curl/route-check the live domain before trusting the phase flag)."
+source: "synthesized from LESSON-0027 (stale audit claim), LESSON-0047 (preview-tool false-signal modes), LESSON-0057 (component-inventory doc drift), LESSON-0058 (grid-collapse pattern-match without precondition check), LESSON-0067 (same-runtime review blind spots), LESSON-0068 (condensed-doc memory vs diff) — panda-corp + personal-page-v2, 2026-06-30..2026-07-04. Corroborated a SEVENTH time (2026-07-28, panda-corp review-launch scheduled sweep, project personal-page-v2): `status.yaml` read `phase: release` since 2026-07-01, and review-launch nearly reported the launch's real-world metrics as if the current build were live — but the production domain still served the pre-rebuild 2021 site (`/en/projects` 404s, `/en/blog` shows the old post). The `phase: release` flag certifies the internal build/hardening gate closed clean, NOT that the external deploy+DNS-cutover step actually ran — same causal shape as the other six (a recorded flag/doc/self-check stood in for a direct check of the live artifact, here the actual production HTTP response). See BL-0087 for the actionable fix (review-launch must curl/route-check the live domain before trusting the phase flag).
+EIGHTH corroboration (personal-page-v2, LinkedIn-rewrite session, 2026-09-10, agent-inferred): two research
+subagents disagreed about the same primary source's content (a LinkedIn Help page's exact wording) — the
+fix was neither subagent's report but one direct WebFetch of the primary page. A subagent disagreement is
+itself a signal to go straight to the live artifact, not to pick whichever agent's answer sounds more
+confident."
 provenance: agent-inferred
 created: 2026-07-04
 status: active
@@ -44,4 +49,6 @@ the pattern's usual precondition), rule out known tool-specific false-signal mod
 underlying system (not the raw unexpected result), do a literal fact-by-fact diff (not a confident
 holistic re-read), and get a genuine check from the actual consuming system/runtime (not the same one that
 built it). Treat any of these six symptoms as one instance of a single rule: ground truth beats a stand-in
-for ground truth, always.
+for ground truth, always. An eighth, corroborating shape: when two subagents disagree about the same
+primary source, neither report is ground truth — go verify the source directly rather than arbitrating
+between the two accounts.
