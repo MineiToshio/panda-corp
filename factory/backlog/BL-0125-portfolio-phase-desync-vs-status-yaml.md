@@ -67,3 +67,23 @@ routine simply didn't execute (a scheduling/dispatch gap, not a phase-logic bug)
 different fix (wire/verify the recurring task) than either (a) or (b). No new fix-design information
 otherwise; folded here per this item's own no-redundancy precedent (see BL-0061's aggregated-corroboration
 handling for the same pattern).
+
+**2026-09-09 (`pandacorp-memory-review` PASO 0 sweep) — THIRD occurrence, FIRST on a non-mission-control
+project.** `factory/portfolio.md`'s personal-page-v2 row (last synced 2026-09-07) still reads `phase:
+release`, while `personal-page-v2/.pandacorp/status.yaml` reads `phase: implementation` (re-verified live
+2026-09-10: still the case — `status.yaml`'s `phase` field is literally `implementation`, `work_orders_total:
+12` / `work_orders_verified: 12`, `last_green_sha` dated 2026-09-08, no `phase` key ever written back to
+`release`). The transition to `implementation` traces to a legitimate FRD-03 reopen (commit message "sync
+work-order state and blueprint metadata (FRD-03)", 2026-09-08) — a real, correct phase change on the
+project side, not a bug in the transition itself. Direction matches both prior occurrences (portfolio always
+over-reports how advanced the project is, never under-reports). **This weakens hypothesis (b)** ("a bug
+specific to at least one project shape," fix-plan step 1): mission-control is an in-repo internal tool with
+its own status.yaml resolution quirks (BL-0034's territory), while personal-page-v2 is an ordinary
+sibling-repo project with no special shape — the SAME drift recurring across two structurally different
+project shapes makes a shape-specific read/write bug less likely and makes (a) timing-gap or (c)
+sync-portfolio-not-running a relatively stronger prior. Root cause still unconfirmed; this is evidence to
+weigh at fix-plan step 1, not a resolution. The row was not corrected by hand in this pass (out of PASO 0's
+own scope, consistent with the 2026-09-04 finding's restraint; the 2026-09-07 review-launch sweep did
+correct mission-control's row live, establishing that hand-correction is in-scope for OTHER routines that
+touch the portfolio, just not this one). No new fix-design information beyond the hypothesis-weighting angle
+above; folded here per this item's own no-redundancy precedent.
