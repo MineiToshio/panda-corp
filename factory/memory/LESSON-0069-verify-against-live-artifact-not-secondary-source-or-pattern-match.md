@@ -10,14 +10,20 @@ EIGHTH corroboration (personal-page-v2, LinkedIn-rewrite session, 2026-09-10, ag
 subagents disagreed about the same primary source's content (a LinkedIn Help page's exact wording) — the
 fix was neither subagent's report but one direct WebFetch of the primary page. A subagent disagreement is
 itself a signal to go straight to the live artifact, not to pick whichever agent's answer sounds more
-confident."
+confident. NINTH corroboration (personal-page-v2, 2026-09-12, agent-inferred): a code comment asserting
+'this seed/rule comes from DESIGN.md' read as authoritative and was trusted without checking —
+`imagePrompt.ts`'s cover-image `VISUAL_SEED` claimed to encode 'the DESIGN.md frozen visual identity', but
+DESIGN.md only prescribes that geometric-monoline style for the brand WORDMARK, saying nothing about blog
+cover illustrations; the generalization was invented by whoever built the feature and never reviewed by the
+owner for that specific use. A `grep` for the claimed keywords in the target doc would have caught the gap
+immediately."
 provenance: agent-inferred
 created: 2026-07-04
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-13
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [personal-page-v2]
 links: [LESSON-0027, LESSON-0047, LESSON-0057, LESSON-0058, LESSON-0067, LESSON-0068, LESSON-0140, LESSON-0183, CONV-13, factory/standards/conventions.md#CONV-13]
 ---
 
@@ -51,4 +57,7 @@ holistic re-read), and get a genuine check from the actual consuming system/runt
 built it). Treat any of these six symptoms as one instance of a single rule: ground truth beats a stand-in
 for ground truth, always. An eighth, corroborating shape: when two subagents disagree about the same
 primary source, neither report is ground truth — go verify the source directly rather than arbitrating
-between the two accounts.
+between the two accounts. A ninth: a code comment that cites a canonical doc as its authority ("per
+DESIGN.md", "per the PRD") should be spot-checked against that doc's actual text before it is trusted or
+extended further — it reads authoritative, but it may be an invented generalization nobody ever verified
+against the source it claims to follow.

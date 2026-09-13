@@ -11,7 +11,8 @@ created: 2026-06-30
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-14
 confidence: high
-times_applied: 0
+times_applied: 1
+applied_in: [personal-page-v2]
 links: [CONV-14, factory/standards/conventions.md#CONV-14]
 ---
 

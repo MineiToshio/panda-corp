@@ -11,7 +11,12 @@ paths in the same session — WebFetch (HTTP 999), the Browser pane (authwall), 
 connected) — confirming this is not one tool's limitation but the platform itself. The fallback that
 worked: a literal, owner-provided transcription of the profile's Experience section kept in a gitignored
 dossier file, used as the source of truth for the profile's current state instead of any live fetch
-attempt."
+attempt. Sharper fallback, 2026-09-13 (personal-page-v2, owner-provided): the owner's own LinkedIn 'More >
+Save to PDF' export is a reliable, precisely-scoped current-state source — it includes headline, summary,
+all experience text, top 3 skills, languages, certifications and education, but does NOT include photo,
+banner, Featured, recommendations, the full skills list, or Open-to settings. Treat the PDF export as
+covering exactly that field set; anything outside it still needs a separate owner-provided source (a
+screenshot, a direct question)."
 provenance: agent-inferred
 created: 2026-07-09
 status: candidate
@@ -37,3 +42,7 @@ URL — this holds across WebFetch, the Browser pane, and Claude in Chrome alike
 When career-history facts need verification, ask the owner directly (or use a document/screenshot
 the owner already provided) instead of attempting to scrape LinkedIn; a literal transcription captured
 once into a gitignored dossier file is a durable, reusable fallback for the rest of the session/project.
+The owner's own "More > Save to PDF" export is the single most reliable version of this fallback — it
+covers headline, summary, all experience text, top-3 skills, languages, certifications and education, but
+explicitly excludes photo, banner, Featured, recommendations, the full skills list and Open-to settings;
+ask for those separately if needed.

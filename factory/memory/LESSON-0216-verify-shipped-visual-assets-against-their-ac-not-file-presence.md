@@ -11,8 +11,8 @@ created: 2026-09-10
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [personal-page-v2]
 links: [LESSON-0069]
 ---
 

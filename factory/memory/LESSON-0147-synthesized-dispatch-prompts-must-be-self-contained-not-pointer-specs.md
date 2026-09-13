@@ -11,8 +11,8 @@ created: 2026-07-12
 status: active
 promotion: approved
 confidence: medium
-times_applied: 2
-applied_in: [mission-control, panda-corp]
+times_applied: 3
+applied_in: [mission-control, panda-corp, personal-page-v2]
 links: [PROMPT-8, factory/standards/prompting-conventions.md]
 ---
 

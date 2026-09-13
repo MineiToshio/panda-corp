@@ -11,8 +11,8 @@ created: 2026-07-07
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/document-consistency.md#DOCC-5
 confidence: medium
-times_applied: 1
-applied_in: [panda-corp]
+times_applied: 2
+applied_in: [panda-corp, personal-page-v2]
 links: [BL-0052, LESSON-0101, LESSON-0184, DOCC-5, factory/standards/document-consistency.md#DOCC-5]
 ---
 

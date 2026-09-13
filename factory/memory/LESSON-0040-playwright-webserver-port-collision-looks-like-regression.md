@@ -33,15 +33,36 @@ killing HMR and producing ~30 failures across routes untouched by the change. Fi
 build-orchestration template: `allowedDevOrigins: [127.0.0.1]` in `next.config`, or launch dev with
 `--hostname 127.0.0.1` so both parties agree on the same host; the safe workaround without touching the
 owner's server is gating from a worktree with its own `PORT=<free-port>` (Playwright boots its own,
-same-origin server there)."
+same-origin server there). THIRTEENTH corroboration (2026-09-11/12, same project, `.pandacorp/run/lessons.md`,
+two related but distinct findings): (a) a full `verify.sh` run mid-session, after hours of heavy background
+build activity, crashed the shared Playwright dev webServer partway through the [mobile] e2e project — a
+sharp cutover at one specific test, every subsequent test in that browser project returning
+`net::ERR_EMPTY_RESPONSE`, the desktop project unaffected; NOT reproducible in isolation (a scoped rerun and
+a full standalone e2e rerun both passed 100% clean twice) — root cause confirmed as environmental resource
+contention from concurrent build activity, not a code defect, per the debugging rule that a genuine cause
+must also explain the NON-failures (isolated reruns had none of that contention and passed clean). New
+diagnostic signature: a broad, single-cutover e2e failure (one browser project, every route, right after N
+consecutive passes) is as strong a signal of webServer resource exhaustion as of a stale/orphaned process —
+rerun in isolation before assuming either a code regression or a lock/port issue. (b) a plain leftover
+`node` dev-server process (confirmed via `lsof -i :4010`) held the reserved port with a broken HMR socket;
+killing it and rerunning fixed ~23 unrelated failures immediately — the FOURTEENTH corroboration of the
+core stale-process mechanism, no new facet beyond confirming the fix again. FOURTEENTH-mechanism corroboration,
+2026-09-12 (same project): `merge-queue.sh` itself (the shared template, `plugin/templates/shared/.pandacorp/merge-queue.sh`)
+calls `bash .pandacorp/verify.sh` with **no `PORT` override** — when the shared main checkout already has its
+own dev server bound to the reserved port (likely with parallel worktree sessions active), Playwright's
+`reuseExistingServer: true` silently reused that unrelated server instead of the worktree's own branch,
+producing a spray of 27 failures across routes the change never touched; exporting `PORT=<free-port>` before
+calling `merge-queue.sh` collapsed the same merge attempt to exactly the 2 routes actually affected. This is
+a template-level instance of the same family — tracked as an actionable fix in **BL-0133** (`merge-queue.sh`
+should detect the collision and export a free `PORT` itself, not rely on the caller remembering to)."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/build-orchestration.md#BUILD-3
 confidence: medium
-times_applied: 1
-applied_in: [mission-control]
-links: [BL-0037, BL-0049, LESSON-0197, LESSON-0185, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
+times_applied: 2
+applied_in: [mission-control, personal-page-v2]
+links: [BL-0037, BL-0049, BL-0133, LESSON-0197, LESSON-0185, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
 ---
 
 **Situation:** Playwright's e2e `webServer` defaults to port 3000 (`playwright.config.ts`). A sibling
@@ -77,12 +98,18 @@ BL-0049 (orphaned same-project lock) for the proposed build-engine preflight fix
 check when the failure fires from an AUTOMATED/hook-triggered `verify.sh` run (e.g. `verify-before-stop.sh`)
 rather than a manual invocation — a broad, page-spanning regression reported immediately after a gate that
 was green minutes earlier with zero source diff is the signature; check `lsof -i :<dev_port_base>` or do a
-clean isolated re-run before touching baselines/code. This exact failure mode has now recurred TWELVE times
-across two projects (personal-page-v2 ×10, mission-control ×2) with no code-side fix landed yet — a strong
+clean isolated re-run before touching baselines/code. This exact failure mode has now recurred FOURTEEN+ times
+across two projects (personal-page-v2 ×12+, mission-control ×2) with no code-side fix landed yet — a strong
 signal that BL-0049's preflight check is worth prioritizing. Two further discriminators found on the tenth
 through twelfth occurrences: a reused server can also silently corrupt a codegen/content cache (not just
 HMR/hydration) — a mixed RED (some content errors, some interaction errors) spanning unrelated routes is
 as strong a "restart the dev server" signal as a purely-interaction-only failure pattern; and when
 `--hostname` is not the direct cause, check whether the reused server was bound to `localhost` while
 Playwright navigates via `127.0.0.1` — Next 16's `allowedDevOrigins` treats these as different origins and
-blocks dev requests from the unlisted one.
+blocks dev requests from the unlisted one. Thirteenth/fourteenth occurrences add two more discriminators:
+a SHARP, SINGLE-CUTOVER failure (one browser project, every subsequent route, right after several
+consecutive clean passes, NOT reproducible in isolation) points to shared-resource exhaustion from
+concurrent build activity rather than a stale process or a code regression — verify via an isolated rerun
+before concluding either; and `merge-queue.sh` itself needs a `PORT` override before calling `verify.sh`,
+or the shared-checkout landing path is exposed to this same class every time a parallel worktree session
+has its own dev server up (see BL-0133).
