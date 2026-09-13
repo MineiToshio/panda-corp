@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0201]
+links: [LESSON-0201, LESSON-0241]
 ---
 
 **Situation:** a script needed to attribute gitleaks findings back to the specific logical unit that was

@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0201, LESSON-0217]
+links: [LESSON-0201, LESSON-0217, LESSON-0241]
 ---
 
 **Situation:** a PII-detection regex set written from general knowledge (phone/card number patterns)

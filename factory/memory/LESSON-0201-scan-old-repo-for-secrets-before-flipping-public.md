@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0241]
 ---
 
 **Situation:** the owner asked to flip an old private repo public ("es un proyecto antiguo") without
