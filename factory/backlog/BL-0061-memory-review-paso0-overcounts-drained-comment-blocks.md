@@ -199,3 +199,21 @@ live notes despite non-zero raw line counts too. Same no-new-information shape a
 above — the naive count would again have force-triggered a full sweep on a nearly-empty inbox. No further
 occurrence needs logging here unless a run's naive count actually triggers a false full sweep, or a new
 trigger surface/count mechanism is found — the existing two fix designs are ready to implement as-is.
+
+## Note (annotated 2026-09-13) — the tag-anchored formula undercounts to a false ZERO on project-level `lessons.md` files
+
+A FOURTH distinct trap, and the mirror-image of this item's original bug (false NEGATIVE, not false
+POSITIVE): the 2026-08-11 tag-anchored formula (`grep -cE '^(gotcha|gap|pattern|lesson|verdict|nota|note)\s*·'`)
+assumes the tag sits at the very start of the line. That holds for `factory/memory/_inbox.md`'s own bullet
+shape, but portfolio projects' `.pandacorp/run/lessons.md` files use a DIFFERENT bullet shape —
+`- (owner-stated|agent-inferred) <tag> ·` — where the tag is preceded by a leading `- (provenance) ` prefix,
+so the tag never sits at line-start there. Reproduced live 2026-09-11 (pandacorp-memory-review PASO 0
+sweep): the line-start-anchored regex, run against personal-page-v2's `lessons.md`, returned 0 pending
+notes when 13 were actually live past the last drained block (lines 391-433) — caught only by manually
+reading the file tail instead of trusting the count. Fix: the per-project anchor needs an optional
+`^\s*-\s*\((owner-stated|agent-inferred)\)\s*` prefix before the tag group, distinct from the factory
+inbox's own (paragraph-style, no such prefix) anchor — i.e. whoever implements this item's Fix plan must
+apply TWO different regexes, one per file shape, not the single uniform regex the 2026-08-11 annotation's
+closing sentence assumed ("apply the SAME regex-anchored count uniformly to each portfolio project's own
+`.pandacorp/run/lessons.md`, not just the factory inbox"). Source: factory/memory/_inbox.md agent-inferred
+note (2026-09-11 finding, harvested 2026-09-13).
