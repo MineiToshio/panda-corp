@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0159]
 ---
 
 **Situation:** a fresh FRD's blueprint and work orders could not clear their three JUDGE-tier architecture gates because the opus model itself was returning `HTTP 529 Overloaded` on every dispatch attempt — an active, independently-confirmed vendor incident, not a content problem with the blueprint. Per DR-111/DR-113 the JUDGE tier is never auto-downgraded, so the work orders correctly remained `status: DRAFT` instead of being force-flipped to `ACTIVE` on an incomplete review. Because the project's preflight checks for ANY un-gated DRAFT work order project-wide (not just the ones touched), this correctly blocked the whole project's build launch until the gates could actually run.

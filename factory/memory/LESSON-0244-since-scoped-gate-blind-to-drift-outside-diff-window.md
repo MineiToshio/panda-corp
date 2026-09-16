@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0242]
 ---
 
 **Situation:** a project ran only `--since`-scoped incremental gates for seven weeks. A single commit had introduced several latent defects (dead exports, a type-only import cycle, two tests whose underlying assumptions had silently changed) that never touched a diff any `--since` gate happened to scope over. The defects surfaced only when two unrelated full (non-`--since`) baseline runs — an overlay upgrade's mandated full run, and a build's own pre-build hardening pass — both hit the same stale drift on the same day.

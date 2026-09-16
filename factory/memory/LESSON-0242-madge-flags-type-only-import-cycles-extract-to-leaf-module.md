@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0113]
+links: [LESSON-0113, LESSON-0244]
 ---
 
 **Situation:** a full (non-`--since`) `verify.sh` baseline run reported a `madge --circular` cycle between two modules that were not actually runtime-coupled — one imported a function from the other, which in turn imported only TYPES back from the first. `madge` operates at the file level and does not distinguish `import type` from a value import, so a purely type-level back-reference still trips the cycle gate even at zero runtime cost.

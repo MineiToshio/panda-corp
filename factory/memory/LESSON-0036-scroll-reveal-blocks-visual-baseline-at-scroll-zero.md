@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0245]
 ---
 
 **Situation:** a `useReveal` scroll-reveal primitive hid all below-the-fold content at `opacity:0` until

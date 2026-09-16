@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0243]
 ---
 
 **Situation:** DR-111/CONV-12 requires computing a subagent's model tier from the SUBTASK's complexity, not

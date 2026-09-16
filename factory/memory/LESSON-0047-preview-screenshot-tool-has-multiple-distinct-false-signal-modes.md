@@ -17,7 +17,7 @@ promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standa
 confidence: medium
 times_applied: 1
 applied_in: [personal-page-v2]
-links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0060, LESSON-0069]
+links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0060, LESSON-0069, LESSON-0245]
 ---
 
 **Situation:** across two projects, five *different* root causes each produced a misleading result from
