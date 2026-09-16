@@ -56,3 +56,11 @@ Re-hit in a later session: `worktree-bootstrap.sh`'s launch.json autoPort rewrit
 dirty, and `merge-queue.sh`'s clean-tree preflight rejected the landing until an agent ran
 `git checkout -- .claude/launch.json` by hand first. Same root cause as above, still unfixed as of this
 note — no new item filed (this is the same BL-0028).
+
+## Corroborating occurrence (2026-09-16, personal-page-v2, harvested via /pandacorp:memory)
+THIRD hit, same root cause, still unfixed: `worktree-bootstrap.sh` rewrote the tracked `.claude/launch.json`
+(name suffix + autoPort) again, and `merge-queue.sh` refused to land with the precise `exit 20`
+"uncommitted changes" failure code until `git checkout -- .claude/launch.json` was run by hand. New detail
+this occurrence adds: the concrete `merge-queue.sh` exit code (20) that this failure mode presents as, useful
+for a future fix's RED fixture / for recognizing this class from the exit code alone. No new item filed
+(this is the same BL-0028).
