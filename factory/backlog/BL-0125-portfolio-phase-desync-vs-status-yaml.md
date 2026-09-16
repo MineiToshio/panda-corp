@@ -87,3 +87,22 @@ own scope, consistent with the 2026-09-04 finding's restraint; the 2026-09-07 re
 correct mission-control's row live, establishing that hand-correction is in-scope for OTHER routines that
 touch the portfolio, just not this one). No new fix-design information beyond the hypothesis-weighting angle
 above; folded here per this item's own no-redundancy precedent.
+
+**2026-09-14 (`pandacorp-review-launch` scheduled sweep) — FOURTH occurrence, first with a concrete
+root-cause mechanism for the phase change itself.** `factory/portfolio.md`'s personal-page-v2 row still
+read `release` (unchanged since the 2026-09-09 finding above), while
+`personal-page-v2/.pandacorp/status.yaml` had moved to `phase: implementation` around 2026-09-10/11 —
+this time the trigger is identified precisely: several owner change requests
+(`blog-generator-v2-story-factory`, `blog-mermaid-inline-diagrams`, etc.) were filed and `/pandacorp:iterate`
+turned them into 7 new planned work orders, which per `build-orchestration.md` line 29
+("`iterate`/`new-version` reopen a work order by setting it back to `PLANNED`") is the DOCUMENTED, correct
+contract — reopening work orders on a released project legitimately moves it back out of `release` into
+active build. The bug is NOT that phase moved backward (expected/by-design); the bug is that
+`/pandacorp:sync-portfolio` hadn't re-run since 2026-09-07, so the portfolio table kept asserting `release`
+through an entire backward phase transition with nothing to catch it. This sharpens fix-plan step 3
+specifically: the staleness check must fire on ANY phase divergence, including a **release → earlier-phase
+regression** triggered by `iterate`/`new-version` reopening work — not just forward-progress drift. No new
+lesson: the general "phase transitions aren't monotonic once iterate reopens work orders" fact is already
+the documented engine contract (`build-orchestration.md` line 29), and "never trust a cached/pointer field
+over the live source of truth" is already AGENTS.md rule 5 + LESSON-0027 at a more authoritative tier — this
+note only adds design information to BL-0125's own fix, folded here per precedent.
