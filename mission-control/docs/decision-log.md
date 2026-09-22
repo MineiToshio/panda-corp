@@ -1,5 +1,38 @@
 # Decision Log — Mission Control
 
+## 2026-09-22 — Pandacorp overlay upgraded 8.81.0 → 8.82.0 (plugin 9.104.0, speed sprint second batch)
+
+Propagated plugin 9.104.0 (factory `main`, merge commit landing F2-F5, quick wins, fix1/BL-0141, the
+`mc-change-queue-statuses` merge itself, and independent review batch 3) by hand, following
+`plugin/skills/upgrade/SKILL.md`'s steps as the prior resync (commit `2c1c9fe2`, plugin 9.103.0) did.
+
+Five template files had drifted since 8.81.0; all five re-synced and confirmed byte-identical via `cmp`
+against the canonical source immediately after copying:
+- `.claude/engines/pandacorp-build.js` — the F2/F3/F4/F5/fix1 engine changes (Stop-gate rigor scoping and
+  escalation, sync close-out plumbing, `--now`'s delegation path, per-change usage rollup hooks, the
+  `agentType`-fallback wrapper + `preLoopGuarded()`).
+- `.pandacorp/doc-lint.sh` — the `closing` > 48h unconditional fail-loud rule (F3).
+- `.pandacorp/guide.md` — fully regenerated from `guide.md.tpl` (`{{PROJECT_NAME}}` → Mission Control,
+  `{{FACTORY_PATH}}` → `/Users/Shared/Proyectos/panda-corp`, `{{IDEA_FILE}}` unchanged): the `/change`
+  routing row now describes `--queue`/`--now` (F4), and project rules 1/10/11 collapse to one-line
+  pointers at `AGENTS.md`'s own text (C-3 dedupe) instead of repeating it.
+- `AGENTS.md`'s change-routing sentence — patched by hand (not overwritten wholesale: this file carries a
+  genuine project-specific customization at rule 1, "Next.js + React + Tailwind, web UI", that the raw
+  template does not have) to add the same `--queue`/`--now` description F4 added upstream.
+- `CLAUDE.md` — checked, already conformant (only the project-specific "Mission Control specifics"
+  section differs from the template, by design; the templated header matches after substitution).
+
+Verified `plugin/templates/docs/change-request-template.md` / `changes-readme-template.md` (the other two
+files that changed upstream) have no project-local copy in this repo — they're read live from the plugin
+at change-filing time — so nothing to propagate for those two. `docs/rules/*` unaffected (not among the
+files that changed upstream this batch); confirmed via `cmp` that `.pandacorp/verify.sh` still matches
+`plugin/templates/stack-a-nextjs/verify.sh` byte for byte (no drift there either).
+
+`overlay_version` → `"8.82.0"` in `.pandacorp/status.yaml`.
+
+Full conformance sweep and gate results (steps 3a/3b of the upgrade skill) recorded in this session's
+final report rather than duplicated here — see `bash .pandacorp/verify.sh` output referenced there.
+
 ## 2026-09-22 — Changes tab learns the engine-managed `building`/`closing` statuses (DR-069 §7, fixes a read error mid-build)
 
 `readChangeQueue` (`src/lib/changes/changes.ts`) rejected `status: building`/`status: closing` as an
