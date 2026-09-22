@@ -21,10 +21,10 @@
 # so makes THIS runner discover test-run-engine-tests.sh itself (it matches `test-*.sh`), and that
 # suite's own "real corpus" check calls this runner against the real plugin/scripts dir again --
 # an unbounded self-recursion (confirmed live: it had to be killed after filling the process table).
-# A second, narrower bug rides along: test-run-engine-tests.sh:73 hardcodes its expected suite
-# count from `ls test-*.mjs` alone, so it would mismatch the moment ANY .sh suite is discovered
-# here, generic glob or not. Neither is fixed by this change (flagged as a finding, not patched
-# around) -- individual .sh suites are opted in explicitly below instead.
+# individual .sh suites are opted in explicitly below instead (EXPLICIT_SH_SUITES). The narrower
+# sibling bug -- test-run-engine-tests.sh's own suite-count self-test used to hardcode its expected
+# count from `ls test-*.mjs` alone, mismatching the moment ANY entry landed here -- is fixed there:
+# it now reads THIS array (the same literal assignment line) instead of re-deriving a count.
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 DIR="${1:-$HERE}"

@@ -68,9 +68,23 @@ check "empty directory fails loud instead of silently reporting success" 1 "$EMP
 
 # Real corpus: the runner must discover every real suite; its exit code must reflect reality
 # (never assumed green -- it only proves the mechanism does not lie, whatever today's state is).
+# The expected count is every test-*.mjs PLUS the runner's own explicitly opted-in .sh suites
+# (EXPLICIT_SH_SUITES in run-engine-tests.sh) -- counting .mjs alone drifts the moment that list
+# grows, and a bare `test-*.sh` glob here would reintroduce the self-recursion the runner's own
+# header comment documents (this suite matches that glob itself). Read the array the SAME way the
+# runner defines it (a literal assignment line), never re-derive it via a directory listing.
 real_output=$(bash "$RUNNER" "$HERE/plugin/scripts" 2>&1)
 real_rc=$?
-real_count=$(ls "$HERE"/plugin/scripts/test-*.mjs | wc -l | tr -d ' ')
+mjs_count=$(ls "$HERE"/plugin/scripts/test-*.mjs | wc -l | tr -d ' ')
+sh_suite_line=$(grep -m1 '^EXPLICIT_SH_SUITES=' "$RUNNER")
+sh_suites=()
+if [ -n "$sh_suite_line" ]; then
+  eval "$sh_suite_line"
+  for _sh in "${EXPLICIT_SH_SUITES[@]}"; do
+    [ -f "$HERE/plugin/scripts/$_sh" ] && sh_suites+=("$_sh")
+  done
+fi
+real_count=$((mjs_count + ${#sh_suites[@]}))
 if echo "$real_output" | grep -q "of $real_count suites"; then
   echo "  OK real corpus: runner discovers all $real_count test-*.mjs suites"; pass=$((pass+1))
 else
