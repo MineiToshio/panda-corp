@@ -54,3 +54,18 @@ silent renewal lapse; `plugin/runtime/plugin-metadata.json` bumped and manifests
 ## Out of scope
 `LESSON-0096`'s own scope/wording (already resolved by BL-0099) and any change to `Monitor`'s general
 contract beyond this one renewal responsibility.
+
+## Corroborating occurrence (2026-09-22, mission-control speed-sprint canary A, run wf_4cef213a-463)
+A different specific mechanism, same fragility class as this item's ScheduleWakeup-chain finding: the
+supervisor's `Monitor` bash loop (capped at 30 min per the tool's own contract) left a **~13.5-minute gap**
+between its expiration and its re-arming; the build's atomic lease (TTL 600 s) expired during that gap and
+the engine's own end-of-build renewal attempt failed (`LEASE_RENEW_FAILED`). The build completed anyway
+(the run's other liveness signals — `last_event_at`, ongoing `AgentWorking` events — stayed fresh, so
+nothing treated the run as dead), but this is the second distinct way a supervisor-mounted lease-renewal
+mechanism has now proven to lapse when the renewal timer's own liveness depends on a bounded/managed tool
+lifecycle (a `ScheduleWakeup` chain that can silently stop re-firing, per this item's original finding; a
+`Monitor` loop with a hard cap that isn't guaranteed to re-arm promptly, per this occurrence) rather than
+on an independent, unconditional timer. Strengthens the case for this item's Fix plan direction (a renewal
+mechanism that does not ride on a capped/chained tool's own re-arming discipline) — but note the concrete
+fix needs to additionally cover the Monitor-cap re-arm gap, not just fold renewal into the Monitor loop as
+originally scoped, since the Monitor loop itself is what left the gap here.

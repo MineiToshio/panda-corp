@@ -63,3 +63,17 @@ canary" notes are updated to point at the actual run.
 ## Out of scope
 Building the canaries' fixtures or harness code (already shipped by WP-09/BL-0063/the sprint itself) —
 this item is the EXECUTION and the recorded verdict, not new machinery.
+
+## Partial execution evidence (2026-09-22, mission-control .pandacorp/run/lessons.md)
+Canary A ran at least once (run id `wf_4cef213a-463`, referenced separately as `wf_35a54be4-172` in
+BL-0141's own source line — same 2026-09-22 launch window, not yet reconciled to a single canonical run
+id). Two live findings came out of that run, NEITHER of which is this item's own acceptance-bar numbers
+(wall clock / `agentCount` / zero UI-gate passes were not captured in what reached memory harvest):
+(1) the engine crashed on its very first `agent()` spawn ('agent type pandacorp:mech not found') because
+the launching session's resident plugin (9.102.3) lagged the 9.103.0 engine it invoked — see BL-0141 (a
+runtime fallback fix exists on branch `fix-engine-agenttype-fallback`, **not yet merged to main** as of
+this note); (2) the supervisor's lease renewal lapsed mid-run (`LEASE_RENEW_FAILED`) via a Monitor-cap
+re-arm gap — see BL-0131's corroborating-occurrence note. Both are real defects independent of this item's
+own KPI question. This item stays OPEN: re-run Canary A cleanly (after BL-0141's fix lands on main) and
+record the actual wall-clock/`agentCount`/UI-gate-skip numbers against the acceptance bar above — this
+partial run does not satisfy "Done when."

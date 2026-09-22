@@ -61,3 +61,13 @@ citing WP-08 and WP-09; plugin version bumped per DR-034.
 ## Out of scope
 Redesigning the `scope:partial` cage or the 3x brake multiplier themselves (WP-08's own scope, already
 shipped and correct) — this item only fixes the budget INPUT the brake compares against.
+
+## Corroborating observation (2026-09-21, owner-stated, unverified)
+Independently of this item's own root-cause analysis, the owner voiced the same-shaped complaint from the
+outside: on a RED gate, `implement`'s repair loop feels like it "rehace demasiadas cosas" (redoes too much)
+instead of diagnosing and fixing the specific failure or exploring an alternative — a hypothesis, not yet
+confirmed against `track.jsonl` + `~/.claude/dashboard-events.ndjson`. This item's own fix (WP-08's targeted
+`--only`/`--files`-scoped repair, currently defaulting off because of the budget bug this item tracks) is
+exactly the mechanism that would address the owner's framing once `scopedRepair` can safely default to
+`true`. Worth re-checking the owner's hypothesis against real run data once this item's fix lands and
+`scopedRepair` flips on, to confirm the perceived over-correction goes away rather than assuming it does.

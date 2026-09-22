@@ -33,3 +33,16 @@ it was derived FROM the system's own current output rather than an independent s
 tested and trustworthy," run an adversarial review with a genuinely INDEPENDENT oracle (fresh context, no
 self-critique from the same agent/session that wrote the suite) — a characterization suite is a
 regression fence, not a correctness proof.
+
+**Corroborating occurrence (2026-09-22, same project — panda-corp/mission-control, the 2026-09
+implement-speed sprint, plugin v9.103.0):** twelve build-engine optimization packages (WP-01..WP-11, E2,
+E3, F1) each shipped with their own implementer-authored TDD suite, "no WP closes without
+`run-engine-tests.sh` green" — and every suite was green. Two independent adversarial review passes
+(fresh context, not shown the implementers' own reasoning) over the SAME integrated diff still found
+eleven distinct gaps (D-1..D-11; see `plugin/docs/decision-log.md` "Independent reviews," commit
+`fbeef8b3`), including a dropped lease-renewal call and a missing `.catch` on a backgrounded promise (see
+LESSON-0247) — none of which any of the six implementer-written suites had caught, because each suite only
+verified what its own author thought to test against the package's OWN stated goal, not the integrated
+whole. Same lesson, sharper evidence: "every relevant suite is green" is a claim about self-consistency
+with each author's own model of correctness, not about the integrated system being correct — and it holds
+even when there are multiple green suites from multiple different authors, not just one.
