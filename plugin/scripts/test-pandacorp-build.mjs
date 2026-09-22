@@ -2097,6 +2097,192 @@ SCENARIOS.push({
   },
 })
 
+// ═════════════════════════════════════════════════════════════════════════════
+// REV-* — ADVERSARIAL REVIEW SCENARIOS (speed sprint A/B, DR-015 independent reviewer)
+// Written by the reviewer, NOT by the implementers of WP-01/02/04/09/11. Each one probes a
+// boundary the sprint's own TDD did not: a mixed artifact list, a REJECTED (not merely null)
+// promise, a dirty-path list the engine must refuse to narrow, a deeper safe-point cadence,
+// the lease-renewal side effect the throttle silently also throttles, and the overlap the
+// WP-02 comment claims. A RED here is a finding, not a flaky test.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── REV-1. WP-01 heuristic, MIXED artifact list: a WO whose artifacts are mostly backend
+// (src/lib/**, scripts/**) but include ONE stylesheet is a UI-touching WO. artifactsTouchUi is an
+// ANY-match, so a single `.css` among lib globs must be enough to keep both UI-gated passes.
+SCENARIOS.push({
+  name: 'REV-1. WP-01 mixed artifacts — one .css among lib/script globs still runs foundation-gate AND visual-qa',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev1-mixed',
+    deps: [],
+    workOrders: [
+      mkWo('wo-rev1-001', 'PLANNED', { frd: 'frd-rev1-mixed', artifacts: ['src/lib/parse.ts', 'scripts/build.mjs', 'src/theme/palette.css'] }),
+    ],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'foundation-gate RAN — a .css artifact makes the WO UI-touching even among lib/script globs')
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa RAN — same ANY-match rule at the end-of-build pass')
+    t.ok(!hasLog(run, /omitido/), 'neither UI pass was logged as omitted')
+  },
+})
+
+// ── REV-2. WP-02 honest degradation, the case the sprint did NOT cover: visual-qa does not merely
+// return null — its agent() promise REJECTS (a terminal tool/API error surfaces as a throw, which the
+// harness models with `throws`). The close-out region must survive it exactly as it survives a null:
+// the closing agent still runs and the terminal RELEASE_LEASE is never lost. Today the engine awaits
+// the promise bare (engine :2226), so the rejection escapes the whole close-out.
+SCENARIOS.push({
+  name: 'REV-2. WP-02 — a REJECTED visual-qa promise must still reach the closing agent and the terminal lease release',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev2-throw',
+    deps: [],
+    workOrders: [mkWo('wo-rev2-001', 'PLANNED', { frd: 'frd-rev2-throw', artifacts: ['src/app/Widget.tsx'] })],
+  }], { hasFrontend: true }),
+  responses: [
+    { label: 'visual-qa', throws: new Error('terminal API error after retries') },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `the rejected visual-qa promise must NOT escape the close-out region (engine threw: ${run.error})`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa was attempted')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)
+    t.ok(closing.length === 1, 'a closing agent still ran despite the rejected visual-qa promise')
+    const leaseReleased = run.calls.some((c) => /finalize-release/.test(c.prompt))
+    t.ok(leaseReleased, 'the terminal two-phase lease release (quiesce -> commit -> finalize-release) still reaches some agent — running:false is never stranded')
+  },
+})
+
+// ── REV-3. WP-04 / BL-0124 — the exclusion must never widen. Four probes the sprint did not run.
+SCENARIOS.push({
+  name: 'REV-3a. WP-04 — status.yaml PLUS a second gitignored-looking path (.pandacorp/run/x) still escalates',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml', '.pandacorp/run/x'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'two dirty paths — even when the second one only LOOKS like runtime scratch — still run the full judge baseline')
+    t.ok(!hasLog(run, /BL-0124/), 'the BL-0124 fast-path log never fires for a multi-path dirty tree')
+  },
+})
+SCENARIOS.push({
+  name: 'REV-3b. WP-04 — a lone status.yaml diff WITHOUT leaseValid:true escalates (the fence is not optional)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'an unproven lease fence never buys the fast path')
+  },
+})
+SCENARIOS.push({
+  name: 'REV-3c. WP-04 — a dirtyPath carrying git-porcelain XY status characters does NOT match the exclusion',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: [' M .pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'a mis-shaped dirtyPaths entry fails SAFE (escalates) instead of being fuzzily matched')
+  },
+})
+SCENARIOS.push({
+  name: 'REV-3d. WP-04 — a BL-0022 root-guard failure outranks the BL-0124 fast path (red stays red)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { green: false, failure: 'BL-0022 root guard: project root is not a git repo', dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no judge baseline is dispatched on a root-guard failure')
+    t.ok(byLabel(run, 'plan').length === 0, 'the run never proceeds to planning on a root-guard failure')
+    t.ok(run.result && run.result.note === 'baseline red (needs manual fix)', 'the run stops on the baseline-red path, NOT on the BL-0124 green fast path')
+  },
+})
+
+// ── REV-4/5. WP-11 — a DEEPER targeted run (6 chained WOs => 7 wantSafePoint checkpoints) proves the
+// 1 + every-3rd cadence lands on checkpoints 1, 4 and 7 exactly; and (REV-5) that the throttle ALSO
+// throttles the engine's ONLY lease-renewal site (RENEW_LEASE is embedded in the safe-point prompt and
+// appears nowhere else in the engine — grep-verified), which the WP-11 rationale never accounts for.
+const revChain = (frd, n) => mkPlan([{
+  frd,
+  deps: [],
+  workOrders: Array.from({ length: n }, (_, i) =>
+    mkWo(`wo-${frd}-${String(i + 1).padStart(3, '0')}`, 'PLANNED', {
+      frd,
+      artifacts: [`src/${frd}/s${i + 1}/**`],
+      deps: i === 0 ? [] : [`wo-${frd}-${String(i).padStart(3, '0')}`],
+    })),
+}])
+SCENARIOS.push({
+  name: 'REV-4. WP-11 — a targeted run with 7 safe-point checkpoints fires them at 1, 4 and 7 (and skips 2,3,5,6)',
+  args: { mode: 'pro', frds: ['frd-rev4'] },
+  plan: revChain('frd-rev4', 6),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const skipped = run.logs.filter((l) => /safe point #\d+ saltado/.test(l)).map((l) => Number(/safe point #(\d+)/.exec(l)[1]))
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length + skipped.length === 7, `the shape produces 7 safe-point checkpoints (ran ${sp.length} + skipped ${skipped.length})`)
+    t.ok(sp.length === 3, `exactly 3 safe points actually run under the 1 + every-3rd throttle (got ${sp.length})`)
+    t.ok(JSON.stringify(skipped) === JSON.stringify([2, 3, 5, 6]), `the skipped checkpoints are exactly 2,3,5,6 — i.e. the run ones are 1,4,7 (skipped: ${JSON.stringify(skipped)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'REV-5. WP-11 — every safe-point checkpoint must still RENEW the lease (RENEW_LEASE is the engine\'s only renewal site)',
+  args: { mode: 'pro', frds: ['frd-rev5'] },
+  plan: revChain('frd-rev5', 6),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const skipped = run.logs.filter((l) => /safe point #\d+ saltado/.test(l)).length
+    const checkpoints = byLabel(run, 'safe-point').length + skipped
+    const renewals = run.calls.filter((c) => /renew --project/.test(c.prompt)).length
+    t.ok(checkpoints === 7, `sanity: the shape produced the expected 7 checkpoints (got ${checkpoints})`)
+    t.ok(renewals >= checkpoints, `the atomic lease is renewed at EVERY checkpoint boundary, not only at the un-throttled ones — the lease TTL is 600s and this is the engine's only renewal site (renewals=${renewals}, checkpoints=${checkpoints})`)
+  },
+})
+
+// ── REV-6. WP-02 claim check. The engine comment (:2187-2190) states visual-qa's wall-clock "overlaps"
+// the hardening chain. It does not: the await sits at :2226, ABOVE the `allDone` block that calls
+// runHardeningChain(). This scenario pins the ACTUAL (and, for the single-git-writer discipline, the
+// SAFE) behaviour — visual-qa is fully settled before the first hardening spawn — so the comment's
+// claim is measurably false and the sprint's headline wall-clock win is not realized here.
+globalThis.__revVqSettled = false
+globalThis.__revSecSawSettledVq = null
+SCENARIOS.push({
+  name: 'REV-6. WP-02 — visual-qa is fully RESOLVED before the hardening chain starts (no real overlap; the engine comment overstates it)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev6-ui',
+    deps: [],
+    workOrders: [mkWo('wo-rev6-001', 'PLANNED', { frd: 'frd-rev6-ui', artifacts: ['src/app/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  responses: [
+    // a visual-qa that takes real (async) time to settle: if the engine genuinely overlapped it with the
+    // hardening chain, `visualQaSettled` would still be false when the first hardening agent is spawned.
+    { label: 'visual-qa', response: async () => { await new Promise((r) => setTimeout(r, 25)); globalThis.__revVqSettled = true; return { done: true } } },
+    { label: 'hardening:security-audit', response: () => { globalThis.__revSecSawSettledVq = globalThis.__revVqSettled === true; return { done: true } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa ran')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 1, 'the hardening chain ran (bare, all-verified run reaches allDone)')
+    t.ok(globalThis.__revSecSawSettledVq === true, 'visual-qa had ALREADY settled when the hardening chain started — the passes are serial, not overlapped (keeps a single git writer, but the WP-02 comment claims otherwise)')
+  },
+})
+
+// ── REV-7. WP-01 heuristic gap: artifact paths that are unambiguously UI but match none of
+// UI_ARTIFACT_RE's alternatives (engine :1337) — the Tailwind config that owns every token, and a
+// public/ image the routes render. Both currently read as "no UI artifacts" and silently skip the
+// DR-057 foundation gate and the DR-072 visual-QA pass.
+SCENARIOS.push({
+  name: 'REV-7. WP-01 — tailwind.config.ts + public/*.svg are UI artifacts and must NOT skip the UI-gated passes',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev7-gap',
+    deps: [],
+    workOrders: [mkWo('wo-rev7-001', 'PLANNED', { frd: 'frd-rev7-gap', artifacts: ['tailwind.config.ts', 'public/hero.svg'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'foundation-gate must run — tailwind.config.ts owns the design tokens the DR-057 foundation check exists for')
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa must run — a Tailwind config + a rendered public/ asset are exactly the fidelity surface DR-072 protects')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

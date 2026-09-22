@@ -232,6 +232,76 @@ else
 fi
 rm -rf "$FX"
 
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# REV-* — ADVERSARIAL REVIEW SCENARIOS (speed sprint A/B, DR-015 independent reviewer).
+# Written by the reviewer, not by WP-05's implementers.
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+# --- REV-A: the LAST of the 9 cheap gates (madge) is the ONLY red one, everything before it green.
+# The aggregate abort at the bottom of the cheap block must still exit non-zero (LESSON-0078: the
+# PIPESTATUS capture, not `$?` after the tee pipe) and must NOT let vitest/playwright run.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+out=$(WP05_FAIL_MADGE=1 run_verify "$FX" --report-all); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -ne 0 ] && [ -f "$rf" ]; then
+  green=$(json_get "$rf" "d['green']")
+  count=$(json_get "$rf" "len(d['subgates'])")
+  failed_names=$(json_get "$rf" "sorted(s['name'] for s in d['subgates'] if s['exit'] != 0)")
+  ran_expensive=$(json_get "$rf" "any(s['name'] in ('vitest','playwright') for s in d['subgates'])")
+  if [ "$green" = "False" ] && [ "$count" = "9" ] && [ "$failed_names" = "['madge']" ] && [ "$ran_expensive" = "False" ]; then
+    ok "(REV-A) --report-all with only the 9th cheap gate red: exit=$rc, green:false, all 9 cheap gates reported, madge the only failure, no expensive layer run"
+  else
+    bad "(REV-A) expected green=False count=9 failed=['madge'] expensive=False — got green=$green count=$count failed=$failed_names expensive=$ran_expensive" "$out"
+  fi
+else
+  bad "(REV-A) a red 9th cheap gate must still exit non-zero with a written report (rc=$rc, report exists=$([ -f "$rf" ] && echo yes || echo no))" "$out"
+fi
+rm -rf "$FX"
+
+# --- REV-B: a cheap gate that fails with NO output at all must never record an EMPTY failures[]
+# (DR-078 fail-loud: "source is empty" and "could not interpret it" must not collapse into silence).
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+cat > "$FX/bin/pnpm" <<'SILENT'
+#!/bin/bash
+case "$1" in
+  knip) exit 1 ;;   # red, and deliberately prints NOTHING
+  *) exit 0 ;;
+esac
+SILENT
+chmod +x "$FX/bin/pnpm"
+out=$(run_verify "$FX" --report-all); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -ne 0 ] && [ -f "$rf" ]; then
+  nonempty=$(json_get "$rf" "all(len(s['failures']) > 0 for s in d['subgates'] if s['exit'] != 0)")
+  if [ "$nonempty" = "True" ]; then
+    ok "(REV-B) a silent red gate still records a non-empty failures[] (never a quiet empty array)"
+  else
+    bad "(REV-B) a red gate recorded an EMPTY failures[] — a reader cannot tell 'no findings' from 'unparsed'" "$out"
+  fi
+else
+  bad "(REV-B) expected a non-zero exit + a written report (rc=$rc)" "$out"
+fi
+rm -rf "$FX"
+
+# --- REV-C: LESSON-0155 across the `--canary` branch. verify.sh deletes the stale report at :63,
+# but the `--canary` early `exec`/exit at :44-47 runs BEFORE that, so a report left by a PREVIOUS
+# verify run survives a canary run and a machine reader takes it as the current verdict.
+# Minimal fix: move the REPORT_DIR/REPORT_FILE/`mkdir -p`/`rm -f` block (:60-63) ABOVE the --canary branch.
+FX=$(new_fixture)
+mkdir -p "$FX/.pandacorp/run"
+echo '{"at":"1999-01-01T00:00:00Z","scope":"full","green":true,"subgates":[{"name":"stale-marker","exit":0,"duration_ms":1,"failures":[]}]}' > "$(report_path "$FX")"
+out=$(run_verify "$FX" --canary); rc=$?
+rf=$(report_path "$FX")
+if [ ! -f "$rf" ]; then
+  ok "(REV-C) a --canary run does not leave a stale prior-run gate-report.json behind"
+else
+  stale_at=$(json_get "$rf" "d['at']")
+  bad "(REV-C) a stale prior-run gate-report.json SURVIVED a --canary run (at=$stale_at) — LESSON-0155 says it must never be readable as this run's verdict" "$out"
+fi
+rm -rf "$FX"
+
 echo ""
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
