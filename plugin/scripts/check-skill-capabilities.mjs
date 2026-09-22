@@ -15,7 +15,7 @@ for (const skill of matrix.skills) for (const runtime of ["claude", "codex"]) {
   if (!entry.evidence?.kind || !entry.evidence?.verified_at || !entry.evidence?.verifier) fail(`${skill.slug}/${runtime} lacks dated verifier evidence`);
   if (runtime === "codex" && entry.status === "PROVEN" && entry.evidence.kind === "static-contract-only") fail(`${skill.slug}/codex inflates static evidence to PROVEN`);
 }
-const expectedInternal = new Set(["bug", "iterate", "new-version", "scaffold", "work-orders"]);
+const expectedInternal = new Set(["absorb", "bug", "iterate", "memory", "new-version", "scaffold", "work-orders"]);
 for (const skill of matrix.skills) if (skill.user_invocable === expectedInternal.has(skill.slug)) fail(`${skill.slug} user_invocable projection is wrong`);
 for (const skill of matrix.skills) {
   const sidecar = path.join(root, "plugin/skills", skill.slug, "agents/openai.yaml");
