@@ -120,6 +120,7 @@ function defaultResponse(label) {
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
   if (label === 'sync-rollups') return { corrected: 0 }
   if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
+  if (label === 'renew-lease') return { stop: false }         // REV-5: minimal renewal-only spawn on a throttled safe-point boundary (RENEW_LEASE_SCHEMA)
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
@@ -2280,6 +2281,35 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(byLabel(run, 'foundation-gate').length === 1, 'foundation-gate must run — tailwind.config.ts owns the design tokens the DR-057 foundation check exists for')
     t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa must run — a Tailwind config + a rendered public/ asset are exactly the fidelity surface DR-072 protects')
+  },
+})
+
+// ── REV-D6. WP-01/WP-02 fail-closed empty-builtWos guard. builtWos is derived at both close-out sites
+// as `builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])` — a frdState MISS for
+// every built FRD is not reachable through a normal simulated run (frdState.set happens synchronously
+// for every plan.frds entry before anything can build, so nothing ever reaches builtFrds without an
+// entry), so this is unit-tested directly against the REAL production text: extract UI_ARTIFACT_RE,
+// artifactsTouchUi and uiPassesRequired verbatim from the engine source (never re-implemented here) and
+// exercise uiPassesRequired([]) — the shape an empty/miss builtWos list takes at either call site.
+function loadUiPassesRequired(forceUiPasses) {
+  const extractConst = (name) => {
+    const m = source.match(new RegExp(`const ${name} = [^\\n]*\\n`))
+    if (!m) throw new Error(`REV-D6 harness: could not find 'const ${name}' in the engine source — update the extraction`)
+    return m[0]
+  }
+  const body = `const FORCE_UI_PASSES = forceUiPasses;\n${extractConst('UI_ARTIFACT_RE')}${extractConst('artifactsTouchUi')}${extractConst('uiPassesRequired')}return uiPassesRequired;`
+  return new Function('forceUiPasses', body)(forceUiPasses)
+}
+SCENARIOS.push({
+  name: 'REV-D6. WP-01/WP-02 — an EMPTY builtWos (frdState miss OR a genuinely zero-WO FRD) fails CLOSED, never silently reads as "no UI"',
+  args: { mode: 'pro' },
+  assert(t) {
+    const uiPassesRequired = loadUiPassesRequired(false)
+    t.ok(uiPassesRequired([]) === true, 'an EMPTY builtWos list forces the UI-gated passes to run (fail-closed on an unreadable/miss state, not a silent skip)')
+    t.ok(uiPassesRequired([{ artifacts: ['src/lib/parse.ts'] }]) === false, 'a REAL non-empty, non-UI builtWos list still correctly skips — the fix does not relax the existing per-WO heuristic (REV-1/G13a unaffected)')
+    t.ok(uiPassesRequired([{ artifacts: ['src/app/Page.tsx'] }]) === true, 'a REAL UI-touching builtWos list still correctly forces the passes (G13c unaffected)')
+    const forced = loadUiPassesRequired(true)
+    t.ok(forced([{ artifacts: ['src/lib/parse.ts'] }]) === true, 'args.forceUiPasses still forces the passes regardless of builtWos content (G13d unaffected)')
   },
 })
 

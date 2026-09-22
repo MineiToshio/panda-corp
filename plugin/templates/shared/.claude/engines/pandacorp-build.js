@@ -69,7 +69,14 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     into whichever closing agent actually fires (WP-02, proposal 37 / FRD-24 measurement). Use `false`
 //     if a close-out regression needs isolating from this change.
 const MODE = (args && args.mode) || 'powerful'
-const STRICT_BASELINE = Boolean(args && args.strictBaseline === true)   // BL-0124 escape hatch — see the arg doc above
+// D-9: the args-string guard above (line ~17) re-parses the WHOLE args blob when scriptPath delivers it
+// JSON-stringified once — but that does NOT protect an individual boolean flag arriving as the literal
+// JS STRING "true"/"false" instead of a JSON boolean, e.g. a future launch-implement.sh flag built the
+// same way maxAgents/maxFrds/maxSpend already are (a raw shell value passed through) but WITHOUT their
+// existing Number() cast. Tolerate both shapes for every boolean escape hatch below — never only the
+// strict boolean — so a stringly-typed flag fails safe instead of silently taking its opposite default.
+const argBool = (a, key, expect) => Boolean(a && (a[key] === expect || a[key] === String(expect)))
+const STRICT_BASELINE = argBool(args, 'strictBaseline', true)   // BL-0124 escape hatch — see the arg doc above
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
 const CHANGE = (args && args.change) ? String(args.change).split('/').pop().replace(/\.md$/, '') : null
 // Normalize frds: accept folder name, 'docs/frds/<folder>', 'docs/frds/<folder>/frd.md' → folder name only
@@ -82,17 +89,26 @@ let ONLY = (args && !args.change && args.frds) ? args.frds.map(normalizeFolder) 
 // the LAUNCH args (immutable — ONLY gets reassigned to the change's affected FRDs at line ~351, so we
 // can't derive intent from ONLY later; this const captures "was this launched as targeted" up front).
 const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)
-// WP-11: safePoint() drains NOTHING on a targeted run (DR-069 — it returns ready: [] by design), so
-// calling it at every wave boundary is near-pure overhead (FRD-24 measured 2 × ~52s = 105s for zero
-// drain). Ideal would be "skip if <10 min since the last safe point", but Date.now()/new Date() are
-// unavailable in a Workflow script (they would break resume) and safePoint()'s own prompt/schema is out
-// of scope for this change — no safe way to obtain "now" from here. Fallback, counted in-engine
-// (deterministic, replay-safe — not wall time): once per run (the first wave boundary) + once every
-// SAFE_POINT_WAVE_THROTTLE boundaries after that. A bare run (drains the queue) is UNCHANGED — every
-// boundary, as before. args.safePointEveryWave === true restores the unthrottled cadence for a targeted
-// run too (escape hatch).
+// WP-11: safePoint() drains NOTHING on a targeted run (DR-069 — it returns ready: [] by design), but it
+// is NOT pure overhead there — the SAME prompt also renews the run's atomic lease (RENEW_LEASE is the
+// engine's ONLY renewal site), consumes the owner's stop/rethink signal, and re-enrolls decision-unblocked
+// WOs. Only the queue-drain part is genuinely a no-op on a targeted run. Calling the WHOLE thing at every
+// wave boundary is still real, measured overhead on a targeted run (FRD-24: 2 × ~52s = 105s for zero
+// drain), and the stop-signal/decision-unblock checks tolerate a lower cadence (bounded by the throttle
+// below, so they're never starved for more than SAFE_POINT_WAVE_THROTTLE boundaries) — but lease renewal
+// does NOT tolerate it: the TTL is 600s (build-state.mjs), and a long targeted run left unrenewed between
+// throttled checkpoints risks the lease expiring mid-build (REV-5). Ideal would be "skip if <10 min since
+// the last safe point", but Date.now()/new Date() are unavailable in a Workflow script (they would break
+// resume) and safePoint()'s own prompt/schema is out of scope for this change — no safe way to obtain
+// "now" from here. Fallback, counted in-engine (deterministic, replay-safe — not wall time): the FULL
+// safe point runs once per run (the first wave boundary) + once every SAFE_POINT_WAVE_THROTTLE boundaries
+// after that; every OTHER (throttled/skipped) boundary still fires a minimal renewal-only spawn (RENEW_LEASE
+// alone, no stop/rethink check, no drain) so the lease never goes an unbounded number of boundaries without
+// renewal. A bare run (drains the queue) is UNCHANGED — every boundary runs the full safe point, as before.
+// args.safePointEveryWave === true restores the unthrottled full-safe-point cadence for a targeted run too
+// (escape hatch).
 const SAFE_POINT_WAVE_THROTTLE = 3
-const SAFE_POINT_EVERY_WAVE = Boolean(args && args.safePointEveryWave === true)
+const SAFE_POINT_EVERY_WAVE = argBool(args, 'safePointEveryWave', true)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
@@ -101,8 +117,8 @@ const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // hea
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 const FOUNDATION_GATE_NULL_CAP = (args && args.foundationGateNullCap) || 2   // WS-D/D5: a SEPARATE cap for null/garbled foundation-completeness gate verdicts (a dead gate agent) — counted on its OWN counter so a couple of dead gates never eat the real repair budget (FOUNDATION_REPAIR_CAP), and vice-versa
 const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
-const FORCE_UI_PASSES = Boolean(args && args.forceUiPasses === true)   // WP-01 escape hatch: always run the foundation-completeness gate + end-of-build visual-QA pass, bypassing the UI-artifact heuristic (artifactsTouchUi)
-const LEAN_CLOSE_OUT = !(args && args.leanCloseOut === false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
+const FORCE_UI_PASSES = argBool(args, 'forceUiPasses', true)   // WP-01 escape hatch: always run the foundation-completeness gate + end-of-build visual-QA pass, bypassing the UI-artifact heuristic (artifactsTouchUi)
+const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
 const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at most this many in-place patch attempts per gate cycle (patch-1 + one diagnosis-guided patch-2); beyond it the ladder reverts+rebuilds instead of a 3rd patch — reopen_count stays the hard non-progress budget
@@ -132,6 +148,10 @@ const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE
 // GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
 const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
+// REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
+// never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
+// renewal-only spawn below, which does NOT run the rest of the safe-point checklist.
+const RENEW_LEASE_SCHEMA = { type: 'object', properties: { stop: { type: 'boolean', description: 'true iff the lease renewal itself failed — the engine stops rather than continue building on an unrenewed/lost lease' } } }
 const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`${STATE_CLI_COMMAND} quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`${STATE_CLI_COMMAND} finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
 const INSPECT_STOP = `${STATE_CLI_COMMAND} inspect-stop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"`
 
@@ -1364,7 +1384,7 @@ const artifactsOverlap = (a, b) => {
 // Matches the same artifact globs `artifactsOverlap` already reads (WO frontmatter `artifacts:`), so
 // no new data source. FAIL-CLOSED the same way as artifactsOverlap (:1300): a WO with UNDECLARED
 // artifacts can't be proven UI-free, so it counts as UI-touching (never a silent skip on missing data).
-const UI_ARTIFACT_RE = /(^|\/)(src\/app\/|src\/components\/)|\.(tsx|jsx|css|scss)$|design-tokens\.json$|(^|\/)DESIGN\.md$/
+const UI_ARTIFACT_RE = /(^|\/)(src\/app\/|src\/components\/|src\/styles\/|public\/)|\.(tsx|jsx|css|scss|svg|html|mdx)$|design-tokens\.json$|tailwind\.config\.|(^|\/)DESIGN\.md$/
 /**
  * True if ANY of the given work orders may touch a UI surface — either because an artifact glob
  * matches `UI_ARTIFACT_RE`, or because the work order declares no artifacts at all (fail-closed,
@@ -1372,6 +1392,13 @@ const UI_ARTIFACT_RE = /(^|\/)(src\/app\/|src\/components\/)|\.(tsx|jsx|css|scss
  * silently skipped). An empty `wos` list is vacuously false (nothing ready/built to protect).
  */
 const artifactsTouchUi = (wos) => wos.some((w) => !(w.artifacts && w.artifacts.length) || w.artifacts.some((a) => UI_ARTIFACT_RE.test(a)))
+// REV-D6: artifactsTouchUi's own "empty list is vacuously false" is correct FOR IT (nothing ready/built
+// to protect, in isolation) — but its two call sites derive `builtWos` from `frdState.get(frd)`, and an
+// EMPTY result there is ambiguous: it means either "this FRD genuinely has no work orders" (fine, vacuous)
+// OR "frdState has no entry for an FRD builtFrds says we built" (a data-integrity miss — unreadable, not
+// provably UI-free). The two are indistinguishable from the call site, so both must fail closed alike:
+// shared by both the lean and legacy close-out dispatch sites, so the fail-closed rule has one home.
+const uiPassesRequired = (builtWos) => FORCE_UI_PASSES || !builtWos.length || artifactsTouchUi(builtWos)
 // DR-073 cost-weighting (WS-A F1/D2): the wave must respect the COST budget, not a raw WO count —
 // each WO spawns COST(model)+1 agents (build + its serialized commit; 3×COST+2 in the split relay),
 // so a full opus fan-out used to overshoot maxAgents by ~4× mid-wave (a 6-cap run reached 13). The
@@ -1959,7 +1986,15 @@ while (true) {
       gateSettledSinceSafePoint = false
       if ((await safePoint()) === 'stop') { stopReason = 'rethink'; break }
     } else {
-      log(`⊘ safe point #${safePointChecks} saltado (build dirigido, no drena nada — WP-11: 1×/corrida + 1×/${SAFE_POINT_WAVE_THROTTLE} boundaries; args.safePointEveryWave:true restaura la cadencia por ola)`)
+      // REV-5: the throttle skips the FULL safe point (queue drain + stop/rethink signal + decision
+      // unblock), but RENEW_LEASE is embedded ONLY in that prompt — the engine's single lease-renewal
+      // site (600s TTL, build-state.mjs). A skipped boundary must still renew the lease on its own,
+      // minimally, or a long targeted run silently stops renewing between throttled checkpoints.
+      agentSpawned++
+      const renewal = await agent(RENEW_LEASE,
+        { label: 'renew-lease', phase: 'Build', model: MECH, agentType: 'pandacorp:implementer', schema: RENEW_LEASE_SCHEMA })
+      if (renewal && renewal.stop === true) { stopReason = 'rethink'; log('⏸ renovación de lease falló en un safe point saltado — el motor para (fail closed, DR-069)'); break }
+      log(`⊘ safe point #${safePointChecks} saltado (build dirigido, no drena nada — WP-11: 1×/corrida + 1×/${SAFE_POINT_WAVE_THROTTLE} boundaries; args.safePointEveryWave:true restaura la cadencia por ola; lease renovada igual)`)
     }
   }
 
@@ -2184,11 +2219,18 @@ if (LEAN_CLOSE_OUT) {
   // ═══ WP-02 lean close-out (default; args.leanCloseOut:false falls back to the legacy shape below)
   // proposal 37 / FRD-24 measurement: visual-qa 761s + archive-changes 34s + notify-end 186s +
   // release-lease 24s, all fully serial. Two changes from the legacy shape:
-  //  (1) visual-qa FIRES as a promise here and is AWAITED only right before the run's terminal closing
-  //      agent below — nothing in between (the archive fold-in, the hardening chain) DEPENDS on its
-  //      result (the punch-list/fixes are advisory, DR-072), so its wall-clock overlaps that unrelated
-  //      work instead of stacking serially in front of it. A null/unconfirmed result degrades HONESTLY:
-  //      logged, and folded into the closing prompt as an explicit partial-result note — never silence.
+  //  (1) visual-qa FIRES as a promise here, but it is RESOLVED (awaited, below) BEFORE the hardening
+  //      chain starts — NOT overlapped with it (REV-6). That is deliberate, not a missed opportunity:
+  //      hardening's own agents (security-fix, telemetry) `git commit` to this SAME shared working tree
+  //      (no worktree isolation here, unlike the per-WO build wave — see the archive-fold rationale in
+  //      (2) below), and visual-qa's own end-of-build pass also commits (DR-072 cosmetic fixes) — two
+  //      concurrent `git commit`s on one tree risk the exact index.lock race the wave's single-
+  //      serialized-writer design (line ~2010) already exists to avoid. What firing it as a promise
+  //      DOES buy: the archive-fold work between its dispatch and its await (computing archiveStep,
+  //      logging) runs while visual-qa's agent call is in flight, instead of waiting on it FIRST. A
+  //      REJECTED promise (a terminal tool/API error) is caught at the dispatch site (`.catch(() =>
+  //      null)`) so it degrades exactly like a null result — never escapes the await and strands the
+  //      close-out before it reaches the terminal lease release (REV-2).
   //  (2) archive-changes and release-lease are FOLDED into whichever of the three closing prompts fires,
   //      instead of spawning as separate agents — cutting the close-out region from 3 serial spawns to 1
   //      in the common case. Chosen over running archive-changes in parallel() with the closing agent
@@ -2199,11 +2241,15 @@ if (LEAN_CLOSE_OUT) {
   let visualQaNote = ''
   if (plan.hasFrontend && builtFrds.length) {
     const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
-    if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
+    if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
       agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
+      // REV-2: a REJECTED promise (terminal tool/API error) must degrade exactly like a null result —
+      // caught HERE, at dispatch, so the bare `await visualQaPromise` below can never throw and strand
+      // the close-out region before it reaches the terminal lease release.
       visualQaPromise = agent(visualQaPromptBody(builtFrds),
         { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+        .catch(() => null)
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
       visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
@@ -2280,7 +2326,7 @@ if (LEAN_CLOSE_OUT) {
   let visualQaSkipEvent = ''
   if (plan.hasFrontend && builtFrds.length) {
     const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
-    if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
+    if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
       agentSpawned += COST(P.judge)
       await agent(visualQaPromptBody(builtFrds),
