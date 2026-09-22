@@ -10,6 +10,15 @@
   decides HOW MUCH evidence it must collect. An agent may only ESCALATE the derived level, stating
   why in `rigor_reasons`; nothing may lower it, and a floor hit (auth, money, PII, persistence,
   irreversible, secrets, the oracles, the factory's machinery) is always `critical`.
+  `/pandacorp:change` writes a PROVISIONAL verdict at capture time, derived with `--files` over the
+  paths the change will plausibly touch; `--files` carries no diff body, so it can never certify
+  `micro`. The DEFINITIVE verdict is recomputed with `--range` over the real diff before close-out
+  and overwrites the provisional one.
+
+  A change handed back for the owner (the fast path's gate stayed red, or the real diff came out
+  `critical`) is recorded as `status: draft` plus a `## Bloqueado` section in the body, never as a
+  new status token: the build drains only `ready`, so `draft` already keeps it from being drained,
+  and the queue's readers (the build's drain, Mission Control's validator) accept no other value.
 
   `implemented_sha` / `closing_at` are written ONLY by `/pandacorp:sync`'s close-out mode, the
   instant it starts closing an already-implemented card (`status: closing`); never authored by
