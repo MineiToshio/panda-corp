@@ -176,6 +176,15 @@ const S7_CONTENT = [
 ];
 
 /**
+ * S7 — REV2-B: a real secret base64-encoded under an innocuous identifier carries a plaintext key
+ * shape straight past S7_CONTENT (that scan never decodes anything). A QUOTED base64-alphabet
+ * literal of 32+ chars (long enough that a short unrelated token can't false-positive) is decoded
+ * and S7_CONTENT is re-applied to the RESULT — the same floor patterns, just given a chance to see
+ * through the encoding.
+ */
+const BASE64_LITERAL = /["']([A-Za-z0-9+/]{32,}={0,2})["']/;
+
+/**
  * S8 — irreversible operations and data loss, detected in ADDED content.
  * Fragmented literals (see the header note): nothing here is ever executed.
  */
@@ -194,6 +203,21 @@ const S8_CONTENT = [
   /\bgit\s+clean\s+-[a-zA-Z]*[dx]/,
   /\b(vercel|wrangler|fly|netlify)\s+(deploy|publish)\b/,
 ];
+
+/**
+ * S8 — REV2-A: SQL_DELETE/SQL_DROP are matched PER ADDED LINE (see findContent), so a statement
+ * built as a string-literal array (`["DELETE", "FROM sessions"].join(" ")`) and formatted one
+ * token per line evades the floor — `\s+` alone cannot bridge the quote/comma/newline between the
+ * two literals. These GAP-TOLERANT variants are for a SEPARATE per-FILE scan of the added lines
+ * JOINED together (`added.join("\n")`, see findContentJoined below): the bounded
+ * `[^A-Za-z0-9]{0,20}` gap crosses quotes, commas and newlines a split literal introduces while
+ * still requiring the two tokens close enough together that it is plainly the same statement, not
+ * two unrelated words that happen to share a file.
+ */
+const SQL_DELETE_JOINED = new RegExp(String.raw`\b` + "DELETE" + String.raw`\b[^A-Za-z0-9]{0,20}` + "FROM" + String.raw`\b`, "i");
+const SQL_DROP_JOINED = new RegExp(String.raw`\b` + "DROP" + String.raw`\b[^A-Za-z0-9]{0,20}(TABLE|DATABASE|SCHEMA|INDEX|COLUMN)\b`, "i");
+/** The patterns re-checked against each file's ADDED lines joined, so a multi-token floor pattern split across lines by quotes/commas/newlines still hits (REV2-A). */
+const S8_CONTENT_JOINED = [SQL_DELETE_JOINED, SQL_DROP_JOINED, ...S8_CONTENT];
 
 /**
  * S9 — the oracles themselves (DR-080). Any touch of these is critical.
@@ -433,7 +457,11 @@ function readFrontmatter(file, label) {
  */
 function reverseDependency(opts, ctx, notes) {
   const bin = path.join(ctx.repoRoot, "node_modules/.bin/madge");
-  if (!existsSync(bin)) { notes.push("S17: skipped (madge unavailable)"); return null; }
+  // D3: madge missing is a TOOL absence, not a classifier failure and not "nothing recognisable"
+  // (S15) — the caller floors this at `normal` (never `micro`, never `critical`), distinct from
+  // every OTHER skip reason below (historical range, no source root, a failed run), which stay
+  // genuinely unscored: those are deliberate scope decisions, not "we could not check".
+  if (!existsSync(bin)) { notes.push("S17: skipped (madge unavailable)"); return { skipped: "unavailable" }; }
   if (opts.mode === "range" && !isHeadRange(opts, ctx)) {
     notes.push("S17: skipped (historical range — the on-disk import graph does not describe it)");
     return null;
@@ -501,12 +529,14 @@ function classify(opts, ctx) {
   const allAdded = [];
   const codeAdded = [];
   const schemaAdded = [];
+  const codeAddedJoinedByFile = [];   // REV2-A: { path, joined } per non-prose file — added lines glued with "\n"
   for (const [p, lines] of ctx.addedByFile) {
     const prose = anyMatch(PROSE_PATHS, p);
     for (const l of lines) {
       allAdded.push({ path: p, line: l });
       if (!prose) codeAdded.push({ path: p, line: l });
     }
+    if (!prose && lines.length) codeAddedJoinedByFile.push({ path: p, joined: lines.join("\n") });
     if (anyMatch(SCHEMA_ISH, p)) for (const l of lines) schemaAdded.push({ path: p, line: l });
   }
   const findContent = (bucket, patterns) => {
@@ -514,6 +544,32 @@ function classify(opts, ctx) {
       for (const re of patterns) {
         const m = line.match(re);
         if (m) return { path: p, match: m[0].trim().slice(0, 60) };
+      }
+    }
+    return null;
+  };
+  // REV2-A: a per-LINE scan (findContent above) misses a multi-token pattern split across two
+  // added lines (a destructive statement built as a string-literal array, one token per line). This
+  // scans each file's added lines JOINED, so the pattern can span a line break.
+  const findContentJoined = (bucket, patterns) => {
+    for (const { path: p, joined } of bucket) {
+      for (const re of patterns) {
+        const m = joined.match(re);
+        if (m) return { path: p, match: m[0].trim().slice(0, 60).replace(/\s+/g, " ") };
+      }
+    }
+    return null;
+  };
+  // REV2-B: decode a quoted base64-shaped literal and re-check S7_CONTENT against the plaintext.
+  const findBase64Secret = (bucket) => {
+    for (const { path: p, line } of bucket) {
+      const m = line.match(BASE64_LITERAL);
+      if (!m) continue;
+      let decoded;
+      try { decoded = Buffer.from(m[1], "base64").toString("utf8"); } catch { continue; }
+      for (const re of S7_CONTENT) {
+        const dm = decoded.match(re);
+        if (dm) return { path: p, match: dm[0].trim().slice(0, 60) };
       }
     }
     return null;
@@ -564,11 +620,11 @@ function classify(opts, ctx) {
   // --- S7 · FLOOR secrets / infra / factory machinery ---------------------------------------
   const s7Path = files.find((f) => anyMatch(S7_PATHS, f.path));
   if (s7Path) add("S7", "critical", `secrets/infra/factory surface: ${s7Path.path}`);
-  const s7Content = findContent(allAdded, S7_CONTENT);
+  const s7Content = findContent(allAdded, S7_CONTENT) || findBase64Secret(allAdded);
   if (s7Content) add("S7", "critical", `key-shaped literal in added content (${s7Content.path})`);
 
   // --- S8 · FLOOR irreversible / data loss ---------------------------------------------------
-  const s8 = findContent(codeAdded, S8_CONTENT);
+  const s8 = findContent(codeAdded, S8_CONTENT) || findContentJoined(codeAddedJoinedByFile, S8_CONTENT_JOINED);
   if (s8) add("S8", "critical", `irreversible/destructive operation added: '${s8.match}' (${s8.path}) — owner gate`);
 
   // --- S9 · FLOOR the oracles themselves (DR-080) --------------------------------------------
@@ -607,7 +663,14 @@ function classify(opts, ctx) {
 
   // --- S17 · reverse dependency -------------------------------------------------------------
   const rev = reverseDependency(opts, ctx, notes);
-  if (rev) add("S17", "critical", `floor file ${rev.from} transitively imports touched ${rev.to}`);
+  if (rev && rev.skipped === "unavailable") {
+    // D3: tool absence, not a classifier failure — floor at `normal`, never `micro` (we genuinely
+    // cannot certify no floor file transitively imports what this change touched) and never
+    // `critical` (that would misrepresent an environment gap as a confirmed floor hit).
+    add("S17", "normal", "madge is not installed — cannot certify no reverse-dependency risk onto a floor file");
+  } else if (rev) {
+    add("S17", "critical", `floor file ${rev.from} transitively imports touched ${rev.to}`);
+  }
 
   // --- composition: max wins, then S16 raises one level ---------------------------------------
   let level = reasons.reduce((acc, r) => (rank(r.level) > rank(acc) ? r.level : acc), "micro");

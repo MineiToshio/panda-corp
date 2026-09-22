@@ -118,8 +118,11 @@ echo "== classify-change.sh =="
 # (1)
 echo "Case 1 — 8 lines of CSS"
 run --repo "$REPO" --range "$(rng "$C_CSS")"
-expect_rigor micro "css-only micro"
+# D3: this fixture repo has no node_modules/.bin/madge, so S17 floors every case at >= normal
+# (never micro — see reverseDependency's "unavailable" branch); S1 still reports underneath it.
+expect_rigor normal "css-only, floored to normal by S17 (madge unavailable)"
 has_sig S13 && ok "S13 (presentation-only) reported" || bad "S13 missing :: $OUT"
+has_sig S1 && ok "S1 (micro-size) still reported underneath the S17 floor" || bad "S1 missing :: $OUT"
 [ "$RC" -eq 0 ] && ok "exit 0" || bad "expected exit 0, got $RC"
 
 # (2)
@@ -172,12 +175,17 @@ run --repo "$REPO" --range "$(rng "$C_CSS")" --card "$CARD_REBUILD"
 expect_rigor critical "rebuilds_verified escalates"
 has_sig S10 && ok "S10 reported" || bad "S10 missing :: $OUT"
 run --repo "$REPO" --range "$(rng "$C_CSS")" --card "$CARD_PLAIN"
-expect_rigor micro "plain card does not escalate"
+# D3: floored to normal by S17 (madge unavailable), same as Case 1 — the point of this check (a
+# plain card does not ITSELF escalate, unlike CARD_REBUILD above) still holds at this level.
+expect_rigor normal "plain card does not escalate (floored to normal by S17, not by the card)"
 
 # (10)
 echo "Case 10 — --attempts 1 over a micro diff"
 run --repo "$REPO" --range "$(rng "$C_CSS")" --attempts 1
-expect_rigor normal "S16 raises one level"
+# D3: the S17 floor means this diff's own base is already `normal` (not `micro`) before --attempts
+# is even applied, so S16 raises it exactly one level further, to `critical` — still proving S16
+# raises exactly one level, just from a different floored starting point.
+expect_rigor critical "S16 raises one level (normal → critical, base floored by S17)"
 has_sig S16 && ok "S16 reported" || bad "S16 missing :: $OUT"
 run --repo "$REPO" --range "$(rng "$C_API")" --attempts 1
 expect_rigor critical "S16 cannot exceed critical"
@@ -217,7 +225,7 @@ expect_rigor critical "floor path via --files"
 echo "Case 16 — --worktree and --staged see uncommitted work"
 printf '.late { color: blue; }\n' >> "$REPO/styles/main.css"
 run --repo "$REPO" --worktree
-expect_rigor micro "uncommitted css"
+expect_rigor normal "uncommitted css (floored to normal by S17, not by the worktree mode)"
 printf 'export const middleware = 1;\n' > "$REPO/src/lib/auth-helper.ts"
 mkdir -p "$REPO/src/lib/auth" && printf 'export const guard = 1;\n' > "$REPO/src/lib/auth/guard.ts"
 G add -A >/dev/null
@@ -309,7 +317,8 @@ echo "Case 24b — RFC 2606 placeholder addresses stay cheap"
 printf 'const FIXTURE_USER = "tester@example.com";\n' >> "$REPO/src/lib/alpha.ts"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-expect_rigor micro "example.com fixture is not PII"
+expect_rigor normal "example.com fixture is not PII (floored to normal by S17, not by S6)"
+has_floor S6 && bad "example.com should not itself hit the S6 PII floor :: $OUT" || ok "no S6 floor hit from the example.com fixture"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
 
 echo "Case 25 — the prose carve-out does not open a hole"
@@ -320,7 +329,10 @@ printf 'Historically we wrote `%s FROM orders`.\n' "DELETE" >> "$REPO/docs/runbo
 G add -A >/dev/null
 run --repo "$REPO" --staged
 expect_rigor normal "prose mentioning a destructive statement does not hit the floor"
-printf '%s' "$OUT" | jq -e '.floor_hits | length == 0' >/dev/null && ok "no floor hit from prose" || bad "prose tripped the floor :: $OUT"
+# D3: floor_hits is no longer necessarily EMPTY here — S17 (madge unavailable) floors every case in
+# this fixture repo at >= normal — so the real invariant under test is narrower: S8 specifically
+# must not fire from prose (the whole point of Case 25).
+printf '%s' "$OUT" | jq -e '[.floor_hits[].signal] | index("S8") == null' >/dev/null && ok "no S8 floor hit from prose" || bad "prose tripped the S8 floor :: $OUT"
 G reset -q --mixed HEAD >/dev/null 2>&1; rm -rf "$REPO/docs"
 # ...but a leaked key or a PII term in that same prose still hits the floor.
 mkdir -p "$REPO/docs"
@@ -341,19 +353,22 @@ echo "Case 26 — 'author' must not read as 'auth'"
 printf 'export const AUTHOR = "Toshio"; // authored by the owner\n' >> "$REPO/src/lib/alpha.ts"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-expect_rigor micro "author/authored do not trip the auth floor"
+expect_rigor normal "author/authored do not trip the auth floor (floored to normal by S17, not by S5)"
+has_floor S5 && bad "author/authored should not itself hit the S5 auth floor :: $OUT" || ok "no S5 floor hit from author/authored"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
 
 echo "Case 26b — precision fixes the backtest demanded (false positives, not floor changes)"
 printf 'export const NOTE = "the authoritative source has authority here";\n' >> "$REPO/src/lib/beta.ts"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-expect_rigor micro "authoritative/authority are not authentication"
+expect_rigor normal "authoritative/authority are not authentication (floored to normal by S17, not by S5)"
+has_floor S5 && bad "authoritative/authority should not itself hit the S5 auth floor :: $OUT" || ok "no S5 floor hit from authoritative/authority"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
 printf '# copy files into the MAIN checkout so the worktree serves its own copy\n' >> "$REPO/styles/main.css"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-expect_rigor micro "a git checkout is not a commerce checkout"
+expect_rigor normal "a git checkout is not a commerce checkout (floored to normal by S17, not by S6)"
+has_floor S6 && bad "a git checkout should not itself hit the S6 money floor :: $OUT" || ok "no S6 floor hit from a git checkout"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
 printf 'export const URL = "/checkout/session";\n' >> "$REPO/src/lib/beta.ts"
 G add -A >/dev/null
@@ -370,7 +385,8 @@ echo "Case 27 — CSS visibility is not access-control visibility"
 printf '.hidden { visibility: hidden; }\n' >> "$REPO/styles/main.css"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-expect_rigor micro "CSS visibility stays micro"
+expect_rigor normal "CSS visibility stays cheap (floored to normal by S17, not by S5)"
+has_floor S5 && bad "CSS visibility should not itself hit the S5 auth floor :: $OUT" || ok "no S5 floor hit from CSS visibility"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
 
 # ═══════════════════════════════════════════════════════════════════════════════════════════
