@@ -80,7 +80,10 @@ if (/Safe-point check[\s\S]*?(?:test\s+-f|\[\s+-[ef])[^\n]*run\/stop/.test(sourc
   console.error('FATAL: recurring safe-point stop detection is not exclusively bound to the fenced receipt.')
   process.exit(1)
 }
-if (!/close-preloop --project/.test(source) || !/agentType: 'pandacorp:devops'/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
+// WP-03: ensureStopped's agentType is now MECH_AGENT('pandacorp:devops') — 'pandacorp:mech' (the narrower
+// Bash+Read runner, MECH_LEAN default) or the literal 'pandacorp:devops' fallback (args.mechLean:false) are
+// BOTH acceptable narrow types; only a regression to the broad 'pandacorp:implementer' fails this guard.
+if (!/close-preloop --project/.test(source) || !/agentType: (MECH_AGENT\('pandacorp:devops'\)|'pandacorp:devops')/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
   console.error('FATAL: ensureStopped regained a broad implementer or lost its bounded close command.')
   process.exit(1)
 }
@@ -130,7 +133,7 @@ function defaultResponse(label) {
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
   if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
   if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
-  if (label.startsWith('commit:')) return { committed: 1 }
+  if (label.startsWith('commit:')) return { committed: 1, sha: 'defaultcommitsha' }   // WP-03 fusion (ii): the real mech commit writer always reports its own sha
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
@@ -309,16 +312,18 @@ SCENARIOS.push({
 // ── 2. Budget brake — MAX_AGENTS, COST-weighted ─────────────────────────────
 // 2a: mode 'pro' (worker=sonnet COST 1; judge=opus COST 3, DR-015 — the judge is ALWAYS a
 // different model from the worker, even in pro; solo build). Pre-loop spawns (WS-D/D10 adds the MECH
-// baseline pre-check): baseline-precheck(MECH,1) + baseline(judge,3) + plan(judge,3) + sync-rollups(MECH,1)
-// = 8. maxAgents=14 → iteration 1 passes the brake (8<14), safe-point(+1)=9. The count cap P.wave=2 admits
-// at most two WOs; the COST-aware picker (WS-A/D2) confirms it: remainingAgents=14-9=5, each sonnet WO costs
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(judge,3) + plan(judge,3) = 7 — WP-03 fusion
+// (i), MECH_LEAN default: the old standalone sync-rollups(MECH,1) spawn is GONE here, folded into the
+// first wave's dispatch below (same total dispatch spawn count, no extra agentSpawned++). maxAgents=13 →
+// iteration 1 passes the brake (7<13), safe-point(+1)=8. The count cap P.wave=2 admits at most two WOs;
+// the COST-aware picker (WS-A/D2) confirms it: remainingAgents=13-8=5, each sonnet WO costs
 // COST(sonnet)+1=2 plus the shared dispatch(1) — wo-1 (cost 1+2=3) and wo-2 (5) fit; wo-3 is deferred (count
-// cap). Wave=[wo-1,wo-2]. dispatch(+1)=10, builds wo-1+wo-2 (+2)=12, commits (+2)=14. Iteration 2 top:
-// 14 ≥ 14 → STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix
+// cap). Wave=[wo-1,wo-2]. dispatch(+1)=9, builds wo-1+wo-2 (+2)=11, commits (+2)=13. Iteration 2 top:
+// 13 ≥ 13 → STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix
 // the width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
 SCENARIOS.push({
   name: '2a. maxAgents brake — cost-aware wave stops dispatching once the cap is reached',
-  args: { mode: 'pro', maxAgents: 14 },
+  args: { mode: 'pro', maxAgents: 13 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -332,7 +337,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(14 ≥ maxAgents 14\)/), 'the brake logs "Agent ceiling reached (14 ≥ maxAgents 14)" — exactly at the cap, no overshoot')
+    t.ok(hasLog(run, /Agent ceiling reached \(13 ≥ maxAgents 13\)/), 'the brake logs "Agent ceiling reached (13 ≥ maxAgents 13)" — exactly at the cap, no overshoot')
     const built = byLabel(run, /^build:/).map((c) => c.label)
     t.ok(built.length === 2 && built.includes('build:wo-01-001') && built.includes('build:wo-01-002'),
       `only the first cost-budgeted wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
@@ -344,12 +349,14 @@ SCENARIOS.push({
   },
 })
 // 2b: COST-weighting proof. mode 'balanced' (judge=opus, COST 3). Pre-loop (WS-D/D10 adds the MECH
-// baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) + sync(1) = 8. With maxAgents=8 the
-// brake trips at the FIRST loop boundary — BEFORE any safe-point/dispatch/build. If spawns were
-// counted raw (1 each) the counter would read 4 and the wave would launch.
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) = 7 — WP-03 fusion (i),
+// MECH_LEAN default: sync-rollups no longer spawns standalone here (folded into the first dispatch, which
+// never runs in this scenario). With maxAgents=7 the brake trips at the FIRST loop boundary — BEFORE any
+// safe-point/dispatch/build. If spawns were counted raw (1 each) the counter would read 3 and the wave
+// would launch.
 SCENARIOS.push({
   name: '2b. maxAgents brake is COST-weighted (opus=3) — trips on the token-proxy, not the raw agent count',
-  args: { mode: 'balanced', maxAgents: 8 },
+  args: { mode: 'balanced', maxAgents: 7 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -358,18 +365,20 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(8 ≥ maxAgents 8\)/),
-      'counter reads exactly 8 = precheck 1 + COST(opus baseline 3) + COST(opus plan 3) + sync 1 — the opus weighting is live')
+    t.ok(hasLog(run, /Agent ceiling reached \(7 ≥ maxAgents 7\)/),
+      'counter reads exactly 7 = precheck 1 + COST(opus baseline 3) + COST(opus plan 3) — the opus weighting is live')
     t.ok(byLabel(run, 'safe-point').length === 0, 'brake trips BEFORE the first safe point')
     t.ok(byLabel(run, /^(dispatch|build):/).length === 0, 'no wave was dispatched at all')
   },
 })
 // 2c: WS-A/D2 — an OPUS-escalated wave must NOT overshoot maxAgents by counting WOs raw. mode 'pro'
 // (worker=sonnet floor, judge=opus per DR-015), all WOs difficulty:high → escalate to opus
-// (woWaveCost = COST(opus)+1 = 4). Pre-loop: baseline(judge opus,3)+plan(judge opus,3)+sync(1)=7.
-// safe-point→8. remainingAgents=10-8=2; the cost-aware picker admits wo-1 (dispatch 1 + 4 = 5, the
-// ≥1 progress guarantee) but wo-2 would breach the budget → wave width = 1. BEFORE the fix the width
-// was counted raw (min(P.wave 2, …)=2), so TWO opus WOs launched and the wave overshot the cap.
+// (woWaveCost = COST(opus)+1 = 4). Pre-loop: baseline(judge opus,3)+plan(judge opus,3)=6 — WP-03 fusion
+// (i), MECH_LEAN default: no standalone sync-rollups spawn here (folded into the first dispatch).
+// safe-point→7. remainingAgents=10-7=3; the cost-aware picker admits wo-1 (dispatch 1 + 4 = 5, the
+// ≥1 progress guarantee) but wo-2 would need cumulative cost 9 either way → wave width = 1 regardless
+// of the exact remaining budget. BEFORE the WS-A/D2 fix the width was counted raw (min(P.wave 2, …)=2),
+// so TWO opus WOs launched and the wave overshot the cap.
 SCENARIOS.push({
   name: '2c. maxAgents brake is COST-aware for the WAVE WIDTH (opus wave does not overshoot) — WS-A/D2',
   args: { mode: 'pro', maxAgents: 10 },
@@ -2392,6 +2401,198 @@ SCENARIOS.push({
     t.ok(run.result && run.result.note === 'all verified', 'behaves exactly like a pre-BL-0129 bare run with an empty plan')
     const stopped = byLabel(run, 'ensure-stopped')
     t.ok(stopped.length === 1 && /--reason "nothing to build"/.test(stopped[0].prompt), 'the fenced pre-loop close still runs with reason "nothing to build"')
+  },
+})
+
+// ── WP-03. Plumbing diet — the 9 class-(a) + 5 class-(b) MECH sites (spike report classification) run
+// on the narrow pandacorp:mech agent (Bash+Read, no Write/Edit) at effort:'low' instead of the broad
+// pandacorp:implementer/pandacorp:devops at default effort. This package actually CONVERTS 12 of the 15
+// spike-classified sites: all 9 class-(a) + 3 of the 5 class-(b) (commit, archive-changes, notify-end).
+// TWO class-(b) sites — apply-gate, persist-block — are DELIBERATELY left untouched: both sit inside the
+// "reparación" region (~1088-1150 on the pre-WP-03 file) another package in this sprint owns; touching
+// them risks exactly the merge collision DR-096 isolation exists to avoid. safe-point (class c, genuine
+// judgment — matching the owner's free-form decision answers to blocked work orders) is also untouched,
+// as directed. Plus two spawn-count fusions (i: sync-rollups folds into the first wave's dispatch; ii:
+// capturePin reuses commitWOGreen's own reported sha instead of spawning its own pin: agent) and one
+// prompt fusion (iii: the commit writer's two fire-and-forget printfs run in one bash call).
+const siteKeepsOriginalAgentType = (labelAnchor) => {
+  const i = source.indexOf(labelAnchor)
+  if (i === -1) return false
+  const window = source.slice(i, i + 220)
+  return /agentType: 'pandacorp:implementer'/.test(window) && !/MECH_AGENT/.test(window)
+}
+SCENARIOS.push({
+  name: 'WP03a. static scan — the 12 WP-03 sites PLUS the 2 integration-time reconciled sites (renew-lease, safe-point-pre-loop) carry agentType:MECH_AGENT(...)+effort:MECH_EFFORT; safe-point/apply-gate/persist-block keep their ORIGINAL agentType',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const mechAgentCount = (source.match(/agentType: MECH_AGENT\(/g) || []).length
+    const mechEffortCount = (source.match(/effort: MECH_EFFORT/g) || []).length
+    // 14 = WP-03's original 12 + 2 reconciled at integration time (integration-speed-sprint-a merge
+    // notes, wp-03-plumbing-diet): the D-1 fix's 'renew-lease' spawn (minimal single-command lease
+    // renewal, matches the other mech sites exactly) and the E2/BL-0129 'safe-point-pre-loop' spawn
+    // (read-only queue scan, no Write/Edit needed — unlike in-loop 'safe-point' it never flips
+    // BLOCKED→PLANNED frontmatter or commits, so it has no judgment/mutation step keeping it out of mech).
+    t.ok(mechAgentCount === 14, `exactly 14 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 14, `exactly 14 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
+    t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
+    t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
+    t.ok(!siteKeepsOriginalAgentType("label: 'renew-lease'"), 'renew-lease (D-1, reconciled at merge time) now carries MECH_AGENT/MECH_EFFORT like the other mechanical single-command spawns')
+    t.ok(!siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'safe-point-pre-loop (E2/BL-0129, reconciled at merge time) now carries MECH_AGENT/MECH_EFFORT — it is read-only, no Write/Edit needed')
+  },
+})
+// (b)+(a live cross-check of the static scan above) a default (MECH_LEAN) run: dispatch/commit/gate-worktree
+// resolve to pandacorp:mech+low; safe-point resolves to its UNCHANGED pandacorp:implementer, no effort
+// override; fusion (i) — 0 sync-rollups spawns, folded into the first dispatch's own prompt; fusion (ii) —
+// 0 pin: spawns, both WOs committed this wave so capturePin reused commitWOGreen's own reported sha.
+SCENARIOS.push({
+  name: 'WP03b. default MECH_LEAN run — dispatch/commit/gate-worktree resolve pandacorp:mech+low; safe-point stays pandacorp:implementer (no effort); 0 sync-rollups; 0 pin (wave committed)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp03b-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-wp03b-001', 'PLANNED', { frd: 'frd-wp03b-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-wp03b-002', 'PLANNED', { frd: 'frd-wp03b-lib', artifacts: ['scripts/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && dispatch.opts.agentType === 'pandacorp:mech' && dispatch.opts.effort === 'low', 'dispatch resolves to pandacorp:mech + effort low')
+    t.ok(dispatch && /sync-rollups --project/.test(dispatch.prompt), 'fusion (i): the FIRST dispatch prompt carries the sync-rollups command')
+    const commits = byLabel(run, /^commit:/)
+    t.ok(commits.length === 2 && commits.every((c) => c.opts.agentType === 'pandacorp:mech' && c.opts.effort === 'low'), 'both commit spawns resolve to pandacorp:mech + effort low')
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(gw && gw.opts.agentType === 'pandacorp:mech' && gw.opts.effort === 'low', 'gate-worktree resolves to pandacorp:mech + effort low')
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length >= 1 && sp.every((c) => c.opts.agentType === 'pandacorp:implementer' && c.opts.effort === undefined), 'safe-point (class c) is UNCHANGED — pandacorp:implementer, no effort override')
+    t.ok(byLabel(run, 'sync-rollups').length === 0, 'fusion (i): no standalone sync-rollups spawn')
+    t.ok(byLabel(run, /^pin:/).length === 0, 'fusion (ii): no pin: spawn — both WOs committed this wave, capturePin reused the cached sha')
+  },
+})
+// (e) escape hatch: args.mechLean:false reverts EVERY converted site's agentType/effort AND both
+// spawn-count fusions to the pre-WP-03 shape (isolates a regression to this package).
+SCENARIOS.push({
+  name: 'WP03c. args.mechLean:false escape hatch — reverts agentTypes/effort AND both spawn-count fusions (sync-rollups + pin) to the pre-WP-03 shape',
+  args: { mode: 'pro', mechLean: false },
+  plan: mkPlan([{
+    frd: 'frd-wp03c-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-wp03c-001', 'PLANNED', { frd: 'frd-wp03c-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-wp03c-002', 'PLANNED', { frd: 'frd-wp03c-lib', artifacts: ['scripts/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && dispatch.opts.agentType === 'pandacorp:implementer' && dispatch.opts.effort === undefined, 'dispatch reverts to pandacorp:implementer, no effort override')
+    t.ok(dispatch && !/sync-rollups --project/.test(dispatch.prompt), 'dispatch no longer carries the sync-rollups command — it is its own spawn again')
+    const commits = byLabel(run, /^commit:/)
+    t.ok(commits.length === 2 && commits.every((c) => c.opts.agentType === 'pandacorp:implementer' && c.opts.effort === undefined), 'commit reverts to pandacorp:implementer, no effort override')
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(gw && gw.opts.agentType === 'pandacorp:implementer' && gw.opts.effort === undefined, 'gate-worktree reverts to pandacorp:implementer, no effort override')
+    t.ok(byLabel(run, 'sync-rollups').length === 1, 'fusion (i) reverted: the standalone Plan-phase sync-rollups spawn runs again')
+    t.ok(byLabel(run, /^pin:/).length === 1, 'fusion (ii) reverted: pin: always spawns its own agent, even though the wave committed')
+  },
+})
+// (c) the commit: prompt still carries the selective-staging + sibling-file-prohibition invariants
+// UNCHANGED, plus the fusion (ii)/(iii) additions (sha in the schema/prompt, the two printfs in one bash
+// call); the closing prompt still carries RELEASE_LEASE.
+SCENARIOS.push({
+  name: 'WP03d. commit: prompt keeps its selective-staging + sibling-file-prohibition invariants, plus fusion (ii) sha + fusion (iii) one-heredoc; the closing prompt keeps RELEASE_LEASE',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp03d-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp03d-001', 'PLANNED', { frd: 'frd-wp03d-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const commit = byLabel(run, /^commit:/)[0]
+    t.ok(commit && /staging ONLY this work order's own files/.test(commit.prompt), "the commit prompt still stages ONLY this WO's own files")
+    t.ok(commit && /Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files/.test(commit.prompt), 'the commit prompt still forbids touching sibling files')
+    t.ok(commit && commit.opts.schema && commit.opts.schema.properties && commit.opts.schema.properties.sha, 'fusion (ii): the commit schema now advertises an optional sha field')
+    t.ok(commit && /git rev-parse --short HEAD/.test(commit.prompt) && /"committed": 1, "sha":|committed: 1, sha:/.test(commit.prompt.replace(/\\"/g, '"')), 'fusion (ii): the commit prompt asks for the landed sha back')
+    t.ok(commit && /SINGLE bash call/.test(commit.prompt) && /wo_commit/.test(commit.prompt) && /wo_end/.test(commit.prompt), 'fusion (iii): the TRACK(wo_end) + wo_commit event printfs are fused into one bash call')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)[0]
+    t.ok(closing && /fenced TWO-PHASE protocol/.test(closing.prompt), 'the closing prompt still carries the RELEASE_LEASE fenced two-phase protocol')
+    const rlIndex = closing.prompt.indexOf('fenced TWO-PHASE protocol')
+    t.ok(rlIndex > closing.prompt.length * 0.5, 'RELEASE_LEASE sits in the back half of the closing prompt (near the end, after every other step)')
+  },
+})
+// (f) total spawn count for the G13a fixture (2 disjoint no-UI WOs, mode 'pro', hasFrontend:true, full
+// allDone path) drops vs the integration-speed-sprint-a base branch — measured directly by running the
+// SAME stub harness shape against both engine sources (git show integration-speed-sprint-a:... vs this
+// file): base = 19 total spawns, after WP-03 = 17 (-2: fusion i removes the standalone sync-rollups spawn,
+// fusion ii removes the pin: spawn since both WOs committed this wave) — see the session report for the
+// side-by-side trace.
+SCENARIOS.push({
+  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 17)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g13a-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g13a-001', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-g13a-002', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['scripts/**'] }),
+    ],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.calls.length === 17, `total spawns for this fixture is 17 (was 19 on integration-speed-sprint-a before WP-03) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
+    t.ok(byLabel(run, 'sync-rollups').length === 0, 'the removed spawn: standalone sync-rollups (fusion i)')
+    t.ok(byLabel(run, /^pin:/).length === 0, 'the removed spawn: pin (fusion ii — the wave committed both WOs)')
+  },
+})
+// fusion (ii) safety net: a same-wave repair (attemptRepair ALWAYS commits on its own, fix or block+revert)
+// invalidates the cached sha for EVERY FRD that wave — even one unrelated to the repair — because HEAD
+// advanced past the repair's own commit; capturePin must spawn a FRESH pin: rather than trust a sha that
+// predates that commit.
+SCENARIOS.push({
+  name: 'WP03f. fusion (ii) safety — a same-wave repair (even on an unrelated FRD) invalidates the cached sha; pin: still spawns fresh, never stale',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-wp03f-ok', deps: [], workOrders: [mkWo('wo-wp03f-ok-001', 'PLANNED', { frd: 'frd-wp03f-ok', artifacts: ['src/ok/**'] })] },
+    { frd: 'frd-wp03f-bad', deps: [], workOrders: [mkWo('wo-wp03f-bad-001', 'PLANNED', { frd: 'frd-wp03f-bad', artifacts: ['src/bad/**'] })] },
+  ]),
+  responses: [
+    { label: 'build:wo-wp03f-bad-001', response: { green: false } },
+    { label: 'repair:frd-wp03f-bad', response: { green: false, blocked_reason: 'error' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'commit:wo-wp03f-ok-001').length === 1, "frd-wp03f-ok's WO committed normally this wave")
+    t.ok(byLabel(run, /^repair:/).length === 1, "frd-wp03f-bad's WO failed self-test and triggered the wave-level repair")
+    t.ok(byLabel(run, /^pin:/).length === 1, 'pin: STILL spawns for frd-wp03f-ok — the same-wave repair (on a DIFFERENT FRD) invalidates the cached sha (conservative, correct: HEAD advanced past the repair commit)')
+  },
+})
+// legacy close-out (args.leanCloseOut:false) live cross-check: archive-changes/release-lease/notify-end
+// still resolve to pandacorp:mech+low under default MECH_LEAN, even though they are the SEPARATE spawns
+// WP-02's lean shape normally folds away.
+SCENARIOS.push({
+  name: 'WP03g. legacy close-out (args.leanCloseOut:false) — archive-changes/notify-end/release-lease resolve pandacorp:mech+low',
+  args: { mode: 'pro', leanCloseOut: false },
+  plan: mkPlan([
+    { frd: 'frd-wp03g-ok', deps: [], workOrders: [mkWo('wo-wp03g-ok-001', 'PLANNED', { frd: 'frd-wp03g-ok', artifacts: ['src/ok/**'] })] },
+    { frd: 'frd-wp03g-bad', deps: [], workOrders: [mkWo('wo-wp03g-bad-001', 'PLANNED', { frd: 'frd-wp03g-bad', artifacts: ['src/bad/**'] })] },
+  ]),
+  responses: [
+    { label: 'gate:frd-wp03g-bad', response: { green: false, blocked_reason: 'needs-owner', failure: 'x' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp03g-ok'), 'frd-wp03g-ok verified normally')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-wp03g-bad'), 'frd-wp03g-bad blocked (needs-owner) — so allDone is false, forcing the notify-end branch')
+    const archive = byLabel(run, 'archive-changes')[0]
+    t.ok(archive && archive.opts.agentType === 'pandacorp:mech' && archive.opts.effort === 'low', 'archive-changes (legacy, its own spawn again) resolves to pandacorp:mech + effort low')
+    const notify = byLabel(run, 'notify-end')[0]
+    t.ok(notify && notify.opts.agentType === 'pandacorp:mech' && notify.opts.effort === 'low', 'notify-end resolves to pandacorp:mech + effort low')
+    const release = byLabel(run, 'release-lease')[0]
+    t.ok(release && release.opts.agentType === 'pandacorp:mech' && release.opts.effort === 'low', 'release-lease (legacy, its own terminal spawn again) resolves to pandacorp:mech + effort low')
   },
 })
 
