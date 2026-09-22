@@ -119,6 +119,10 @@
     "gate.evidence-fallback": {
       "display": "GateEvidenceFallback",
       "aliases": ["GateEvidenceFallback", "gate_evidence_fallback", "gate-evidence-fallback"]
+    },
+    "agent.type-fallback": {
+      "display": "MechFallback",
+      "aliases": ["MechFallback", "mech_fallback", "agent-type-fallback"]
     }
   }
 }
