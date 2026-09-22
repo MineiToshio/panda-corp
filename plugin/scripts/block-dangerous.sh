@@ -68,6 +68,48 @@ _protected_under() { # $1 = a path operand; returns 0 if it IS/CONTAINS/IS-INSID
   return 1
 }
 
+# Local-deployment / locked-worktree protection (BL-0151, incident 2026-09-22: a worktree-cleanup
+# pass ran `git worktree remove` on the live deploy worktree launchd was actively serving from,
+# taking Mission Control down with a ghost cwd). Two independent signals, either one protects:
+#   (a) the target is under the canonical local-deployments root (DR-089,
+#       `/Users/Shared/local-deployments/**`) — this alone would have caught the ORIGINAL incident,
+#       since the worktree was not yet locked when it was removed;
+#   (b) `git worktree list --porcelain` reports the target as `locked` — generalizes the same
+#       protection to any other worktree an operator has deliberately pinned, not just the deploy
+#       root, without hardcoding a second project's path (BL-0151's own "Out of scope").
+_is_protected_deploy_path() { # $1 = a path operand; returns 0 if it targets a live/locked deploy worktree
+  local p="$1" abs real
+  case "$p" in -*) return 1 ;; ""|"/"|"~") return 1 ;; esac
+  case "$p" in /*) abs="$p" ;; "~/"*) abs="$HOME/${p#\~/}" ;; *) abs="$cwd/$p" ;; esac
+  abs="${abs%/}"
+  case "$abs" in
+    /Users/Shared/local-deployments|/Users/Shared/local-deployments/*) return 0 ;;
+  esac
+  # `git worktree list --porcelain` reports the PHYSICAL (symlink-resolved) path — macOS's own
+  # /tmp and /var are themselves symlinks into /private, so a raw string match on $abs alone
+  # false-negatives for any worktree under one of those. Resolve $abs the same way (only if it
+  # still exists; an already-removed target has nothing left to protect via the lock check, but
+  # the local-deployments prefix rule above still catches it either way).
+  real="$abs"
+  [ -d "$abs" ] && real=$(cd "$abs" 2>/dev/null && pwd -P)
+  git -C "$cwd" worktree list --porcelain 2>/dev/null | awk -v t="$abs" -v r="$real" '
+    /^worktree / { wt=$2 } /^locked/ { if (wt == t || wt == r) found=1 } END { exit(found ? 0 : 1) }'
+}
+
+# git worktree remove (incl. --force, which is the ONLY thing that bypasses a git-level lock) on a
+# protected deploy path — the gate step `_is_protected_deploy_path` cannot rely on git's own lock
+# refusal alone, since --force exists precisely to override it.
+if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+worktree[[:space:]]+remove([[:space:]]|$)'; then
+  wt_args=$(printf '%s' "$cmd" | sed -E 's/.*(^|[;&|])[[:space:]]*git[[:space:]]+worktree[[:space:]]+remove[[:space:]]*//; s/[;&|].*$//')
+  for tok in $wt_args; do
+    case "$tok" in -*) continue ;; esac
+    tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
+    if _is_protected_deploy_path "$tok"; then
+      block "git worktree remove targets a live/locked deployment worktree ('$tok') — local-deployments/ hosts launchd-served always-on copies (DR-089) and a lock alone doesn't stop --force; if this worktree is genuinely done, ask the owner first (BL-0151)"
+    fi
+  done
+fi
+
 # rm with a recursive flag anywhere (before OR after the paths): inspect every path operand.
 if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$cmd" | grep -Eq '(^|[[:space:]])-[a-zA-Z]*[rR]|--recursive'; then
   # Extract the rm invocation's operands (up to a separator), drop flags, test each path.
@@ -76,6 +118,9 @@ if echo "$cmd" | grep -Eq '(^|[[:space:];&|])rm[[:space:]]' && echo "$cmd" | gre
     tok="${tok%\"}"; tok="${tok#\"}"; tok="${tok%\'}"; tok="${tok#\'}"
     if _protected_under "$tok"; then
       block "recursive delete reaching a protected Pandacorp state path (.pandacorp/, factory/{ideas,memory,profile,portfolio} — directly or inside '$tok') — this layer has no git history; archive/move instead, or ask the owner (BL-0035)"
+    fi
+    if _is_protected_deploy_path "$tok"; then
+      block "recursive delete reaching a live/locked deployment worktree ('$tok') — a raw rm bypasses git's own lock check entirely; local-deployments/ hosts launchd-served always-on copies (DR-089), use 'git worktree remove' or ask the owner (BL-0151)"
     fi
   done
 fi

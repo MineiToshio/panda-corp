@@ -97,6 +97,31 @@ echo "== BL-0120: quoted '>' / non-protected redirect targets must not false-pos
 check "redirect to /dev/null"              0 "$fx" 'bash plugin/scripts/validate-backlog.sh >/dev/null 2>&1; echo "done"'
 check "quoted email trailer in commit msg" 0 "$fx" 'git commit -m "Fix thing" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'
 check "still blocks real truncation"       2 "$fx" 'echo "data" > factory/memory/_inbox.md'
+
+echo "== BL-0151: live/locked deployment worktree protection =="
+# Fixture: a commit (worktree add needs a HEAD) plus two extra worktrees of the SAME throwaway
+# repo — one `git worktree lock`ed (simulates the live deploy) and one left unlocked (an ordinary
+# DR-096 disposable worktree). Never touches the real /Users/Shared/local-deployments/panda-corp.
+( cd "$fx" && git add -A && git commit -q -m init )
+lockedwt=$(mktemp -d)/deploy-wt
+unlockedwt=$(mktemp -d)/scratch-wt
+git -C "$fx" worktree add -q --detach "$lockedwt" HEAD
+git -C "$fx" worktree add -q --detach "$unlockedwt" HEAD
+git -C "$fx" worktree lock "$lockedwt" --reason "test fixture: simulated live deploy" >/dev/null
+
+check "block: worktree remove on a LOCKED worktree"            2 "$fx" "git worktree remove $lockedwt"
+check "block: worktree remove -f -f (double force) on LOCKED"  2 "$fx" "git worktree remove -f -f $lockedwt"
+check "block: rm -rf on a LOCKED worktree (bypasses git)"      2 "$fx" "rm -rf $lockedwt"
+check "block: worktree remove under local-deployments/"        2 "$fx" "git worktree remove /Users/Shared/local-deployments/panda-corp"
+check "block: worktree remove -f -f under local-deployments/"  2 "$fx" "git worktree remove -f -f /Users/Shared/local-deployments/some-project"
+check "block: rm -rf under local-deployments/"                 2 "$fx" "rm -rf /Users/Shared/local-deployments/panda-corp"
+check "allow: worktree remove on an UNLOCKED non-deploy path"  0 "$fx" "git worktree remove $unlockedwt"
+check "allow: rm -rf on an UNLOCKED non-deploy worktree"       0 "$fx" "rm -rf $unlockedwt"
+check "allow: lookalike dir name is not the real deploy root"  0 "$fx" "rm -rf /Users/Shared/local-deployments-archive/foo"
+
+git -C "$fx" worktree remove -f -f "$lockedwt" >/dev/null 2>&1
+rm -rf "$(dirname "$lockedwt")" "$(dirname "$unlockedwt")"
+
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
