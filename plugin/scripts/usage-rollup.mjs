@@ -106,6 +106,12 @@ const PRICING = {
   // era-audit.md §3, table fetched 2026-09-02 from https://platform.claude.com/docs/en/about-claude/pricing.
   'claude-fable-5-1': { in: 10, out: 50, cacheRead: 0.25 },
   'claude-opus-5': { in: 5, out: 25, cacheRead: 0.50 },
+  // BL-0156: `claude-opus-5-5` (the id canary B2's transcripts actually stamped on gate/patch/
+  // baseline/plan — docs/proposals/33's audited table predates this era rotation and only has
+  // `claude-opus-5`) was missing here, so those 4 agents silently rolled up cost_usd: null instead
+  // of failing loud or pricing. Assumed identical to `claude-opus-5` (same family, no verified
+  // distinct rate published yet) until a dated pricing page proves otherwise.
+  'claude-opus-5-5': { in: 5, out: 25, cacheRead: 0.50 },
   'claude-sonnet-5': { in: 2, out: 10, cacheRead: 0.20 },
   'claude-haiku-4-5': { in: 1, out: 5, cacheRead: 0.10 },
   'claude-opus-4-8': { in: 5, out: 25, cacheRead: 0.50 },
@@ -359,7 +365,7 @@ function loadWorkflowAgents(wfJsonPath) {
   return { missing: false, byAgentId }
 }
 
-function runDirMode({ dir, wfJson }) {
+function runDirMode({ dir, wfJson, out }) {
   if (!dir) return fail('missing required --dir <transcript-run-dir>')
 
   let stat
@@ -480,6 +486,14 @@ function runDirMode({ dir, wfJson }) {
   }
   if (agentsJoin) summary.agents_join = agentsJoin
   if (agentsUnjoined) summary.agents_unjoined = agentsUnjoined   // D-10: named, not dropped (DR-078)
+
+  // BL-0156: `--out` used to be parsed but silently dropped in --dir mode (destructured out of the
+  // args, never wired to a write) — an accepted flag that does not do what it says is exactly the
+  // DR-078 failure this script otherwise guards against everywhere else. Same idiom as --session's
+  // --out: appendTrackLine BEFORE stdout, so an unwritable --out fails loud (propagates to main's
+  // catch → fail() → exit 1, no summary line) instead of printing a summary that implies the record
+  // was persisted when it wasn't (REV3-N's rule, now shared by both modes).
+  if (out) appendTrackLine(out, `${JSON.stringify(summary)}\n`)
 
   process.stdout.write(JSON.stringify(summary) + '\n')
 }

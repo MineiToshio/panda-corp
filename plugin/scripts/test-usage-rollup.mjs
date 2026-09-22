@@ -502,4 +502,57 @@ function round3(n) { return Math.round(n * 1e6) / 1e6 }
   await rm(root, { recursive: true })
 }
 
+// (BL-0156a) `claude-opus-5-5` — the real model id canary B2 saw stamped on 4 of its opus agents
+// (gate/patch/baseline/plan) — was missing from PRICING, so a real B2-shaped rollup silently priced
+// its 4 most expensive agents at cost_usd: null instead of failing loud or pricing them (canary-b2-
+// report.md §"Bug de precio descubierto"). Priced the same as `claude-opus-5` (same $5/$25/$0.50 MTok
+// family) until a dated snapshot proves otherwise — never left unpriced by omission.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-opus55-'))
+  await writeFile(path.join(dir, 'agent-ggg.jsonl'), assistantLine('claude-opus-5-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const { code, stdout } = await run(['--dir', dir])
+  ok(code === 0, 'BL-0156a: a claude-opus-5-5 transcript does not fail')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.models['claude-opus-5-5'].cost_usd === 5, 'BL-0156a: claude-opus-5-5 prices at the same $5/MTok input rate as claude-opus-5, not null')
+  ok(summary.unpriced_models.length === 0, 'BL-0156a: claude-opus-5-5 is no longer reported as unpriced')
+  await rm(dir, { recursive: true })
+}
+
+// (BL-0156b) `--dir` mode used to silently accept `--out` and drop it — `runDirMode`'s destructured
+// params never included `out`, so the flag was parsed but never wired to a write (confirmed live:
+// exit 0, a summary printed to stdout, track.jsonl untouched — canary-b2-report.md's flagged task #2,
+// a DR-078 violation: an accepted flag that doesn't do what it says). It must now actually append the
+// summary, the same idiom `--session --out` already had.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-dir-out-'))
+  await writeFile(path.join(dir, 'agent-hhh.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const trackPath = path.join(dir, 'track.jsonl')
+  const preexisting = '{"kind":"frd_end","frd":"frd-99-unrelated","at":"2026-01-01T00:00:00Z"}\n'
+  await writeFile(trackPath, preexisting)
+
+  const { code, stdout } = await run(['--dir', dir, '--out', trackPath])
+  ok(code === 0, 'BL-0156b: --dir with --out exits 0')
+  const printed = JSON.parse(stdout.trim())
+  ok(printed.kind === 'usage_summary', 'BL-0156b: stdout still prints the usage_summary')
+
+  const trackContent = await readFile(trackPath, 'utf8')
+  const trackLines = trackContent.trim().split('\n')
+  ok(trackLines.length === 2, 'BL-0156b: exactly ONE new line was appended to track.jsonl')
+  ok(trackLines[0] === preexisting.trim(), 'BL-0156b: the pre-existing line is untouched')
+  const appended = JSON.parse(trackLines[1])
+  ok(appended.kind === 'usage_summary' && appended.calls_total === 1, 'BL-0156b: the appended line is a valid usage_summary matching stdout')
+  await rm(dir, { recursive: true })
+}
+
+// (BL-0156c) `--dir` with an unwritable `--out` must fail LOUD (same discipline as REV3-N for
+// `--session`) — never a summary that implies the record was persisted when it wasn't.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-dir-out-fail-'))
+  await writeFile(path.join(dir, 'agent-iii.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const { code, stdout } = await run(['--dir', dir, '--out', path.join(dir, 'no', 'such', 'dir', 'track.jsonl')])
+  ok(code !== 0, 'BL-0156c: an unwritable --out in --dir mode fails loud')
+  ok(stdout.trim() === '', 'BL-0156c: no summary line is printed when the record could not be persisted')
+  await rm(dir, { recursive: true })
+}
+
 console.log(`RESULT: ${passed} passed, 0 failed`)
