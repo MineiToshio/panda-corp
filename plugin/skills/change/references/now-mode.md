@@ -20,12 +20,12 @@ There is no diff yet, so the level is derived from the files the change will pla
 2. Run the classifier over that list:
    `bash "${CLAUDE_PLUGIN_ROOT}/scripts/classify-change.sh" --repo . --files "<comma list>" --card .pandacorp/inbox/changes/<slug>.md`
 3. Write `rigor:` and `rigor_reasons:` into the card from the JSON verdict.
-4. Show the owner ONE line, in Spanish: `clasificado como <nivel>: <razones>`. Never ask. The
+4. Show the owner ONE line, in Spanish: `clasificado como <nivel> (provisional): <razones>`. Never ask. The
    classifier decides; you may only escalate, and an escalation is written into `rigor_reasons`
    with its reason (composition rule 2: monotone upward).
 
-**What `--files` can and cannot say.** It carries no diff body, so it emits S15 and can never
-certify `micro`. A provisional verdict is therefore `normal` or `critical`, and it is exactly
+**What `--files` can and cannot say.** It carries no diff body, so it emits S15 at ten files or
+fewer (and S3 `critical` above ten) and can never certify `micro`. A provisional verdict is therefore `normal` or `critical`, and it is exactly
 what the valves in §2 consume. The DEFINITIVE level is recomputed on the real diff in §5, and a
 change can settle at `micro` only there. Say "provisional" in the owner line if you say anything
 about the level at all.
@@ -72,6 +72,13 @@ Refuse the fast path when `rigor == critical`, or when any `floor_hits[]` entry 
 `level: "critical"`. By max-wins these describe the same set today; checking both keeps the valve
 honest against a future signal that records a floor hit without raising the level.
 
+**Two S12 gaps you must close by hand.** S12 (`difficulty: high` or `reopen_count >= 1` is
+`critical`) is read from `--wo`, never from the card (`classify-change.mjs` reads only
+`rebuilds_verified` and `supersedes` from a card). So: pass `--wo <path>` whenever a target work
+order is known, AND treat `difficulty: high` / `reopen_count >= 1` written on the CARD as
+`critical` yourself. Without this, a change the engine would have escalated sails straight
+through the valve.
+
 Capture only, with `class: expedite` if the owner signalled urgency. Name the exact signal that
 fired (the classifier gives you `signal` plus `detail`, use them verbatim, for example
 *"S5: auth/data surface: src/lib/auth/session.ts"*), and offer the two real continuations:
@@ -96,9 +103,16 @@ tier (proposal 37 §A.0 principle 5).
 **Who.** `pandacorp:implementer` by default. Prefer `pandacorp:frontend-dev` or
 `pandacorp:backend-dev` when the change is squarely one of those. All three pin `model: sonnet`
 in their frontmatter, which is the CONV-12 floor for real implementation work and is what keeps
-DR-015 true by construction once the L1 reviewer runs on opus. Escalate the implementer to opus
-ONLY when the card carries an explicit `difficulty: high` (or the target work order does), and
-write that escalation into the card. Never inherit the owner session's own tier.
+DR-015 true by construction once the L1 reviewer runs on opus. Never inherit the owner session's
+own tier.
+
+**Never escalate the implementer to opus on this path.** The L1 reviewer is opus
+(`plugin/agents/reviewer.md`), so an opus implementer would make "a different agent AND a
+different model" false and quietly void DR-015 in the exact cycle that is supposed to enforce it.
+Work that genuinely wants an opus builder is `difficulty: high` work, and §2 valve (b) already
+routes that to `/pandacorp:implement`, where `pickWorkerModel` escalates it under the engine's
+own calibrated rules (DR-073/DR-108). If the change feels too hard for sonnet, that is the
+signal, and the answer is the queue, not a bigger model on the fast path.
 
 **Where.** Its own worktree (DR-096), because the gate is whole-program and a parallel session's
 tree must not be disturbed:
@@ -111,10 +125,18 @@ bash .pandacorp/worktree-bootstrap.sh            # deps, launch.json, secrets
 
 **The brief (PROMPT-8: self-contained, on camera, no pointer specs).** Inline all of this:
 
-- Role and boundary in the first line, including what it must NOT touch (anything on the floor:
-  auth, money, PII, persistence, irreversible operations, secrets, CI, `e2e/**`, snapshots,
-  `design-tokens.json`, `.pandacorp/*.sh`, `plugin/**`, `factory/**`). If the work turns out to
-  need one of those, it STOPS and reports instead of proceeding.
+- Role and boundary in the first line. **The boundary is the classifier's floor, and the
+  authoritative list is the one in `plugin/scripts/classify-change.mjs` (S5 through S9, S17), not
+  a summary of it.** The summary is for recognition, not for deciding: auth and the data layer,
+  money, PII, persistence and migrations, irreversible or destructive operations, secrets, CI and
+  deploy config, the oracles (`e2e/**`, snapshots, `_tests/**` with net deletions,
+  `design-tokens.json`, `.pandacorp/verify.sh`, `biome.json`), and the factory's own machinery
+  (`plugin/**`, `factory/**`, `.pandacorp/*.sh`). It also covers things a short list reliably
+  drops: `package.json` and every lockfile, `next.config.*`, `tsconfig*.json`, `knip.*`,
+  `vitest.setup.*`, `src/test/**`, the playwright/vitest/jest/stryker configs, `.claude/**`,
+  Dockerfiles and `*.tf`. **If the work turns out to need ANY of it, or any path it is unsure
+  about, it STOPS and reports instead of proceeding.** Reclassification in §5 would refuse to land
+  it anyway, so proceeding only wastes the work.
 - The card verbatim: the owner's description, the acceptance criteria, and `rigor` with
   `rigor_reasons`.
 - The probable-paths list from §1, marked as a starting point rather than a boundary.
@@ -154,7 +176,17 @@ on the floor. If any of those appeared, the change stopped being L0 in §5 by co
 `pandacorp:reviewer` (`model: opus`), which is a different agent AND a different model from the
 sonnet implementer. That is DR-015 met explicitly, not by accident.
 
-Give it pre-digested evidence and a budget. It judges evidence; it does not explore.
+Give it pre-digested evidence and a budget, so it spends its turns judging instead of hunting for
+the material. **The budget buys back exploration, never the independent oracle:** the reviewer
+still RE-RUNS the gate itself rather than accepting the implementer's `gate-report.json` as proof
+(`plugin/agents/reviewer.md` §1, and "generator is not verifier, re-run the evidence" in
+`docs/rules/quality-and-testing.md`). A report handed over by the thing being judged is a
+starting point, not a verdict.
+
+Note the shape of what you are doing: `reviewer.md`'s standing contract is one review per FRD
+when its work orders are `IN_REVIEW`. This is a per-change invocation of that agent. Changing the
+agent's own definition to describe this path is a separate, frontmatter-level change (PROMPT-5),
+not something to assume from here.
 
 - Inject: the unified diff, `gate-report.json`, the acceptance criteria, the card, and the
   owning `frd.md` when one exists.
@@ -198,6 +230,13 @@ work, what would unblock it), NOT as a new frontmatter value. Two reasons, both 
 
 The label is a description of the state, not a token. Do not invent the token.
 
+**Known, and not an excuse.** Two statuses the factory already writes are outside that same
+validator's enum: `building` (the engine, DR-069) and `closing` (`/pandacorp:sync --close-out`,
+which §5 below still instructs you to use because it is the F3 contract, backed by `doc-lint.sh`).
+Both render as parse errors in Mission Control's queue panel today. That is a filed defect in the
+READER, not a licence to add a third unread token: an existing gap is a reason to stop widening
+it. Report the parse errors if you see them; do not work around them by inventing statuses.
+
 ---
 
 ## 5. Definitive classification, close-out and landing
@@ -216,8 +255,11 @@ The label is a description of the state, not a token. Do not invent the token.
    `changes/done/` with `shipped_sha`. It refuses on a missing, red or `partial` gate report, so
    run the level's gate first and do not paper over a refusal. Its `--force-critical` flag exists
    for the owner, never for you.
-4. **Also move the work order's state if the change had one** (DR-097): `IN_PROGRESS` while
-   building, `VERIFIED` the moment the gate is green. Never leave gate-green work at `IN_REVIEW`.
+4. **Do NOT write the work order's `implementation_status` yourself.** Close-out's `normal` tier
+   owns that field along with the WO's `## Status Note` (`plugin/skills/sync/SKILL.md`), and one
+   fact has one writer (DR-115). What DR-097 requires is that the field end up matching reality,
+   `VERIFIED` once the gate is green and never stranded at `IN_REVIEW`; your job is to verify
+   close-out actually did it, and to say so if it did not.
 5. **Land it.** A product project lands through its queue: `bash .pandacorp/merge-queue.sh`. The
    factory repo and Mission Control have no merge queue: merge the branch back to `main`
    directly (solo operator, constitution §11). Then `ExitWorktree(action: remove)`, falling back
@@ -236,7 +278,9 @@ The label is a description of the state, not a token. Do not invent the token.
 ## Dry run
 
 A manual canary for the owner or an agent, sized to be genuinely `micro`. Run it in Mission
-Control, which lives inside the factory repo and therefore lands by direct merge.
+Control, which lives inside the factory repo and therefore lands by direct merge. Install its
+dependencies first (`madge` is a declared devDependency): without `node_modules`, S17 cannot
+certify and every verdict floors at `normal`, which makes rows 3 and 10 untestable.
 
 **Request:** `/pandacorp:change "el borde de la card de portada debería ser recto"`
 
@@ -245,16 +289,16 @@ Control, which lives inside the factory repo and therefore lands by direct merge
 | # | What should happen | How you know it did |
 |---|---|---|
 | 1 | The card is written to `.pandacorp/inbox/changes/<slug>.md` with `type: change`, `class: standard`, `status: ready` | the file exists, frontmatter matches the template |
-| 2 | Probable paths enumerated without a subagent, roughly the portada card component plus its styles | no `Agent` call before the classifier runs |
-| 3 | `classify-change.sh --files …` returns `normal` (S15 blocks `micro` in files mode, S14 adds route UI), `floor_hits` empty or S17-only | the JSON on stdout; `rigor`/`rigor_reasons` land in the card |
+| 2 | Probable paths enumerated without a subagent: `src/components/modules/IdeaCard/IdeaCard.tsx` plus its styles | no `Agent` call before the classifier runs |
+| 3 | `classify-change.sh --files …` returns `normal` on S15 alone (plus S17 if `madge` is not installed). **S14 must NOT appear**: it is a path predicate over `app/**/*.tsx`, and this component is not under `app/`. A canary anchored on a route component could never reach `micro` at row 10, because a path predicate that fires in `--files` mode fires in `--range` mode too | the JSON on stdout; `rigor`/`rigor_reasons` land in the card |
 | 4 | One Spanish line to the owner: `clasificado como normal (provisional): …` | it is shown, and nothing is asked |
 | 5 | Valve (a) passes because no build is running | `check-build-liveness.sh` prints `NOT_RUNNING` |
 | 6 | Valve (b) passes because the level is not `critical` | no `critical` in the verdict |
 | 7 | A `pandacorp:implementer` on sonnet runs in its own worktree and changes the radius token usage, not a raw value | the diff touches the component, no arbitrary CSS value, `design-tokens.json` untouched |
 | 8 | `verify.sh --since <last_green_sha> --report-all` is green, `scope: since` | `.pandacorp/run/gate-report.json` says `"green": true` |
-| 9 | An opus `pandacorp:reviewer` judges the diff within its call budget and returns no blocking finding | its structured findings, all `nit` or empty |
-| 10 | Reclassification on the real range returns `micro` (small, no new file, no new route, presentation surface) | the `--range` verdict, written back over the provisional one |
-| 11 | `/pandacorp:sync --close-out <slug>` writes the micro set: card to `done/` with `shipped_sha`, one line in `progress.md`, and NO decision-log entry because `supersedes:` is empty | the card is in `changes/done/`, `docs/decision-log.md` is unchanged |
+| 9 | An opus `pandacorp:reviewer` re-runs the gate itself, judges the diff within its call budget, and returns no blocking finding | its own gate run, and structured findings that are all `nit` or empty |
+| 10 | Reclassification on the real range returns `micro`: S1 (≤20 net lines, ≤3 files, no new file) with no signal above it. It stays `normal` if `madge` is missing (S17) or the diff grew, and that is a correct outcome, not a canary failure: just close it at the `normal` tier | the `--range` verdict, written back over the provisional one |
+| 11 | `/pandacorp:sync --close-out <slug>` stamps `status: closing` + `implemented_sha` + `closing_at`, then writes the level's set. At `micro`: card to `done/` with `shipped_sha`, one line in `progress.md`, and NO decision-log entry because `supersedes:` is empty. At `normal`: also the WO Status Note, a decision-log entry and the `status.yaml` rollups | the card is in `changes/done/`; `docs/decision-log.md` unchanged at `micro`, one new entry at `normal` |
 | 12 | The branch merges to `main` directly and the worktree is removed | `git log` on `main`, `git worktree list` clean |
 | 13 | One closing Spanish line, with no invented cost figure | the message names level, gate, commit and the archived card |
 

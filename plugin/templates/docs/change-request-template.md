@@ -2,7 +2,9 @@
   TEMPLATE for a change-queue card: .pandacorp/inbox/changes/<slug>.md
   Written by /pandacorp:change (and the /pandacorp:bug, /pandacorp:iterate engines). This is the
   OWNER CHANNEL: gitignored, so the FRONTMATTER is English (machine-stable) and the BODY is Spanish.
-  The card only captures + classifies; the build drains it at a safe point (DR-067/069). Keep the
+  Writing the card is always capture + classify only. What happens NEXT depends on the card: a
+  queued one is drained by the build at a safe point (DR-067/069); a `ready` micro/normal one with
+  no build running is implemented and closed in the same turn by `/pandacorp:change --now`. Keep the
   flavor that fits (bug vs feature/change) and delete the other.
 
   `rigor` is DERIVED, never asked: run `plugin/scripts/classify-change.sh` over the change's diff
