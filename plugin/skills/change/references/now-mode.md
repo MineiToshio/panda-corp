@@ -268,10 +268,14 @@ it. Report the parse errors if you see them; do not work around them by inventin
    branch, nothing is lost, and here is what is needed.
 6. **One closing line to the owner**, Spanish, for example:
    `hecho · nivel normal · gate verde (since) · commit a1b2c3d · card archivada en done/`.
-   Append the real cost only when a rollup actually produced it for THIS change. There is no
-   per-change rollup today (`plugin/scripts/usage-rollup.mjs` takes `--dir <run-dir>` and rolls
-   up a BUILD run's subagent transcripts), so until one exists, say nothing about cost rather
-   than estimating it. CONV-13: an unmeasured number is not a number.
+   Append the real cost only when a rollup actually produced it for THIS change. F5
+   (`plugin/scripts/usage-rollup.mjs`) has a per-change session mode: run
+   `node plugin/scripts/usage-rollup.mjs --session <transcript.jsonl> --commits <base>..<head> --repo . --card <card.md>`
+   (dry-run, prints the summary to stdout) — add `--out .pandacorp/track.jsonl` to also record it
+   on the timeline. When it exits 0 and prints `cost_usd_total`, quote that measured number; on any
+   other exit (no transcript at hand, an ambiguous window, an unwritable `--out`), say nothing
+   about cost rather than estimating it. CONV-13: an unmeasured number is not a number — never
+   estimate one nobody measured.
 
 ---
 
@@ -306,3 +310,13 @@ certify and every verdict floors at `normal`, which makes rows 3 and 10 untestab
 touched the floor; a card that never reaches `done/`; a green claimed from a `partial` scope; a
 cost number nobody measured; the implementer running in the owner's session or in the main
 checkout; a red gate landed anyway.
+
+**Flipping the default (REV3 defect D2, independent review 2026-09-22).** `--now` stays opt-in —
+the default is `--queue` — until BOTH hold: (1) the Stop gate's D2 UI-artifact escalation is
+shipped (a UI-only diff can no longer silently ride `--since` past the browser fidelity gates,
+DR-056/DR-074), and (2) this canary has been run at least once, in full, end to end, with that fix
+in place, and every row above passed. Only then does `change/SKILL.md` flip `--now` back to the
+default and `--queue` to the explicit flag — as its own prose edit, citing this paragraph and the
+canary run in the decision log. Do not flip it on the strength of the unit-test suite alone: this
+row's whole point is that only a real, owner-attended run through Mission Control exercises the
+non-mocked boundary (quality-and-testing.md: owner-attended live attempts are the scarcest gate).
