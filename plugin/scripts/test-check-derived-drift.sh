@@ -33,6 +33,43 @@ check_stop() { # $1 label, $2 expected rc, $3 root, $4 session_id -- simulates t
   fi
 }
 
+run_with_node_marker() { # $1 root, $2 session_id, $3 marker file -> sets $output and $rc; any
+  # `node` the gate shells out to (Check 0-7) is intercepted by a fake PATH entry that appends to
+  # the marker before delegating to the REAL node, so a real heavy run still completes correctly
+  # while leaving unambiguous evidence it ran (BL-0044: proves the fast-path actually skips work,
+  # not just that it returns rc=0 — a check that cannot fail proves nothing, constitution §24).
+  local real_node fakebin payload
+  real_node=$(command -v node)
+  fakebin=$(mktemp -d)
+  cat > "$fakebin/node" <<EOF
+#!/bin/bash
+echo invoked >> "$3"
+exec "$real_node" "\$@"
+EOF
+  chmod +x "$fakebin/node"
+  payload=$(printf '{"cwd":%s,"session_id":%s}' "$(jq -Rs . <<< "$1")" "$(jq -Rs . <<< "$2")")
+  output=$(printf '%s' "$payload" | PATH="$fakebin:$PATH" bash "$GATE" 2>&1)
+  rc=$?
+  rm -rf "$fakebin"
+}
+
+check_stop_nodeinvoked() { # $1 label, $2 expected rc, $3 root, $4 session_id, $5 expect_node_invoked(0/1)
+  local marker invoked ok
+  marker=$(mktemp -u)
+  run_with_node_marker "$3" "$4" "$marker"
+  invoked=0
+  [ -s "$marker" ] && invoked=1
+  ok=1
+  [ "$rc" = "$2" ] || ok=0
+  [ "$invoked" = "$5" ] || ok=0
+  if [ "$ok" = "1" ]; then
+    echo "  ✓ $1"; pass=$((pass+1))
+  else
+    echo "  ✗ $1 (expected rc=$2 node_invoked=$5, got rc=$rc node_invoked=$invoked): $output"; fail=$((fail+1))
+  fi
+  rm -f "$marker"
+}
+
 make_fixture() { # builds a minimal factory-shaped tree from the real repo
   local d
   d=$(mktemp -d)
@@ -245,6 +282,39 @@ printf '%s/plugin/runtime/plugin-metadata.json\n' "$gy_root" > "$gy/.pandacorp/r
 check_stop "BL-0082 own-session edit set still blocks (unchanged)" 2 "$gy" "sid-owner"
 
 rm -rf "$gy"
+
+# 10. BL-0044: fast-path skips the heavy generator re-runs (Check 0-7, which shell out to node)
+# when this session's own touched set carries nothing under plugin/ or factory/, the tree has
+# nothing dirty under plugin/, and HEAD matches the recorded derived-drift-last-ok.json sha.
+gz=$(make_fixture)
+( cd "$gz" && git init -q \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" add -A \
+    && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "fixture baseline" )
+gz_root=$(git -C "$gz" rev-parse --show-toplevel)
+mkdir -p "$gz/.pandacorp/run/sessions" "$gz/mission-control/src"
+: > "$gz/mission-control/src/x.ts"
+
+# Baseline: a manual/positional invocation (no session context) always runs the full check —
+# same fail-closed stance as BL-0082 above — and on success it now ALSO records
+# derived-drift-last-ok.json at this exact HEAD, which the fast-path below needs.
+check "BL-0044 baseline clean run (manual invocation, always full)" 0 "$gz"
+if [ -f "$gz/.pandacorp/run/derived-drift-last-ok.json" ] \
+   && [ "$(jq -r .sha "$gz/.pandacorp/run/derived-drift-last-ok.json")" = "$(git -C "$gz" rev-parse HEAD)" ]; then
+  echo "  ✓ BL-0044 baseline run wrote derived-drift-last-ok.json at HEAD"; pass=$((pass+1))
+else
+  echo "  ✗ BL-0044 baseline run did not record derived-drift-last-ok.json correctly"; fail=$((fail+1))
+fi
+
+# A Mission Control session that only touched mission-control/src/x.ts (nothing under plugin/ or
+# factory/), on an otherwise clean tree at the recorded ok sha -> fast-path, node never runs.
+printf '%s/mission-control/src/x.ts\n' "$gz_root" > "$gz/.pandacorp/run/sessions/sid-mc.touched"
+check_stop_nodeinvoked "BL-0044 MC-only touched session -> fast-path, no node runs" 0 "$gz" "sid-mc" 0
+
+# A session that touched plugin/agents/x.md -> disqualified by (a), full check runs (node invoked).
+printf '%s/plugin/agents/x.md\n' "$gz_root" > "$gz/.pandacorp/run/sessions/sid-plugin.touched"
+check_stop_nodeinvoked "BL-0044 plugin/ touched session -> full check runs, node invoked" 0 "$gz" "sid-plugin" 1
+
+rm -rf "$gz"
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

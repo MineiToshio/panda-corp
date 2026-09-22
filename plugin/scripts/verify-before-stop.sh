@@ -87,6 +87,32 @@ if [ "$hook_runtime" = "claude" ] && [ ! -f "$lease" ] && [ -f "$status_yaml" ];
   done
 fi
 
+# FAST-PATH (BL-0044): skip the whole-program verify.sh gate when nothing could have changed
+# since the last GREEN run recorded for this EXACT commit. Three conditions, ALL must hold, or
+# the gate runs exactly as before — any doubt falls through to the real gate (fail-closed):
+#   (a) the working tree is clean (`git status --porcelain` empty — git already excludes
+#       gitignored paths by default, so gitignored runtime state never blocks the fast-path)
+#   (b) HEAD matches the sha of the last GREEN run recorded in last-green.json, written ONLY by
+#       THIS hook below when verify.sh exits 0 (no other writer) — a new commit moves HEAD and
+#       invalidates the fast-path by construction
+#   (c) this session's own .touched marker (DR-099) is absent or empty — a session that wrote
+#       nothing has nothing new for the gate to catch, even if some OTHER session committed
+sid=$(echo "$input" | jq -r '.session_id // ""')
+touched="$cwd/.pandacorp/run/sessions/$sid.touched"
+last_green="$cwd/.pandacorp/run/last-green.json"
+fastpath=0
+if [ -z "$(git -C "$cwd" status --porcelain 2>/dev/null)" ] && { [ -z "$sid" ] || [ ! -s "$touched" ]; }; then
+  head_sha=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
+  if [ -n "$head_sha" ] && [ -f "$last_green" ]; then
+    green_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
+    [ -n "$green_sha" ] && [ "$green_sha" = "$head_sha" ] && fastpath=1
+  fi
+fi
+if [ "$fastpath" = "1" ]; then
+  echo "verify-before-stop: fast-path (clean tree, HEAD==last green ${head_sha})" >&2
+  exit 0
+fi
+
 out=$(bash "$verify" 2>&1)
 if [ $? -ne 0 ]; then
   # The gate is RED. Attribute BEFORE nagging (DR-099): in a SHARED checkout the whole-program gate
@@ -151,6 +177,18 @@ if [ $? -ne 0 ]; then
   echo "--- verify.sh output (last 30 lines) ---" >&2
   echo "$out" | tail -30 >&2
   exit 2
+fi
+
+# GREEN: record the commit this run verified so a later Stop on an unchanged, clean tree can
+# fast-path above (BL-0044). Best-effort — a write failure here never blocks the (already-passed)
+# Stop; it just means the next Stop re-runs the gate instead of fast-pathing.
+green_sha_now=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
+if [ -n "$green_sha_now" ]; then
+  mkdir -p "$cwd/.pandacorp/run" 2>/dev/null
+  tmp_lg=$(mktemp "$cwd/.pandacorp/run/.last-green.XXXXXX" 2>/dev/null) && {
+    printf '{"sha":"%s","at":"%s"}\n' "$green_sha_now" "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" > "$tmp_lg" \
+      && mv "$tmp_lg" "$last_green"
+  }
 fi
 
 exit 0
