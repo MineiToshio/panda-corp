@@ -263,10 +263,9 @@ const ACHIEVEMENT = (frd) =>
   ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
 // Per-WO commit event (2026-07-01): Mission Control's Party refreshes its frontmatter read when a
 // FRESHER dashboard event arrives — the IN_REVIEW stamp alone appends nothing, so without this line
-// a WO finishing mid-session never walked forge→tribunal until a manual reload. The mech commit
-// writer appends it right after the commit (fire-and-forget; also a bitácora line, "wo_commit").
-const WO_COMMIT_EVENT = (frd, woId) =>
-  ` Then append the Party per-WO commit event (fire-and-forget): printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+// a WO finishing mid-session never walked forge→tribunal until a manual reload. WP-03: folded into
+// TRACK_AND_WO_COMMIT (defined next to commitWOGreen, its only caller) — one heredoc instead of two
+// separate printf appends for the commit writer.
 
 // ── Package B (proposal 31): LIVE build events the Mission Control consumer reads ──────────────────
 // Same contract as the events above (fire-and-forget, ONE line, single printf, payload well under 4096
@@ -799,23 +798,31 @@ function pickWorkerModel(wo) {
 // never capture a sibling's in-flight files. The resume path is unchanged: a committed WO is IN_REVIEW
 // → skipped on relaunch (never rebuilt); only PLANNED/IN_PROGRESS (uncommitted) work is redone.
 let commitChain = Promise.resolve()
-// WP-03 fusion (ii) support (scaffolding — the pin: call site below already accepts this cached sha;
-// commitWOGreen does not populate it YET, so capturePin always spawns for now, unchanged): the sha of the
-// LAST commit that actually landed via commitWOGreen, reset per wave (see the Build-phase loop below).
+// WP-03 fusion (ii) support: the sha of the LAST commit that actually landed via commitWOGreen — reset
+// per wave (see the Build-phase loop below), read by capturePin so a wave that already committed doesn't
+// need its own `pin:` spawn to learn what it already knows. Populated from the commit agent's OWN report
+// (git-truth from the SAME serialized writer, not re-derived), never guessed.
 let lastCommitSha = null
+// WP-03 fusion (iii): the commit prompt's TWO fire-and-forget printf appends (the durable track.jsonl
+// timeline line + the dashboard wo_commit event) run as ONE bash call instead of two — same two lines,
+// one fewer round trip for the mech writer. Neither depends on the git commit already existing (both just
+// announce facts already true — the WO's frontmatter state, this wave's timing), so firing them together
+// right before the commit (instead of straddling it) is safe.
+const TRACK_AND_WO_COMMIT = (frd, woId) =>
+  ` Also, in a SINGLE bash call (one heredoc covering both printfs, not two separate commands), append BOTH fire-and-forget lines: (1) to ${TRACK_PATH} — the durable timeline wo_end line: \`printf '{"kind":"wo_end","frd":"${frd}","wo":"${woId}","state":"in_review","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}\`; (2) to ~/.claude/dashboard-events.ndjson — the Party wo_commit event: \`printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson\`.`
 async function commitWOGreen(wo, frd) {
   agentSpawned++
   const link = commitChain.then(() =>
     agent(
-      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK('wo_end', `,"frd":"${frd}","wo":"${wo.id}","state":"in_review"`)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended) AND \`.pandacorp/build-journal.jsonl\` if it changed (append-only, shared — like track.jsonl; sweeps any pending build-journal lines a retry builder appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files (other than track.jsonl / build-journal.jsonl, which are append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified).${WO_COMMIT_EVENT(frd, wo.id)} Return { committed: 1 }.`,
-      { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' },
+      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK_AND_WO_COMMIT(frd, wo.id)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status` to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended) AND \`.pandacorp/build-journal.jsonl\` if it changed (append-only, shared — like track.jsonl; sweeps any pending build-journal lines a retry builder appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status\` shows changes outside this WO's files (other than track.jsonl / build-journal.jsonl, which are append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). THEN return the sha of the commit you just made (\`git rev-parse --short HEAD\`). Return { committed: 1, sha: "<that short sha>" }.`,
+      { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['committed'], properties: { committed: { type: 'number' }, sha: { type: 'string' } } } },
     ),
   )
   commitChain = link.catch(() => {}) // keep the chain alive even if one commit errors
   // WS-D/D1: a commit failure must NOT reject the wave (Promise.all would reject the whole parallel wave).
   // Resolve to a boolean the caller acts on: a green-but-UNCOMMITTED WO is routed into its FRD's repair
   // path (same as a self-test failure), never silently treated as done.
-  return link.then(() => true, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
+  return link.then((r) => { if (r && r.sha) lastCommitSha = r.sha; return true }, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
 }
 
 // ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off → commit-when-green ──
@@ -2408,7 +2415,7 @@ if (!closed || closed.done !== true) {
 if (!LEAN_CLOSE_OUT && closed && closed.done === true) {
   agentSpawned++
   await agent(`Terminal lease close. ${RELEASE_LEASE} Confirm done:true.`,
-    { label: 'release-lease', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    { label: 'release-lease', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
 }
 
 return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }

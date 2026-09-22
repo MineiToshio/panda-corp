@@ -130,7 +130,7 @@ function defaultResponse(label) {
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
   if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
   if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
-  if (label.startsWith('commit:')) return { committed: 1 }
+  if (label.startsWith('commit:')) return { committed: 1, sha: 'defaultcommitsha' }   // WP-03 fusion (ii): the real mech commit writer always reports its own sha
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
@@ -2103,6 +2103,191 @@ SCENARIOS.push({
     const closeCall = closing[0]
     const release = byLabel(run, 'release-lease')[0]
     t.ok(archive.index < closeCall.index && closeCall.index < release.index, 'the legacy shape runs the three close-out spawns in the original serial order: archive-changes -> closing agent -> release-lease')
+  },
+})
+
+// ── WP-03. Plumbing diet — the 9 class-(a) + 5 class-(b) MECH sites (spike report classification) run
+// on the narrow pandacorp:mech agent (Bash+Read, no Write/Edit) at effort:'low' instead of the broad
+// pandacorp:implementer/pandacorp:devops at default effort. This package actually CONVERTS 12 of the 15
+// spike-classified sites: all 9 class-(a) + 3 of the 5 class-(b) (commit, archive-changes, notify-end).
+// TWO class-(b) sites — apply-gate, persist-block — are DELIBERATELY left untouched: both sit inside the
+// "reparación" region (~1088-1150 on the pre-WP-03 file) another package in this sprint owns; touching
+// them risks exactly the merge collision DR-096 isolation exists to avoid. safe-point (class c, genuine
+// judgment — matching the owner's free-form decision answers to blocked work orders) is also untouched,
+// as directed. Plus two spawn-count fusions (i: sync-rollups folds into the first wave's dispatch; ii:
+// capturePin reuses commitWOGreen's own reported sha instead of spawning its own pin: agent) and one
+// prompt fusion (iii: the commit writer's two fire-and-forget printfs run in one bash call).
+const siteKeepsOriginalAgentType = (labelAnchor) => {
+  const i = source.indexOf(labelAnchor)
+  if (i === -1) return false
+  const window = source.slice(i, i + 220)
+  return /agentType: 'pandacorp:implementer'/.test(window) && !/MECH_AGENT/.test(window)
+}
+SCENARIOS.push({
+  name: 'WP03a. static scan — exactly the 12 converted call sites carry agentType:MECH_AGENT(...)+effort:MECH_EFFORT; safe-point/apply-gate/persist-block keep their ORIGINAL agentType',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const mechAgentCount = (source.match(/agentType: MECH_AGENT\(/g) || []).length
+    const mechEffortCount = (source.match(/effort: MECH_EFFORT/g) || []).length
+    t.ok(mechAgentCount === 12, `exactly 12 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 12, `exactly 12 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    t.ok(siteKeepsOriginalAgentType("label: 'safe-point'"), 'safe-point (class c, genuine judgment) keeps its ORIGINAL agentType — never converted')
+    t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
+    t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
+  },
+})
+// (b)+(a live cross-check of the static scan above) a default (MECH_LEAN) run: dispatch/commit/gate-worktree
+// resolve to pandacorp:mech+low; safe-point resolves to its UNCHANGED pandacorp:implementer, no effort
+// override; fusion (i) — 0 sync-rollups spawns, folded into the first dispatch's own prompt; fusion (ii) —
+// 0 pin: spawns, both WOs committed this wave so capturePin reused commitWOGreen's own reported sha.
+SCENARIOS.push({
+  name: 'WP03b. default MECH_LEAN run — dispatch/commit/gate-worktree resolve pandacorp:mech+low; safe-point stays pandacorp:implementer (no effort); 0 sync-rollups; 0 pin (wave committed)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp03b-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-wp03b-001', 'PLANNED', { frd: 'frd-wp03b-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-wp03b-002', 'PLANNED', { frd: 'frd-wp03b-lib', artifacts: ['scripts/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && dispatch.opts.agentType === 'pandacorp:mech' && dispatch.opts.effort === 'low', 'dispatch resolves to pandacorp:mech + effort low')
+    t.ok(dispatch && /sync-rollups --project/.test(dispatch.prompt), 'fusion (i): the FIRST dispatch prompt carries the sync-rollups command')
+    const commits = byLabel(run, /^commit:/)
+    t.ok(commits.length === 2 && commits.every((c) => c.opts.agentType === 'pandacorp:mech' && c.opts.effort === 'low'), 'both commit spawns resolve to pandacorp:mech + effort low')
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(gw && gw.opts.agentType === 'pandacorp:mech' && gw.opts.effort === 'low', 'gate-worktree resolves to pandacorp:mech + effort low')
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length >= 1 && sp.every((c) => c.opts.agentType === 'pandacorp:implementer' && c.opts.effort === undefined), 'safe-point (class c) is UNCHANGED — pandacorp:implementer, no effort override')
+    t.ok(byLabel(run, 'sync-rollups').length === 0, 'fusion (i): no standalone sync-rollups spawn')
+    t.ok(byLabel(run, /^pin:/).length === 0, 'fusion (ii): no pin: spawn — both WOs committed this wave, capturePin reused the cached sha')
+  },
+})
+// (e) escape hatch: args.mechLean:false reverts EVERY converted site's agentType/effort AND both
+// spawn-count fusions to the pre-WP-03 shape (isolates a regression to this package).
+SCENARIOS.push({
+  name: 'WP03c. args.mechLean:false escape hatch — reverts agentTypes/effort AND both spawn-count fusions (sync-rollups + pin) to the pre-WP-03 shape',
+  args: { mode: 'pro', mechLean: false },
+  plan: mkPlan([{
+    frd: 'frd-wp03c-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-wp03c-001', 'PLANNED', { frd: 'frd-wp03c-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-wp03c-002', 'PLANNED', { frd: 'frd-wp03c-lib', artifacts: ['scripts/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && dispatch.opts.agentType === 'pandacorp:implementer' && dispatch.opts.effort === undefined, 'dispatch reverts to pandacorp:implementer, no effort override')
+    t.ok(dispatch && !/sync-rollups --project/.test(dispatch.prompt), 'dispatch no longer carries the sync-rollups command — it is its own spawn again')
+    const commits = byLabel(run, /^commit:/)
+    t.ok(commits.length === 2 && commits.every((c) => c.opts.agentType === 'pandacorp:implementer' && c.opts.effort === undefined), 'commit reverts to pandacorp:implementer, no effort override')
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(gw && gw.opts.agentType === 'pandacorp:implementer' && gw.opts.effort === undefined, 'gate-worktree reverts to pandacorp:implementer, no effort override')
+    t.ok(byLabel(run, 'sync-rollups').length === 1, 'fusion (i) reverted: the standalone Plan-phase sync-rollups spawn runs again')
+    t.ok(byLabel(run, /^pin:/).length === 1, 'fusion (ii) reverted: pin: always spawns its own agent, even though the wave committed')
+  },
+})
+// (c) the commit: prompt still carries the selective-staging + sibling-file-prohibition invariants
+// UNCHANGED, plus the fusion (ii)/(iii) additions (sha in the schema/prompt, the two printfs in one bash
+// call); the closing prompt still carries RELEASE_LEASE.
+SCENARIOS.push({
+  name: 'WP03d. commit: prompt keeps its selective-staging + sibling-file-prohibition invariants, plus fusion (ii) sha + fusion (iii) one-heredoc; the closing prompt keeps RELEASE_LEASE',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp03d-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp03d-001', 'PLANNED', { frd: 'frd-wp03d-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const commit = byLabel(run, /^commit:/)[0]
+    t.ok(commit && /staging ONLY this work order's own files/.test(commit.prompt), "the commit prompt still stages ONLY this WO's own files")
+    t.ok(commit && /Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files/.test(commit.prompt), 'the commit prompt still forbids touching sibling files')
+    t.ok(commit && commit.opts.schema && commit.opts.schema.properties && commit.opts.schema.properties.sha, 'fusion (ii): the commit schema now advertises an optional sha field')
+    t.ok(commit && /git rev-parse --short HEAD/.test(commit.prompt) && /"committed": 1, "sha":|committed: 1, sha:/.test(commit.prompt.replace(/\\"/g, '"')), 'fusion (ii): the commit prompt asks for the landed sha back')
+    t.ok(commit && /SINGLE bash call/.test(commit.prompt) && /wo_commit/.test(commit.prompt) && /wo_end/.test(commit.prompt), 'fusion (iii): the TRACK(wo_end) + wo_commit event printfs are fused into one bash call')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)[0]
+    t.ok(closing && /fenced TWO-PHASE protocol/.test(closing.prompt), 'the closing prompt still carries the RELEASE_LEASE fenced two-phase protocol')
+    const rlIndex = closing.prompt.indexOf('fenced TWO-PHASE protocol')
+    t.ok(rlIndex > closing.prompt.length * 0.5, 'RELEASE_LEASE sits in the back half of the closing prompt (near the end, after every other step)')
+  },
+})
+// (f) total spawn count for the G13a fixture (2 disjoint no-UI WOs, mode 'pro', hasFrontend:true, full
+// allDone path) drops vs the integration-speed-sprint-a base branch — measured directly by running the
+// SAME stub harness shape against both engine sources (git show integration-speed-sprint-a:... vs this
+// file): base = 19 total spawns, after WP-03 = 17 (-2: fusion i removes the standalone sync-rollups spawn,
+// fusion ii removes the pin: spawn since both WOs committed this wave) — see the session report for the
+// side-by-side trace.
+SCENARIOS.push({
+  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 17)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g13a-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g13a-001', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-g13a-002', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['scripts/**'] }),
+    ],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.calls.length === 17, `total spawns for this fixture is 17 (was 19 on integration-speed-sprint-a before WP-03) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
+    t.ok(byLabel(run, 'sync-rollups').length === 0, 'the removed spawn: standalone sync-rollups (fusion i)')
+    t.ok(byLabel(run, /^pin:/).length === 0, 'the removed spawn: pin (fusion ii — the wave committed both WOs)')
+  },
+})
+// fusion (ii) safety net: a same-wave repair (attemptRepair ALWAYS commits on its own, fix or block+revert)
+// invalidates the cached sha for EVERY FRD that wave — even one unrelated to the repair — because HEAD
+// advanced past the repair's own commit; capturePin must spawn a FRESH pin: rather than trust a sha that
+// predates that commit.
+SCENARIOS.push({
+  name: 'WP03f. fusion (ii) safety — a same-wave repair (even on an unrelated FRD) invalidates the cached sha; pin: still spawns fresh, never stale',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-wp03f-ok', deps: [], workOrders: [mkWo('wo-wp03f-ok-001', 'PLANNED', { frd: 'frd-wp03f-ok', artifacts: ['src/ok/**'] })] },
+    { frd: 'frd-wp03f-bad', deps: [], workOrders: [mkWo('wo-wp03f-bad-001', 'PLANNED', { frd: 'frd-wp03f-bad', artifacts: ['src/bad/**'] })] },
+  ]),
+  responses: [
+    { label: 'build:wo-wp03f-bad-001', response: { green: false } },
+    { label: 'repair:frd-wp03f-bad', response: { green: false, blocked_reason: 'error' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'commit:wo-wp03f-ok-001').length === 1, "frd-wp03f-ok's WO committed normally this wave")
+    t.ok(byLabel(run, /^repair:/).length === 1, "frd-wp03f-bad's WO failed self-test and triggered the wave-level repair")
+    t.ok(byLabel(run, /^pin:/).length === 1, 'pin: STILL spawns for frd-wp03f-ok — the same-wave repair (on a DIFFERENT FRD) invalidates the cached sha (conservative, correct: HEAD advanced past the repair commit)')
+  },
+})
+// legacy close-out (args.leanCloseOut:false) live cross-check: archive-changes/release-lease/notify-end
+// still resolve to pandacorp:mech+low under default MECH_LEAN, even though they are the SEPARATE spawns
+// WP-02's lean shape normally folds away.
+SCENARIOS.push({
+  name: 'WP03g. legacy close-out (args.leanCloseOut:false) — archive-changes/notify-end/release-lease resolve pandacorp:mech+low',
+  args: { mode: 'pro', leanCloseOut: false },
+  plan: mkPlan([
+    { frd: 'frd-wp03g-ok', deps: [], workOrders: [mkWo('wo-wp03g-ok-001', 'PLANNED', { frd: 'frd-wp03g-ok', artifacts: ['src/ok/**'] })] },
+    { frd: 'frd-wp03g-bad', deps: [], workOrders: [mkWo('wo-wp03g-bad-001', 'PLANNED', { frd: 'frd-wp03g-bad', artifacts: ['src/bad/**'] })] },
+  ]),
+  responses: [
+    { label: 'gate:frd-wp03g-bad', response: { green: false, blocked_reason: 'needs-owner', failure: 'x' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp03g-ok'), 'frd-wp03g-ok verified normally')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-wp03g-bad'), 'frd-wp03g-bad blocked (needs-owner) — so allDone is false, forcing the notify-end branch')
+    const archive = byLabel(run, 'archive-changes')[0]
+    t.ok(archive && archive.opts.agentType === 'pandacorp:mech' && archive.opts.effort === 'low', 'archive-changes (legacy, its own spawn again) resolves to pandacorp:mech + effort low')
+    const notify = byLabel(run, 'notify-end')[0]
+    t.ok(notify && notify.opts.agentType === 'pandacorp:mech' && notify.opts.effort === 'low', 'notify-end resolves to pandacorp:mech + effort low')
+    const release = byLabel(run, 'release-lease')[0]
+    t.ok(release && release.opts.agentType === 'pandacorp:mech' && release.opts.effort === 'low', 'release-lease (legacy, its own terminal spawn again) resolves to pandacorp:mech + effort low')
   },
 })
 
