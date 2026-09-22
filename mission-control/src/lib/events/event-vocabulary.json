@@ -111,6 +111,10 @@
     "supervisor.failure": {
       "display": "SupervisorFailure",
       "aliases": ["SupervisorFailure", "supervisor_exhausted", "supervisor_protocol_error"]
+    },
+    "ui.pass-skipped": {
+      "display": "UiPassSkipped",
+      "aliases": ["UiPassSkipped", "ui_pass_skipped", "ui-pass-skipped"]
     }
   }
 }
