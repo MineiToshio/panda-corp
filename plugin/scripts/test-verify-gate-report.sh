@@ -435,6 +435,54 @@ else
 fi
 rm -rf "$FX"
 
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# REV2 — INDEPENDENT REVIEW (DR-015) of WP-08's scoped-run surface.
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+
+# REV2-F · an unknown --only name must exit non-zero BEFORE any sub-gate runs (fail-closed, never a
+# silent degrade to "run everything"). Proven by the argv log being empty: no tool was invoked at all.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"; : > "$ARGV"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=tsk 2>&1); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 2 ] && [ ! -s "$ARGV" ] && [ -f "$rf" ] && [ "$(json_get "$rf" "d['green']")" = "False" ]; then
+  ok "(REV2-F) unknown --only name: exit 2, ZERO tools invoked, report green:false"
+else
+  bad "(REV2-F) unknown --only name: expected rc=2 with an empty argv log and a red report — got rc=$rc argv=[$(cat "$ARGV" 2>/dev/null)]" "$out"
+fi
+rm -rf "$FX"
+
+# REV2-G · --files is NOT validated the way --only is. A value that looks like a FLAG is forwarded
+# verbatim into the biome command line, so a gate-report `failures[].file` value the engine copies
+# out of a model's verdict can turn the read-only check into a project-wide autofix
+# (`biome check --write`). The scoped path is fail-closed on gate NAMES and wide open on gate INPUTS.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"; : > "$ARGV"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=biome --files=--write 2>&1); rc=$?
+if grep -q -- '--write' "$ARGV" 2>/dev/null; then
+  bad "(REV2-G) --files forwards a flag-shaped value straight into biome: [$(grep biome "$ARGV" | head -1)] — --only validates its names, --files validates nothing" "$out"
+else
+  ok "(REV2-G) --files rejects or neutralises a flag-shaped path"
+fi
+rm -rf "$FX"
+
+# REV2-H · the `partial` label must survive EVERY combination — including the one where a caller
+# spells --since AFTER a scope flag. (--since is parsed positionally from $1/$2 only, so this
+# invocation silently loses the since-ref; the report must still be honest about being partial.)
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"; : > "$ARGV"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=biome --since deadbeef 2>&1); rc=$?
+rf=$(report_path "$FX")
+if [ -f "$rf" ] && [ "$(json_get "$rf" "d['scope']")" = "partial" ]; then
+  ok "(REV2-H) scope stays partial when --since trails a scope flag (--since itself is silently dropped by the positional parse)"
+else
+  bad "(REV2-H) expected scope=partial, got $(json_get "$rf" "d['scope']" 2>/dev/null)" "$out"
+fi
+rm -rf "$FX"
+
 echo ""
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

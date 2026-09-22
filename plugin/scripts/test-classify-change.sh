@@ -373,6 +373,51 @@ run --repo "$REPO" --staged
 expect_rigor micro "CSS visibility stays micro"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
 
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+# REV2 — INDEPENDENT REVIEW (DR-015). Three FLOOR-EVASION attacks the classifier's own suite
+# does not try. Each one is an EDIT to a pre-existing, already-recognised file, so the S1/S3
+# size ladder cannot rescue the verdict and the floor is tested alone — which is the only
+# failure the classifier's own header calls unacceptable ("a false negative on the floor").
+# ═══════════════════════════════════════════════════════════════════════════════════════════
+
+echo "Case REV2-A — a destructive SQL statement SPLIT over two added lines"
+printf 'export const STMT = [\n' >> "$REPO/src/lib/cleanup.ts"
+printf '  "%s",\n' "DELETE" >> "$REPO/src/lib/cleanup.ts"
+printf '  "FROM sessions WHERE stale = true",\n].join(" ");\n' >> "$REPO/src/lib/cleanup.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "REV2-A: S8 is matched per added LINE, so splitting the statement across two lines evades the floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/cleanup.ts 2>/dev/null
+
+echo "Case REV2-A2 — control: the SAME statement on ONE line must still hit the floor"
+printf 'export const STMT2 = "%s FROM sessions";\n' "DELETE" >> "$REPO/src/lib/cleanup.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "REV2-A2 control: single-line destructive statement"
+has_floor S8 && ok "REV2-A2: S8 in floor_hits (the control proves the detector works at all)" || bad "REV2-A2: S8 missing :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/cleanup.ts 2>/dev/null
+
+echo "Case REV2-B — a base64-encoded secret under an innocuous identifier"
+printf 'export const BLOB = "c2stcHJvai1BQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWjEyMzQ1Njc4OTA=";\n' >> "$REPO/src/lib/alpha.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "REV2-B: S7 only matches PLAINTEXT key shapes (sk-/AKIA/ghp_/PEM), so a base64 blob carries a secret past the floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
+
+echo "Case REV2-C — a real authorization decision written without a single auth term"
+printf 'export function pick(ctx: { u: { id: string } }, row: { o: string; body: string }) {\n' >> "$REPO/src/lib/beta.ts"
+printf '  if (ctx.u.id !== row.o) return null;\n  return row.body;\n}\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "REV2-C: an ownership check with no auth vocabulary and no auth path evades S5 entirely"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+
+echo "Case REV2-D — --files mode (no diff body) can never certify micro, and says so in notes"
+run --repo "$REPO" --files "src/lib/alpha.ts"
+[ "$(rigor)" != "micro" ] && ok "REV2-D: --files never certifies micro (got $(rigor))" || bad "REV2-D: --files certified micro without a diff body :: $OUT"
+printf '%s' "$OUT" | jq -e '.notes | any(test("content signals not evaluated"))' >/dev/null 2>&1 \
+  && ok "REV2-D: the missing-content degradation is declared in notes" || bad "REV2-D: the degradation is silent :: $OUT"
+
 echo
 echo "passed: $pass   failed: $fail"
 [ "$fail" -eq 0 ] || exit 1

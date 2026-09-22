@@ -3119,6 +3119,157 @@ SCENARIOS.push({
   },
 })
 
+
+// ── REV2-6 · E2/BL-0129 · the pre-loop drain's FATAL throw has NO error boundary. safePoint()'s
+// identical receipt guard lives INSIDE the scheduler loop's WS-D/D2 try (which guarantees
+// running:false before rethrowing); drainReadyQueuePreLoop() runs BEFORE that loop exists, so a
+// lease-renewal failure or a garbled fenced receipt escapes the engine with running:true still in
+// status.yaml — the phantom-running-build failure WS-D/D2 was written to close.
+SCENARIOS.push({
+  name: 'REV2-6. pre-loop drain: a garbled stop receipt must not escape with running:true (WS-D/D2 has no pre-loop counterpart)',
+  args: { mode: 'pro' },
+  plan: { stack: 'B', hasFrontend: false, unsatisfiedDeps: [], frds: [] },
+  responses: [
+    { label: 'safe-point-pre-loop', response: { stop: false, ready: [], unblocked: [], stop_receipt: { status_exists: true, stop: false, method: 'shell-test' } } },
+  ],
+  assert(t, run) {
+    t.ok(byLabel(run, 'safe-point-pre-loop').length === 1, 'the pre-loop safe point ran')
+    t.ok(Boolean(run.error), 'characterisation: the engine THREW on the invalid receipt (fail-closed on the signal itself — correct)')
+    const closed = byLabel(run, /^(ensure-stopped|ensure-stopped-crash)$/).length
+    t.ok(closed >= 1, 'DEFECT: the throw escaped without any running:false close-out — no pre-loop equivalent of the scheduler loop\'s WS-D/D2 boundary')
+  },
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// REV2 — INDEPENDENT REVIEW (DR-015) of the speed sprint's SECOND batch.
+// Written by the reviewer, not by any package's implementer. Every scenario
+// below targets an invariant the batch's own suites do NOT exercise.
+// ═════════════════════════════════════════════════════════════════════════════
+
+const rev2Report = (green) => JSON.stringify({ at: '2026-09-22T00:00:00Z', scope: 'since', green, subgates: [] })
+
+// ── REV2-1 · WP-06 · the digested gate may CERTIFY WITHOUT EVER RUNNING the adversarial tests it wrote.
+// In EXPLORE mode step 2 is an ORDER ("Run the FOCUSED gate … It must pass clean"), so the tests the
+// reviewer writes in step 1 are necessarily executed before the verdict. In DIGESTED mode the attached
+// report was produced by the collector BEFORE those tests existed, and the re-run is written as a
+// permission ("You MAY run … once"). DR-080 requires the gate to write adversarial tests; an oracle that
+// may never execute them is not an oracle. The digested step MUST carry an execution obligation.
+SCENARIOS.push({
+  name: 'REV2-1. digested gate: the post-adversarial-test verify.sh re-run must be MANDATORY, not optional (DR-080 — ATTACHMENT 1 predates the tests)',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{
+    frd: 'frd-rev2a',
+    deps: [],
+    workOrders: [mkWo('wo-rev2a-001', 'PLANNED', { frd: 'frd-rev2a', artifacts: ['src/rev2a/**'] })],
+  }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: rev2Report(true), diffStat: ' src/rev2a/a.ts | 2 +-', diff: '+// rev2a', truncated: false, ac: 'AC-REV2A.1 WHEN x THE SYSTEM SHALL y' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, /^gate:/)[0]
+    t.ok(Boolean(gate), 'the gate ran')
+    t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'and it ran in DIGESTED mode')
+    // The explore branch's obligation, for contrast: it is an imperative with no opt-out.
+    t.ok(gate && /verify\.sh/.test(gate.prompt), 'the digested prompt still names the gate script')
+    const mandatory = gate && /(MUST run|must run|Run)\s+[^.]{0,80}verify\.sh[^.]{0,200}after (you )?(writ|add)/i.test(gate.prompt)
+    const optionalOnly = gate && /You MAY run `?bash \.pandacorp\/verify\.sh/.test(gate.prompt) && !mandatory
+    t.ok(!optionalOnly, 'DEFECT: in digested mode the ONLY execution instruction is permissive ("You MAY run … once"), so a gate can write adversarial tests, never execute them, and certify green off a report collected before they existed')
+  },
+})
+
+// ── REV2-2 · WP-03 fusion (ii) · a commit that reported `committed: 0` still seeds the pin fast-path.
+// commitWOGreen caches `r.sha` on ANY resolved verdict — it never checks `r.committed`. A mech writer
+// that found nothing to commit and dutifully returned HEAD's sha therefore becomes the freeze pin for
+// the FRD gate, with no `pin:` spawn to re-derive it from git truth.
+SCENARIOS.push({
+  name: 'REV2-2. capturePin fast-path: a commit verdict with committed:0 must NOT be trusted as the wave pin',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev2b',
+    deps: [],
+    workOrders: [mkWo('wo-rev2b-001', 'PLANNED', { frd: 'frd-rev2b', artifacts: ['src/rev2b/**'] })],
+  }]),
+  responses: [
+    { prefix: 'commit:', response: { committed: 0, sha: 'ghostsha' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(Boolean(gw), 'the gate worktree was prepared')
+    t.ok(gw && /ghostsha/.test(gw.prompt), 'characterisation: the sha from the committed:0 verdict DID become the pin')
+    t.ok(byLabel(run, /^pin:/).length === 1, 'DEFECT: no pin: spawn re-derived HEAD — a commit that reported committed:0 seeded the freeze pin from an unverified sha')
+  },
+})
+
+// ── REV2-3 · WP-08 (d) · with the DEFAULT args (scopedRepair absent) the 3x repair-cost BRAKE is OFF,
+// not just the scoping. The brake is the only mechanism that bounds the FRD-24 3.5x blow-up by SPEND;
+// gating it behind the same flag as the sonnet fixer means the default configuration still cannot
+// refuse to grind. Characterisation test — it documents the coupling, it does not assert a fix.
+SCENARIOS.push({
+  name: 'REV2-3. default args: the repair ladder runs to the end with NO cost brake — scopedRepair gates the brake as well as the scoping',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-rev2c',
+    deps: [],
+    workOrders: [mkWo('wo-rev2c-001', 'PLANNED', { frd: 'frd-rev2c', artifacts: ['src/rev2c/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: { green: false, reopen: ['wo-rev2c-001'], findings: [{ wo: 'wo-rev2c-001', finding: 'src/rev2c/a.ts:3 wrong', files: ['src/rev2c/a.ts'] }] } },
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 2, 'patch-1 AND patch-2 both run on the default configuration')
+    t.ok(byLabel(run, /^diagnose:/).length >= 1, 'the opus diagnoser runs between them')
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'and the 3x spend brake NEVER fires by default — it is off with the scoping, so an unflagged run still has no spend ceiling')
+  },
+})
+
+// ── REV2-4 · E2/BL-0129 · the pre-loop drain must TERMINATE when the drained change produces work the
+// re-planner keeps ignoring (a change card whose FRD folder the planner does not return). The fix is
+// deliberately a one-shot drain + one re-plan; this proves there is no re-planification loop, that the
+// run still exits honestly, and that the drain is not attempted a second time.
+SCENARIOS.push({
+  name: 'REV2-4. pre-loop drain: a drained change the re-planner keeps ignoring terminates (one drain, one re-plan, honest exit) — no re-planification loop',
+  args: { mode: 'pro' },
+  plan: { stack: 'B', hasFrontend: false, unsatisfiedDeps: [], frds: [] },
+  responses: [
+    { label: 'safe-point-pre-loop', response: { stop: false, ready: ['rev2-ghost-change'], unblocked: [] } },
+    { prefix: 'process-change:', response: { done: true, affectedFrds: ['frd-rev2-ghost'], frds: [] } },
+    { label: 'plan-post-drain', response: { frds: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'safe-point-pre-loop').length === 1, 'exactly ONE pre-loop safe point — the drain is never retried')
+    t.ok(byLabel(run, 'plan-post-drain').length === 1, 'exactly ONE re-plan — bounded, no loop')
+    t.ok(byLabel(run, 'plan').length === 1, 'and the original planner ran exactly once')
+    t.ok(byLabel(run, /^process-change:/).length === 1, 'the change was drained exactly once')
+    t.ok(run.result && run.result.note === 'all verified', `the run still exits honestly (note: ${run.result && run.result.note})`)
+  },
+})
+
+// ── REV2-5 · E3/BL-0044 · the new fast-path suite test-check-derived-drift.sh is not registered in
+// run-engine-tests.sh's EXPLICIT_SH_SUITES, so the test the package shipped never runs in CI — the
+// exact rot LESSON-0151 (quoted in that runner's own header) exists to prevent.
+SCENARIOS.push({
+  name: 'REV2-5. every test-*.sh suite that exists is registered in run-engine-tests.sh (LESSON-0151: an unregistered suite rots invisibly)',
+  args: { mode: 'pro' },
+  plan: { stack: 'B', hasFrontend: false, unsatisfiedDeps: [], frds: [] },
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const runner = readFileSync(path.resolve(__dirname, 'run-engine-tests.sh'), 'utf8')
+    const m = runner.match(/EXPLICIT_SH_SUITES=\(([^)]*)\)/)
+    t.ok(Boolean(m), 'run-engine-tests.sh declares EXPLICIT_SH_SUITES')
+    const registered = new Set((m ? m[1] : '').split(/\s+/).filter(Boolean))
+    t.ok(registered.has('test-verify-gate-report.sh'), 'test-verify-gate-report.sh is registered')
+    t.ok(registered.has('test-verify-before-stop.sh'), 'E3: test-verify-before-stop.sh is registered')
+    t.ok(registered.has('test-classify-change.sh'), 'F1: test-classify-change.sh is registered')
+    t.ok(registered.has('test-check-derived-drift.sh'), 'DEFECT: E3 shipped test-check-derived-drift.sh but never added it to EXPLICIT_SH_SUITES — the derived-drift fast-path is untested in CI from birth')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
