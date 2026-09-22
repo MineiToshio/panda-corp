@@ -99,6 +99,79 @@ else
   warn "OVERLAY_VERSION template not found at $OVERLAY_FILE — skipping the version check."
 fi
 
+# 2b) session-resident plugin vs the INSTALLED plugin version (BL-0152 — the preventive half of --
+# BL-0141: a session's plugin updates only at restart, so it can launch a NEWER installed engine
+# that requires an agentType its own runtime never heard of, e.g. 'pandacorp:mech', WP-03). Advisory
+# ONLY — BL-0152's own "Out of scope" says blocking the launch is not this item's job; BL-0141's
+# runtime fallback already survives the owner launching anyway. WARN, never FAIL, never touches $FAILS.
+#
+# Session signal: this script is invoked by the skill as "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-
+# implement.sh" — Claude Code substitutes that to the literal cache path of the plugin copy THIS
+# session loaded at its own start, so $0 (and therefore $SCRIPT_DIR, already computed above) sits
+# inside that exact copy. CLAUDE_PLUGIN_ROOT itself is NOT read as an ambient env var: verified empty
+# in a live `bash` tool call in this same session, matching launch-implement.sh's own note that
+# Dynamic Workflow subagents "do not inherit CLAUDE_PLUGIN_ROOT reliably" — here it is not even
+# exported to the top-level session's own shell, only substituted textually before the command runs.
+# So the session's own runtime/plugin-metadata.json (next to this script) IS the session version.
+#
+# Installed signal: ~/.claude/plugins/installed_plugins.json, key "pandacorp@panda-corp" — the exact
+# file + key `claude plugin update` maintains and mission-control's FRD-15 drift banner already reads
+# (mission-control/src/lib/plugin-sync/plugin-sync.ts, readInstalledVersion/PLUGIN_KEY).
+#
+# Both signals degrade to SILENCE (no PASS/WARN line) when their file is absent — a factory-dev
+# session running these scripts straight from a repo checkout (no marketplace install) has no
+# session/installed skew concept to begin with. And, mirroring §2's own tolerance above, only a
+# session BEHIND the installed version is ever flagged: a session AHEAD (main newer than the last
+# `claude plugin update` sync — the normal factory-development shape) is silently fine, never a
+# false-positive WARN.
+SESSION_METADATA="$SCRIPT_DIR/../runtime/plugin-metadata.json"
+INSTALLED_PLUGINS="${HOME:-}/.claude/plugins/installed_plugins.json"
+if [ -f "$SESSION_METADATA" ] && [ -f "$INSTALLED_PLUGINS" ]; then
+  SESSION_PLUGIN_VER=$(jq -r '.version // empty' "$SESSION_METADATA" 2>/dev/null)
+  INSTALLED_PLUGIN_VER=$(jq -r '
+      (.plugins // {}) as $p
+      | ([$p | to_entries[] | select(.key | test("pandacorp"))][0].value // empty) as $e
+      | (if ($e | type) == "array" then $e[0] else $e end)
+      | .version // empty
+    ' "$INSTALLED_PLUGINS" 2>/dev/null)
+  if [ -n "$SESSION_PLUGIN_VER" ] && [ -n "$INSTALLED_PLUGIN_VER" ]; then
+    if [ "$SESSION_PLUGIN_VER" = "$INSTALLED_PLUGIN_VER" ]; then
+      pass "session plugin version matches installed ($SESSION_PLUGIN_VER)"
+    else
+      OLDER=$(printf '%s\n%s\n' "$SESSION_PLUGIN_VER" "$INSTALLED_PLUGIN_VER" | sort -V | head -1)
+      if [ "$OLDER" = "$SESSION_PLUGIN_VER" ]; then
+        warn "el plugin se actualizó a $INSTALLED_PLUGIN_VER pero esta sesión sigue en $SESSION_PLUGIN_VER — reinicia la sesión antes de lanzar un build (BL-0141 ya degrada un agentType desconocido en tiempo real, pero es mejor reiniciar)."
+      else
+        pass "session plugin ($SESSION_PLUGIN_VER) is ahead of the installed manifest ($INSTALLED_PLUGIN_VER) — factory development, proceeding."
+      fi
+    fi
+  fi
+fi
+
+# 2c) engine agentType coverage vs the session's OWN plugin/agents/ (BL-0152, same incident class as
+# 2b but a direct check instead of a version-number proxy — catches a same-version session missing a
+# just-added agent .md, and needs no false-positive guard because it compares the engine that will
+# actually run against the agents THIS script's own plugin copy carries, in every mode). Advisory only.
+ENGINE_FILE="$PROJ/.claude/engines/pandacorp-build.js"
+SESSION_AGENTS_DIR="$SCRIPT_DIR/../agents"
+if [ -f "$ENGINE_FILE" ] && [ -d "$SESSION_AGENTS_DIR" ]; then
+  REQUIRED_AGENT_TYPES=$(grep -ohE "agentType:[[:space:]]*'pandacorp:[a-zA-Z-]+'" "$ENGINE_FILE" | grep -ohE 'pandacorp:[a-zA-Z-]+' | sort -u)
+  if grep -q 'MECH_AGENT(' "$ENGINE_FILE"; then
+    REQUIRED_AGENT_TYPES=$(printf '%s\npandacorp:mech\n' "$REQUIRED_AGENT_TYPES" | sort -u)
+  fi
+  MISSING_AGENT_TYPES=""
+  while IFS= read -r agent_type; do
+    [ -n "$agent_type" ] || continue
+    slug="${agent_type#pandacorp:}"
+    [ -f "$SESSION_AGENTS_DIR/$slug.md" ] || MISSING_AGENT_TYPES="$MISSING_AGENT_TYPES $agent_type"
+  done <<< "$REQUIRED_AGENT_TYPES"
+  if [ -n "$MISSING_AGENT_TYPES" ]; then
+    warn "el motor de este proyecto usa agentType(s) que esta sesión no tiene instalados:$MISSING_AGENT_TYPES — reinicia la sesión o corre 'claude plugin update' (BL-0141 ya degrada al fallback en tiempo real, pero perderás el agente dedicado)."
+  else
+    pass "every engine agentType this project's engine references is available in the session's plugin"
+  fi
+fi
+
 # 3) readiness stamps on every ACTIVE per-FRD blueprint that would be BUILT (DR-100/DR-102) -----
 # Scope: blueprints with `status: ACTIVE` AND not already `implementation_status: VERIFIED`. A
 # VERIFIED blueprint has already cleared the whole build+gate — re-asserting its readiness stamp

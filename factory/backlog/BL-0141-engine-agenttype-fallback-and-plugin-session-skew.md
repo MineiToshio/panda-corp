@@ -9,7 +9,7 @@ opened: 2026-09-22
 closed: 2026-09-22
 source: "owner-reported incident, canary A launch 2026-09-22 12:24 UTC, run wf_35a54be4-172"
 closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js agent() wrapper + preLoopGuarded; plugin/runtime/event-vocabulary.json MechFallback event"
-links: []
+links: [BL-0152]
 ---
 
 ## Problem
@@ -102,9 +102,11 @@ in-flight build now degrades honestly instead of dying). It does NOT add a prefl
 against the installed plugin version the engine file itself was read from, to warn "reinicia la sesión"
 BEFORE a build ever launches into this skew. That preventive check is a separate, smaller follow-up:
 
-- **Sub-item (open):** `launch-implement.sh` should read the installed plugin's version (e.g. from
+- **Sub-item (done, BL-0152):** `launch-implement.sh` should read the installed plugin's version (e.g. from
   `plugin/runtime/plugin-metadata.json` or the installed marketplace manifest) and compare it against
   whatever version marker the CURRENT session's `CLAUDE_PLUGIN_ROOT` resolves to; on a mismatch, print a
   clear "plugin actualizado pero la sesión sigue en <old> — reinicia la sesión antes de lanzar" warning
   (non-blocking is fine; this item's runtime fallback already covers the case where the owner launches
-  anyway). Not implemented here — flagged for a future BL item.
+  anyway). Filed and implemented as **BL-0152** — the check landed in `preflight-implement.sh` (not
+  `launch-implement.sh`, the read-only gate that already owns every other advisory version check), and
+  is corroborated by a second, direct agentType-coverage check against the session's own `plugin/agents/`.
