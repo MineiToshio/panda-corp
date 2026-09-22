@@ -86,6 +86,17 @@ async function reassertActiveProjection(project, lease, { running = true } = {})
 }
 export const currentLease = async (project) => { try { return await parseJson(paths(project).lease); } catch { return null; } };
 export const isFresh = (lease, now = Date.now()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) < lease.ttl_seconds * 1000);
+// BL-0153: crossing the TTL boundary the instant it happens is not, by itself, evidence the owning
+// run died — a build phase dominated by back-to-back gate/repair attempts with no intervening
+// safe-point (Canary C: 56.6 min with zero renewals, first renewal at its own first safe-point) can
+// legitimately outlive one TTL width while still alive and holding the fence (epoch never moved).
+// `isFresh` stays the "actively guarding" signal every other reader (preflight's abort-if-fresh check,
+// the codex pre-reclaim check, status.yaml projection) still uses unchanged. `reclaim` alone additionally
+// requires a full extra TTL cycle of continued silence past that boundary before treating the owner as
+// gone, so a run that merely outran ONE TTL width mid-gate is not raced out from under itself by an
+// owner or another runtime reading "stale" as "dead" too eagerly.
+const RECLAIM_GRACE_CYCLES = 2; // total tolerated silence before reclaim = ttl_seconds * RECLAIM_GRACE_CYCLES
+export const isReclaimable = (lease, now = Date.now()) => Boolean(lease && Number.isFinite(Date.parse(lease.renewed_at)) && now - Date.parse(lease.renewed_at) >= lease.ttl_seconds * 1000 * RECLAIM_GRACE_CYCLES);
 export const assertFence = async (project, token, epoch, { allowQuiesced = false } = {}) => {
   const lease = await currentLease(project);
   if (!lease || typeof token !== "string" || lease.token_hash !== tokenHash(token) || lease.epoch !== Number(epoch)) throw Object.assign(new Error("stale or foreign lease fence"), { code: "FENCE" });
@@ -93,7 +104,7 @@ export const assertFence = async (project, token, epoch, { allowQuiesced = false
   return lease;
 };
 export const withFence = async (project, token, epoch, mutation) => { const p = await assertSafeLayout(project); return withMutex(p.mutex, async () => { const lease = await assertFence(project, token, epoch); return mutation(lease); }); };
-async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 600, token = randomBytes(24).toString("hex") }) {
+async function acquireUnlocked(project, { runtime, runId, ttlSeconds = 3600, token = randomBytes(24).toString("hex") }) {
   if (!new Set(["claude", "codex"]).has(runtime) || typeof runId !== "string" || !/^[A-Za-z0-9._:-]{1,160}$/.test(runId) || !Number.isInteger(ttlSeconds) || ttlSeconds < 3) throw Object.assign(new Error("invalid acquire arguments"), { code: "USAGE" });
   const p = paths(project); await mkdir(p.run, { recursive: true }); const priorStatus = await readFile(p.status, "utf8");
   try { await mkdir(p.leaseDir); } catch (error) { if (error.code === "EEXIST") throw Object.assign(new Error("lease already held"), { code: "CONTENDED" }); throw error; }
@@ -117,11 +128,14 @@ export async function finalizeRelease(project, token, epoch) { const p = await a
 // quiesce -> commit the running:false projection -> finalizeRelease, so no writer-free commit window
 // exists. This wrapper remains fenced but does not provide that stronger commit guarantee.
 export async function release(project, token, epoch) { await quiesce(project, token, epoch); return finalizeRelease(project, token, epoch); }
-export async function reclaim(project, { runtime, runId, ttlSeconds = 600 }) {
+export async function reclaim(project, { runtime, runId, ttlSeconds = 3600 }) {
   const p = await assertSafeLayout(project);
   return withMutex(p.mutex, async () => {
     const old = await currentLease(project); if (!old) throw Object.assign(new Error("no lease to reclaim"), { code: "FENCE" });
     if (isFresh(old)) throw Object.assign(new Error("lease is still fresh"), { code: "CONTENDED" });
+    // BL-0153: past its own TTL but still inside the reclaim grace window (see isReclaimable) — a
+    // long uninterrupted gate/repair chain can silently outlive one TTL width while genuinely alive.
+    if (!isReclaimable(old)) throw Object.assign(new Error("lease is stale but within its BL-0153 reclaim grace window — not yet reclaimable"), { code: "CONTENDED" });
     const tomb = `${p.leaseDir}.stale-${old.epoch}-${process.pid}`; await rename(p.leaseDir, tomb); await rm(tomb, { recursive: true, force: true });
     return acquireUnlocked(project, { runtime, runId, ttlSeconds });
   });

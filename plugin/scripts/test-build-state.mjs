@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, isReclaimable, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
 
 let passed = 0; let failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (e) { console.error(`FAIL  ${name}: ${e.stack || e}`); failed++; } };
@@ -107,6 +107,31 @@ await test("stale reclaim increments epoch and fences zombie", async () => {
   const next = await reclaim(p, { runtime: "claude", runId: "same-run", ttlSeconds: 30 }); ok(next.epoch === old.epoch + 1, "epoch not monotonic"); await rejects(() => assertFence(p, old.token, old.epoch), "FENCE"); await rejects(() => withFence(p, old.token, old.epoch, async () => writeFile(path.join(p, "zombie"), "bad")), "FENCE"); await rm(p, { recursive: true });
 });
 await test("fresh lease cannot be reclaimed", async () => { const p = await fixture(); await acquire(p, { runtime: "codex", runId: "fresh", ttlSeconds: 30 }); await rejects(() => reclaim(p, { runtime: "claude", runId: "fresh", ttlSeconds: 30 }), "CONTENDED"); await rm(p, { recursive: true }); });
+// BL-0153: a lease that just crossed its own TTL (e.g. a long uninterrupted gate/repair chain with no
+// intervening safe-point, like Canary C's 56.6-min gap on a 600s-TTL lease) is not yet evidence its
+// owner died — reclaim requires a FULL EXTRA TTL cycle of continued silence past that boundary.
+await test("lease stale past TTL but inside the BL-0153 grace window is not yet reclaimable", async () => {
+  const p = await fixture(); const old = await acquire(p, { runtime: "codex", runId: "mid-gate", ttlSeconds: 10 });
+  const file = path.join(p, ".pandacorp/run/build.lease/lease.json");
+  // 15s of silence on a 10s TTL: past TTL (not fresh) but under the 2x grace cycle (20s) — still alive.
+  await writeFile(file, `${JSON.stringify({ ...old, renewed_at: new Date(Date.now() - 15_000).toISOString() })}\n`);
+  const current = await currentLease(p);
+  ok(!isFresh(current), "15s of silence on a 10s TTL should already read as not-fresh");
+  ok(!isReclaimable(current), "15s of silence on a 10s TTL is still inside the 2x grace window");
+  await rejects(() => reclaim(p, { runtime: "claude", runId: "mid-gate", ttlSeconds: 10 }), "CONTENDED");
+  ok((await currentLease(p)).epoch === old.epoch, "a graced reclaim attempt must not steal the fence");
+  await rm(p, { recursive: true });
+});
+await test("lease stale past the BL-0153 grace window is reclaimable", async () => {
+  const p = await fixture(); const old = await acquire(p, { runtime: "codex", runId: "truly-dead", ttlSeconds: 10 });
+  const file = path.join(p, ".pandacorp/run/build.lease/lease.json");
+  // 25s of silence on a 10s TTL: past the 2x grace cycle (20s) — genuinely gone.
+  await writeFile(file, `${JSON.stringify({ ...old, renewed_at: new Date(Date.now() - 25_000).toISOString() })}\n`);
+  ok(isReclaimable(await currentLease(p)), "25s of silence on a 10s TTL should be past the grace window");
+  const next = await reclaim(p, { runtime: "claude", runId: "truly-dead", ttlSeconds: 30 });
+  ok(next.epoch === old.epoch + 1, "epoch not monotonic on a genuinely stale reclaim");
+  await rm(p, { recursive: true });
+});
 await test("durable dispatch reservation is idempotent and spend-capped", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "budget", ttlSeconds: 30 }); const one = await reserveDispatch(p, l.token, l.epoch, { id: "d1", units: 3, limit: 5 }); const duplicate = await reserveDispatch(p, l.token, l.epoch, { id: "d1", units: 3, limit: 5 }); ok(one.dispatch_count === 1 && duplicate.spend_units === 3, "duplicate charged twice"); await rejects(() => reserveDispatch(p, l.token, l.epoch, { id: "d2", units: 3, limit: 5 }), "SPEND"); await rm(p, { recursive: true });
 });

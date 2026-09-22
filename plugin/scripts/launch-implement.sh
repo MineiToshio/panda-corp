@@ -6,9 +6,13 @@
 #
 # Usage:  launch-implement.sh <project-dir> [mode] [maxAgents] [auto|new|continue-run-id]
 #           [--frds <comma-separated-frds> | --change <change>]
-#           [--max-frds <positive-int>] [--max-spend <positive-int>]
+#           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
+#   --ttl:     atomic lease TTL in seconds (default 3600 — BL-0153: a build phase dominated by
+#              back-to-back gate/repair attempts with no intervening safe-point can go silently
+#              unrenewed well past the historical 600s default; raise further for a targeted
+#              single-FRD/change run expected to spend most of its time inside one long gate).
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -16,7 +20,7 @@ set -uo pipefail
 
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
-FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""
+FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -28,12 +32,13 @@ while [ "$#" -gt 0 ]; do
     --change) [ "$#" -ge 2 ] || { echo "ERROR: --change requires a value." >&2; exit 3; }; CHANGE="$2"; shift 2 ;;
     --max-frds) [ "$#" -ge 2 ] || { echo "ERROR: --max-frds requires a value." >&2; exit 3; }; MAX_FRDS="$2"; shift 2 ;;
     --max-spend) [ "$#" -ge 2 ] || { echo "ERROR: --max-spend requires a value." >&2; exit 3; }; MAX_SPEND="$2"; shift 2 ;;
+    --ttl) [ "$#" -ge 2 ] || { echo "ERROR: --ttl requires a value." >&2; exit 3; }; TTL="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
 
 case "$MODE" in pro|balanced|powerful|deep) ;; *) echo "ERROR: invalid mode: $MODE" >&2; exit 3 ;; esac
-for pair in "maxAgents:$MAX_AGENTS" "maxFrds:$MAX_FRDS" "maxSpend:$MAX_SPEND"; do
+for pair in "maxAgents:$MAX_AGENTS" "maxFrds:$MAX_FRDS" "maxSpend:$MAX_SPEND" "ttl:$TTL"; do
   value=${pair#*:}; [ -z "$value" ] && continue
   [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: ${pair%%:*} must be a positive integer." >&2; exit 3; }
 done
@@ -86,7 +91,7 @@ if [ "${PANDACORP_TEST_FAIL_PHASE_WRITE:-0}" = "1" ]; then
   echo "ERROR: simulated fenced projection failure before lease acquisition." >&2
   exit 2
 fi
-LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl 600) \
+LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl "$TTL") \
   || { echo "ERROR: atomic build lease acquisition failed." >&2; exit 2; }
 LEASE_TOKEN=$(printf '%s' "$LEASE" | jq -r '.token // empty')
 LEASE_EPOCH=$(printf '%s' "$LEASE" | jq -r '.epoch // empty')

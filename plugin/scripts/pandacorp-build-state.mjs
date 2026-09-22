@@ -27,12 +27,12 @@ const assertOnlyStatus = (root, stage) => {
   return dirty.filter((file) => file !== ".pandacorp/run/" && !file.startsWith(".pandacorp/run/"));
 };
 try {
-  if (command === "acquire") output(await acquire(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 600)) }));
+  if (command === "acquire") output(await acquire(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 3600)) }));
   else if (command === "renew") output(await renew(project, token, epoch));
   else if (command === "release") output(await release(project, token, epoch));
   else if (command === "quiesce") output(await quiesce(project, token, epoch));
   else if (command === "finalize-release") output(await finalizeRelease(project, token, epoch));
-  else if (command === "reclaim") output(await reclaim(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 600)) }));
+  else if (command === "reclaim") output(await reclaim(project, { runtime: opt("runtime"), runId: opt("run-id"), ttlSeconds: Number(opt("ttl", 3600)) }));
   else if (command === "validate") output(await assertFence(project, token, epoch));
   else if (command === "status") { const lease = await currentLease(project); output({ lease, fresh: isFresh(lease) }); }
   else if (command === "inspect-stop") {
