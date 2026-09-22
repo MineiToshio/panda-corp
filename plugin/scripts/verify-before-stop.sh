@@ -168,6 +168,43 @@ if [ -n "$dirty_now" ] && [ -n "$sid" ] && [ -s "$touched" ]; then
         fi
       fi
     fi
+    # D2 (REV3-H): `verify.sh --since` runs ONLY smoke + shell from the browser layer (DR-106) —
+    # visual-fidelity (DR-056) and responsive (DR-074) belong to the FULL run. A manual Stop-gate
+    # session has no close-out to fall back on, so a UI-only diff must never be allowed to ride
+    # --since forever: (1) a diff that touches a UI artifact (S13/S14 in the classifier's own
+    # reasons, OR this session's changed files matching the engine's own UI_ARTIFACT_RE, transcribed
+    # here to grep -E) always escalates to the full gate, whatever rigor was picked; (2) even a
+    # wholly non-UI diff escalates once the anchor itself is stale (> 24h), so the browser layer
+    # periodically re-certifies instead of trusting an ever-aging last-green forever.
+    if [ "$gate_scope" = "since" ]; then
+      ui_escalate=0
+      case ",${gate_reasons}," in *",S13,"*|*",S14,"*) ui_escalate=1 ;; esac
+      if [ "$ui_escalate" = "0" ]; then
+        changed_files=$( { git -C "$cwd" diff --name-only HEAD 2>/dev/null; git -C "$cwd" ls-files --others --exclude-standard 2>/dev/null; } | sort -u)
+        if printf '%s\n' "$changed_files" | grep -E -q '(^|/)(src/app/|src/components/|src/styles/|public/)|\.(tsx|jsx|css|scss|svg|html|mdx)$|design-tokens\.json$|tailwind\.config\.|(^|/)DESIGN\.md$'; then
+          ui_escalate=1
+        fi
+      fi
+      if [ "$ui_escalate" = "1" ]; then
+        gate_args=()
+        gate_scope="full"
+        echo "verify-before-stop: this session's diff touches UI artifacts (reasons: ${gate_reasons}) — escalating to the full gate so DR-056/DR-074 never ride --since [ui-artifacts]" >&2
+      elif [ -f "$last_green" ]; then
+        anchor_at=$(jq -er '.at | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
+        if [ -n "$anchor_at" ]; then
+          anchor_ts=$(printf '%s' "$anchor_at" | sed -E 's/\.[0-9]+//; s/Z$//')
+          anchor_epoch=$(date -u -d "${anchor_ts}Z" +%s 2>/dev/null || date -u -j -f "%Y-%m-%dT%H:%M:%S" "$anchor_ts" +%s 2>/dev/null || echo "")
+          if [ -n "$anchor_epoch" ]; then
+            now_epoch=$(date -u +%s)
+            if [ $(( now_epoch - anchor_epoch )) -gt 86400 ]; then
+              gate_args=()
+              gate_scope="full"
+              echo "verify-before-stop: last-green anchor is over 24h old — escalating to the full gate to re-arm the browser layer [anchor-stale]" >&2
+            fi
+          fi
+        fi
+      fi
+    fi
   fi
   # Escape hatch: PANDACORP_STOP_GATE=full always forces the full gate, whatever the classifier
   # said — the logged rigor/reasons above still reflect what would otherwise have been chosen.

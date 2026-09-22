@@ -214,11 +214,12 @@ check "active build.lock still skips verify.sh (guard intact)" 0 0 "$fz" "sid-i"
 rm -rf "$fz"
 
 
-# (a) a small non-floor diff (classifies micro/normal), WITH a reachable last-green anchor
-# -> verify.sh must be invoked scoped `--since <anchor_sha>`.
+# (a) a small non-floor, non-UI diff (classifies micro/normal), WITH a reachable last-green anchor
+# -> verify.sh must be invoked scoped `--since <anchor_sha>`. A CSS/UI file would (correctly, since
+# D2) escalate to the full gate instead — see REV3-H/D2 below for that case.
 fa=$(seed_fixture_with_green)
 anchor_a=$(git -C "$fa" rev-parse HEAD)
-touch_and_dirty "$fa" "sid-a" "styles.css" "$NON_FLOOR_DIFF"
+touch_and_dirty "$fa" "sid-a" "notes-a.md" "$NON_FLOOR_DIFF"
 rm -f "$fa/.pandacorp/run/verify-args"
 run_hook_with "" "$fa" "sid-a"
 args_a=$(last_verify_args "$fa")
@@ -305,7 +306,7 @@ rm -rf "$fd"
 fe=$(seed_fixture_with_green)
 anchor_e=$(git -C "$fe" rev-parse HEAD)
 before_lg=$(cat "$fe/.pandacorp/run/last-green.json")
-touch_and_dirty "$fe" "sid-e" "styles2.css" "$NON_FLOOR_DIFF"
+touch_and_dirty "$fe" "sid-e" "notes-e.md" "$NON_FLOOR_DIFF"
 run_hook_with "" "$fe" "sid-e"
 after_lg=$(cat "$fe/.pandacorp/run/last-green.json" 2>/dev/null)
 args_e=$(last_verify_args "$fe")
@@ -338,7 +339,7 @@ rm -rf "$ff"
 
 # (g) PANDACORP_STOP_GATE=full forces the full gate even for an otherwise --since-eligible diff.
 fg=$(seed_fixture_with_green)
-touch_and_dirty "$fg" "sid-g" "styles3.css" "$NON_FLOOR_DIFF"
+touch_and_dirty "$fg" "sid-g" "notes-g.md" "$NON_FLOOR_DIFF"
 rm -f "$fg/.pandacorp/run/verify-args"
 run_hook_with "PANDACORP_STOP_GATE=full" "$fg" "sid-g"
 args_g=$(last_verify_args "$fg")
@@ -357,7 +358,7 @@ rm -rf "$fg"
 # (loud block, never silenced as foreign) — scoping the SUITE never scopes what counts as a block.
 fh=$(seed_fixture_with_green)
 anchor_h=$(git -C "$fh" rev-parse HEAD)
-touch_and_dirty "$fh" "sid-h" "styles4.css" "$NON_FLOOR_DIFF"
+touch_and_dirty "$fh" "sid-h" "notes-h.md" "$NON_FLOOR_DIFF"
 mkdir -p "$fh/.pandacorp/run"
 echo 2 > "$fh/.pandacorp/run/verify-exit-code"
 rm -f "$fh/.pandacorp/run/verify-args"
@@ -528,7 +529,7 @@ done
 # --- REV3-F: a RED scoped run still emits an honest StopGate event (green:false) ------------------
 # The telemetry must not only exist on the happy path: La Fragua's whole value is seeing the reds.
 fr3f=$(seed_fixture_with_green)
-touch_and_dirty "$fr3f" "sid-rev3f" "styles-rev3f.css" "$NON_FLOOR_DIFF"
+touch_and_dirty "$fr3f" "sid-rev3f" "notes-rev3f.md" "$NON_FLOOR_DIFF"
 echo 2 > "$fr3f/.pandacorp/run/verify-exit-code"
 : > "$EVENTS_LOG_SCRATCH"
 run_hook_with "" "$fr3f" "sid-rev3f"
@@ -567,7 +568,7 @@ fi
 # session whose diffs stay micro/normal runs `--since` on every Stop forever, and because only a
 # FULL green advances last-green.json, nothing ever re-arms the two gates it dropped. A CSS-only
 # change — precisely what those gates exist to judge — is the worst case.
-# XFAIL while the Stop gate has no UI escalation and no full-run cadence (REV3 defect D2).
+# Fixed by REV3 defect D2 (UI-artifact escalation, logged as `ui-artifacts`).
 # An EXISTING, tracked stylesheet is modified (a NEW file would hit S3 and escalate on its own —
 # that is a different, correct behaviour, and using it here would have made this case vacuous).
 fr3h=$(make_fixture)
@@ -579,18 +580,63 @@ touch_and_dirty "$fr3h" "sid-rev3h" "src/components/Card.module.css" "$NON_FLOOR
 rm -f "$fr3h/.pandacorp/run/verify-args"
 run_hook_with "" "$fr3h" "sid-rev3h"
 args_r3h=$(last_verify_args "$fr3h")
-lg_before=$(cat "$fr3h/.pandacorp/run/last-green.json")
-run_hook_with "" "$fr3h" "sid-rev3h"     # a second Stop, same session: still scoped, anchor frozen
-lg_after=$(cat "$fr3h/.pandacorp/run/last-green.json")
-scoped=0; case "$args_r3h" in *"--since"*) scoped=1 ;; esac
-if [ "$scoped" = "0" ]; then
-  echo "  ✓ REV3-H a UI-only diff escalates to the full gate (defect D2 fixed — tighten this case)"; pass=$((pass+1))
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3h" in *"--since"*) ok=0 ;; esac
+case "$out" in *"ui-artifacts"*) : ;; *) ok=0 ;; esac
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-H a UI-only diff escalates to the full gate, logged as ui-artifacts (D2)"; pass=$((pass+1))
 else
-  echo "  ~ xfail REV3-H a UI-only diff runs --since, so the visual (DR-056) + responsive (DR-074)"
-  echo "          gates are skipped, and last-green stays frozen ($([ "$lg_before" = "$lg_after" ] && echo "confirmed: anchor unchanged across two Stops" || echo "anchor moved")) so nothing re-arms them [REV3 defect D2]"
-  pass=$((pass+1))
+  echo "  ✗ REV3-H expected the UI diff to escalate to the full gate + a ui-artifacts log, got rc=$rc args=[$args_r3h]: $out"; fail=$((fail+1))
 fi
 rm -rf "$fr3h"
+
+# --- REV3-I: a STALE last-green anchor (> 24h) forces the full gate even on a non-UI diff --------
+# D2 cadence: a wholly non-UI diff (no S13/S14, no UI_ARTIFACT_RE match) would otherwise ride
+# --since forever on the SAME anchor a manual session never advances (only a full green does). Past
+# 24h the anchor is presumed stale enough that the browser layer needs to re-certify.
+fr3i=$(make_fixture)
+mkdir -p "$fr3i/src/lib"
+printf 'export const fmt = (n) => String(n)\n' > "$fr3i/src/lib/formatting.ts"
+( cd "$fr3i" && git add src && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "lib baseline" )
+anchor_i=$(git -C "$fr3i" rev-parse HEAD)
+stale_at=$(date -u -v-48H +%FT%TZ 2>/dev/null || date -u -d '-48 hours' +%FT%TZ 2>/dev/null)
+printf '{"sha":"%s","at":"%s"}\n' "$anchor_i" "$stale_at" > "$fr3i/.pandacorp/run/last-green.json"
+touch_and_dirty "$fr3i" "sid-rev3i" "src/lib/formatting.ts" 'export const fmt = (n) => String(n).padStart(2, "0")'
+rm -f "$fr3i/.pandacorp/run/verify-args"
+run_hook_with "" "$fr3i" "sid-rev3i"
+args_r3i=$(last_verify_args "$fr3i")
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3i" in *"--since"*) ok=0 ;; esac
+case "$out" in *"anchor-stale"*) : ;; *) ok=0 ;; esac
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-I a last-green anchor older than 24h forces the full gate, logged as anchor-stale (D2)"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-I expected the stale anchor to force the full gate + an anchor-stale log, got rc=$rc args=[$args_r3i]: $out"; fail=$((fail+1))
+fi
+rm -rf "$fr3i"
+
+# --- REV3-J: a non-UI lib diff with a FRESH anchor still scopes to --since (D2 does not over-escalate)
+fr3j=$(make_fixture)
+mkdir -p "$fr3j/src/lib"
+printf 'export const fmt = (n) => String(n)\n' > "$fr3j/src/lib/formatting.ts"
+( cd "$fr3j" && git add src && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "lib baseline" )
+run_hook_with "" "$fr3j" "sid-rev3j-seed"     # certify a FULL green anchor at this HEAD (fresh `at`)
+anchor_j=$(git -C "$fr3j" rev-parse HEAD)
+touch_and_dirty "$fr3j" "sid-rev3j" "src/lib/formatting.ts" 'export const fmt = (n) => String(n).padStart(2, "0")'
+rm -f "$fr3j/.pandacorp/run/verify-args"
+run_hook_with "" "$fr3j" "sid-rev3j"
+args_r3j=$(last_verify_args "$fr3j")
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3j" in *"--since $anchor_j"*) : ;; *) ok=0 ;; esac
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-J a non-UI lib diff with a fresh anchor still scopes --since (D2 does not over-escalate)"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-J expected verify.sh --since $anchor_j, got args=[$args_r3j] rc=$rc: $out"; fail=$((fail+1))
+fi
+rm -rf "$fr3j"
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]
