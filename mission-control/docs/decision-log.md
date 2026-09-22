@@ -1,5 +1,45 @@
 # Decision Log — Mission Control
 
+## 2026-09-22 — Changes tab learns the engine-managed `building`/`closing` statuses (DR-069 §7, fixes a read error mid-build)
+
+`readChangeQueue` (`src/lib/changes/changes.ts`) rejected `status: building`/`status: closing` as an
+invalid enum value (`ChangeQueueStatus` was `ready | draft | done | discarded`), so the Changes tab
+showed a **fail-loud parse error** for a card the whole time the build or `/pandacorp:sync`'s close-out
+mode (plugin 9.104.0, branch `integration-speed-sprint-b` at time of writing) was actively integrating
+or archiving it — the worst possible moment to look broken. Confirmed independently against
+`plugin/runtime/build-state.mjs` and `plugin/templates/shared/.claude/engines/pandacorp-build.js` on
+factory `main` (the build stamps `status: building` + `affected_frds` while a change's FRDs are in
+flight, so the safe-point drain doesn't re-drain it) and against the `integration-speed-sprint-b` branch's
+`plugin/skills/sync/SKILL.md` + `plugin/templates/docs/change-request-template.md` (close-out stamps
+`status: closing` + `implemented_sha` + `closing_at` before writing anything else, so an interrupted
+close-out stays visible — `doc-lint.sh` reds a `closing` card past 48h). This is the **MC strand** of
+`factory/backlog/BL-0046` (open, item 1), extended here to also cover the newer `closing` state.
+
+Fix: widened `ChangeQueueStatus`/`VALID_STATUSES` to `ready | draft | building | closing | done |
+discarded`; `ChangeQueueItem` now carries `implementedSha`/`closingAt` (parsed with a new
+`coerceTimestamp` helper — `coerceString` truncates a gray-matter-parsed `Date` to a bare day, which
+would silently drop the time component `closing_at` needs for its 48h staleness check; caught by the
+first RED test run, not by inspection). `OPEN_STATUSES`/`countPendingBugs` deliberately still count only
+`ready`/`draft` — `building`/`closing` are "in flight", not "pending", so a pending badge must not
+inflate while the build is doing its job. `ChangesPanel` renders `building`/`closing` in their own
+always-visible groups ("En construcción" / "Cerrando") — unlike Hechos/Descartados, never behind a
+toggle, since an in-flight card is actionable-adjacent information, not archive noise. `ChangeDetail`'s
+`STATUS_META` gained matching chip labels (text, never color alone, per `docs/rules/accessibility.md`)
+and meta lines for `implementedSha`/`closingAt` when present; `DISCARDABLE_STATUSES` already excluded
+both by construction (no code change needed there).
+
+Docs: `docs/frds/frd-04-project-workspace/frd.md` gained **REQ-04-010** (the full status enum + the
+building/closing rendering contract, EARS). Tests: `src/lib/changes/_tests/changes.test.ts` (real
+`building`/`closing` fixtures incl. `implemented_sha`/`closing_at`, plus a new out-of-range-status
+fail-loud case — DR-078 previously had no test proving a bad `status` value specifically, only a missing
+one) and `ChangesPanel.test.tsx` (in-flight groups never toggled, status chip, meta lines). 48/48 tests
+green, `tsc --noEmit` clean, `biome check` clean.
+
+Cited: DR-069 (§7 durable change archival), plugin 9.104.0 (close-out mode, not yet on factory `main`),
+`factory/backlog/BL-0046` (verified — the closest existing tracked item; the task that requested this fix
+also asked to cite **BL-0148**, which does not exist in `factory/backlog/` as of this session — see the
+final report's "NO PUDE VERIFICAR").
+
 ## 2026-09-22 — Build engine machinery resynced to plugin 9.103.0 (`/pandacorp:upgrade`, overlay stays 8.81.0)
 
 Ran `/pandacorp:upgrade` to propagate plugin 9.103.0 (factory `main` at `fe5dfe0e`). `overlay_version`

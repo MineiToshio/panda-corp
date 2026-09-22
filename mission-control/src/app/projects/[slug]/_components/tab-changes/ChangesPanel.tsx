@@ -8,7 +8,12 @@
  * and Descartados are hidden behind "Ver hechos (N)" / "Ver descartados (N)" toggles
  * (REQ-04-009), so a project's history doesn't clutter the actionable view as it grows
  * over months. "Listo" heads the default view because it's the most actionable right
- * now — the build drains it next.
+ * now — the build drains it next. **En construcción (building)** and **Cerrando
+ * (closing)** — the engine-managed in-flight states (DR-069 §7) — always show too,
+ * right after Listos/Borradores: they're open but no longer pending, so they never
+ * count toward a pending badge, yet the owner should still see the build/sync is
+ * actively working them rather than mistake a `building`/`closing` card for a
+ * malformed one.
  *
  * Fail-loud (DR-078): if the reader could not interpret one or more files, an error
  * banner names them — the panel never renders a misleadingly-empty queue.
@@ -43,6 +48,17 @@ import { ChangeDetail } from "./ChangeDetail";
 const DEFAULT_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
   { status: "ready", label: "Listos", icon: "ti-circle-check" },
   { status: "draft", label: "Borradores", icon: "ti-file-dots" },
+];
+
+/**
+ * Engine-managed transient states (DR-069 §7) — the build/sync are actively working
+ * these items right now. Always shown (never behind a toggle, unlike Hechos/Descartados)
+ * because "in flight" is actionable-adjacent information, but kept visually distinct
+ * from the owner-actionable Listos/Borradores groups above.
+ */
+const IN_FLIGHT_GROUPS: readonly { status: ChangeQueueStatus; label: string; icon: string }[] = [
+  { status: "building", label: "En construcción", icon: "ti-loader-2" },
+  { status: "closing", label: "Cerrando", icon: "ti-flag-3" },
 ];
 
 const TOGGLEABLE_GROUPS: readonly {
@@ -170,6 +186,24 @@ export function ChangesPanel({ result, projectPath, slug }: ChangesPanelProps): 
       ) : (
         <>
           {DEFAULT_GROUPS.map(({ status, label, icon }) => {
+            const group = byStatus(items, status);
+            if (group.length === 0) return null;
+            return (
+              <div key={status} data-testid={`changes-group-${status}`}>
+                <SectionHead icon={icon} label={label} count={group.length} />
+                <div style={CARDS_STYLE}>
+                  {group.map((item) => (
+                    <ChangeCard key={item.id} item={item} onSelect={setSelected} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* In-flight groups (building/closing, DR-069 §7) — always visible, never
+              behind a toggle: the owner should see the build/sync is actively working
+              an item, not mistake it for an error or lose track of it. */}
+          {IN_FLIGHT_GROUPS.map(({ status, label, icon }) => {
             const group = byStatus(items, status);
             if (group.length === 0) return null;
             return (

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp memory engine"
+  short_description: "Internal harvest/review engine behind learn"
+policy:
+  allow_implicit_invocation: false

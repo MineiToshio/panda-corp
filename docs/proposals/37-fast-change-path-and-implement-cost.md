@@ -1039,10 +1039,42 @@ Nada de este memo se implementa sin tu OK. **¿Qué apruebas?**
 
 **Defaults vigentes tras el sprint** (todos detrás de `args.*`, comportamiento viejo disponible por rollback): `forceUiPasses: false`, `leanCloseOut: true`, `strictBaseline: false`, `safePointEveryWave: false`, `mechLean: true`, `drainOnEmptyPlan: true`, `repairBrake: true`, `scopedRepair: false` (deliberadamente apagado, ver BL-0138: el freno usa peso-por-agente, no tokens reales, y castiga FRDs de 1 WO), `gateEvidence: 'explore'` (el modo `digested` existe pero no es el default hasta que el canario B lo certifique).
 
-**NO hecho todavía:**
+**NO hecho todavía (a cierre de 9.103.0):**
 - **Canarios A/B/C** (el titular ≤20 min, el oráculo ciego explore-vs-digested, el 4× de 6 WOs) siguen pendientes de ejecución en vivo (BL-0135).
 - **Camino `--now`** (tanda F: clasificador ya en main pero sin nivel de rigor cableado en el llamador, sin close-out ligero de cambios, sin ruta directa sin `/implement`): fases F2-F5 del plan, no arrancadas.
 - **Bloque B** (tandas D/E/F/G originales del memo: `pipeline()` entre WOs, Playwright por ruta, presupuesto de contexto, y el resto de desbloqueos) sigue completo, sin tocar.
 - **REV2-C**: el clasificador no detecta un guard de propiedad (`ctx.u.id !== row.o`) escrito sin vocabulario de auth: hueco conocido y documentado como XFAIL en `test-classify-change.sh`, no como verde falso. Seguimiento: **BL-0140**.
+
+## Estado de ejecución 2026-09-22, segundo lote (plugin 9.104.0, overlay 8.82.0)
+
+**Implementado.** F2 (Stop gate escalado a full en diffs de UI o ancla >24h), F3 (`/pandacorp:sync --close-out`), F4 (`/pandacorp:change --now`, revertido a opt-in el mismo día tras el defecto D2 de la revisión batch 3), F5 (rollup de uso por cambio). Quick wins E-3/G-4/S-3/C-3 (G-3 evaluado y NO aplicado: duplica BL-0115, ya cerrado). fix1/BL-0141 (degradación honesta ante un `agentType` desconocido, más el endurecimiento de la revisión batch 3 para que un tipo ORACLE nunca se degrade en su propio constructor). Aislamiento de telemetría en `test-codex-enforcement.mjs`. El merge de `mc-change-queue-statuses` (Mission Control acepta `building`/`closing`), que cierra exactamente el hueco que `now-mode.md` documentaba como abierto. Tercera revisión independiente (batch 3): defectos D1/D2/D4/D5/D7/D9/D10 encontrados y corregidos (no hubo D3/D6/D8; ver el decision-log del plugin para el detalle completo). `run-engine-tests.sh`: 22/22 tras corregir una regresión de formato en `test-change-now-prose.sh` causada por el propio merge (dos aserciones `grep` de una sola línea contra un array que el merge reformateó a multilínea; arreglo de arnés, sin cambio de comportamiento).
+
+**Defaults que cambian respecto al primer lote:** `PANDACORP_STOP_GATE` gana la escalada automática a `full` (UI/ancla stale) descrita en F2; `/pandacorp:change` sigue con `--queue` (captura) como default: `--now` queda como opt-in explícito hasta que el canario de `now-mode.md` corra en verde con D2 corregido.
+
+**NO hecho todavía (a cierre de 9.104.0):**
+- **Canario A** corrió (ver abajo) y **FALLÓ** el umbral de tiempo. Sigue sin certificar el titular del sprint.
+- **Canario B** (oráculo `explore` vs `digested`) está corriendo en este momento en un worktree separado (`panda-corp-canary-b`); su resultado queda para un commit posterior.
+- **Canario C** (el 4× de 6 WOs) no ha arrancado.
+- **Bloque B** (tandas D/E/F/G originales del memo) sigue sin tocar.
+- **`gateEvidence: 'digested'`** y **`scopedRepair`** siguen sin medirse en vivo. El Canario A confirma que son las dos palancas con más margen (ver abajo), pero ninguna fue ejercida en el run.
+
+## Canario A · 2026-09-22 (medido)
+
+Ejecutado en vivo (`wf_4cef213a-463`, FRD sintética de 2 WOs no-UI, `mode: powerful`, `mechLean: false` forzado por desfase de plugin de la sesión (9.102.3, sin `pandacorp:mech`)). Informe completo en el scratchpad de esta sesión (`canary-a-report.md`).
+
+| Partida | FRD-24 (baseline) | Canario A | Δ |
+|---|---:|---:|---:|
+| Total | 3889 s / $20.86 | 2613.9 s / $13.419 | −32.8% s / −35.7% $ |
+| `foundation-gate`+`visual-qa` | 940 s / $7.10 | 0 / $0 (correctamente omitidos) | −100% |
+| `gate` | 1208 s / $6.51 | 910.5 s / $5.961 | −24.6% / −8.4% |
+| `verify-patch` | 151 s / $0.99 | 231.4 s / $1.638 | **+53.2% / +65.5%** (peor) |
+
+**Ranking por segundos:** gate (34.8%) · patch (16.2%) · cierre/`notify-end` (14.3%, re-corre `verify.sh` completo antes de comitear) · verify-patch (8.9%) · build×2 (9.4% combinado) · el resto es plumbing/safe-point/plan.
+
+**Veredicto contra los umbrales de BL-0135:** ❌ **FALLA** el tiempo (≤1.200 s con reopen; medido 2613.9 s, +117.8%). ✅ PASA `agentCount ≤18` (justo 18). ✅ PASA la omisión de `foundation-gate`/`visual-qa`. 2 de 4 criterios, pero el dominante (tiempo) falla por más del doble.
+
+**Palancas restantes:** `gateEvidence: 'digested'` no fue medido (el `gate` con `explore` ya consume el 76% del umbral "sin rojo" él solo; es la palanca más prometedora, sin dato real de ahorro). `scopedRepair` confirmado apagado (BL-0138): `verify-patch` corrió `tsc`/`biome` sin acotar sobre todo el proyecto. `mechLean` fue forzado a `false` por desfase de sesión, no por diseño; su ahorro estimado por proporción (≈35 s) no acerca el run al umbral por sí solo. El cierre de BL-0147 (re-correr `verify.sh` completo en el close-out) es candidato a solapar con `verify-patch`, no confirmado como duplicado.
+
+**Siguiente paso:** Canario B: medición en curso, ver commit posterior. BL-0135 permanece `open`.
 
 **Prerrequisito antes de correr el canario:** Mission Control (y cualquier otro proyecto candidato) debe pasar por `/pandacorp:upgrade` para recibir el motor nuevo (el memo ya señalaba esto como el fallo silencioso más probable, "si no, el canario mide el motor viejo"); sigue sin verificarse en vivo.

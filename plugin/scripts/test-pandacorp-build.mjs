@@ -236,8 +236,13 @@ const mkPlan = (frds, opts = {}) => ({
 
 // ── Tiny assertion collector ─────────────────────────────────────────────────
 class T {
-  constructor(name) { this.name = name; this.failures = []; this.count = 0 }
+  constructor(name) { this.name = name; this.failures = []; this.count = 0; this.xfails = [] }
   ok(cond, msg) { this.count++; if (!cond) this.failures.push(msg) }
+  // REV3: a KNOWN, filed defect. `cond` states what SHOULD hold. While it does not hold the
+  // scenario stays green but prints `~ xfail` (same convention as test-classify-change.sh's
+  // REV2-C); the day the defect is fixed it flips to a normal pass and the call should be
+  // tightened to `ok`. It never silently asserts the buggy behaviour as correct.
+  xfail(cond, msg, ref) { this.count++; if (!cond) this.xfails.push(`${msg} [${ref}]`) }
 }
 const hasLog = (run, re) => run.logs.some((l) => re.test(l))
 const callsWith = (run, pred) => run.calls.filter(pred)
@@ -3374,6 +3379,244 @@ SCENARIOS.push({
   },
 })
 
+// ── BQW1. proposal 37 / E-3 — visual-qa defaults to SONNET, not the judge tier (P.judge/opus).
+// DR-072 already made visual-qa ADVISORY (a punch-list, never a block) — measured 5.50 $ on opus vs
+// ≈2.20 $ on sonnet for the same FRD-24 pass. Escape hatch: args.visualQaModel='opus' restores the
+// prior tier; any other/unrecognised value falls back to 'sonnet' with a loud log (fail-closed).
+// (a) DEFAULT (no args.visualQaModel) — visual-qa spawns on sonnet.
+SCENARIOS.push({
+  name: 'BQW1a. E-3 — DEFAULT (no args.visualQaModel): visual-qa spawns on sonnet, not the opus judge tier',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1a-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1a-001', 'PLANNED', { frd: 'frd-bqw1a-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran (a .tsx artifact is a real UI surface)')
+    t.ok(vq[0] && vq[0].opts.model === 'sonnet', `visual-qa runs on sonnet by default (got ${vq[0] && vq[0].opts.model})`)
+    t.ok(vq[0] && vq[0].opts.effort === 'high', `visual-qa keeps effort:high (got ${vq[0] && vq[0].opts.effort})`)
+  },
+})
+
+// (b) OVERRIDE — args.visualQaModel:'opus' restores the prior tier.
+SCENARIOS.push({
+  name: "BQW1b. E-3 — args.visualQaModel:'opus' restores the prior (opus) tier",
+  args: { mode: 'pro', visualQaModel: 'opus' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1b-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1b-001', 'PLANNED', { frd: 'frd-bqw1b-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran')
+    t.ok(vq[0] && vq[0].opts.model === 'opus', `visual-qa runs on opus with the escape hatch (got ${vq[0] && vq[0].opts.model})`)
+  },
+})
+
+// (c) fail-closed — an unrecognised args.visualQaModel value falls back to sonnet, loudly logged.
+SCENARIOS.push({
+  name: 'BQW1c. E-3 — an unrecognised args.visualQaModel value falls back to sonnet, with a loud log',
+  args: { mode: 'pro', visualQaModel: 'haiku' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1c-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1c-001', 'PLANNED', { frd: 'frd-bqw1c-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran')
+    t.ok(vq[0] && vq[0].opts.model === 'sonnet', `an unrecognised tier falls back to sonnet, never silently honored (got ${vq[0] && vq[0].opts.model})`)
+    t.ok(hasLog(run, /visualQaModel='haiku'.*no es 'sonnet' ni 'opus'/), 'the fallback is logged explicitly, never silent')
+  },
+})
+
+// ── FIX1 · BL-0141 · agentType fallback (a session running an OLDER plugin than the engine version it
+// launched — e.g. plugin 9.102.3 resident while the 9.103.0 engine spawns the new `pandacorp:mech` agent)
+// + the D7 pre-loop close-out extension. The 2026-09-22 canary A incident: the runtime rejected the FIRST
+// spawn (baseline-precheck) with `agent type 'pandacorp:mech' not found`, and the engine died before the
+// scheduler loop existed, leaving the atomic lease taken until an owner freed it by hand.
+const MECH_NOT_FOUND = () => new Error("agent type 'pandacorp:mech' not found. Available agents: pandacorp:architect, pandacorp:backend-dev, pandacorp:frontend-dev, pandacorp:implementer, pandacorp:reviewer, pandacorp:devops")
+const IMPLEMENTER_NOT_FOUND = () => new Error("agent type 'pandacorp:implementer' not found. Available agents: pandacorp:architect, pandacorp:devops")
+const ARCHITECT_NOT_FOUND = () => new Error("agent type 'pandacorp:architect' not found. Available agents: pandacorp:mech, pandacorp:implementer, pandacorp:devops")
+
+// (a) the mech-specific path: the FIRST spawn (baseline-precheck, MECH_AGENT-typed) 404s on
+// 'pandacorp:mech', the wrapper retries ONCE with 'pandacorp:implementer' and continues — and every LATER
+// mech-typed spawn this run (safe-point-pre-loop, ensure-stopped) goes straight to 'pandacorp:implementer'
+// without paying another failed spawn. The one-time explanatory log fires exactly once.
+SCENARIOS.push({
+  name: 'FIX1a. mech agentType 404 on the very first spawn — one retry with implementer, then every later mech spawn uses implementer directly, log fires once',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', response: { green: true }, times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 2, `baseline-precheck spawned exactly twice — original + one retry (got ${precheckCalls.length})`)
+    t.ok(precheckCalls[0] && precheckCalls[0].opts.agentType === 'pandacorp:mech', 'the FIRST attempt requested pandacorp:mech (MECH_LEAN default)')
+    t.ok(precheckCalls[1] && precheckCalls[1].opts.agentType === 'pandacorp:implementer', 'the RETRY used the implementer fallback')
+    t.ok(/MechFallback/.test(precheckCalls[1] ? precheckCalls[1].prompt : ''), 'the retried prompt carries the one-time MechFallback dashboard event')
+    const laterMechSites = byLabel(run, /^(safe-point-pre-loop|ensure-stopped)$/)
+    t.ok(laterMechSites.length > 0, 'at least one later mech-typed call site ran this scenario (safe-point-pre-loop / ensure-stopped)')
+    t.ok(laterMechSites.every((c) => c.opts.agentType === 'pandacorp:implementer'), 'every LATER mech-typed spawn used implementer directly — no repeat 404')
+    t.ok(!laterMechSites.some((c) => c.opts.agentType === 'pandacorp:mech'), 'no later spawn ever requested pandacorp:mech again this run')
+    const fallbackLogs = run.logs.filter((l) => /pandacorp:mech no disponible/.test(l))
+    t.ok(fallbackLogs.length === 1, `the explanatory log fires exactly ONCE this run (got ${fallbackLogs.length})`)
+    t.ok(run.result && run.result.note === 'all verified', 'the run still completes honestly once the fallback takes over')
+  },
+})
+
+// (b) the generic path: a DIFFERENT pandacorp:* agentType 404s (the planner's 'pandacorp:architect') —
+// same one-retry-with-implementer mechanism, logged, but WITHOUT setting the sticky mechUnavailable flag
+// (a later genuinely-mech spawn is unaffected and still requests pandacorp:mech normally).
+SCENARIOS.push({
+  name: 'FIX1b. a non-mech pandacorp:* agentType 404 (planner/pandacorp:architect) also falls back to implementer once, logged — without touching the mech fast-path',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'plan', throws: ARCHITECT_NOT_FOUND(), times: 1 },
+    { label: 'plan', response: mkPlan([]), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const planCalls = byLabel(run, 'plan')
+    t.ok(planCalls.length === 2, `plan spawned exactly twice — original + one retry (got ${planCalls.length})`)
+    t.ok(planCalls[0] && planCalls[0].opts.agentType === 'pandacorp:architect', 'the FIRST attempt requested pandacorp:architect')
+    t.ok(planCalls[1] && planCalls[1].opts.agentType === 'pandacorp:implementer', 'the RETRY used the implementer fallback')
+    t.ok(run.logs.some((l) => /pandacorp:architect.*no disponible.*implementer/.test(l)), 'a fallback log names the requested type and the fallback')
+    t.ok(!run.logs.some((l) => /pandacorp:mech no disponible/.test(l)), 'the mech-specific one-time message never fires for a non-mech fallback')
+    const laterMechSites = byLabel(run, /^(safe-point-pre-loop|ensure-stopped)$/)
+    t.ok(laterMechSites.every((c) => c.opts.agentType === 'pandacorp:mech' || c.opts.agentType === 'pandacorp:implementer'), 'later mech-typed sites are unaffected by the non-mech fallback (still request pandacorp:mech normally — MECH_LEAN default)')
+    t.ok(laterMechSites.some((c) => c.opts.agentType === 'pandacorp:mech'), 'a later mech-typed spawn still requests pandacorp:mech normally — the generic fallback never set the sticky mechUnavailable flag')
+    t.ok(run.result && run.result.note === 'all verified', 'the run still completes honestly once the fallback takes over')
+  },
+})
+
+// (c) the fallback ALSO fails — never a second retry, the ORIGINAL not-found error propagates, and the D7
+// pre-loop boundary still guarantees the lease is released (ensure-stopped spawned) before the error
+// escapes the engine.
+SCENARIOS.push({
+  name: 'FIX1c. the fallback agentType also 404s — no second retry, the ORIGINAL error propagates, and the pre-loop boundary still releases the lease',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', throws: IMPLEMENTER_NOT_FOUND(), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws — the fallback could not rescue this call')
+    t.ok(run.error && /pandacorp:mech' not found/.test(run.error.message), 'the propagated error is the ORIGINAL mech-not-found error, not the retry\'s own failure')
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 2, `exactly ONE retry attempt was made — never a second (got ${precheckCalls.length} total spawns)`)
+    const stopCalls = byLabel(run, 'ensure-stopped')
+    t.ok(stopCalls.length === 1, 'the D7 pre-loop boundary caught the escaping exception and released the lease (ensure-stopped spawned) before rethrowing')
+  },
+})
+
+// (d) a GENERIC error (not an "agent type '<x>' not found" rejection) is never retried — a transient
+// failure of any other shape propagates on the FIRST attempt, and the pre-loop boundary still guarantees
+// the lease is released.
+SCENARIOS.push({
+  name: 'FIX1d. a generic agent() failure (not an unknown-agentType rejection) is never retried, and the pre-loop boundary still releases the lease',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'baseline-precheck', throws: new Error('ECONNRESET: agent spawn timed out'), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws — a generic failure is never silently swallowed')
+    t.ok(run.error && /ECONNRESET/.test(run.error.message), 'the propagated error is the untouched original failure')
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 1, `a non-"not found" failure is NEVER retried — exactly one attempt (got ${precheckCalls.length})`)
+    const stopCalls = byLabel(run, 'ensure-stopped')
+    t.ok(stopCalls.length === 1, 'the D7 pre-loop boundary still releases the lease on a generic pre-loop failure')
+  },
+})
+
+// ── REV3 (independent review of the speed sprint, batch 3 — 2026-09-22) ─────────────────────────
+// The FIX1 scenarios above prove the fallback WORKS. These prove the boundary it must NOT cross.
+const REVIEWER_NOT_FOUND = () => new Error("agent type 'pandacorp:reviewer' not found. Available agents: pandacorp:architect, pandacorp:implementer, pandacorp:devops")
+
+// REV3-H · DR-015 · the ORACLE must never degrade into the thing it judges.
+// The BL-0141 wrapper is generic over every `pandacorp:*` agentType, and its default fallback is
+// `pandacorp:implementer`. No reviewer-typed call site declares `fallbackAgentType`, so when
+// `pandacorp:reviewer` is the type the runtime does not know (the exact session/plugin skew BL-0141
+// was written for), the per-FRD gate — the independent judge whose whole contract is "edits test
+// files only, never production code" — is silently re-spawned as the IMPLEMENTER agent, which has
+// Write/Edit over production code. The verdict it then returns still promotes work orders to
+// VERIFIED. A missing oracle must FAIL the run, never be substituted.
+SCENARIOS.push({
+  name: 'REV3-H. an unknown pandacorp:reviewer agentType must FAIL the gate, never degrade the judge into pandacorp:implementer (DR-015)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-rev3h', deps: [], workOrders: [mkWo('wo-rev3h-001', 'PLANNED', { frd: 'frd-rev3h', artifacts: ['src/rev3h/thing.ts'] })] }]),
+  responses: [
+    { label: /^gate:/, throws: REVIEWER_NOT_FOUND(), times: 1 },
+  ],
+  assert(t, run) {
+    const gateCalls = byLabel(run, /^gate:/)
+    const degraded = gateCalls.filter((c) => c.opts.agentType === 'pandacorp:implementer')
+    t.ok(gateCalls.length >= 1, 'the per-FRD gate was reached at all')
+    t.ok(
+      degraded.length === 0,
+      `the FRD gate was re-spawned as pandacorp:implementer after the reviewer agentType 404 (${degraded.length} degraded spawn(s)) — the judge became the builder`,
+    )
+    t.ok(
+      !(run.result && run.result.note === 'all verified') || degraded.length === 0,
+      'the run still reported a normal verdict while its independent oracle had been substituted',
+    )
+    // What IS already true and must stay true: the substitution is at least audible in the log.
+    t.ok(
+      degraded.length === 0 || run.logs.some((l) => /pandacorp:reviewer.*no disponible/.test(l)),
+      'a reviewer substitution is at least logged, never completely silent',
+    )
+  },
+})
+
+// REV3-I · the fallback's own failure must not be swallowed.
+// `catch { throw e }` in the wrapper discards the FALLBACK's error entirely (no binding, no log),
+// so an operator sees only the original not-found and never learns why the rescue failed
+// (error-handling.md: never swallow an error).
+SCENARIOS.push({
+  name: 'REV3-I. when the fallback agentType also fails, its own failure reason is still surfaced somewhere (never silently discarded)',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', throws: new Error('EPIPE: the fallback spawn died for an unrelated reason'), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws')
+    t.ok(run.error && /pandacorp:mech' not found/.test(run.error.message), 'the ORIGINAL not-found error is what propagates (intended)')
+    t.ok(
+      run.logs.some((l) => /EPIPE/.test(l)) || (run.error && /EPIPE/.test(String(run.error.message) + String(run.error.cause || ''))),
+      "the fallback's own failure reason (EPIPE) is surfaced (logged), never silently discarded",
+    )
+  },
+})
+
+// REV3-J · the visual-qa tier must not leak into any BLOCKING judge.
+// E-3 downgraded an ADVISORY pass to sonnet. The per-FRD gate, the close-out and the diagnose pass
+// are DR-072 BLOCKING lenses and must stay on the judge tier — a single misplaced VISUAL_QA_MODEL
+// would silently cheapen the thing that decides VERIFIED.
+SCENARIOS.push({
+  name: 'REV3-J. the sonnet visual-qa tier never leaks into a blocking judge (per-FRD gate / close-out / diagnose stay on the judge model)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-rev3j', deps: [], workOrders: [mkWo('wo-rev3j-001', 'PLANNED', { frd: 'frd-rev3j', artifacts: ['src/rev3j/page.tsx'] })] }]),
+  assert(t, run) {
+    const blocking = run.calls.filter((c) => /^(gate:|close-out$|diagnose:)/.test(c.label))
+    t.ok(blocking.length >= 1, 'at least one blocking judge ran')
+    const cheapened = blocking.filter((c) => c.opts.model !== 'opus')
+    t.ok(cheapened.length === 0, `every blocking judge stayed on the judge tier (cheapened: ${cheapened.map((c) => `${c.label}=${c.opts.model}`).join(', ')})`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 0 || vq.every((c) => c.opts.model === 'sonnet'), 'visual-qa, the ADVISORY pass, is the only one on sonnet')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3391,6 +3634,7 @@ for (const s of SCENARIOS) {
   if (t.failures.length === 0) {
     passed++
     console.log(`PASS  ${s.name}  (${t.count} assertions)`)
+    for (const x of t.xfails) console.log(`      ~ xfail ${x}`)
   } else {
     failed++
     console.log(`FAIL  ${s.name}`)

@@ -77,3 +77,32 @@ re-arm gap — see BL-0131's corroborating-occurrence note. Both are real defect
 own KPI question. This item stays OPEN: re-run Canary A cleanly (after BL-0141's fix lands on main) and
 record the actual wall-clock/`agentCount`/UI-gate-skip numbers against the acceptance bar above — this
 partial run does not satisfy "Done when."
+
+## Progress note — 2026-09-22 (not closing this item)
+**Canary A ran clean and was fully measured** (run id `wf_4cef213a-463`, `mechLean:false` forced by
+session/plugin skew, BL-0141's fix already effective so no agentType crash this time). Full numbers and
+verdict recorded in `plugin/docs/decision-log.md` (v9.104.0, "Canary A (BL-0135)" entry) and in
+`docs/proposals/37-fast-change-path-and-implement-cost.md` §"Canario A · 2026-09-22 (medido)". Result:
+**FAILS** the ≤1,200s (with-reopen) time bar (measured 2613.9s); PASSES `agentCount ≤18` and the
+foundation-gate/visual-qa omission. Baseline-to-canary improvement measured is **≈1.49x (3889s →
+2613.9s)**, below this item's own **"< 2x → stop and re-measure before shipping further packages"
+rollback trigger** — flagged here explicitly rather than silently proceeding: the second batch (F2-F5,
+quick wins, BL-0141, review #3) still landed as plugin 9.104.0 in this same release because none of its
+packages are Canary-A-gated defaults (`gateEvidence` stays `explore`, `--now` stays opt-in,
+`scopedRepair` stays off) and each is independently reviewed/tested; but per this item's own trigger,
+**no further default-flip or Tanda-B/C package should ship ahead of a re-measurement** until Canary A
+(and ideally B) clear their bars. Canary B is running now in `panda-corp-canary-b` (separate worktree);
+Canary C has not started. This item stays `open` — not all three canaries have run, and the rollback
+trigger condition is presently active, not resolved.
+
+**Reconciling note on the LEASE_RENEW_FAILED finding above:** the full artifact-level report for
+`wf_4cef213a-463` (this session, `canary-a-report.md`) searched `journal.jsonl`, both `renew-lease`
+agents' `.meta.json` (both `{"stop": false}`, no error) and the dashboard event stream for this run's
+exact window and found **no** `LEASE_RENEW_FAILED` occurrence; the only event near the timestamp
+originally suspected is a routine `SupervisorTick`. That does not contradict the note above, since the
+note itself already flags `wf_4cef213a-463` and `wf_35a54be4-172` as not yet reconciled to one canonical
+run id, and BL-0141's own `source:` field cites `wf_35a54be4-172` specifically for the agentType crash
+(which also did not recur in `wf_4cef213a-463`, consistent with BL-0141's fix being effective there).
+Working hypothesis, not confirmed: the `LEASE_RENEW_FAILED` event belongs to the earlier, crashed
+`wf_35a54be4-172` run, not to the later clean `wf_4cef213a-463` run this session measured. Left open
+rather than asserted either way — worth a deliberate reconciliation pass before this item closes.

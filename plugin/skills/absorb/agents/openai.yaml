@@ -1,0 +1,5 @@
+interface:
+  display_name: "Pandacorp absorb engine"
+  short_description: "Internal external-source study engine behind learn"
+policy:
+  allow_implicit_invocation: false

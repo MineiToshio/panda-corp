@@ -15,7 +15,18 @@ const test = async (name, fn) => {
   catch (error) { process.stderr.write(`FAIL  ${name}: ${error.stack || error}\n`); failed++; }
 };
 const ok = (condition, message) => { if (!condition) throw new Error(message); };
-const hook = (runtime, event, payload, env = process.env) => spawnSync(process.execPath, [adapter, "--runtime", runtime, "--event", event], { input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8", env });
+
+// A "stop" hook run reaches verify-before-stop.sh, which (F2, DR-...) emits a StopGate event and
+// falls back to the REAL $HOME/.claude/dashboard-events.ndjson when PANDACORP_EVENTS_LOG is unset
+// (BL-0146: this suite's mkdtemp "pc-enforcement-*" fixtures were leaking StopGate lines into the
+// live telemetry stream every run). Every hook() invocation gets a scratch events log by default,
+// the same isolation pattern test-verify-before-stop.sh already uses — the real stream must never
+// see one of these fixtures.
+const eventsScratchDir = await mkdtemp(path.join(os.tmpdir(), "pc-enforcement-events-"));
+const EVENTS_SCRATCH = path.join(eventsScratchDir, "dashboard-events.ndjson");
+const hook = (runtime, event, payload, env) => spawnSync(process.execPath, [adapter, "--runtime", runtime, "--event", event], { input: typeof payload === "string" ? payload : JSON.stringify(payload), encoding: "utf8", env: env ?? { ...process.env, PANDACORP_EVENTS_LOG: EVENTS_SCRATCH } });
+const REAL_EVENTS_LOG = path.join(os.homedir(), ".claude", "dashboard-events.ndjson");
+const realEventsLogBefore = (await readFile(REAL_EVENTS_LOG, "utf8").catch(() => "")) ?? "";
 const project = async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "pc-enforcement-"));
   await mkdir(path.join(dir, ".pandacorp", "run"), { recursive: true });
@@ -149,6 +160,21 @@ await test("generated Codex enforcement projections are deterministic", async ()
   const after = await Promise.all(tracked.map((file) => readFile(path.join(root, file), "utf8")));
   ok(before.every((body, index) => body === after[index]), "second generation changed output");
 });
+
+// BL-0146 regression guard: every "stop" hook() call above went through verify-before-stop.sh via
+// the adapter; if any of them ever lost its PANDACORP_EVENTS_LOG override, the real stream would
+// gain a "pc-enforcement-*" fixture line again. The real log is a SHARED, append-only stream that
+// other concurrent Pandacorp sessions legitimately write to while this suite runs, so this asserts
+// on the CONTENT of whatever got appended during the run (no fixture project id in it) rather than
+// on whole-file identity, which would false-positive on any unrelated parallel session's telemetry.
+await test("this suite never wrote a pc-enforcement fixture line into the real dashboard-events.ndjson stream (BL-0146)", async () => {
+  const realEventsLogAfter = (await readFile(REAL_EVENTS_LOG, "utf8").catch(() => "")) ?? "";
+  ok(realEventsLogAfter.startsWith(realEventsLogBefore), "the real dashboard-events.ndjson stream was rewritten (not just appended to) during this run");
+  const appended = realEventsLogAfter.slice(realEventsLogBefore.length);
+  ok(!appended.includes("pc-enforcement-"), `a stop hook() call leaked a fixture line into the real stream: ${appended}`);
+});
+
+await rm(eventsScratchDir, { recursive: true, force: true });
 
 process.stdout.write(`RESULT: ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);
