@@ -6,6 +6,8 @@ description: "Operates the Pandacorp factory's self-learning memory (factory/mem
 
 # /pandacorp:memory
 
+Reached through `/pandacorp:learn` (Step 0); it is not an owner command.
+
 The self-learning loop's operator surface. Runs IN panda-corp. It accumulates durable engineering know-how in `factory/memory/` (read its README) so future builds are smarter and faster — the **harvest → store → retrieve → propose → gate → promote → prune** loop (DR-047). This skill is the loop's front-end (harvest, review); `/pandacorp:learn` is the back-end (promotion). It NEVER promotes a lesson to a standard/rule/skill by itself.
 
 `$ARGUMENTS`: `status` (default, read-only) · `harvest [<project>]` · `review`. A mode-less `/pandacorp:memory` (no `$ARGUMENTS`) NEVER auto-harvests — it lands on **status** (step 13): non-destructive, informative, and it points at the next action (including the exact `harvest`/`review` command to run). If the owner's intent is ambiguous between modes, ask instead of guessing — never default to a write.

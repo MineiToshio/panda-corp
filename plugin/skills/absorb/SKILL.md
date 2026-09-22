@@ -6,6 +6,8 @@ description: Studies an external source the owner passes as a URL — a GitHub r
 
 # /pandacorp:absorb
 
+Reached through `/pandacorp:learn` (Step 0); it is not an owner command.
+
 The factory's **"catador"** (taster): the owner hands it an external source by URL and it brings that source onto the table, understands it deeply, and tells the owner **what of it is worth adopting into Pandacorp** — but not before an adversarial red team has attacked the proposal. It is the factory's front door for **learning from the outside world**.
 
 `$ARGUMENTS`: one URL (plus any optional free-text focus). The URL may be a **GitHub repo**, an **article/blog post**, **another agent's skill**, a **doc/paper**, or a **YouTube video**.
