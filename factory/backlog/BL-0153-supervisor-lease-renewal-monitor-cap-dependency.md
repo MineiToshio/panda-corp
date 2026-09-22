@@ -57,3 +57,23 @@ tests for overlap before writing new ones.
 ## Out of scope
 Redesigning the Monitor tool's own cap (owned outside the factory, in the harness) — the fix works around
 the cap, not against it.
+
+## Corroborating occurrence — Canary C, 2026-09-23 (still not closing this item)
+Canary C (`wf_1cf782d6-2ed`, `frd-23-materialized-stats-read-model`) showed the same fragility class with
+its **most severe gap measured so far**. `canary-c-forensics.md` §3, sospechoso b2 ("Hueco de lease > TTL"):
+lease `acquired_at 19:49:34`, next `renewed_at 20:46:10` — **56.6 minutes without renewal** (`isFresh` false
+for roughly `19:59:34` to `20:46:10`), against the lease's own 600s TTL. Verdict recorded there: **"Real
+pero NO causal"** — `assertFence` (`runtime/build-state.mjs:89-94`) does not check TTL at all, so the late
+renewal still succeeded and nothing actually broke this run; the eventual block was decided by
+`gateConverge` (the BL-0157 oracle bug), not by the lease. Root mechanism newly identified by this run,
+distinct from (and sharper than) the earlier Monitor-cap framing: in a run whose build phase is dominated
+by back-to-back gate attempts with **no intervening `safe-point`** (Canary C had a single continuous
+prep→gate#1→repair→finders→verify-finding→gate#2 chain with the first `safe-point` only at 20:46:04, the
+run's OWN first renewal since acquisition), there is structurally nothing to trigger a renewal until
+everything converges — a long-gate-heavy build (no WOs to interleave `safe-point` between) is the exact
+shape most exposed to this gap, worse than the ~13-minute gaps Canary A/B showed on WO-heavy builds. No
+data on `reclaim` risk during the gap beyond the forensic's own note that the epoch never changed (3→3,
+confirmed nobody else claimed it) — the exposure is real but unexploited in this instance. Reinforces this
+item's own path (2), engine-side renewal decoupled from any external session cadence, as the fix most
+directly closing this specific trigger (a gate-only build phase with zero mechanical `agent()` spawns to
+piggyback a renewal on).

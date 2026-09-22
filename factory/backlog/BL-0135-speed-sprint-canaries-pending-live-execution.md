@@ -148,3 +148,60 @@ re-measured with that fix applied. Canary C has not produced a single measured r
 `gateEvidence` to `digested` by default or trusting the sprint's headline concurrency claim, re-run Canary
 B with the BL-0149/BL-0150 fix in place (mech agent available, plugin ≥ 9.104.2) and relaunch Canary C in
 a session clear of the account usage-limit window. This item stays `open`.
+
+## Progress note — 2026-09-23, Canary B2 (re-measure with the bootstrap fix present, still not closing this item)
+**Canary B2 ran clean and was fully measured** (`wf_78ba5660-bd9`, `gateEvidence: 'digested'`, `mechLean`
+inferred `true` from `agentType` evidence — not an explicit `args` key — over the real, nested Mission
+Control topology, distinct from A/B's flat fixture repos). Full numbers in
+`docs/proposals/37-fast-change-path-and-implement-cost.md`'s "Canario B2" section
+(`canary-b2-report.md` in this session's scratchpad). **Span-savings bar still FAILS**: `gate`+`evidence`
+measured −20.04% time / −9.73% cost vs A's `gate` alone, still far short of the ≥40% bar this item's Fix
+plan set for Canary B. **Root cause now CONFIRMED by direct code read, not inferred**:
+`worktree-bootstrap.sh` step 1 only checked for `package.json` at the worktree ROOT; Mission Control lives
+NESTED (`panda-corp/mission-control/`, the real production topology A/B never exercised), so dependency
+install silently ran for nothing and the `gate` agent had to bootstrap by hand — the exact expensive path
+`digested` exists to avoid. **Fixed in this same sprint as BL-0155 (plugin 9.104.4), landed AFTER this
+canary ran** — B2's own measurement is therefore still contaminated, just by a different (now-fixed)
+mechanism than B's original `node_modules` gap. Findings-safety bar **PASSES as a superset**: B2 found the
+same CORRECTION finding as A/B plus one new one (a POSIX `--` CLI delimiter bug neither A nor B caught) —
+no loss, this canary's own rollback trigger did not fire.
+
+**`mechLean` got its first live measurement in this run** (previously only extrapolated in Canary A's
+report): −32.5% time / −24.0% cost on the 4 plumbing steps comparable 1:1 with A (`pin`,
+`baseline-precheck`, `gate-worktree`, `notify-end`) — more than double A's extrapolated estimate (~10.5%).
+**`mechLean: true` is now confirmed as the correct default with real data**, independent of the
+`gateEvidence` question.
+
+**Net:** `gateEvidence` stays `explore` by default — no canary in this batch (B or B2) has measured a
+genuinely clean `digested` run; a third, post-9.104.4 run is the actual prerequisite before any default
+flip. `mechLean: true` is confirmed. This item stays `open`.
+
+## Progress note — 2026-09-23, Canary C (measured but non-comparable; still not closing this item)
+**Canary C was relaunched in a fresh session and ran to completion** (`wf_1cf782d6-2ed`, `mode: powerful`,
+`maxAgents: 40`, `gateEvidence: 'digested'`, plugin 9.104.3 — predates the BL-0155 bootstrap fix), over the
+real `portada-seal-coverage-commits-funnel-ideas.md` card. **59.52 min / $38.60, 17 agents,
+`concurrency_max: 4`.** Full numbers in `docs/proposals/37-fast-change-path-and-implement-cost.md`'s
+"Canario C" section (`canary-c-report.md` + `canary-c-forensics.md` in this session's scratchpad).
+
+**This run does NOT satisfy this item's own Canary C acceptance bar and cannot be used to certify it.**
+The card built **0 new work orders** (WO-23-007 was already `IN_REVIEW` from the aborted prior attempt) —
+the change resolved to **1 FRD / 1 WO**, not the 6-WO/2-FRD shape this item's Fix plan specified. The
+observed `concurrency_max: 4` came from a 4-way adversarial "finder" fan-out (correctness/security/quality/
+runtime, 3.5 of 59.5 minutes), **not from parallel WO construction** — this run provides **zero evidence**
+on the build-parallelism axis the 4x headline and this item's own acceptance bar (`concurrency_max ≥ 3`
+actually observed on WOs) require. `GateEvidenceFallback` fired as expected (same nested-bootstrap bug as
+B2, BL-0155, not yet landed when this run was on 9.104.3). The FRD ended **BLOCKED (`error`)** despite both
+gates returning correct verdicts and a fully green `verify.sh` — root-caused by forensic analysis to an
+engine bug (`enforceWholeFrdTraceability`, `pandacorp-build.js:744-750`, overwrites a substantive gate
+verdict when the reviewer's traceability inventory omits the `requirement` contract class), tracked
+separately as **BL-0157** (opened by a different agent, not touched by this item).
+
+**Net across all four canary runs now attempted (A, B, B2, C):** the 4x objective is **neither reached nor
+cleanly measured** by any of them. Canary A remains the only solid figure (−32.8% time / −35.7% cost,
+≈1.49x, below the 2x rollback trigger). Projected distance from C (substituting its contaminated gate#1
+with B2's cleaner gate+evidence figure, the best approximation available): ≈2.9x time / ≈5.2x cost from the
+stated 16 min/$5 target. **What remains to certify real build-parallelism: a change with ≥3 genuinely
+independent WOs, run on engine 9.104.5 (once BL-0157 lands) — this is a decision pending explicit owner
+approval, estimated cost ~$40 for the run.** This item stays `open`: no canary run has yet satisfied
+Canary C's own acceptance bar, and the parallelism question remains structurally unanswered by every run
+attempted so far.

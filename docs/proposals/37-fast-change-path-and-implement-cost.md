@@ -1091,26 +1091,85 @@ Ejecutado en vivo (`wf_dd3b6dfc-257`, `gateEvidence: 'digested'`, mismo FRD sint
 
 **Prerrequisito antes de correr el canario:** Mission Control (y cualquier otro proyecto candidato) debe pasar por `/pandacorp:upgrade` para recibir el motor nuevo (el memo ya señalaba esto como el fallo silencioso más probable, "si no, el canario mide el motor viejo"); sigue sin verificarse en vivo.
 
-## Cierre del sprint 2026-09-22
+## Canario B2 · 2026-09-23 (medido, worktree de gate bootstrapeado + `mechLean`)
 
-**En `main`:** plugin 9.103.0 → 9.104.2 (overlay 8.82.1). Segundo lote (F2-F5, quick wins, fix1/BL-0141, BL-0146, `mc-change-queue-statuses`) más el fix de BL-0149/BL-0150 (bootstrap del worktree de gate + dedupe de spawn) que la propia medición de Canario B destapó.
+Ejecutado en vivo (`wf_78ba5660-bd9`, mismo FRD-25 sintético reseteado al estado pre-gate de A/B, `gateEvidence: 'digested'`, `mechLean` inferido `true` — no aparece como clave explícita en `args`, pero 5 de 11 agentes tienen `agentType: pandacorp:mech`, frente a `pandacorp:implementer` en esos mismos pasos cuando A corrió con `mechLean:false` explícito). Informe completo en el scratchpad de esta sesión (`canary-b2-report.md`).
 
-**Medido:** FRD-24 baseline 64,8 min / 20,86 $ → Canario A 43,6 min / 13,42 $ (−32,8 % tiempo, −35,7 % coste; **falla** el umbral ≤20 min, ≈1,49× < el disparador de rollback 2×). Canario B (`gateEvidence: 'digested'`): 846 s / 4,45 $ vs `explore` 910 s / 5,96 $, **mismos hallazgos** (empate exacto, sin pérdida) pero solo −7,1 % tiempo / −25,4 % coste, muy por debajo del objetivo ≥60 %, probablemente contaminado por el `node_modules` que BL-0149 ya corrigió (sin re-medir aún).
+**Objetivo:** re-medir `digested` sobre la topología REAL de Mission Control (anidada dentro de `panda-corp/`, a diferencia de los fixtures planos de A/B) para descartar la contaminación por `node_modules` que el informe de B ya había marcado. **Resultado: sigue contaminado, por una causa relacionada pero DISTINTA, ya diagnosticada y arreglada en el propio sprint.** `worktree-bootstrap.sh` paso 1 solo instalaba dependencias si `package.json` estaba en la RAÍZ del worktree; Mission Control vive anidada (`panda-corp/mission-control/`), así que el `pnpm install` nunca corrió para el paquete real. El colector de evidencia lo detectó correctamente y rehusó fabricar un reporte (`GateEvidenceFallback`, `reason: gate-worktree-not-bootstrapped`, confirmado en `~/.claude/dashboard-events.ndjson`), pero el `gate` tuvo que bootstrapear a mano dentro de `gate-worktree/mission-control` — el mismo trabajo caro que `digested` existe para evitar. **Causa raíz confirmada por lectura directa del script y arreglada: BL-0155 (plugin 9.104.4), posterior a este run.**
 
-**Sigue apagado por defecto:** `gateEvidence` en `explore` (digitado seguro para builds sin UI pero sin certificar el 60 %), `scopedRepair: false` (BL-0138, freno por peso de agente no por tokens reales), `/pandacorp:change --now` en opt-in (revertido tras el defecto D2 de la revisión batch 3 sobre el Stop gate).
+**Ahorro medido (`gate`+`evidence` de B2 vs `gate` solo de A, la comparación que pide BL-0135):** 910,5 s → 728,043 s = **−20,04 % tiempo**; $5,960614 → $5,380662 *(4 partidas opus estimadas, ver nota de pricing)* = **−9,73 % coste**. **No cumple el criterio de span (≥40 %)**, aunque sí el de hallazgos: B2 encontró el mismo finding CORRECTION que A/B (`AC-25-001.3`, letras con trazo) **más uno nuevo** (`AC-25-002.1`/`.3`, el delimitador POSIX `--` de la CLI del slug normalizer, `scripts/text/slug-normalizer-cli.mjs:37,43`) — superset sin pérdida, reopen de 2 WOs en vez de 1.
 
-**Canario C:** lanzado 15:34 UTC, abortado a los 13 min en `baseline` por el límite de uso de la cuenta (no un bug del motor); worktree `panda-corp-canary-c` intacto y listo para relanzar en sesión nueva.
+**`mechLean` — primer dato medido en vivo, no extrapolación.** Sobre los 4 pasos de plumbing comparables 1:1 con A (`pin`, `baseline-precheck`, `gate-worktree`, `notify-end`): 474,1 s → 319,93 s = **−32,5 % tiempo**; $0,620081 → $0,471083 = **−24,0 % coste** — más del doble de la extrapolación de A (×0,895 ≈ 10,5 %, "no medida en ningún canario real"). **Recomendación: mantener `mechLean: true` por defecto** — es la única palanca de esta tanda con ahorro medido, positivo y mayor al estimado.
+
+**BL-0147 (el cierre repite `verify.sh` completo minutos después de que `verify-patch` ya lo corrió verde sobre el mismo sha) se repite tal cual en B2**, confirmado por el timestamp de `gate-report.json` (dentro de la ventana de `notify-end`, no de `verify-patch`) y por la ausencia de las cadenas `reused-verify-patch-report`/`full-rerun` en el transcript de `notify-end` — sigue `status: open`.
+
+**Veredicto:** `gateEvidence: 'digested'` **sigue sin activarse por defecto**. El bootstrap anidado (BL-0155) era la causa real del déficit de span y ya está arreglado, pero B2 corrió CON el bug presente — hace falta un tercer run limpio, post-9.104.4, para certificar el ≥40 %. `mechLean: true` queda **confirmado como default** con dato real. Ningún run de esta tanda (A/B/B2) alcanza el 4×: los tres tienen `concurrency_max: 1` (1 FRD, 100 % secuencial) — el 4× solo puede probarse con paralelismo real de WOs, el eje que Canario C debía ejercitar.
+
+## Canario C · 2026-09-22/23 (medido, powerful `maxAgents: 40`, sobre un `/change` real)
+
+Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEvidence: 'digested'`, plugin 9.104.3 — anterior al fix BL-0155) sobre el card real `portada-seal-coverage-commits-funnel-ideas.md` de la cola de Mission Control, relanzado en sesión limpia tras el aborto por límite de uso registrado en BL-0135. Informe completo (`canary-c-report.md`) + forense del bloqueo (`canary-c-forensics.md`) en el scratchpad de esta sesión.
+
+**59,52 min / $38,60 reales (+ $13,27 de cache-write estimado, excluido del total), 17 agentes, `concurrency_max: 4`.** **Comparación NO limpia con FRD-24/A/B/B2:** el run construyó **0 WOs nuevas** — WO-23-007 ya estaba `IN_REVIEW` de un intento previo, así que el `change` resultante fue **1 FRD / 1 WO**, no las "6 WOs / 2 FRDs" que se esperaban al planear el canario. El `concurrency_max: 4` observado viene de un fan-out de **4 "finders" adversariales** (correctness/security/quality/runtime, 3,5 de 59,5 min totales), no de WOs paralelas — **este run no mide el eje de paralelismo de build que el objetivo 4× necesita**.
+
+**`GateEvidenceFallback` disparado, como se esperaba** (mismo bug de bootstrap anidado que B2, BL-0155, no arreglado a tiempo para este run en 9.104.3): el gate #1 corrió en modo EXPLORE — **1210,8 s / $17,636972, el 45,7 % del coste total del run y el gate más caro medido en las 4 corridas (A/B/B2/C)**.
+
+**El FRD terminó BLOQUEADO (`error`) pese a que AMBOS gates de WO-23-007 dieron veredictos correctos** (intento 1: reopen legítimo con 3 findings reales; intento 2, tras el repair: `green:true`, `verify.sh` completo en verde, 25 contratos de trazabilidad). **Causa raíz confirmada por la forense (`canary-c-forensics.md` §1/§5): un bug del MOTOR, no del código.** `enforceWholeFrdTraceability` (`plugin/templates/shared/.claude/engines/pandacorp-build.js:744-750`) exige ≥1 entrada de cada una de las 7 `contractClass`; ambos gates de FRD-23 omitieron la clase `requirement` (cubrieron cada REQ vía sus AC, un inventario sustancialmente completo, no vacío). El oráculo **reescribe el veredicto entero**, borrando `reopen`/`findings`/`blocked_reason` — así el motor se saltó el patch dirigido (DR-073) y cayó en `attemptRepair` sin findings, y tras el segundo gate (también sin `requirement`) bloqueó con el reason por defecto `'error'` en vez de `'needs-owner'`. Fix mínimo (tres puntos, B1+B2+B3) y tests de regresión (R1/R2/R3) ya diseñados en la forense con línea exacta; seguimiento **BL-0157 (en curso, abierto por otro agente en paralelo — no tocado en esta sesión)**.
+
+**`pandacorp:mech`: 5 spawns (`baseline-precheck`, `pin`, `gate-worktree`, `evidence`, `notify-end`), $0,775213 / 549,8 s, 0 `MechFallback`.**
+
+**Distancia al objetivo 4× (16 min / ~5 $):** proyectando (estimación, no medición) con el `gate`+`evidence` limpio de B2 en lugar del gate#1 contaminado — la mejor aproximación disponible, ya que ninguna corrida de esta tanda mide un `digested` genuinamente limpio —, el run cae a ≈46,7 min / ≈$25,96: **≈2,92× el objetivo en tiempo, ≈5,19× en coste**. Sin la sustitución (bruto real): ≈3,72× / ≈7,72×. **El run tampoco es apto para proyectar el eje de paralelismo de build** (0 WOs construidas — cualquier cifra de esa palanca sería inventada).
+
+**Hallazgos hermanos de la forense (§7, sin diagnosticar causa, solo constatados con evidencia):** un falso positivo de `block-dangerous.sh` al crear un fichero NUEVO en `.pandacorp/inbox/changes/`; un gate verde sin `apply-gate` que no deja rastro en `track.jsonl`/`dashboard-events.ndjson` y un `progress.md` que narra al owner una decisión pendiente ya resuelta; un `baseline-precheck` que escala a opus por `status.yaml` ensuciado por la propia lease (misma clase que BL-0124, ya cerrado); el bootstrap del gate-worktree apuntando `PANDACORP_FACTORY_ROOT` a la fábrica MAIN en vez de al worktree del canario; y un hueco de renovación de lease de 56,6 minutos (`acquired_at` 19:49:34 → siguiente `renewed_at` 20:46:10) — la misma clase que BL-0153 ya rastrea, aquí con la evidencia más severa medida hasta ahora (el triple de los ~13 min de A/B). Cada uno se registra como su propio BL (ver tabla de cierre).
+
+**Veredicto:** el objetivo 4× **no se alcanza ni se mide limpiamente** en ninguno de los 4 canarios corridos (A/B/B2/C). La única cifra sólida del sprint sigue siendo Canario A: −32,8 % tiempo / −35,7 % coste (≈1,49×), por debajo del disparador de rollback (2×). Medir el paralelismo real de build requiere un `change` con **≥3 WOs independientes** sobre el motor **9.104.5** (con B1/B2/B3 de BL-0157 ya arreglados) — decisión pendiente del owner, coste estimado ~40 $ (ver BL-0135).
+
+## Cierre del sprint 2026-09-22/23
+
+**En `main`:** plugin 9.103.0 → 9.104.4 (overlay 8.82.2). Segundo y tercer lote (F2-F5, quick wins, fix1/BL-0141, BL-0146, `mc-change-queue-statuses`, BL-0149/BL-0150 destapados por Canario B) más los dos bugs de instrumentación/bootstrap que las mediciones de Canario B2 y C destaparon: **BL-0155** (bootstrap del worktree de gate no resolvía el `package.json` anidado de Mission Control — causa raíz confirmada del déficit de span de B2 y C) y **BL-0156** (`usage-rollup.mjs` sin precio para `claude-opus-5-5` + `--dir --out` silenciosamente no-op).
+
+**Veredicto honesto del objetivo 4×: NO alcanzado ni medido limpiamente.** Canario A sigue siendo la única cifra sólida (−32,8 % tiempo / −35,7 % coste, ≈1,49×, por debajo del disparador de rollback 2×). B2 confirma el mismo techo estructural (≈1,6× estimado combinando partidas reales) y C, el único intento de medir paralelismo real, midió 0 WOs construidas y terminó bloqueado por un bug del motor ajeno a `digested`/`mechLean`. Distancia proyectada al objetivo (16 min / 5 $): **≈2,9× tiempo / ≈5,2× coste** desde C. Medir el paralelismo real exige un `change` con ≥3 WOs independientes sobre el motor 9.104.5 — decisión del owner, ~40 $ estimados.
+
+**Decisión de defaults:** `gateEvidence` se queda en `explore` — ningún run de la tanda mide un `digested` limpio (B, B2 y C corrieron los tres con el bug de bootstrap presente o recién arreglado sin re-medir). `mechLean: true` queda **confirmado** como default con dato real (B2, −32,5 % tiempo / −24,0 % coste en plumbing, más del doble de lo estimado). `scopedRepair` sigue `false` (BL-0138, freno por peso de agente no por tokens reales, sin medir en ningún canario de esta tanda). `/pandacorp:change --now` sigue en opt-in (revertido tras el defecto D2 de la revisión batch 3 sobre el Stop gate).
+
+**Bugs descubiertos por los canarios (los cuatro corridos: A, B, B2, C):**
+
+| id | qué encontró | canario | estado |
+|---|---|---|---|
+| BL-0149/BL-0150 | Worktree de gate sin bootstrapear (fix parcial) + dedupe de spawn | B | cerrado (9.104.2) |
+| BL-0155 | `worktree-bootstrap.sh` paso 1 no resuelve el `package.json` anidado de Mission Control (BL-0149 no cubría el caso real) | B2, C | cerrado (9.104.4) |
+| BL-0156 | `usage-rollup.mjs` sin precio para `claude-opus-5-5` + `--dir --out` no escribe nada | B2 | cerrado (9.104.4) |
+| BL-0157 | El oráculo de trazabilidad whole-FRD reescribe/pierde un veredicto de gate (reopen/findings/green) cuando falta la clase `requirement`, bloqueando con `'error'` un FRD cuyo código y `verify.sh` están verdes | C | abierto (otro agente, en curso) |
+| BL-0158 | `block-dangerous.sh` falso positivo al crear un fichero nuevo en `inbox/changes/` — impidió registrar el bug real de FRD-10 | C | abierto |
+| BL-0159 | Gate verde sin `apply-gate` no deja rastro (`review_end`/`GateVerdict`/`frd_end`) y `progress.md` narra una decisión pendiente ya resuelta | C | abierto (parcialmente cubierto por BL-0157) |
+| BL-0160 | `baseline-precheck` escala a opus por `status.yaml` sucio por la propia lease (recurrencia de la clase BL-0124) + bootstrap del gate-worktree apunta `PANDACORP_FACTORY_ROOT` a la fábrica MAIN | C | abierto |
+| BL-0153 | Renovación de lease depende del tope de Monitor (~30 min) — nueva evidencia: 56,6 min sin renovar en C | A, B, C | abierto |
+
+**Tabla comparativa de los 4 canarios + baseline:**
+
+| Run | min | $ | agentes | `concurrency_max` | WOs construidas | gate (min / $) | findings CORRECTION |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| FRD-24 (baseline) | 64,8 | 20,86 | 22 | 1 | 2 | 20,1 / 6,51 | 1 |
+| Canario A (`explore`) | 43,6 | 13,42 | 18 | 1 | 2 (reopen) | 15,2 / 5,96 | 1 (empate con baseline) |
+| Canario B (`digested`) | n/d *(solo gate+evidence medido)* | n/d | n/d | n/d | 1 WO reabierta | 14,1 / 4,45 | 1 (empate exacto con A) |
+| Canario B2 (`digested` + `mechLean`) | 25,4 | 8,76 *(4 partidas est.)* | 11 | 1 | 0 nuevas (2 reabiertas) | 12,1 / 5,38 *(est.)* | 2 (superset, +1 nuevo) |
+| Canario C (powerful, `/change` real) | 59,5 | 38,60 | 17 | 4 *(solo en finders, no WOs)* | 0 nuevas (1 ya `IN_REVIEW`) | 20,2 / 17,64 *(gate#1, explore por fallback)* | 1 real (bug FRD-10) + bloqueo por bug del motor (BL-0157) |
+
+**Pendiente para acercarse al objetivo real:** un canario de paralelismo con ≥3 WOs independientes, corrido sobre el motor 9.104.5 (una vez BL-0157 aterrice) — decisión del owner, ~40 $ estimados (ver BL-0135).
 
 | id | qué | prioridad | coste est. | quién lo lanza |
 |---|---|---|---|---|
-| BL-0135 | Relanzar Canario C; re-medir B con el fix de node_modules | p1 | ~15-20 $ (2 runs) | sesión nueva |
+| BL-0157 | Oráculo de trazabilidad pisa el veredicto del gate (bloqueo `error` sobre código verde) | p1 | en curso (otro agente) | agente |
+| BL-0158 | block-dangerous.sh falso positivo bloquea fichero nuevo en inbox/changes/ | p1 | ~3-5 $ | agente |
+| BL-0159 | Gate verde sin apply-gate: sin rastro de telemetría + progress.md narra falso | p1 | ~5-8 $ | agente |
+| BL-0160 | baseline-precheck escala por status.yaml sucio por la lease + PANDACORP_FACTORY_ROOT mal resuelto en gate-worktree | p2 | ~5-8 $ | agente |
+| BL-0153 | Renovación de lease depende del tope de Monitor (~30 min) — 56,6 min sin renovar en C | p2 | ~5-8 $ | agente |
+| BL-0135 | Canario de paralelismo (≥3 WOs) sobre motor 9.104.5 | p1 | ~40 $ | pendiente OK del owner |
 | BL-0140 | classify-change no detecta guard de ownership sin vocabulario de auth | p1 | ~5-10 $ | agente |
 | BL-0151 | Proteger worktree de deploy (lock mecánico + gate) | p1 | ~3-5 $ | agente |
 | BL-0134 | classify-change marca todo factory/** como critical | p2 | ~5-8 $ | agente |
 | BL-0138 | scopedRepair: presupuesto por tokens reales, no peso | p2 | ~5-8 $ | agente |
-| BL-0147 | close-out repite verify.sh completo tras verify-patch | p2 | ~3-5 $ | agente |
+| BL-0147 | close-out repite verify.sh completo tras verify-patch (confirmado que se repite en B2) | p2 | ~3-5 $ | agente |
 | BL-0152 | Preflight de desfase sesión/motor en launch-implement.sh | p2 | ~3-5 $ | agente |
-| BL-0153 | Renovación de lease depende del tope de Monitor (~30 min) | p2 | ~5-8 $ | agente |
 | BL-0154 | Puerto 3900 fijo en e2e colisiona entre worktrees | p2 | ~3-5 $ | agente |
 | BL-0044 | warn-adhoc-write exime plugin/agents del nudge de aislamiento | p2 (doing) | ~2-3 $ | agente |
 | Manual MC | Drenar cards gitignored `manual-speed-sprint-args.md` y `render-uipassskipped-timeline.md` de la cola de MC | p2 | mínimo | owner/agente |
