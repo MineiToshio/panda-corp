@@ -126,3 +126,25 @@ trigger (baseline-to-canary improvement < 2x → stop and re-measure before ship
 opt into for low-risk non-UI builds (findings parity proven) but is NOT promoted to the default; the
 recommended next step is fixing the collector's `node_modules` gap and re-measuring before any default
 flip. This item stays `open`: two of three canaries have run; Canary C has not started.
+
+## Progress note — 2026-09-22, Canary C attempted (still not closing this item)
+**Canary C was launched but aborted, not measured.** Run `wf_71f78bae-dbd` (card
+`portada-seal-coverage-commits-funnel-ideas.md`, `mode: powerful`, `maxAgents: 40`,
+`gateEvidence: 'digested'`, `mechLean: false`) launched 15:34 UTC and died 13 minutes later at the
+`baseline` step. Cause: the owner's Claude Code account session usage limit ("You've hit your session
+limit"), confirmed as an account-level throttle, not an engine defect — `ensure-stopped` (the close-out
+step) also failed for the identical reason, so `.pandacorp/status.yaml` was left with `running: true`
+and the atomic build lease held; both were released by hand after the fact. The worktree
+`/Users/Shared/Proyectos/panda-corp-canary-c` is intact with the card already copied in and the engine at
+plugin 9.104.2 — ready to relaunch in a fresh session (a session not against the same usage-limit window)
+without re-doing the setup. No wall-clock/cost/`concurrency_max` numbers were captured; Canary C's own
+acceptance bar (`≤45 min`, `concurrency_max ≥ 3` actually observed) remains untested.
+
+**Net across all three canaries attempted so far:** Canary A ran clean and FAILED its time bar (see the
+progress note above, 2613.9s vs ≤1200s, ≈1.49x improvement, below the 2x rollback trigger). Canary B ran
+clean and PASSED findings-safety but FAILED its own span-savings bar, likely understated by the
+`node_modules`-bootstrap infrastructure defect fixed in BL-0149/BL-0150 (plugin 9.104.2) — not yet
+re-measured with that fix applied. Canary C has not produced a single measured run. Before flipping
+`gateEvidence` to `digested` by default or trusting the sprint's headline concurrency claim, re-run Canary
+B with the BL-0149/BL-0150 fix in place (mech agent available, plugin ≥ 9.104.2) and relaunch Canary C in
+a session clear of the account usage-limit window. This item stays `open`.

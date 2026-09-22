@@ -1090,3 +1090,29 @@ Ejecutado en vivo (`wf_dd3b6dfc-257`, `gateEvidence: 'digested'`, mismo FRD sint
 **Veredicto:** no se declara cumplido el umbral del 60% con esta única medición (n=1). Seguridad de hallazgos probada y ahorro de coste real ya se cobra hoy; recomendable activar `digested` para builds de bajo riesgo sin UI, pero arreglar primero el defecto de `node_modules` del colector y re-medir antes de cambiar el default global. `LEASE_RENEW_FAILED` tampoco aparece en los artefactos de este run, igual que en A. Detalle completo (anomalías de concurrencia, discrepancias de reloj) en el decision-log del plugin.
 
 **Prerrequisito antes de correr el canario:** Mission Control (y cualquier otro proyecto candidato) debe pasar por `/pandacorp:upgrade` para recibir el motor nuevo (el memo ya señalaba esto como el fallo silencioso más probable, "si no, el canario mide el motor viejo"); sigue sin verificarse en vivo.
+
+## Cierre del sprint 2026-09-22
+
+**En `main`:** plugin 9.103.0 → 9.104.2 (overlay 8.82.1). Segundo lote (F2-F5, quick wins, fix1/BL-0141, BL-0146, `mc-change-queue-statuses`) más el fix de BL-0149/BL-0150 (bootstrap del worktree de gate + dedupe de spawn) que la propia medición de Canario B destapó.
+
+**Medido:** FRD-24 baseline 64,8 min / 20,86 $ → Canario A 43,6 min / 13,42 $ (−32,8 % tiempo, −35,7 % coste; **falla** el umbral ≤20 min, ≈1,49× < el disparador de rollback 2×). Canario B (`gateEvidence: 'digested'`): 846 s / 4,45 $ vs `explore` 910 s / 5,96 $, **mismos hallazgos** (empate exacto, sin pérdida) pero solo −7,1 % tiempo / −25,4 % coste, muy por debajo del objetivo ≥60 %, probablemente contaminado por el `node_modules` que BL-0149 ya corrigió (sin re-medir aún).
+
+**Sigue apagado por defecto:** `gateEvidence` en `explore` (digitado seguro para builds sin UI pero sin certificar el 60 %), `scopedRepair: false` (BL-0138, freno por peso de agente no por tokens reales), `/pandacorp:change --now` en opt-in (revertido tras el defecto D2 de la revisión batch 3 sobre el Stop gate).
+
+**Canario C:** lanzado 15:34 UTC, abortado a los 13 min en `baseline` por el límite de uso de la cuenta (no un bug del motor); worktree `panda-corp-canary-c` intacto y listo para relanzar en sesión nueva.
+
+| id | qué | prioridad | coste est. | quién lo lanza |
+|---|---|---|---|---|
+| BL-0135 | Relanzar Canario C; re-medir B con el fix de node_modules | p1 | ~15-20 $ (2 runs) | sesión nueva |
+| BL-0140 | classify-change no detecta guard de ownership sin vocabulario de auth | p1 | ~5-10 $ | agente |
+| BL-0151 | Proteger worktree de deploy (lock mecánico + gate) | p1 | ~3-5 $ | agente |
+| BL-0134 | classify-change marca todo factory/** como critical | p2 | ~5-8 $ | agente |
+| BL-0138 | scopedRepair: presupuesto por tokens reales, no peso | p2 | ~5-8 $ | agente |
+| BL-0147 | close-out repite verify.sh completo tras verify-patch | p2 | ~3-5 $ | agente |
+| BL-0152 | Preflight de desfase sesión/motor en launch-implement.sh | p2 | ~3-5 $ | agente |
+| BL-0153 | Renovación de lease depende del tope de Monitor (~30 min) | p2 | ~5-8 $ | agente |
+| BL-0154 | Puerto 3900 fijo en e2e colisiona entre worktrees | p2 | ~3-5 $ | agente |
+| BL-0044 | warn-adhoc-write exime plugin/agents del nudge de aislamiento | p2 (doing) | ~2-3 $ | agente |
+| Manual MC | Drenar cards gitignored `manual-speed-sprint-args.md` y `render-uipassskipped-timeline.md` de la cola de MC | p2 | mínimo | owner/agente |
+| BL-0148 | MC rechazaba building/closing | — cerrado hoy (commit `98b9b91f`) | — | — |
+| G-3 | Escalada test-writer por dificultad de la WO | descartado (duplica BL-0115, ya cerrado) | 0 $ | n/a |

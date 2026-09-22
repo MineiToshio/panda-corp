@@ -3,12 +3,12 @@ id: BL-0148
 type: bug
 area: build-engine
 title: "Mission Control's change-queue reader rejects the factory's own building/closing statuses, so those cards render as parse errors in the queue panel"
-status: open
+status: done
 severity: p1
 opened: 2026-09-22
-closed:
+closed: 2026-09-22
 source: "independent review batch 3, 2026-09-22 — cross-referenced against plugin/skills/change/SKILL.md's own status vocabulary"
-closes:
+closes: "mission-control commit 98b9b91f (merge of mc-change-queue-statuses, 19ae06d7) — changes.ts ChangeQueueStatus/VALID_STATUSES + ChangesPanel/ChangeDetail exhaustive handling + mission-control/docs/decision-log.md entry"
 links: []
 ---
 
@@ -82,3 +82,12 @@ in `errors[]`. RED before the fix (both currently fail loud into `errors[]`), GR
 Redesigning the change-queue status vocabulary itself, or making the reader derive its valid set
 programmatically from the writers instead of a hardcoded array (a deeper single-source-of-truth
 fix that would be its own, larger item if the owner wants it).
+
+## Closed — 2026-09-22
+Verified against the actual merged state, not just the commit message: `changes.ts:36` types
+`ChangeQueueStatus` as `"ready" | "draft" | "building" | "closing" | "done" | "discarded"` and
+`VALID_STATUSES` (line 72) includes both new tokens; `mission-control/src/lib/changes/_tests/changes.test.ts`
+(15 cases, including `building`/`closing` fixtures) run live this session — 15/15 passed. Merge commit
+`98b9b91f` (bringing in `mc-change-queue-statuses` commit `19ae06d7`) also updated `ChangesPanel.tsx` and
+`ChangeDetail.tsx` for the two new arms and added `mission-control/docs/decision-log.md`'s own entry plus
+FRD-04 REQ-04-010. All "Done when" criteria met.
