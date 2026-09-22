@@ -1769,6 +1769,33 @@ SCENARIOS.push({
   },
 })
 
+// WP-09: the wave log names WHY each non-elected candidate was deferred. Five WOs in one FRD, mode
+// 'pro' (P.wave = 2): wo-002 overlaps wo-001's artifacts (deps satisfied but loses the disjoint pick),
+// wo-003 depends on wo-001 (not yet done — deps pending), wo-004 is disjoint and fills the 2nd wave
+// slot, and wo-005 is disjoint too but never reached because the wave is already at its P.wave=2 cap.
+SCENARIOS.push({
+  name: 'WP-09. wave log names the deferral reason for each non-elected candidate WO',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-w9-wave-log',
+    deps: [],
+    workOrders: [
+      mkWo('wo-w9-001', 'PLANNED', { frd: 'frd-w9-wave-log', artifacts: ['src/w9/a/**'] }),
+      mkWo('wo-w9-002', 'PLANNED', { frd: 'frd-w9-wave-log', artifacts: ['src/w9/a/**'] }),
+      mkWo('wo-w9-003', 'PLANNED', { frd: 'frd-w9-wave-log', artifacts: ['src/w9/b/**'], deps: ['wo-w9-001'] }),
+      mkWo('wo-w9-004', 'PLANNED', { frd: 'frd-w9-wave-log', artifacts: ['src/w9/c/**'] }),
+      mkWo('wo-w9-005', 'PLANNED', { frd: 'frd-w9-wave-log', artifacts: ['src/w9/d/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /⚒ wave: 2 WO\(s\).*wo-w9-001.*wo-w9-004/), 'the wave picks the two disjoint, dep-satisfied WOs up to the P.wave=2 cap')
+    t.ok(hasLog(run, /↻ deferred:.*wo-w9-002\(artifacts:wo-w9-001\)/), 'wo-002 is deferred as an artifacts overlap against the WO that won the pick')
+    t.ok(hasLog(run, /↻ deferred:.*wo-w9-003\(deps:wo-w9-001\)/), 'wo-003 is deferred with its unmet dep named')
+    t.ok(hasLog(run, /↻ deferred:.*wo-w9-005\(blocked:wave-cap\)/), 'wo-005 is disjoint from the picked wave but deferred as blocked (the P.wave cap, not an overlap)')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
