@@ -123,6 +123,10 @@
     "gate.stop-scope": {
       "display": "StopGate",
       "aliases": ["StopGate", "stop_gate", "stop-gate"]
+    },
+    "agent.type-fallback": {
+      "display": "MechFallback",
+      "aliases": ["MechFallback", "mech_fallback", "agent-type-fallback"]
     }
   }
 }

@@ -3431,6 +3431,108 @@ SCENARIOS.push({
   },
 })
 
+// ── FIX1 · BL-0141 · agentType fallback (a session running an OLDER plugin than the engine version it
+// launched — e.g. plugin 9.102.3 resident while the 9.103.0 engine spawns the new `pandacorp:mech` agent)
+// + the D7 pre-loop close-out extension. The 2026-09-22 canary A incident: the runtime rejected the FIRST
+// spawn (baseline-precheck) with `agent type 'pandacorp:mech' not found`, and the engine died before the
+// scheduler loop existed, leaving the atomic lease taken until an owner freed it by hand.
+const MECH_NOT_FOUND = () => new Error("agent type 'pandacorp:mech' not found. Available agents: pandacorp:architect, pandacorp:backend-dev, pandacorp:frontend-dev, pandacorp:implementer, pandacorp:reviewer, pandacorp:devops")
+const IMPLEMENTER_NOT_FOUND = () => new Error("agent type 'pandacorp:implementer' not found. Available agents: pandacorp:architect, pandacorp:devops")
+const ARCHITECT_NOT_FOUND = () => new Error("agent type 'pandacorp:architect' not found. Available agents: pandacorp:mech, pandacorp:implementer, pandacorp:devops")
+
+// (a) the mech-specific path: the FIRST spawn (baseline-precheck, MECH_AGENT-typed) 404s on
+// 'pandacorp:mech', the wrapper retries ONCE with 'pandacorp:implementer' and continues — and every LATER
+// mech-typed spawn this run (safe-point-pre-loop, ensure-stopped) goes straight to 'pandacorp:implementer'
+// without paying another failed spawn. The one-time explanatory log fires exactly once.
+SCENARIOS.push({
+  name: 'FIX1a. mech agentType 404 on the very first spawn — one retry with implementer, then every later mech spawn uses implementer directly, log fires once',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', response: { green: true }, times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 2, `baseline-precheck spawned exactly twice — original + one retry (got ${precheckCalls.length})`)
+    t.ok(precheckCalls[0] && precheckCalls[0].opts.agentType === 'pandacorp:mech', 'the FIRST attempt requested pandacorp:mech (MECH_LEAN default)')
+    t.ok(precheckCalls[1] && precheckCalls[1].opts.agentType === 'pandacorp:implementer', 'the RETRY used the implementer fallback')
+    t.ok(/MechFallback/.test(precheckCalls[1] ? precheckCalls[1].prompt : ''), 'the retried prompt carries the one-time MechFallback dashboard event')
+    const laterMechSites = byLabel(run, /^(safe-point-pre-loop|ensure-stopped)$/)
+    t.ok(laterMechSites.length > 0, 'at least one later mech-typed call site ran this scenario (safe-point-pre-loop / ensure-stopped)')
+    t.ok(laterMechSites.every((c) => c.opts.agentType === 'pandacorp:implementer'), 'every LATER mech-typed spawn used implementer directly — no repeat 404')
+    t.ok(!laterMechSites.some((c) => c.opts.agentType === 'pandacorp:mech'), 'no later spawn ever requested pandacorp:mech again this run')
+    const fallbackLogs = run.logs.filter((l) => /pandacorp:mech no disponible/.test(l))
+    t.ok(fallbackLogs.length === 1, `the explanatory log fires exactly ONCE this run (got ${fallbackLogs.length})`)
+    t.ok(run.result && run.result.note === 'all verified', 'the run still completes honestly once the fallback takes over')
+  },
+})
+
+// (b) the generic path: a DIFFERENT pandacorp:* agentType 404s (the planner's 'pandacorp:architect') —
+// same one-retry-with-implementer mechanism, logged, but WITHOUT setting the sticky mechUnavailable flag
+// (a later genuinely-mech spawn is unaffected and still requests pandacorp:mech normally).
+SCENARIOS.push({
+  name: 'FIX1b. a non-mech pandacorp:* agentType 404 (planner/pandacorp:architect) also falls back to implementer once, logged — without touching the mech fast-path',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'plan', throws: ARCHITECT_NOT_FOUND(), times: 1 },
+    { label: 'plan', response: mkPlan([]), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const planCalls = byLabel(run, 'plan')
+    t.ok(planCalls.length === 2, `plan spawned exactly twice — original + one retry (got ${planCalls.length})`)
+    t.ok(planCalls[0] && planCalls[0].opts.agentType === 'pandacorp:architect', 'the FIRST attempt requested pandacorp:architect')
+    t.ok(planCalls[1] && planCalls[1].opts.agentType === 'pandacorp:implementer', 'the RETRY used the implementer fallback')
+    t.ok(run.logs.some((l) => /pandacorp:architect.*no disponible.*implementer/.test(l)), 'a fallback log names the requested type and the fallback')
+    t.ok(!run.logs.some((l) => /pandacorp:mech no disponible/.test(l)), 'the mech-specific one-time message never fires for a non-mech fallback')
+    const laterMechSites = byLabel(run, /^(safe-point-pre-loop|ensure-stopped)$/)
+    t.ok(laterMechSites.every((c) => c.opts.agentType === 'pandacorp:mech' || c.opts.agentType === 'pandacorp:implementer'), 'later mech-typed sites are unaffected by the non-mech fallback (still request pandacorp:mech normally — MECH_LEAN default)')
+    t.ok(laterMechSites.some((c) => c.opts.agentType === 'pandacorp:mech'), 'a later mech-typed spawn still requests pandacorp:mech normally — the generic fallback never set the sticky mechUnavailable flag')
+    t.ok(run.result && run.result.note === 'all verified', 'the run still completes honestly once the fallback takes over')
+  },
+})
+
+// (c) the fallback ALSO fails — never a second retry, the ORIGINAL not-found error propagates, and the D7
+// pre-loop boundary still guarantees the lease is released (ensure-stopped spawned) before the error
+// escapes the engine.
+SCENARIOS.push({
+  name: 'FIX1c. the fallback agentType also 404s — no second retry, the ORIGINAL error propagates, and the pre-loop boundary still releases the lease',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', throws: IMPLEMENTER_NOT_FOUND(), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws — the fallback could not rescue this call')
+    t.ok(run.error && /pandacorp:mech' not found/.test(run.error.message), 'the propagated error is the ORIGINAL mech-not-found error, not the retry\'s own failure')
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 2, `exactly ONE retry attempt was made — never a second (got ${precheckCalls.length} total spawns)`)
+    const stopCalls = byLabel(run, 'ensure-stopped')
+    t.ok(stopCalls.length === 1, 'the D7 pre-loop boundary caught the escaping exception and released the lease (ensure-stopped spawned) before rethrowing')
+  },
+})
+
+// (d) a GENERIC error (not an "agent type '<x>' not found" rejection) is never retried — a transient
+// failure of any other shape propagates on the FIRST attempt, and the pre-loop boundary still guarantees
+// the lease is released.
+SCENARIOS.push({
+  name: 'FIX1d. a generic agent() failure (not an unknown-agentType rejection) is never retried, and the pre-loop boundary still releases the lease',
+  args: { mode: 'pro' },
+  responses: [
+    { label: 'baseline-precheck', throws: new Error('ECONNRESET: agent spawn timed out'), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws — a generic failure is never silently swallowed')
+    t.ok(run.error && /ECONNRESET/.test(run.error.message), 'the propagated error is the untouched original failure')
+    const precheckCalls = byLabel(run, 'baseline-precheck')
+    t.ok(precheckCalls.length === 1, `a non-"not found" failure is NEVER retried — exactly one attempt (got ${precheckCalls.length})`)
+    const stopCalls = byLabel(run, 'ensure-stopped')
+    t.ok(stopCalls.length === 1, 'the D7 pre-loop boundary still releases the lease on a generic pre-loop failure')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

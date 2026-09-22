@@ -419,6 +419,14 @@ const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
 const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
   ` Also append the GateEvidenceFallback event (fire-and-forget — WP-06: the pre-collected evidence pack was unusable, so THIS gate ran in explore mode): printf '{"event":"GateEvidenceFallback","at":"%s","project":"%s","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 
+// BL-0141 — the ONE-TIME dashboard record of a runtime/plugin agentType skew (a session still running an
+// OLDER plugin than the engine version it launched, e.g. plugin 9.102.3 resident while the 9.103.0 engine
+// references the new `pandacorp:mech` agent — the runtime only picks up a new agent definition on session
+// restart). Injected into the RETRIED prompt itself (the engine has no shell/fs of its own, see the
+// agent() wrapper below) exactly once, the same call that first hits the fallback.
+const MECH_FALLBACK_EVENT = (requestedType, fallbackType) =>
+  ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
+
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
 // boundary is never these steps (the FRD gate re-verifies everything); they just execute a script.
@@ -462,13 +470,63 @@ const NOTIFY = (msg, sound) =>
 // The provided `agent` is an injected global (like log/phase/parallel/budget), so rebinding it here
 // re-points every later `agent(...)` call through the wrapper; the raw impl is captured first.
 const __rawAgent = agent
-agent = (prompt, opts = {}) => {
+// ── BL-0141: honest, automatic agentType degradation ────────────────────────────────────────────────
+// A session can launch a build on an engine version that references an agent NEWER than the plugin the
+// session itself still has resident (the update applies at session restart, not mid-session) — e.g.
+// engine 9.103.0 spawning `pandacorp:mech` from a session still running plugin 9.102.3. The runtime's own
+// rejection is a thrown error naming the missing type: `agent type '<x>' not found. Available agents: …`.
+// Handled generically for ANY 'pandacorp:*' type (not just mech) so a renamed/removed agent degrades the
+// same way instead of killing the whole run on its very first spawn (the 2026-09-22 canary A incident —
+// baseline-precheck died before the scheduler loop even existed, leaving the atomic lease taken until an
+// owner freed it by hand). ONE retry, with the fallback the call declares (`opts.fallbackAgentType`) or
+// 'pandacorp:implementer' by default; a failing fallback propagates the ORIGINAL not-found error — never
+// a second retry, never a loop.
+let mechUnavailable = false   // sticky once 'pandacorp:mech' itself 404s once — every LATER mech-typed
+// call this run goes straight to its fallback instead of paying another guaranteed-failed spawn for the
+// same runtime/plugin skew.
+let mechFallbackLogged = false   // the explanatory log fires ONCE this run, not once per call site
+const AGENT_TYPE_NOT_FOUND_RE = /agent type '([^']+)' not found/
+const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
+agent = async (prompt, opts = {}) => {
   // C2: a per-call `workFrom` override lets the CONCURRENT gate run from the pinned gate worktree instead
   // of the project root (default). undefined → the legacy WORK_FROM (cd PROJECT_DIR). '' → no preamble.
   const wf = (opts && opts.workFrom !== undefined) ? opts.workFrom : WORK_FROM
   let rest = opts
   if (opts && opts.workFrom !== undefined) { rest = { ...opts }; delete rest.workFrom }   // never leak workFrom into the real agent() opts
-  return __rawAgent(typeof prompt === 'string' && wf ? wf + prompt : prompt, rest)
+  const finalPrompt = typeof prompt === 'string' && wf ? wf + prompt : prompt
+  // Already know pandacorp:mech is unavailable this run — substitute the fallback BEFORE spawning, so
+  // this call never pays for a repeat of the same guaranteed rejection.
+  if (mechUnavailable && rest && rest.agentType === 'pandacorp:mech') {
+    rest = { ...rest, agentType: rest.fallbackAgentType || DEFAULT_AGENT_FALLBACK }
+  }
+  try {
+    return await __rawAgent(finalPrompt, rest)
+  } catch (e) {
+    const requestedType = rest && rest.agentType
+    const match = requestedType && typeof requestedType === 'string' && requestedType.startsWith('pandacorp:') && e && typeof e.message === 'string'
+      ? e.message.match(AGENT_TYPE_NOT_FOUND_RE)
+      : null
+    // Only ever retry the SPECIFIC "unknown agentType" rejection of the type THIS call itself requested —
+    // a generic/unrelated failure (timeout, malformed response, a tool error) is never treated as retryable.
+    if (!match || match[1] !== requestedType) throw e
+    const fallback = rest.fallbackAgentType || DEFAULT_AGENT_FALLBACK
+    if (fallback === requestedType) throw e   // no distinct fallback to retry with
+    if (requestedType === 'pandacorp:mech') {
+      mechUnavailable = true
+      if (!mechFallbackLogged) {
+        mechFallbackLogged = true
+        log(`pandacorp:mech no disponible en este runtime (plugin desactualizado en la sesión): usando ${fallback}; reinicia la sesión para 9.103.0`)
+      }
+    } else {
+      log(`agentType '${requestedType}' no disponible en este runtime — usando ${fallback} como fallback.`)
+    }
+    const retryPrompt = requestedType === 'pandacorp:mech' && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
+    try {
+      return await __rawAgent(retryPrompt, { ...rest, agentType: fallback })
+    } catch {
+      throw e   // the fallback ALSO failed — never a second retry; surface the ORIGINAL not-found error
+    }
+  }
 }
 
 // ── BL-0011: whole-project gate quarantine of a needs-owner-BLOCKED route (LESSON-0021, DR-085) ──
@@ -785,12 +843,30 @@ async function ensureStopped(reason) {
   if (!receipt || receipt.done !== true || receipt.lease_released !== true || JSON.stringify(receipt.allowed_paths) !== JSON.stringify(['.pandacorp/status.yaml'])) throw new Error('FATAL: bounded pre-loop close returned an invalid receipt')
 }
 
+// BL-0141 (D7 extension): the pre-loop drain below (drainReadyQueuePreLoop) already guarantees this same
+// running:false close-out on its OWN thrown exception — but that was the only pre-loop await wrapped this
+// way. Every OTHER pre-loop await (the baseline pre-check/repair spawns, a targeted change's integration,
+// the planner) had no such guarantee: an agent()-level throw there (the mech-agentType incident — the
+// runtime rejected the very FIRST spawn, before any of the red/failed checks below ever ran) escaped
+// uncaught, leaving `running:true` and the atomic lease held with nothing left to release it. One tiny
+// wrapper, reused at each remaining pre-loop await site, so ANY exception before the scheduler loop exists
+// gets the SAME guaranteed close-out as a normal failure branch.
+async function preLoopGuarded(fn) {
+  try {
+    return await fn()
+  } catch (e) {
+    log('☠ pre-loop failure: ' + e.message)
+    await ensureStopped('pre-loop failure: ' + e.message)
+    throw e
+  }
+}
+
 // ── Baseline self-heal (deadlock breaker) — WS-D/D10 two-step: cheap MECH pre-check → reconciling judge ──
 phase('Baseline')
 // (a) MECH PRE-CHECK: the root guard + rethink consume + owner stop signal + the clean-tree fast path — all
 // cheap, no verify.sh. Only if it escalates does the expensive judge baseline run.
 agentSpawned++
-const precheck = await agent(
+const precheck = await preLoopGuarded(() => agent(
   `You are the Pandacorp baseline PRE-CHECK (mechanical — cheap; do NOT run verify.sh, do NOT fix code, just return a verdict). Do these steps IN ORDER:
   **STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}
   **STEP 0 — deterministic root + owner-stop receipt (BL-0068):** execute exactly \`${INSPECT_STOP}\` with Node (NEVER shell \`test\`, \`[\` or an alias-sensitive builtin). If it fails, STOP and return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" }. Preserve its JSON receipt. If receipt.stop is true, return { stop: true } immediately; if false, continue. Never infer stop from a command exit code.
@@ -799,7 +875,7 @@ const precheck = await agent(
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
   **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed, project-relative, exactly as printed>, leaseValid: true } (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: PRECHECK_SCHEMA },
-)
+))
 if (precheck && precheck.stop === true) {
   log('⏸ owner stop signal (.pandacorp/run/stop) — el motor para limpio antes de construir (no lo borro, lo hace el owner)')
   await ensureStopped('owner stop signal')
@@ -826,7 +902,7 @@ if (precheck && precheck.green === true) {
   // (b) ESCALATE → the judge baseline: DR-067 reconciliation (the SKILL promised it; the prompt never had it)
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
   agentSpawned += COST(P.judge)   // DR-070/DR-073: weight EVERY spawn by model cost so the maxAgents brake is a token-proxy
-  baseline = await agent(
+  baseline = await preLoopGuarded(() => agent(
     `You are the Pandacorp baseline-repair engineer (DR-067 reconciliation + verify). The cheap pre-check found the tree DIRTY or HEAD beyond the certified last_green snapshot/pointer pair${precheck && precheck.dirty ? ' (tree is dirty)' : ''}.
     **STEP 0 — FAIL-LOUD project-root guard (BL-0022/BL-0068):** execute exactly \`${INSPECT_STOP}\`; if it fails, return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" } and do nothing else. NEVER use shell \`test\` or \`[\` for this guard.
     **STEP 1 — DR-067 RECONCILIATION (only if the tree is dirty/conflicted):** read \`last_green_sha\` from status.yaml. The valid active fence makes \`.pandacorp/status.yaml\` controller-owned: NEVER checkout or restore \`.pandacorp/status.yaml\`; renew/sync-rollups deterministically re-derive its active projection from the fenced lease. If the working tree has other uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), RESTORE only those other tracked MODIFIED files to the last green: \`git checkout <last_green_sha> -- <those modified tracked files except .pandacorp/status.yaml>\` (surgical — NEVER \`git reset --hard\` the whole tree, which would discard verified work). Drop stale build stashes: inspect \`git stash list\` and drop entries that are leftover build stashes (DR-067 — never stash-pop across a moved tree). Remove leftover temp preview pages: any \`preview-wo*\` scratch page/route the build created. Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
@@ -835,7 +911,7 @@ if (precheck && precheck.green === true) {
     - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope), return { green: true }. (A route quarantined above is NOT yours to fix — it waits on the owner; do not touch it.)
     If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
     { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
-  )
+  ))
 }
 if (!baseline || baseline.green !== true) {
   log(`Baseline red and auto-repair failed${baseline?.failure ? ': ' + baseline.failure : ''} — stopping for the owner.`)
@@ -874,7 +950,7 @@ async function processChange(slug, phaseTitle) {
 }
 if (CHANGE) {
   phase('Process Change')
-  const proc = await processChange(CHANGE, 'Process Change')
+  const proc = await preLoopGuarded(() => processChange(CHANGE, 'Process Change'))
   if (!proc || !proc.done || !proc.affectedFrds || !proc.affectedFrds.length) {
     log(`⊘ No se pudo procesar la change '${CHANGE}': ${proc?.failure || 'no se encontró o no tiene FRDs afectados'}.`)
     await ensureStopped('change not processed')   // WS-D/D3
@@ -902,7 +978,7 @@ async function runPlanner(label) {
   )
 }
 phase('Plan')
-let plan = await runPlanner('plan')
+let plan = await preLoopGuarded(() => runPlanner('plan'))
 // WS-D/D3: SPLIT the old single guard. A null/garbled planner verdict (agent died / no `frds` array) is
 // NOT "all verified" — reading it that way silently declared a project done. Fail LOUD with a distinct
 // note. Only a REAL empty `frds` array (the planner ran and found nothing pending) is all-verified.
@@ -931,7 +1007,7 @@ if (plan.frds.length === 0) {
     }
     if (drain.drained) {
       log('Cola de changes drenada antes del plan vacío (BL-0129) — replanificando con el trabajo recién creado.')
-      plan = await runPlanner('plan-post-drain')
+      plan = await preLoopGuarded(() => runPlanner('plan-post-drain'))
       if (!plan || !plan.frds) {
         log('planner returned no verdict after the pre-loop drain — fail-loud (NOT treating a dead/garbled plan as "all verified")')
         await ensureStopped('planner failed')
