@@ -1199,7 +1199,7 @@ SCENARIOS.push({
     deps: [],
     workOrders: [
       mkWo('wo-g5a-found', 'PLANNED', { frd: 'frd-g5a-found', artifacts: ['src/components/core/**'], foundation: true }),
-      mkWo('wo-g5a-surf', 'PLANNED', { frd: 'frd-g5a-found', artifacts: ['src/surface/**'] }),
+      mkWo('wo-g5a-surf', 'PLANNED', { frd: 'frd-g5a-found', artifacts: ['src/app/surface/**'] }),
     ],
   }], { hasFrontend: true }),
   assert(t, run) {
@@ -1227,7 +1227,7 @@ SCENARIOS.push({
   plan: mkPlan([{
     frd: 'frd-g5b-nullgate',
     deps: [],
-    workOrders: [mkWo('wo-g5b-surf', 'PLANNED', { frd: 'frd-g5b-nullgate', artifacts: ['src/surface/**'] })],
+    workOrders: [mkWo('wo-g5b-surf', 'PLANNED', { frd: 'frd-g5b-nullgate', artifacts: ['src/app/surface/**'] })],
   }], { hasFrontend: true }),
   responses: [
     { label: 'foundation-gate', response: null, times: 2 },   // two transient dead-gate verdicts, then the default { complete: true } greens
@@ -1250,7 +1250,7 @@ SCENARIOS.push({
   plan: mkPlan([{
     frd: 'frd-g5c-missing',
     deps: [],
-    workOrders: [mkWo('wo-g5c-surf', 'PLANNED', { frd: 'frd-g5c-missing', artifacts: ['src/surface/**'] })],
+    workOrders: [mkWo('wo-g5c-surf', 'PLANNED', { frd: 'frd-g5c-missing', artifacts: ['src/app/surface/**'] })],
   }], { hasFrontend: true }),
   responses: [
     { label: 'foundation-gate', times: 1, response: { complete: false, missing: [{ name: 'Room', referencedBy: ['frd-g5c-missing'], suggestedPath: 'src/components/core/Room.tsx' }] } },
@@ -1766,6 +1766,89 @@ SCENARIOS.push({
     t.ok(repair && /dependsOn/.test(repair.prompt), 'the prompt tells the reviewer to check the sibling work orders / dependsOn graph for the declared derogation')
     t.ok(repair && /DR-080/.test(repair.prompt), 'the prompt still cites DR-080 — only the independent reviewer may touch a blessed test')
     t.ok(repair && /patcher may not touch them/.test(repair.prompt), 'the implementer/patcher prohibition survives (the rule is routed, never relaxed)')
+  },
+})
+
+// ── G13. WP-01: skip the foundation-gate + visual-qa passes on a run that touches no UI ────────────
+// (proposal 37 / FRD-24 measurement: 179s foundation-gate + 761s visual-qa — 24% of wall-clock — on a
+// build whose artifacts were only src/lib/** + scripts/**. Both passes exist to protect a UI surface
+// (DR-057 foundation completeness, DR-072 visual fidelity); they are pointless when nothing ready/built
+// this run declares a UI-touching artifact. artifactsTouchUi fails CLOSED on undeclared/empty artifacts
+// (mirrors artifactsOverlap's undeclared-artifacts rule) so this is never a silent skip on missing data.)
+// (a) lib-only artifacts on a hasFrontend:true plan → BOTH passes skipped; the omission is logged AND
+// carried as a UiPassSkipped dashboard event on the next agent that runs (dispatch: / archive-changes).
+SCENARIOS.push({
+  name: 'G13a. WP-01 — lib-only artifacts (hasFrontend:true, no foundation WO) skip foundation-gate AND visual-qa, with the omission logged + a UiPassSkipped event',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g13a-lib',
+    deps: [],
+    workOrders: [
+      mkWo('wo-g13a-001', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['src/lib/**'] }),
+      mkWo('wo-g13a-002', 'PLANNED', { frd: 'frd-g13a-lib', artifacts: ['scripts/**'] }),
+    ],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 0, 'foundation-gate did NOT run — no ready WO declares a UI artifact')
+    t.ok(byLabel(run, 'visual-qa').length === 0, 'visual-qa did NOT run — no built WO declares a UI artifact')
+    t.ok(hasLog(run, /foundation-gate omitido/), 'the foundation-gate omission is logged, explicitly (not a silent skip)')
+    t.ok(hasLog(run, /visual-qa omitido/), 'the visual-qa omission is logged, explicitly (not a silent skip)')
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && /"event":"UiPassSkipped"/.test(dispatch.prompt) && /"pass":"foundation-gate"/.test(dispatch.prompt), 'the dispatch prompt carries the UiPassSkipped(foundation-gate) dashboard event')
+    const archive = byLabel(run, 'archive-changes')[0]
+    t.ok(archive && /"event":"UiPassSkipped"/.test(archive.prompt) && /"pass":"visual-qa"/.test(archive.prompt), 'the archive-changes prompt carries the UiPassSkipped(visual-qa) dashboard event')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g13a-lib'), 'the FRD still verifies normally — only the two UI-gated passes are skipped')
+  },
+})
+// (b) fail-closed: a WO with EXPLICIT empty artifacts (`artifacts: []`, undeclared/unprovable) can't be
+// proven UI-free → both passes run (same fail-safe posture as artifactsOverlap's undeclared-artifacts rule).
+SCENARIOS.push({
+  name: 'G13b. WP-01 fail-closed — a WO with undeclared (empty) artifacts is NOT provably UI-free, so both passes run',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g13b-undeclared',
+    deps: [],
+    workOrders: [mkWo('wo-g13b-001', 'PLANNED', { frd: 'frd-g13b-undeclared', artifacts: [] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'foundation-gate RAN — undeclared artifacts are fail-closed, never treated as UI-free')
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa RAN — undeclared artifacts are fail-closed, never treated as UI-free')
+    t.ok(!hasLog(run, /foundation-gate omitido/), 'no omission logged — the gate genuinely ran')
+    t.ok(!hasLog(run, /visual-qa omitido/), 'no omission logged — the pass genuinely ran')
+  },
+})
+// (c) a real UI artifact (.tsx) among the ready/built WOs → both passes run.
+SCENARIOS.push({
+  name: 'G13c. WP-01 — a .tsx artifact among the ready/built WOs runs both foundation-gate and visual-qa',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g13c-tsx',
+    deps: [],
+    workOrders: [mkWo('wo-g13c-001', 'PLANNED', { frd: 'frd-g13c-tsx', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'foundation-gate RAN — a .tsx artifact is a real UI surface')
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa RAN — a .tsx artifact is a real UI surface')
+  },
+})
+// (d) the escape hatch: args.forceUiPasses:true always runs both passes, even over lib-only artifacts.
+SCENARIOS.push({
+  name: 'G13d. WP-01 — args.forceUiPasses:true bypasses the heuristic; both passes run over lib-only artifacts',
+  args: { mode: 'pro', forceUiPasses: true },
+  plan: mkPlan([{
+    frd: 'frd-g13d-force',
+    deps: [],
+    workOrders: [mkWo('wo-g13d-001', 'PLANNED', { frd: 'frd-g13d-force', artifacts: ['src/lib/**'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'foundation-gate').length === 1, 'forceUiPasses:true — foundation-gate ran despite lib-only artifacts')
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'forceUiPasses:true — visual-qa ran despite lib-only artifacts')
+    t.ok(!hasLog(run, /foundation-gate omitido/), 'no omission logged — forceUiPasses bypassed the skip, not merely silenced its log')
+    t.ok(!hasLog(run, /visual-qa omitido/), 'no omission logged — forceUiPasses bypassed the skip, not merely silenced its log')
   },
 })
 
