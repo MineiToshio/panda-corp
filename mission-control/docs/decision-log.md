@@ -1,5 +1,43 @@
 # Decision Log — Mission Control
 
+## 2026-09-22 — Build engine machinery resynced to plugin 9.103.0 (`/pandacorp:upgrade`, overlay stays 8.81.0)
+
+Ran `/pandacorp:upgrade` to propagate plugin 9.103.0 (factory `main` at `fe5dfe0e`). `overlay_version`
+in `.pandacorp/status.yaml` was already `"8.81.0"`, matching the plugin's current `OVERLAY_VERSION` —
+by the skill's literal step-1 rule that reads as "already in sync, nothing to do". But `cmp` proved
+`.claude/engines/pandacorp-build.js` was NOT byte-identical to the canonical
+`plugin/templates/shared/.claude/engines/pandacorp-build.js`: the installed copy was 2146 lines, the
+canonical one 3000 lines (git history shows the engine took 10+ commits — the "speed sprint A/B/C" work,
+fbeef8b3 and back — with no matching `OVERLAY_VERSION` bump, DR-051's coupling assumption doesn't hold
+for every engine change). Treated this the same way DR-059 treats gate-config drift: verified the real
+file, not the version stamp (CONV-13), and regenerated `.claude/engines/pandacorp-build.js` from the
+template unconditionally. No `overlay_version` bump — the target value was already correct; only the
+machinery file was stale.
+
+Full conformance sweep (skill step 3) run before and after the engine copy: `.pandacorp/verify.sh`,
+`canary.sh`, `biome.json`, `knip.json`, the seven verbatim e2e files + `playwright.config.ts`,
+`docs/rules/*` + its `README.md`, `.pandacorp/guide.md`, `CLAUDE.md`/`AGENTS.md` managed blocks, and the
+toolchain (devDependencies, `test:*` scripts, `tsconfig` strict flags) were all **already conformant** —
+zero drift beyond the engine file.
+
+Gates proven after the resync, per the skill's mandatory steps 3a/3b:
+- `verify.sh --canary` (DR-079): **10/10** gates still correctly rejected their broken fixture.
+- Full `verify.sh` baseline, not `--since` (DR-076 amendment/BL-0003): **green** — biome (817 files,
+  1 info hint only), tsc, knip, madge all clean; vitest 7652/7652 tests; Playwright 68/68 (desktop +
+  mobile: smoke/visual/responsive/shell/headers), 2 non-blocking advisories (missing security headers —
+  expected, `deploy_target: internal`; off-target-width @390px clipping on a `target_platforms: desktop`
+  project).
+
+Found but deliberately NOT fixed here (out of `/pandacorp:upgrade`'s scope, reported instead):
+- `.pandacorp/worktree-bootstrap.sh` carries an in-project fix (commit `71d78830`, 2026-07-07: retargets
+  `launch.json` `runtimeArgs` paths from the main checkout to the worktree) that was never back-ported to
+  `plugin/templates/shared/.pandacorp/worktree-bootstrap.sh` — a DR-076 violation. Left MC's copy
+  untouched (overwriting it would have reverted a real fix); flagged for a separate factory-side session
+  since this session may not edit `plugin/`.
+- `dev_port_base` is absent from `.pandacorp/status.yaml` even though `factory/ports.yaml` has a
+  reservation (`panda-corp: 4000`, deploy override `1987`). Port allocation is `scaffold`/`adopt`/
+  `architecture` territory, not `/pandacorp:upgrade`'s — noted, not back-filled.
+
 ## 2026-09-03 — Full `verify.sh` baseline green again (4 pre-existing defects from 5ee83d4e, 2026-07-11)
 
 Ran the mandated FULL (non-`--since`) `.pandacorp/verify.sh` and fixed the 4 pre-existing defects
