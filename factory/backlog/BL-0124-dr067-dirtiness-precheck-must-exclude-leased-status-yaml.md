@@ -3,12 +3,12 @@ id: BL-0124
 type: bug
 area: build-engine
 title: "DR-067 baseline-repair pre-check reads a controller-owned status.yaml write under a valid lease as tree dirtiness, forcing a needless full verify.sh"
-status: open
+status: done
 severity: p2
 opened: 2026-09-07
-closed:
+closed: 2026-09-22
 source: "factory/memory/_inbox.md note, 2026-09-03 (agent-inferred) — pandacorp-memory-review sweep on mission-control"
-closes:
+closes: "speed-sprint package WP-04 (branch wp-04-baseline-fastpath, commit e52bdfc1 'fix(build-engine): exclude leased status.yaml from baseline precheck dirtiness (BL-0124)', merged into integration-speed-sprint-a at cb8ae204); pending land as plugin 9.103.0"
 links: [BL-0079, LESSON-0027]
 ---
 
@@ -56,3 +56,22 @@ decision-log entry links this item and BL-0079.
 ## Out of scope
 Any change to the repair step's own restore-protection logic (BL-0079's scope, already shipped and
 correct); dirtiness checks for projects with no active lease.
+
+## Resolution (2026-09-22)
+Shipped as speed-sprint package **WP-04** on branch `wp-04-baseline-fastpath`, commit **e52bdfc1**
+("fix(build-engine): exclude leased status.yaml from baseline precheck dirtiness (BL-0124)"), merged into
+`integration-speed-sprint-a` at `cb8ae204`. The pre-check now reports the raw `dirtyPaths`/`leaseValid`
+signal (`PRECHECK_SCHEMA`) instead of deciding the exclusion itself; the engine skips the judge-baseline
+spawn only when the working tree's ONLY dirty path is `.pandacorp/status.yaml` and this run already proved
+it holds the current valid lease — the same fence BL-0079 relies on. Exactly the fix plan above: narrow to
+the leased project's own `status.yaml`, no blanket `.pandacorp/` exemption.
+
+The "Done when" plugin-version-bump item lands with the sprint's close-out commit as **plugin 9.103.0**
+(not yet on `main` at the time of this note — tracked on `integration-speed-sprint-a`, pending merge).
+
+**Verified by:** engine harness scenarios `WP04a`, `WP04b`, `WP04c` (`plugin/scripts/test-pandacorp-build.mjs`
+— fast path fires, a non-status.yaml dirty file still escalates, `args.strictBaseline` still escalates) plus
+the RED-team probes `REV-3a`..`REV-3d` (a second gitignored-looking dirty path still escalates; a lone
+status.yaml diff WITHOUT `leaseValid:true` still escalates; a dirty path carrying porcelain XY status
+characters does not match; a BL-0022 root-guard failure outranks the fast path). Live build pending canary
+(sprint Canary A, `≤20 min` with red / `≤16 min` clean, `agentCount ≤ 18`).
