@@ -37,6 +37,10 @@ new_fixture() {
   # every scenario without per-scenario PATH juggling.
   cat > "$dir/bin/pnpm" <<'STUB'
 #!/bin/bash
+# WP-08: when WP08_ARGV_LOG is set, record the FULL argv of every invocation (one line each) so a
+# scenario can assert HOW a tool was called (biome scoped to files, vitest switched to `related`),
+# not just whether it ran. Unset in every pre-WP-08 scenario -> byte-identical behavior there.
+if [ -n "${WP08_ARGV_LOG:-}" ]; then printf 'pnpm %s\n' "$*" >> "$WP08_ARGV_LOG"; fi
 case "$1" in
   biome)
     if [ "${WP05_FAIL_BIOME:-0}" = "1" ]; then
@@ -299,6 +303,135 @@ if [ ! -f "$rf" ]; then
 else
   stale_at=$(json_get "$rf" "d['at']")
   bad "(REV-C) a stale prior-run gate-report.json SURVIVED a --canary run (at=$stale_at) — LESSON-0155 says it must never be readable as this run's verdict" "$out"
+fi
+rm -rf "$FX"
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# WP-08 — `--only=<subgate,...>` and `--files=<file,...>` (the SCOPED repair gate)
+#
+# RED (before WP-08): there was no way to re-run a single sub-gate. The build engine's in-place patch
+# loop re-ran knip + `biome .` + tsc WHOLE-PROJECT on every one of its internal self-repair cycles,
+# and a caller that wanted "just tsc, just these two files" had to run the entire 11-gate suite.
+# GREEN (proven here): `--only` runs exactly the named sub-gates; `--files` scopes biome to those
+# files and switches vitest to `vitest related <files>`; EITHER flag stamps the gate report
+# `scope:"partial"` so no later reader can mistake a scoped run for a full green; an unknown `--only`
+# name is a fail-closed non-zero exit BEFORE any gate runs (never a silent full-suite fallback).
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+
+# --- Scenario (e): --only=tsc,biome runs ONLY those two sub-gates and marks the report partial.
+FX=$(new_fixture)
+echo 'export const stray = 1;' > "$FX/src/stray.test.ts"   # structure-guard WOULD fail — it must not even run
+add_playwright_fixtures "$FX"
+out=$(run_verify "$FX" --only=tsc,biome); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 0 ] && [ -f "$rf" ]; then
+  names=$(json_get "$rf" "sorted(s['name'] for s in d['subgates'])")
+  scope=$(json_get "$rf" "d['scope']")
+  green=$(json_get "$rf" "d['green']")
+  if [ "$names" = "['biome', 'tsc']" ] && [ "$scope" = "partial" ] && [ "$green" = "True" ]; then
+    ok "(e) --only=tsc,biome: exactly those two sub-gates ran (structure-guard/vitest/playwright skipped), scope=partial"
+  else
+    bad "(e) --only=tsc,biome: expected names=['biome', 'tsc'] scope=partial green=True — got names=$names scope=$scope green=$green" "$out"
+  fi
+else
+  bad "(e) --only=tsc,biome: expected exit 0 + a written report (rc=$rc, report exists=$([ -f "$rf" ] && echo yes || echo no))" "$out"
+fi
+rm -rf "$FX"
+
+# --- Scenario (f): --files scopes biome to exactly those files and vitest to `vitest related <files>`;
+# tsc/knip/madge stay GLOBAL (unscoped, by design); the report is partial.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+: > "$FX/src/a.ts"; : > "$FX/src/b.ts"
+ARGV="$FX/argv.log"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --files=src/a.ts,src/b.ts); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 0 ] && [ -f "$rf" ] && [ -f "$ARGV" ]; then
+  scope=$(json_get "$rf" "d['scope']")
+  biome_line=$(grep '^pnpm biome' "$ARGV" || true)
+  vitest_line=$(grep '^pnpm vitest' "$ARGV" || true)
+  tsc_line=$(grep '^pnpm tsc' "$ARGV" || true)
+  okf=1
+  echo "$biome_line" | grep -q 'src/a.ts src/b.ts' || okf=0
+  echo "$biome_line" | grep -q 'biome check \.' && okf=0
+  echo "$vitest_line" | grep -q 'vitest related src/a.ts src/b.ts' || okf=0
+  echo "$tsc_line" | grep -q 'tsc --noEmit' || okf=0          # tsc stays global (no file list)
+  echo "$tsc_line" | grep -q 'src/a.ts' && okf=0
+  if [ "$okf" = "1" ] && [ "$scope" = "partial" ]; then
+    ok "(f) --files: biome scoped to the files, vitest switched to \`related\`, tsc still global, scope=partial"
+  else
+    bad "(f) --files: expected scoped biome + \`vitest related\` + global tsc + scope=partial (scope=$scope) — biome:[$biome_line] vitest:[$vitest_line] tsc:[$tsc_line]" "$out"
+  fi
+else
+  bad "(f) --files: expected exit 0 + a report + an argv log (rc=$rc)" "$out"
+fi
+rm -rf "$FX"
+
+# --- Scenario (g): an UNKNOWN --only name is fail-closed — non-zero exit, and NO sub-gate runs
+# (never a silent degrade to the full suite, which would read as a full green).
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX" --only=tsc,typecheck); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -ne 0 ] && [ ! -f "$ARGV" ]; then
+  if [ -f "$rf" ]; then
+    green=$(json_get "$rf" "d['green']")
+    scope=$(json_get "$rf" "d['scope']")
+  else
+    green="(no report)"; scope="(no report)"
+  fi
+  if echo "$out" | grep -q "typecheck" && [ "$green" != "True" ]; then
+    ok "(g) --only with an unknown sub-gate: fail-closed exit=$rc, no gate ran, verdict never green (scope=$scope)"
+  else
+    bad "(g) --only unknown: expected the offending name in the message and a non-green verdict (green=$green)" "$out"
+  fi
+else
+  bad "(g) --only unknown: expected a non-zero exit BEFORE any gate ran (rc=$rc, any tool invoked=$([ -f "$ARGV" ] && echo yes || echo no))" "$out"
+fi
+rm -rf "$FX"
+
+# --- Scenario (h): WITHOUT the new flags nothing changes — all 11 sub-gates, scope=full, and the
+# biome/vitest command lines are byte-for-byte the pre-WP-08 ones.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+ARGV="$FX/argv.log"
+out=$(WP08_ARGV_LOG="$ARGV" run_verify "$FX"); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 0 ] && [ -f "$rf" ] && [ -f "$ARGV" ]; then
+  count=$(json_get "$rf" "len(d['subgates'])")
+  scope=$(json_get "$rf" "d['scope']")
+  biome_line=$(grep '^pnpm biome' "$ARGV" || true)
+  vitest_line=$(grep '^pnpm vitest' "$ARGV" || true)
+  if [ "$count" = "11" ] && [ "$scope" = "full" ] \
+     && [ "$biome_line" = "pnpm biome check . --error-on-warnings" ] \
+     && [ "$vitest_line" = "pnpm vitest run --reporter=dot" ]; then
+    ok "(h) no new flags: 11 sub-gates, scope=full, biome/vitest invoked exactly as before WP-08"
+  else
+    bad "(h) no new flags: expected count=11 scope=full and the legacy command lines — got count=$count scope=$scope biome:[$biome_line] vitest:[$vitest_line]" "$out"
+  fi
+else
+  bad "(h) no new flags: expected exit 0 + a report + an argv log (rc=$rc)" "$out"
+fi
+rm -rf "$FX"
+
+# --- Scenario (i): a scoped run that REDs still reds, and its report is partial — a partial report is
+# never confusable with a full verdict in either direction.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+out=$(WP05_FAIL_TSC=1 run_verify "$FX" --only=tsc --files=src/broken.ts); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -ne 0 ] && [ -f "$rf" ]; then
+  scope=$(json_get "$rf" "d['scope']")
+  green=$(json_get "$rf" "d['green']")
+  files=$(json_get "$rf" "[f.get('file') for s in d['subgates'] for f in s['failures']]")
+  if [ "$scope" = "partial" ] && [ "$green" = "False" ] && echo "$files" | grep -q "src/broken.ts"; then
+    ok "(i) scoped red: green:false, scope=partial, the tsc parser still anchors the failure to its file"
+  else
+    bad "(i) scoped red: expected scope=partial green=False with a parsed file — got scope=$scope green=$green files=$files" "$out"
+  fi
+else
+  bad "(i) scoped red: expected a non-zero exit + a written report (rc=$rc)" "$out"
 fi
 rm -rf "$FX"
 

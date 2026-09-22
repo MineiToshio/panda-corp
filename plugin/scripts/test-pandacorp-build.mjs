@@ -138,6 +138,7 @@ function defaultResponse(label) {
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
+  if (label.startsWith('block-repair-budget:')) return { green: false, blocked_reason: 'needs-owner' } // WP-08 cost-brake honest exit (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
@@ -2834,6 +2835,287 @@ SCENARIOS.push({
     t.ok(gates[1] && /Run the FOCUSED gate/.test(gates[1].prompt), 'the re-gate carries the full explore contract')
     t.ok(gates[1] && !/GATE WORKTREE/.test(gates[1].prompt), 'the re-gate runs on the main tree, not the frozen worktree')
     t.ok(byLabel(run, /^evidence:/).length === 1, 'no second collection was paid for the re-gate')
+  },
+})
+
+// ═════════════════════════════════════════════════════════════════════════════
+// WP08 — SCOPED REPAIR LOOP (proposal 37 / FRD-24: one red gate cost 589 s and $4.30, 3.5x what
+// building the two work orders cost). Four independent guarantees, each with its own scenario:
+//   (1) THE CAGE (unconditional, not behind any flag): a gate-report whose `scope` is "partial" —
+//       what verify.sh stamps on every `--only`/`--files` run — can NEVER promote a work order to
+//       VERIFIED nor advance last_green_sha. This is the invariant the whole package rests on.
+//   (2) deterministic classification of the failing SUB-GATE from the gate report, routing a purely
+//       MECHANICAL failure (lint|types|structure|cycles) to a cheap sonnet fixer with a scoped inner
+//       loop, while everything else keeps today's opus ladder byte-for-byte.
+//   (3) the FINAL certification re-gate inside attemptPatch stays LITERALLY whole-project.
+//   (4) a cost brake: repair spend per FRD, weighted by the same COST() the engine already uses,
+//       capped at args.repairBudgetFactor x that FRD's measured build spend; exhaustion is an honest
+//       needs-owner exit (gate report attached, work preserved), never a silent grind.
+// (2) and (4) sit behind `args.scopedRepair` (DEFAULT FALSE — see the engine header for why).
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── (a) THE CAGE — the most important regression test of this package ──────────────────────────
+SCENARIOS.push({
+  name: 'WP08a1. cage — a gate claiming green with gate-report scope:"partial" never stamps VERIFIED / advances last_green_sha',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp08a1-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08a1-001', 'PLANNED', { frd: 'frd-wp08a1-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [{ prefix: 'gate:', response: { green: true, report_scope: 'partial' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'NO apply-gate spawn — apply-gate is the only agent that stamps VERIFIED + advances last_green_sha, and it never runs on a partial report')
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-wp08a1-lib')), 'the FRD is NOT counted as built off a scoped gate')
+    t.ok(hasLog(run, /partial/i), 'the refusal is logged explicitly (never a silent downgrade)')
+  },
+})
+SCENARIOS.push({
+  name: 'WP08a2. cage — the independent post-patch verifier claiming green on a partial report is refused too (it is the OTHER path to VERIFIED)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp08a2-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08a2-001', 'PLANNED', { frd: 'frd-wp08a2-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: { green: false, reopen: ['wo-wp08a2-001'], findings: [{ wo: 'wo-wp08a2-001', finding: 'src/lib/a.ts:3 missing guard', files: ['src/lib/a.ts'] }] } },
+    { prefix: 'patch:', response: { green: true } },
+    { prefix: 'verify-patch:', response: { green: true, report_scope: 'partial' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^verify-patch:/).length >= 1, 'the independent verifier did run')
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-wp08a2-lib')), 'a partial-report verification never marks the FRD built')
+    t.ok(byLabel(run, /^revert:/).length >= 1, 'the refusal falls through to the normal revert+reopen path — the same place a red verification lands')
+    t.ok(hasLog(run, /partial/i), 'the refusal names the partial scope')
+  },
+})
+SCENARIOS.push({
+  name: 'WP08a3. cage — an absent report_scope stays BACK-COMPATIBLE (only the literal "partial" is refused)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp08a3-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08a3-001', 'PLANNED', { frd: 'frd-wp08a3-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^apply-gate:/).length === 1, 'a green gate with no report_scope field still applies (pre-WP-08 agents keep working)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp08a3-lib'), 'and the FRD verifies exactly as before')
+  },
+})
+SCENARIOS.push({
+  name: 'WP08a4. cage — every certification prompt ASKS for report_scope verbatim (the JS check needs the field to exist)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-wp08a4-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08a4-001', 'PLANNED', { frd: 'frd-wp08a4-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, /^gate:/)[0]
+    const apply = byLabel(run, /^apply-gate:/)[0]
+    t.ok(gate && /report_scope/.test(gate.prompt), 'the FRD gate prompt asks for report_scope')
+    t.ok(gate && /gate-report\.json/.test(gate.prompt), 'and tells it where to read the value from')
+    t.ok(apply && /report_scope/.test(apply.prompt), 'the apply-gate prompt asks for report_scope')
+  },
+})
+
+// ── (b/c) DETERMINISTIC CLASSIFICATION — mechanical goes cheap+scoped, everything else unchanged ──
+const wp08MechGate = (wo, file) => ({
+  green: false,
+  reopen: [wo],
+  findings: [{ wo, finding: `${file}:12 type error`, files: [file] }],
+  gateReport: {
+    scope: 'since',
+    green: false,
+    subgates: [
+      { name: 'tsc', exit: 2, failures: [{ file, line: 12, code: 'TS2345', msg: 'Argument of type string is not assignable' }] },
+      { name: 'biome', exit: 0, failures: [] },
+    ],
+  },
+})
+SCENARIOS.push({
+  name: 'WP08b. classification types -> a SONNET/medium fixer with --only=tsc --files=<touched> in its inner loop (not opus xhigh)',
+  args: { mode: 'pro', scopedRepair: true },
+  plan: mkPlan([{
+    frd: 'frd-wp08b-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08b-001', 'PLANNED', { frd: 'frd-wp08b-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: wp08MechGate('wo-wp08b-001', 'src/lib/b.ts'), times: 1 },
+    { prefix: 'patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const patch = byLabel(run, /^patch:/)[0]
+    t.ok(Boolean(patch), 'a patch was attempted')
+    t.ok(patch && patch.opts.model === 'sonnet', `the mechanical fix runs on SONNET (got ${patch && patch.opts.model})`)
+    t.ok(patch && patch.opts.effort === 'medium', `at effort medium (got ${patch && patch.opts.effort})`)
+    t.ok(patch && /--only=tsc\b/.test(patch.prompt), 'its inner self-repair loop is told to use the scoped gate --only=tsc')
+    t.ok(patch && /--files=src\/lib\/b\.ts/.test(patch.prompt), 'scoped to the files the gate report anchored the failures to')
+    t.ok(hasLog(run, /mechanical/i), 'the deterministic classification is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'WP08c. classification unit-test -> the CURRENT ladder (opus xhigh, no scoped inner loop)',
+  args: { mode: 'pro', scopedRepair: true },
+  plan: mkPlan([{
+    frd: 'frd-wp08c-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08c-001', 'PLANNED', { frd: 'frd-wp08c-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    {
+      prefix: 'gate:',
+      response: {
+        green: false,
+        reopen: ['wo-wp08c-001'],
+        findings: [{ wo: 'wo-wp08c-001', finding: 'behavior wrong', files: ['src/lib/c.ts'] }],
+        gateReport: { scope: 'since', green: false, subgates: [{ name: 'vitest', exit: 1, failures: [{ file: 'src/lib/_tests/c.test.ts', msg: 'expected 2 got 3' }] }] },
+      },
+      times: 1,
+    },
+    { prefix: 'patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const patch = byLabel(run, /^patch:/)[0]
+    t.ok(patch && patch.opts.model === 'opus', `a failing unit test is real-behavior work — stays on OPUS (got ${patch && patch.opts.model})`)
+    t.ok(patch && patch.opts.effort === 'xhigh', `at effort xhigh, exactly as today (got ${patch && patch.opts.effort})`)
+    t.ok(patch && !/--only=/.test(patch.prompt), 'no scoped inner loop is offered for a non-mechanical failure')
+  },
+})
+SCENARIOS.push({
+  name: "WP08g. classification never overrides cause:'gate-test-defective' (LESSON-0002) — a mechanical route still lands on the gate-test repair",
+  args: { mode: 'pro', scopedRepair: true },
+  plan: mkPlan([{
+    frd: 'frd-wp08g-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08g-001', 'PLANNED', { frd: 'frd-wp08g-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: wp08MechGate('wo-wp08g-001', 'src/lib/g.ts'), times: 1 },
+    { prefix: 'patch:', response: { green: false, cause: 'gate-test-defective', defectiveTests: [{ path: 'e2e/g.spec.ts', why: 'asserts a viewport it never forces' }] } },
+    { prefix: 'gate-test-repair:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^gate-test-repair:/).length === 1, "the patcher's gate-test-defective verdict still routes to the BL-0001 gate-test repair — the sub-gate classification names the GATE, never the culprit")
+    t.ok(byLabel(run, /^diagnose:/).length === 0, 'and never to the code-fault diagnosis ladder')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp08g-lib'), 'the correct build is preserved, not rebuilt')
+  },
+})
+
+// ── (d) THE FINAL RE-GATE STAYS WHOLE-PROJECT, LITERALLY ───────────────────────────────────────
+SCENARIOS.push({
+  name: 'WP08d. the certification RE-GATE inside attemptPatch is still whole-project verbatim — no --only, no --files anywhere in it',
+  args: { mode: 'pro', scopedRepair: true },
+  plan: mkPlan([{
+    frd: 'frd-wp08d-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08d-001', 'PLANNED', { frd: 'frd-wp08d-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: wp08MechGate('wo-wp08d-001', 'src/lib/d.ts'), times: 1 },
+    { prefix: 'patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const prompt = byLabel(run, /^patch:/)[0].prompt
+    const iRegate = prompt.indexOf('THEN RE-GATE')
+    const iSelf = prompt.indexOf('SELF-REPAIR BUDGET')
+    t.ok(iRegate !== -1 && iSelf !== -1 && iRegate < iSelf, 'the RE-GATE paragraph precedes the (scoped) self-repair paragraph')
+    const regate = prompt.slice(iRegate, iSelf)
+    t.ok(!/--only/.test(regate), 'the RE-GATE paragraph contains NO --only')
+    t.ok(!/--files/.test(regate), 'the RE-GATE paragraph contains NO --files')
+    t.ok(/WHOLE-PROJECT `pnpm knip` \+ `pnpm biome check \.` \+ `pnpm tsc --noEmit`/.test(regate), 'it carries the whole-project command trio verbatim')
+    t.ok(/a focused gate is NOT enough, red-team-A/.test(regate), 'and the red-team-A rationale that forbids narrowing it')
+    t.ok(/dead export/.test(regate), 'including the dead-export-must-not-slip-to-a-sibling-FRD invariant')
+  },
+})
+
+// ── (e) THE 3x COST BRAKE ──────────────────────────────────────────────────────────────────────
+// Arithmetic, all in the engine's own COST() units: mode `pro` builds one work order with one sonnet
+// agent + one MECH commit agent => woWaveCost = COST('sonnet') + 1 = 2, so C = 2. With
+// repairBudgetFactor 3 the repair budget is 6. patch-1 (opus = 3) fits (spend 3); the A2 diagnosis
+// (judge opus = 3) fits exactly (spend 6); the diagnosis-guided patch-2 (opus = 3) would take it to 9
+// and is REFUSED. NOTE: today's ladder tops out at three fix agents per FRD gate cycle (patch-1 ->
+// diagnose -> patch-2 | gate-test-repair), so "the attempt that would exceed the budget" is the third,
+// not a fourth — a fourth is unreachable by construction.
+SCENARIOS.push({
+  name: 'WP08e. cost brake — the repair agent that would exceed 3x the FRD build spend is NOT spawned; honest needs-owner exit with both DR-099 channels',
+  args: { mode: 'pro', scopedRepair: true, repairBudgetFactor: 3 },
+  plan: mkPlan([{
+    frd: 'frd-wp08e-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08e-001', 'PLANNED', { frd: 'frd-wp08e-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: { green: false, reopen: ['wo-wp08e-001'], findings: [{ wo: 'wo-wp08e-001', finding: 'src/lib/e.ts:9 wrong', files: ['src/lib/e.ts'] }] } },
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 1, `only patch-1 was spawned — patch-2 did not fit the budget (got ${byLabel(run, /^patch:/).length} patch spawns)`)
+    t.ok(byLabel(run, /^diagnose:/).length === 1, 'the diagnosis, which DID fit, still ran (the brake refuses, it does not pre-empt)')
+    const block = byLabel(run, /^block-repair-budget:/)[0]
+    t.ok(Boolean(block), 'the exhausted budget produced the dedicated honest-exit agent')
+    t.ok(block && /needs-owner/.test(block.prompt), 'which files the work order as needs-owner')
+    t.ok(block && /gate-report/i.test(block.prompt), 'attaching the gate report so the owner sees the objective evidence')
+    t.ok(block && /"event":"GateVerdict"/.test(block.prompt), 'DR-099 channel 1 — the event')
+    t.ok(block && /"event":"PushNotification"|NOTIFY|notificacion|notificación/i.test(block.prompt), 'DR-099 channel 2 — the owner-facing message')
+    t.ok(block && /PRESERVE/.test(block.prompt), 'the honest exit PRESERVES the work on the branch')
+    t.ok(block && !/git reset --hard/.test(block.prompt), 'and never discards it with a hard reset')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-wp08e-lib'), 'the FRD lands blocked, not silently reopened')
+    t.ok(hasLog(run, /presupuesto de reparaci|repair budget/i), 'the brake logs why it fired')
+  },
+})
+SCENARIOS.push({
+  name: 'WP08e2. cost brake — OFF by default (args.scopedRepair unset): the full ladder runs, patch-2 included',
+  args: { mode: 'pro', repairBudgetFactor: 3 },
+  plan: mkPlan([{
+    frd: 'frd-wp08e2-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08e2-001', 'PLANNED', { frd: 'frd-wp08e2-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: { green: false, reopen: ['wo-wp08e2-001'], findings: [{ wo: 'wo-wp08e2-001', finding: 'src/lib/e2.ts:9 wrong', files: ['src/lib/e2.ts'] }] } },
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 2, `the pre-WP-08 ladder still spends patch-1 AND patch-2 (got ${byLabel(run, /^patch:/).length})`)
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'and never reaches the brake')
+  },
+})
+
+// ── (f) THE ESCAPE HATCH — args.scopedRepair:false is byte-for-byte today's behaviour ───────────
+SCENARIOS.push({
+  name: 'WP08f. args.scopedRepair:false — a mechanical gate report changes NOTHING: opus xhigh, no --only, no classification log',
+  args: { mode: 'pro', scopedRepair: false },
+  plan: mkPlan([{
+    frd: 'frd-wp08f-lib',
+    deps: [],
+    workOrders: [mkWo('wo-wp08f-001', 'PLANNED', { frd: 'frd-wp08f-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: wp08MechGate('wo-wp08f-001', 'src/lib/f.ts'), times: 1 },
+    { prefix: 'patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const patch = byLabel(run, /^patch:/)[0]
+    t.ok(patch && patch.opts.model === 'opus', 'patch stays on opus')
+    t.ok(patch && patch.opts.effort === 'xhigh', 'at effort xhigh')
+    t.ok(patch && !/--only=/.test(patch.prompt) && !/--files=/.test(patch.prompt), 'no scoped gate anywhere in the patch prompt')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp08f-lib'), 'and the FRD still converges exactly as today')
   },
 })
 

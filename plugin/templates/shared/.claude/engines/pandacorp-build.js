@@ -100,6 +100,30 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
 //     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
 //     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
+//   args.scopedRepair: OPT-IN escape hatch (WP-08, **default FALSE**) — turns on the SCOPED repair loop:
+//     (a) the failing SUB-GATE is classified DETERMINISTICALLY from verify.sh's `.pandacorp/run/
+//     gate-report.json` (lint|types|structure|cycles|deadcode|unit-test|e2e|doc) before the opus
+//     diagnoser is ever spawned, and a purely MECHANICAL failure (lint|types|structure|cycles) is fixed
+//     by a SONNET agent at effort:'medium' instead of opus/xhigh; (b) that agent's <=2 internal
+//     self-repair cycles re-gate with `verify.sh --only=<failing subgates> --files=<files it touched>`
+//     instead of a whole-project knip+biome+tsc each time; (d) repair spend per FRD is capped at
+//     `args.repairBudgetFactor` x that FRD's measured build spend (the same COST() weighting the
+//     maxAgents brake uses), and exhausting it is an honest needs-owner exit with the gate report
+//     attached and the work preserved on the branch.
+//     The FINAL certification re-gate inside attemptPatch is NEVER scoped (see there, red-team-A).
+//     WHY DEFAULT FALSE: (d) is the risk. The COST() proxy is coarse (opus=3, sonnet=1) and cannot see
+//     the real driver of the measured FRD-24 blow-up — ONE opus/xhigh agent burning 85 tool calls, not
+//     many agents. Worked through on a realistic `powerful` FRD of 2 sonnet work orders: C = 2 x
+//     (COST(sonnet)+1) = 4, budget = 12, and the ladder patch-1(3) + diagnose(3) + patch-2(3) = 9 fits;
+//     but on a 1-WO FRD (C = 2, budget = 6) that SAME ladder is cut at patch-2 — a real reduction in
+//     recovery depth that no offline test can tell apart from "correctly refusing to grind". That
+//     tradeoff is the owner's to make on live data, so it ships OFF. Flip it with
+//     `{"scopedRepair": true}` (and raise `repairBudgetFactor` if small FRDs start blocking).
+//   args.repairBudgetFactor: how many times an FRD's own build spend its repair may cost before the
+//     brake fires (default 3 — the FRD-24 measurement was 3.5x). Only read when scopedRepair is on.
+//   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
+//     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
+//     nor advance last_green_sha, whatever scopedRepair says. See the cage section below.
 const MODE = (args && args.mode) || 'powerful'
 // D-9: the args-string guard above (line ~17) re-parses the WHOLE args blob when scriptPath delivers it
 // JSON-stringified once — but that does NOT protect an individual boolean flag arriving as the literal
@@ -164,6 +188,8 @@ if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' &
   log(`⚠ args.gateEvidence='${args.gateEvidence}' no es 'explore' ni 'digested' — usando 'explore' (WP-06 fail-closed)`)
 }
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
+const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates + the 3x repair-cost brake. Default OFF — see the arg doc above for the worked-through floor risk.
+const REPAIR_BUDGET_FACTOR = (args && args.repairBudgetFactor) || 3   // WP-08: repair spend ceiling per FRD, as a multiple of that FRD's own measured build spend (COST()-weighted). Only read when SCOPED_REPAIR.
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
 const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at most this many in-place patch attempts per gate cycle (patch-1 + one diagnosis-guided patch-2); beyond it the ladder reverts+rebuilds instead of a 3rd patch — reopen_count stays the hard non-progress budget
@@ -504,8 +530,26 @@ const PLAN_SCHEMA = {
 }
 // A reason accompanies every block so Mission Control and the owner know what to do.
 const BLOCK_REASON = { type: 'string', enum: ['needs-owner', 'external', 'error'] }
+// ── WP-08 THE scope:"partial" CAGE (unconditional — NOT behind args.scopedRepair) ────────────────
+// verify.sh stamps `"scope":"partial"` into `.pandacorp/run/gate-report.json` on any `--only`/`--files`
+// run. Such a run is a PARTIAL ORACLE by construction: it skipped sub-gates and/or narrowed biome to a
+// file list and vitest to those files' related tests. It exists to make a repair agent's INNER loop
+// cheap — never to certify. So every path that would promote a work order to VERIFIED or advance
+// last_green_sha asserts the scope first and REFUSES a partial one, whatever the agent claims.
+// The engine cannot read files (a Workflow script has no fs), so the value travels back in the
+// verdict: each certifying agent reads the JSON and returns its `scope` verbatim as `report_scope`.
+// ABSENT / unknown is treated as unscoped — back-compat, and honest: only the engine ever passes the
+// scoped flags, so a missing field means a pre-WP-08 agent, not a hidden partial run.
+const REPORT_SCOPE = { type: 'string', enum: ['full', 'since', 'partial'], description: 'WP-08: the `scope` value of `.pandacorp/run/gate-report.json` as written by the LAST verify.sh run you performed for this verdict. Copy it VERBATIM, never guess it — the engine REFUSES to stamp VERIFIED or advance last_green_sha on "partial" (a --only/--files scoped run is not a certification).' }
+const REPORT_SCOPE_DIRECTIVE = ' **GATE-REPORT SCOPE (WP-08, mandatory):** after the verify.sh run behind this verdict, read `.pandacorp/run/gate-report.json` and return its `scope` field VERBATIM as `report_scope`. Never guess or normalize it. A `partial` scope (a `--only`/`--files` scoped run) can certify NOTHING — the engine refuses the promotion — so reporting it honestly costs you nothing and reporting it wrongly is a false certification.'
+const isPartialReport = (v) => Boolean(v && v.report_scope === 'partial')
+const refusePartial = (frd, what) =>
+  log(`⛔ ${frd}: ${what} claims GREEN but its gate-report says scope:"partial" (a --only/--files SCOPED run). A scoped gate is not a certification — REFUSING to stamp VERIFIED / advance last_green_sha (WP-08 cage).`)
 // Generic done/failure result (close-out, archive, hardening stages).
 const STOP_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' } } }
+// WP-08: apply-gate is one of exactly two agents that stamp VERIFIED + advance last_green_sha, so its
+// verdict carries the same REPORT_SCOPE field the other one does (one definition, not a second copy).
+const APPLY_GATE_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, report_scope: REPORT_SCOPE } }
 const CLOSE_RECEIPT_SCHEMA = { type: 'object', required: ['done', 'allowed_paths', 'lease_released'], properties: { done: { type: 'boolean' }, reason: { type: 'string' }, allowed_paths: { type: 'array', items: { type: 'string' } }, before_dirty: { type: 'array', items: { type: 'string' } }, after_dirty: { type: 'array', items: { type: 'string' } }, commit: {}, lease_released: { type: 'boolean' } } }
 // WS-D/D10: the cheap MECH baseline PRE-CHECK verdict (a discriminated union — exactly one of stop / green /
 // escalate / a BL-0022 failure). It does the root guard, consumes rethink_pending, honours the owner stop
@@ -560,7 +604,43 @@ const FRD_GATE_SCHEMA = {
     // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
     // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
     testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
+    report_scope: REPORT_SCOPE,
+    // WP-08: the raw machine-readable verdict, so the ENGINE classifies the failing sub-gate
+    // deterministically instead of paying an opus diagnoser to re-read prose. Never interpreted as
+    // BLAME — it names WHICH gate went red (tsc, vitest, knip…), never whose fault it is; the
+    // cause:'gate-test-defective' discrimination stays entirely the patcher's and diagnoser's call.
+    gateReport: { type: 'object', description: 'WP-08: the verbatim `.pandacorp/run/gate-report.json` written by the verify.sh run behind this verdict. Copy it as-is (you may omit `duration_ms` and truncate each sub-gate\'s `failures` to its first 20 entries). The engine reads the failing sub-gate NAMES and their failure FILE paths from it — nothing else — to route a purely mechanical failure to a cheap fixer.', properties: {
+      scope: { type: 'string' }, green: { type: 'boolean' },
+      subgates: { type: 'array', items: { type: 'object', properties: {
+        name: { type: 'string', description: 'structure-guard | data-layer | api-error-contract | doc-lint | residual-ambiguity | biome | tsc | knip | madge | vitest | playwright' },
+        exit: { type: 'number' },
+        failures: { type: 'array', items: { type: 'object', properties: { file: { type: 'string' }, line: { type: 'number' }, code: { type: 'string' }, msg: { type: 'string' } } } },
+      } } },
+    } },
   },
+}
+// ── WP-08 DETERMINISTIC SUB-GATE CLASSIFICATION ──────────────────────────────────────────────────
+// Which gate went red is a FACT the report already states — it needs no judgement and no model. Map
+// each sub-gate to its failure class, and call the failure MECHANICAL only when EVERY failing class is
+// mechanical (a red vitest alongside a red tsc is real-behaviour work and keeps the full opus ladder).
+// This function decides a MODEL and a SCOPE. It never decides fault: it can never produce (or suppress)
+// `cause: 'gate-test-defective'` — that discrimination is LESSON-0002's and stays with the patcher.
+const SUBGATE_CLASS = {
+  biome: 'lint', tsc: 'types', madge: 'cycles', knip: 'deadcode',
+  'structure-guard': 'structure', 'data-layer': 'structure', 'api-error-contract': 'structure',
+  vitest: 'unit-test', playwright: 'e2e', 'doc-lint': 'doc', 'residual-ambiguity': 'doc',
+}
+const MECHANICAL_CLASSES = ['lint', 'types', 'structure', 'cycles']
+function classifyGateFailure(gate) {
+  const subgates = gate && gate.gateReport && Array.isArray(gate.gateReport.subgates) ? gate.gateReport.subgates : null
+  if (!subgates) return null   // no report → no deterministic signal; the legacy ladder decides
+  const failed = subgates.filter((s) => s && typeof s.name === 'string' && Number(s.exit) !== 0)
+  if (!failed.length) return null
+  const names = [...new Set(failed.map((s) => s.name))]
+  const classes = [...new Set(names.map((n) => SUBGATE_CLASS[n]).filter(Boolean))]
+  if (!classes.length) return null   // unknown sub-gate names → fail safe into the legacy ladder
+  const files = [...new Set(failed.flatMap((s) => (s.failures || []).map((x) => x && x.file).filter(Boolean)))]
+  return { subgates: names, classes, files, mechanical: classes.every((c) => MECHANICAL_CLASSES.includes(c)) }
 }
 const REQUIRED_TRACE_CLASSES = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion']
 function enforceWholeFrdTraceability(result) {
@@ -628,6 +708,7 @@ const REPAIR_SCHEMA = {
     // correct build). One fallback for two causes was rebuilding correct work in unwinnable loops.
     cause: { type: 'string', enum: ['code', 'gate-test-defective'], description: "why the patch could not green: 'code' = the build genuinely fails → revert+retry; 'gate-test-defective' = a reviewer test is internally inconsistent/unsatisfiable by ANY correct implementation → the engine routes to gate-test repair (BL-0001), never a rebuild" },
     defectiveTests: { type: 'array', description: 'BL-0001: the reviewer test(s) judged defective, with evidence — only when cause is gate-test-defective', items: { type: 'object', required: ['path', 'why'], properties: { path: { type: 'string' }, why: { type: 'string', description: 'the internal inconsistency, e.g. "asserts desktop-only nav visibility but the Playwright config runs desktop+mobile and no viewport is forced"' } } } },
+    report_scope: REPORT_SCOPE,
   },
 }
 // ── Diagnosis schema (A2, progressive-learning recovery) ─────────────────────
@@ -963,6 +1044,10 @@ const retryAttemptJournal = (wo, frd) => wo._isRetry
 async function buildWO(wo, frd) {
   const woModel = pickWorkerModel(wo)   // DR-073: opus floor-escalation, a-priori (difficulty=high) or empirical (reopen_count>=1)
   if (woModel !== P.worker) log(`⤴ opus: ${wo.id} (${wo.difficulty === 'high' ? 'difficulty=high' : 'reopen=' + (wo.reopen_count || 0)})`)
+  // WP-08: the denominator of the repair budget. woWaveCost() already mirrors, exactly, the
+  // agentSpawned increments the two branches below make — reuse it rather than re-deriving the sum
+  // in a second place (a second derivation of the same fact is how the two drift, DR-115).
+  buildCostByFrd.set(frd, (buildCostByFrd.get(frd) || 0) + woWaveCost(wo))
   let v
   if (P.split && plan.hasFrontend) {
     // DR-073 cost-weighting: 3 build agents at woModel + 1 worker-model closer (self-test).
@@ -1178,12 +1263,14 @@ const evidenceBlock = (frd, ev) => ev ? `
   ${ev.ac || `(the collector reported none — recover them from docs/frds/${frd}/frd.md within your read budget)`}
 ` : ''
 
-// Step 2 of the gate. EXPLORE = the historical text, byte-for-byte. DIGESTED = the same obligation (the
-// focused gate must be clean) reached from the attached report, with ONE re-run allowed — which the
-// reviewer normally needs anyway, to exercise the adversarial tests DR-080 still requires it to write.
+// Step 2 of the gate. EXPLORE = the historical text (plus the WP-08 report_scope cage, reconciled at
+// integration time — every certifier carries it, not only the ones WP-08 itself touched). DIGESTED = the
+// same obligation (the focused gate must be clean, under the SAME cage) reached from the attached report,
+// with ONE re-run allowed — which the reviewer normally needs anyway, to exercise the adversarial tests
+// DR-080 still requires it to write.
 const gateFocusedStep = (frd, ev) => ev
-  ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. You MAY run \`bash .pandacorp/verify.sh --since <last_green_sha>\` **once** — and only once — to exercise the adversarial tests you wrote this cycle or to confirm a specific result you doubt. It must pass clean.${PREVIEW_SMOKE(frd)}`
-  : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.${PREVIEW_SMOKE(frd)}`
+  ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. You MAY run \`bash .pandacorp/verify.sh --since <last_green_sha>\` **once** — and only once — to exercise the adversarial tests you wrote this cycle or to confirm a specific result you doubt. Do NOT pass \`--only\`/\`--files\` on that re-run: this gate is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on. It must pass clean.${REPORT_SCOPE_DIRECTIVE} Also return that run's (or, if you did not need to re-run, ATTACHMENT 1's) \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
+  : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
 
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
 async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack) {
@@ -1387,10 +1474,14 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
-    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.`,
-    { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
+    **BEFORE you stamp anything (WP-08 cage):** read \`.pandacorp/run/gate-report.json\` — the report the gate you are applying left behind — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.`,
+    { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
-  return link.then((r) => Boolean(r && r.done === true), (e) => { log(`apply-gate failed for ${frd}: ${(e && e.message) || e}`); return false })
+  return link.then((r) => {
+    if (isPartialReport(r)) { refusePartial(frd, 'apply-gate'); return false }   // WP-08 cage, belt to the gate's own braces
+    return Boolean(r && r.done === true)
+  }, (e) => { log(`apply-gate failed for ${frd}: ${(e && e.message) || e}`); return false })
 }
 
 // ── C2 persist-block (serialized MAIN-tree writer) — the non-progress / classified BLOCK the review-only
@@ -1404,11 +1495,63 @@ async function persistGateBlock(frd, reviewIds, reason, failure) {
   return link.then(() => true, () => false)
 }
 
+// ── WP-08 REPAIR COST BRAKE (behind args.scopedRepair) ───────────────────────────────────────────
+// The pre-existing brakes count ATTEMPTS (PATCH_ATTEMPT_CAP=2, MAX_REOPENS=3), never spend — which is
+// exactly how FRD-24 paid $4.30 of repair on $1.23 of build (3.5x) without any cap noticing. This one
+// counts SPEND, in the same COST() units the maxAgents brake already uses, per FRD: repair may cost at
+// most REPAIR_BUDGET_FACTOR x what BUILDING that FRD's work orders cost THIS RUN.
+// Honest about its own limits (stated here so nobody mistakes it for more than it is):
+//   • COST() is a coarse proxy (opus=3, sonnet=1). It cannot see that ONE opus/xhigh agent spent 85
+//     tool calls — the actual FRD-24 driver. It brakes agent WEIGHT, not tokens.
+//   • It is scoped to THIS run's measured build spend. A resume run that builds nothing measures
+//     C = 0, and a zero budget disables the brake rather than blocking instantly (never fail-closed
+//     into "no repair allowed" on missing data).
+//   • The FIRST repair attempt of an FRD is always affordable — the brake bounds grinding, it never
+//     forbids trying once.
+// Only the ladder's FIX agents are charged (patch / diagnose / gate-test-repair / repair). The
+// independent VERIFIER and the honest EXIT are never charged: refusing to pay for certification, or
+// for the block that tells the owner, would be the brake defeating its own purpose.
+const buildCostByFrd = new Map()    // frd -> COST()-weighted units spent BUILDING its work orders this run
+const repairCostByFrd = new Map()   // frd -> COST()-weighted units spent REPAIRING it this run
+const repairBudget = (frd) => REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0)
+function chargeRepair(frd, model) {
+  if (!SCOPED_REPAIR) return
+  repairCostByFrd.set(frd, (repairCostByFrd.get(frd) || 0) + COST(model))
+}
+function canAffordRepair(frd, model) {
+  if (!SCOPED_REPAIR) return true
+  const budget = repairBudget(frd)
+  if (budget <= 0) return true                       // nothing built this run → no measured baseline → no brake
+  const spent = repairCostByFrd.get(frd) || 0
+  if (spent === 0) return true                       // the first attempt is always affordable
+  return spent + COST(model) <= budget
+}
+// The honest exit when the budget is gone: the work orders are filed needs-owner with the OBJECTIVE
+// gate report attached, the work stays on the branch (nothing is reverted or discarded — the owner may
+// well want to finish it by hand), and the owner is told through BOTH DR-099 channels (the GateVerdict
+// event Mission Control reads, and the push notification).
+async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
+  agentSpawned += COST(P.judge)   // the exit is never charged to the repair budget — it IS the budget's conclusion
+  const spent = repairCostByFrd.get(frd) || 0
+  const budget = repairBudget(frd)
+  const report = gate && gate.gateReport ? JSON.stringify(gate.gateReport).slice(0, 4000) : '(the gate returned no machine-readable report; quote its `failure` text instead)'
+  const record = `El motor gastó ${spent} unidades de coste reparando ${frd}, por encima del techo de ${budget} (${REPAIR_BUDGET_FACTOR}× lo que costó construir esa feature en esta corrida). Seguir intentándolo sale más caro que construirla entera, así que paro y te lo paso: el trabajo está INTACTO en la rama y el informe objetivo del gate va adjunto.`
+  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}REPAIR BUDGET EXHAUSTED (WP-08) for ${frd}. Repair has cost ${spent} weighted cost-units against a ceiling of ${budget} (${REPAIR_BUDGET_FACTOR}× this FRD's own build spend this run). Do NOT patch, do NOT diagnose, do NOT retry — the point of stopping is to stop.
+  1) **PRESERVE the work exactly as it is.** Do NOT revert, do NOT \`git checkout\` anything, do NOT \`git rm\` anything, and never a hard reset — the partially-repaired build stays on the branch so the owner (or a later run) can pick it up. Commit nothing but the state changes in step 2/3.
+  2) Set EACH reopened work order (${(reopenIds || []).join(', ')}) \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
+  3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) and ATTACH the objective gate-report under it as a fenced \`\`\`json block so the owner reads the machine verdict, not a summary of it: ${record}
+  GATE-REPORT (verbatim, from the failing gate): ${report}
+  4) COMMIT (Conventional Commits, scope) staging the frontmatter flips, decisions.md, status.yaml and \`.pandacorp/build-journal.jsonl\`.${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner","repair_units":${spent},"repair_budget":${budget}`)}${NOTIFY('FRD ' + frd + ' parado: la reparacion ya cuesta mas de ' + REPAIR_BUDGET_FACTOR + 'x construirlo — trabajo intacto, necesita tu decision')}
+  Return { green: false, blocked_reason: 'needs-owner' }.`,
+    { label: `block-repair-budget:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+
 // ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
 // The build resolves problems itself and only stops when it genuinely can't — then it
 // BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
 async function attemptRepair(frd, context) {
   agentSpawned += COST(P.judge)   // DR-073: repair runs on the judge model — weight it honestly
+  chargeRepair(frd, P.judge)          // WP-08: a fix agent — charged to this FRD's repair budget
   return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
   2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
@@ -1433,8 +1576,22 @@ async function attemptRepair(frd, context) {
 // 'gate-test-defective' → the engine repairs the reviewer's TEST instead of discarding a correct build.
 // Commit + hand to the independent verifier only on whole-project-clean; on give-up it UNDOES its own
 // edits so the engine can still revert cleanly.
-async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null) {
-  agentSpawned += COST('opus')   // A6: patch-2 is weighted like patch-1 (opus=3)
+// WP-08: `mech` is classifyGateFailure()'s verdict for THIS gate cycle. When it says every failing
+// sub-gate is mechanical (lint|types|structure|cycles) AND this is patch-1 (no prior diagnosis — a
+// diagnosis-guided patch-2 always escalates back to opus, per CONV-12 "escalate upward, never
+// downward"), the fix runs on SONNET at effort medium and its INTERNAL self-repair cycles re-gate with
+// the scoped `verify.sh --only=… --files=…` instead of a whole-project knip+biome+tsc each time. The
+// FINAL certification re-gate below is untouched in either case.
+async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mech = null) {
+  const scoped = Boolean(SCOPED_REPAIR && mech && mech.mechanical && !priorDiagnosis)
+  const patchModel = scoped ? 'sonnet' : 'opus'
+  const patchEffort = scoped ? 'medium' : 'xhigh'
+  agentSpawned += COST(patchModel)   // A6: patch-2 is weighted like patch-1 (opus=3); WP-08: a mechanical patch-1 is weighted as the sonnet it is
+  chargeRepair(frd, patchModel)
+  if (scoped) log(`◦ ${frd}: gate-report classes ${mech.classes.join('+')} are MECHANICAL (${mech.subgates.join(', ')}) — patch-1 on sonnet/medium with a scoped inner loop instead of opus/xhigh (WP-08)`)
+  const scopeFlags = scoped
+    ? `--only=${mech.subgates.join(',')}${mech.files.length ? ` --files=${mech.files.join(',')}` : ''}`
+    : ''
   const list = (findings || []).map((x) => `• ${x.wo}: ${x.finding}${x.failingTest ? ` — failing test: ${x.failingTest}` : ''}${x.files && x.files.length ? ` — file(s): ${x.files.join(', ')}` : ''}`).join('\n  ') || '(see the gate output)'
   // A3: patch-2 carries the failed-patch-1 DIAGNOSIS as a hypothesis to VERIFY (re-diagnose against the
   // current code), so the second attempt is guided by why the first missed — never a blind re-try.
@@ -1449,11 +1606,12 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null) {
   Patch ONLY these on the EXISTING build — do NOT revert, do NOT rebuild from scratch, do NOT touch unrelated files. For each finding, make the RED-proven failing test PASS (production code, never weaken/skip a test). Reviewed work orders this cycle: ${(reviewIds || []).join(', ')}.
   BUILD-JOURNAL (A1): record ONE kind:"attempt" line for this patch (descriptive — verdict stays empty, a patcher never certifies itself):${patchAttemptJournal}
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
-  **SELF-REPAIR BUDGET (DR-107) — a red introduced by YOUR OWN edits does not end the patch:** if the re-gate fails on something YOUR patch just added or touched (a type/lint error in a file you created or edited — e.g. a TS2345 in your own new test file), FIX that and re-gate. You may spend up to 2 such internal fix-and-re-gate cycles. (The real incident this exists for: a 1-line i18n patch was discarded — and its whole work order rebuilt from scratch — because its own new a11y spec had a trivial type error the old contract forbade fixing.)
+  **SELF-REPAIR BUDGET (DR-107) — a red introduced by YOUR OWN edits does not end the patch:** if the re-gate fails on something YOUR patch just added or touched (a type/lint error in a file you created or edited — e.g. a TS2345 in your own new test file), FIX that and re-gate. You may spend up to 2 such internal fix-and-re-gate cycles. (The real incident this exists for: a 1-line i18n patch was discarded — and its whole work order rebuilt from scratch — because its own new a11y spec had a trivial type error the old contract forbade fixing.)${scoped ? `
+  **SCOPED INNER LOOP (WP-08) — for those ≤2 internal cycles ONLY, do NOT re-run the whole project.** The gate report says this failure is confined to ${mech.subgates.join(' + ')}, so re-check with \`bash .pandacorp/verify.sh ${scopeFlags}\` (it runs only those sub-gates, narrows biome to those paths and vitest to their related tests; tsc/knip/madge stay whole-program inside it). Add any file YOU touch to that \`--files\` list as you go. Such a run stamps the gate report \`scope:"partial"\` and CERTIFIES NOTHING — it is a fast inner check, which is exactly why the whole-project RE-GATE above remains mandatory and unscoped before you commit. If a scoped check surfaces a failure OUTSIDE the named sub-gates, stop scoping and go back to the full re-gate.` : ''}
   **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope), staging \`.pandacorp/build-journal.jsonl\` too (append-only — your attempt line) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
   **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — **or (BL-0051) it is a BLESSED test asserting a contract that a work order of THIS FRD intentionally DEROGATES**, which no correct implementation of the new contract can satisfy either — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it, EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line, which is a durable record of this attempt and is swept by the engine's next commit — do NOT undo it),${PATCH_RESULT(frd, 'gate-test-defective')} and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
   **If you CANNOT green it in place** (the ORIGINAL build genuinely fails beyond the findings, or your self-repair budget is spent): UNDO all your own edits the same way — leave the tree exactly as you found it (do NOT commit, do NOT revert the WO; the engine reverts cleanly), EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line (a durable record of this attempt — leave it; the engine's next commit sweeps it),${PATCH_RESULT(frd, 'code-fail')} and return { green: false, cause: 'code', failure: <why> }.`,
-    { label: `patch:${frd}`, phase: 'Review', model: 'opus', effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+    { label: `patch:${frd}`, phase: 'Review', model: patchModel, effort: patchEffort, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
 
 // ── BL-0001 gate-test repair: when the GATE's own test is the defect, fix the TEST, not the build ──
@@ -1465,6 +1623,10 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null) {
 // that could never converge (LESSON-0002).
 async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
   agentSpawned += COST(P.judge)
+  // WP-08: charged to the repair budget, but deliberately NEVER refused by it. This path exists to
+  // preserve a CORRECT build against a defective/superseded gate test — refusing it would push the
+  // flow into a revert + full rebuild, which costs strictly more than the agent the brake just saved.
+  chargeRepair(frd, P.judge)
   const list = (defectiveTests || []).map((t) => `• ${t.path}: ${t.why}`).join('\n  ') || '(see the patch output)'
   // BL-0051: the same INDEPENDENT reviewer also owns the DEADLOCK BREAK — when the diagnoser classified
   // `deadlocked-contract`, the flagged test is not internally inconsistent: it asserts a contract a SIBLING
@@ -1492,10 +1654,19 @@ async function verifyPatched(frd, reviewIds) {
   const resolutionJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
+  const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
   **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
-  **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.`,
+  **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.
+  **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. You are THE certification: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
+  // WP-08 cage: this agent is one of the two that may stamp VERIFIED + advance last_green_sha. A green
+  // claim standing on a PARTIAL gate report is downgraded to a red here, so every caller falls through
+  // to exactly the path a genuinely-red verification takes (revert + reopen) — no special-casing.
+  if (verdict && verdict.green === true && isPartialReport(verdict)) {
+    refusePartial(frd, 'the independent post-patch verification')
+    return { ...verdict, green: false, failure: 'verification ran a SCOPED gate (gate-report scope:"partial") — it certifies nothing (WP-08 cage)' }
+  }
+  return verdict
 }
 
 // ── DR-073 fallback: revert + reopen for a clean rebuild (the old DR-070 revert logic) ──
@@ -1824,6 +1995,7 @@ async function drainReadyQueuePreLoop() {
 // adversarially against the CURRENT code (poison self-purge) and writes its OWN kind:"diagnosis" line.
 async function diagnoseFailure(frd, gate, reviewIds) {
   agentSpawned += COST(P.judge)   // A6: the diagnoser runs on the judge model — weighted
+  chargeRepair(frd, P.judge)          // WP-08: part of the repair ladder — charged to this FRD's repair budget
   const findingsList = (gate.findings || []).map((x) => `• ${x.wo}: ${x.finding}${x.files && x.files.length ? ` [${x.files.join(', ')}]` : ''}`).join('\n  ') || '(see the gate output)'
   const diagJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"diagnose","role":"diagnoser","kind":"diagnosis","classification":"%s","seam":%s,"findingKey":"%s","tried":"","verdict":"","why":"%s","confidence":"%s"`,
@@ -1888,6 +2060,8 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''} instead of paying a whole extra pass`)
   for (const w of budgetedRetry) await buildWO(w, f.frd)
   const regate = await frdGate(f.frd, reviewIds)
+  // WP-08 cage: the in-run retry's re-gate is a certification too — a partial one certifies nothing.
+  if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
   if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
   log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
@@ -1911,7 +2085,18 @@ async function gateAndConverge(f, reviewIds) {
 // gateAndConverge body. The CONCURRENT PASS path never reaches here (the harvest applies from the worktree).
 async function gateConverge(f, reviewIds, gate) {
   phase('Review')
-  if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+  // WP-08 cage, at the certification boundary: a gate that ran `--only`/`--files` stamped its report
+  // `scope:"partial"` and is NOT an oracle for this FRD. Refuse BEFORE the apply step is even spawned,
+  // and defer the FRD for a full re-gate — never stamp, never advance last_green_sha.
+  if (gate && gate.green === true && isPartialReport(gate)) {
+    refusePartial(f.frd, 'the FRD gate')
+    reopenedFrds.push(f.frd); return 'reopened'
+  }
+  if (gate && gate.green === true) {
+    const applied = await applyGate(f.frd, reviewIds, gate.testFiles, null)
+    if (!applied) { log(`↻ ${f.frd}: the serialized apply step did not confirm the stamp — NOT marking it verified; it re-gates next pass`); reopenedFrds.push(f.frd); return 'reopened' }
+    log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built'
+  }
   // DR-073 PATCH-FIRST: a localized reject defaults to an in-place patch on the EXISTING build (inject
   // the finding + the RED-proven failing test), re-gated WHOLE-PROJECT — NOT a revert-and-rebuild. The
   // patch runs SYNCHRONOUSLY inside this FRD's gate step (before the loop moves to sibling FRDs), and it
@@ -1925,7 +2110,11 @@ async function gateConverge(f, reviewIds, gate) {
   if (gate && gate.reopen && gate.reopen.length) {
     let patchFailNote = ''
     let patchesThisCycle = 0
-    const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds)
+    // WP-08 (a): classify the failing SUB-GATE deterministically from the gate report, BEFORE any model
+    // is asked anything. This picks the fixer's MODEL and its inner-loop SCOPE — it never decides fault
+    // (the patcher's own cause:'gate-test-defective' discrimination is untouched, LESSON-0002).
+    const mech = SCOPED_REPAIR ? classifyGateFailure(gate) : null
+    const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds, null, mech)
     patchesThisCycle = 1   // patch-1 spent (A3 PATCH_ATTEMPT_CAP counts patches THIS gate cycle)
     if (patched && patched.green === true) {
       // Constitution rule 4 (audit-20): the patcher claimed green — an INDEPENDENT agent re-runs the
@@ -1943,6 +2132,13 @@ async function gateConverge(f, reviewIds, gate) {
         if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
         patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
       } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
+    } else if (patched && patched.cause === 'code' && !capHit() && !canAffordRepair(f.frd, P.judge)) {
+      // WP-08 (d): patch-1 failed on real code and the repair budget is gone. Stopping HERE is the whole
+      // point — one more diagnosis + patch-2 is exactly the spend the brake exists to refuse.
+      log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted, honest needs-owner exit with the work preserved (WP-08)`)
+      await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
+      blockFrd(f.frd, 'needs-owner')
+      return 'blocked'
     } else if (patched && patched.cause === 'code' && !capHit()) {
       // ── A3 PROGRESSIVE-LEARNING RECOVERY LADDER ───────────────────────────────────────────────────
       // patch-1 failed on real code AND we have agent budget → DIAGNOSE and route to the CHEAPEST safe
@@ -2004,6 +2200,13 @@ async function gateConverge(f, reviewIds, gate) {
       }
       // confidence:low architectural/deadlocked falls through and is treated as 'point' (never block on a weak diagnosis).
       // (c) point + NOT repeatsPrior + patch budget left → PATCH-2, diagnosis-guided.
+      if (!repeats && patchesThisCycle < PATCH_ATTEMPT_CAP && !canAffordRepair(f.frd, 'opus')) {
+        // WP-08 (d): the diagnosis fit the budget but patch-2 does not. Same honest exit.
+        log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08)`)
+        await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
+        blockFrd(f.frd, 'needs-owner')
+        return 'blocked'
+      }
       if (!repeats && patchesThisCycle < PATCH_ATTEMPT_CAP) {
         patchesThisCycle++
         log(`↺ ${f.frd}: diagnosis = point (fresh) — patch-2 (${patchesThisCycle}/${PATCH_ATTEMPT_CAP}), diagnosis-guided (A3)`)
@@ -2070,6 +2273,7 @@ async function gateConverge(f, reviewIds, gate) {
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
+    if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }   // WP-08 cage
     if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
@@ -2226,6 +2430,12 @@ async function harvestGateResults() {
     const { f, reviewIds, gate } = gateResults.shift()
     gateSettledSinceSafePoint = true
     if (gate && gate.__worktreeFailed) { convergeQueue.push({ f, reviewIds, gate: null, __needsLegacy: true }); continue }
+    if (gate && gate.green === true && isPartialReport(gate)) {
+      // WP-08 cage (concurrent gate path) — same refusal as the inline one in gateConverge.
+      refusePartial(f.frd, 'the concurrent FRD gate')
+      reopenedFrds.push(f.frd)
+      continue
+    }
     if (gate && gate.green === true) {
       const ok = await applyGate(f.frd, reviewIds, gate.testFiles, GATE_WORKTREE)
       if (ok) { log(`✓ ${f.frd} VERIFIED (concurrent gate, applied on main)`); builtFrds.push(f.frd); consecutiveBlocks = 0; progressed = true }
