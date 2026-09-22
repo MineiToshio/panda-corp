@@ -44,6 +44,18 @@ shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 
 # biggest wall-clock cost of a build (11 gates x full Playwright in the personal-page-v2 run).
 SINCE=""
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
+# D11: --since is ONLY recognised at position $1 (above) — anywhere else it silently no-ops
+# (REV2-H characterised this; the engine's own contract already never emits it elsewhere). Warn so a
+# caller sees why the run went unscoped instead of just noticing scope isn't "since" later.
+if [ "${1:-}" != "--since" ]; then
+  for _wp11_arg in "$@"; do
+    if [ "$_wp11_arg" = "--since" ]; then
+      echo "⚠ --since ignored: it must be the first argument"
+      echo "⚠ --since ignored: it must be the first argument"
+      break
+    fi
+  done
+fi
 
 # --- Gate-report scaffolding (WP-05) — the stale-report DELETE runs before ANY branch below,
 # including --canary (REV-C/LESSON-0155): a report left by a PREVIOUS verify run must never survive
@@ -318,6 +330,50 @@ if [ -n "$ONLY_GATES" ]; then
     write_gate_report 2
     exit 2
   fi
+fi
+
+# --- D5 `--files` validation — FAIL-CLOSED, before a single gate runs --------------------------
+# REV2-G: unlike --only, --files was forwarded VERBATIM into biome's/vitest's argv with no
+# validation at all — a value shaped like a flag (`--files=--write`) turns a read-only biome CHECK
+# into a project-wide `biome check --write` autofix. And a `..`-bearing path could escape the repo
+# entirely. Reject BOTH before any gate runs, the same fail-closed shape as --only above.
+if [ ${#SCOPE_FILES_ARR[@]} -gt 0 ]; then
+  _wp08_root=$(pwd -P)
+  for _wp08_f in "${SCOPE_FILES_ARR[@]}"; do
+    case "$_wp08_f" in
+      -*)
+        _wp08_log="$GATE_FRAGMENTS_DIR/log-invocation.txt"
+        echo "✗ --files: path may not start with '-'" | tee "$_wp08_log"
+        record_gate_result invocation playwright 2 0 "$_wp08_log"
+        write_gate_report 2
+        exit 2
+        ;;
+    esac
+    case "$_wp08_f" in
+      *..*)
+        # A `..` segment is only a problem if it actually resolves OUTSIDE the repo root — a path
+        # can legitimately contain `..` and still stay inside (e.g. `src/../src/lib/x.ts`).
+        # Lexical resolution only (no filesystem I/O): the path need not exist yet.
+        _wp08_resolved=$(python3 - "$_wp08_f" "$_wp08_root" <<'PY' 2>/dev/null
+import os, sys
+p, root = sys.argv[1:3]
+ap = p if os.path.isabs(p) else os.path.join(root, p)
+print(os.path.normpath(ap))
+PY
+) || _wp08_resolved=""
+        case "$_wp08_resolved" in
+          "$_wp08_root"|"$_wp08_root"/*) ;;
+          *)
+            _wp08_log="$GATE_FRAGMENTS_DIR/log-invocation.txt"
+            echo "✗ --files: path escapes the repo: $_wp08_f" | tee "$_wp08_log"
+            record_gate_result invocation playwright 2 0 "$_wp08_log"
+            write_gate_report 2
+            exit 2
+            ;;
+        esac
+        ;;
+    esac
+  done
 fi
 
 # Runs one of the 9 CHEAP sub-gates. Without `--report-all`: aborts immediately on the first
