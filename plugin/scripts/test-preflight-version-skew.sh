@@ -49,6 +49,13 @@ write_agents_missing_mech() { # the pre-WP-03 roster — exactly the BL-0141 inc
   done
   rm -f "$FAKE_PLUGIN/agents/mech.md"
 }
+write_agents_missing_reviewer() { # an ORACLE type absent (DR-015 — no fallback judge) — must go RED
+  for slug in analytics architect backend-dev copywriter designer devops frontend-dev implementer \
+              librarian mech product-manager researcher security-auditor test-writer; do
+    printf '# %s\n' "$slug" > "$FAKE_PLUGIN/agents/$slug.md"
+  done
+  rm -f "$FAKE_PLUGIN/agents/reviewer.md"
+}
 
 # ── fake $HOME/.claude/plugins/installed_plugins.json — never the real one ─────────────────────
 FAKE_HOME="$TMPROOT/fake-home"
@@ -125,6 +132,22 @@ OUT4=$(run_preflight); RC4=$?
 ok "$([ "$RC4" = 0 ] && echo 1 || echo 0)" "(4) missing installed_plugins.json still exits 0"
 ok "$([ "$(echo "$OUT4" | grep -ci 'session plugin')" = "0" ] && echo 1 || echo 0)" "(4) no session/installed version line at all when the installed manifest is absent (silent degrade)"
 ok "$(echo "$OUT4" | grep -q "PASS  every engine agentType" && echo 1 || echo 0)" "(4) the independent agentType-coverage check still runs"
+
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# (5) MISSING ORACLE AGENT (reviewer) -> RED, not advisory. DR-015: an oracle type with no fallback
+#     must stop the launch instead of letting the engine silently substitute a non-judge at gate
+#     time. A non-oracle gap (mech, tested in (1)) must stay WARN-only — proven by re-asserting the
+#     same (1) assertions here are untouched by this scenario's own no-mech-missing setup.
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+write_session_metadata "9.104.5"
+write_agents_missing_reviewer
+write_installed_plugins "9.104.5"
+OUT5=$(run_preflight); RC5=$?
+ok "$([ "$RC5" != 0 ] && echo 1 || echo 0)" "(5) missing ORACLE agentType (reviewer) makes preflight exit non-zero"
+ok "$([ "$(echo "$OUT5" | grep -oE '== [0-9]+ failing check' | grep -oE '[0-9]+')" -ge 1 ] 2>/dev/null && echo 1 || echo 0)" "(5) failing-check count is >= 1"
+ok "$(echo "$OUT5" | grep -q "FAIL.*ORÁCULO sin fallback" && echo 1 || echo 0)" "(5) FAIL line names the missing-oracle reason (DR-015)"
+ok "$(echo "$OUT5" | grep -q "FAIL.*pandacorp:reviewer" && echo 1 || echo 0)" "(5) FAIL line names pandacorp:reviewer"
+ok "$([ "$(echo "$OUT5" | grep -c 'agentType(s) que esta sesión no tiene instalados')" = "0" ] && echo 1 || echo 0)" "(5) no separate advisory WARN duplicate for the same missing oracle type"
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

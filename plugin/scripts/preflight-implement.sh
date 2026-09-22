@@ -151,7 +151,17 @@ fi
 # 2c) engine agentType coverage vs the session's OWN plugin/agents/ (BL-0152, same incident class as
 # 2b but a direct check instead of a version-number proxy — catches a same-version session missing a
 # just-added agent .md, and needs no false-positive guard because it compares the engine that will
-# actually run against the agents THIS script's own plugin copy carries, in every mode). Advisory only.
+# actually run against the agents THIS script's own plugin copy carries, in every mode).
+#
+# A missing ORACLE type (pandacorp-build.js's own ORACLE_TYPES: reviewer, security-auditor,
+# test-writer — the judges DR-015 refuses to silently degrade, see the engine's own throw at the
+# `!rest.fallbackAgentType` branch) is NOT advisory: launching without it means the FRD gate either
+# can't run or silently substitutes a non-judge fallback, so this fails RED ($FAILS) instead of WARN.
+# Any other missing type (pandacorp:mech, an implementer/dev role, ...) keeps the original WARN —
+# BL-0141's runtime fallback already covers those. ORACLE_TYPES is read from the PROJECT's own engine
+# copy (the one that will actually run this build), falling back to the known literal set only if
+# that line is absent (a project engine predating BL-0152's own instrumentation) — never silently
+# treating an oracle as non-critical for lack of a parseable source.
 ENGINE_FILE="$PROJ/.claude/engines/pandacorp-build.js"
 SESSION_AGENTS_DIR="$SCRIPT_DIR/../agents"
 if [ -f "$ENGINE_FILE" ] && [ -d "$SESSION_AGENTS_DIR" ]; then
@@ -159,15 +169,31 @@ if [ -f "$ENGINE_FILE" ] && [ -d "$SESSION_AGENTS_DIR" ]; then
   if grep -q 'MECH_AGENT(' "$ENGINE_FILE"; then
     REQUIRED_AGENT_TYPES=$(printf '%s\npandacorp:mech\n' "$REQUIRED_AGENT_TYPES" | sort -u)
   fi
+  ORACLE_TYPES_LINE=$(grep -oE "ORACLE_TYPES[[:space:]]*=[[:space:]]*new Set\(\[[^]]*\]\)" "$ENGINE_FILE" 2>/dev/null | head -1)
+  if [ -n "$ORACLE_TYPES_LINE" ]; then
+    ORACLE_TYPES=$(printf '%s' "$ORACLE_TYPES_LINE" | grep -oE "pandacorp:[a-zA-Z-]+" | sort -u)
+  else
+    ORACLE_TYPES=$(printf '%s\n' "pandacorp:reviewer" "pandacorp:security-auditor" "pandacorp:test-writer")
+  fi
   MISSING_AGENT_TYPES=""
+  MISSING_ORACLE_TYPES=""
   while IFS= read -r agent_type; do
     [ -n "$agent_type" ] || continue
     slug="${agent_type#pandacorp:}"
-    [ -f "$SESSION_AGENTS_DIR/$slug.md" ] || MISSING_AGENT_TYPES="$MISSING_AGENT_TYPES $agent_type"
+    [ -f "$SESSION_AGENTS_DIR/$slug.md" ] && continue
+    if printf '%s\n' "$ORACLE_TYPES" | grep -qx "$agent_type"; then
+      MISSING_ORACLE_TYPES="$MISSING_ORACLE_TYPES $agent_type"
+    else
+      MISSING_AGENT_TYPES="$MISSING_AGENT_TYPES $agent_type"
+    fi
   done <<< "$REQUIRED_AGENT_TYPES"
+  if [ -n "$MISSING_ORACLE_TYPES" ]; then
+    fail "el motor de este proyecto usa agentType(s) ORÁCULO sin fallback que esta sesión no tiene instalados (DR-015 — el gate no degrada al juez, se detiene):$MISSING_ORACLE_TYPES — reinicia la sesión o corre 'claude plugin update' antes de lanzar el build."
+  fi
   if [ -n "$MISSING_AGENT_TYPES" ]; then
     warn "el motor de este proyecto usa agentType(s) que esta sesión no tiene instalados:$MISSING_AGENT_TYPES — reinicia la sesión o corre 'claude plugin update' (BL-0141 ya degrada al fallback en tiempo real, pero perderás el agente dedicado)."
-  else
+  fi
+  if [ -z "$MISSING_ORACLE_TYPES" ] && [ -z "$MISSING_AGENT_TYPES" ]; then
     pass "every engine agentType this project's engine references is available in the session's plugin"
   fi
 fi

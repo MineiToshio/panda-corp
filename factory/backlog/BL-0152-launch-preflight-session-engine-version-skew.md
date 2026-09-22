@@ -93,3 +93,21 @@ the untouched original script, GREEN (16/16) after. Full suite: `bash plugin/scr
 
 No change to `.claude/engines/pandacorp-build.js` itself, so no mission-control engine re-sync was needed
 (`diff` confirmed byte-identical, untouched).
+
+## Amendment — 2026-09-22: §2c hardened to RED for a missing ORACLE agentType
+Landed directly on `main` (integration session, small/mechanical, no worktree) right after this item's
+branch merged. §2c's original WARN-only posture was correct for a fallback-covered type (`pandacorp:mech`,
+an implementer/dev role) but wrong for an **ORACLE** type — `pandacorp-build.js`'s own `ORACLE_TYPES`
+(`pandacorp:reviewer`, `pandacorp:security-auditor`, `pandacorp:test-writer`) — where the engine's `agent()`
+wrapper deliberately `throw`s instead of degrading to a fallback (`DR-015`, the "never degrade the judge"
+rule). Launching with an oracle type missing from the session either crashes the gate mid-build or (worse)
+silently substitutes a non-judge agent for the FRD gate — advisory was the wrong posture for that failure
+mode. §2c now reads `ORACLE_TYPES` straight from the PROJECT's own copied engine (falling back to the
+literal three-item set only if that line is unparseable) and separates missing agent types into two buckets:
+an oracle gap → `fail()` (counted in `$FAILS`, blocks the launch); anything else → the original `warn()`,
+unchanged. §2b (the version-number skew check) is untouched — still advisory-only, per this item's original
+"Out of scope".
+
+**Tests:** `test-preflight-version-skew.sh` gained scenario (5) — a session missing `reviewer.md` — proven
+RED against the pre-amendment script (5/5 new assertions failing) and GREEN after (21/21 total, up from 16).
+`bash plugin/scripts/run-engine-tests.sh` — 24/24 suites, 0 failures, re-run clean after the amendment.
