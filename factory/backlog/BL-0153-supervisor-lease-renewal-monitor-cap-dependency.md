@@ -3,12 +3,12 @@ id: BL-0153
 type: bug
 area: build-engine
 title: "implement's supervisor lease renewal depends on a live Monitor call (capped at ~30 min), so a build outliving the cap can lapse its lease"
-status: open
+status: done
 severity: p2
 opened: 2026-09-22
-closed:
+closed: 2026-09-22
 source: "Canary A and Canary B launches 2026-09-22, mission-control/.pandacorp/run/lessons.md — 13-minute renewal gaps observed in both runs"
-closes:
+closes: "plugin/runtime/build-state.mjs (reclaim/isReclaimable), plugin/scripts/pandacorp-build-state.mjs and plugin/scripts/launch-implement.sh (lease TTL default + --ttl override)"
 links: [BL-0131]
 ---
 
@@ -57,6 +57,69 @@ tests for overlap before writing new ones.
 ## Out of scope
 Redesigning the Monitor tool's own cap (owned outside the factory, in the harness) — the fix works around
 the cap, not against it.
+
+## Fix implemented (2026-09-22, `16ba2c72`)
+Chose neither path (1) nor (2) as originally worded — a **third, lower-risk path already implicit in the
+lease's own design**: `isFresh`/`reclaim` already read `ttl_seconds` directly off the lease document
+(supplied by the caller at `acquire` time), so the false-stale signal closes by raising that value and
+adding a reclaim-only grace margin, with **zero changes to `pandacorp-build.js`** (the engine) and
+therefore no byte-identical mission-control mirror step and no `plugin/agents/*.md` regeneration.
+
+Rejected explicitly: threading a `RENEW_LEASE`-style instruction through every prompt in the gate/repair
+convergence ladder (`frdGateSerial`/`frdGateSplit`/`gateConverge` and its patch/diagnose/gate-test-repair/
+revert rungs) — this is genuinely what "engine-side renewal on every mechanical `agent()` call" would
+require once generalized to cover a gate-only phase with zero MECH-labeled spawns (per this item's own
+corroborating note), but it touches a large number of call sites in a Dynamic Workflow script this
+codebase treats as maximally fragile (no fs/timers of its own, prompt/schema churn is the exact class of
+change that has broken convergence before), for a gap that — by this item's own corroborating note — has
+so far been "real but unexploited" (the epoch never moved in either canary). Raising the TTL is a strictly
+smaller, more mechanically verifiable change for the same practical protection.
+
+Concretely (`plugin/runtime/build-state.mjs`, `plugin/scripts/pandacorp-build-state.mjs`,
+`plugin/scripts/launch-implement.sh`, `plugin/skills/implement/SKILL.md`, tests in
+`plugin/scripts/test-build-state.mjs`):
+- `isFresh` is untouched — every existing "is this lease actively guarding the project" reader (preflight's
+  abort-if-fresh check, the frozen Codex executor's pre-reclaim check, the `status.yaml` projection) keeps
+  its exact pre-fix semantics.
+- New `isReclaimable(lease, now)`: `reclaim()` now additionally requires **a full extra TTL cycle of
+  continued silence past the TTL boundary** (2x total, `RECLAIM_GRACE_CYCLES`) before it will hand the
+  fence to a new owner — a lease that merely crossed one TTL width mid-gate is stale-but-not-dead and stays
+  protected.
+- Default lease TTL raised **600s -> 3600s** (`acquireUnlocked`'s default, the CLI's `acquire`/`reclaim`
+  `--ttl` default, and `launch-implement.sh`'s real launch call) — comfortably above both canaries' worst
+  observed gap (56.6 min) with margin. `launch-implement.sh` also gained an optional `--ttl <seconds>`
+  override (validated positive integer) for a targeted single-FRD/change run expected to spend most of its
+  time inside one long gate/repair chain, documented in `implement/SKILL.md`'s launch checklist.
+
+**Relationship to BL-0131 (still open)**: orthogonal, not a duplicate and not a supersession. BL-0131
+tracks the SUPERVISING SESSION's own `ScheduleWakeup`-chain-breaks-silently renewal cadence (a harness/
+session-loop reliability problem). This fix instead hardens the LEASE side of the contract so that a
+renewal gap from ANY upstream cause — a Monitor-cap re-arm delay, a broken `ScheduleWakeup` chain (BL-0131's
+own failure mode), or a long gate-heavy phase with zero safe-points (this item's own Canary C evidence) —
+cannot be misread as the owning run being dead within a realistic build window. BL-0131 stays open to fix
+its own cause; this item closes the shared consequence (a stale-but-alive lease being reclaimable too
+eagerly) regardless of cause.
+
+**Tests**: two new scenarios in `test-build-state.mjs` — a lease stale past its TTL but still inside the
+2x grace window is rejected by `reclaim` (CONTENDED, fence untouched); a lease stale past the grace window
+is genuinely reclaimable (epoch increments) — plus the full pre-existing `reclaim`/`isFresh` suite
+re-verified unmodified (all use a `renewed_at` from year 2000, trivially past any grace multiplier).
+`bash plugin/scripts/run-engine-tests.sh`: **23/23 suites, 0 failures**.
+
+**Done-when checklist** (this item's closeable scope):
+- [x] Fix implemented and its test scenario is green (see Tests above) — a real, if synthetic, stale-lease
+      fixture proving both sides of the new grace boundary (rejected inside it, accepted past it).
+- [x] Relationship to BL-0131 reconciled explicitly above — both stay open/closed independently, neither
+      merges into the other.
+
+No change to `pandacorp-build.js` or any `plugin/agents/*.md` — the byte-identical mission-control mirror
+step and the Codex agent regeneration do not apply to this fix.
+
+## Out of scope (addendum)
+A subsequent LIVE canary run confirming no renewal gap crosses the new (3600s, 2x-graced) safe margin under
+real build conditions — this item's fix is verified structurally (unit tests against a real stale-lease
+fixture, both sides of the new boundary), not by a live re-run; a live canary re-measurement is a separate
+follow-up, same treatment as BL-0155's own deferred A/B re-measurement.
 
 ## Corroborating occurrence — Canary C, 2026-09-23 (still not closing this item)
 Canary C (`wf_1cf782d6-2ed`, `frd-23-materialized-stats-read-model`) showed the same fragility class with
