@@ -1979,6 +1979,18 @@ while (true) {
   const wave = pickDisjointWave(candidates, P.wave, remainingAgents, woWaveCost)   // DR-060: never co-schedule overlapping artifacts — now across FRDs; DR-073/D2: cost-budgeted width
   const waveFrds = [...new Set(wave.map((w) => w._frd))]
   log(`⚒ wave: ${wave.length} WO(s) across ${waveFrds.length} FRD(s) — ${wave.map((w) => w.id).join(', ')}`)
+  // WP-09: name WHY each non-elected candidate was deferred (deps pending / artifacts overlap / blocked
+  // by the foundation gate or the wave cap) — reuses pickDisjointWave's own artifactsOverlap, unmodified,
+  // so a stalled wave is diagnosable from the log alone instead of re-deriving the scheduler's reasoning.
+  const wavePicked = new Set(wave.map((w) => w.id))
+  const deferred = [...globalQueue.values()].map(({ wo }) => wo).filter((wo) => !wavePicked.has(wo.id)).map((wo) => {
+    const unmetDeps = (wo.deps || []).filter((d) => !(doneIds.has(d) || (!globalQueue.has(d) && !blockedIds.has(d))))
+    if (unmetDeps.length) return `${wo.id}(deps:${unmetDeps.join('+')})`
+    if (!candidates.some((c) => c.id === wo.id)) return `${wo.id}(blocked:foundation-pending)`
+    const overlapsWith = wave.find((p) => artifactsOverlap(p, wo))
+    return overlapsWith ? `${wo.id}(artifacts:${overlapsWith.id})` : `${wo.id}(blocked:wave-cap)`
+  })
+  if (deferred.length) log(`↻ deferred: ${deferred.join(', ')}`)
 
   // BL-0002: the ENGINE owns the PLANNED→IN_PROGRESS transition, stamped at dispatch — atomic and
   // independent of when each builder actually starts. Parallel waves used to leave five actively-
