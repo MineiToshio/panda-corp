@@ -118,8 +118,10 @@ function defaultResponse(label) {
   if (label === 'baseline-precheck') return { escalate: true }          // PRECHECK_SCHEMA
   if (label === 'baseline') return { green: true }                      // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
+  if (label === 'plan-post-drain') return { frds: [] }                  // PLAN_SCHEMA (BL-0129 re-plan after a pre-loop drain)
   if (label === 'sync-rollups') return { corrected: 0 }
   if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
+  if (label === 'safe-point-pre-loop') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA (BL-0129 pre-loop drain)
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
@@ -167,7 +169,7 @@ async function runEngine(scenario) {
       const answer = typeof r.response === 'function' ? r.response(call) : r.response
       // Existing scenarios focus on queue/rethink behavior. Give their object verdicts the valid fenced
       // receipt the real CLI would return; null/explicit malformed receipts remain untouched for BL-0073.
-      if (call.label === 'safe-point' && answer && typeof answer === 'object' && !('stop_receipt' in answer)) {
+      if ((call.label === 'safe-point' || call.label === 'safe-point-pre-loop') && answer && typeof answer === 'object' && !('stop_receipt' in answer)) {
         return { ...answer, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' } }
       }
       return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
@@ -1766,6 +1768,86 @@ SCENARIOS.push({
     t.ok(repair && /dependsOn/.test(repair.prompt), 'the prompt tells the reviewer to check the sibling work orders / dependsOn graph for the declared derogation')
     t.ok(repair && /DR-080/.test(repair.prompt), 'the prompt still cites DR-080 — only the independent reviewer may touch a blessed test')
     t.ok(repair && /patcher may not touch them/.test(repair.prompt), 'the implementer/patcher prohibition survives (the rule is routed, never relaxed)')
+  },
+})
+
+// ── E2. BL-0129 — a bare run's empty-plan exit drains the DR-069 ready-changes queue ──────────────
+// Before this fix, a bare `/implement` (no args.frds/args.change) whose planner found plan.frds.length
+// === 0 (every FRD VERIFIED) exited via ensureStopped('nothing to build') BEFORE the main loop ever
+// ran — the only safePoint() call lived INSIDE that loop, so a genuinely `ready` change sitting in
+// .pandacorp/inbox/changes/ was silently never drained. drainReadyQueuePreLoop() (next to safePoint())
+// now runs once on that path; a TARGETED run keeps the drain forbidden (unchanged, DR-069).
+SCENARIOS.push({
+  name: 'E2a. bare run, empty plan, empty queue — one pre-loop safe-point, then a clean "nothing to build" exit',
+  args: { mode: 'pro' }, // no change, no frds → TARGETED === false
+  plan: mkPlan([]),
+  responses: [
+    { label: 'safe-point-pre-loop', response: { stop: false, ready: [], unblocked: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const sp = byLabel(run, 'safe-point-pre-loop')
+    t.ok(sp.length === 1, `exactly one pre-loop safe-point spawn (got ${sp.length})`)
+    t.ok(sp[0] && /List \.pandacorp\/inbox\/changes/.test(sp[0].prompt), 'the pre-loop safe-point scans the ready-changes queue (DR-069)')
+    t.ok(byLabel(run, /^process-change:/).length === 0, 'nothing to drain — no change is processed')
+    t.ok(byLabel(run, 'plan-post-drain').length === 0, 'no re-plan happens when the queue was already empty')
+    t.ok(byLabel(run, /^build:/).length === 0, 'no build: spawn — there is genuinely nothing to build')
+    const stopped = byLabel(run, 'ensure-stopped')
+    t.ok(stopped.length === 1 && /--reason "nothing to build"/.test(stopped[0].prompt), 'the engine still performs the fenced pre-loop close with reason "nothing to build"')
+    t.ok(hasLog(run, /cola vacía/), 'the engine logs an explicit "cola vacía" line — the queue WAS checked, not skipped')
+    t.ok(run.result && run.result.note === 'all verified', 'the bounded no-work result is returned')
+  },
+})
+SCENARIOS.push({
+  name: 'E2b. bare run, empty plan, a ready change IS queued — drains it, re-plans, and builds the new work',
+  args: { mode: 'pro' }, // no change, no frds → TARGETED === false
+  plan: mkPlan([]), // the FIRST planner call finds nothing (every existing FRD VERIFIED)
+  responses: [
+    { label: 'safe-point-pre-loop', response: { stop: false, ready: ['queued-change-e2b'], unblocked: [] } },
+    { label: 'process-change:queued-change-e2b', response: { done: true, affectedFrds: ['frd-e2b-drain'], changeFile: 'queued-change-e2b.md' } },
+    { label: 'plan-post-drain', response: mkPlan([{
+      frd: 'frd-e2b-drain',
+      deps: [],
+      workOrders: [mkWo('wo-e2b-001', 'PLANNED', { frd: 'frd-e2b-drain', artifacts: ['src/e2b/**'] })],
+    }]) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'safe-point-pre-loop').length === 1, 'the pre-loop safe-point ran exactly once')
+    const proc = byLabel(run, /^process-change:/)
+    t.ok(proc.length === 1 && proc[0].label === 'process-change:queued-change-e2b', 'the ready change was drained via the existing processChange() path')
+    t.ok(byLabel(run, 'plan-post-drain').length === 1, 'the planner re-ran once, picking up the FRD the drain just created/updated')
+    t.ok(hasLog(run, /Cola de changes drenada antes del plan vacío/), 'the engine logs that it drained the queue before re-planning')
+    const built = byLabel(run, /^build:/)
+    t.ok(built.length >= 1 && built.some((c) => c.label === 'build:wo-e2b-001'), `the drained work order actually built (got [${built.map((c) => c.label).join(', ')}])`)
+    t.ok(run.result && run.result.builtFrds && run.result.builtFrds.includes('frd-e2b-drain'), 'the FRD created by the drained change built and verified this run')
+    t.ok(run.result && run.result.note !== 'all verified', 'the run no longer reports the false "all verified" — it did real work')
+  },
+})
+SCENARIOS.push({
+  name: 'E2c. targeted run, empty plan — the pre-loop drain never runs (DR-069 targeted scope holds)',
+  args: { mode: 'pro', frds: ['frd-e2c-done'] }, // TARGETED === true
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'safe-point-pre-loop').length === 0, 'ZERO pre-loop safe-point spawns on a targeted run — the drain is forbidden, unchanged')
+    t.ok(byLabel(run, /^process-change:/).length === 0, 'nothing is drained')
+    t.ok(run.result && run.result.note === 'all verified', 'the already-verified targeted scope returns the bounded no-work result, exactly as before this fix')
+    const stopped = byLabel(run, 'ensure-stopped')
+    t.ok(stopped.length === 1 && /--reason "nothing to build"/.test(stopped[0].prompt), 'the fenced pre-loop close still runs with reason "nothing to build"')
+  },
+})
+SCENARIOS.push({
+  name: 'E2d. bare run, empty plan, args.drainOnEmptyPlan:false — the escape hatch restores the pre-fix behavior',
+  args: { mode: 'pro', drainOnEmptyPlan: false }, // bare (no change, no frds) but the drain is explicitly disabled
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'safe-point-pre-loop').length === 0, 'ZERO pre-loop safe-point spawns — the escape hatch skips the drain even though the run is bare')
+    t.ok(byLabel(run, /^process-change:/).length === 0, 'nothing is drained')
+    t.ok(run.result && run.result.note === 'all verified', 'behaves exactly like a pre-BL-0129 bare run with an empty plan')
+    const stopped = byLabel(run, 'ensure-stopped')
+    t.ok(stopped.length === 1 && /--reason "nothing to build"/.test(stopped[0].prompt), 'the fenced pre-loop close still runs with reason "nothing to build"')
   },
 })
 
