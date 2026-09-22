@@ -3374,6 +3374,63 @@ SCENARIOS.push({
   },
 })
 
+// ── BQW1. proposal 37 / E-3 — visual-qa defaults to SONNET, not the judge tier (P.judge/opus).
+// DR-072 already made visual-qa ADVISORY (a punch-list, never a block) — measured 5.50 $ on opus vs
+// ≈2.20 $ on sonnet for the same FRD-24 pass. Escape hatch: args.visualQaModel='opus' restores the
+// prior tier; any other/unrecognised value falls back to 'sonnet' with a loud log (fail-closed).
+// (a) DEFAULT (no args.visualQaModel) — visual-qa spawns on sonnet.
+SCENARIOS.push({
+  name: 'BQW1a. E-3 — DEFAULT (no args.visualQaModel): visual-qa spawns on sonnet, not the opus judge tier',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1a-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1a-001', 'PLANNED', { frd: 'frd-bqw1a-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran (a .tsx artifact is a real UI surface)')
+    t.ok(vq[0] && vq[0].opts.model === 'sonnet', `visual-qa runs on sonnet by default (got ${vq[0] && vq[0].opts.model})`)
+    t.ok(vq[0] && vq[0].opts.effort === 'high', `visual-qa keeps effort:high (got ${vq[0] && vq[0].opts.effort})`)
+  },
+})
+
+// (b) OVERRIDE — args.visualQaModel:'opus' restores the prior tier.
+SCENARIOS.push({
+  name: "BQW1b. E-3 — args.visualQaModel:'opus' restores the prior (opus) tier",
+  args: { mode: 'pro', visualQaModel: 'opus' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1b-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1b-001', 'PLANNED', { frd: 'frd-bqw1b-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran')
+    t.ok(vq[0] && vq[0].opts.model === 'opus', `visual-qa runs on opus with the escape hatch (got ${vq[0] && vq[0].opts.model})`)
+  },
+})
+
+// (c) fail-closed — an unrecognised args.visualQaModel value falls back to sonnet, loudly logged.
+SCENARIOS.push({
+  name: 'BQW1c. E-3 — an unrecognised args.visualQaModel value falls back to sonnet, with a loud log',
+  args: { mode: 'pro', visualQaModel: 'haiku' },
+  plan: mkPlan([{
+    frd: 'frd-bqw1c-ui',
+    deps: [],
+    workOrders: [mkWo('wo-bqw1c-001', 'PLANNED', { frd: 'frd-bqw1c-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran')
+    t.ok(vq[0] && vq[0].opts.model === 'sonnet', `an unrecognised tier falls back to sonnet, never silently honored (got ${vq[0] && vq[0].opts.model})`)
+    t.ok(hasLog(run, /visualQaModel='haiku'.*no es 'sonnet' ni 'opus'/), 'the fallback is logged explicitly, never silent')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
