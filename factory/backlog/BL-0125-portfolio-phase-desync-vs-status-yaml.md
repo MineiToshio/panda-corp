@@ -106,3 +106,21 @@ lesson: the general "phase transitions aren't monotonic once iterate reopens wor
 the documented engine contract (`build-orchestration.md` line 29), and "never trust a cached/pointer field
 over the live source of truth" is already AGENTS.md rule 5 + LESSON-0027 at a more authoritative tier — this
 note only adds design information to BL-0125's own fix, folded here per precedent.
+
+**2026-09-21 (`pandacorp-review-launch` scheduled sweep) — FIFTH occurrence, self-corrected in the same
+pass, plus a downstream-consumer angle.** `factory/portfolio.md`'s personal-page-v2 row again read
+`release` while `personal-page-v2/.pandacorp/status.yaml` read `phase: implementation` — same drift, same
+project, unchanged since the 2026-09-09/09-14 occurrences above (`sync-portfolio` still had not re-run to
+catch the backward `release → implementation` regression from the 2026-09-10/11 `iterate` reopen). Unlike
+the prior occurrences, this sweep corrected the row live in the same pass (re-verified 2026-09-22:
+`factory/portfolio.md` and both projects' `status.yaml` now read `implementation` for both mission-control
+and personal-page-v2) — establishing that `review-launch`, like the 2026-09-07 sweep before it, treats
+hand-correcting a stale portfolio row it discovers as in-scope for itself, distinct from
+`pandacorp-memory-review`'s PASO 0 (which only reports, per the 2026-09-09 occurrence's note above). New
+angle this note adds to the fix plan: beyond fixing `sync-portfolio`'s own write path/cadence (steps 1-3),
+a downstream consumer that needs to pick "which projects are actually released" (e.g. `review-launch`
+selecting business-verdict candidates) should read the project's own `status.yaml` `phase` directly rather
+than trust `factory/portfolio.md`'s cached column — defense-in-depth per AGENTS.md rule 5, not a
+replacement for fixing the portfolio's own staleness. No new root-cause information (still unconfirmed
+between (a)/(b)/(c) above); folded here per this item's own no-redundancy precedent. Source:
+factory/memory/_inbox.md agent-inferred note (2026-09-21 review-launch sweep, harvested 2026-09-22).

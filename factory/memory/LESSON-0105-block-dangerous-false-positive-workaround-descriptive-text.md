@@ -11,8 +11,8 @@ created: 2026-07-07
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/infra.md#INFRA-6
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [BL-0047, LESSON-0092, LESSON-0109, INFRA-6, factory/standards/infra.md#INFRA-6]
 ---
 

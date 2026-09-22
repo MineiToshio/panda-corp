@@ -11,8 +11,8 @@ created: 2026-07-05
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/build-orchestration.md#BUILD-2
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [BUILD-2, factory/standards/build-orchestration.md#BUILD-2]
 ---
 

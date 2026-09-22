@@ -11,8 +11,8 @@ created: 2026-09-13
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [LESSON-0206]
 ---
 

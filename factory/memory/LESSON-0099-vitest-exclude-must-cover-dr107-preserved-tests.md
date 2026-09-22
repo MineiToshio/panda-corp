@@ -11,8 +11,8 @@ created: 2026-07-07
 status: active
 promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/build-orchestration.md's DR-107 section, codify "any project using DR-107 preserved-test archives or the concurrent gate-worktree (DR-118) must exclude `.pandacorp/**` in its test runner's exclude/glob config" as a standing rule. Corroborated across 2 distinct projects with two DIFFERENT root causes converging on the same fix (mission-control: a preserved-test archive glob; personal-page-v2: a leftover gate-worktree's own node_modules resolving a second React copy) — a scaffold-time default would prevent both classes of ghost-red.
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [panda-corp]
 links: [DR-107, LESSON-0124, LESSON-0125]
 ---
 
