@@ -139,5 +139,72 @@ ok "$([ "$(pnpm_call_count)" = "1" ] && echo 1 || echo 0)" "(b) re-bootstrap wit
 
 git_q -C "$FLAT_MAIN" worktree remove --force "$FLAT_WT"
 
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# (d) e2e/server-env.json PORT derivation (BL-0154) — server-env.json pins Playwright's webServer
+# PORT and, unlike launch.json, is TRACKED (committed), so every worktree used to inherit the SAME
+# fixed 3900 and collide when two ran the playwright gate at once. Covers: a hash-derived port lands
+# in the reserved [3900,3999) range; re-bootstrapping the SAME worktree reproduces the SAME port
+# (deterministic, not re-randomized); PANDACORP_E2E_PORT overrides the derivation outright (used here
+# to prove "two different worktrees, two different ports" WITHOUT relying on two independent hashes
+# happening not to collide, which would make the assertion flaky — the override is chosen outside the
+# reserved range so inequality is guaranteed by construction, not by chance); the MAIN checkout's own
+# committed default is left untouched (out of scope per BL-0154); and the local rewrite of this
+# TRACKED file does not show up as a dirty `git status` in that worktree (skip-worktree) — or it would
+# permanently defeat the Stop hook's clean-tree fast-path (BL-0044) in every worktree, forever.
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+PORT_MAIN="$TMPROOT/port-main"
+mkdir -p "$PORT_MAIN"
+( cd "$PORT_MAIN" && git init -q -b main \
+  && mkdir -p factory mission-control/.pandacorp mission-control/e2e \
+  && echo '{"name":"mission-control","version":"0.0.0"}' > mission-control/package.json \
+  && echo 'lockfileVersion: 9' > mission-control/pnpm-lock.yaml \
+  && cp "$SCRIPT_SRC" mission-control/.pandacorp/worktree-bootstrap.sh \
+  && chmod +x mission-control/.pandacorp/worktree-bootstrap.sh \
+  && printf '{\n  "PORT": "3900",\n  "PANDACORP_FACTORY_ROOT": "./e2e/fixtures/factory-root"\n}\n' > mission-control/e2e/server-env.json \
+  && echo seed > factory/seed.txt \
+  && git add -A && git_q commit -qm seed )
+
+port_of() { jq -r '.PORT // empty' "$1" 2>/dev/null; }
+
+PORT_WT1="$TMPROOT/port-wt1"
+PORT_WT3="$TMPROOT/port-wt3"
+git_q -C "$PORT_MAIN" worktree add --detach "$PORT_WT1" main
+git_q -C "$PORT_MAIN" worktree add --detach "$PORT_WT3" main
+
+( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d1.log 2>&1 )
+rc_d1=$?
+D1_PORT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
+ok "$([ "$rc_d1" = 0 ] && echo 1 || echo 0)" "(d1) bootstrap exits 0 when server-env.json is present"
+ok "$([ -n "$D1_PORT" ] && [ "$D1_PORT" -ge 3900 ] && [ "$D1_PORT" -lt 4000 ] 2>/dev/null && echo 1 || echo 0)" "(d1) the worktree gets a hash-derived PORT inside [3900,3999] written to server-env.json (got: ${D1_PORT:-<empty>})"
+
+# (d2) re-bootstrap the SAME worktree -> the SAME port (deterministic, not re-randomized each run)
+( cd "$PORT_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d1b.log 2>&1 )
+D1_PORT_REBOOT="$(port_of "$PORT_WT1/mission-control/e2e/server-env.json")"
+ok "$([ "$D1_PORT_REBOOT" = "$D1_PORT" ] && echo 1 || echo 0)" "(d2) re-bootstrapping the SAME worktree reproduces the SAME port ($D1_PORT_REBOOT vs $D1_PORT)"
+
+# (d3) PANDACORP_E2E_PORT overrides the derivation outright, on a SECOND worktree, to a value
+# outside the reserved [3900,3999) range — so it is GUARANTEED to differ from (d1)'s port, proving
+# "two different worktrees -> two different ports" without a flaky hash-collision assumption.
+( cd "$PORT_WT3" && PANDACORP_E2E_PORT=39877 bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-d3.log 2>&1 )
+D3_PORT="$(port_of "$PORT_WT3/mission-control/e2e/server-env.json")"
+ok "$([ "$D3_PORT" = "39877" ] && echo 1 || echo 0)" "(d3) PANDACORP_E2E_PORT overrides the derived port (got: ${D3_PORT:-<empty>})"
+ok "$([ "$D3_PORT" != "$D1_PORT" ] && echo 1 || echo 0)" "(d3) two DIFFERENT worktrees end up with two DIFFERENT ports ($D1_PORT vs $D3_PORT)"
+
+# (d4) the main checkout's own committed default is left untouched (out of scope per BL-0154)
+MAIN_PORT="$(port_of "$PORT_MAIN/mission-control/e2e/server-env.json")"
+ok "$([ "$MAIN_PORT" = "3900" ] && echo 1 || echo 0)" "(d4) the MAIN checkout's committed PORT (3900) is never rewritten by a worktree bootstrap"
+
+# (d5) the local rewrite must not show up as a dirty tracked file (skip-worktree) — otherwise the
+# Stop hook's clean-tree fast-path (BL-0044) is defeated forever in every worktree.
+DIRTY_D1="$(cd "$PORT_WT1" && git status --porcelain -- mission-control/e2e/server-env.json)"
+ok "$([ -z "$DIRTY_D1" ] && echo 1 || echo 0)" "(d5) the rewritten server-env.json does not show as dirty in \`git status\` (skip-worktree)"
+
+# (d6) other fields in server-env.json survive the rewrite untouched (only PORT changes)
+FACTORY_ROOT_FIELD="$(jq -r '.PANDACORP_FACTORY_ROOT // empty' "$PORT_WT1/mission-control/e2e/server-env.json" 2>/dev/null)"
+ok "$([ "$FACTORY_ROOT_FIELD" = "./e2e/fixtures/factory-root" ] && echo 1 || echo 0)" "(d6) non-PORT fields in server-env.json are preserved (PANDACORP_FACTORY_ROOT unchanged)"
+
+git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT1"
+git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT3"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]
