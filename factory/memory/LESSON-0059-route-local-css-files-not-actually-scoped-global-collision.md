@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0058]
+links: [LESSON-0058, LESSON-0254]
 ---
 
 **Situation:** route-local CSS files organized per feature (`src/app/[locale]/*/_components/*.css`) look

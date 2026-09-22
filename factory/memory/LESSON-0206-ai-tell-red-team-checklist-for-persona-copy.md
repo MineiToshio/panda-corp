@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 1
 applied_in: [personal-page-v2]
-links: [LESSON-0129, LESSON-0123, LESSON-0204, LESSON-0205]
+links: [LESSON-0129, LESSON-0123, LESSON-0204, LESSON-0205, LESSON-0251]
 ---
 
 **Corroboration (2026-09-08, personal-page-v2, owner-stated):** a separate About-page copy pass drew a

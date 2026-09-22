@@ -16,7 +16,22 @@ confident. NINTH corroboration (personal-page-v2, 2026-09-12, agent-inferred): a
 DESIGN.md only prescribes that geometric-monoline style for the brand WORDMARK, saying nothing about blog
 cover illustrations; the generalization was invented by whoever built the feature and never reviewed by the
 owner for that specific use. A `grep` for the claimed keywords in the target doc would have caught the gap
-immediately."
+immediately. TENTH corroboration (personal-page-v2, 2026-09-20, agent-inferred + owner-stated): a code
+comment in `src/app/[locale]/blog/[slug]/page.tsx` (`BlogProseLink`) asserted 'the writing rules ban
+internal cross-post/site links from post copy' and forced `target=\"_blank\"` on every prose link as a
+result — but no such rule existed anywhere in FRD-05, `docs/voice/style-guide.md`, or the blog-generator's
+own references; the owner's actual position was the OPPOSITE (cross-post links are how readers discover
+more content). The unsourced comment shaped shipped product behavior for months before anyone checked it
+against a canonical doc, and it separately produced a draft with an internal link nobody caught until the
+owner did (fixed 2026-09-20, AC-05-003.8). ELEVENTH corroboration (personal-page-v2, 2026-09-20,
+owner-stated): the blog-generator's stage 9b ('preview as an Artifact') told the agent the preview must
+read 'close enough to the site's own post layout to read for real' but never named the concrete component
+to mirror, so the v1 preview INVENTED a standfirst/excerpt block the real page (`PostView.tsx`) never
+renders (that field is frontmatter-only, used for cards/SEO/RSS, never the body). Absent an explicit
+pointer, the agent should have searched the codebase for the actual rendering component before inventing
+plausible-looking structure — the same 'ground truth beats a stand-in' discipline applies even when nothing
+tells you where the ground truth lives; the fix is for the spec to name the file, but the agent's own
+default should be to look for it first."
 provenance: agent-inferred
 created: 2026-07-04
 status: active
@@ -60,4 +75,11 @@ primary source, neither report is ground truth — go verify the source directly
 between the two accounts. A ninth: a code comment that cites a canonical doc as its authority ("per
 DESIGN.md", "per the PRD") should be spot-checked against that doc's actual text before it is trusted or
 extended further — it reads authoritative, but it may be an invented generalization nobody ever verified
-against the source it claims to follow.
+against the source it claims to follow. A tenth, sharper shape of the same trap: a code comment that
+asserts "the rules say X" WITHOUT naming which doc — treat that as a hypothesis, not a rule, and verify X
+against the canonical doc (style guide, FRD, PRD) before obeying it in a draft or a review; an unsourced
+in-code claim can silently invert the owner's actual position and steer product behavior for months before
+anyone checks. An eleventh: the "live artifact" to check is not always named for you — when a spec asks for
+output that should resemble a real page/component but doesn't say which one, search the codebase for the
+actual rendering component yourself before inventing plausible-looking structure; the absence of an
+explicit pointer is not license to guess.

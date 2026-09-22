@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0129, LESSON-0206, LESSON-0214, LESSON-0218]
+links: [LESSON-0129, LESSON-0206, LESSON-0214, LESSON-0218, LESSON-0251]
 ---
 
 **Situation:** across one case-study copy-revision pass, the owner gave a tight, consistent set of
