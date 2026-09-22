@@ -14,6 +14,8 @@ function makeItem(over: Partial<ChangeQueueItem>): ChangeQueueItem {
     frd: "",
     rebuildsVerified: false,
     dependsOn: "",
+    implementedSha: "",
+    closingAt: "",
     title: "Agrega exportar a CSV",
     body: "## Qué se quiere\nUn botón que exporte a CSV.",
     ...over,
@@ -99,6 +101,75 @@ describe("ChangesPanel", () => {
     );
     expect(screen.queryByTestId("changes-toggle-done")).not.toBeInTheDocument();
     expect(screen.queryByTestId("changes-toggle-discarded")).not.toBeInTheDocument();
+  });
+
+  it("shows building/closing items as always-visible in-flight groups, never behind a toggle (DR-069 §7)", () => {
+    render(
+      <ChangesPanel
+        {...PANEL_PROPS}
+        result={result({
+          items: [
+            makeItem({ id: "mc-building-one", title: "Building one", status: "building" }),
+            makeItem({ id: "mc-closing-one", title: "Closing one", status: "closing" }),
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByText("En construcción")).toBeInTheDocument();
+    expect(screen.getByText("Cerrando")).toBeInTheDocument();
+    expect(screen.getByText("Building one")).toBeInTheDocument();
+    expect(screen.getByText("Closing one")).toBeInTheDocument();
+    // Unlike Hechos/Descartados, no toggle gates these groups.
+    expect(screen.queryByTestId("changes-toggle-building")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("changes-toggle-closing")).not.toBeInTheDocument();
+  });
+
+  it("shows the 'En construcción' status chip in the detail modal for a building item", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChangesPanel
+        {...PANEL_PROPS}
+        result={result({
+          items: [
+            makeItem({ id: "mc-building-two", title: "Otro en construcción", status: "building" }),
+          ],
+        })}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /ver detalle del cambio: otro en construcción/i }),
+    );
+    expect(
+      within(screen.getByTestId("change-detail")).getByText("En construcción"),
+    ).toBeInTheDocument();
+    // building/closing are not discardable, same as done/discarded.
+    expect(screen.queryByTestId("discard-change-button")).not.toBeInTheDocument();
+  });
+
+  it("shows the commit and closing-since meta lines for a closing item", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChangesPanel
+        {...PANEL_PROPS}
+        result={result({
+          items: [
+            makeItem({
+              id: "mc-closing-two",
+              title: "Cerrando algo",
+              status: "closing",
+              implementedSha: "a1b2c3d4",
+              closingAt: "2026-09-20T10:00:00.000Z",
+            }),
+          ],
+        })}
+      />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: /ver detalle del cambio: cerrando algo/i }),
+    );
+    const detail = screen.getByTestId("change-detail");
+    expect(within(detail).getByText("a1b2c3d4")).toBeInTheDocument();
+    expect(within(detail).getByText("2026-09-20T10:00:00.000Z")).toBeInTheDocument();
   });
 
   it("renders a fail-loud error banner when the reader reports errors (DR-078)", () => {
