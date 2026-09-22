@@ -4,7 +4,7 @@
     {
       "slug": "absorb",
       "source": "plugin/skills/absorb/SKILL.md",
-      "user_invocable": true,
+      "user_invocable": false,
       "runtimes": {
         "claude": {
           "status": "PROVEN",
@@ -329,7 +329,7 @@
     {
       "slug": "memory",
       "source": "plugin/skills/memory/SKILL.md",
-      "user_invocable": true,
+      "user_invocable": false,
       "runtimes": {
         "claude": {
           "status": "PROVEN",

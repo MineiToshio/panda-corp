@@ -196,6 +196,14 @@ const GATE_EVIDENCE = (args && args.gateEvidence === 'digested') ? 'digested' : 
 if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' && args.gateEvidence !== 'digested') {
   log(`⚠ args.gateEvidence='${args.gateEvidence}' no es 'explore' ni 'digested' — usando 'explore' (WP-06 fail-closed)`)
 }
+// proposal 37 / E-3: visual-qa is DR-072 ADVISORY (a punch-list, never a block) — sonnet is the
+// default judge for it instead of opus (measured ≈2.20 $ on FRD-24 vs 5.50 $ on opus). Escape hatch
+// args.visualQaModel='opus' restores the prior tier; anything else falls back to 'sonnet' with a loud
+// log — an unrecognised value must never silently pick a tier the owner did not ask for.
+const VISUAL_QA_MODEL = (args && args.visualQaModel === 'opus') ? 'opus' : 'sonnet'
+if (args && args.visualQaModel !== undefined && args.visualQaModel !== 'sonnet' && args.visualQaModel !== 'opus') {
+  log(`⚠ args.visualQaModel='${args.visualQaModel}' no es 'sonnet' ni 'opus' — usando 'sonnet' (E-3 fail-closed)`)
+}
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates ONLY. Default OFF — see the arg doc above.
 const REPAIR_BRAKE = !argBool(args, 'repairBrake', false)   // D4/REV2-3: the repair-cost BRAKE, independent of SCOPED_REPAIR. Default ON — explicit {"repairBrake": false} restores the pre-D4 unbounded ladder.
@@ -2836,12 +2844,12 @@ if (LEAN_CLOSE_OUT) {
     const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
     if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
-      agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
+      agentSpawned += COST(VISUAL_QA_MODEL)   // DR-073: weighted by the model actually spawned (E-3: sonnet by default, not P.judge)
       // REV-2: a REJECTED promise (terminal tool/API error) must degrade exactly like a null result —
       // caught HERE, at dispatch, so the bare `await visualQaPromise` below can never throw and strand
       // the close-out region before it reaches the terminal lease release.
       visualQaPromise = agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
         .catch(() => null)
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
@@ -2921,9 +2929,9 @@ if (LEAN_CLOSE_OUT) {
     const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
     if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
-      agentSpawned += COST(P.judge)
+      agentSpawned += COST(VISUAL_QA_MODEL)   // DR-073: weighted by the model actually spawned (E-3: sonnet by default, not P.judge)
       await agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
       log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
