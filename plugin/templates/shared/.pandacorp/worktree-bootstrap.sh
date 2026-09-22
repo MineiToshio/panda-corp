@@ -17,9 +17,21 @@ SLUG="$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-')"
 echo "▸ bootstrapping worktree $BRANCH"
 
 # ── 1. Dependencies — hardlink from the shared store (never symlink node_modules; .next stays local) ─
+# Idempotent (BL-0149): a re-run of this script (e.g. the gate worktree re-bootstraps on every reuse,
+# ensureGateWorktree) must not pay a full reinstall when node_modules is already present and
+# pnpm-lock.yaml hasn't moved since the last bootstrap in THIS worktree — skip via a lockfile-hash
+# marker stored INSIDE node_modules (so a deleted node_modules always re-triggers a real install).
 if [ -f package.json ] && command -v pnpm >/dev/null 2>&1; then
-  echo "  • pnpm install (hardlinks from the global store)"
-  pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install
+  LOCK_MARKER="node_modules/.pandacorp-lock-sha"
+  LOCK_SHA=""
+  [ -f pnpm-lock.yaml ] && LOCK_SHA="$(shasum -a 256 pnpm-lock.yaml 2>/dev/null | awk '{print $1}')"
+  if [ -d node_modules ] && [ -n "$LOCK_SHA" ] && [ -f "$LOCK_MARKER" ] && [ "$(cat "$LOCK_MARKER" 2>/dev/null)" = "$LOCK_SHA" ]; then
+    echo "  • pnpm install skipped (node_modules present, pnpm-lock.yaml unchanged)"
+  else
+    echo "  • pnpm install (hardlinks from the global store)"
+    pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install
+    [ -n "$LOCK_SHA" ] && mkdir -p node_modules && echo "$LOCK_SHA" > "$LOCK_MARKER"
+  fi
 fi
 
 # ── 2. launch.json on autoPort — gitignored, so copy the main one and flip ephemeral ports ──────────

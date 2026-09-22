@@ -758,7 +758,9 @@ function enforceWholeFrdTraceability(result) {
 const EVIDENCE_SCHEMA = {
   type: 'object', required: ['report'],
   properties: {
-    report: { type: 'string', description: 'the VERBATIM contents of .pandacorp/run/gate-report.json after `bash .pandacorp/verify.sh --since <last_green_sha> --report-all` — the whole file as text, never a summary, never re-formatted' },
+    report: { type: ['string', 'null'], description: 'the VERBATIM contents of .pandacorp/run/gate-report.json after `bash .pandacorp/verify.sh --since <last_green_sha> --report-all` — the whole file as text, never a summary, never re-formatted. `null` iff the sanity gate (step 0) refused to run verify.sh at all — see `reason`.' },
+    reason: { type: 'string', description: 'BL-0149: set ONLY when `report` is null — why the collector refused to run verify.sh (e.g. "gate-worktree-not-bootstrapped"). The engine surfaces this VERBATIM in the GateEvidenceFallback log/event instead of a generic message.' },
+    report_suspect: { type: 'boolean', description: 'BL-0149: true iff 3+ cheap sub-gates (biome/tsc/knip/madge…) are red with environment-only noise (command not found, Cannot find module) rather than a real finding — the pack is discarded and the gate degrades to explore, same as a null report.' },
     diffStat: { type: 'string', description: 'the output of `git diff <pin_base>..<pin> --stat` (the full stat, every file)' },
     diff: { type: 'string', description: "the UNIFIED diff `git diff <pin_base>..<pin> -- <the reviewed work orders' artifact paths>`, capped at EVIDENCE_DIFF_MAX_LINES lines" },
     truncated: { type: 'boolean', description: 'true iff the unified diff exceeded the line cap and was clipped — the gate is told so explicitly, so a clipped diff is never read as the complete change set' },
@@ -1296,10 +1298,19 @@ const EVIDENCE_DIFF_MAX_LINES = 1500    // size cap on the unified diff carried 
 // because the reviewer would treat it as authoritative.
 function validateEvidence(pack) {
   if (!pack || typeof pack !== 'object') return { evidence: null, fallbackReason: 'collector returned no verdict' }
-  if (typeof pack.report !== 'string' || !pack.report.trim()) return { evidence: null, fallbackReason: 'gate-report.json missing from the pack' }
+  // BL-0149: the collector's own sanity gate (step 0 of collectGateEvidence) refuses to run verify.sh
+  // at all when the pinned worktree was never bootstrapped (no node_modules) — it returns { report:
+  // null, reason }. Surface that SPECIFIC reason, never the generic "missing from the pack" message,
+  // so the log/GateEvidenceFallback event tells the operator exactly what to fix.
+  if (typeof pack.report !== 'string' || !pack.report.trim()) return { evidence: null, fallbackReason: pack.reason ? String(pack.reason) : 'gate-report.json missing from the pack' }
   let parsed
   try { parsed = JSON.parse(pack.report) } catch { return { evidence: null, fallbackReason: 'gate-report.json is not valid JSON' } }
   if (!parsed || typeof parsed !== 'object' || typeof parsed.green !== 'boolean') return { evidence: null, fallbackReason: 'gate-report.json has no boolean green' }
+  // BL-0149: a well-formed report can still be UNTRUSTWORTHY — the collector flags report_suspect
+  // when 3+ cheap sub-gates are red on environment noise (command not found / Cannot find module),
+  // the signature of an unbootstrapped worktree rather than a real finding. Treat it exactly like a
+  // null report: strictly worse than no evidence would be to hand a reviewer as authoritative.
+  if (pack.report_suspect === true) return { evidence: null, fallbackReason: 'collector flagged report_suspect (3+ cheap sub-gates red on environment noise, e.g. an unbootstrapped worktree) — discarding the pack rather than risk it being read as authoritative' }
   return { evidence: pack, fallbackReason: '' }
 }
 
@@ -1330,11 +1341,13 @@ async function collectGateEvidence(frd, reviewIds, pinSha) {
     : '(the reviewed work orders declare no artifacts — do NOT scope by path; take the whole diff and let the line cap clip it)'
   agentSpawned++
   return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
+  0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** Run \`test -e node_modules/.bin/vitest\`. If it does NOT exist, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
   1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once: \`bash .pandacorp/verify.sh --since <PIN_BASE> --report-all\` (that argument ORDER is required — \`--since\` is positional). It may exit non-zero; that is FINE and expected — it is data, not a problem for you to fix. Then read \`.pandacorp/run/gate-report.json\`, which that run always writes, and return its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
+  1b) **SANITY CHECK (BL-0149) on what step 1 just produced.** Look at the sub-gates in that report. If **3 or more** of the cheap sub-gates (biome/tsc/knip/madge and similar) are RED with an ENVIRONMENT-only message (\`command not found\`, \`Cannot find module\`, \`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\`, or equivalent "the tool itself could not run" text — never an actual lint/type finding), set \`report_suspect: true\`: this is a broken worktree, not a real verdict, and a reviewer must never mistake environment noise for a finding. Otherwise set \`report_suspect: false\`.
   2) \`git diff <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`.
   3) \`git diff <PIN_BASE>..${pinSha} ${scope}\` → return it in \`diff\`. **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
   4) \`ac\`: this FRD's EARS acceptance criteria, VERBATIM. The build plan already extracted the criteria these work orders own — start from exactly this text and return it unchanged${acText ? `:\n  ${acText}\n  ` : ` (the plan threaded none, so read docs/frds/${frd}/frd.md and copy its acceptance criteria verbatim). `}Only ADD to it: if docs/frds/${frd}/frd.md carries numbered acceptance criteria this list is missing, append those verbatim too. Never paraphrase, never renumber, never drop one.
-  Return { report, diffStat, diff, truncated, ac }.`,
+  Return { report, diffStat, diff, truncated, ac, report_suspect } — or, if step 0 refused, just { report: null, reason }.`,
     { label: `evidence:${frd}`, phase: 'Review', model: MECH, effort: MECH_EFFORT, agentType: MECH_AGENT('pandacorp:implementer'), schema: EVIDENCE_SCHEMA, workFrom: worktreeWorkFrom(pinSha) })
 }
 
@@ -1545,25 +1558,42 @@ ${GATE_PASS_RETURN}
 }
 
 // ── C2 gate worktree lifecycle (MECH, MAIN-tree git op) ──────────────────────────────────────────
-// Lazily creates the persistent detached worktree at GATE_WORKTREE; on safe reuse it checks out the new pin sha
-// (+ pnpm install ONLY if pnpm-lock.yaml changed between shas). One label 'gate-worktree'. Returns true iff
-// the worktree is ready at `sha`. First hard failure → worktreeState 'failed' → the whole run falls back to
-// the legacy synchronous gate path. Idempotent: a no-op (no spawn) when already frozen at `sha`.
+// Lazily creates the persistent detached worktree at GATE_WORKTREE, bootstrapped via the SAME
+// .pandacorp/worktree-bootstrap.sh every other fresh worktree gets (BL-0149 — a bare ad-hoc `pnpm
+// install` left the WP-06 evidence collector running verify.sh against a worktree with no
+// node_modules, so its biome/tsc/knip/madge sub-gates failed on environment noise, not real
+// findings, and the reviewer had to redo the expensive work `digested` exists to avoid). One label
+// 'gate-worktree'. Returns true iff the worktree is ready at `sha`. First hard failure →
+// worktreeState 'failed' → the whole run falls back to the legacy synchronous gate path.
+// BL-0150: memoized by `sha` on a SHARED in-flight promise — `launchEvidence`, `launchGate` and the
+// concurrent-gate probe each call this independently (no shared mutex between them), and canary B
+// caught two concurrent `gate-worktree` agents (different keys, 5ms apart) spawned because both
+// callers raced the SAME `worktreeState !== 'ready'` check before either's spawn had resolved. A
+// second call for the SAME sha now reuses the FIRST call's pending promise instead of spawning its
+// own agent; a call for a DIFFERENT sha (not expected on the current call sites, all sharing one
+// FRD's pinSha) still proceeds independently. Idempotent: a no-op (no spawn) once frozen at `sha`.
 async function ensureGateWorktree(sha) {
   if (worktreeState === 'failed') return false
   if (worktreeState === 'ready' && lastWorktreeSha === sha) return true   // already frozen at this sha — no spawn
-  agentSpawned++
-  const r = await agent(
-    `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
-    1) If the directory ${GATE_WORKTREE} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\` and \`pnpm install\` inside ${GATE_WORKTREE}. Return { ok: true, created: true }.
-    2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain\` is empty. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved" }.
-    3) For a registered CLEAN reuse, note its old sha, then \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`. Run \`pnpm install --frozen-lockfile\` inside ${GATE_WORKTREE} ONLY IF pnpm-lock.yaml changed between the old sha and ${sha} (\`git -C ${PROJECT_DIR} diff --name-only <oldsha> ${sha} -- pnpm-lock.yaml\` non-empty); otherwise SKIP install. Return { ok: true, created: false }.
-    If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
-    { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
-  if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
-  worktreeState = 'failed'; lastWorktreeSha = null
-  log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
-  return false
+  if (gateWorktreeInFlight && gateWorktreeInFlightSha === sha) return gateWorktreeInFlight   // BL-0150: reuse the SAME pending spawn, never a second one
+  const attempt = (async () => {
+    agentSpawned++
+    const r = await agent(
+      `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
+      1) If the directory ${GATE_WORKTREE} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\`, \`cd\` into it, and run \`bash .pandacorp/worktree-bootstrap.sh\` (BL-0149 — it reconstitutes node_modules and everything else a fresh worktree needs; it is idempotent, safe to re-run, and skips reinstalling when the lockfile hasn't changed). Return { ok: true, created: true }.
+      2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain\` is empty. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved" }.
+      3) For a registered CLEAN reuse, \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`, then re-run \`bash .pandacorp/worktree-bootstrap.sh\` inside ${GATE_WORKTREE} (BL-0149 — same idempotent script; it is cheap when pnpm-lock.yaml is unchanged, so you do NOT need to diff the lockfile yourself first). Return { ok: true, created: false }.
+      If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence, worktree-bootstrap.sh exits non-zero), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
+      { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
+    if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
+    worktreeState = 'failed'; lastWorktreeSha = null
+    log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
+    return false
+  })()
+  gateWorktreeInFlight = attempt
+  gateWorktreeInFlightSha = sha
+  try { return await attempt }
+  finally { if (gateWorktreeInFlight === attempt) { gateWorktreeInFlight = null; gateWorktreeInFlightSha = null } }
 }
 
 // ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
@@ -2450,6 +2480,8 @@ const gateQueue = []          // FRD folders whose build WOs are all committed +
 // ── C2 concurrent-gate state ──────────────────────────────────────────────────────────────────────
 let worktreeState = 'unknown'   // 'unknown' | 'ready' | 'failed' (failed → legacy synchronous gate path)
 let lastWorktreeSha = null      // the sha the worktree is currently checked out at (skip redundant checkout/install)
+let gateWorktreeInFlight = null   // BL-0150: the SHARED pending ensureGateWorktree() promise, memoized so a concurrent caller reuses it instead of spawning a second gate-worktree agent
+let gateWorktreeInFlightSha = null   // the sha gateWorktreeInFlight is preparing — only a call for this SAME sha reuses it
 let concurrentGates = null      // null = undecided (probe at the first gate); true = concurrent; false = legacy inline
 let gateWorktreeChain = Promise.resolve()   // single worktree = one checkout at a time → serialize (checkout+review) among gates
 const gatesInFlight = new Map() // frd -> promise (settled entries are deleted; size capped at MAX_CONCURRENT_GATES)
