@@ -3685,6 +3685,85 @@ SCENARIOS.push({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// BL-0157 — the traceability ORACLE must never destroy a real verdict (canary C, wf_1cf782d6-2ed)
+// enforceWholeFrdTraceability used to stamp a BRAND-NEW { green:false, failure } object over ANY
+// deficient verdict — including an already-red REJECT — silently wiping its reopen/findings. gateConverge
+// then read the wiped object as a bare "no specific reopen" failure and fell to the expensive
+// attemptRepair; a deficient-but-GREEN re-gate fell all the way to blockFrd(…,'error') with no retry.
+// B1 preserves a reject's fields; B2 re-asks a deficient green ONCE before repairing/blocking 'error'.
+// The harness only auto-fills `traceability` when the key is ABSENT (see defaultResponse/agentStub
+// above) — every fixture below passes an EXPLICIT, incomplete array to exercise the real oracle path.
+// ─────────────────────────────────────────────────────────────────────────────
+const traceabilityWithout = (skipClass) => ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion']
+  .filter((c) => c !== skipClass)
+  .map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))
+
+SCENARIOS.push({
+  name: 'R1 (BL-0157). a REJECT (reopen+findings) with a missing `requirement` traceability entry still takes the DR-073 patch-first path — replica of canary C gate 1',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-r1', deps: [], workOrders: [mkWo('wo-r1-001', 'PLANNED', { frd: 'frd-r1', artifacts: ['src/r1/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-r1', times: 1, response: {
+      green: false,
+      reopen: ['wo-r1-001'],
+      findings: [{ wo: 'wo-r1-001', finding: 'R1-FINDING readFileSync missing a guard at src/r1/a.ts:12', failingTest: 'src/r1/_tests/a.test.ts > guards a missing file', files: ['src/r1/a.ts'] }],
+      failure: 'reject: missing null-guard',
+      traceability: traceabilityWithout('requirement'),   // mirrors canary C: every REQ covered only via its AC, never its own `requirement` entry
+    } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /missing contractClass: requirement/), 'the engine names the missing class in its log')
+    const patches = byLabel(run, /^patch:/)
+    const repairs = byLabel(run, /^repair:/)
+    t.ok(patches.length >= 1, `a traceability-deficient REJECT with reopen+findings still reaches DR-073 patch-first (patches=${patches.length})`)
+    t.ok(repairs.length === 0, `it must NEVER fall to the expensive attemptRepair — B1's old bug destroyed reopen/findings and forced exactly this (repairs=${repairs.length})`)
+    t.ok(patches[0] && patches[0].prompt.includes('R1-FINDING'), 'the specific finding text reaches the patch prompt — proof reopen/findings survived the oracle (B1)')
+  },
+})
+
+SCENARIOS.push({
+  name: 'R2 (BL-0157). a deficient GREEN re-asks the SAME gate ONCE and converges on the complete re-ask — never attemptRepair',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-r2', deps: [], workOrders: [mkWo('wo-r2-001', 'PLANNED', { frd: 'frd-r2', artifacts: ['src/r2/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-r2', times: 1, response: { green: true, traceability: traceabilityWithout('requirement') } },
+    { label: 'gate:frd-r2', response: { green: true, traceability: validTraceability, testFiles: ['src/r2/_tests/x.test.ts'] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /missing contractClass: requirement/), 'the FIRST (deficient) gate call names the missing class')
+    const gates = byLabel(run, 'gate:frd-r2')
+    t.ok(gates.length === 2, `exactly ONE re-ask, not a loop (gate calls=${gates.length})`)
+    t.ok(gates[1] && /RE-ASK/.test(gates[1].prompt) && gates[1].prompt.includes('requirement'), 'the re-ask prompt names the missing class explicitly to the reviewer')
+    t.ok(byLabel(run, /^repair:/).length === 0, 'a deficient-but-otherwise-green verdict never reaches attemptRepair')
+    t.ok(byLabel(run, /^apply-gate:/).length === 1, 'the FRD converges through apply-gate on the complete re-ask')
+    t.ok(run.result && run.result.builtFrds.includes('frd-r2'), 'the FRD verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'R3 (BL-0157). two deficient GREENs in a row block needs-owner — never the default \'error\' — and the re-ask never loops',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-r3', deps: [], workOrders: [mkWo('wo-r3-001', 'PLANNED', { frd: 'frd-r3', artifacts: ['src/r3/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-r3', response: { green: true, traceability: traceabilityWithout('requirement') } },   // same deficient verdict on every call — no `times`
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-r3')
+    t.ok(gates.length === 2, `exactly ONE re-ask, never a loop (gate calls=${gates.length})`)
+    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'WP06f invariant holds here too: a traceability-deficient verdict is never stamped VERIFIED')
+    t.ok(byLabel(run, /^repair:/).length === 0, 'still-deficient never falls to attemptRepair — that reads as a CODE failure it never was')
+    t.ok(byLabel(run, /^persist-block:/).length === 1, 'the block is persisted on the main tree')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-r3'), 'the FRD ends BLOCKED')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-r3'), 'never built')
+    t.ok(hasLog(run, /STILL incomplete after the re-ask/), 'the log names the terminal state explicitly, never silent')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-r3'] === 'needs-owner', "blocked as 'needs-owner' — the exact bug this fixes is a default 'error' the code never earned (canary C gate 2)")
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
