@@ -17,6 +17,20 @@
 #   `.pandacorp/run/gate-report.json` — a machine-readable verdict for Mission Control or any other
 #   reader, so nobody has to scrape this script's human stdout. LESSON-0155: a stale report from a
 #   previous run must never be read as this run's verdict, so it is deleted before anything runs.
+#
+# WP-08 additions — SCOPE only, nothing here ever softens what counts as red:
+#   `--only=<subgate>[,<subgate>...]`: run ONLY the named sub-gates (names exactly as they appear in
+#   the gate report: structure-guard data-layer api-error-contract doc-lint residual-ambiguity biome
+#   tsc knip madge vitest playwright). An unknown name is FAIL-CLOSED — non-zero exit before any gate
+#   runs, never a silent fallback to the full suite.
+#   `--files=<path>[,<path>...]`: narrow the two file-addressable gates — biome runs on exactly those
+#   paths, and vitest switches to `vitest related <paths>` (the tests those files affect). tsc, knip
+#   and madge stay WHOLE-PROJECT by design: they are whole-program analyses whose whole value is
+#   catching what a scoped run cannot see, and they are the cheap ones anyway (~2.5s/1.6s/3.1s).
+#   EITHER flag stamps the report `"scope":"partial"`. That label is load-bearing: the build engine
+#   REFUSES to promote a work order to VERIFIED or advance `last_green_sha` on a partial report, so a
+#   scoped run can never be mistaken for a full green by a later reader. A scoped run writes nothing
+#   but the report (which, being partial, is self-describing), so it leaves no other artifact behind.
 set -euo pipefail
 shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 3.2 (avoids "invalid shell option")
 
@@ -49,10 +63,52 @@ fi
 # --- Report-all mode (WP-05) ----------------------------------------------------------------
 # Detected ANYWHERE in argv (order-independent), so it composes with `--since` in either order —
 # `--since`'s own detection above is untouched, and this scan never changes what it resolves to.
+# WP-08 rides the SAME scan for `--only` / `--files` (both the `--only=x,y` and the `--only x,y`
+# spelling, so a plausible invocation can never be silently ignored and degrade to a full run).
 REPORT_ALL=0
+ONLY_GATES=""
+SCOPE_FILES=""
+_wp08_expect=""
 for _wp05_arg in "$@"; do
-  if [ "$_wp05_arg" = "--report-all" ]; then REPORT_ALL=1; fi
+  if [ -n "$_wp08_expect" ]; then
+    case "$_wp08_expect" in
+      only)  ONLY_GATES="$_wp05_arg" ;;
+      files) SCOPE_FILES="$_wp05_arg" ;;
+    esac
+    _wp08_expect=""
+    continue
+  fi
+  case "$_wp05_arg" in
+    --report-all) REPORT_ALL=1 ;;
+    --only=*)     ONLY_GATES="${_wp05_arg#--only=}" ;;
+    --files=*)    SCOPE_FILES="${_wp05_arg#--files=}" ;;
+    --only)       _wp08_expect="only" ;;
+    --files)      _wp08_expect="files" ;;
+  esac
 done
+
+# The `--files` list as a real argv array (bash 3.2 compatible). Kept EMPTY when the flag is absent,
+# which is what every "unscoped behaves exactly as before" branch below tests against.
+SCOPE_FILES_ARR=()
+if [ -n "$SCOPE_FILES" ]; then
+  _wp08_oldifs="$IFS"
+  IFS=','
+  for _wp08_f in $SCOPE_FILES; do
+    if [ -n "$_wp08_f" ]; then SCOPE_FILES_ARR+=("$_wp08_f"); fi
+  done
+  IFS="$_wp08_oldifs"
+fi
+
+# The canonical sub-gate names — the SAME strings the gate report's `name` field carries, so the
+# engine can feed a report's failing sub-gate straight back in as `--only=<name>`.
+KNOWN_GATES="structure-guard data-layer api-error-contract doc-lint residual-ambiguity biome tsc knip madge vitest playwright"
+gate_selected() {
+  if [ -z "$ONLY_GATES" ]; then return 0; fi
+  case ",$ONLY_GATES," in
+    *",$1,"*) return 0 ;;
+  esac
+  return 1
+}
 
 # --- Gate-report scaffolding (WP-05) — ALWAYS-written `.pandacorp/run/gate-report.json` -------
 # `.pandacorp/run/` is the existing gitignored runtime-scratch convention (see .pandacorp/run/
@@ -65,6 +121,9 @@ rm -f "$REPORT_FILE"
 GATE_RUN_AT=$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))' 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 GATE_SCOPE="full"
 [ -n "$SINCE" ] && GATE_SCOPE="since"
+# WP-08: `partial` outranks `since`. It is the WEAKEST claim this script can make about a run, and the
+# engine's certification cage keys on exactly this value — so when both apply, report the weaker one.
+[ -n "$ONLY_GATES$SCOPE_FILES" ] && GATE_SCOPE="partial"
 
 GATE_FRAGMENTS_DIR=$(mktemp -d)
 : > "$GATE_FRAGMENTS_DIR/fragments.jsonl"
@@ -224,13 +283,45 @@ with open(out_path, "w") as fh:
 PY
 }
 
+# --- WP-08 `--only` validation — FAIL-CLOSED, before a single gate runs ------------------------
+# A typo'd sub-gate name must never degrade into "run everything" (which a reader would then see as a
+# full green) nor into "run nothing" (a vacuous green). It is a hard non-zero exit, and the report it
+# leaves behind says green:false with the offending invocation recorded as its own sub-gate entry.
+if [ -n "$ONLY_GATES" ]; then
+  _wp08_bad=""
+  _wp08_oldifs="$IFS"
+  IFS=','
+  for _wp08_g in $ONLY_GATES; do
+    if [ -n "$_wp08_g" ]; then
+      case " $KNOWN_GATES " in
+        *" $_wp08_g "*) ;;
+        *) _wp08_bad="$_wp08_bad $_wp08_g" ;;
+      esac
+    fi
+  done
+  IFS="$_wp08_oldifs"
+  if [ -n "$_wp08_bad" ]; then
+    _wp08_log="$GATE_FRAGMENTS_DIR/log-invocation.txt"
+    {
+      echo "✗ --only: unknown sub-gate name(s):$_wp08_bad"
+      echo "   known sub-gates: $KNOWN_GATES"
+    } | tee "$_wp08_log"
+    record_gate_result invocation playwright 2 0 "$_wp08_log"
+    write_gate_report 2
+    exit 2
+  fi
+fi
+
 # Runs one of the 9 CHEAP sub-gates. Without `--report-all`: aborts immediately on the first
 # failure (byte-identical to the pre-WP-05 fail-fast behavior, just now also writing the report).
 # With `--report-all`: keeps going so every cheap gate gets a chance to report its own failures;
 # the caller aborts once, after all 9 have run, if any of them failed.
+# WP-08: a gate `--only` did not name is skipped entirely — it contributes no fragment, so the report
+# shows exactly what ran and nothing implies a gate passed when it never executed.
 CHEAP_GATES_FAILED=0
 LAST_CHEAP_RC=0
 run_cheap_gate() {
+  if ! gate_selected "$1"; then return 0; fi
   local rc=0
   run_gate "$@" || rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -336,7 +427,13 @@ gate_residual_ambiguity() {
 run_cheap_gate residual-ambiguity pathlist gate_residual_ambiguity
 
 # --- Lint + format (every warn is a hard gate; --error-on-warnings) ------------
-run_cheap_gate biome biome pnpm biome check . --error-on-warnings
+# WP-08: `--files` narrows biome to exactly those paths (it is path-addressable and is the gate a
+# mechanical repair agent re-runs most). Unscoped, the command line is byte-for-byte the old one.
+if [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; then
+  run_cheap_gate biome biome pnpm biome check "${SCOPE_FILES_ARR[@]}" --error-on-warnings
+else
+  run_cheap_gate biome biome pnpm biome check . --error-on-warnings
+fi
 
 # --- Typing -------------------------------------------------------------------
 run_cheap_gate tsc tsc pnpm tsc --noEmit
@@ -361,11 +458,25 @@ fi
 # command exits the script IMMEDIATELY, before a following `VITEST_RC=$?` would ever run — that
 # would skip write_gate_report entirely on a vitest failure. The `||` keeps this on the safe side
 # of errexit (same reasoning as run_gate's own PIPESTATUS capture just above).
+#
+# WP-08 `--files`: switch to `vitest related <paths>` — the tests those source files actually affect.
+# VERIFIED against mission-control's installed vitest 4.1.9: `vitest run --related <files>` is NOT a
+# valid option there (CACError: Unknown option `--related`); the supported spelling is the `related`
+# SUBCOMMAND, which narrowed 435 discovered test files to the 4 that import src/lib/slug.ts.
+# `--passWithNoTests` is deliberate: a file with no related test must not red a SCOPED run (it is not
+# a failure signal, and the scoped run's `partial` report can never certify anything on its own — the
+# whole-project re-gate remains the only oracle that certifies).
+if gate_selected vitest; then
 VITEST_RC=0
-run_gate vitest vitest pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"} || VITEST_RC=$?
+if [ "${#SCOPE_FILES_ARR[@]}" -gt 0 ]; then
+  run_gate vitest vitest pnpm vitest related "${SCOPE_FILES_ARR[@]}" --run --reporter=dot --passWithNoTests || VITEST_RC=$?
+else
+  run_gate vitest vitest pnpm vitest run --reporter=dot ${SINCE:+--changed "$SINCE"} || VITEST_RC=$?
+fi
 if [ "$VITEST_RC" -ne 0 ]; then
   write_gate_report "$VITEST_RC"
   exit "$VITEST_RC"
+fi
 fi
 
 # --- Browser gates (DR-055/056/074/075) — FAIL-CLOSED: a missing harness is RED ---
@@ -403,11 +514,15 @@ gate_playwright() {
   fi
 }
 # Same `set -e` hazard as vitest above: `|| PLAYWRIGHT_RC=$?`, not a bare call.
+# WP-08: the browser layer is NOT file-scopable (`--files` does not touch it) — it is only ever
+# skipped wholesale by an `--only` that does not name it.
+if gate_selected playwright; then
 PLAYWRIGHT_RC=0
 run_gate playwright playwright gate_playwright || PLAYWRIGHT_RC=$?
 if [ "$PLAYWRIGHT_RC" -ne 0 ]; then
   write_gate_report "$PLAYWRIGHT_RC"
   exit "$PLAYWRIGHT_RC"
+fi
 fi
 
 # --- Bless-provenance advisory (DR-080) — non-blocking -------------------------
