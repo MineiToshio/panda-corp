@@ -3618,6 +3618,73 @@ SCENARIOS.push({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// FIX2 — Canary B defects (BL-0149/BL-0150): the C2 gate worktree wasn't bootstrapped before the
+// WP-06 evidence collector ran verify.sh inside it (biome/tsc/knip/madge red on environment noise,
+// not real findings — BL-0149), and the collector + the gate probe each requested the SAME pinned
+// worktree with no shared mutex, spawning TWO concurrent `gate-worktree` agents (BL-0150).
+// ─────────────────────────────────────────────────────────────────────────────
+
+SCENARIOS.push({
+  name: 'FIX2a. BL-0149 — the gate-worktree spawn bootstraps the checkout via worktree-bootstrap.sh, not a bare pnpm install',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-fix2a', deps: [], workOrders: [mkWo('wo-fix2a-001', 'PLANNED', { frd: 'frd-fix2a', artifacts: ['src/fix2a/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gw = byLabel(run, 'gate-worktree')[0]
+    t.ok(gw, 'a gate-worktree spawn ran')
+    t.ok(gw && /worktree-bootstrap\.sh/.test(gw.prompt), 'the gate-worktree prompt runs .pandacorp/worktree-bootstrap.sh (BL-0149) — the same reconstitution every other fresh worktree gets, instead of a bare ad-hoc pnpm install the collector cannot verify actually ran')
+  },
+})
+
+SCENARIOS.push({
+  name: 'FIX2b. BL-0150 — digested mode: exactly ONE gate-worktree spawn per pin even though the evidence collector AND the gate probe both request it',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-fix2b', deps: [], workOrders: [wp06Wo('wo-fix2b-001', 'frd-fix2b', { artifacts: ['src/fix2b/**'] })] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: 's', diff: 'd', truncated: false, ac: 'a', report_suspect: false } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate-worktree').length === 1, `exactly ONE gate-worktree spawn per pin — the collector and the gate share the same memoized in-flight promise (got ${byLabel(run, 'gate-worktree').length})`)
+    t.ok(byLabel(run, /^evidence:/).length === 1, 'the collector still ran exactly once')
+    t.ok(run.result && run.result.builtFrds.includes('frd-fix2b'), 'the FRD still verified through the digested gate')
+  },
+})
+
+SCENARIOS.push({
+  name: 'FIX2c. BL-0149 — collector returns report:null reason:"gate-worktree-not-bootstrapped" ⇒ the gate degrades to EXPLORE with GateEvidenceFallback, never a broken report presented as evidence',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-fix2c', deps: [], workOrders: [wp06Wo('wo-fix2c-001', 'frd-fix2c')] }]),
+  responses: [{ prefix: 'evidence:', response: { report: null, reason: 'gate-worktree-not-bootstrapped' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-fix2c')[0]
+    t.ok(byLabel(run, /^evidence:/).length === 1, 'the collector was attempted')
+    t.ok(gate, 'the gate STILL ran (never skipped for want of evidence)')
+    t.ok(gate && /Run the FOCUSED gate/.test(gate.prompt), 'the gate fell back to the explore contract')
+    t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'no digested marker on the fallback gate')
+    t.ok(gate && /GateEvidenceFallback/.test(gate.prompt), 'the gate prompt emits the GateEvidenceFallback event')
+    t.ok(hasLog(run, /gate-worktree-not-bootstrapped/), 'the SPECIFIC reason (not a generic message) is logged, never silent')
+    t.ok(run.result && run.result.builtFrds.includes('frd-fix2c'), 'the run still converges through the explore gate')
+  },
+})
+
+SCENARIOS.push({
+  name: 'FIX2d. BL-0149 — collector sets report_suspect:true (≥3 cheap sub-gates red on environment noise) ⇒ the gate degrades to EXPLORE too',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-fix2d', deps: [], workOrders: [wp06Wo('wo-fix2d-001', 'frd-fix2d')] }]),
+  responses: [{ prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: 's', diff: 'd', truncated: false, ac: 'a', report_suspect: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-fix2d')[0]
+    t.ok(gate && /Run the FOCUSED gate/.test(gate.prompt), 'report_suspect degrades to the explore contract too — a suspect pack is strictly worse than none')
+    t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'no digested marker on the report_suspect fallback gate')
+    t.ok(gate && /GateEvidenceFallback/.test(gate.prompt), 'the fallback event fires')
+    t.ok(hasLog(run, /report_suspect/), 'the report_suspect reason is logged, never silent')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
