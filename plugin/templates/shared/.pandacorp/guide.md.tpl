@@ -70,7 +70,7 @@ Docs are **feature-centric** (DR-049): a thin **product layer** under `docs/prod
 
 > **Code standards: see `AGENTS.md`** (the factory's durable conventions). The platform stack is in `docs/product/architecture.md`; each feature's implementation design in its `docs/frds/frd-NN-<slug>/blueprint.md`.
 
-1. **Language (DR-009)** — see `AGENTS.md` § Language & interaction for the full rule (committed = English, gitignored = Spanish, the owner interaction is always Spanish); the Documentation map above already covers the one committed exception (`.pandacorp/status.yaml`, machine state) and its Spanish narrative (`.pandacorp/comms/summary.md`).
+1. **Language (DR-009)** — see `AGENTS.md` § Language & interaction for the full rule (committed = English, gitignored = Spanish, the owner interaction is always Spanish); the Documentation map above already covers the one committed exception (`.pandacorp/status.yaml`, machine state) and its Spanish narrative (`.pandacorp/comms/summary.md`). `.pandacorp/status.yaml` is committed (machine state, English).
 2. Conventional Commits with scope, in English. Direct commits/push to `main` are fine (solo operator; the quality gate is the `implement` reviewer + `.pandacorp/verify.sh`). Never force-push; use a throwaway branch only for big/risky changes.
 3. TDD: acceptance-criteria tests BEFORE implementing. Nothing is declared done with red tests — `.pandacorp/verify.sh` must pass.
 4. UI only with design tokens from `docs/design/design-tokens.json` — zero hardcoded values. `data-testid` on interactive elements.
