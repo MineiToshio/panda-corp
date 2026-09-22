@@ -61,6 +61,13 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     gate and the end-of-build visual-QA pass to run even when the ready/built work orders declare
 //     no UI-touching artifacts (WP-01, DR-057/DR-072). Use when the UI-relevance heuristic is wrong
 //     for a given run (e.g. a WO's real UI surface hides behind an undeclared or unconventional path).
+//   args.leanCloseOut: OPT-OUT escape hatch (default true) — set to `false` to fall back to the
+//     pre-WP-02 close-out shape: visual-qa awaited fully in series, and archive-changes/notify-end-or-
+//     close-out/release-lease as three separate serial spawns. Default `true` fires visual-qa as a
+//     promise (awaited only right before the run's terminal closing agent, so its wall-clock overlaps
+//     the hardening chain instead of stacking in front of it) and folds archive-changes + release-lease
+//     into whichever closing agent actually fires (WP-02, proposal 37 / FRD-24 measurement). Use `false`
+//     if a close-out regression needs isolating from this change.
 const MODE = (args && args.mode) || 'powerful'
 const STRICT_BASELINE = Boolean(args && args.strictBaseline === true)   // BL-0124 escape hatch — see the arg doc above
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
@@ -95,6 +102,7 @@ const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-06
 const FOUNDATION_GATE_NULL_CAP = (args && args.foundationGateNullCap) || 2   // WS-D/D5: a SEPARATE cap for null/garbled foundation-completeness gate verdicts (a dead gate agent) — counted on its OWN counter so a couple of dead gates never eat the real repair budget (FOUNDATION_REPAIR_CAP), and vice-versa
 const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
 const FORCE_UI_PASSES = Boolean(args && args.forceUiPasses === true)   // WP-01 escape hatch: always run the foundation-completeness gate + end-of-build visual-QA pass, bypassing the UI-artifact heuristic (artifactsTouchUi)
+const LEAN_CLOSE_OUT = !(args && args.leanCloseOut === false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
 const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at most this many in-place patch attempts per gate cycle (patch-1 + one diagnosis-guided patch-2); beyond it the ladder reverts+rebuilds instead of a 3rd patch — reopen_count stays the hard non-progress budget
@@ -2130,69 +2138,28 @@ while (true) {
 await settleGates(true)
 await drainConverge()
 
-// ── End-of-build VISUAL QA pass (DR-072) ──────────────────────────────────────
-// The fidelity work consolidated into ONE dedicated phase, OUTSIDE the convergence loop, so being
-// thorough here can't cause the churn a per-FRD fidelity BLOCK would. Scoped to the FRDs touched THIS
-// run. PUNCH-LIST + bounded DIRECT fixes — NEVER a reject-to-rebuild. The owner sweeps the residual.
-// WP-01: skip when NONE of the built FRDs' work orders declare a UI-touching artifact (same heuristic
-// as the foundation gate — pointless fidelity work on a backend/lib-only run, FORCE_UI_PASSES bypasses
-// it). Derived from the plan's own record (frdState), not a re-read — the work orders were already
-// enrolled when the FRD was planned.
-let visualQaSkipEvent = ''
-if (plan.hasFrontend && builtFrds.length) {
-  const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
-  if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
-    phase('Review')
-    agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
-    await agent(`${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${builtFrds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
+// ── Close-out shared prompt fragments (WP-02) — defined ONCE, reused byte-identically by both the
+// lean (default) and legacy (args.leanCloseOut:false) shapes below, so the ACTUAL agent instructions
+// never fork between the two — only the ORCHESTRATION around them (when they fire, how many spawns) does.
+const visualQaPromptBody = (frds) =>
+  `${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${frds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
     For EACH of those FRDs, for each key route:
     1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
     2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
     3) FIX the cheap, unambiguous ones DIRECTLY (a token/size/spacing/color/class correction against the EXISTING design docs — the doc already specified it, the build implemented it wrong; NO doc change). Check them off. Leave ambiguous/large gaps UNCHECKED for the owner. Bound your fixes (don't grind to perfection — the owner does the final polish).
-    4) After fixing, run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` to confirm your fixes regressed nothing (DR-106 — the close-out/notify-end step right after runs the FULL suite once; don't pay it twice here); if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
-    Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`,
-      { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
-    log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
-  } else {
-    log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
-    visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
-  }
-}
-
-// ── DR-069 §7 verify-then-archive — DURABLE + cross-run (WS-A/D1) ─────────────────────────────────
-// (audit-20 P0-3.3: the old flow deferred archiving to "the FRD gate", whose prompt never did it — a
-// built change stayed `ready` forever and pending_changes never fell. WS-A/D1: the follow-on fix threaded
-// the "which changes landed" ledger through an IN-SESSION array — so a change whose FRDs verified on a
-// LATER run was never archivable and got re-drained. Now the state lives in the change file itself
-// (`status: building` + `affected_frds`, stamped by processChange), so the sweep is disk-driven and works
-// across runs. Run it whenever THIS run verified anything — a prior run's building change may now be done.)
-if (builtFrds.length) {
-  phase('Review')
-  agentSpawned++
-  await agent(`Archive landed changes — the DR-069 §7 verify-then-archive protocol (durable, cross-run).
-  1) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder). For EACH whose frontmatter \`status\` is "building": read its \`affected_frds\` and check each of those FRD folders' rolled-up frd.md \`implementation_status\`. The change has LANDED iff ALL its affected_frds are VERIFIED (read the rollups from disk — this is what makes it work even when the verifying run is a LATER one).
+    4) After fixing, run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` to confirm your fixes regressed nothing (DR-106 — the close-out/notify-end step right after runs the FULL suite once; don't pay it twice here); if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${frds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
+    Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`
+const archiveChangesBody =
+  ` 1) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder). For EACH whose frontmatter \`status\` is "building": read its \`affected_frds\` and check each of those FRD folders' rolled-up frd.md \`implementation_status\`. The change has LANDED iff ALL its affected_frds are VERIFIED (read the rollups from disk — this is what makes it work even when the verifying run is a LATER one).
   2) For EACH landed change: verify its durable record exists (the canonical docs/FRDs it names were touched); stamp \`status: done\` + \`shipped_sha\` (current \`git rev-parse --short HEAD\`) + \`shipped_at\` (ISO now); MOVE the file to .pandacorp/inbox/changes/done/ (a move, NEVER a delete — the folder is gitignored, a delete is irreversible); update its row in the queue index README.md.
-  3) Leave every still-building change whose affected_frds are merely un-VERIFIED in place (they will verify on a later run). Commit the archive moves + status edits (Conventional Commits, scope). If NO building change has fully landed, change nothing.
-  4) WS-D/D16 — ORPHANED building change: for EACH change still \`status: building\` whose \`affected_frds\` include a BLOCKED FRD (read that FRD's rolled-up frd.md \`implementation_status\` — it is \`BLOCKED\`, NOT merely un-VERIFIED), its build cannot complete on its own. Set it back to \`status: ready\` and add a one-line \`note:\` saying why (e.g. "re-opened: FRD <folder> quedó BLOCKED needs-owner"), so it re-surfaces at the next run's drain instead of stranding as a phantom building change. Commit that edit.
-  Return { done: true }.${visualQaSkipEvent}`,
-    { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
-  log('✓ DR-069 §7 verify-then-archive sweep (building changes whose affected_frds all VERIFIED → done/)')
-} else if (integratedChanges.length) {
-  log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
-}
-
-// ── Close-out + ALWAYS notify the owner how this run ended ────────────────────
-phase('Review')
-const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
-// Project-wide hardening/release is authority a bare whole-project run owns. A targeted FRD/change
-// run closes as a scoped partial run even when its final gate happens to make every global WO VERIFIED.
-const allDone = !TARGETED && !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
-let closed
-if (allDone) {
-  // ── DR-085 HARDENING (BL-0012, fail-closed): security + telemetry are construction's LAST STEP.
-  // `phase: release` is gated on their EVIDENCE — never on the FRD loop alone. Two real findings
-  // shipped as "green" before this gate existed (a missing CSP + an ASI01 path traversal +
-  // never-firing events, run wf_978129ab-eca / LESSON-0022).
+  3) Leave every still-building change whose affected_frds are merely un-VERIFIED in place (they will verify on a later run). Commit the archive moves + status edits (Conventional Commits, scope) as their OWN commit. If NO building change has fully landed, change nothing.
+  4) WS-D/D16 — ORPHANED building change: for EACH change still \`status: building\` whose \`affected_frds\` include a BLOCKED FRD (read that FRD's rolled-up frd.md \`implementation_status\` — it is \`BLOCKED\`, NOT merely un-VERIFIED), its build cannot complete on its own. Set it back to \`status: ready\` and add a one-line \`note:\` saying why (e.g. "re-opened: FRD <folder> quedó BLOCKED needs-owner"), so it re-surfaces at the next run's drain instead of stranding as a phantom building change. Commit that edit.`
+// DR-085 HARDENING (BL-0012, fail-closed): security + telemetry are construction's LAST STEP, unchanged
+// by WP-02 — extracted to a function only so both close-out shapes call the SAME sequence instead of
+// duplicating ~15 lines of prompt text. `phase: release` is gated on their EVIDENCE — never on the FRD
+// loop alone. Two real findings shipped as "green" before this gate existed (a missing CSP + an ASI01
+// path traversal + never-firing events, run wf_978129ab-eca / LESSON-0022).
+const runHardeningChain = async () => {
   phase('Hardening')
   // DR-085 HARDENING 1 is a TWO-spawn audit-then-fix split (RFC-30 N4): the security-auditor is
   // read-only (disallowedTools: Write, Edit — that independence is the point; an auditor that edits
@@ -2209,49 +2176,183 @@ if (allDone) {
   agentSpawned++
   const telem = await agent(`DR-085 HARDENING 3/3 — telemetry verification (BL-0012). Read docs/analytics/events.md (the event plan). VERIFY each planned event actually FIRES (exercise the flows via the tests/dev server; check the PostHog/analytics wiring is present and env-keyed). Fix trivial instrumentation gaps (a missing capture call) with TDD. Append a "## Verification <YYYY-MM-DD>" section to docs/analytics/events.md recording event-by-event: fires|gap-fixed|not-applicable. If the project has NO event plan and needs none (internal/personal return_type — check the PRD), record exactly that in the section instead. Commit.${HARDENING_EVENT('telemetry')} Return { done: true } (the verification section exists) or { done: false, failure }.`,
     { label: 'hardening:telemetry', phase: 'Hardening', model: P.worker, agentType: 'pandacorp:analytics', schema: STOP_SCHEMA })
-  const hardened = Boolean(sec && sec.done === true && telem && telem.done === true)
+  return { sec, telem, hardened: Boolean(sec && sec.done === true && telem && telem.done === true) }
+}
+
+let closed
+if (LEAN_CLOSE_OUT) {
+  // ═══ WP-02 lean close-out (default; args.leanCloseOut:false falls back to the legacy shape below)
+  // proposal 37 / FRD-24 measurement: visual-qa 761s + archive-changes 34s + notify-end 186s +
+  // release-lease 24s, all fully serial. Two changes from the legacy shape:
+  //  (1) visual-qa FIRES as a promise here and is AWAITED only right before the run's terminal closing
+  //      agent below — nothing in between (the archive fold-in, the hardening chain) DEPENDS on its
+  //      result (the punch-list/fixes are advisory, DR-072), so its wall-clock overlaps that unrelated
+  //      work instead of stacking serially in front of it. A null/unconfirmed result degrades HONESTLY:
+  //      logged, and folded into the closing prompt as an explicit partial-result note — never silence.
+  //  (2) archive-changes and release-lease are FOLDED into whichever of the three closing prompts fires,
+  //      instead of spawning as separate agents — cutting the close-out region from 3 serial spawns to 1
+  //      in the common case. Chosen over running archive-changes in parallel() with the closing agent
+  //      because BOTH commit to the SAME working tree (no worktree isolation here, unlike the per-WO
+  //      build wave) — two concurrent `git commit`s risk the exact index.lock race the wave's single-
+  //      serialized-writer design (line ~2010) already exists to avoid.
+  let visualQaPromise = null
+  let visualQaNote = ''
+  if (plan.hasFrontend && builtFrds.length) {
+    const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
+    if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
+      phase('Review')
+      agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
+      visualQaPromise = agent(visualQaPromptBody(builtFrds),
+        { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+    } else {
+      log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
+      visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
+    }
+  }
+
+  // DR-069 §7 verify-then-archive (durable, cross-run) — folded as a prompt fragment into whichever
+  // closing prompt fires below; computed here, independent of hardening/visual-qa (never gates on either).
+  let archiveStep = ''
+  if (builtFrds.length) {
+    archiveStep = `STEP 0 — archive landed changes FIRST, the DR-069 §7 verify-then-archive protocol (durable, cross-run):\n${archiveChangesBody}\n  THEN, in this SAME agent call: `
+    log(`↷ archive sweep folded into the close-out agent (${builtFrds.length} FRD(s) verified this run)`)
+  } else if (integratedChanges.length) {
+    log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
+  }
+
+  // Resolve visual-qa NOW — right before the terminal closing agent, and not one moment earlier — so
+  // archiveStep/hardening above never depended on it. A missing/unconfirmed result degrades honestly.
+  if (visualQaPromise) {
+    const vq = await visualQaPromise
+    if (vq && vq.done === true) {
+      log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+    } else {
+      log('⚠ visual-qa agent returned no confirmed result — degrading honestly (punch-list may be incomplete this run)')
+      visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'agent-no-result') + ' VISUAL QA DEGRADED: the end-of-build visual QA pass did NOT return a confirmed result (agent failure/no-response) — its punch-list may be incomplete or missing this run. Note this explicitly in the progress/decisions write-up below so the owner knows to double-check fidelity by hand; the deterministic visual regression check inside the full verify.sh below is the remaining safety net.'
+    }
+  }
+
   phase('Review')
-  if (hardened) {
-    agentSpawned += COST(P.judge)
-    closed = await agent(`All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP} THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
+  const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
+  // Project-wide hardening/release is authority a bare whole-project run owns. A targeted FRD/change
+  // run closes as a scoped partial run even when its final gate happens to make every global WO VERIFIED.
+  const allDone = !TARGETED && !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length   // WS-D/D4a: a drained change's deferred WOs (into an already-planned FRD) block release this run
+  if (allDone) {
+    const { sec, telem, hardened } = await runHardeningChain()
+    phase('Review')
+    if (hardened) {
+      agentSpawned += COST(P.judge)
+      closed = await agent(`${archiveStep}All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP} THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
+    (i) **every** docs/frds/*/frd.md rollup \`implementation_status\` is VERIFIED (WS-D/D4b — do a FRESH read of each frd.md on disk right now; if any is NOT VERIFIED, return { done: false } listing the offending FRD folders — the in-memory built-count is NOT enough, the disk is the oracle);
+    (ii) assert the hardening evidence EXISTS **and is FRESH**: the security report docs/reviews/security-<TODAY>.md exists (TODAY = \`date -u +%F\`) AND its mtime is NEWER than status.yaml's \`run_started_at\` (WS-D/D4c — compare epochs, e.g. \`date -r docs/reviews/security-<TODAY>.md +%s\` vs the epoch of run_started_at; a STALE same-day report left by a PREVIOUS run FAILS this assert), AND the "## Verification" section is present in docs/analytics/events.md.
+  If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND all of (i)+(ii) hold: set .pandacorp/status.yaml phase: release (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${JOURNAL_GOLD}${HARDENING_EVENT('integration')} (status ok iff you declared release, else fail.) If (and ONLY if) you set phase: release above, ALSO record the run's terminal verdict:${BUILD_COMPLETE('released', `${builtFrds.length}/${plan.frds.length}`)}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')}`,
+        { label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
+      // WS-A/D5: don't assert success the close-out did not confirm — a dead close-out returns done:false
+      // (the fail-safe below then guarantees running:false); log honestly instead of a blanket "verified".
+      log(closed && closed.done === true
+        ? 'Run ended: all FRDs verified + hardened.'
+        : 'Run ended: all FRDs verified + hardened, but the close-out agent did not confirm release — the fail-safe will ensure running:false (phase stays implementation).')
+    } else {
+      agentSpawned++
+      closed = await agent(`${archiveStep}Every FRD is VERIFIED but the DR-085 hardening did NOT complete (security: ${sec && sec.done === true ? 'ok' : 'INCOMPLETE — ' + ((sec && sec.failure) || 'failed')}; telemetry: ${telem && telem.done === true ? 'ok' : 'INCOMPLETE — ' + ((telem && telem.failure) || 'failed')}). The project must NOT be declared released (BL-0012 fail-closed — release requires the hardening evidence). 1) Append the hardening failure + your recommendation to .pandacorp/inbox/decisions.md (needs-owner). 2) Write a short Spanish summary to .pandacorp/comms/progress.md (todo verificado, hardening incompleto, qué falta). 3) Do NOT touch \`phase\` (KEEP it implementation) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once status.yaml/decisions.md reflect the above AND this terminal lease release succeeded.${NOTIFY('Build verificado pero hardening INCOMPLETO — NO se declara release; necesita tu decision')}`,
+        { label: 'close-needs-hardening', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      log('Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).')
+    }
+  } else {
+    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+    const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
+      : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
+      : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
+      : stopReason === 'rethink' ? ' Paro en safe point: el owner re-planificó (rethink_pending) — la próxima corrida retoma con el plan nuevo.'
+      : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
+    const ownerMsg = needsOwner.length
+      ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
+      : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
+    agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
+    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
+      { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
+  }
+} else {
+  // ═══ LEGACY close-out (args.leanCloseOut:false) — byte-identical to the pre-WP-02 shape: visual-qa
+  // awaited fully in series, then archive-changes, then the closing agent, then release-lease — four
+  // potential serial spawns instead of WP-02's one. Kept for isolating a close-out regression.
+  let visualQaSkipEvent = ''
+  if (plan.hasFrontend && builtFrds.length) {
+    const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
+    if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
+      phase('Review')
+      agentSpawned += COST(P.judge)
+      await agent(visualQaPromptBody(builtFrds),
+        { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+      log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+    } else {
+      log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
+      visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
+    }
+  }
+
+  if (builtFrds.length) {
+    phase('Review')
+    agentSpawned++
+    await agent(`Archive landed changes — the DR-069 §7 verify-then-archive protocol (durable, cross-run).\n${archiveChangesBody}\n  Return { done: true }.${visualQaSkipEvent}`,
+      { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    log('✓ DR-069 §7 verify-then-archive sweep (building changes whose affected_frds all VERIFIED → done/)')
+  } else if (integratedChanges.length) {
+    log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
+  }
+
+  phase('Review')
+  const needsOwner = blockedFrds.filter((x) => blockedReasons[x] === 'needs-owner')
+  const allDone = !TARGETED && !stopReason && !deferredWork && blockedFrds.length === 0 && reopenedFrds.length === 0 && builtFrds.length === plan.frds.length
+  if (allDone) {
+    const { sec, telem, hardened } = await runHardeningChain()
+    phase('Review')
+    if (hardened) {
+      agentSpawned += COST(P.judge)
+      closed = await agent(`All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP} THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates) and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
     (i) **every** docs/frds/*/frd.md rollup \`implementation_status\` is VERIFIED (WS-D/D4b — do a FRESH read of each frd.md on disk right now; if any is NOT VERIFIED, return { done: false } listing the offending FRD folders — the in-memory built-count is NOT enough, the disk is the oracle);
     (ii) assert the hardening evidence EXISTS **and is FRESH**: the security report docs/reviews/security-<TODAY>.md exists (TODAY = \`date -u +%F\`) AND its mtime is NEWER than status.yaml's \`run_started_at\` (WS-D/D4c — compare epochs, e.g. \`date -r docs/reviews/security-<TODAY>.md +%s\` vs the epoch of run_started_at; a STALE same-day report left by a PREVIOUS run FAILS this assert), AND the "## Verification" section is present in docs/analytics/events.md.
   If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND all of (i)+(ii) hold: set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${HARDENING_EVENT('integration')} (status ok iff you declared release, else fail.) If (and ONLY if) you set phase: release above, ALSO record the run's terminal verdict:${BUILD_COMPLETE('released', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')}`,
-      { label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
-    // WS-A/D5: don't assert success the close-out did not confirm — a dead close-out returns done:false
-    // (the fail-safe below then guarantees running:false); log honestly instead of a blanket "verified".
-    log(closed && closed.done === true
-      ? 'Run ended: all FRDs verified + hardened.'
-      : 'Run ended: all FRDs verified + hardened, but the close-out agent did not confirm release — the fail-safe will ensure running:false (phase stays implementation).')
+        { label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
+      log(closed && closed.done === true
+        ? 'Run ended: all FRDs verified + hardened.'
+        : 'Run ended: all FRDs verified + hardened, but the close-out agent did not confirm release — the fail-safe will ensure running:false (phase stays implementation).')
+    } else {
+      agentSpawned++
+      closed = await agent(`Every FRD is VERIFIED but the DR-085 hardening did NOT complete (security: ${sec && sec.done === true ? 'ok' : 'INCOMPLETE — ' + ((sec && sec.failure) || 'failed')}; telemetry: ${telem && telem.done === true ? 'ok' : 'INCOMPLETE — ' + ((telem && telem.failure) || 'failed')}). The project must NOT be declared released (BL-0012 fail-closed — release requires the hardening evidence). 1) Append the hardening failure + your recommendation to .pandacorp/inbox/decisions.md (needs-owner). 2) Write a short Spanish summary to .pandacorp/comms/progress.md (todo verificado, hardening incompleto, qué falta). 3) Set .pandacorp/status.yaml running: false and KEEP phase: implementation. Return done:true once status.yaml is written.${NOTIFY('Build verificado pero hardening INCOMPLETO — NO se declara release; necesita tu decision')}`,
+        { label: 'close-needs-hardening', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      log('Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).')
+    }
   } else {
+    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+    const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
+      : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
+      : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
+      : stopReason === 'rethink' ? ' Paro en safe point: el owner re-planificó (rethink_pending) — la próxima corrida retoma con el plan nuevo.'
+      : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
+    const ownerMsg = needsOwner.length
+      ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
+      : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++
-    closed = await agent(`Every FRD is VERIFIED but the DR-085 hardening did NOT complete (security: ${sec && sec.done === true ? 'ok' : 'INCOMPLETE — ' + ((sec && sec.failure) || 'failed')}; telemetry: ${telem && telem.done === true ? 'ok' : 'INCOMPLETE — ' + ((telem && telem.failure) || 'failed')}). The project must NOT be declared released (BL-0012 fail-closed — release requires the hardening evidence). 1) Append the hardening failure + your recommendation to .pandacorp/inbox/decisions.md (needs-owner). 2) Write a short Spanish summary to .pandacorp/comms/progress.md (todo verificado, hardening incompleto, qué falta). 3) Set .pandacorp/status.yaml running: false and KEEP phase: implementation. Return done:true once status.yaml is written.${NOTIFY('Build verificado pero hardening INCOMPLETO — NO se declara release; necesita tu decision')}`,
-      { label: 'close-needs-hardening', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
-    log('Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).')
+    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
+      { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
-} else {
-  const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
-  const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
-    : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
-    : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
-    : stopReason === 'rethink' ? ' Paro en safe point: el owner re-planificó (rethink_pending) — la próxima corrida retoma con el plan nuevo.'
-    : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).' : ''
-  const ownerMsg = needsOwner.length
-    ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
-    : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
-  agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
-  closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
-    { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
-  log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
 }
-// Fail-safe: never leave Mission Control showing a phantom running build.
+// Fail-safe: never leave Mission Control showing a phantom running build. Identical in both close-out
+// shapes — WP-02 does not touch this (it stays the invariant that guarantees running:false no matter
+// which closing agent ran or how it failed).
 if (!closed || closed.done !== true) {
   agentSpawned++
   await agent(`Fail-safe close: ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
     { label: 'ensure-stopped', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 }
 
-if (closed && closed.done === true) {
+// Legacy shape only: the lean closing agent above already performed its OWN terminal lease release as
+// the last step of its own prompt (or the fail-safe above just did it after a failure) — a separate
+// spawn here would be a redundant fourth close-out agent, exactly what WP-02 removes.
+if (!LEAN_CLOSE_OUT && closed && closed.done === true) {
   agentSpawned++
   await agent(`Terminal lease close. ${RELEASE_LEASE} Confirm done:true.`,
     { label: 'release-lease', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })

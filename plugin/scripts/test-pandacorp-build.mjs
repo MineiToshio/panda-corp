@@ -613,8 +613,11 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'close-needs-hardening').length === 1, 'the hardening-failure close ran (close-needs-hardening)')
     t.ok(byLabel(run, 'close-out').length === 0, 'the release close-out (the only phase: release writer) did NOT run')
     const c = byLabel(run, 'close-needs-hardening')[0]
-    t.ok(c && /KEEP phase: implementation/.test(c.prompt), 'the close keeps phase: implementation (BL-0012 fail-closed — no release without hardening evidence)')
-    t.ok(c && /running: false/.test(c.prompt), 'the close still writes running: false so Mission Control shows no phantom build')
+    t.ok(c && /KEEP it implementation/.test(c.prompt), 'the close keeps phase: implementation (BL-0012 fail-closed — no release without hardening evidence)')
+    // WP-02: running:false is no longer a hand-written "Set .pandacorp/status.yaml running: false" line —
+    // it is achieved through the fenced RELEASE_LEASE two-phase protocol (quiesce -> commit -> finalize-release),
+    // folded into this SAME closing agent's own prompt as its terminal step.
+    t.ok(c && /quiesce/.test(c.prompt) && /finalize-release/.test(c.prompt), 'the close releases the run through the fenced two-phase lease protocol (running:false via quiesce), not a hand-written running:false')
   },
 })
 
@@ -645,8 +648,11 @@ SCENARIOS.push({
     // (DR-069 targeted-build scope, 2026-07-06). The "skip already-in-flight building changes" coverage
     // for a BARE drain now lives in scenario 10c.
     t.ok(sp && /TARGETED BUILD/.test(sp.prompt), 'a targeted change build does NOT scan the queue at the safe point (only its own change is built)')
-    const arch = byLabel(run, 'archive-changes')[0]
-    t.ok(arch, 'the archive sweep ran at close-out (this run verified an FRD)')
+    // WP-02: archive-changes is no longer a separate spawn — its DR-069 §7 sweep is folded into
+    // whichever closing agent actually fires (a targeted change build never reaches allDone, so that's
+    // notify-end here; a bare/whole-project run would fold it into close-out or close-needs-hardening).
+    const arch = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)[0]
+    t.ok(arch, 'the archive sweep ran folded into the closing agent (this run verified an FRD)')
     t.ok(arch && /status.{0,3}is.{0,3}"building"|status\W+building|"building"/.test(arch.prompt), 'the archive sweep scans the queue for building changes (disk-driven)')
     t.ok(arch && /affected_frds/.test(arch.prompt) && /VERIFIED/.test(arch.prompt), 'the sweep archives a change only when all its affected_frds are VERIFIED (read from disk, cross-run)')
     t.ok(run.result && run.result.builtFrds.includes('frd-09-chg'), 'the change FRD built and verified')
@@ -681,7 +687,9 @@ SCENARIOS.push({
     t.ok(!hasLog(run, /Drenando \d+ change/), 'the drain path never ran')
     t.ok(run.result && run.result.builtFrds.includes('frd-10-tgt'), 'only the targeted FRD built')
     t.ok(byLabel(run, /^hardening:/).length === 0 && byLabel(run, 'close-out').length === 0, 'targeted FRD completion never widens into global hardening/release')
-    t.ok(byLabel(run, 'notify-end').length === 1 && /Set \.pandacorp\/status\.yaml running: false/.test(byLabel(run, 'notify-end')[0].prompt), 'targeted FRD completion quiesces as a partial run')
+    // WP-02: notify-end no longer hand-writes "running: false" — it closes through the fenced
+    // RELEASE_LEASE two-phase protocol (quiesce -> commit -> finalize-release) folded into its own prompt.
+    t.ok(byLabel(run, 'notify-end').length === 1 && /quiesce/.test(byLabel(run, 'notify-end')[0].prompt) && /finalize-release/.test(byLabel(run, 'notify-end')[0].prompt), 'targeted FRD completion quiesces as a partial run')
   },
 })
 SCENARIOS.push({
@@ -1901,7 +1909,8 @@ SCENARIOS.push({
 // this run declares a UI-touching artifact. artifactsTouchUi fails CLOSED on undeclared/empty artifacts
 // (mirrors artifactsOverlap's undeclared-artifacts rule) so this is never a silent skip on missing data.)
 // (a) lib-only artifacts on a hasFrontend:true plan → BOTH passes skipped; the omission is logged AND
-// carried as a UiPassSkipped dashboard event on the next agent that runs (dispatch: / archive-changes).
+// carried as a UiPassSkipped dashboard event on the next agent that runs (dispatch: / the closing agent
+// — WP-02 folds the visual-qa skip note into whichever of close-out/close-needs-hardening/notify-end fires).
 SCENARIOS.push({
   name: 'G13a. WP-01 — lib-only artifacts (hasFrontend:true, no foundation WO) skip foundation-gate AND visual-qa, with the omission logged + a UiPassSkipped event',
   args: { mode: 'pro' },
@@ -1921,8 +1930,10 @@ SCENARIOS.push({
     t.ok(hasLog(run, /visual-qa omitido/), 'the visual-qa omission is logged, explicitly (not a silent skip)')
     const dispatch = byLabel(run, /^dispatch:/)[0]
     t.ok(dispatch && /"event":"UiPassSkipped"/.test(dispatch.prompt) && /"pass":"foundation-gate"/.test(dispatch.prompt), 'the dispatch prompt carries the UiPassSkipped(foundation-gate) dashboard event')
-    const archive = byLabel(run, 'archive-changes')[0]
-    t.ok(archive && /"event":"UiPassSkipped"/.test(archive.prompt) && /"pass":"visual-qa"/.test(archive.prompt), 'the archive-changes prompt carries the UiPassSkipped(visual-qa) dashboard event')
+    // WP-02: the visual-qa skip note is folded into whichever closing agent fires (no separate
+    // archive-changes spawn anymore) — resolved right before that agent, per the lean close-out shape.
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)[0]
+    t.ok(closing && /"event":"UiPassSkipped"/.test(closing.prompt) && /"pass":"visual-qa"/.test(closing.prompt), 'the closing agent prompt carries the UiPassSkipped(visual-qa) dashboard event')
     t.ok(run.result && run.result.builtFrds.includes('frd-g13a-lib'), 'the FRD still verifies normally — only the two UI-gated passes are skipped')
   },
 })
@@ -1974,6 +1985,115 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'visual-qa').length === 1, 'forceUiPasses:true — visual-qa ran despite lib-only artifacts')
     t.ok(!hasLog(run, /foundation-gate omitido/), 'no omission logged — forceUiPasses bypassed the skip, not merely silenced its log')
     t.ok(!hasLog(run, /visual-qa omitido/), 'no omission logged — forceUiPasses bypassed the skip, not merely silenced its log')
+  },
+})
+
+// ── G14. WP-02: lean close-out — visual-qa fired as a promise (overlaps hardening), archive-changes
+// + release-lease folded into the surviving closing agent (proposal 37 / FRD-24 measurement: visual-qa
+// 761s + archive-changes 34s + notify-end 186s + release-lease 24s, all fully serial in the close-out
+// region). Default (args.leanCloseOut !== false); `false` reverts to the pre-WP-02 fully-serial shape.
+// (a) a UI-touching artifact (.tsx) → visual-qa is REGISTERED (the call recorded) before the closing
+// agent's call is registered, and — because the engine awaits the visual-qa promise before ever calling
+// the closing agent — that ordering in the stub's recorded call list is proof the closing agent's
+// dispatch happened after visual-qa resolved, not merely after it was fired.
+SCENARIOS.push({
+  name: 'G14a. WP-02 — visual-qa is spawned (registered) before the closing agent, and only after it resolves does the closing agent fire',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g14a-ui',
+    deps: [],
+    workOrders: [mkWo('wo-g14a-001', 'PLANNED', { frd: 'frd-g14a-ui', artifacts: ['src/app/dashboard/Panel.tsx'] })],
+  }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 1, 'visual-qa ran (a .tsx artifact is a real UI surface)')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)
+    t.ok(closing.length === 1, 'exactly one closing agent ran')
+    t.ok(vq[0].index < closing[0].index, 'visual-qa was REGISTERED (spawned) strictly before the closing agent — the engine fires it as a promise ahead of everything else in the close-out region')
+    // the closing agent's own commit/write steps causally happen after visual-qa's promise settles
+    // (the engine code path awaits it before ever constructing the closing agent's call) — the fixed
+    // call ORDER above is exactly that causal guarantee made observable in the stub.
+  },
+})
+// (b) a lib-only run (no UI artifact — visual-qa itself does not run) → the close-out region collapses
+// from 3 serial spawns (archive-changes, notify-end/close-out, release-lease) to exactly ONE closing
+// spawn, whose prompt carries the FULL verify.sh (no --since), RELEASE_LEASE, and BUILD_COMPLETE — in
+// that relative order (RELEASE_LEASE is always the LAST thing the closing agent is told to do).
+SCENARIOS.push({
+  name: 'G14b. WP-02 — archive-changes + release-lease fold into ONE closing spawn (3 -> 1), carrying full verify.sh / RELEASE_LEASE / BUILD_COMPLETE in order',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g14b-lib',
+    deps: [],
+    workOrders: [mkWo('wo-g14b-001', 'PLANNED', { frd: 'frd-g14b-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'archive-changes').length === 0, 'archive-changes no longer spawns as its own agent — folded into the closing prompt')
+    t.ok(byLabel(run, 'release-lease').length === 0, 'release-lease no longer spawns as its own agent — folded into the closing prompt')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)
+    t.ok(closing.length === 1, 'the close-out region collapsed to exactly ONE closing spawn (was 3 serial spawns pre-WP-02)')
+    const prompt = closing[0].prompt
+    const iVerify = prompt.indexOf('complete suite, NO --since')
+    const iBuildComplete = prompt.indexOf('"event":"BuildComplete"')
+    const iReleaseLease = prompt.indexOf('fenced TWO-PHASE protocol')
+    t.ok(iVerify !== -1, 'the closing prompt runs the FULL verify.sh (no --since — the whole-repo counterweight, untouched)')
+    t.ok(iBuildComplete !== -1, 'the closing prompt carries the BuildComplete terminal-verdict event')
+    t.ok(iReleaseLease !== -1, 'the closing prompt carries the RELEASE_LEASE two-phase protocol')
+    t.ok(iVerify < iBuildComplete && iBuildComplete < iReleaseLease, 'verify.sh precedes BuildComplete precedes RELEASE_LEASE — the terminal lease release is always the LAST instruction, after everything else has finished')
+    t.ok(/quiesce/.test(prompt) && /finalize-release/.test(prompt), 'the RELEASE_LEASE two-phase (quiesce -> commit -> finalize-release) is literally present')
+    // the archive-changes sweep's own protocol text is folded in verbatim (durable, cross-run archival)
+    t.ok(/verify-then-archive/.test(prompt) && /affected_frds/.test(prompt), 'the archive-changes DR-069 §7 sweep text is folded into the SAME closing prompt')
+  },
+})
+// (c) the visual-qa agent dies (returns null, e.g. a terminal API error after retries) → the closing
+// agent STILL runs (never blocked on visual-qa) and the degradation is explicit, never silent.
+SCENARIOS.push({
+  name: 'G14c. WP-02 — a null visual-qa result degrades honestly; the closing agent still runs and says so',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-g14c-null',
+    deps: [],
+    workOrders: [mkWo('wo-g14c-001', 'PLANNED', { frd: 'frd-g14c-null', artifacts: ['src/app/Widget.tsx'] })],
+  }], { hasFrontend: true }),
+  responses: [
+    { label: 'visual-qa', response: null },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'visual-qa was attempted')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)
+    t.ok(closing.length === 1, 'the closing agent still ran despite the dead visual-qa agent (nothing depends on its result)')
+    t.ok(hasLog(run, /visual-qa agent returned no confirmed result/i), 'the degradation is logged explicitly, never silent')
+    t.ok(/VISUAL QA DEGRADED/.test(closing[0].prompt), 'the closing prompt carries an explicit degraded-result note (never silence)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-g14c-null'), 'the FRD still verified normally — only the advisory visual-qa pass degraded')
+  },
+})
+// (d) escape hatch: args.leanCloseOut:false reverts to the pre-WP-02 shape — visual-qa awaited fully in
+// series, then archive-changes, then the closing agent, then release-lease: back to 3 close-out spawns.
+SCENARIOS.push({
+  name: 'G14d. WP-02 — args.leanCloseOut:false reverts to the legacy fully-serial close-out (3 spawns)',
+  args: { mode: 'pro', leanCloseOut: false },
+  plan: mkPlan([{
+    frd: 'frd-g14d-legacy',
+    deps: [],
+    workOrders: [mkWo('wo-g14d-001', 'PLANNED', { frd: 'frd-g14d-legacy', artifacts: ['src/lib/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'archive-changes').length === 1, 'legacy shape — archive-changes spawns as its own agent again')
+    const closing = byLabel(run, /^(close-out|close-needs-hardening|notify-end)$/)
+    t.ok(closing.length === 1, 'exactly one closing agent ran')
+    t.ok(byLabel(run, 'release-lease').length === 1, 'legacy shape — release-lease spawns as its own terminal agent again')
+    // the legacy closing prompt never carries the fenced lease protocol itself — that stays the separate
+    // release-lease agent's job, exactly as before WP-02.
+    t.ok(!/fenced TWO-PHASE protocol/.test(closing[0].prompt), 'the legacy closing prompt does NOT itself carry RELEASE_LEASE — that is release-lease\'s separate job')
+    t.ok(/running: false/.test(closing[0].prompt), 'the legacy closing prompt hand-writes running: false, exactly as before WP-02')
+    const archive = byLabel(run, 'archive-changes')[0]
+    const closeCall = closing[0]
+    const release = byLabel(run, 'release-lease')[0]
+    t.ok(archive.index < closeCall.index && closeCall.index < release.index, 'the legacy shape runs the three close-out spawns in the original serial order: archive-changes -> closing agent -> release-lease')
   },
 })
 
