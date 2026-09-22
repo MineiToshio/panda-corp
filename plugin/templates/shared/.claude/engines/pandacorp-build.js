@@ -68,6 +68,19 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     the hardening chain instead of stacking in front of it) and folds archive-changes + release-lease
 //     into whichever closing agent actually fires (WP-02, proposal 37 / FRD-24 measurement). Use `false`
 //     if a close-out regression needs isolating from this change.
+//   args.mechLean: OPT-OUT escape hatch (default true, WP-03) — the class-(a)/(b) MECH sites (pure command
+//     execution / a light frontmatter-list edit / a bounded text assembly from facts the engine already
+//     computed — never the genuine judgment sites, which stay untouched: safe-point, and apply-gate/
+//     persist-block, both inside another package's in-flight region) spawn on the narrower `pandacorp:mech`
+//     agent (Bash+Read only, no Write/Edit) at `effort: 'low'` instead of the broad `pandacorp:implementer`/
+//     `pandacorp:devops` at default effort — cheaper AND faster for a spawn that only runs exact commands
+//     (FRD-24: 17 haiku plumbing agents were 14% of wall-clock). Also gates two spawn-count fusions: the
+//     Plan-phase `sync-rollups` spawn folds into the FIRST wave's `dispatch` call (one agent, two commands,
+//     same order) instead of its own spawn; and `capturePin` reuses the sha `commitWOGreen` already
+//     returned from the wave's LAST landed commit instead of spawning its own `pin:` agent — but ONLY when
+//     a commit actually landed via commitWOGreen this wave AND no repair agent ran (attemptRepair commits
+//     on its own, invalidating the cached sha) — an empty/repaired wave still spawns `pin:` as before.
+//     Use `false` to revert every MECH site + both fusions to the pre-WP-03 shape (isolates a regression).
 const MODE = (args && args.mode) || 'powerful'
 const STRICT_BASELINE = Boolean(args && args.strictBaseline === true)   // BL-0124 escape hatch — see the arg doc above
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
@@ -307,6 +320,13 @@ const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
 // boundary is never these steps (the FRD gate re-verifies everything); they just execute a script.
 const MECH = (args && args.mechModel) || 'haiku'
+// WP-03: the class-(a)/(b) MECH sites (pure command execution / a bounded list edit / a text assembly
+// from already-computed facts) run on the narrow `pandacorp:mech` agent (Bash+Read, no Write/Edit) at
+// `effort: 'low'` — see the args.mechLean doc above. MECH_AGENT(fallback) composes with each call site's
+// PRE-WP-03 agentType so args.mechLean:false restores it byte-for-byte, never a guessed default.
+const MECH_LEAN = !(args && args.mechLean === false)
+const MECH_AGENT = (fallback) => (MECH_LEAN ? 'pandacorp:mech' : fallback)
+const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 
 // ── C2: CONCURRENT FRD GATES IN A PINNED WORKTREE ─────────────────────────────────────────────────
 // Today the loop either builds a wave OR drains ONE gate per iteration — build and review NEVER overlap,
@@ -586,7 +606,7 @@ const FOUNDATION_SCHEMA = {
 async function ensureStopped(reason) {
   agentSpawned++
   const receipt = await agent(`MECHANICAL COMMAND RUNNER — your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`${STATE_CLI_COMMAND} close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
-    { label: 'ensure-stopped', phase: 'Baseline', model: MECH, agentType: 'pandacorp:devops', schema: CLOSE_RECEIPT_SCHEMA })
+    { label: 'ensure-stopped', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:devops'), effort: MECH_EFFORT, schema: CLOSE_RECEIPT_SCHEMA })
   if (!receipt || receipt.done !== true || receipt.lease_released !== true || JSON.stringify(receipt.allowed_paths) !== JSON.stringify(['.pandacorp/status.yaml'])) throw new Error('FATAL: bounded pre-loop close returned an invalid receipt')
 }
 
@@ -603,7 +623,7 @@ const precheck = await agent(
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
   **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed, project-relative, exactly as printed>, leaseValid: true } (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
-  { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: 'pandacorp:implementer', schema: PRECHECK_SCHEMA },
+  { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: PRECHECK_SCHEMA },
 )
 if (precheck && precheck.stop === true) {
   log('⏸ owner stop signal (.pandacorp/run/stop) — el motor para limpio antes de construir (no lo borro, lo hace el owner)')
@@ -745,10 +765,19 @@ const reuseRef = (frd) => plan.hasFrontend
   ? ` REUSE & COHERENCE (DR-057): before creating ANY UI component, READ the component inventory \`docs/design/components.md\` (if it doesn't exist yet you're early in the build — create it and list your component as the first row) and scan \`src/components/core\` + \`src/components/modules\`. REUSE an existing component if one fits; ADAPT/extend it (add a prop/variant) if it is close — do NOT fork a near-duplicate for a small difference; CREATE a new shared component only if none fits, and when you do, APPEND it to \`docs/design/components.md\` so the next agent reuses it. A component that re-implements an existing pattern (a second banner/card/modal) is a defect the gate rejects.`
   : ''
 
-// Sync derived rollups through the sole fenced writer before building.
-agentSpawned++
-await agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
-  { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' })
+// Sync derived rollups through the sole fenced writer before building. WP-03 fusion (i), MECH_LEAN only:
+// folded into the FIRST wave's `dispatch` call below (one agent, the sync-rollups command THEN the
+// IN_PROGRESS stamp, same order as this standalone spawn used to run before dispatch) — `pendingSyncRollups`
+// carries the fragment across to that call site and is consumed exactly once. args.mechLean:false keeps
+// this its own Plan-phase spawn, unchanged.
+let pendingSyncRollups = null
+if (MECH_LEAN) {
+  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope). THEN, as a SEPARATE step (do not commit this part — see below):\n  '
+} else {
+  agentSpawned++
+  await agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
+    { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' })
+}
 
 // ── Adaptive model selection (DR-073) — escalate to opus within the mode, never below the floor ──
 // The mode's P.worker is the FLOOR. Escalate to opus when the WO is genuinely hard (HYBRID a-priori,
@@ -770,6 +799,10 @@ function pickWorkerModel(wo) {
 // never capture a sibling's in-flight files. The resume path is unchanged: a committed WO is IN_REVIEW
 // → skipped on relaunch (never rebuilt); only PLANNED/IN_PROGRESS (uncommitted) work is redone.
 let commitChain = Promise.resolve()
+// WP-03 fusion (ii) support (scaffolding — the pin: call site below already accepts this cached sha;
+// commitWOGreen does not populate it YET, so capturePin always spawns for now, unchanged): the sha of the
+// LAST commit that actually landed via commitWOGreen, reset per wave (see the Build-phase loop below).
+let lastCommitSha = null
 async function commitWOGreen(wo, frd) {
   agentSpawned++
   const link = commitChain.then(() =>
@@ -1059,7 +1092,7 @@ async function ensureGateWorktree(sha) {
     2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain\` is empty. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved" }.
     3) For a registered CLEAN reuse, note its old sha, then \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`. Run \`pnpm install --frozen-lockfile\` inside ${GATE_WORKTREE} ONLY IF pnpm-lock.yaml changed between the old sha and ${sha} (\`git -C ${PROJECT_DIR} diff --name-only <oldsha> ${sha} -- pnpm-lock.yaml\` non-empty); otherwise SKIP install. Return { ok: true, created: false }.
     If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
-    { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
+    { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
   if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
   worktreeState = 'failed'; lastWorktreeSha = null
   log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
@@ -1067,11 +1100,18 @@ async function ensureGateWorktree(sha) {
 }
 
 // ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
-async function capturePin(frds) {
+// WP-03 fusion (ii): `preSha` is the sha commitWOGreen's LAST landed commit already returned THIS wave
+// (null when nothing committed this wave, or when attemptRepair ran — its own commit is untracked here,
+// so the cached sha would be stale). Only trusted under MECH_LEAN; args.mechLean:false always spawns.
+async function capturePin(frds, preSha = null) {
+  if (MECH_LEAN && preSha) {
+    for (const frd of frds) { const st = frdState.get(frd); if (st) st.pinSha = preSha }
+    return preSha
+  }
   agentSpawned++
   const r = await agent(
     `Return the current MAIN-tree HEAD short sha (\`git -C ${PROJECT_DIR} rev-parse --short HEAD\`) — the pin the FRD gate(s) for ${frds.join(', ')} will freeze at. Change nothing, commit nothing. Return { sha: "<the short sha>" }.`,
-    { label: `pin:${frds.join('+')}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: { type: 'object', required: ['sha'], properties: { sha: { type: 'string' } } } })
+    { label: `pin:${frds.join('+')}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['sha'], properties: { sha: { type: 'string' } } } })
   const sha = (r && r.sha) || null
   for (const frd of frds) { const st = frdState.get(frd); if (st) st.pinSha = sha }
   return sha
@@ -2071,13 +2111,24 @@ while (true) {
   })
   if (deferred.length) log(`↻ deferred: ${deferred.join(', ')}`)
 
+  // WP-03 fusion (i): the standalone Plan-phase sync-rollups spawn (if MECH_LEAN) folds into the FIRST
+  // wave's dispatch call — one agent, two commands, same order (sync-rollups, THEN the IN_PROGRESS stamp).
+  // Consumed exactly once; every later wave's dispatch is the plain frontmatter-only stamp, unchanged.
+  const dispatchSyncRollups = pendingSyncRollups || ''
+  pendingSyncRollups = null
+  // WP-03 fusion (ii) bookkeeping: reset per wave — lastCommitSha tracks the LAST commit commitWOGreen
+  // actually landed THIS wave; waveRepairRan marks that attemptRepair committed on its own THIS wave
+  // (untracked here), which invalidates lastCommitSha for capturePin's fast path below.
+  lastCommitSha = null
+  let waveRepairRan = false
+
   // BL-0002: the ENGINE owns the PLANNED→IN_PROGRESS transition, stamped at dispatch — atomic and
   // independent of when each builder actually starts. Parallel waves used to leave five actively-
   // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
   // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
   agentSpawned++
-  await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
-    { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' })
+  await agent(`${dispatchSyncRollups}Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else beyond the sync-rollups step above if present, do NOT commit this part; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
+    { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT })
   const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
   // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
@@ -2102,6 +2153,7 @@ while (true) {
     const st = frdState.get(frd)
     if (!st || !st.failed) continue
     log(`! ${frd}: a work order failed — attempting repair before giving up`)
+    waveRepairRan = true   // WP-03: attemptRepair ALWAYS commits (fix or block+revert) — untracked by commitWOGreen
     const fix = await attemptRepair(frd, 'a work order failed its self-test during the build wave')
     if (fix && fix.green === true) {
       log(`✓ ${frd}: repaired — proceeding to the gate`)
@@ -2115,10 +2167,11 @@ while (true) {
   }
 
   // FRDs whose build WOs all committed → queue their gate + PIN it at the post-wave HEAD (a boundary
-  // moment: no half-committed sibling wave). One pin spawn per completing wave (C2).
+  // moment: no half-committed sibling wave). One pin spawn per completing wave (C2) — WP-03 fusion (ii):
+  // skipped when this wave's last landed commit sha is already known and trustworthy (no repair ran).
   const newlyGateReady = []
   for (const frd of waveFrds) if (enqueueGateIfComplete(frd)) newlyGateReady.push(frd)
-  if (newlyGateReady.length) await capturePin(newlyGateReady)
+  if (newlyGateReady.length) await capturePin(newlyGateReady, waveRepairRan ? null : lastCommitSha)
   } catch (loopErr) {
     // WS-D/D2: any throw inside the scheduler loop must NOT die with running:true left in status.yaml (Mission
     // Control would show a phantom running build forever). Log LOUD, guarantee running:false via a dedicated
@@ -2127,7 +2180,7 @@ while (true) {
     log(`☠☠ FATAL: the build scheduler loop threw — ${(loopErr && loopErr.message) || loopErr} — ensuring running:false before rethrow (WS-D/D2)`)
     agentSpawned++
     await agent(`Crash fail-safe (WS-D/D2): the scheduler loop threw. Ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
-      { label: 'ensure-stopped-crash', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      { label: 'ensure-stopped-crash', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     throw loopErr
   }
 }
@@ -2270,7 +2323,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
     closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
-      { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
 } else {
@@ -2296,7 +2349,7 @@ if (LEAN_CLOSE_OUT) {
     phase('Review')
     agentSpawned++
     await agent(`Archive landed changes — the DR-069 §7 verify-then-archive protocol (durable, cross-run).\n${archiveChangesBody}\n  Return { done: true }.${visualQaSkipEvent}`,
-      { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      { label: 'archive-changes', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log('✓ DR-069 §7 verify-then-archive sweep (building changes whose affected_frds all VERIFIED → done/)')
   } else if (integratedChanges.length) {
     log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
@@ -2336,7 +2389,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++
     closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP} FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since) to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
-      { label: 'notify-end', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+      { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
 }
@@ -2346,7 +2399,7 @@ if (LEAN_CLOSE_OUT) {
 if (!closed || closed.done !== true) {
   agentSpawned++
   await agent(`Fail-safe close: ensure running:false through the lease owner. Do NOT touch \`phase\`; NEVER set phase: release here. ${RELEASE_LEASE} Confirm done:true.`,
-    { label: 'ensure-stopped', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
+    { label: 'ensure-stopped', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
 }
 
 // Legacy shape only: the lean closing agent above already performed its OWN terminal lease release as

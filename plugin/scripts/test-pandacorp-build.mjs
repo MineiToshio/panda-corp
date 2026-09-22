@@ -80,7 +80,10 @@ if (/Safe-point check[\s\S]*?(?:test\s+-f|\[\s+-[ef])[^\n]*run\/stop/.test(sourc
   console.error('FATAL: recurring safe-point stop detection is not exclusively bound to the fenced receipt.')
   process.exit(1)
 }
-if (!/close-preloop --project/.test(source) || !/agentType: 'pandacorp:devops'/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
+// WP-03: ensureStopped's agentType is now MECH_AGENT('pandacorp:devops') — 'pandacorp:mech' (the narrower
+// Bash+Read runner, MECH_LEAN default) or the literal 'pandacorp:devops' fallback (args.mechLean:false) are
+// BOTH acceptable narrow types; only a regression to the broad 'pandacorp:implementer' fails this guard.
+if (!/close-preloop --project/.test(source) || !/agentType: (MECH_AGENT\('pandacorp:devops'\)|'pandacorp:devops')/.test(source) || /ensureStopped\(reason\)[\s\S]{0,900}agentType: 'pandacorp:implementer'/.test(source)) {
   console.error('FATAL: ensureStopped regained a broad implementer or lost its bounded close command.')
   process.exit(1)
 }
@@ -306,16 +309,18 @@ SCENARIOS.push({
 // ── 2. Budget brake — MAX_AGENTS, COST-weighted ─────────────────────────────
 // 2a: mode 'pro' (worker=sonnet COST 1; judge=opus COST 3, DR-015 — the judge is ALWAYS a
 // different model from the worker, even in pro; solo build). Pre-loop spawns (WS-D/D10 adds the MECH
-// baseline pre-check): baseline-precheck(MECH,1) + baseline(judge,3) + plan(judge,3) + sync-rollups(MECH,1)
-// = 8. maxAgents=14 → iteration 1 passes the brake (8<14), safe-point(+1)=9. The count cap P.wave=2 admits
-// at most two WOs; the COST-aware picker (WS-A/D2) confirms it: remainingAgents=14-9=5, each sonnet WO costs
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(judge,3) + plan(judge,3) = 7 — WP-03 fusion
+// (i), MECH_LEAN default: the old standalone sync-rollups(MECH,1) spawn is GONE here, folded into the
+// first wave's dispatch below (same total dispatch spawn count, no extra agentSpawned++). maxAgents=13 →
+// iteration 1 passes the brake (7<13), safe-point(+1)=8. The count cap P.wave=2 admits at most two WOs;
+// the COST-aware picker (WS-A/D2) confirms it: remainingAgents=13-8=5, each sonnet WO costs
 // COST(sonnet)+1=2 plus the shared dispatch(1) — wo-1 (cost 1+2=3) and wo-2 (5) fit; wo-3 is deferred (count
-// cap). Wave=[wo-1,wo-2]. dispatch(+1)=10, builds wo-1+wo-2 (+2)=12, commits (+2)=14. Iteration 2 top:
-// 14 ≥ 14 → STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix
+// cap). Wave=[wo-1,wo-2]. dispatch(+1)=9, builds wo-1+wo-2 (+2)=11, commits (+2)=13. Iteration 2 top:
+// 13 ≥ 13 → STOP, exactly at the cap (no overshoot). wo-3/wo-4 must never be dispatched. (Before the D2 fix
 // the width was counted raw, so an opus wave overshot the cap ~4× — see 2c.)
 SCENARIOS.push({
   name: '2a. maxAgents brake — cost-aware wave stops dispatching once the cap is reached',
-  args: { mode: 'pro', maxAgents: 14 },
+  args: { mode: 'pro', maxAgents: 13 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -329,7 +334,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(14 ≥ maxAgents 14\)/), 'the brake logs "Agent ceiling reached (14 ≥ maxAgents 14)" — exactly at the cap, no overshoot')
+    t.ok(hasLog(run, /Agent ceiling reached \(13 ≥ maxAgents 13\)/), 'the brake logs "Agent ceiling reached (13 ≥ maxAgents 13)" — exactly at the cap, no overshoot')
     const built = byLabel(run, /^build:/).map((c) => c.label)
     t.ok(built.length === 2 && built.includes('build:wo-01-001') && built.includes('build:wo-01-002'),
       `only the first cost-budgeted wave (wo-01-001, wo-01-002) was built — got [${built.join(', ')}]`)
@@ -341,12 +346,14 @@ SCENARIOS.push({
   },
 })
 // 2b: COST-weighting proof. mode 'balanced' (judge=opus, COST 3). Pre-loop (WS-D/D10 adds the MECH
-// baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) + sync(1) = 8. With maxAgents=8 the
-// brake trips at the FIRST loop boundary — BEFORE any safe-point/dispatch/build. If spawns were
-// counted raw (1 each) the counter would read 4 and the wave would launch.
+// baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) = 7 — WP-03 fusion (i),
+// MECH_LEAN default: sync-rollups no longer spawns standalone here (folded into the first dispatch, which
+// never runs in this scenario). With maxAgents=7 the brake trips at the FIRST loop boundary — BEFORE any
+// safe-point/dispatch/build. If spawns were counted raw (1 each) the counter would read 3 and the wave
+// would launch.
 SCENARIOS.push({
   name: '2b. maxAgents brake is COST-weighted (opus=3) — trips on the token-proxy, not the raw agent count',
-  args: { mode: 'balanced', maxAgents: 8 },
+  args: { mode: 'balanced', maxAgents: 7 },
   plan: mkPlan([{
     frd: 'frd-01-alpha',
     deps: [],
@@ -355,18 +362,20 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(run.result && run.result.stopReason === 'agents', `stopReason is 'agents' (got ${run.result && run.result.stopReason})`)
-    t.ok(hasLog(run, /Agent ceiling reached \(8 ≥ maxAgents 8\)/),
-      'counter reads exactly 8 = precheck 1 + COST(opus baseline 3) + COST(opus plan 3) + sync 1 — the opus weighting is live')
+    t.ok(hasLog(run, /Agent ceiling reached \(7 ≥ maxAgents 7\)/),
+      'counter reads exactly 7 = precheck 1 + COST(opus baseline 3) + COST(opus plan 3) — the opus weighting is live')
     t.ok(byLabel(run, 'safe-point').length === 0, 'brake trips BEFORE the first safe point')
     t.ok(byLabel(run, /^(dispatch|build):/).length === 0, 'no wave was dispatched at all')
   },
 })
 // 2c: WS-A/D2 — an OPUS-escalated wave must NOT overshoot maxAgents by counting WOs raw. mode 'pro'
 // (worker=sonnet floor, judge=opus per DR-015), all WOs difficulty:high → escalate to opus
-// (woWaveCost = COST(opus)+1 = 4). Pre-loop: baseline(judge opus,3)+plan(judge opus,3)+sync(1)=7.
-// safe-point→8. remainingAgents=10-8=2; the cost-aware picker admits wo-1 (dispatch 1 + 4 = 5, the
-// ≥1 progress guarantee) but wo-2 would breach the budget → wave width = 1. BEFORE the fix the width
-// was counted raw (min(P.wave 2, …)=2), so TWO opus WOs launched and the wave overshot the cap.
+// (woWaveCost = COST(opus)+1 = 4). Pre-loop: baseline(judge opus,3)+plan(judge opus,3)=6 — WP-03 fusion
+// (i), MECH_LEAN default: no standalone sync-rollups spawn here (folded into the first dispatch).
+// safe-point→7. remainingAgents=10-7=3; the cost-aware picker admits wo-1 (dispatch 1 + 4 = 5, the
+// ≥1 progress guarantee) but wo-2 would need cumulative cost 9 either way → wave width = 1 regardless
+// of the exact remaining budget. BEFORE the WS-A/D2 fix the width was counted raw (min(P.wave 2, …)=2),
+// so TWO opus WOs launched and the wave overshot the cap.
 SCENARIOS.push({
   name: '2c. maxAgents brake is COST-aware for the WAVE WIDTH (opus wave does not overshoot) — WS-A/D2',
   args: { mode: 'pro', maxAgents: 10 },
