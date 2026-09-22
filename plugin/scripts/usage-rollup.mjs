@@ -97,7 +97,7 @@
 // performs NO file writes at all — it only prints the summary line to stdout, same as `--dir` always
 // has.
 
-import { appendFileSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { appendFileSync, closeSync, fstatSync, openSync, readdirSync, readFileSync, readSync, statSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 
@@ -121,6 +121,34 @@ function priceFor(modelId) {
 }
 
 function round(n) { return Math.round(n * 1e6) / 1e6 }
+
+// D4 (REV3-K, DR-078 fail-loud read boundary): `.pandacorp/track.jsonl` has several producers, so a
+// run killed mid-write can leave a last line with NO trailing newline. A bare `appendFileSync` then
+// welds the new record onto that dangling line — one unparseable line, and every NDJSON reader of
+// the timeline (Mission Control's DAG/timeline, the close-out rollup) fails loud on it. Normalise
+// the boundary first: read only the file's LAST byte (sync fs, no full read) and prepend a newline
+// when it isn't already one. A missing file needs no normalisation (ENOENT); any OTHER read failure
+// still surfaces (never silently appended over) — appendFileSync itself is what enforces "an
+// unwritable --out fails loud" (REV3-N), unaffected by this boundary check.
+function appendTrackLine(outPath, line) {
+  let needsLeadingNewline = false
+  try {
+    const fd = openSync(outPath, 'r')
+    try {
+      const size = fstatSync(fd).size
+      if (size > 0) {
+        const lastByte = Buffer.alloc(1)
+        readSync(fd, lastByte, 0, 1, size - 1)
+        needsLeadingNewline = lastByte[0] !== 0x0a
+      }
+    } finally {
+      closeSync(fd)
+    }
+  } catch (e) {
+    if (e.code !== 'ENOENT') throw e
+  }
+  appendFileSync(outPath, (needsLeadingNewline ? '\n' : '') + line)
+}
 
 function parseArgs(argv) {
   const out = {}
@@ -547,7 +575,7 @@ function runSessionMode({ session, windowArg, commitsArg, repo, card, out }) {
 
   // Dry run by default (no --out): never write any file, only print. `--out` appends the SAME line
   // the caller decides where it lands — same idiom as every other `.pandacorp/track.jsonl` writer.
-  if (out) appendFileSync(out, `${JSON.stringify(summary)}\n`)
+  if (out) appendTrackLine(out, `${JSON.stringify(summary)}\n`)
 
   process.stdout.write(JSON.stringify(summary) + '\n')
 }

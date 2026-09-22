@@ -430,10 +430,6 @@ function round3(n) { return Math.round(n * 1e6) / 1e6 }
 }
 
 // ── REV3 (independent review of the speed sprint, batch 3 — 2026-09-22) ───────────────────────
-// `ok()` throws, so a KNOWN defect gets `xfail()`: it states what SHOULD hold, prints `~ xfail`
-// while it does not, and flips to a normal pass the day it is fixed (REV2-C convention).
-const xfails = []
-const xfail = (condition, name, ref) => { if (condition) { passed++; console.log(`PASS  ${name} (defect fixed — tighten to ok)`) } else { xfails.push(`${name} [${ref}]`); console.log(`~ xfail ${name} [${ref}]`) } }
 
 // (REV3-K) `--out` must never corrupt the file it appends to. `.pandacorp/track.jsonl` is written
 // by several producers; a run killed mid-write leaves a last line with NO trailing newline, and a
@@ -452,9 +448,8 @@ const xfail = (condition, name, ref) => { if (condition) { passed++; console.log
   const lines = (await readFile(track, 'utf8')).split('\n').filter((l) => l.trim())
   let allParse = true
   for (const line of lines) { try { JSON.parse(line) } catch { allParse = false } }
-  xfail(allParse && lines.length === 2,
-    'REV3-K: --out preserves track.jsonl as valid NDJSON when the last line lacks a trailing newline',
-    'REV3 defect D4, DR-078 fail-loud read boundary')
+  ok(allParse && lines.length === 2,
+    'REV3-K: --out preserves track.jsonl as valid NDJSON when the last line lacks a trailing newline')
   await rm(root, { recursive: true })
 }
 
@@ -507,5 +502,4 @@ const xfail = (condition, name, ref) => { if (condition) { passed++; console.log
   await rm(root, { recursive: true })
 }
 
-for (const x of xfails) console.log(`XFAIL ${x}`)
-console.log(`RESULT: ${passed} passed, 0 failed${xfails.length ? `, ${xfails.length} xfail` : ''}`)
+console.log(`RESULT: ${passed} passed, 0 failed`)
