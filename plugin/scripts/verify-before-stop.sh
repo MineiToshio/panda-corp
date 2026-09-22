@@ -116,8 +116,112 @@ if [ "$fastpath" = "1" ]; then
   exit 0
 fi
 
-out=$(bash "$verify" 2>&1)
-if [ $? -ne 0 ]; then
+# --- RIGOR-SCOPED GATE (F2, memo docs/proposals/37 §A.1) ----------------------------------------
+# The rigor of THIS session's own diff decides how much of verify.sh runs before a verdict — it
+# NEVER decides whether a red blocks (memo §A.0 principle 3: a red always blocks, in every level).
+# Only in scope when this session actually has uncommitted work of its own: a non-empty .touched
+# marker (DR-099) AND a dirty tree. A clean tree or an empty marker has no diff of THIS session to
+# size a gate to (it may be another session's WIP, or nothing was written) — falls straight through
+# to today's unconditional full gate. The rigor lives in this caller, never inside verify.sh
+# (memo §A.0 principle 1) — a bare `bash verify.sh` with no flags stays the maximum gate.
+HERE="$(cd "$(dirname "$0")" 2>/dev/null && pwd)"
+gate_args=()
+gate_scope="full"
+gate_rigor="n/a"
+gate_reasons="n/a"
+dirty_now=$(git -C "$cwd" status --porcelain 2>/dev/null)
+if [ -n "$dirty_now" ] && [ -n "$sid" ] && [ -s "$touched" ]; then
+  # Bound the classifier with a real timeout binary only — an unbounded subprocess is exactly the
+  # kind of doubt this design resolves toward MORE rigor, never less (fail-closed).
+  timeout_bin=""
+  command -v timeout >/dev/null 2>&1 && timeout_bin="timeout"
+  [ -z "$timeout_bin" ] && command -v gtimeout >/dev/null 2>&1 && timeout_bin="gtimeout"
+  if [ -n "$timeout_bin" ]; then
+    classify_json=$("$timeout_bin" 20s bash "$HERE/classify-change.sh" --repo "$cwd" --worktree 2>/dev/null)
+    classify_rc=$?
+  else
+    classify_json=""
+    classify_rc=127
+  fi
+  gate_rigor=$(printf '%s' "$classify_json" | jq -er '.rigor | select(. == "micro" or . == "normal" or . == "critical")' 2>/dev/null)
+  if [ "$classify_rc" -ne 0 ] || [ -z "$gate_rigor" ]; then
+    gate_rigor="critical"
+    gate_scope="full"
+    gate_reasons="classifier-failed-closed"
+    echo "verify-before-stop: classify-change.sh produced no usable verdict (exit ${classify_rc}, timeout_bin=${timeout_bin:-none}) — failing closed to the full gate" >&2
+  else
+    gate_reasons=$(printf '%s' "$classify_json" | jq -r '[.reasons[]?.signal] | join(",")' 2>/dev/null)
+    [ -n "$gate_reasons" ] || gate_reasons="none"
+    if [ "$gate_rigor" = "critical" ]; then
+      gate_scope="full"
+    else
+      # normal AND micro: per memo §A.1, micro has no independently-certifiable narrower scope
+      # today (--only/--files stamp scope:"partial", which can never certify or advance
+      # last-green.json) — so micro is treated exactly like normal until that exists. Anchor to
+      # --since <last_green_sha> only when that sha is a reachable ancestor of HEAD; otherwise the
+      # anchor itself is doubtful, so fall back to full.
+      if [ -f "$last_green" ]; then
+        anchor_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)
+        if [ -n "$anchor_sha" ] && git -C "$cwd" merge-base --is-ancestor "$anchor_sha" HEAD 2>/dev/null; then
+          gate_args=(--since "$anchor_sha")
+          gate_scope="since"
+        fi
+      fi
+    fi
+  fi
+  # Escape hatch: PANDACORP_STOP_GATE=full always forces the full gate, whatever the classifier
+  # said — the logged rigor/reasons above still reflect what would otherwise have been chosen.
+  # There is deliberately no "off" value.
+  if [ "${PANDACORP_STOP_GATE:-}" = "full" ]; then
+    gate_args=()
+    gate_scope="full"
+  fi
+fi
+echo "verify-before-stop: rigor=${gate_rigor} scope=${gate_scope} (reasons: ${gate_reasons})" >&2
+
+# Portable millisecond clock (mirrors .pandacorp/verify.sh's own now_ms: GNU `date +%s%N` first,
+# python3/perl fallback, whole-second last resort) so the StopGate event below carries a real
+# duration even on a BSD `date` that doesn't expand %N.
+now_ms() {
+  local raw
+  raw=$(date +%s%N 2>/dev/null || true)
+  case "$raw" in ''|*[!0-9]*) raw="" ;; esac
+  if [ -n "$raw" ] && [ "${#raw}" -ge 19 ]; then
+    echo $(( raw / 1000000 )); return
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 -c 'import time; print(int(time.time() * 1000))'; return
+  fi
+  if command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes=time -e 'printf("%d\n", time() * 1000)'; return
+  fi
+  echo $(( $(date +%s) * 1000 ))
+}
+
+gate_t0=$(now_ms)
+out=$(bash "$verify" "${gate_args[@]}" 2>&1)
+verify_rc=$?
+gate_t1=$(now_ms)
+gate_duration_ms=$(( gate_t1 - gate_t0 ))
+gate_green="true"; [ "$verify_rc" -eq 0 ] || gate_green="false"
+
+# StopGate telemetry (fire-and-forget — La Fragua reads it, but a write failure here must never
+# affect the verdict below). Same minimal NDJSON shape as emit-event.sh, plus the rigor fields
+# emit-event.sh's fixed one-event-name contract has no room for. PANDACORP_EVENTS_LOG lets a test
+# point this at a scratch file instead of the real shared stream (quality-and-testing.md: no test
+# writes shared mutable state); unset in every real invocation, so production is unaffected.
+{
+  gate_project=$(basename "$cwd")
+  events_log="${PANDACORP_EVENTS_LOG:-$HOME/.claude/dashboard-events.ndjson}"
+  jq -cn \
+    --arg ev "StopGate" --arg at "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" \
+    --arg proj "$gate_project" --arg rigor "$gate_rigor" --arg scope "$gate_scope" \
+    --argjson green "$gate_green" --argjson duration_ms "$gate_duration_ms" \
+    '{event:$ev, at:$at, project:$proj, rigor:$rigor, scope:$scope, green:$green, duration_ms:$duration_ms}' \
+    >> "$events_log" 2>/dev/null
+} || true
+
+if [ "$verify_rc" -ne 0 ]; then
   # The gate is RED. Attribute BEFORE nagging (DR-099): in a SHARED checkout the whole-program gate
   # also fails on ANOTHER session's in-flight WIP. If NONE of the files THIS session edited are
   # implicated — neither dirty (uncommitted) nor blamed by the output — it is a FOREIGN red → allow
@@ -185,13 +289,19 @@ fi
 # GREEN: record the commit this run verified so a later Stop on an unchanged, clean tree can
 # fast-path above (BL-0044). Best-effort — a write failure here never blocks the (already-passed)
 # Stop; it just means the next Stop re-runs the gate instead of fast-pathing.
-green_sha_now=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
-if [ -n "$green_sha_now" ]; then
-  mkdir -p "$cwd/.pandacorp/run" 2>/dev/null
-  tmp_lg=$(mktemp "$cwd/.pandacorp/run/.last-green.XXXXXX" 2>/dev/null) && {
-    printf '{"sha":"%s","at":"%s"}\n' "$green_sha_now" "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" > "$tmp_lg" \
-      && mv "$tmp_lg" "$last_green"
-  }
+# F2: ONLY a FULL-scope green may advance this anchor. A `--since` green only proves the CHANGED
+# slice is clean, not the whole tree — writing it here would let a later `--since` run anchor off
+# a commit that was never itself fully verified, silently eroding what "last green" means (memo
+# §A.1: micro/normal reuse the SAME anchor a full run produced, they never mint a new one).
+if [ "$gate_scope" = "full" ]; then
+  green_sha_now=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
+  if [ -n "$green_sha_now" ]; then
+    mkdir -p "$cwd/.pandacorp/run" 2>/dev/null
+    tmp_lg=$(mktemp "$cwd/.pandacorp/run/.last-green.XXXXXX" 2>/dev/null) && {
+      printf '{"sha":"%s","at":"%s"}\n' "$green_sha_now" "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" > "$tmp_lg" \
+        && mv "$tmp_lg" "$last_green"
+    }
+  fi
 fi
 
 exit 0
