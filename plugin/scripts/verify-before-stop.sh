@@ -96,12 +96,15 @@ fi
 #       THIS hook below when verify.sh exits 0 (no other writer) — a new commit moves HEAD and
 #       invalidates the fast-path by construction
 #   (c) this session's own .touched marker (DR-099) is absent or empty — a session that wrote
-#       nothing has nothing new for the gate to catch, even if some OTHER session committed
+#       nothing has nothing new for the gate to catch, even if some OTHER session committed.
+#       D8: a MISSING/empty session_id is NOT an empty-touched session — it means the hook cannot
+#       even NAME this session's marker, so it cannot know it wrote nothing. Fail-closed: no sid ⇒
+#       no fast-path, ever (falls through to the real gate below).
 sid=$(echo "$input" | jq -r '.session_id // ""')
 touched="$cwd/.pandacorp/run/sessions/$sid.touched"
 last_green="$cwd/.pandacorp/run/last-green.json"
 fastpath=0
-if [ -z "$(git -C "$cwd" status --porcelain 2>/dev/null)" ] && { [ -z "$sid" ] || [ ! -s "$touched" ]; }; then
+if [ -z "$(git -C "$cwd" status --porcelain 2>/dev/null)" ] && { [ -n "$sid" ] && [ ! -s "$touched" ]; }; then
   head_sha=$(git -C "$cwd" rev-parse HEAD 2>/dev/null)
   if [ -n "$head_sha" ] && [ -f "$last_green" ]; then
     green_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_green" 2>/dev/null)

@@ -89,6 +89,12 @@ check "non-empty touched marker -> gate runs" 0 1 "$fx" "sid-d"
 : > "$fx/.pandacorp/run/sessions/sid-e.touched"
 check "empty touched marker -> fast-path" 0 0 "$fx" "sid-e"
 
+# 5b. D8: an EMPTY session_id -> the hook cannot name a .touched marker to check, so it cannot
+# know this session wrote nothing -> fail-closed, gate runs (never a fast-path on a missing sid),
+# even though the tree is otherwise clean and HEAD == last-green (the exact condition that gave
+# check 2/5 above a fast-path with a real sid).
+check "empty session_id -> gate runs (fail-closed, no fast-path)" 0 1 "$fx" ""
+
 # 6. A new commit moves HEAD away from the recorded green sha -> doubt -> gate runs
 git -C "$fx" commit -q --allow-empty -m "advance HEAD"
 new_sha=$(git -C "$fx" rev-parse HEAD)
