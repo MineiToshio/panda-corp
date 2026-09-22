@@ -57,6 +57,10 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     (a specific `change`/`frds` — safePoint() drains nothing there, DR-069) runs the safe-point sweep
 //     once at the first wave boundary and then only every WAVE_THROTTLE boundaries — see the call site
 //     for why (Date.now() is unavailable in a Workflow script). null/false = off (the throttle applies).
+//   args.forceUiPasses: OPT-IN escape hatch (default false) — forces the foundation-completeness
+//     gate and the end-of-build visual-QA pass to run even when the ready/built work orders declare
+//     no UI-touching artifacts (WP-01, DR-057/DR-072). Use when the UI-relevance heuristic is wrong
+//     for a given run (e.g. a WO's real UI surface hides behind an undeclared or unconventional path).
 const MODE = (args && args.mode) || 'powerful'
 const STRICT_BASELINE = Boolean(args && args.strictBaseline === true)   // BL-0124 escape hatch — see the arg doc above
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
@@ -90,6 +94,7 @@ const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // hea
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 const FOUNDATION_GATE_NULL_CAP = (args && args.foundationGateNullCap) || 2   // WS-D/D5: a SEPARATE cap for null/garbled foundation-completeness gate verdicts (a dead gate agent) — counted on its OWN counter so a couple of dead gates never eat the real repair budget (FOUNDATION_REPAIR_CAP), and vice-versa
 const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
+const FORCE_UI_PASSES = Boolean(args && args.forceUiPasses === true)   // WP-01 escape hatch: always run the foundation-completeness gate + end-of-build visual-QA pass, bypassing the UI-artifact heuristic (artifactsTouchUi)
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
 const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at most this many in-place patch attempts per gate cycle (patch-1 + one diagnosis-guided patch-2); beyond it the ladder reverts+rebuilds instead of a 3rd patch — reopen_count stays the hard non-progress budget
@@ -281,6 +286,14 @@ const HARDENING_EVENT = (stage) =>
 // is the engine-known done/total; `wos` the agent fills from the status.yaml per-status counts.
 const BUILD_COMPLETE = (verdict, frdsDoneTotal) =>
   ` Also append the BuildComplete event (fire-and-forget): printf '{"event":"BuildComplete","at":"%s","project":"%s","wos":"%s","frds":"${frdsDoneTotal}","verdict":"${verdict}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<VERIFIED work orders/total work orders from .pandacorp/status.yaml, e.g. 12/15>" >> ~/.claude/dashboard-events.ndjson.`
+
+// WP-01 — a UI-gated pass (foundation-gate | visual-qa) was SKIPPED because no ready/built work order
+// this run declared a UI-touching artifact (never emitted when FORCE_UI_PASSES bypassed the skip, nor
+// when the pass genuinely ran) — so Mission Control's timeline can tell "not needed" from "silently
+// dropped". Same fire-and-forget contract as the other dashboard events; embedded in whichever agent
+// prompt already runs at that point in the loop (the engine itself has no shell/fs access).
+const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
+  ` Also append the UiPassSkipped event (fire-and-forget): printf '{"event":"UiPassSkipped","at":"%s","project":"%s","pass":"${pass}","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
@@ -1336,6 +1349,21 @@ const artifactsOverlap = (a, b) => {
   if (!A.length || !B.length) return true
   return A.some((x) => B.some((y) => globsOverlap(x, y)))
 }
+// ── WP-01: UI-relevance heuristic for the foundation-completeness gate + end-of-build visual-QA pass ──
+// Both passes exist ONLY to protect a visual/UI surface (DR-057 foundation completeness, DR-072 visual
+// fidelity) — so they are pointless work on a run whose ready/built work orders are all backend/lib
+// (the FRD-24 measurement: 179s + 761s, 24% of a build with artifacts only in src/lib/** and scripts/**).
+// Matches the same artifact globs `artifactsOverlap` already reads (WO frontmatter `artifacts:`), so
+// no new data source. FAIL-CLOSED the same way as artifactsOverlap (:1300): a WO with UNDECLARED
+// artifacts can't be proven UI-free, so it counts as UI-touching (never a silent skip on missing data).
+const UI_ARTIFACT_RE = /(^|\/)(src\/app\/|src\/components\/)|\.(tsx|jsx|css|scss)$|design-tokens\.json$|(^|\/)DESIGN\.md$/
+/**
+ * True if ANY of the given work orders may touch a UI surface — either because an artifact glob
+ * matches `UI_ARTIFACT_RE`, or because the work order declares no artifacts at all (fail-closed,
+ * mirrors artifactsOverlap's undeclared-artifacts rule: unprovable is treated as UI-touching, never
+ * silently skipped). An empty `wos` list is vacuously false (nothing ready/built to protect).
+ */
+const artifactsTouchUi = (wos) => wos.some((w) => !(w.artifacts && w.artifacts.length) || w.artifacts.some((a) => UI_ARTIFACT_RE.test(a)))
 // DR-073 cost-weighting (WS-A F1/D2): the wave must respect the COST budget, not a raw WO count —
 // each WO spawns COST(model)+1 agents (build + its serialized commit; 3×COST+2 in the split relay),
 // so a full opus fan-out used to overshoot maxAgents by ~4× mid-wave (a 6-cap run reached 13). The
@@ -1987,15 +2015,26 @@ while (true) {
   // foundation-only; before any SURFACE fans out the foundation must be COMPLETE (bounded auto-repair).
   const foundationReady = ready.filter((w) => w.foundation)
   let candidates = ready
+  let uiPassSkipEvent = ''   // WP-01: set below when this iteration skips a UI-gated pass; appended to whichever agent runs next
   if (foundationReady.length) {
     candidates = foundationReady
   } else if (plan.hasFrontend && !foundationVerified && ready.some((w) => !w.foundation)) {
-    const ok = await ensureFoundationComplete()
-    if (!ok) {
-      const surfaceFrds = [...new Set(ready.filter((w) => !w.foundation).map((w) => w._frd))]
-      log(`⊘ foundation incomplete and it needs the owner — holding surface work (${surfaceFrds.join(', ')})`)
-      for (const frd of surfaceFrds) blockFrdInSchedule(frd, 'needs-owner')
-      continue
+    const nonFoundationReady = ready.filter((w) => !w.foundation)
+    // WP-01: the gate only protects a UI surface (DR-057) — pointless work when every non-foundation
+    // WO ready this wave is backend/lib-only (measured: 179s, 24% of a build with zero UI artifacts).
+    // FORCE_UI_PASSES bypasses the heuristic; artifactsTouchUi fails CLOSED on undeclared artifacts.
+    if (FORCE_UI_PASSES || artifactsTouchUi(nonFoundationReady)) {
+      const ok = await ensureFoundationComplete()
+      if (!ok) {
+        const surfaceFrds = [...new Set(nonFoundationReady.map((w) => w._frd))]
+        log(`⊘ foundation incomplete and it needs the owner — holding surface work (${surfaceFrds.join(', ')})`)
+        for (const frd of surfaceFrds) blockFrdInSchedule(frd, 'needs-owner')
+        continue
+      }
+    } else {
+      const surfaceFrds = [...new Set(nonFoundationReady.map((w) => w._frd))].join(', ')
+      log(`⊘ foundation-gate omitido: ninguna WO no-fundación lista declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre — ${surfaceFrds}`)
+      uiPassSkipEvent += UI_PASS_SKIPPED_EVENT('foundation-gate', surfaceFrds, 'no-ui-artifacts')
     }
   }
 
@@ -2029,7 +2068,7 @@ while (true) {
   // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
   // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
   agentSpawned++
-  await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.`,
+  await agent(`Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else, do NOT commit; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
     { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: 'pandacorp:implementer' })
   const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
@@ -2095,18 +2134,29 @@ await drainConverge()
 // The fidelity work consolidated into ONE dedicated phase, OUTSIDE the convergence loop, so being
 // thorough here can't cause the churn a per-FRD fidelity BLOCK would. Scoped to the FRDs touched THIS
 // run. PUNCH-LIST + bounded DIRECT fixes — NEVER a reject-to-rebuild. The owner sweeps the residual.
+// WP-01: skip when NONE of the built FRDs' work orders declare a UI-touching artifact (same heuristic
+// as the foundation gate — pointless fidelity work on a backend/lib-only run, FORCE_UI_PASSES bypasses
+// it). Derived from the plan's own record (frdState), not a re-read — the work orders were already
+// enrolled when the FRD was planned.
+let visualQaSkipEvent = ''
 if (plan.hasFrontend && builtFrds.length) {
-  phase('Review')
-  agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
-  await agent(`${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${builtFrds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
-  For EACH of those FRDs, for each key route:
-  1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
-  2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
-  3) FIX the cheap, unambiguous ones DIRECTLY (a token/size/spacing/color/class correction against the EXISTING design docs — the doc already specified it, the build implemented it wrong; NO doc change). Check them off. Leave ambiguous/large gaps UNCHECKED for the owner. Bound your fixes (don't grind to perfection — the owner does the final polish).
-  4) After fixing, run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` to confirm your fixes regressed nothing (DR-106 — the close-out/notify-end step right after runs the FULL suite once; don't pay it twice here); if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
-  Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`,
-    { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
-  log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+  const builtWos = builtFrds.flatMap((frd) => (frdState.get(frd) || {}).f?.workOrders || [])
+  if (FORCE_UI_PASSES || artifactsTouchUi(builtWos)) {
+    phase('Review')
+    agentSpawned += COST(P.judge)   // DR-073: judge-model spawn — weighted
+    await agent(`${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${builtFrds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
+    For EACH of those FRDs, for each key route:
+    1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
+    2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
+    3) FIX the cheap, unambiguous ones DIRECTLY (a token/size/spacing/color/class correction against the EXISTING design docs — the doc already specified it, the build implemented it wrong; NO doc change). Check them off. Leave ambiguous/large gaps UNCHECKED for the owner. Bound your fixes (don't grind to perfection — the owner does the final polish).
+    4) After fixing, run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` to confirm your fixes regressed nothing (DR-106 — the close-out/notify-end step right after runs the FULL suite once; don't pay it twice here); if a fix broke a test, revert THAT one fix (keep the rest) and re-run. Commit (e.g. \`style(visual-qa): sweep punch-list for ${builtFrds.slice(0, 3).join(', ')}\`). Advance status.yaml last_event_at + updated_at + kill any dev server with TaskStop.
+    Return { done: true } once the punch-list is written, safe fixes committed, and verify is green.${NOTIFY('QA Visual: punch-list generado + arreglos seguros aplicados', 'Glass')}`,
+      { label: 'visual-qa', phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+    log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+  } else {
+    log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
+    visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
+  }
 }
 
 // ── DR-069 §7 verify-then-archive — DURABLE + cross-run (WS-A/D1) ─────────────────────────────────
@@ -2124,7 +2174,7 @@ if (builtFrds.length) {
   2) For EACH landed change: verify its durable record exists (the canonical docs/FRDs it names were touched); stamp \`status: done\` + \`shipped_sha\` (current \`git rev-parse --short HEAD\`) + \`shipped_at\` (ISO now); MOVE the file to .pandacorp/inbox/changes/done/ (a move, NEVER a delete — the folder is gitignored, a delete is irreversible); update its row in the queue index README.md.
   3) Leave every still-building change whose affected_frds are merely un-VERIFIED in place (they will verify on a later run). Commit the archive moves + status edits (Conventional Commits, scope). If NO building change has fully landed, change nothing.
   4) WS-D/D16 — ORPHANED building change: for EACH change still \`status: building\` whose \`affected_frds\` include a BLOCKED FRD (read that FRD's rolled-up frd.md \`implementation_status\` — it is \`BLOCKED\`, NOT merely un-VERIFIED), its build cannot complete on its own. Set it back to \`status: ready\` and add a one-line \`note:\` saying why (e.g. "re-opened: FRD <folder> quedó BLOCKED needs-owner"), so it re-surfaces at the next run's drain instead of stranding as a phantom building change. Commit that edit.
-  Return { done: true }.`,
+  Return { done: true }.${visualQaSkipEvent}`,
     { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   log('✓ DR-069 §7 verify-then-archive sweep (building changes whose affected_frds all VERIFIED → done/)')
 } else if (integratedChanges.length) {
