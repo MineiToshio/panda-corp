@@ -7,6 +7,23 @@ state and plans live in structured data the build engine reads, not in the engin
 inference, not in git, not in body prose. Recovered and systematized from PandaTrack; see
 `docs/proposals/11-build-orchestration-v2.md`.
 
+**Speed sprint 2026-09 (proposal 37).** A cost/latency audit of the build engine and `verify.sh`
+(`docs/proposals/37-fast-change-path-and-implement-cost.md`) shipped a batch of engine-contract changes,
+already implemented and tested, folded into this standard below (§2, §5, §5a, §6, §8, §9, §10b/10c,
+§11). New `args.*` toggles, all engine-owned defaults:
+
+| `args.*` | Default | What it does |
+|---|---|---|
+| `forceUiPasses` | `false` | override: always run the UI-touching passes (foundation-gate, visual-qa), ignoring declared artifacts (WP-01) |
+| `leanCloseOut` | `true` | fold archive-changes and release-lease into the close-out agent; resolve `visual-qa` as a promise before the hardening chain starts (WP-02) |
+| `strictBaseline` | `false` | treat any dirty path other than `.pandacorp/status.yaml` under a valid lease as an escalation, not a clean baseline (WP-04, BL-0124) |
+| `safePointEveryWave` | `false` | force the full safe-point every wave even on a TARGETED run, matching the bare-run default (WP-11, fix D-1) |
+| `mechLean` | `true` | route mechanical engine steps through the `pandacorp:mech` agent (Bash and Read only, low effort) and fuse `sync-rollups` into the wave dispatch (WP-03) |
+| `repairBudgetFactor` | `3` | cap on scoped-repair spend, as a multiple of the build's own weighted cost, before the engine gives up honestly to `needs-owner` (WP-08) |
+| `scopedRepair` | `false` | allow a purely mechanical sub-gate red to patch via `--only`/`--files` instead of a whole-project patch cycle, gated until canaried (WP-08) |
+| `gateEvidence` | `'explore'` | `'explore'` (byte-identical to the pre-sprint gate) or `'digested'` (mech-collected evidence under a bounded exploration budget, WP-06, mandatory A/B canary before the default changes) |
+| `drainOnEmptyPlan` | `true` | on a BARE run with an empty plan, drain the ready change queue before declaring "nothing to build" (E2, BL-0129); still prohibited on a TARGETED run |
+
 ## 1. State lives in the frontmatter (two axes)
 
 Every FRD, blueprint and work order carries two state fields in its YAML frontmatter. The PRD carries
@@ -170,6 +187,17 @@ corrupted transcript is never silently rolled up as empty/zero); a trailing inco
 in-flight streaming write) is tolerated and counted in `skipped_incomplete_lines`. `dashboard-events.
 ndjson` is never widened by this — the rollup script performs no writes at all, only reads +
 stdout. Mission Control UI for this data and the OTel cross-check are explicitly deferred (BL-0107).
+
+**The rollup joins the workflow's own run record (WP-09, proposal 37).** `usage-rollup.mjs` also reads
+the Dynamic Workflow's `wf_<runId>.json` and joins it into the summary: `agents[]` (per-agent identity),
+`wall_clock_s`, `concurrency_max`, a `by_phase` breakdown, and `agents_unjoined` (a transcript file the run
+record doesn't name, counted rather than silently dropped, per DR-078). `cache_creation_cost_usd_estimated`
+stays a clearly labeled SEPARATE field, never folded into `cost_usd_total`: no verified cache-write rate
+exists (CONV-13 forbids inventing one), so it is a labeled estimate, not a measurement. The per-wave
+dispatch log also now states why each candidate WO was NOT dispatched this wave: `deps` (an unmet
+`dependsOn`), `artifacts` (an overlap serialized to a later wave, DR-060) or `blocked` (an upstream
+`BLOCKED` dependency).
+
 Worktree-per-agent
 was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
 isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
@@ -248,6 +276,18 @@ other's work, so given the same need they reinvent slightly-different versions o
   existing primitive (two banners/cards/modals) and flags sibling components that diverge from one
   shared pattern. Reuse is verified, not assumed.
 
+**Trigger is declared WO artifacts, not the project stack (WP-01, proposal 37).** The foundation-completeness
+gate above and the end-of-build Visual QA pass (§9) fire on **`artifactsTouchUi`**: a WO's `artifacts`
+globs matching a UI-touching path (`src/app`, `src/components`, `src/styles`, `public`, the
+`tsx`/`jsx`/`css`/`scss`/`svg`/`html`/`mdx` extensions, `design-tokens.json`, `tailwind.config.*`,
+`DESIGN.md`), never an inference from "this project is a web app". **Fail-closed:** a WO with no declared
+`artifacts`, or whose `implementation_status` the engine can't find, still runs the UI passes (the safe
+default is "assume UI touched", not "assume headless"); an omission is never silent, it is logged and
+emits a `UiPassSkipped` event whenever a pass is genuinely skipped. `args.forceUiPasses` (default `false`)
+overrides detection and always runs both passes. This changes WHICH work orders trigger these two
+engine-orchestrated passes; the deterministic visual regression (Layer A, DR-056) still runs inside the
+full `verify.sh` at close-out exactly as before, untouched by this sprint.
+
 ## 3b. The readiness gate — cohesion before the build (DR-100)
 
 A blueprint with holes produces ambiguous work orders, and ambiguity is the #1 cause of an agent
@@ -319,6 +359,13 @@ The build engine reviews and tests **per FRD**, not per work order:
   parked at that `cwd`). The supervisor keeps a freshness-stamped lock at `.pandacorp/run/build.lock`; the
   Stop hook no-ops while it's fresh and re-engages strictly when the build ends. The engine owns the gate
   during a build; the Stop hook owns it at rest. See `quality.md` (Gates).
+  **At rest, the hook itself now has a fast-path (E3, proposal 37):** a clean tree whose HEAD matches
+  `last-green.json` and an empty `.touched` record skips re-running `verify.sh` entirely, since there is
+  nothing new to verify; any other state still runs the full strict suite. Both branches stay
+  fail-closed: the fast-path is a skip on proven-nothing-changed, never a relaxed check. The companion
+  `check-derived-drift.sh` (the plugin-manifest and Codex-mirror drift gate) similarly only re-runs its
+  generators when the session touched `plugin/` or `factory/`, or HEAD moved since its last-ok stamp; see
+  `plugin/hooks/hooks.json` for the full enforcement roster.
 - **Split review gate (proposal 31 T1.2) — behind the `reviewSplit` profile flag.** The FRD gate can run
   as ONE serial reviewer (the default) OR as a four-stage split: **find → dedup → verify → close**. The
   flag lives in the engine's `PROFILES`: `reviewSplit: true` for `powerful`/`deep`, `false` for
@@ -347,6 +394,17 @@ The build engine reviews and tests **per FRD**, not per work order:
   finding ALIVE (a correction is never dropped because the skeptic died); all four finders dead → the gate
   falls back to the serial reviewer. The gate itself is **never skipped** — a missing/degraded split always
   degrades to the serial gate, never to no gate.
+- **Gate evidence mode: `explore` (default) or `digested` (WP-06, proposal 37, `args.gateEvidence`).**
+  In `explore` (byte-identical to the pre-sprint gate) the reviewer reads the code itself, at its own
+  exploration budget. In `digested`, a `MECH`, low-effort `evidence:<frd>` collector runs at wave close in
+  the pinned gate worktree (`verify.sh --since <last_green> --report-all`, a diff bounded to the FRD's
+  declared artifacts and capped at 1,500 lines, the FRD's EARS acceptance criteria copied verbatim) and
+  hands that digest to the gate model, same model and same `effort: 'xhigh'` (DR-015 untouched), with a
+  bounded exploration budget on top of the digest (8 reads plus 1 gate run) instead of unlimited
+  exploration from a blank slate. **Fail-closed to `explore`** on any collection failure
+  (`GateEvidenceFallback` event, never a silent degrade); the split gate above applies either way; a
+  re-gate over `main` always runs `explore` (a digest is only trustworthy against the pinned worktree it
+  was built from). Ships behind a mandatory A/B canary with a seeded corpus before the default may change.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser — the Preview Smoke Gate (DR-055)**.
   This layer is **mandatory and fail-closed for any FRD that has UI routes** (default ON for web
@@ -436,6 +494,26 @@ The build engine reviews and tests **per FRD**, not per work order:
 1. **Never take `$?` after a bare pipe as the gate's verdict.** `bash verify.sh 2>&1 | tail` reports `tail`'s exit code — almost always 0 — so a genuinely red gate reads green. Any wrapper that pipes a gate's output for readability must capture the gate's own status: `set -o pipefail`, or `${PIPESTATUS[0]}`, or simply run it un-piped. This is the false-GREEN direction, and it is the dangerous one: it lets a build close on a red tree.
 2. **A broad e2e / `webServer` failure is triaged before it is diagnosed as a regression.** Two independent, similarly-disguised causes come first: (a) **port collision** — another process (often a sibling project) already answering on the port, silently reused via Playwright's `reuseExistingServer`, so every test runs against the WRONG app; (b) **orphaned same-project lock** — a stray `next dev` from an earlier session tripping Next's *process-level* dev-server lock even when the reserved port is completely free, which no port-bind check catches. Pass the project's reserved `PORT` from `factory/ports.yaml` explicitly, check `lsof -i :<port>` and the running dev processes, and prefer a **fresh** server boot over reusing a long-lived one (accumulated HMR state produced false-red mobile-nav failures that passed clean on a clean boot). This is the false-RED direction: cheap to check, and it has burned six recorded runs across two projects. `BL-0037`/`BL-0049` track the code-side fix; until one lands, this triage is the mechanism.
 
+**`gate-report.json` and scoped repair: a red gate's cause is read, not guessed (WP-05, WP-08, proposal
+37).** `verify.sh` now ALWAYS writes `.pandacorp/run/gate-report.json`, deleted at the start of every run
+(`LESSON-0155`, so a stale report can never be read as this run's verdict), shaped
+`{at, scope: "full"|"since"|"partial", green, subgates: [{name, exit, duration_ms, failures: [...]}]}`.
+`--report-all` runs all nine cheap sub-gates to completion and accumulates every failure before exiting
+non-zero (`${PIPESTATUS[0]}`, `LESSON-0078` applied inside the script itself, not only by its callers): one
+red no longer hides the next. `--only=<subgates>` and `--files=<list>` (WP-08) narrow a run to named
+sub-gates and changed files (biome, `vitest related`) and stamp `scope: "partial"`; an unknown sub-gate
+name exits 2 before running anything. From `gate-report.json` the engine deterministically classifies
+which sub-gate went red (`lint | types | structure | cycles | deadcode | unit-test | e2e | doc`): a purely
+mechanical red routes to a patch-1 on sonnet/medium, scoped with `--only`/`--files` (still capped at its
+usual ≤2 internal cycles), instead of the full opus in-place patch. The final certification re-gate stays
+whole-project, literally, and this is enforced as a hard cage, not a convention: no certifier (an inline
+gate, a concurrent worktree gate, a re-gate, the post-patch verifier, `applyGate`) ever accepts
+`report_scope: "partial"` as a passing verdict. The brake: `args.repairBudgetFactor` (default `3`) caps
+scoped-repair spend at 3 times the WO's own build cost before the engine gives up honestly to
+`needs-owner` with the work preserved, rather than grinding. `args.scopedRepair` (default `false` until
+canaried) gates the whole mechanism off until an A/B canary clears it. Scoped repair never overrides
+`cause: 'gate-test-defective'` (`LESSON-0002`): that still routes to `repairGateTest` (§6) unchanged.
+
 ## 5a. Concurrent gates — build and review finally overlap (DR-118)
 
 The per-FRD gate runs a whole-project `verify.sh` (biome/tsc/knip + the browser layer), which needs a **quiet
@@ -493,6 +571,14 @@ Control's six rooms: **research** (pre-project) → `product` → `design` → `
   `phase: release`**. If a hardening stage fails, the engine keeps `phase: implementation`, files a
   needs-owner decision and notifies; the fail-safe close (fired when a close-out agent dies) NEVER touches
   `phase`. There is no path to `release` on the FRD loop alone.
+- **Lean close-out: one agent, ordered writes (WP-02, proposal 37, `args.leanCloseOut` default `true`).**
+  The former separate `archive-changes` and `release-lease` steps fold into the close-out agent itself
+  (one spawn instead of three). Inside that close-out, `visual-qa` (§9's end-of-build pass) dispatches as
+  a **promise** with its own `.catch` (a `visual-qa` failure degrades honestly to a residual punch-list,
+  it never crashes the close-out) and is **resolved before** the hardening chain starts; the two run in
+  that fixed order, deliberately not concurrently, because two agents writing git at once on the same
+  tree is the exact race §2's single-writer commit exists to prevent. `RELEASE_LEASE` still runs last,
+  unchanged, and the `running:false` fail-safe (DR-068) is untouched by the fold.
 - **`release` is the terminal phase = launched.** It means the product is **deployed / launched** (internal
   or external) and from there it is iterated (`/pandacorp:iterate`) and its results read
   (`/pandacorp:review-launch`). The old `operation` phase is **folded into `release`** — there is no
@@ -518,7 +604,16 @@ The build **runs to completion** by default (owner decision 2026-06-16). It does
 features: one feature can cost 10x another, so a count protects neither tokens nor progress. A run
 stops only when:
 
-- **Nothing is left in a bare whole-project run** — every FRD is `VERIFIED`, then the **final hardening step** runs (DR-085: security audit + quality close-out + telemetry/metrics verification — the audit that used to live in `/pandacorp:release` is now construction's last step) → `phase: release`. Reaching `release` means the build is hardened and ready to be **launched** (deployed internal or external) by `/pandacorp:release`; there is no `operation` phase after it. A targeted FRD/change run owns only its requested scope: after its complete per-FRD gates it quiesces with `phase: implementation`, even when that scope happened to be the last globally pending work. Only a later bare run may audit/fix the whole project and advance release. **No non-Claude runtime runs any of this: build execution is Claude-only (DR-120 froze every other runtime at read/review-only on 2026-09-02; the former Codex `attended_foreground` profile is withdrawn).**
+- **Nothing is left in a bare whole-project run** — every FRD is `VERIFIED`, then the **final hardening step** runs (DR-085: security audit + quality close-out + telemetry/metrics verification — the audit that used to live in `/pandacorp:release` is now construction's last step) → `phase: release`. Reaching `release` means the build is hardened and ready to be **launched** (deployed internal or external) by `/pandacorp:release`; there is no `operation` phase after it. A targeted FRD/change run owns only its requested scope: after its complete per-FRD gates it quiesces with `phase: implementation`, even when that scope happened to be the last globally pending work. Only a later bare run may audit/fix the whole project and advance release. Before declaring "nothing to
+  build" on a BARE run with an empty plan, the engine now drains the ready change queue first
+  (`drainReadyQueuePreLoop`, E2, BL-0129, `args.drainOnEmptyPlan` default `true`): `/pandacorp:change`'s
+  promise that "the build drains the queue" was silently false whenever every FRD was already `VERIFIED`,
+  because the empty-plan branch used to return before the loop ever reached a safe point (§8's drain runs
+  inside the wave loop). If the drain materializes real work the engine re-plans and proceeds normally;
+  only a still-empty queue after the drain ends the run. A TARGETED run never drains on an empty plan:
+  draining the whole queue is out of scope for a run the owner scoped to one FRD or change. **No
+  non-Claude runtime runs any of this: build execution is Claude-only (DR-120 froze every other runtime at
+  read/review-only on 2026-09-02; the former Codex `attended_foreground` profile is withdrawn).**
 - **Budget ceiling** — `maxAgents` (a hard cap on subagents spawned this run) is reached, or a `+Nk` turn
   directive / `maxSpend` is nearly spent → stop at the last safe point (a commit). For overnight runs,
   **`maxAgents` is the real guardrail**: counted **inside the engine** (each implementer/reviewer ≈ work ≈
@@ -668,6 +763,18 @@ check, the rollup sync, the change archive and the end-of-run notify run on `MEC
 `args.mechModel` overrides) — they execute a script, they exercise no judgement; real build/review/repair
 work keeps the sonnet floor + opus escalation.
 
+**Mechanical steps run through a dedicated agent, not just a cheap model (WP-03, proposal 37,
+`args.mechLean` default `true`).** The MECH tier above is now backed by a named agent,
+`pandacorp:mech`, scoped to `Bash` and `Read` only (no `Write`/`Edit`: it cannot touch product code), at
+`effort: 'low'`. `safe-point` itself stays explicitly NOT mechanical: it stays on the implementer, since
+deciding what to do with a drained item is judgment, not a script. `sync-rollups` merges into the wave's
+first `dispatch` call instead of its own spawn, and `commit` now returns the resulting `sha`, which
+`capturePin` (the gate-worktree pin, §5a) reuses directly when a wave closed with a commit and no repair
+ran, saving a spawn on that path. These are fusions, not eliminations: the Dynamic Workflows runtime
+exposes no shell or filesystem to the engine's own JS (confirmed by spike E-1), so every mechanical action
+still has to go through an agent call; `mechLean`'s savings come from calling fewer, better-scoped agents,
+not from skipping the call. Valid `effort` values across the engine: `low | medium | high | xhigh | max`.
+
 **Repair before block (the owner's rule).** When a work order or the FRD gate fails, the engine first
 runs a **repair pass** (a strong-model agent diagnoses and tries to fix, re-verifying with
 `verify.sh`). Only when the fix is genuinely out of reach does the feature go `BLOCKED`, and the block
@@ -746,6 +853,11 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
   tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
   a warm resume pays nothing, while a dirty/off-green tree still gets the full reconcile-then-verify.
+  **The pre-check's dirty-path tolerance is scoped (WP-04, BL-0124, `args.strictBaseline` default
+  `false`).** Under a valid lease, `.pandacorp/status.yaml` is the ONLY path the pre-check treats as
+  "dirty but still clean" (a metadata-only write the lease itself makes); any other dirty path still
+  escalates to the judge baseline, it is never waved through. `args.strictBaseline: true` removes even
+  that one exception, for a project that wants the pre-check bare-metal strict.
 - **The same fence applies at every recurring safe point (BL-0073), not only pre-loop.** Before queue
   or decision processing, the safe-point runner executes the absolute launcher-provided
   `stateCli inspect-stop` command and returns its complete receipt. The engine itself requires
@@ -868,6 +980,12 @@ stays separate — it is the owner *answering* a question the build asked, the o
 **The queue** lives at `.pandacorp/inbox/changes/` (one file per change + a `README.md` index), **in Spanish**
 (gitignored owner layer). It **unifies** the former channels: `inbox/bugs/` folds in as `type: bug`. Each file
 carries a machine header (`type`, `class`, `status`, `frd`, `rebuilds_verified`) + a Spanish body.
+**A `rigor: micro | normal | critical` field (F1, proposal 37) is now derivable per change** with
+`plugin/scripts/classify-change.sh`, a deterministic 17-signal diff classifier with a non-negotiable
+floor (the maximum signal wins; an unclassifiable diff fails closed to `critical`), backtested against
+600 real commits with zero false negatives on the floor. **Not yet wired into `/pandacorp:change`
+itself** (F4 is the pending integration): today it is a standalone script a change card can be scored
+with by hand, not a field `/change` populates automatically.
 
 **Readiness gate — `status: draft | ready` (the owner's hold switch).** A queued item is one of: **`ready`** (the
 description is complete enough to action → the build drains and builds it), **`draft`** (captured for visibility but
@@ -889,10 +1007,19 @@ branch to get wrong. The ONLY place that decides "is a build running?" is `imple
 (DR-050 §11), an **atomic owner-token lease + fencing epoch** whose heartbeat carries a TTL; and even that
 decision is safe-when-wrong (a wrong launch aborts on the guard; a missed launch just leaves the change queued).
 
-**The consumer — THE ENGINE ITSELF drains + routes at every safe point** (a safe-point check runs **before every
-build wave** — the BL-0021 scheduler unit is the wave, not the FRD — plus a **bounded idle-wait** sweep while
-gates run concurrently with nothing left to build (C2), and it is **SKIPPED on pure gate-drain iterations** so it
-doesn't spawn a check per spin; the initial owner-signal check runs pre-loop in the baseline pre-check. It reads
+**The consumer: THE ENGINE ITSELF drains + routes at every safe point.** On a **bare** run, a safe-point
+check still runs **before every build wave** (the BL-0021 scheduler unit is the wave, not the FRD), and
+`args.safePointEveryWave` (default `false`) forces this same cadence on a TARGETED run too. On a
+**TARGETED** run (one FRD or change), the FULL safe-point instead runs **once per run and then every 3
+checkpoints** (WP-11, fix D-1, proposal 37): a cheaper cadence, since a targeted run's checkpoints are
+frequent and individually cheap. The checkpoints it skips still spawn a minimal `renew-lease` agent
+(`RENEW_LEASE`) that does nothing but renew the build lease, because the lease's 600 s TTL used to be
+renewed ONLY at the full safe-point and would otherwise expire between skipped checkpoints. A bare run
+keeps draining the queue by wave regardless (DR-069, below); this cadence change narrows only WHEN the
+full drain/decision/rethink sweep runs, never whether it runs. It also carries a **bounded idle-wait**
+sweep while gates run concurrently with nothing left to build (C2), and it is **SKIPPED on pure
+gate-drain iterations** so it doesn't spawn a check per spin; the initial owner-signal check runs
+pre-loop in the baseline pre-check. It reads
 `rethink_pending` + the ready queue + answered decisions — cabled 2026-07-01,
 audit-20 P0-3; the supervisor only monitors/notifies, and before every relaunch re-checks the stop signal). It takes **only
 `status: ready` items and skips `draft`** (see the readiness gate above). For each `ready` queued
@@ -964,7 +1091,8 @@ rejects spuriously; an over-broad adversarial reviewer harms convergence by over
   hard gate — it's a regression guard, not a fidelity-vs-mock judgment.)
 
 **End-of-build VISUAL QA pass.** All the systematic fidelity work is consolidated into ONE dedicated phase at the
-end of the run, scoped to the FRDs touched that run, run OUTSIDE the convergence loop (so being thorough here can't
+end of the run, scoped to the FRDs touched that run whose work orders' declared `artifacts` touch a UI path (the
+`artifactsTouchUi` trigger, WP-01, §3), run OUTSIDE the convergence loop (so being thorough here can't
 cause churn): render each route → compare semantically to its mock/fdd/tokens → complete the punch-list → **fix the
 cheap, unambiguous gaps DIRECTLY** (a size/spacing/color/token correction against the EXISTING design docs — the
 doc already specified it, the build implemented it wrong; **no doc change, no `change`/`iterate` ceremony**) →
