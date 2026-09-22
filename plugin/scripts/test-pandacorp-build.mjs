@@ -91,6 +91,17 @@ if (/CLAUDE_PLUGIN_ROOT[^\n]*pandacorp-build-state/.test(source)) {
   console.error('FATAL: engine state commands regained an ambient CLAUDE_PLUGIN_ROOT dependency.')
   process.exit(1)
 }
+// D4b source guard: buildCostByFrd (the repair-budget denominator) must be FROZEN against in-run retry
+// rebuilds. A full engine simulation can prove the guard is REACHABLE (FIX2-D4b below), but the ONE
+// canAffordRepair check per FRD per run always runs BEFORE that FRD's own retry build (the engine gives
+// an FRD at most one in-run retry per run — see inRunRetry/gateConverge), so a black-box run can never
+// observe a SECOND, post-retry check to catch a regression that re-inflates the denominator. This static
+// guard is the actual regression net for that half of the invariant (the same house style as the other
+// source guards above), matching the literal `if (!wo._isRetry) buildCostByFrd.set(...)` in buildWO.
+if (!/if \(!wo\._isRetry\)\s*buildCostByFrd\.set\(frd/.test(source)) {
+  console.error('FATAL: D4b — buildCostByFrd is no longer frozen against wo._isRetry; an in-run retry rebuild would inflate its own repair-budget ceiling.')
+  process.exit(1)
+}
 for (const command of ['sync-rollups', 'renew', 'inspect-stop', 'close-preloop', 'quiesce', 'finalize-release']) {
   if (!new RegExp(`STATE_CLI_COMMAND[^\\n]*${command}|${command}[^\\n]*STATE_CLI_COMMAND`).test(source)) {
     console.error(`FATAL: ${command} is not bound to the explicit stateCli capability.`)
@@ -934,7 +945,10 @@ SCENARIOS.push({
 // the 2nd patch carries the diagnosis text.
 SCENARIOS.push({
   name: '19. A3 recovery — patch-1 code-fail → diagnose(point,fresh) → patch-2 spawns with the diagnosis injected',
-  args: { mode: 'pro' },
+  // D4: repairBrake now defaults ON (see REV2-3/WP08e*) — this scenario tests the A3 diagnosis-guided
+  // patch-2 MECHANICS, not the repair-cost brake, so it opts OUT of the brake explicitly to keep
+  // exercising the full ladder to convergence undisturbed by a budget it isn't about.
+  args: { mode: 'pro', repairBrake: false },
   plan: mkPlan([{
     frd: 'frd-19-recovery',
     deps: [],
@@ -3048,7 +3062,12 @@ SCENARIOS.push({
 // diagnose -> patch-2 | gate-test-repair), so "the attempt that would exceed the budget" is the third,
 // not a fourth — a fourth is unreachable by construction.
 SCENARIOS.push({
-  name: 'WP08e. cost brake — the repair agent that would exceed 3x the FRD build spend is NOT spawned; honest needs-owner exit with both DR-099 channels',
+  // D4/BL-0138: the 9-unit floor guarantees patch-1→diagnose→patch-2 always fits a 1-WO FRD (that
+  // escalator is exactly what BL-0138 protects), so the brake can no longer refuse to spawn patch-2
+  // itself — it now refuses the NEXT (pricier) rung, the in-run retry rebuild, once THAT would exceed
+  // the floored budget. Retargeted from "patch-2 never spawns" to "the ladder runs its full floored
+  // escalator, then the brake still stops it before an unaffordable rebuild" — same honest-exit mechanics.
+  name: 'WP08e. cost brake — the in-run retry rebuild that would exceed the floored FRD budget is NOT spawned; honest needs-owner exit with both DR-099 channels',
   args: { mode: 'pro', scopedRepair: true, repairBudgetFactor: 3 },
   plan: mkPlan([{
     frd: 'frd-wp08e-lib',
@@ -3062,10 +3081,10 @@ SCENARIOS.push({
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(byLabel(run, /^patch:/).length === 1, `only patch-1 was spawned — patch-2 did not fit the budget (got ${byLabel(run, /^patch:/).length} patch spawns)`)
-    t.ok(byLabel(run, /^diagnose:/).length === 1, 'the diagnosis, which DID fit, still ran (the brake refuses, it does not pre-empt)')
+    t.ok(byLabel(run, /^patch:/).length === 2, `FIXED (BL-0138 floor): patch-1 AND patch-2 both fit the floored 9-unit budget (got ${byLabel(run, /^patch:/).length} patch spawns)`)
+    t.ok(byLabel(run, /^diagnose:/).length === 1, 'the diagnosis, between them, still ran once')
     const block = byLabel(run, /^block-repair-budget:/)[0]
-    t.ok(Boolean(block), 'the exhausted budget produced the dedicated honest-exit agent')
+    t.ok(Boolean(block), 'the exhausted budget (after patch-2 also fails) produced the dedicated honest-exit agent, refusing the in-run-retry rebuild')
     t.ok(block && /needs-owner/.test(block.prompt), 'which files the work order as needs-owner')
     t.ok(block && /gate-report/i.test(block.prompt), 'attaching the gate report so the owner sees the objective evidence')
     t.ok(block && /"event":"GateVerdict"/.test(block.prompt), 'DR-099 channel 1 — the event')
@@ -3077,22 +3096,27 @@ SCENARIOS.push({
   },
 })
 SCENARIOS.push({
-  name: 'WP08e2. cost brake — OFF by default (args.scopedRepair unset): the full ladder runs, patch-2 included',
-  args: { mode: 'pro', repairBudgetFactor: 3 },
+  // D4/REV2-3: scopedRepair no longer governs the brake (it now only governs the sonnet-fixer scoping) —
+  // the brake's OWN escape hatch is args.repairBrake:false. This scenario proves that hatch: with it set,
+  // the ladder runs completely unbounded (patch-1, diagnose, patch-2, AND the in-run-retry rebuild) and
+  // NEVER reaches the brake, even though repairBudgetFactor is tiny.
+  name: 'WP08e2. cost brake — the args.repairBrake:false escape hatch: the full ladder runs unbounded, in-run retry included',
+  args: { mode: 'pro', repairBudgetFactor: 3, repairBrake: false },
   plan: mkPlan([{
     frd: 'frd-wp08e2-lib',
     deps: [],
     workOrders: [mkWo('wo-wp08e2-001', 'PLANNED', { frd: 'frd-wp08e2-lib', artifacts: ['src/lib/**'] })],
   }]),
   responses: [
-    { prefix: 'gate:', response: { green: false, reopen: ['wo-wp08e2-001'], findings: [{ wo: 'wo-wp08e2-001', finding: 'src/lib/e2.ts:9 wrong', files: ['src/lib/e2.ts'] }] } },
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-wp08e2-001'], findings: [{ wo: 'wo-wp08e2-001', finding: 'src/lib/e2.ts:9 wrong', files: ['src/lib/e2.ts'] }] } },
     { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
     { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(byLabel(run, /^patch:/).length === 2, `the pre-WP-08 ladder still spends patch-1 AND patch-2 (got ${byLabel(run, /^patch:/).length})`)
-    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'and never reaches the brake')
+    t.ok(byLabel(run, /^patch:/).length === 2, `the ladder still spends patch-1 AND patch-2 (got ${byLabel(run, /^patch:/).length})`)
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'and repairBrake:false means it never reaches the brake, even past patch-2 into the in-run retry')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp08e2-lib'), 'the in-run retry rebuild actually ran (unbounded) and the FRD converged')
   },
 })
 
@@ -3197,17 +3221,25 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const gw = byLabel(run, 'gate-worktree')[0]
     t.ok(Boolean(gw), 'the gate worktree was prepared')
-    t.ok(gw && /ghostsha/.test(gw.prompt), 'characterisation: the sha from the committed:0 verdict DID become the pin')
-    t.ok(byLabel(run, /^pin:/).length === 1, 'DEFECT: no pin: spawn re-derived HEAD — a commit that reported committed:0 seeded the freeze pin from an unverified sha')
+    // FIXED: commitWOGreen now only caches lastCommitSha on Number(r.committed) > 0, so a committed:0
+    // verdict leaves it null — capturePin's MECH_LEAN fast path is starved of a preSha and spawns a REAL
+    // `pin:` agent to re-derive HEAD from git truth instead of trusting the ghost sha.
+    t.ok(gw && !/ghostsha/.test(gw.prompt), 'FIXED: the committed:0 verdict\'s sha never reaches the pin — no ghostsha in the frozen gate worktree')
+    t.ok(byLabel(run, /^pin:/).length === 1, 'FIXED: a pin: spawn re-derived HEAD — a commit that reported committed:0 no longer seeds the freeze pin from an unverified sha')
   },
 })
 
-// ── REV2-3 · WP-08 (d) · with the DEFAULT args (scopedRepair absent) the 3x repair-cost BRAKE is OFF,
-// not just the scoping. The brake is the only mechanism that bounds the FRD-24 3.5x blow-up by SPEND;
-// gating it behind the same flag as the sonnet fixer means the default configuration still cannot
-// refuse to grind. Characterisation test — it documents the coupling, it does not assert a fix.
+// ── REV2-3 · WP-08 (d) · FIXED (D4): with the DEFAULT args (scopedRepair absent) the repair-cost BRAKE
+// used to be OFF too, not just the scoping — the brake was the only mechanism bounding the FRD-24 3.5x
+// blow-up by SPEND, and gating it behind the same flag as the sonnet fixer meant the default
+// configuration could never refuse to grind. Fixed by splitting the levers: args.repairBrake now governs
+// the brake alone, defaults TRUE, and is read independently of args.scopedRepair. The 9-unit floor
+// (BL-0138, see the brake's own comment) still guarantees the patch-1→diagnose→patch-2 escalator itself
+// always fits a small FRD — so on the default config below the brake fires ONE rung later than before
+// the floor existed, at the in-run retry, not at patch-2. This is no longer a characterisation test: it
+// asserts the fix.
 SCENARIOS.push({
-  name: 'REV2-3. default args: the repair ladder runs to the end with NO cost brake — scopedRepair gates the brake as well as the scoping',
+  name: 'REV2-3. FIXED: default args now carry a cost brake — repairBrake defaults TRUE, independent of scopedRepair',
   args: { mode: 'pro' },
   plan: mkPlan([{
     frd: 'frd-rev2c',
@@ -3221,9 +3253,81 @@ SCENARIOS.push({
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(byLabel(run, /^patch:/).length === 2, 'patch-1 AND patch-2 both run on the default configuration')
+    t.ok(byLabel(run, /^patch:/).length === 2, 'patch-1 AND patch-2 both run — the 9-unit floor (BL-0138) keeps that escalator intact even on the default config')
     t.ok(byLabel(run, /^diagnose:/).length >= 1, 'the opus diagnoser runs between them')
-    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'and the 3x spend brake NEVER fires by default — it is off with the scoping, so an unflagged run still has no spend ceiling')
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 1, 'FIXED: the spend brake NOW fires by default, once patch-2 also fails and the in-run retry would exceed the floored budget — repairBrake is independent of scopedRepair and defaults ON (D4)')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-rev2c'), 'the FRD lands blocked, not ground down past its budget')
+  },
+})
+
+// ── FIX2-D4a · D4 · TRUE default config (no repairBrake, no repairBudgetFactor, no scopedRepair at
+// all) on a 2-WO FRD: patch-1 (1st repair rung), diagnose (2nd), patch-2 (3rd) all fit the 9-unit-floored
+// escalator exactly as REV2-3 proves for one WO — but the 4th rung, the in-run retry, must now rebuild
+// BOTH reopened WOs (units=2), which no longer fits. Focuses on what REV2-3 does not check: the FULL
+// DR-099 honest-exit mechanics (needs-owner, both notification channels, PRESERVE, no hard reset) fire
+// correctly purely from the DEFAULTS — the owner never has to opt into anything to get this safety net.
+SCENARIOS.push({
+  name: 'FIX2-D4a. true defaults (no repairBrake/repairBudgetFactor set): the 4th repair rung (in-run retry) is refused with a full needs-owner honest exit',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-fix2d4a',
+    deps: [],
+    workOrders: [
+      mkWo('wo-fix2d4a-001', 'PLANNED', { frd: 'frd-fix2d4a', artifacts: ['src/fix2d4a/a/**'] }),
+      mkWo('wo-fix2d4a-002', 'PLANNED', { frd: 'frd-fix2d4a', artifacts: ['src/fix2d4a/b/**'] }),
+    ],
+  }]),
+  responses: [
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-fix2d4a-001', 'wo-fix2d4a-002'], findings: [{ wo: 'wo-fix2d4a-001', finding: 'src/fix2d4a/a/x.ts:5 wrong', files: ['src/fix2d4a/a/x.ts'] }, { wo: 'wo-fix2d4a-002', finding: 'src/fix2d4a/b/y.ts:5 wrong', files: ['src/fix2d4a/b/y.ts'] }] } },
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 2, 'rungs 1 and 3 (patch-1, patch-2) both fit the floored budget, exactly as REV2-3')
+    t.ok(byLabel(run, /^diagnose:/).length === 1, 'rung 2 (diagnose) ran once, between them')
+    const block = byLabel(run, /^block-repair-budget:/)[0]
+    t.ok(Boolean(block), 'rung 4 (the in-run retry, now pricing BOTH reopened WOs) is refused — TRUE defaults, no flag opted into')
+    t.ok(block && /needs-owner/.test(block.prompt), 'blocked_reason: needs-owner')
+    t.ok(block && /"event":"GateVerdict"/.test(block.prompt), 'DR-099 channel 1 — the event')
+    t.ok(block && /"event":"PushNotification"|NOTIFY|notificacion|notificación/i.test(block.prompt), 'DR-099 channel 2 — the owner-facing message')
+    t.ok(block && /PRESERVE/.test(block.prompt) && !/git reset --hard/.test(block.prompt), 'the work stays on the branch, intact — never a hard reset')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-fix2d4a'), 'the FRD lands blocked, not silently ground down further')
+  },
+})
+
+// ── FIX2-D4b · D4b · the in-run retry's affordability check must price the FULL projected rebuild (BOTH
+// reopened WOs, units=2 — see canAffordRepair's `units` param) against the FROZEN first-wave denominator
+// (2 WOs × woWaveCost = 4, never re-derived). Companion to the static D4b source guard above (which is
+// the actual regression net for the OTHER half of this invariant — the engine gives an FRD at most one
+// in-run retry per run, so there is no SECOND, post-retry check a black-box run could compare against;
+// see that guard's comment for why). This scenario proves the ONE reachable check computes the correct
+// number: with repairBudgetFactor:2 and base=4, budget floors... no — 2×4=8 still floors to 9 (BL-0138),
+// and patch-1(3)+diagnose(3)=6 spent leaves exactly 3 units of headroom, too little for a 2-WO retry
+// (2×COST(opus)=6) — so the honest exit fires citing BOTH reopened WOs, never a partial silent grind.
+SCENARIOS.push({
+  name: 'FIX2-D4b. in-run retry affordability prices the FULL multi-WO rebuild against the frozen first-wave denominator',
+  args: { mode: 'pro', repairBudgetFactor: 2 },
+  plan: mkPlan([{
+    frd: 'frd-fix2d4b',
+    deps: [],
+    workOrders: [
+      mkWo('wo-fix2d4b-001', 'PLANNED', { frd: 'frd-fix2d4b', artifacts: ['src/fix2d4b/a/**'] }),
+      mkWo('wo-fix2d4b-002', 'PLANNED', { frd: 'frd-fix2d4b', artifacts: ['src/fix2d4b/b/**'] }),
+    ],
+  }]),
+  responses: [
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-fix2d4b-001', 'wo-fix2d4b-002'], findings: [{ wo: 'wo-fix2d4b-001', finding: 'src/fix2d4b/a/x.ts:1 wrong', files: ['src/fix2d4b/a/x.ts'] }, { wo: 'wo-fix2d4b-002', finding: 'src/fix2d4b/b/y.ts:1 wrong', files: ['src/fix2d4b/b/y.ts'] }] } },
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:', response: { classification: 'point', repeatsPrior: true, recommendation: 'full-revert', confidence: 'medium', seam: { files: ['src/fix2d4b/a/x.ts'], symbol: 'baz', why: 'recurring', cleanlySeparable: false } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 1, 'branch (e) — repeats + NOT cleanly separable — skips patch-2, goes straight to the in-run retry check')
+    const block = byLabel(run, /^block-repair-budget:/)[0]
+    t.ok(Boolean(block), 'the in-run retry correctly prices BOTH reopened WOs (units=2) against the frozen base=4 budget, exceeds it, and refuses')
+    t.ok(block && /wo-fix2d4b-001/.test(block.prompt) && /wo-fix2d4b-002/.test(block.prompt), 'BOTH reopened work orders are named in the honest exit — neither is silently dropped')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-fix2d4b'), 'the FRD lands blocked, not partially retried')
   },
 })
 

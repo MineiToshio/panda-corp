@@ -100,30 +100,39 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
 //     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
 //     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
-//   args.scopedRepair: OPT-IN escape hatch (WP-08, **default FALSE**) — turns on the SCOPED repair loop:
+//   args.scopedRepair: OPT-IN escape hatch (WP-08, **default FALSE**) — turns on the SCOPED repair loop
+//     ONLY (D4/REV2 split: scoping and the cost brake are now two INDEPENDENT levers — see
+//     args.repairBrake below for the brake, which is on by default regardless of this flag):
 //     (a) the failing SUB-GATE is classified DETERMINISTICALLY from verify.sh's `.pandacorp/run/
 //     gate-report.json` (lint|types|structure|cycles|deadcode|unit-test|e2e|doc) before the opus
 //     diagnoser is ever spawned, and a purely MECHANICAL failure (lint|types|structure|cycles) is fixed
 //     by a SONNET agent at effort:'medium' instead of opus/xhigh; (b) that agent's <=2 internal
 //     self-repair cycles re-gate with `verify.sh --only=<failing subgates> --files=<files it touched>`
-//     instead of a whole-project knip+biome+tsc each time; (d) repair spend per FRD is capped at
-//     `args.repairBudgetFactor` x that FRD's measured build spend (the same COST() weighting the
-//     maxAgents brake uses), and exhausting it is an honest needs-owner exit with the gate report
-//     attached and the work preserved on the branch.
+//     instead of a whole-project knip+biome+tsc each time.
 //     The FINAL certification re-gate inside attemptPatch is NEVER scoped (see there, red-team-A).
-//     WHY DEFAULT FALSE: (d) is the risk. The COST() proxy is coarse (opus=3, sonnet=1) and cannot see
-//     the real driver of the measured FRD-24 blow-up — ONE opus/xhigh agent burning 85 tool calls, not
-//     many agents. Worked through on a realistic `powerful` FRD of 2 sonnet work orders: C = 2 x
-//     (COST(sonnet)+1) = 4, budget = 12, and the ladder patch-1(3) + diagnose(3) + patch-2(3) = 9 fits;
-//     but on a 1-WO FRD (C = 2, budget = 6) that SAME ladder is cut at patch-2 — a real reduction in
-//     recovery depth that no offline test can tell apart from "correctly refusing to grind". That
-//     tradeoff is the owner's to make on live data, so it ships OFF. Flip it with
-//     `{"scopedRepair": true}` (and raise `repairBudgetFactor` if small FRDs start blocking).
+//     WHY DEFAULT FALSE: the scoped inner loop's sonnet/medium fixer + narrowed re-gate is itself a
+//     tradeoff the owner should opt into on live data. Flip it with `{"scopedRepair": true}`.
+//   args.repairBrake: the repair-cost BRAKE (WP-08 (d)/D4, **default TRUE**) — repair spend per FRD is
+//     capped at `args.repairBudgetFactor` x that FRD's measured build spend THIS RUN (the same COST()
+//     weighting the maxAgents brake uses), and exhausting it is an honest needs-owner exit with the gate
+//     report attached and the work preserved on the branch. Checked by canAffordRepair() at EVERY rung
+//     of the ladder that spends real agent cost — patch-1/patch-2, diagnose, gate-test-repair, AND the
+//     in-run retry rebuild (the single priciest rung: it rebuilds every reopened WO on opus). REV2-3
+//     found this OFF by default used to leave the ladder with NO spend ceiling at all (scopedRepair
+//     gated the brake as well as the scoping) — that coupling is fixed: the brake now runs independently
+//     and defaults ON. Opt out with `{"repairBrake": false}` (restores the pre-D4 unbounded ladder).
+//     The COST() proxy is still coarse (opus=3, sonnet=1) and cannot see that ONE opus/xhigh agent might
+//     burn 85 tool calls — it brakes agent WEIGHT, not tokens (see the brake's own comment below).
 //   args.repairBudgetFactor: how many times an FRD's own build spend its repair may cost before the
-//     brake fires (default 3 — the FRD-24 measurement was 3.5x). Only read when scopedRepair is on.
+//     brake fires (default 3 — the FRD-24 measurement was 3.5x). Only read when repairBrake is on. The
+//     budget floors at 9 units regardless of factor x base (BL-0138): on a realistic 1-WO FRD (build
+//     cost C=2, budget = 3x2 = 6) the unfloored ladder patch-1(3)+diagnose(3)+patch-2(3)=9 was cut BEFORE
+//     patch-2 — losing a whole rung of recovery depth on the smallest, most common FRD shape. The floor
+//     guarantees that escalator always fits; only the (pricier) in-run-retry rung after it is still
+//     gated by the real budget.
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
-//     nor advance last_green_sha, whatever scopedRepair says. See the cage section below.
+//     nor advance last_green_sha, whatever scopedRepair/repairBrake say. See the cage section below.
 const MODE = (args && args.mode) || 'powerful'
 // D-9: the args-string guard above (line ~17) re-parses the WHOLE args blob when scriptPath delivers it
 // JSON-stringified once — but that does NOT protect an individual boolean flag arriving as the literal
@@ -188,8 +197,9 @@ if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' &
   log(`⚠ args.gateEvidence='${args.gateEvidence}' no es 'explore' ni 'digested' — usando 'explore' (WP-06 fail-closed)`)
 }
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
-const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates + the 3x repair-cost brake. Default OFF — see the arg doc above for the worked-through floor risk.
-const REPAIR_BUDGET_FACTOR = (args && args.repairBudgetFactor) || 3   // WP-08: repair spend ceiling per FRD, as a multiple of that FRD's own measured build spend (COST()-weighted). Only read when SCOPED_REPAIR.
+const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates ONLY. Default OFF — see the arg doc above.
+const REPAIR_BRAKE = !argBool(args, 'repairBrake', false)   // D4/REV2-3: the repair-cost BRAKE, independent of SCOPED_REPAIR. Default ON — explicit {"repairBrake": false} restores the pre-D4 unbounded ladder.
+const REPAIR_BUDGET_FACTOR = (args && args.repairBudgetFactor) || 3   // WP-08: repair spend ceiling per FRD, as a multiple of that FRD's own measured build spend (COST()-weighted). Only read when REPAIR_BRAKE.
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
 const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at most this many in-place patch attempts per gate cycle (patch-1 + one diagnosis-guided patch-2); beyond it the ladder reverts+rebuilds instead of a 3rd patch — reopen_count stays the hard non-progress budget
@@ -900,7 +910,13 @@ if (plan.frds.length === 0) {
   // ONCE before declaring "nothing to build"; if it surfaces real work, re-plan and fall through into
   // the normal loop with it instead of reporting a false "all verified".
   if (!TARGETED && DRAIN_ON_EMPTY_PLAN) {
-    const drain = await drainReadyQueuePreLoop()
+    // REV2-6: drainReadyQueuePreLoop() runs BEFORE the scheduler loop exists, so it has no equivalent of
+    // the loop's own WS-D/D2 try/catch boundary — an invalid fenced receipt (or a lease-renewal failure)
+    // inside it used to throw straight out of this function with running:true still in status.yaml (a
+    // phantom-running build). Guarantee the SAME running:false close-out WS-D/D2 gives the in-loop path,
+    // then rethrow so the caller still sees the failure loud.
+    let drain
+    try { drain = await drainReadyQueuePreLoop() } catch (e) { log('☠ pre-loop drain failed: ' + e.message); await ensureStopped('pre-loop drain failed'); throw e }
     if (drain.stop) {
       await ensureStopped('owner stop signal')
       return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
@@ -1008,8 +1024,12 @@ async function commitWOGreen(wo, frd) {
   commitChain = link.catch(() => {}) // keep the chain alive even if one commit errors
   // WS-D/D1: a commit failure must NOT reject the wave (Promise.all would reject the whole parallel wave).
   // Resolve to a boolean the caller acts on: a green-but-UNCOMMITTED WO is routed into its FRD's repair
-  // path (same as a self-test failure), never silently treated as done.
-  return link.then((r) => { if (r && r.sha) lastCommitSha = r.sha; return true }, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
+  // path (same as a self-test failure), never silently treated as done. REV2-2: a verdict that reports
+  // committed:0 (nothing to commit — the mech writer dutifully returning HEAD's sha anyway) must NOT seed
+  // capturePin's fast path with an unverified sha; only a sha from an ACTUAL landed commit is trustworthy.
+  // (The `return true` below on committed:0 is a separate, preexisting, out-of-scope behavior — the caller
+  // still treats it as "done", not routed to repair; left unchanged here.)
+  return link.then((r) => { if (r && r.sha && Number(r.committed) > 0) lastCommitSha = r.sha; return true }, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
 }
 
 // ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off → commit-when-green ──
@@ -1044,10 +1064,12 @@ const retryAttemptJournal = (wo, frd) => wo._isRetry
 async function buildWO(wo, frd) {
   const woModel = pickWorkerModel(wo)   // DR-073: opus floor-escalation, a-priori (difficulty=high) or empirical (reopen_count>=1)
   if (woModel !== P.worker) log(`⤴ opus: ${wo.id} (${wo.difficulty === 'high' ? 'difficulty=high' : 'reopen=' + (wo.reopen_count || 0)})`)
-  // WP-08: the denominator of the repair budget. woWaveCost() already mirrors, exactly, the
+  // WP-08/D4b: the denominator of the repair budget. woWaveCost() already mirrors, exactly, the
   // agentSpawned increments the two branches below make — reuse it rather than re-deriving the sum
-  // in a second place (a second derivation of the same fact is how the two drift, DR-115).
-  buildCostByFrd.set(frd, (buildCostByFrd.get(frd) || 0) + woWaveCost(wo))
+  // in a second place (a second derivation of the same fact is how the two drift, DR-115). FROZEN
+  // after the FRD's first build wave: an in-run retry rebuild (wo._isRetry, D4b) never adds to it, or
+  // the spend the brake exists to bound would inflate the very ceiling that bounds it.
+  if (!wo._isRetry) buildCostByFrd.set(frd, (buildCostByFrd.get(frd) || 0) + woWaveCost(wo))
   let v
   if (P.split && plan.hasFrontend) {
     // DR-073 cost-weighting: 3 build agents at woModel + 1 worker-model closer (self-test).
@@ -1247,7 +1269,7 @@ const evidenceFallbackOf = (frd, pack) => ((pack && pack.fallbackReason) ? GATE_
 // reviewer's first material, plus the bounded exploration budget that replaces open-ended exploration.
 const evidenceBlock = (frd, ev) => ev ? `
   **${EVIDENCE_MARKER} (WP-06).** A dedicated collector already ran the gate script and gathered the diff and the acceptance criteria at this exact pinned commit, in this exact worktree. **The three attachments below ARE your primary material** — read them first and judge from them. Do NOT re-walk the tree to rebuild what is already here.
-  **EXPLORATION BUDGET FOR THIS GATE: at most ${EVIDENCE_READ_BUDGET} additional file reads, plus at most ONE execution of the gate script if you genuinely must re-verify something below.** Writing your adversarial tests, running them, and building the traceability inventory are NOT exploration — they are the job, and they are not capped. **If ${EVIDENCE_READ_BUDGET} reads are not enough to reach a verdict you can defend, do NOT keep exploring: return the verdict you can defend and state in \`failure\` exactly what you still needed and why.** An honest bounded verdict beats an unbounded hunt.
+  **EXPLORATION BUDGET FOR THIS GATE: at most ${EVIDENCE_READ_BUDGET} additional file reads, plus EXACTLY ONE mandatory execution of the gate script AFTER you write your adversarial tests (step 2 below — not optional: ATTACHMENT 1 predates those tests and cannot certify them).** Writing your adversarial tests, running them, and building the traceability inventory are NOT exploration — they are the job, and they are not capped. **If ${EVIDENCE_READ_BUDGET} reads are not enough to reach a verdict you can defend, do NOT keep exploring: return the verdict you can defend and state in \`failure\` exactly what you still needed and why.** An honest bounded verdict beats an unbounded hunt.
 
   ── ATTACHMENT 1/3 · GATE REPORT — verbatim \`.pandacorp/run/gate-report.json\` from \`bash .pandacorp/verify.sh --since <last_green_sha> --report-all\` run at THIS pin ──
   ${ev.report}
@@ -1265,11 +1287,12 @@ const evidenceBlock = (frd, ev) => ev ? `
 
 // Step 2 of the gate. EXPLORE = the historical text (plus the WP-08 report_scope cage, reconciled at
 // integration time — every certifier carries it, not only the ones WP-08 itself touched). DIGESTED = the
-// same obligation (the focused gate must be clean, under the SAME cage) reached from the attached report,
-// with ONE re-run allowed — which the reviewer normally needs anyway, to exercise the adversarial tests
-// DR-080 still requires it to write.
+// SAME obligation (the focused gate must be clean, under the SAME cage), reached from the attached report
+// PLUS a MANDATORY re-run (REV2-1/DR-080): ATTACHMENT 1 was collected BEFORE the reviewer's own
+// adversarial tests existed, so it cannot possibly certify them — a permissive "you MAY re-run" let a gate
+// write tests it never executed and certify green off stale evidence. The re-run is required, not offered.
 const gateFocusedStep = (frd, ev) => ev
-  ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. You MAY run \`bash .pandacorp/verify.sh --since <last_green_sha>\` **once** — and only once — to exercise the adversarial tests you wrote this cycle or to confirm a specific result you doubt. Do NOT pass \`--only\`/\`--files\` on that re-run: this gate is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on. It must pass clean.${REPORT_SCOPE_DIRECTIVE} Also return that run's (or, if you did not need to re-run, ATTACHMENT 1's) \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
+  ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. **You MUST run verify.sh exactly once — \`bash .pandacorp/verify.sh --since <last_green_sha>\` — after writing your adversarial tests: ATTACHMENT 1 predates them and therefore cannot certify them.** Do NOT pass \`--only\`/\`--files\` on that re-run: this gate is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on. It must pass clean.${REPORT_SCOPE_DIRECTIVE} Return THAT run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` — never ATTACHMENT 1's — when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
   : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
 
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
@@ -1495,36 +1518,40 @@ async function persistGateBlock(frd, reviewIds, reason, failure) {
   return link.then(() => true, () => false)
 }
 
-// ── WP-08 REPAIR COST BRAKE (behind args.scopedRepair) ───────────────────────────────────────────
+// ── WP-08/D4 REPAIR COST BRAKE (behind args.repairBrake, independent of args.scopedRepair) ───────
 // The pre-existing brakes count ATTEMPTS (PATCH_ATTEMPT_CAP=2, MAX_REOPENS=3), never spend — which is
 // exactly how FRD-24 paid $4.30 of repair on $1.23 of build (3.5x) without any cap noticing. This one
 // counts SPEND, in the same COST() units the maxAgents brake already uses, per FRD: repair may cost at
-// most REPAIR_BUDGET_FACTOR x what BUILDING that FRD's work orders cost THIS RUN.
+// most REPAIR_BUDGET_FACTOR x what BUILDING that FRD's work orders cost THIS RUN — floored at 9 units
+// (BL-0138/D4) so a small (1-WO) FRD's build cost never starves the patch-1→diagnose→patch-2 escalator
+// itself; only the pricier rungs AFTER it (a second revert+retry, the in-run rebuild) stay bounded by
+// the real budget.
 // Honest about its own limits (stated here so nobody mistakes it for more than it is):
 //   • COST() is a coarse proxy (opus=3, sonnet=1). It cannot see that ONE opus/xhigh agent spent 85
 //     tool calls — the actual FRD-24 driver. It brakes agent WEIGHT, not tokens.
-//   • It is scoped to THIS run's measured build spend. A resume run that builds nothing measures
-//     C = 0, and a zero budget disables the brake rather than blocking instantly (never fail-closed
-//     into "no repair allowed" on missing data).
+//   • It is scoped to THIS run's measured build spend. buildCostByFrd is FROZEN after the FRD's first
+//     build wave (D4b) — an in-run retry rebuild (wo._isRetry) never inflates it, or the very spend the
+//     brake exists to bound would also raise the ceiling that bounds it.
 //   • The FIRST repair attempt of an FRD is always affordable — the brake bounds grinding, it never
 //     forbids trying once.
-// Only the ladder's FIX agents are charged (patch / diagnose / gate-test-repair / repair). The
-// independent VERIFIER and the honest EXIT are never charged: refusing to pay for certification, or
-// for the block that tells the owner, would be the brake defeating its own purpose.
-const buildCostByFrd = new Map()    // frd -> COST()-weighted units spent BUILDING its work orders this run
+// Charged at EVERY rung that spends real agent cost — patch / diagnose / gate-test-repair / repair /
+// the in-run retry rebuild (D4, the single priciest rung — see inRunRetry). The independent VERIFIER
+// and the honest EXIT are never charged: refusing to pay for certification, or for the block that tells
+// the owner, would be the brake defeating its own purpose.
+const buildCostByFrd = new Map()    // frd -> COST()-weighted units spent BUILDING its work orders this run (frozen after the first wave, D4b)
 const repairCostByFrd = new Map()   // frd -> COST()-weighted units spent REPAIRING it this run
-const repairBudget = (frd) => REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0)
+const REPAIR_BUDGET_FLOOR = 9       // D4/BL-0138: absolute minimum, regardless of factor x base — see the block comment above
+const repairBudget = (frd) => Math.max(REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0), REPAIR_BUDGET_FLOOR)
 function chargeRepair(frd, model) {
-  if (!SCOPED_REPAIR) return
+  if (!REPAIR_BRAKE) return
   repairCostByFrd.set(frd, (repairCostByFrd.get(frd) || 0) + COST(model))
 }
-function canAffordRepair(frd, model) {
-  if (!SCOPED_REPAIR) return true
+function canAffordRepair(frd, model, units = 1) {
+  if (!REPAIR_BRAKE) return true
   const budget = repairBudget(frd)
-  if (budget <= 0) return true                       // nothing built this run → no measured baseline → no brake
   const spent = repairCostByFrd.get(frd) || 0
   if (spent === 0) return true                       // the first attempt is always affordable
-  return spent + COST(model) <= budget
+  return spent + COST(model) * units <= budget
 }
 // The honest exit when the budget is gone: the work orders are filed needs-owner with the OBJECTIVE
 // gate report attached, the work stays on the branch (nothing is reverted or discarded — the owner may
@@ -2036,11 +2063,24 @@ async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
 // Runs AFTER a revert (full or partial): rebuilds the reopened WOs NOW from the clean green base (opus,
 // reopen_count>=1) instead of paying a whole extra pass. `priorDiagnosis` (optional) is threaded into the
 // rebuild via the wo object (_priorDiagnosis, injected by woCtx). Behaviour for the legacy call
-// (priorDiagnosis omitted) is byte-equivalent to the old inline retry. Returns 'built' | 'reopened'.
+// (priorDiagnosis omitted) is byte-equivalent to the old inline retry. Returns 'built' | 'reopened' | 'blocked'.
 async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   const retryWos = f.workOrders.filter((w) => reopenIds.includes(w.id)).map((w) => ({ ...w, reopen_count: (w.reopen_count || 0) + 1, _isRetry: true, _priorDiagnosis: priorDiagnosis }))
   const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
   if (!canRetry) { reopenedFrds.push(f.frd); return 'reopened' }
+  // D4: the in-run retry rebuilds EVERY reopened WO on OPUS (reopen_count>=1) — the single PRICIEST
+  // rung of the recovery ladder (its true cost scales with retryWos.length, unlike the single-agent
+  // patch/diagnose rungs), and EVERY branch above (gate-test-defective fallback, patch-2 failure,
+  // the (d)/(e) partial/full-revert branches, the legacy fallback) funnels through this one function, so
+  // ONE check here covers all of them instead of duplicating it at each call site. Refuse BEFORE
+  // spawning the rebuild when the FRD can no longer afford the FULL projected cost (never mid-rebuild —
+  // see the per-WO chargeRepair below).
+  if (!capHit() && !canAffordRepair(f.frd, 'opus', retryWos.length)) {
+    log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08/D4)`)
+    await blockRepairBudgetExhausted(f.frd, reopenIds, null)
+    blockFrd(f.frd, 'needs-owner')
+    return 'blocked'
+  }
   // WS-D/D6: BUDGET the in-run retry against the remaining maxAgents allowance (each reopened WO now
   // rebuilds on OPUS — reopen_count>=1 — so its cost is real). No ≥1 progress guarantee here: if not even
   // the first fits, defer ALL to the next pass. The loop-top brake stops the run cleanly at the next boundary.
@@ -2058,7 +2098,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   }
   if (budgetedRetry.length < retryWos.length) log(`↻ ${f.frd}: in-run retry trimmed to fit the agent budget — ${budgetedRetry.map((w) => w.id).join(', ')} now; the rest rebuild next pass (WS-D/D6)`)
   log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''} instead of paying a whole extra pass`)
-  for (const w of budgetedRetry) await buildWO(w, f.frd)
+  for (const w of budgetedRetry) { chargeRepair(f.frd, 'opus'); await buildWO(w, f.frd) }
   const regate = await frdGate(f.frd, reviewIds)
   // WP-08 cage: the in-run retry's re-gate is a certification too — a partial one certifies nothing.
   if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
@@ -2650,7 +2690,13 @@ while (true) {
   // building WOs reading PLANNED (the builder's "first action" never ran first), so Mission Control
   // showed "En progreso: 0" over a busy build (LESSON-0003). Cheap tier; frontmatter only; no commit.
   agentSpawned++
-  await agent(`${dispatchSyncRollups}Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (a frontmatter-only edit — change nothing else beyond the sync-rollups step above if present, do NOT commit this part; skip any already IN_PROGRESS): ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
+  // D6: the exact command, not prose the mech agent has to interpret — scoped strictly to the
+  // frontmatter block (never a body prose line that happens to mention implementation_status) and
+  // idempotent (a re-run on a file already IN_PROGRESS rewrites it to itself — a harmless no-op, so
+  // "skip any already IN_PROGRESS" needs no separate branch). Verified against real mission-control
+  // WO frontmatter (incl. one with a `---` horizontal rule + a prose mention of the same field in
+  // its body, which it correctly leaves untouched) on macOS' perl 5.34.1.
+  await agent(`${dispatchSyncRollups}Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (change nothing else beyond the sync-rollups step above if present, do NOT commit this part) by running EXACTLY this command once per file, substituting its path: \`perl -0pi -e 's/\\A(---\\n(?:(?!---\\n).*\\n)*?)implementation_status:[^\\n]*/$1implementation_status: IN_PROGRESS/' <file>\`. Files: ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
     { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT })
   const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
