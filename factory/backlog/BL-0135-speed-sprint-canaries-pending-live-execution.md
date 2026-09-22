@@ -106,3 +106,23 @@ run id, and BL-0141's own `source:` field cites `wf_35a54be4-172` specifically f
 Working hypothesis, not confirmed: the `LEASE_RENEW_FAILED` event belongs to the earlier, crashed
 `wf_35a54be4-172` run, not to the later clean `wf_4cef213a-463` run this session measured. Left open
 rather than asserted either way — worth a deliberate reconciliation pass before this item closes.
+
+## Progress note — 2026-09-22, Canary B (still not closing this item)
+**Canary B also ran and was fully measured** (`wf_dd3b6dfc-257`, `gateEvidence: 'digested'`, same FRD-25
+fixture reset to A's pre-gate state). Full numbers in `plugin/docs/decision-log.md`'s "Canary B (BL-0135)"
+entry and `docs/proposals/37-fast-change-path-and-implement-cost.md`'s "Canario B" section. **Findings
+acceptance bar PASSES** (exact tie with Canary A: same single CORRECTION-class finding, same file/line/
+root cause, no loss — this canary's own rollback trigger did not fire). **Span savings bar FAILS**:
+measured −7.1% time / −25.4% cost on `gate`+`evidence` vs A's `gate` alone, far short of the ≥60% time
+target, likely understated by a real infrastructure defect (the digested-evidence collector's frozen
+worktree had no `node_modules`, forcing a full bootstrap+re-verify anyway — the exact expensive path
+`digested` exists to avoid). `LEASE_RENEW_FAILED` was again searched for and not found in B's artifacts
+either, further corroborating the reconciling note above (both fully-measured runs are clean of it).
+
+**Net across both canaries now run:** neither Canary A (time) nor Canary B (time) clears its bar; Canary
+B's findings-safety bar and Canary A's agentCount/UI-gate-omission bars both clear. The Canary-A rollback
+trigger (baseline-to-canary improvement < 2x → stop and re-measure before shipping further packages) is
+**still active** — this progress note does not resolve it. `gateEvidence: 'digested'` is judged safe to
+opt into for low-risk non-UI builds (findings parity proven) but is NOT promoted to the default; the
+recommended next step is fixing the collector's `node_modules` gap and re-measuring before any default
+flip. This item stays `open`: two of three canaries have run; Canary C has not started.

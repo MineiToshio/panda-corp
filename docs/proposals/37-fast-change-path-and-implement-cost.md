@@ -1075,6 +1075,18 @@ Ejecutado en vivo (`wf_4cef213a-463`, FRD sintética de 2 WOs no-UI, `mode: powe
 
 **Palancas restantes:** `gateEvidence: 'digested'` no fue medido (el `gate` con `explore` ya consume el 76% del umbral "sin rojo" él solo; es la palanca más prometedora, sin dato real de ahorro). `scopedRepair` confirmado apagado (BL-0138): `verify-patch` corrió `tsc`/`biome` sin acotar sobre todo el proyecto. `mechLean` fue forzado a `false` por desfase de sesión, no por diseño; su ahorro estimado por proporción (≈35 s) no acerca el run al umbral por sí solo. El cierre de BL-0147 (re-correr `verify.sh` completo en el close-out) es candidato a solapar con `verify-patch`, no confirmado como duplicado.
 
-**Siguiente paso:** Canario B: medición en curso, ver commit posterior. BL-0135 permanece `open`.
+**Siguiente paso:** Canario B corrió y su informe llegó después de este release (ver la sección dedicada abajo). BL-0135 permanece `open`.
+
+## Canario B · 2026-09-22 (medido, commit de seguimiento)
+
+Ejecutado en vivo (`wf_dd3b6dfc-257`, `gateEvidence: 'digested'`, mismo FRD sintético reseteado al estado pre-gate de A). Informe completo en el scratchpad de esta sesión (`canary-b-report.md`).
+
+**Hallazgos (el criterio de aceptación de B): CUMPLE, empate exacto.** `digested` encontró el mismo único hallazgo CORRECTION que `explore` (mismo fichero/línea/causa raíz), con inventario de traceability igual de completo. No se perdió ningún hallazgo; el disparador de rollback de este canario no se activó.
+
+**Ahorro medido: real pero muy por debajo del objetivo.** `gate`+`evidence` (845.995 s / $4.446624) vs `gate` solo de A (910.5 s / $5.960614): **−7,1% tiempo, −25,4% coste**. El objetivo declarado era ≥60% de tiempo; no se alcanza.
+
+**Por qué el número de tiempo probablemente subestima el techo real de la palanca:** el paquete de evidencia pre-digerida llegó con sus 4 sub-gates baratos rotos por un defecto de infraestructura (el worktree congelado del colector no tenía `node_modules`), no por un hallazgo real. El gate lo detectó correctamente (el re-run obligatorio de D1 sí se disparó, confirmado con `vitest.exit: 1` real) pero tuvo que pagar el bootstrap + re-verificación completa de todos modos, exactamente el trabajo caro que `digested` existe para evitar.
+
+**Veredicto:** no se declara cumplido el umbral del 60% con esta única medición (n=1). Seguridad de hallazgos probada y ahorro de coste real ya se cobra hoy; recomendable activar `digested` para builds de bajo riesgo sin UI, pero arreglar primero el defecto de `node_modules` del colector y re-medir antes de cambiar el default global. `LEASE_RENEW_FAILED` tampoco aparece en los artefactos de este run, igual que en A. Detalle completo (anomalías de concurrencia, discrepancias de reloj) en el decision-log del plugin.
 
 **Prerrequisito antes de correr el canario:** Mission Control (y cualquier otro proyecto candidato) debe pasar por `/pandacorp:upgrade` para recibir el motor nuevo (el memo ya señalaba esto como el fallo silencioso más probable, "si no, el canario mide el motor viejo"); sigue sin verificarse en vivo.
