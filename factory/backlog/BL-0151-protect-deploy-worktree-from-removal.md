@@ -3,12 +3,12 @@ id: BL-0151
 type: bug
 area: hooks
 title: "the local-deployment worktree has no mechanical protection against git worktree remove / rm -rf"
-status: open
+status: done
 severity: p1
 opened: 2026-09-22
-closed:
+closed: 2026-09-22
 source: "incident 2026-09-22, mission-control/.pandacorp/run/lessons.md last entry — a worktree cleanup pass during the speed-sprint canary launches deleted the live deploy"
-closes:
+closes: "plugin/scripts/block-dangerous.sh (git worktree remove / rm -rf guard) — commit efa5cea62daca3ef429c758eab9e0f65c656c946"
 links: [DR-089]
 ---
 
@@ -71,3 +71,48 @@ redeploy run, even starting from an unlocked state.
 Generalizing the protection to EVERY project's local deployment beyond Mission Control's — the fix targets
 the pattern (deploy-root path + lock state), which already generalizes by construction; no per-project
 hardcoding is added.
+
+## Resolution (2026-09-22, commit `efa5cea62daca3ef429c758eab9e0f65c656c946`)
+Implemented on branch `bl-0151-protect-deploy-worktree`, isolated in its own worktree (DR-096).
+
+1. **`plugin/scripts/block-dangerous.sh`** — new `_is_protected_deploy_path()` helper: returns true
+   when a path operand (a) resolves under `/Users/Shared/local-deployments/**` (DR-089's canonical
+   root — this branch alone would have caught the ORIGINAL incident, since the worktree was not yet
+   locked when it was removed), OR (b) is reported `locked` by `git worktree list --porcelain`
+   (generalizes to any other operator-pinned worktree, per the item's own "Out of scope" — no
+   second project hardcoded). Wired into two new/extended rules: a dedicated `git worktree remove`
+   rule (any force level — a single `--force` doesn't even bypass git's own lock, only `-f -f`
+   does, verified live against a throwaway fixture; the gate blocks pre-emptively regardless of
+   force level rather than special-casing which one actually succeeds) and the existing recursive
+   `rm` loop (so a raw `rm -rf` that bypasses git entirely is caught too). Deviated from step 2's
+   "or at minimum hard-warns" language — implemented as a hard block (consistent with every other
+   rule in this gate; there is no warn-and-confirm mechanism in `block-dangerous.sh` today).
+2. **`plugin/scripts/test-block-dangerous.sh`** — 9 new cases under "BL-0151": locked-worktree
+   `remove`/`remove -f -f`/`rm -rf` (blocked), `local-deployments/` path `remove`/`remove -f -f`/
+   `rm -rf` (blocked), an unlocked non-deploy worktree via both `remove` and `rm -rf` (allowed — no
+   false positive on the ordinary DR-096 cleanup flow), and a lookalike directory name
+   (`local-deployments-archive`, allowed — no prefix false positive). Confirmed RED first (3
+   lock-detection cases failed: `git worktree list --porcelain` reports the PHYSICAL,
+   symlink-resolved path, and macOS's `mktemp` fixture paths go through `/var` → `/private/var`;
+   fixed by resolving both sides with `pwd -P` before comparing). GREEN 66/66 after, run twice.
+   `bash plugin/scripts/run-engine-tests.sh` stayed 23/23 green (this suite is not in its
+   `EXPLICIT_SH_SUITES` allowlist — that gap is tracked separately as BL-0136, not this item's scope).
+3. **`factory/standards/infra.md`** — one-line pointer added to the "Local deployments" section
+   naming the new mechanical protection.
+4. **`mission-control/.pandacorp/run/deploy-local.sh`** — added the idempotent
+   `git -C "$DEPLOY" worktree lock --reason "..." "$DEPLOY" 2>/dev/null || true` re-assertion after
+   the checkout step, exactly per the fix plan's step 1 snippet (with the worktree path argument
+   `git worktree lock` requires — confirmed via a throwaway fixture that it errors without one, even
+   run from inside the target worktree). **Deviation from the fix plan:** this file — and
+   `serve.sh` — are `.pandacorp/run/*.sh`, gitignored machine-local runtime (`infra.md`'s own
+   "Local deployments" section: "regenerable runtime… reconstruct from this reference if needed").
+   No `plugin/templates/shared/.pandacorp/deploy-local.sh` template exists in this repo to edit (verified: `find plugin/templates -iname '*deploy*'` returns nothing) — Mission Control's copy under
+   `mission-control/.pandacorp/run/` IS the canonical reference implementation infra.md points to,
+   not a generated projection of a template. Being gitignored, this edit cannot be committed to this
+   branch (or any branch); it was applied directly to the file in the main checkout's working tree
+   (not this worktree, which never had a copy of it — confirmed by its absence there). It is backed
+   up by the existing `backup-pandacorp-state.sh` (`run/*.sh`) mechanism, unchanged by this item.
+   **Not verified live** (task constraint: never touch `/Users/Shared/local-deployments/panda-corp`
+   or run a real redeploy) — the `git worktree lock <path> <path>` invocation pattern itself was
+   proven correct against an isolated throwaway git fixture instead (idempotent re-lock produces
+   the expected swallowed non-zero exit).
