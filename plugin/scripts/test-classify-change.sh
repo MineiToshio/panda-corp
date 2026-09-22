@@ -270,6 +270,109 @@ expect_rigor critical "one floor hit outranks every micro signal"
 G reset -q --mixed HEAD >/dev/null 2>&1
 G checkout -q -- styles/main.css .env.example 2>/dev/null
 
+# --- Regression cases, each anchored in a FLOOR FALSE NEGATIVE found by the 600-commit backtest --
+# Every one of these came out below `critical` before the signal that now catches it existed.
+
+floor_case() { # <relative path> <label> <line to append>
+  local rel="$1" label="$2" line="$3"
+  mkdir -p "$REPO/$(dirname "$rel")"
+  printf '%s\n' "$line" >> "$REPO/$rel"
+  G add -A >/dev/null
+  run --repo "$REPO" --staged
+  expect_rigor critical "$label"
+  G reset -q --mixed HEAD >/dev/null 2>&1
+  git -C "$REPO" checkout -q -- "$rel" 2>/dev/null || rm -f "$REPO/$rel"
+}
+
+echo "Case 22 — backtest regressions: machinery, oracles, supply chain"
+floor_case ".claude/engines/pandacorp-backlog.js" "build engine under .claude/ (panda-corp d61a4a3d)" "const retries = 2;"
+floor_case "knip.json" "knip gate config (personal-page-v2 e6bffe85)" '{ "ignore": ["src/generated/**"] }'
+floor_case "eslint.config.mjs" "eslint gate config (pandatrack 9db726b6)" "export default [];"
+floor_case "tsconfig.json" "typecheck gate config" '{ "compilerOptions": { "strict": true } }'
+floor_case "vitest.setup.ts" "test harness setup (panda-corp 6db939f8)" "globalThis.localStorage = undefined;"
+floor_case "package.json" "supply chain manifest (personal-page-v2 4cbdc45f)" '{ "packageManager": "pnpm@10.0.0" }'
+floor_case "pnpm-lock.yaml" "lockfile" "lockfileVersion: '9.0'"
+
+echo "Case 23 — backtest regressions: the data layer and its money vocabulary"
+floor_case "src/lib/data/stores/storeGovernanceMutations.ts" "data-layer mutations (pandatrack b887a07b)" "export const NOOP = 1;"
+floor_case "src/lib/data/dashboard/dashboardTypes.ts" "camelCase money identifier (pandatrack 2643ca5a)" "// sums OrderPayment.amount over cancelled orders"
+floor_case "scripts/backfill-store-visibility.ts" "one-off data backfill (pandatrack fd6fd291)" "export const ROWS = 43;"
+floor_case "src/app/settings/_components/PasswordModal.tsx" "credential surface (pandatrack eb6c9c54)" "export const X = 1;"
+
+echo "Case 24 — backtest regressions: authorization written without the word 'auth'"
+floor_case "src/components/StoreDetail.tsx" "optional-chained session read (pandatrack 22234497)" "const id = session?.user?.id ?? null;"
+floor_case "src/components/Banner.tsx" "ownership check vocabulary" "const mine = store.createdByUserId === viewerId;"
+floor_case "src/components/Redaction.tsx" "PII redaction announced in prose" "// redact the real-looking address before shipping the asset"
+floor_case "docs/decision-log.md" "real e-mail literal in a diff (personal-page-v2 51522d66)" "Replaced the address ukg-sandbox-manager@jobleap.ai in the cover."
+
+echo "Case 24b — RFC 2606 placeholder addresses stay cheap"
+printf 'const FIXTURE_USER = "tester@example.com";\n' >> "$REPO/src/lib/alpha.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor micro "example.com fixture is not PII"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
+
+echo "Case 25 — the prose carve-out does not open a hole"
+# A markdown page that MENTIONS a destructive statement is prose, not a data-loss change...
+mkdir -p "$REPO/docs"
+printf 'Run the purge by hand only after a backup.\n' > "$REPO/docs/runbook.md"
+printf 'Historically we wrote `%s FROM orders`.\n' "DELETE" >> "$REPO/docs/runbook.md"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "prose mentioning a destructive statement does not hit the floor"
+printf '%s' "$OUT" | jq -e '.floor_hits | length == 0' >/dev/null && ok "no floor hit from prose" || bad "prose tripped the floor :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; rm -rf "$REPO/docs"
+# ...but a leaked key or a PII term in that same prose still hits the floor.
+mkdir -p "$REPO/docs"
+printf 'Token for staging: sk-abcd1234efgh5678ijkl\n' > "$REPO/docs/runbook.md"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "key-shaped literal in prose still hits the floor"
+has_floor S7 && ok "S7 in floor_hits" || bad "S7 not in floor_hits :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; rm -rf "$REPO/docs"
+mkdir -p "$REPO/docs"
+printf 'We must anonymize the exported rows before sharing them.\n' > "$REPO/docs/privacy.md"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "high-signal PII term in prose still hits the floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; rm -rf "$REPO/docs"
+
+echo "Case 26 — 'author' must not read as 'auth'"
+printf 'export const AUTHOR = "Toshio"; // authored by the owner\n' >> "$REPO/src/lib/alpha.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor micro "author/authored do not trip the auth floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
+
+echo "Case 26b — precision fixes the backtest demanded (false positives, not floor changes)"
+printf 'export const NOTE = "the authoritative source has authority here";\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor micro "authoritative/authority are not authentication"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+printf '# copy files into the MAIN checkout so the worktree serves its own copy\n' >> "$REPO/styles/main.css"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor micro "a git checkout is not a commerce checkout"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
+printf 'export const URL = "/checkout/session";\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "a commerce checkout still hits the money floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+printf 'export const ROLE = "we must authorize the request";\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "authorize still hits the auth floor"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+
+echo "Case 27 — CSS visibility is not access-control visibility"
+printf '.hidden { visibility: hidden; }\n' >> "$REPO/styles/main.css"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor micro "CSS visibility stays micro"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
+
 echo
 echo "passed: $pass   failed: $fail"
 [ "$fail" -eq 0 ] || exit 1

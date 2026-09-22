@@ -42,36 +42,91 @@ class FailClosed extends Error {}
 // Floor patterns
 // ---------------------------------------------------------------------------------------------
 
-/** S5 — auth / authorization / the data layer itself. Path side. */
+/**
+ * S5 — auth / authorization / the data layer itself. Path side.
+ *
+ * The data-layer entries are wider than `queries/` on purpose: the backtest found pandatrack keeps
+ * its whole data layer under `lib/data/**` with `*Mutations.ts` / `*Queries.ts` filenames, and two
+ * real changes to it (an authorization precondition, a payment-table rename) came out `micro`.
+ * `scripts/*backfill*` is here for the same reason: a one-off row-rewriting script is a migration
+ * whatever directory it sits in.
+ */
 const S5_PATHS = [
   /(^|\/)lib\/auth\//,
+  /(^|\/)auth\//,
   /(^|\/)middleware\.(ts|tsx|js|mjs|cjs|mts)$/,
   /(^|\/)_actions\//,
   /(^|\/)actions\.(ts|tsx|js|mjs)$/,
   /(^|\/)app\/api\//,
   /(^|\/)queries\//,
+  /(^|\/)lib\/data\//,
+  /(Mutations|Queries|Repository|Repo|Dao)\.[jt]sx?$/,
+  /(^|\/)admin\//,
   /(^|\/)prisma\//,
   /\.(sql|prisma)$/i,
   /(^|\/)migrations?\//,
   /(^|\/)drizzle\//,
+  /(^|\/)[^/]*(backfill|migrate|migration|reseed|seed-|data-repair)[^/]*\.[jt]sx?$/i,
+  /(^|\/)[^/]*(password|credential)[^/]*\.[jt]sx?$/i,
 ];
 
-/** S5 — auth content added by the diff, anywhere. */
+/**
+ * S5 — auth content added by the diff.
+ *
+ * `auth…` is matched with a negative lookahead so `author`/`authored`/`authorship` (which appear in
+ * every byline and commit trailer) do not trip the floor, while `auth`, `authz`, `authorize`,
+ * `authorization` and `authenticated` all do. The optional-chaining form `session?.user` is
+ * explicit: the backtest found a real authorization fix that wrote exactly that and escaped.
+ */
 const S5_CONTENT = [
-  /\b(getServerSession|getSession|signIn|signOut|bcrypt|argon2|nextAuth|authorize)\b/i,
-  /\b(authorization|bearer|jwt|oauth|csrf)\b/i,
-  /\bsession\s*[.[]/i,
+  /\b(getServerSession|getSession|signIn|signOut|bcrypt|argon2|nextAuth)\b/i,
+  /\bauth(?!or(?:s|ed|ing|ship|it(?:y|ies|ative|arian))?\b)[A-Za-z_]*/i,
+  /\b(bearer|jwt|oauth|csrf)\b/i,
+  /\bsession\s*\??\s*[.[]/i,
   /\bcookies?\s*\(\s*\)/i,
+  /(password|passwd|credential|api[-_]?key|access[-_]?token|refresh[-_]?token|private[-_]?key)/i,
+  /(viewerId|ownerId|createdBy|isPrivate|isPublic|canEdit|canDelete|canManage|canDirectly|isAdmin|hasRole|userRole|roleId|permission|forbidden|unauthori[sz]ed)/i,
+  /\bvisibility\b(?!\s*:\s*["']?(hidden|visible|collapse))/i,
 ];
 
-/** S6 — money. Fires on the path OR on added content, anywhere. */
-const S6_MONEY = [
-  /\b(stripe|billing|payments?|checkout|invoices?|subscriptions?|webhooks?|paypal|lemonsqueezy)\b/i,
-  /price_/i,
-];
+/**
+ * S6 — money. Fires on the path OR on added content.
+ *
+ * Deliberately NOT word-anchored: real code writes `OrderPayment`, `storePaymentMutations`,
+ * `paidAmountMinor`. A `\b`-anchored `payment` misses every one of them, and the backtest proved it
+ * (a payments commit landed `micro`). Substring matching is the floor-safe reading, and it is how
+ * the memo itself writes the list.
+ */
+const S6_MONEY = [/(stripe|billing|payment|checkout|invoice|subscription|price_|webhook|paypal|lemonsqueezy)/i];
 
-/** S6 — PII. Scoped to model/schema/migration surfaces: `email` in a component is not a PII change. */
-const S6_PII = [/\b(e?mail|phone|dni|nif|passport|iban|card_?number|cvv|ssn|address|birthdate|dob)\b/i];
+/**
+ * `checkout` is the one money term with a second, unrelated life: `git checkout`, "the main
+ * checkout", sparse-checkout. On PATHS it stays in `S6_MONEY` unguarded (a `checkout/` route is
+ * commerce). In CONTENT it is skipped when the same line is talking about version control — a line
+ * that mentions a worktree is not a payment line. The backtest found this exact miss-fire in
+ * `worktree-bootstrap.sh`; no commerce line in any of the three repos mentions a branch.
+ */
+const S6_MONEY_CONTENT = [/(stripe|billing|payment|invoice|subscription|price_|webhook|paypal|lemonsqueezy)/i];
+const CHECKOUT = /checkout/i;
+const VCS_CONTEXT = /\b(git|worktree|branch|rebase|merge|repo|sparse)\b/i;
+
+/** S6 — PII terms common enough that they only mean something on a model/schema/migration surface. */
+const S6_PII = [/\b(e?mail|phone|dni|nif|address|birthdate|dob)\b/i];
+
+/**
+ * S6 — PII terms that mean the same thing wherever they appear, so they are scanned everywhere,
+ * prose included. `redact`/`anonymize`/`GDPR` are how a privacy change announces itself when the
+ * payload is a binary asset the classifier cannot read (backtest: a cover image redaction).
+ */
+const S6_PII_HIGH_SIGNAL = [
+  /(\biban\b|\bcvv\b|card[-_]?number|\bpassport\b|\bssn\b|\bredact|anonymi[sz]|pseudonymi[sz])/i,
+  /(\bGDPR\b|\bRGPD\b|\bPII\b)/,
+  /(personal data|datos personales|personally identifiable)/i,
+  // A real e-mail literal is contact data wherever it lands. RFC 2606 reserved names are the
+  // documented placeholders, so they are excluded and fixtures stay cheap. The backtest needed
+  // this: a commit redacting a real address out of a public asset read as `micro` without it.
+  /[A-Za-z0-9._%+-]+@(?!(example|test|invalid|localhost)\b)[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.(?!(example|test|invalid|localhost)\b)[A-Za-z]{2,}/,
+];
 
 const SCHEMA_ISH = [
   /(^|\/)prisma\//,
@@ -85,17 +140,31 @@ const SCHEMA_ISH = [
   /schema[^/]*\.(ts|js|mjs|json|prisma|sql)$/i,
 ];
 
-/** S7 — secrets, CI and the build/config surfaces, plus the factory's own machinery. */
+/**
+ * S7 — secrets, CI, the build/deploy surfaces, the supply chain, and the factory's own machinery.
+ *
+ * `.claude/**` is the whole directory, not just hooks/settings: the backtest caught a one-line edit
+ * to `.claude/engines/pandacorp-backlog.js` -- a build engine -- coming out `micro`. Manifests and
+ * lockfiles are here because an install-script allow-list or a version pin decides what code runs
+ * at build time; that is a supply-chain change however small the diff.
+ */
 const S7_PATHS = [
   /(^|\/)\.env($|[^/]*$)/,
   /(^|\/)secrets?[^/]*$/i,
   /(^|\/)\.github\/workflows\//,
+  /(^|\/)\.gitlab-ci\.[^/]+$/,
   /(^|\/)next\.config\.[^/]+$/,
   /(^|\/)biome\.json$/,
   /(^|\/)\.pandacorp\/[^/]*\.sh$/,
   /^plugin\//,
   /^factory\//,
-  /(^|\/)\.claude\/(hooks|settings)/,
+  /(^|\/)\.claude\//,
+  /(^|\/)package\.json$/,
+  /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock[b]?)$/,
+  /(^|\/)\.npmrc$/,
+  /(^|\/)(Dockerfile|docker-compose)[^/]*$/i,
+  /(^|\/)(vercel|wrangler|fly|netlify|railway)\.(json|toml|yml|yaml)$/i,
+  /\.tf(vars)?$/,
 ];
 
 /** S7 — key-shaped literals in added content. Length-anchored so prose cannot trip them. */
@@ -126,7 +195,15 @@ const S8_CONTENT = [
   /\b(vercel|wrangler|fly|netlify)\s+(deploy|publish)\b/,
 ];
 
-/** S9 — the oracles themselves (DR-080). Any touch of these is critical. */
+/**
+ * S9 — the oracles themselves (DR-080). Any touch of these is critical.
+ *
+ * The gate-config family is listed in full, not just `biome.json`: the backtest found a commit that
+ * deleted 12 lines of `knip.json` and one that widened an `eslint.config.mjs` ignore list, both
+ * `micro`. Narrowing what an oracle inspects is exactly the move DR-080 exists to catch, and the
+ * config file is the only place it happens. `vitest.setup.*` and `src/test/**` are the harness the
+ * suite runs inside -- a polyfill there can turn a whole gate green.
+ */
 const S9_PATHS_ANY = [
   /(^|\/)e2e\//,
   /(^|\/)__snapshots__\//,
@@ -136,8 +213,12 @@ const S9_PATHS_ANY = [
   /(^|\/)verify\.sh$/,
   /(^|\/)biome\.json$/,
   /(^|\/)docs\/design\/design-tokens\.json$/,
-  /(^|\/)playwright\.config\.[^/]+$/,
-  /(^|\/)vitest\.config\.[^/]+$/,
+  /(^|\/)knip\.(json|jsonc|ts|js)$/,
+  /(^|\/)(eslint\.config|\.eslintrc)[^/]*$/,
+  /(^|\/)tsconfig[^/]*\.json$/,
+  /(^|\/)(playwright|vitest|jest|stryker|lighthouserc)[^/]*\.(config\.)?[a-z]+$/i,
+  /(^|\/)vitest\.setup\.[^/]+$/,
+  /(^|\/)src\/test\//,
 ];
 
 /** S9 — test surfaces that are only critical when the diff DELETES more than it adds. */
@@ -160,13 +241,25 @@ const KNOWN_EXT = new Set(
   ("ts tsx js jsx mjs cjs mts cts json jsonc json5 css scss sass less md mdx yml yaml toml xml html htm " +
     "sh bash zsh fish sql prisma graphql gql txt csv tsv ndjson svg png jpg jpeg gif webp avif ico bmp " +
     "woff woff2 ttf otf eot mp4 webm mp3 wav pdf lock snap env example patch diff py rb go rs java kt " +
-    "swift php cs sc scala ex exs lua vim conf ini cfg properties gitignore editorconfig npmrc nvmrc " +
+    "swift php cs sc scala ex exs lua vim conf ini cfg properties gitignore editorconfig npmrc nvmrc jsonl tf tfvars " +
     "gitattributes gitkeep dockerignore eslintrc prettierrc babelrc browserslistrc").split(" "),
 );
 const KNOWN_BASENAMES = new Set([
   "Dockerfile", "Makefile", "Procfile", "LICENSE", "LICENCE", "NOTICE", "CODEOWNERS", "README",
   "CHANGELOG", "AUTHORS", "VERSION", "Brewfile", "Justfile", "Rakefile", "Gemfile",
 ]);
+
+/**
+ * Prose surfaces, and the ONE content scan they are exempt from: S8.
+ *
+ * A runbook that writes out a destructive statement is describing it, not performing it, and S8 is
+ * defined as "the diff INTRODUCES the operation". Every other content scan still reads prose, and
+ * that is deliberate: the backtest tried the wider carve-out and two FRD edits specifying payment
+ * gating fell from `critical` to `micro`. A document that SPECIFIES a floor domain is a floor
+ * change — the spec is what the implementation is built from. Path signals, key-shaped literals
+ * and PII terms were never carved out at all.
+ */
+const PROSE_PATHS = [/\.(md|mdx|txt|rst|adoc)$/i, /(^|\/)docs\//];
 
 const anyMatch = (patterns, value) => patterns.some((re) => re.test(value));
 
@@ -406,9 +499,14 @@ function classify(opts, ctx) {
 
   // --- content buckets --------------------------------------------------------------------
   const allAdded = [];
+  const codeAdded = [];
   const schemaAdded = [];
   for (const [p, lines] of ctx.addedByFile) {
-    for (const l of lines) allAdded.push({ path: p, line: l });
+    const prose = anyMatch(PROSE_PATHS, p);
+    for (const l of lines) {
+      allAdded.push({ path: p, line: l });
+      if (!prose) codeAdded.push({ path: p, line: l });
+    }
     if (anyMatch(SCHEMA_ISH, p)) for (const l of lines) schemaAdded.push({ path: p, line: l });
   }
   const findContent = (bucket, patterns) => {
@@ -453,12 +551,14 @@ function classify(opts, ctx) {
   const moneyPath = files.find((f) => anyMatch(S6_MONEY, f.path));
   if (moneyPath) add("S6", "critical", `money surface: ${moneyPath.path}`);
   else {
-    const moneyContent = findContent(allAdded, S6_MONEY);
+    const moneyContent =
+      findContent(allAdded, S6_MONEY_CONTENT) ||
+      findContent(allAdded.filter(({ line }) => !VCS_CONTEXT.test(line)), [CHECKOUT]);
     if (moneyContent) add("S6", "critical", `money token in added content: '${moneyContent.match}' (${moneyContent.path})`);
   }
   const piiPath = files.find((f) => anyMatch(SCHEMA_ISH, f.path));
-  const piiContent = findContent(schemaAdded, S6_PII);
-  if (piiContent) add("S6", "critical", `personal-data field in a schema surface: '${piiContent.match}' (${piiContent.path})`);
+  const piiContent = findContent(schemaAdded, S6_PII) || findContent(allAdded, S6_PII_HIGH_SIGNAL);
+  if (piiContent) add("S6", "critical", `personal-data signal: '${piiContent.match}' (${piiContent.path})`);
   else if (piiPath && !ctx.linesKnown) add("S6", "critical", `schema surface with no readable body: ${piiPath.path}`);
 
   // --- S7 · FLOOR secrets / infra / factory machinery ---------------------------------------
@@ -468,7 +568,7 @@ function classify(opts, ctx) {
   if (s7Content) add("S7", "critical", `key-shaped literal in added content (${s7Content.path})`);
 
   // --- S8 · FLOOR irreversible / data loss ---------------------------------------------------
-  const s8 = findContent(allAdded, S8_CONTENT);
+  const s8 = findContent(codeAdded, S8_CONTENT);
   if (s8) add("S8", "critical", `irreversible/destructive operation added: '${s8.match}' (${s8.path}) — owner gate`);
 
   // --- S9 · FLOOR the oracles themselves (DR-080) --------------------------------------------
