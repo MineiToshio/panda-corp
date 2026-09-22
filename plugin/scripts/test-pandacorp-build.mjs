@@ -1769,6 +1769,43 @@ SCENARIOS.push({
   },
 })
 
+// ── WP-04 / BL-0124: the baseline PRE-CHECK's dirtiness predicate must exclude a lone controller-owned
+// status.yaml write under a valid lease, so it stops forcing a whole judge-baseline/verify.sh cycle just
+// to reprove a clean tree clean. The exclusion is decided by the ENGINE from the pre-check's structured
+// dirtyPaths/leaseValid signal (never from the pre-check's own free-form escalate/green wording), and is
+// narrow: exactly one dirty path, exactly `.pandacorp/status.yaml`, unless args.strictBaseline opts out.
+SCENARIOS.push({
+  name: 'WP04a. BL-0124 — the ONLY dirty path is the leased status.yaml under a valid fence: fast path, NO judge-baseline spawn',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { green: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'the judge baseline (full verify.sh cycle) never spawns for a lone leased status.yaml diff')
+    t.ok(byLabel(run, 'baseline-precheck').length === 1, 'the cheap pre-check still ran exactly once')
+    t.ok(byLabel(run, 'plan').length === 1, 'the run continues past baseline into planning (green, not blocked)')
+  },
+})
+SCENARIOS.push({
+  name: 'WP04b. BL-0124 control — a dirty tracked file OTHER than status.yaml still escalates to the judge baseline (narrow exclusion, not a blanket pass)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml', 'src/x.ts'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'ANY other dirty path alongside status.yaml still dispatches the full judge-baseline/verify.sh cycle')
+  },
+})
+SCENARIOS.push({
+  name: 'WP04c. args.strictBaseline escape hatch — a lone leased status.yaml diff still escalates when strict mode is requested',
+  args: { mode: 'pro', strictBaseline: true },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'strictBaseline restores the pre-WP-04 behavior: even the narrow leased-status case escalates')
+    const precheck = byLabel(run, 'baseline-precheck')[0]
+    t.ok(precheck && /args\.strictBaseline/.test(precheck.prompt), 'the pre-check prompt reflects that this run launched with args.strictBaseline')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

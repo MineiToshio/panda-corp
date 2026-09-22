@@ -48,7 +48,12 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //   args.maxSpend: output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts
 //     subagent work; unenforced if the supervisor dies). Secondary ceiling. null = off.
 //     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
+//   args.strictBaseline: escape hatch (BL-0124) — true restores the PRE-WP-04 behavior: the baseline
+//     pre-check's dirtiness predicate never excludes a lone in-flight `.pandacorp/status.yaml` write,
+//     so it escalates to the full judge-baseline/verify.sh cycle exactly as it always did. Default
+//     false/unset applies the narrow lease-aware exclusion (see the Baseline self-heal section below).
 const MODE = (args && args.mode) || 'powerful'
+const STRICT_BASELINE = Boolean(args && args.strictBaseline === true)   // BL-0124 escape hatch — see the arg doc above
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
 const CHANGE = (args && args.change) ? String(args.change).split('/').pop().replace(/\.md$/, '') : null
 // Normalize frds: accept folder name, 'docs/frds/<folder>', 'docs/frds/<folder>/frd.md' → folder name only
@@ -390,6 +395,8 @@ const CLOSE_RECEIPT_SCHEMA = { type: 'object', required: ['done', 'allowed_paths
 // escalate / a BL-0022 failure). It does the root guard, consumes rethink_pending, honours the owner stop
 // signal (.pandacorp/run/stop) and the clean-tree fast path; only on `escalate` does the expensive judge
 // baseline run (DR-067 reconciliation + verify.sh). No `required` — it returns whichever field applies.
+// BL-0124: `dirtyPaths` + `leaseValid` let the ENGINE (not the agent's own prose) apply the narrow
+// leased-status.yaml exclusion deterministically — see the Baseline self-heal decision below.
 const PRECHECK_SCHEMA = {
   type: 'object',
   properties: {
@@ -397,6 +404,8 @@ const PRECHECK_SCHEMA = {
     green: { type: 'boolean', description: 'true = clean tree AND HEAD is last_green_sha OR its direct metadata-only pointer child (known-green fast path); false ONLY paired with a BL-0022 failure' },
     escalate: { type: 'boolean', description: 'true = dirty tree or HEAD is beyond the certified snapshot/pointer pair → run the judge baseline' },
     dirty: { type: 'boolean', description: 'true iff `git status --porcelain` showed changes (informs the judge baseline whether reconciliation is needed)' },
+    dirtyPaths: { type: 'array', items: { type: 'string' }, description: "BL-0124: every path `git status --porcelain` reported dirty (project-relative, exactly as printed; [] when clean). The engine — not this step — decides whether the narrow leased-status.yaml exclusion applies, so report this honestly even when escalating." },
+    leaseValid: { type: 'boolean', description: "BL-0124: true iff THIS run already holds the current valid lease fence — already PROVEN by STEP 0's inspect-stop succeeding under this run's own token/epoch (the same fence BL-0079 relies on for the repair step), not a fresh check. Only meaningful together with dirtyPaths." },
     failure: { type: 'string' },
   },
 }
@@ -556,7 +565,7 @@ const precheck = await agent(
   **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
-  **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false }. A dirty tree returns { escalate: true, dirty: true }.`,
+  **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed, project-relative, exactly as printed>, leaseValid: true } (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: 'pandacorp:implementer', schema: PRECHECK_SCHEMA },
 )
 if (precheck && precheck.stop === true) {
@@ -565,11 +574,22 @@ if (precheck && precheck.stop === true) {
   return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
 }
 let baseline
+// BL-0124: the ONLY dirty path is this run's own leased .pandacorp/status.yaml write — the SAME write
+// BL-0079 already forbids the repair step from restoring (the controller keeps rewriting it: running,
+// lease, heartbeat). The exclusion is decided HERE, deterministically, from the pre-check's structured
+// signal — never from the pre-check's own free-form escalate/green wording — so it can't silently widen:
+// exactly one dirty path, exactly that path, and a lease this run already proved valid by reaching STEP 3
+// at all (STEP 0's inspect-stop fences token+epoch against the CURRENT lease — the identical check
+// BL-0079 relies on). args.strictBaseline (escape hatch) restores the pre-WP-04 behavior unconditionally.
+const leasedStatusOnly = Array.isArray(precheck && precheck.dirtyPaths) && precheck.dirtyPaths.length === 1 && precheck.dirtyPaths[0] === '.pandacorp/status.yaml'
 if (precheck && precheck.green === true) {
   baseline = { green: true }
   log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
 } else if (precheck && precheck.green === false && precheck.failure) {
   baseline = precheck   // BL-0022 root guard failed in the pre-check — carry its failure to the red path below
+} else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
+  baseline = { green: true }
+  log('Baseline verde (fast path BL-0124: el único diff sucio es el status.yaml propio bajo un lease ya probado válido) — no se corrió verify.sh.')
 } else {
   // (b) ESCALATE → the judge baseline: DR-067 reconciliation (the SKILL promised it; the prompt never had it)
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
