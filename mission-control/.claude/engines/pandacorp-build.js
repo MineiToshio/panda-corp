@@ -235,7 +235,7 @@ const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJE
 // GENERATED from plugin/runtime/prompts/sync-rollups.md — do not hand-edit this fragment.
 const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE_CLI_COMMAND}} sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
 // GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
-const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
+const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. **The inventory needs at least one entry for EACH of the 7 contract classes** (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion): a numbered REQ-NN-MMM requirement is its OWN `requirement` entry, distinct from the acceptance-criterion entries that verify it — do not cover a requirement only through its ACs and skip the `requirement` entry. If a class genuinely does not apply to this FRD, add a `not-applicable` entry for it with `tests: []` instead of omitting the class — an omitted class is itself RED even when every other class is complete. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -698,7 +698,7 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green', 'traceability'],
   properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
-    traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory. It includes requirements, acceptance-criteria, invariant, edge-case, limit, error and exclusion entries; missing coverage is RED.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } } } } },
+    traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory: AT LEAST ONE entry per contractClass (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) — an omitted class is RED. A REQ-NN-MMM requirement is its OWN requirement entry, never covered only via its acceptance-criterion entries. A class that genuinely does not apply gets a not-applicable entry with tests: [] instead of being omitted.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } } } } },
     // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
     // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
     testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
@@ -741,13 +741,45 @@ function classifyGateFailure(gate) {
   return { subgates: names, classes, files, mechanical: classes.every((c) => MECHANICAL_CLASSES.includes(c)) }
 }
 const REQUIRED_TRACE_CLASSES = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion']
+// B1 (BL-0157, canary C wf_1cf782d6-2ed): a traceability gap is a REVIEWER-INVENTORY defect, not proof
+// the code failed. The prior version stamped a BRAND-NEW `{ green:false, failure }` object over every
+// deficient verdict — including an already-red reject — which silently DESTROYED its `reopen`,
+// `findings`, `missingFoundation` and `blocked_reason`. gateConverge then read the wiped object as a
+// bare "no specific reopen" failure and skipped straight past the DR-073 patch-first path to the
+// expensive `attemptRepair`, and a deficient-but-green re-gate fell all the way to `blockFrd(…,'error')`
+// with no retry and no log naming the missing class. Fix: a REJECT keeps every field it returned — only
+// a traceability note is appended. A GREEN is the only shape this still overrides, and only to flag it
+// `traceabilityDeficient` (never a fabricated hard failure), so gateConverge (B2) can re-ask the gate
+// once instead of repairing production code or blocking 'error'. The WP06f invariant is unchanged: a
+// traceability-deficient result is NEVER `{ green: true }` — it can't reach applyGate/VERIFIED.
 function enforceWholeFrdTraceability(result) {
   const trace = result && result.traceability
-  const missing = !Array.isArray(trace) || REQUIRED_TRACE_CLASSES.some((kind) => !trace.some((entry) => entry && entry.contractClass === kind))
+  const missingClasses = Array.isArray(trace) ? REQUIRED_TRACE_CLASSES.filter((kind) => !trace.some((entry) => entry && entry.contractClass === kind)) : REQUIRED_TRACE_CLASSES.slice()
+  const missing = missingClasses.length > 0
   const invalidBoundary = Array.isArray(trace) && trace.some((entry) => entry && ['edge-case', 'limit'].includes(entry.contractClass) && entry.status === 'pass' && (!Array.isArray(entry.tests) || entry.tests.length === 0))
   const waivedFailure = result && result.green === true && Array.isArray(trace) && trace.some((entry) => entry && entry.status === 'fail')
-  if (missing || invalidBoundary || waivedFailure) return { green: false, traceability: Array.isArray(trace) ? trace : [], failure: 'whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict' }
-  return result
+  if (!(missing || invalidBoundary || waivedFailure)) return result
+  // Keep the original phrase verbatim (older log/test assertions match on it, e.g. WP06f) and APPEND the
+  // specifics B1/B2 need to act on — which classes are missing, named, never just "incomplete".
+  const note = `whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict${missing ? ` — missing contractClass: ${missingClasses.join(', ')}` : ''}${invalidBoundary ? '; an edge-case/limit entry claims pass with no boundary test' : ''}${waivedFailure ? '; a traceability entry is status:fail under an overall green verdict' : ''}`
+  log(`⚠ ${(result && result.frd) || 'gate'}: ${note}`)
+  // BL-0157 scope guard: the "reviewer forgot to inventory a whole class" defect (canary C) is a
+  // FORMAT gap a re-ask can fix (B2). A NULL/garbled result (dead agent, G2) or a genuine CONTRADICTION
+  // — invalidBoundary (a boundary claimed pass with zero tests) or waivedFailure (a recorded `fail` under
+  // an overall green) — is NOT a format gap; it is evidence the underlying judgment itself may be wrong,
+  // so it keeps the pre-BL-0157 hard-fail contract (no traceabilityDeficient flag → gateConverge never
+  // re-asks it, falls straight to attemptRepair/blocked 'error' exactly as before this fix).
+  const reaskable = missing && !invalidBoundary && !waivedFailure && result && typeof result === 'object'
+  if (!result || typeof result !== 'object') return { green: false, traceability: [], failure: note }
+  const safeTrace = Array.isArray(trace) ? trace : []
+  const deficientFields = reaskable ? { traceabilityDeficient: true, missingClasses } : {}
+  if (result.green !== true) {
+    // Already a reject: preserve reopen/findings/missingFoundation/blocked_reason/everything else —
+    // only annotate. gateConverge's normal reopen/patch-first/blocked_reason routing still applies.
+    return { ...result, traceability: safeTrace, ...deficientFields, failure: result.failure ? `${result.failure} · traceability: ${note}` : note }
+  }
+  // Was green: downgrade to a DEFICIENT (not a hard) failure — never stamp VERIFIED on it.
+  return { green: false, traceability: safeTrace, ...deficientFields, failure: note }
 }
 // ── WP-06 evidence-pack schema (args.gateEvidence: 'digested') ───────────────
 // What the cheap `evidence:<frd>` collector returns to the ENGINE (never to the reviewer directly — the
@@ -1415,12 +1447,12 @@ const gateFocusedStep = (frd, ev) => ev
   : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
 
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
-async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack) {
+async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack, directive = '') {
   const ev = evidenceOf(evidencePack)   // WP-06: null ⇒ this gate runs in EXPLORE mode (the historical contract)
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)}${evidenceFallbackOf(frd, evidencePack)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
  BUILD-JOURNAL (A1) — at WHICHEVER exit you take below (pass / reopen / blocked / fail), record this gate's verdict:${gateVerdictJournal(frd, reviewIds, attemptNo)}
-
+${directive ? `\n  ${directive}\n` : ''}
   **THE GATE IS SPLIT (DR-072) — this is what makes the build converge instead of churning. Two categories with DIFFERENT consequences:**
   • **CORRECTION (BLOCKING — your hard gate):** correctness, **requirements/acceptance criteria met** (the EARS AC of FRD ${frd} — the required behavior/sections/elements EXIST and work), security, no genuine DUPLICATE of an existing shared primitive (DR-057), and **GROSS visual-structural mismatch** (the surface is not RECOGNIZABLY the designed thing — e.g. a flat text list where the mock shows a multi-panel/pixel-art layout; a section missing entirely). These BLOCK.
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
@@ -2240,6 +2272,28 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
   if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
+  // B2 (BL-0157): same rule as gateConverge — a deficient traceability inventory with no reopen is a
+  // reviewer-paperwork gap, not a stall to silently defer forever. Re-ask ONCE, naming what's missing;
+  // if it's still deficient, block needs-owner outright rather than looping passes on a formatting gap.
+  else if (regate && regate.traceabilityDeficient) {
+    const missingClasses = regate.missingClasses || []
+    log(`⚠ ${f.frd}: in-run retry's re-gate has an incomplete traceability contract (missing: ${missingClasses.join(', ') || 'see failure'}) — re-asking once before deferring (B2, BL-0157)`)
+    const st = frdState.get(f.frd)
+    const attemptNo = ((st && st.gateAttempts) || 0) + 1
+    if (st) st.gateAttempts = attemptNo
+    const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict with a COMPLETE traceability inventory this time.`
+    const reregate = enforceWholeFrdTraceability(await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
+    if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); reopenedFrds.push(f.frd); return 'reopened' }
+    if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry, traceability re-ask)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+    if (reregate && reregate.reopen && reregate.reopen.length) { await revertAndReopen(f.frd, reregate.reopen); reopenedFrds.push(f.frd); return 'reopened' }
+    if (reregate && reregate.traceabilityDeficient) {
+      const stillMissing = reregate.missingClasses || missingClasses
+      log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
+      await persistGateBlock(f.frd, reviewIds, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
+      blockFrd(f.frd, 'needs-owner')
+      return 'blocked'
+    }
+  }
   log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
   reopenedFrds.push(f.frd); return 'reopened'
 }
@@ -2259,7 +2313,7 @@ async function gateAndConverge(f, reviewIds) {
 // or from an inline re-gate on the quiesced main tree). On green it APPLIES inline (sourceDir null — the gate
 // ran on main). On a reject it runs the DR-072/073/107 + BL-0001 recovery ladder — byte-for-byte the pre-C2
 // gateAndConverge body. The CONCURRENT PASS path never reaches here (the harvest applies from the worktree).
-async function gateConverge(f, reviewIds, gate) {
+async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   phase('Review')
   // WP-08 cage, at the certification boundary: a gate that ran `--only`/`--files` stamped its report
   // `scope:"partial"` and is NOT an oracle for this FRD. Refuse BEFORE the apply step is even spawned,
@@ -2416,6 +2470,33 @@ async function gateConverge(f, reviewIds, gate) {
     log(`↻ ${f.frd}: ${patchFailNote} — reverting + reopening`)
     await revertAndReopen(f.frd, gate.reopen)
     return await inRunRetry(f, gate.reopen, reviewIds)
+  }
+
+  // B2 (BL-0157): a DEFICIENT traceability inventory with no specific WO reopen is a reviewer-paperwork
+  // gap, not a code failure (B1 marks it `traceabilityDeficient`, never a bare `{green:false}` that would
+  // fall into `attemptRepair` — an IMPLEMENTER that edits production code for a formatting gap — or the
+  // generic fallback below, which defaults an unclassified block to `'error'`). Re-ask the SAME gate
+  // ONCE, naming exactly what's missing, THEN replay the normal ladder on whatever it returns (`gate =
+  // regate`, `traceabilityReasked: true` so this branch can never fire twice for one FRD this cycle — a
+  // reviewer that is STILL incomplete on the second try is a genuine stop, not an infinite re-ask). If
+  // the re-ask is STILL deficient with no reopen, block `needs-owner` directly — never `'error'`, because
+  // this was never a code defect.
+  if (gate && gate.traceabilityDeficient && (!gate.reopen || !gate.reopen.length) && !traceabilityReasked) {
+    const missingClasses = gate.missingClasses || []
+    log(`⚠ ${f.frd}: gate traceability contract incomplete (missing: ${missingClasses.join(', ') || 'see failure'}) — re-asking the SAME gate once before any repair (B2, BL-0157)`)
+    const st = frdState.get(f.frd)
+    const attemptNo = ((st && st.gateAttempts) || 0) + 1
+    if (st) st.gateAttempts = attemptNo
+    const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict (green/reopen/findings unchanged unless your judgment of the code itself has changed) with a COMPLETE traceability inventory this time.`
+    const regate = enforceWholeFrdTraceability(await frdGateSerial(f.frd, reviewIds, attemptNo, null, null, directive))
+    if (regate && regate.traceabilityDeficient && (!regate.reopen || !regate.reopen.length)) {
+      const stillMissing = regate.missingClasses || missingClasses
+      log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
+      await persistGateBlock(f.frd, reviewIds, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
+      blockFrd(f.frd, 'needs-owner')
+      return 'blocked'
+    }
+    return await gateConverge(f, reviewIds, regate, true)
   }
 
   // DR-065 CURE: the surface failed because a shared primitive it needs isn't in the foundation —
