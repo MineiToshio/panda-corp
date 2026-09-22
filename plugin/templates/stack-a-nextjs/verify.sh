@@ -31,6 +31,16 @@ shopt -s inherit_errexit 2>/dev/null || true  # bash 4.4+; no-op on macOS' bash 
 SINCE=""
 if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
 
+# --- Gate-report scaffolding (WP-05) — the stale-report DELETE runs before ANY branch below,
+# including --canary (REV-C/LESSON-0155): a report left by a PREVIOUS verify run must never survive
+# to be misread as a canary/current run's verdict. Only the mkdir/rm belong here — the rest of the
+# report machinery (timestamps, fragments dir, the trap) stays below, after the --canary early exit,
+# since --canary never generates a gate-report.json of its own (see that block's comment).
+REPORT_DIR=".pandacorp/run"
+REPORT_FILE="$REPORT_DIR/gate-report.json"
+mkdir -p "$REPORT_DIR"
+rm -f "$REPORT_FILE"
+
 # --- Canary mode (DR-079): prove each fail-closed gate STILL goes RED on a broken input ---------
 # `verify.sh --canary` runs the project's deliberately-broken fixtures through the gates and asserts
 # each gate REJECTS its fixture — a gate that stays GREEN on a broken input has rotted (a renamed
@@ -38,9 +48,10 @@ if [ "${1:-}" = "--since" ] && [ -n "${2:-}" ]; then SINCE="$2"; fi
 # never on a normal build. Vacuous until the fixtures + runner are installed (like doc-lint, DR-077),
 # so it can never red-lock a normal run. UNTOUCHED by WP-05: canary.sh is its own standalone runner
 # (it mirrors these checks directly against generated fixtures) — this script hands off to it before
-# any of the report-all/gate-report machinery below even runs, so `--canary` never produces a
-# gate-report.json from THIS script (the "canary" value in the report's `scope` enum is reserved for
-# canary.sh's own future use, not emitted here).
+# any of the report-all/gate-report GENERATION machinery below even runs, so `--canary` never produces
+# a gate-report.json from THIS script (the "canary" value in the report's `scope` enum is reserved for
+# canary.sh's own future use, not emitted here) — but the stale-report DELETE above already ran, so a
+# canary run never leaves a PRIOR run's report readable as if it were canary's own verdict.
 if [ "${1:-}" = "--canary" ]; then
   if [ -f .pandacorp/canary.sh ]; then exec bash .pandacorp/canary.sh; fi
   echo "✓ canary: no .pandacorp/canary.sh installed yet (DR-079 — vacuous pass)"; exit 0
@@ -57,11 +68,8 @@ done
 # --- Gate-report scaffolding (WP-05) — ALWAYS-written `.pandacorp/run/gate-report.json` -------
 # `.pandacorp/run/` is the existing gitignored runtime-scratch convention (see .pandacorp/run/
 # lessons.md) — never committed, never conformance-checked, purely machine state for this run.
-REPORT_DIR=".pandacorp/run"
-REPORT_FILE="$REPORT_DIR/gate-report.json"
-mkdir -p "$REPORT_DIR"
-rm -f "$REPORT_FILE"
-
+# REPORT_DIR/REPORT_FILE + the stale-report delete moved ABOVE the --canary branch (REV-C); only the
+# timestamp/scope/fragments-dir setup for actually WRITING a fresh report lives here.
 GATE_RUN_AT=$(python3 -c 'import datetime; print(datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))' 2>/dev/null || date -u +%Y-%m-%dT%H:%M:%SZ)
 GATE_SCOPE="full"
 [ -n "$SINCE" ] && GATE_SCOPE="since"
