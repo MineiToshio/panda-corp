@@ -63,3 +63,19 @@ canary" notes are updated to point at the actual run.
 ## Out of scope
 Building the canaries' fixtures or harness code (already shipped by WP-09/BL-0063/the sprint itself) —
 this item is the EXECUTION and the recorded verdict, not new machinery.
+
+## Progress note — 2026-09-22 (not closing this item)
+**Canary A ran** (`wf_4cef213a-463`, `mechLean:false` forced by session/plugin skew). Full numbers and
+verdict recorded in `plugin/docs/decision-log.md` (v9.104.0, "Canary A (BL-0135)" entry) and in
+`docs/proposals/37-fast-change-path-and-implement-cost.md` §"Canario A · 2026-09-22 (medido)". Result:
+**FAILS** the ≤1,200s (with-reopen) time bar (measured 2613.9s); PASSES `agentCount ≤18` and the
+foundation-gate/visual-qa omission. Baseline-to-canary improvement measured is **≈1.49x (3889s →
+2613.9s)**, below this item's own **"< 2x → stop and re-measure before shipping further packages"
+rollback trigger** — flagged here explicitly rather than silently proceeding: the second batch (F2-F5,
+quick wins, BL-0141, review #3) still landed as plugin 9.104.0 in this same release because none of its
+packages are Canary-A-gated defaults (`gateEvidence` stays `explore`, `--now` stays opt-in,
+`scopedRepair` stays off) and each is independently reviewed/tested; but per this item's own trigger,
+**no further default-flip or Tanda-B/C package should ship ahead of a re-measurement** until Canary A
+(and ideally B) clear their bars. Canary B is running now in `panda-corp-canary-b` (separate worktree);
+Canary C has not started. This item stays `open` — not all three canaries have run, and the rollback
+trigger condition is presently active, not resolved.

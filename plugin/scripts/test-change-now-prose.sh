@@ -100,10 +100,12 @@ must_not "no skill file ever writes needs-owner as a frontmatter VALUE" "$CHANGE
 must_not "now-mode.md never writes needs-owner as a frontmatter value either" "$NOW" '^status: needs-owner'
 
 echo "-- Mission Control's queue validator actually accepts 'draft' (the hand-back target)"
-must "changes.ts VALID_STATUSES includes draft" "$MC_CHANGES" 'VALID_STATUSES.*"ready", *"draft"'
-# The two tokens the factory DOES write that this validator rejects. now-mode.md must keep saying so
-# rather than quietly normalising them; the gap is a filed defect in the READER, not a licence.
-must_doc "now-mode.md names building + closing as statuses the MC validator rejects" "$NOW" 'outside that same  *validator.s enum.*building.*closing.*parse errors'
+# must_doc (newline-flattened), not must: mc-change-queue-statuses (19ae06d7) reformatted
+# VALID_STATUSES onto one entry per line when it widened the enum to building/closing.
+must_doc "changes.ts VALID_STATUSES includes draft" "$MC_CHANGES" 'VALID_STATUSES.*"ready", *"draft"'
+# building/closing used to be outside this validator's enum (a filed READER defect); the
+# mc-change-queue-statuses merge closed that gap, and now-mode.md must say so, not the old rejection.
+must_doc "now-mode.md documents that the MC validator now accepts building + closing" "$NOW" 'validator now accepts.*building.*closing'
 
 echo "-- F3 close-out: refuse, never degrade"
 must "sync/SKILL.md requires a green gate report" "$SYNC" 'green: true'

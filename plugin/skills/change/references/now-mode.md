@@ -224,18 +224,20 @@ work, what would unblock it), NOT as a new frontmatter value. Two reasons, both 
   `status: ready` and skips everything else, so a handed-back card can never be silently drained.
 - `needs-owner` has no readers. The queue's two consumers are the build's drain and Mission
   Control's validator (`mission-control/src/lib/changes/changes.ts`, enum
-  `ready | draft | done | discarded`), and that validator fails LOUD on anything outside its
-  enum (DR-078). Promoting `needs-owner` to a real status means teaching both readers first;
-  until then it would render as a parse error, which is worse than a truthful `draft`.
+  `ready | draft | building | closing | done | discarded`), and that validator fails LOUD on
+  anything outside its enum (DR-078). Promoting `needs-owner` to a real status means teaching
+  both readers first; until then it would render as a parse error, which is worse than a
+  truthful `draft`.
 
 The label is a description of the state, not a token. Do not invent the token.
 
-**Known, and not an excuse.** Two statuses the factory already writes are outside that same
-validator's enum: `building` (the engine, DR-069) and `closing` (`/pandacorp:sync --close-out`,
-which §5 below still instructs you to use because it is the F3 contract, backed by `doc-lint.sh`).
-Both render as parse errors in Mission Control's queue panel today. That is a filed defect in the
-READER, not a licence to add a third unread token: an existing gap is a reason to stop widening
-it. Report the parse errors if you see them; do not work around them by inventing statuses.
+**Previously a known gap, now closed.** `building` (the engine, DR-069) and `closing`
+(`/pandacorp:sync --close-out`, the F3 contract, backed by `doc-lint.sh`) used to render as parse
+errors in Mission Control's queue panel. Mission Control's validator now accepts the full
+`ready | draft | building | closing | done | discarded` enum (FRD-04 REQ-04-010, mission-control
+commit `19ae06d7`). The lesson still applies to any FUTURE unread token: inventing a new one still
+renders as a parse error until both readers (the build's drain and Mission Control's validator)
+learn it — that is why `needs-owner` above stays a description, not a token.
 
 ---
 
