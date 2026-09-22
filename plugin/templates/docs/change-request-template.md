@@ -10,11 +10,16 @@
   decides HOW MUCH evidence it must collect. An agent may only ESCALATE the derived level, stating
   why in `rigor_reasons`; nothing may lower it, and a floor hit (auth, money, PII, persistence,
   irreversible, secrets, the oracles, the factory's machinery) is always `critical`.
+
+  `implemented_sha` / `closing_at` are written ONLY by `/pandacorp:sync`'s close-out mode, the
+  instant it starts closing an already-implemented card (`status: closing`); never authored by
+  `change`/`bug`. Blank until then. `doc-lint.sh` reds a `closing` card whose `closing_at` is
+  older than 48h (proposal 37 §A.6): an interrupted close-out stays visible, never silently lost.
 -->
 ---
 type: change             # bug | feature | change
 class: standard          # expedite | standard | intangible | fixed-date  (urgency, DR-069)
-status: ready            # ready | draft | done   (build builds `ready`, skips `draft`, marks `done`)
+status: ready            # ready | draft | closing | done   (build builds `ready`, skips `draft`; `closing` = /pandacorp:sync close-out in flight; `done` = closed and archived)
 date: YYYY-MM-DD
 frd:                     # affected feature/screen if known (frd-NN-<slug>), else blank
 rebuilds_verified: false # true if this redoes already-VERIFIED work (the build flags & guides first)
@@ -22,6 +27,8 @@ rigor:                   # micro | normal | critical — DERIVED, never asked: `
 rigor_reasons:           # the signals behind it, e.g. "S2 (47 lines, 4 files), S14 (route UI)"
 depends_on:              # optional: another change/WO that must land first
 supersedes:              # optional (DR-116): the old rule/claim this change REPLACES — iterate then verifies no doc still asserts it. Blank for adding-only changes.
+implemented_sha:         # written by sync close-out when it sets status: closing: the commit(s) that implemented this change
+closing_at:              # written by sync close-out alongside implemented_sha: ISO timestamp; doc-lint.sh reds it past 48h in status: closing
 ---
 
 # Replace with a one-line title (español)

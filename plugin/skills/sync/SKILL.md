@@ -1,6 +1,6 @@
 ---
 name: sync
-description: Reconciles a Pandacorp project's documentation BACKWARDS from changes made directly in the code — the inverse of iterate (code→docs). Use after editing an app by hand (e.g. Mission Control) outside spec/design/implement/change. EXHAUSTIVE by design — it propagates each change through its FULL cascade of owning docs (behaviour→FRD + work orders + FDD; architecture→blueprint + ADR; UI→FDD + design tokens; scope→PRD) across BOTH docs/ and .pandacorp/, and records the area's decision log so nothing is left undocumented. Works warm (changes already in context) or COLD (no context — it audits the whole app against the docs and finds every gap). Behind an INTENT gate; marks what it writes as reconciled-from-code; it documents, it never verifies — and where the DOC is right (a bug, or documented-but-unbuilt work) it routes to /change or marks it pending, never rewrites the spec down to the code. Runs INSIDE the project (modo proyecto). Hand-edits to the plugin/factory go to /pandacorp:learn.
+description: Reconciles a Pandacorp project's documentation BACKWARDS from changes made directly in the code — the inverse of iterate (code→docs). Use after editing an app by hand (e.g. Mission Control) outside spec/design/implement/change. EXHAUSTIVE by design — it propagates each change through its FULL cascade of owning docs (behaviour→FRD + work orders + FDD; architecture→blueprint + ADR; UI→FDD + design tokens; scope→PRD) across BOTH docs/ and .pandacorp/, and records the area's decision log so nothing is left undocumented. Works warm (changes already in context) or COLD (no context — it audits the whole app against the docs and finds every gap). A third mode, CLOSE-OUT, batch-closes ONE already-implemented change queue card (documentation proportional to its rigor, one commit, gated on a green non-partial verify.sh) instead of the full cascade. Behind an INTENT gate (warm/cold only); marks what it writes as reconciled-from-code; it documents, it never verifies — and where the DOC is right (a bug, or documented-but-unbuilt work) it routes to /change or marks it pending, never rewrites the spec down to the code. Runs INSIDE the project (modo proyecto). Hand-edits to the plugin/factory go to /pandacorp:learn.
 ---
 
 # /pandacorp:sync
@@ -11,14 +11,30 @@ description: Reconciles a Pandacorp project's documentation BACKWARDS from chang
 
 > **Preflight (DR-045) — modo proyecto.** This skill writes to the project's docs, so first confirm the marker `.pandacorp/status.yaml` exists. If it's missing **but** you're at the factory root with hand-edits under `plugin/` or `factory/`, this is *modo fábrica* — out of v1 scope: route the owner (in Spanish) to `/pandacorp:learn` (durable know-how, which already versions the plugin) and stop. If it's missing entirely, this folder isn't a factory project — `/pandacorp:adopt` brings one in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` in `.pandacorp/status.yaml` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (silent for compatible bumps, DR-048) — **but if a build is running (`running: true` + fresh `supervisor_heartbeat`) do NOT run `/pandacorp:upgrade` mid-build: it must never regenerate the engine/gates under a live build (its own active-build guard also refuses).** When the owner reaches this skill directly mid-build, route them to `/pandacorp:change` (the queue) instead of mutating docs concurrently.
 
-`$ARGUMENTS` (or the conversation): optionally what you changed by hand (e.g. `/pandacorp:sync "puse el botón de descartar en rojo y rehíce el header del card-detail"`); empty (`/pandacorp:sync`) lets it find the changes itself — including, with no context at all, a full audit.
+`$ARGUMENTS` (or the conversation): optionally what you changed by hand (e.g. `/pandacorp:sync "puse el botón de descartar en rojo y rehíce el header del card-detail"`) or a change-card slug to close out (e.g. `/pandacorp:sync --close-out <slug>`); empty (`/pandacorp:sync`) lets it find the changes itself — including, with no context at all, a full audit.
 
-## Two modes — pick by how much context you have
+## Modes: reconciliation (warm/cold) vs close-out
+
+The two below are open-ended **reconciliation**: they find divergences and propagate the full cascade. **Close-out is different in kind** (a bounded, one-card batch closure of a change already known to be correct) and has its own section below, instead of following Steps 1-8.
 
 - **Warm** — the changes are already in this conversation. Start from them, **but still verify against the real code** (don't trust the chat's memory of what changed; read the diff).
 - **Cold** — no context (a fresh conversation, or hand-edits made long ago and never documented). Run a **FULL AUDIT**: enumerate every surface of the app from the code — routes, components, the data model, APIs, business logic — and compare each to its owning doc; the "change set" is the set of **code↔doc divergences (gaps)**. For a large app, **fan out** (a reader per area: features/UI / data+architecture / build state) and consolidate. The bar is **find every gap — nothing passes unnoticed.**
 
-## Steps
+## Mode: close-out
+
+**Batch-closes ONE already-implemented change** (a queue card the owner edited in by hand, a `/pandacorp:change --now` subagent left ready, or a direct session just finished), with documentation **proportional to its rigor** instead of the warm/cold full cascade (proposal 37 §A.6/§A.8). No intent gate: the change is a known, deliberate fact, there is nothing to sort into bug/pending/accident.
+
+1. **Inputs.** The card (`.pandacorp/inbox/changes/<slug>.md`) and its `rigor`. Missing `rigor` → derive it (`plugin/scripts/classify-change.sh --repo . --range <base>..HEAD`, or `--worktree` for an uncommitted change) and write the verdict back. Note the sha/diff and, if named, the affected work order.
+2. **Precondition: refuse, don't degrade.** `.pandacorp/run/gate-report.json` must be recent, `green: true`, `scope` ∈ {full, since} (never `partial`); missing, red or partial → refuse and name the exact gate to run. `running: true` with a fresh `supervisor_heartbeat` → refuse too (the engine is the sole writer while it runs).
+3. **Set `status: closing`.** Stamp the card with `status: closing`, `implemented_sha`, `closing_at` (ISO timestamp) BEFORE writing anything else, so an interrupted run stays visible instead of vanishing (`doc-lint.sh` reds a `closing` card older than 48h, unconditionally: a stuck close-out is a build-safety defect on ANY project, not doc-spine drift to tolerate).
+4. **Write the artifacts for the card's rigor tier:**
+   - **micro**: card → `done/` with `shipped_sha`/`shipped_at`; one line in `.pandacorp/comms/progress.md`; a `docs/decision-log.md` entry ONLY if `supersedes:` is non-empty.
+   - **normal**: the above, PLUS the affected WO's `## Status Note` + `implementation_status` (or a minimal new WO from the template if none fits), a `docs/decision-log.md` entry always, and the `status.yaml` rollups.
+   - **critical**: refuse ("critical changes go through `/pandacorp:implement`") unless the owner explicitly passes `--force-critical`; then do the `normal` set PLUS the full cascade (FRD/blueprint/ADR as it applies), marked `reconciled-from-code` exactly like cold mode.
+5. **One commit.** Code (if not committed yet) and docs land together, Conventional Commits, `(WO-…)` when applicable, citing the card. Code already committed → a separate `docs(<scope>): close-out <slug>` commit.
+6. **Finish or fail honestly.** On success, clear `closing` (the card is now in `done/`, its rigor already covers this). Mid-way failure → leave the card `closing` with a note of exactly what landed and what's missing; tell the owner the same, in Spanish.
+
+## Steps (warm / cold reconciliation)
 
 1. **Detect context, pick the mode** (warm vs cold, above). You're in *modo proyecto* — Mission Control or a product app.
 2. **Build the change set.** *Warm:* the uncommitted working tree (`git status`/`git diff`) + commits since the last one that touched `docs/decision-log.md` (or since `last_green_sha`) + what's in context. *Cold:* the audit's gap list. Either way **read the real code**, not just file names — you need *what behaviour / look / architecture / scope changed*, not which lines moved.
@@ -50,5 +66,6 @@ description: Reconciles a Pandacorp project's documentation BACKWARDS from chang
 - **The "Why" isn't in the code — ask the owner** (step 8); never fabricate rationale.
 - **Both trees, each in its language (DR-009):** `docs/` in English (committed), `.pandacorp/comms/` in Spanish (gitignored) — neither left stale (step 4).
 - **External mirrors: detect + offer, never auto-push** (step 7).
+- **Close-out is proportional, never degraded (proposal 37 §A.6).** Rigor decides HOW MUCH gets written, not WHETHER; a `critical` card refuses without an explicit owner `--force-critical`; the `closing` state plus doc-lint's unconditional 48h check keep an interrupted close-out visible, never silently lost.
 - **Modo proyecto only (v1):** plugin/factory hand-edits go to `/pandacorp:learn`.
 - **`status.yaml` is read, not hand-authored (DR-050);** commits conventional + English, direct to main is fine, never force-push.
