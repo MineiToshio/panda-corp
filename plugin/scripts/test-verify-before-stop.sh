@@ -376,5 +376,221 @@ else
 fi
 rm -rf "$fh"
 
+echo
+echo "== REV3 (independent review, 2026-09-22): adversarial cases the F2 suite did not cover =="
+
+# The hook resolves its classifier as "$(dirname $0)/classify-change.sh". To exercise the two
+# BOUNDING failures of that call (a classifier that HANGS, and a host with no `timeout` binary at
+# all) we run a byte-identical COPY of the production hook next to a stub classifier — the hook
+# itself is never modified, and `cmp` below proves the copy is the real thing, so a green here is a
+# statement about production, not about a fork of it.
+make_hook_sandbox() { # $1 = classifier stub body -> prints the sandbox dir
+  local d
+  d=$(mktemp -d)
+  cp "$HOOK" "$d/verify-before-stop.sh"
+  cmp -s "$HOOK" "$d/verify-before-stop.sh" || { echo "FATAL: hook copy diverged from production" >&2; exit 9; }
+  printf '%s\n' "$1" > "$d/classify-change.sh"
+  chmod +x "$d/classify-change.sh" "$d/verify-before-stop.sh"
+  echo "$d"
+}
+
+run_sandboxed_hook() { # $1 sandbox dir, $2 fixture dir, $3 session id, $4 extra env -> $rc/$out
+  local payload
+  payload=$(printf '{"cwd":%s,"session_id":%s}' "$(jq -Rs . <<< "$2")" "$(jq -Rs . <<< "$3")")
+  out=$(env ${4:-} PANDACORP_EVENTS_LOG="$EVENTS_LOG_SCRATCH" bash "$1/verify-before-stop.sh" <<< "$payload" 2>&1)
+  rc=$?
+}
+
+# --- REV3-A: the classifier HANGS past the 20s bound -> fail-closed to the FULL gate ------------
+# The existing (d) case only proves an IMMEDIATE failure (no `node`). A classifier that never
+# returns is the harder shape: the bound must fire, the verdict must be `critical`, and the gate
+# must run UNSCOPED. If the timeout were ever dropped, this case would hang the owner's Stop hook.
+sbox_a=$(make_hook_sandbox '#!/bin/bash
+sleep 120')
+fr3a=$(seed_fixture_with_green)
+touch_and_dirty "$fr3a" "sid-rev3a" "styles-rev3a.css" "$NON_FLOOR_DIFF"
+rm -f "$fr3a/.pandacorp/run/verify-args"
+t0=$(date +%s)
+run_sandboxed_hook "$sbox_a" "$fr3a" "sid-rev3a" ""
+elapsed=$(( $(date +%s) - t0 ))
+args_r3a=$(last_verify_args "$fr3a")
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3a" in *"--since"*) ok=0 ;; esac          # a hung classifier may never scope the gate
+case "$out" in *"failing closed to the full gate"*) : ;; *) ok=0 ;; esac
+case "$out" in *"rigor=critical"*) : ;; *) ok=0 ;; esac
+[ "$elapsed" -lt 60 ] || ok=0                           # the bound actually fired (20s), not 120s
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-A hung classifier -> 20s bound fires, rigor=critical, full gate (${elapsed}s)"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-A expected a bounded fail-closed full gate, got rc=$rc args=[$args_r3a] elapsed=${elapsed}s: $out"; fail=$((fail+1))
+fi
+rm -rf "$sbox_a" "$fr3a"
+
+# --- REV3-B: no `timeout`/`gtimeout` binary on the host -> the classifier is NOT run unbounded ---
+# The hook refuses to call an unbounded subprocess (classify_rc=127). This is a DIFFERENT branch
+# from "no node": here the classifier would have worked fine, and the hook still chooses rigor.
+make_timeout_blind_path() {
+  local d
+  d=$(mktemp -d)
+  for tool in git jq bash sh node dirname basename mkdir mktemp mv date sed grep comm cat rm env printf head tail sort; do
+    local src
+    src=$(command -v "$tool" 2>/dev/null) || continue
+    ln -sf "$src" "$d/$tool" 2>/dev/null
+  done
+  echo "$d"
+}
+fr3b=$(seed_fixture_with_green)
+touch_and_dirty "$fr3b" "sid-rev3b" "styles-rev3b.css" "$NON_FLOOR_DIFF"
+rm -f "$fr3b/.pandacorp/run/verify-args"
+blind_t=$(make_timeout_blind_path)
+payload_b=$(printf '{"cwd":%s,"session_id":%s}' "$(jq -Rs . <<< "$fr3b")" "$(jq -Rs . <<< "sid-rev3b")")
+out=$(env -i PATH="$blind_t" HOME="$HOME" PANDACORP_EVENTS_LOG="$EVENTS_LOG_SCRATCH" bash "$HOOK" <<< "$payload_b" 2>&1)
+rc=$?
+rm -rf "$blind_t"
+args_r3b=$(last_verify_args "$fr3b")
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3b" in *"--since"*) ok=0 ;; esac
+case "$out" in *"timeout_bin=none"*) : ;; *) ok=0 ;; esac
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-B no timeout binary -> classifier never runs unbounded, full gate, logged"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-B expected an unscoped full gate + a timeout_bin=none log, got rc=$rc args=[$args_r3b]: $out"; fail=$((fail+1))
+fi
+rm -rf "$fr3b"
+
+# --- REV3-C: a last-green anchor that is NOT an ancestor of HEAD -> unusable -> FULL gate --------
+# The suite proved "no anchor" and "valid anchor". The dangerous middle case is an anchor that
+# LOOKS valid (40 hex chars) but names a commit this history cannot reach (a rebase, a reset, a
+# branch switch). `--since <unreachable>` would scope the gate against a base git cannot resolve,
+# so the hook must refuse the anchor and run the full suite.
+fr3c=$(seed_fixture_with_green)
+printf '{"sha":"%s","at":"2026-09-22T00:00:00Z"}\n' "0123456789abcdef0123456789abcdef01234567" \
+  > "$fr3c/.pandacorp/run/last-green.json"
+touch_and_dirty "$fr3c" "sid-rev3c" "styles-rev3c.css" "$NON_FLOOR_DIFF"
+rm -f "$fr3c/.pandacorp/run/verify-args"
+run_hook_with "" "$fr3c" "sid-rev3c"
+args_r3c=$(last_verify_args "$fr3c")
+ok=1
+[ "$rc" = "0" ] || ok=0
+case "$args_r3c" in *"--since"*) ok=0 ;; esac
+case "$out" in *"scope=full"*) : ;; *) ok=0 ;; esac
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-C unreachable last-green sha -> anchor refused, full gate"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-C expected the unreachable anchor to be refused, got rc=$rc args=[$args_r3c]: $out"; fail=$((fail+1))
+fi
+rm -rf "$fr3c"
+
+# --- REV3-D: the Stop gate NEVER emits a `partial`-producing flag --------------------------------
+# `--only` / `--files` stamp the gate report `scope: partial`, which certifies nothing. The rigor
+# caller may only ever choose between `--since <sha>` and no flags at all. This asserts the WHOLE
+# argv of every verify.sh invocation across a micro-sized diff, a floor diff and a forced-full run.
+fr3d=$(seed_fixture_with_green)
+touch_and_dirty "$fr3d" "sid-rev3d" "tiny.css" ".x{color:red}"
+rm -f "$fr3d/.pandacorp/run/verify-args"
+run_hook_with "" "$fr3d" "sid-rev3d"
+mkdir -p "$fr3d/src/lib/auth"
+touch_and_dirty "$fr3d" "sid-rev3d" "src/lib/auth/session.ts" 'export const getSession = () => null'
+run_hook_with "" "$fr3d" "sid-rev3d"
+run_hook_with "PANDACORP_STOP_GATE=full" "$fr3d" "sid-rev3d"
+bad_args=$(grep -E -- '--only|--files' "$fr3d/.pandacorp/run/verify-args" 2>/dev/null || true)
+# NOTE: a FULL-scope run records an EMPTY argv line, so count lines, not non-empty ones.
+nruns=$(wc -l < "$fr3d/.pandacorp/run/verify-args" 2>/dev/null | tr -d ' ' || echo 0)
+ok=1
+[ -z "$bad_args" ] || ok=0
+[ "$nruns" -ge 3 ] || ok=0
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-D no Stop-gate run ever passes --only/--files (a partial scope can never certify)"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-D a Stop-gate run emitted a partial-scoping flag (runs=$nruns): [$bad_args]"; fail=$((fail+1))
+fi
+rm -rf "$fr3d"
+
+# --- REV3-E: PANDACORP_STOP_GATE has no "off" -------------------------------------------------
+# Only the literal value `full` is honoured. Any OTHER value (a typo, a hopeful `off`, an empty
+# string) must leave the gate exactly as the classifier decided — it must never skip verify.sh.
+for junk in off 0 none skip FULL; do
+  fr3e=$(seed_fixture_with_green)
+  touch_and_dirty "$fr3e" "sid-rev3e" "styles-rev3e.css" "$NON_FLOOR_DIFF"
+  rm -f "$fr3e/.pandacorp/run/verify-invocations"
+  run_hook_with "PANDACORP_STOP_GATE=$junk" "$fr3e" "sid-rev3e"
+  invoked=0; [ -s "$fr3e/.pandacorp/run/verify-invocations" ] && invoked=1
+  if [ "$rc" = "0" ] && [ "$invoked" = "1" ]; then
+    echo "  ✓ REV3-E PANDACORP_STOP_GATE=$junk still runs the gate (no 'off' value exists)"; pass=$((pass+1))
+  else
+    echo "  ✗ REV3-E PANDACORP_STOP_GATE=$junk skipped the gate (rc=$rc invoked=$invoked): $out"; fail=$((fail+1))
+  fi
+  rm -rf "$fr3e"
+done
+
+# --- REV3-F: a RED scoped run still emits an honest StopGate event (green:false) ------------------
+# The telemetry must not only exist on the happy path: La Fragua's whole value is seeing the reds.
+fr3f=$(seed_fixture_with_green)
+touch_and_dirty "$fr3f" "sid-rev3f" "styles-rev3f.css" "$NON_FLOOR_DIFF"
+echo 2 > "$fr3f/.pandacorp/run/verify-exit-code"
+: > "$EVENTS_LOG_SCRATCH"
+run_hook_with "" "$fr3f" "sid-rev3f"
+line_f=$(grep '"event":"StopGate"' "$EVENTS_LOG_SCRATCH" | tail -1)
+ok=1
+[ "$rc" = "2" ] || ok=0
+[ -n "$line_f" ] || ok=0
+[ "$(printf '%s' "$line_f" | jq -r '.green' 2>/dev/null)" = "false" ] || ok=0
+[ "$(printf '%s' "$line_f" | jq -r '.scope' 2>/dev/null)" = "since" ] || ok=0
+if [ "$ok" = "1" ]; then
+  echo "  ✓ REV3-F a RED --since run emits StopGate{green:false,scope:since} and still exits 2"; pass=$((pass+1))
+else
+  echo "  ✗ REV3-F expected rc=2 + a green:false StopGate event, got rc=$rc line=[$line_f]"; fail=$((fail+1))
+fi
+rm -rf "$fr3f"
+
+# --- REV3-G: the real shared event stream is never written by this suite ------------------------
+# Belt and braces for the BL-0146 class of contamination: assert the production default path has no
+# StopGate line carrying one of THIS suite's scratch project basenames.
+real_stream="$HOME/.claude/dashboard-events.ndjson"
+if [ -f "$real_stream" ]; then
+  leaked=$(tail -500 "$real_stream" 2>/dev/null | grep '"event":"StopGate"' | grep -c '"project":"tmp\.' || true)
+  if [ "${leaked:-0}" = "0" ]; then
+    echo "  ✓ REV3-G no StopGate event from a scratch fixture leaked into the real event stream"; pass=$((pass+1))
+  else
+    echo "  ✗ REV3-G $leaked scratch StopGate event(s) reached $real_stream"; fail=$((fail+1))
+  fi
+else
+  echo "  ✓ REV3-G real event stream absent on this host — nothing to contaminate"; pass=$((pass+1))
+fi
+
+# --- REV3-H: a UI-only diff must not silently lose the browser fidelity gates -------------------
+# `verify.sh --since` runs ONLY smoke + shell from the browser layer (DR-106): visual-fidelity
+# (DR-056) and responsive (DR-074) belong to the FULL run. That trade was made for the per-FRD
+# gate, which is ALWAYS followed by a full close-out run. The Stop gate has no close-out: a manual
+# session whose diffs stay micro/normal runs `--since` on every Stop forever, and because only a
+# FULL green advances last-green.json, nothing ever re-arms the two gates it dropped. A CSS-only
+# change — precisely what those gates exist to judge — is the worst case.
+# XFAIL while the Stop gate has no UI escalation and no full-run cadence (REV3 defect D2).
+# An EXISTING, tracked stylesheet is modified (a NEW file would hit S3 and escalate on its own —
+# that is a different, correct behaviour, and using it here would have made this case vacuous).
+fr3h=$(make_fixture)
+mkdir -p "$fr3h/src/components"
+printf 'body{color:red}\n' > "$fr3h/src/components/Card.module.css"
+( cd "$fr3h" && git add src && git -c user.email=test@pandacorp.local -c user.name="Pandacorp Test" commit -q -m "ui baseline" )
+run_hook_with "" "$fr3h" "sid-rev3h-seed"     # certify a FULL green anchor at this HEAD
+touch_and_dirty "$fr3h" "sid-rev3h" "src/components/Card.module.css" "$NON_FLOOR_DIFF"
+rm -f "$fr3h/.pandacorp/run/verify-args"
+run_hook_with "" "$fr3h" "sid-rev3h"
+args_r3h=$(last_verify_args "$fr3h")
+lg_before=$(cat "$fr3h/.pandacorp/run/last-green.json")
+run_hook_with "" "$fr3h" "sid-rev3h"     # a second Stop, same session: still scoped, anchor frozen
+lg_after=$(cat "$fr3h/.pandacorp/run/last-green.json")
+scoped=0; case "$args_r3h" in *"--since"*) scoped=1 ;; esac
+if [ "$scoped" = "0" ]; then
+  echo "  ✓ REV3-H a UI-only diff escalates to the full gate (defect D2 fixed — tighten this case)"; pass=$((pass+1))
+else
+  echo "  ~ xfail REV3-H a UI-only diff runs --since, so the visual (DR-056) + responsive (DR-074)"
+  echo "          gates are skipped, and last-green stays frozen ($([ "$lg_before" = "$lg_after" ] && echo "confirmed: anchor unchanged across two Stops" || echo "anchor moved")) so nothing re-arms them [REV3 defect D2]"
+  pass=$((pass+1))
+fi
+rm -rf "$fr3h"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

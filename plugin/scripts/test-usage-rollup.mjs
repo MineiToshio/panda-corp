@@ -12,7 +12,7 @@
 // Plain node, no framework — mirrors plugin/scripts/test-build-run-id.mjs's `ok()` idiom.
 
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -429,4 +429,83 @@ function round3(n) { return Math.round(n * 1e6) / 1e6 }
   await rm(root, { recursive: true })
 }
 
-console.log(`RESULT: ${passed} passed, 0 failed`)
+// ── REV3 (independent review of the speed sprint, batch 3 — 2026-09-22) ───────────────────────
+// `ok()` throws, so a KNOWN defect gets `xfail()`: it states what SHOULD hold, prints `~ xfail`
+// while it does not, and flips to a normal pass the day it is fixed (REV2-C convention).
+const xfails = []
+const xfail = (condition, name, ref) => { if (condition) { passed++; console.log(`PASS  ${name} (defect fixed — tighten to ok)`) } else { xfails.push(`${name} [${ref}]`); console.log(`~ xfail ${name} [${ref}]`) } }
+
+// (REV3-K) `--out` must never corrupt the file it appends to. `.pandacorp/track.jsonl` is written
+// by several producers; a run killed mid-write leaves a last line with NO trailing newline, and a
+// bare appendFileSync then welds the new record onto it — one unparseable line, and every reader
+// of the timeline (Mission Control's DAG/timeline, the close-out rollup) fails loud on it. The
+// only safe append is one that normalises the boundary first.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-rev3k-'))
+  const sessionPath = path.join(root, 'sess-rev3k.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:00:00Z') + '\n')
+  const track = path.join(root, 'track.jsonl')
+  // A producer that died mid-write: a complete record, then NO trailing newline.
+  await writeFile(track, '{"kind":"wo_done","wo":"wo-01-001"}')
+  const { code } = await run(['--session', sessionPath, '--out', track])
+  ok(code === 0, 'REV3-K: --out onto a newline-less track.jsonl still exits 0')
+  const lines = (await readFile(track, 'utf8')).split('\n').filter((l) => l.trim())
+  let allParse = true
+  for (const line of lines) { try { JSON.parse(line) } catch { allParse = false } }
+  xfail(allParse && lines.length === 2,
+    'REV3-K: --out preserves track.jsonl as valid NDJSON when the last line lacks a trailing newline',
+    'REV3 defect D4, DR-078 fail-loud read boundary')
+  await rm(root, { recursive: true })
+}
+
+// (REV3-L) A build run's own transcripts live one level DEEPER
+// (`<session>/subagents/workflows/wf_<id>/agent-*.jsonl`) and already get their own `usage_summary`
+// from `--dir`. `--session` must be blind to them, or every build's cost is counted twice: once
+// under the run and once under the session that launched it. Asserted by CONSTRUCTION here — a
+// nested run whose single call is 100x the session's own, so a double count is unmissable.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-rev3l-'))
+  const sessionPath = path.join(root, 'sess-rev3l.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:00:00Z') + '\n')
+  const flat = path.join(root, 'sess-rev3l', 'subagents')
+  await mkdir(flat, { recursive: true })
+  await writeFile(path.join(flat, 'agent-flat.jsonl'), assistantLineAt('claude-sonnet-5', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:05:00Z') + '\n')
+  const nested = path.join(flat, 'workflows', 'wf_rev3l')
+  await mkdir(nested, { recursive: true })
+  await writeFile(path.join(nested, 'agent-build-1.jsonl'), assistantLineAt('claude-opus-5', { input_tokens: 10000, output_tokens: 1000, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:06:00Z') + '\n')
+  const { code, stdout } = await run(['--session', sessionPath])
+  ok(code === 0, 'REV3-L: a session with a nested build run exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.calls === 2, `REV3-L: only the session's own call + its FLAT subagent count — a nested build run is invisible (got ${summary.calls})`)
+  ok(summary.subagents === 1, 'REV3-L: subagents counts the flat transcript only, never the nested run')
+  ok(!Object.keys(summary.models).includes('claude-opus-5'), 'REV3-L: the nested build run\'s model never appears in the session rollup (no double count)')
+  await rm(root, { recursive: true })
+}
+
+// (REV3-M) `--window` and `--commits` are mutually exclusive: silently honouring one while
+// ignoring the other would produce a rollup whose window is not the one the caller asked for.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-rev3m-'))
+  const sessionPath = path.join(root, 'sess-rev3m.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:00:00Z') + '\n')
+  const { code, stdout } = await run(['--session', sessionPath, '--window', '2026-09-22T00:00:00Z..2026-09-23T00:00:00Z', '--commits', 'a..b', '--repo', root])
+  ok(code !== 0, 'REV3-M: passing both --window and --commits fails loud')
+  ok(stdout.trim() === '', 'REV3-M: no summary line is printed when the window is ambiguous')
+  await rm(root, { recursive: true })
+}
+
+// (REV3-N) An `--out` that cannot be written must FAIL, not print a summary that implies the
+// record was persisted. The caller (close-out) reads exit status, and a "cost recorded" line that
+// never landed is the CONV-13 failure mode this whole script exists to avoid.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-rev3n-'))
+  const sessionPath = path.join(root, 'sess-rev3n.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-22T10:00:00Z') + '\n')
+  const { code, stdout } = await run(['--session', sessionPath, '--out', path.join(root, 'no', 'such', 'dir', 'track.jsonl')])
+  ok(code !== 0, 'REV3-N: an unwritable --out fails loud')
+  ok(stdout.trim() === '', 'REV3-N: no summary line is printed when the record could not be persisted')
+  await rm(root, { recursive: true })
+}
+
+for (const x of xfails) console.log(`XFAIL ${x}`)
+console.log(`RESULT: ${passed} passed, 0 failed${xfails.length ? `, ${xfails.length} xfail` : ''}`)

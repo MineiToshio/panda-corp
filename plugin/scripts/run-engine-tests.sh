@@ -33,7 +33,7 @@ shopt -s nullglob
 files=("$DIR"/test-*.mjs)
 shopt -u nullglob
 
-EXPLICIT_SH_SUITES=(test-verify-gate-report.sh test-verify-before-stop.sh test-classify-change.sh test-check-derived-drift.sh test-doc-lint-closing.sh)
+EXPLICIT_SH_SUITES=(test-verify-gate-report.sh test-verify-before-stop.sh test-classify-change.sh test-check-derived-drift.sh test-doc-lint-closing.sh test-change-now-prose.sh)
 for _sh in "${EXPLICIT_SH_SUITES[@]}"; do
   [ -f "$DIR/$_sh" ] && files+=("$DIR/$_sh")
 done

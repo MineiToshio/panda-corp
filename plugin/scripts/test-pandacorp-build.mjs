@@ -236,8 +236,13 @@ const mkPlan = (frds, opts = {}) => ({
 
 // ── Tiny assertion collector ─────────────────────────────────────────────────
 class T {
-  constructor(name) { this.name = name; this.failures = []; this.count = 0 }
+  constructor(name) { this.name = name; this.failures = []; this.count = 0; this.xfails = [] }
   ok(cond, msg) { this.count++; if (!cond) this.failures.push(msg) }
+  // REV3: a KNOWN, filed defect. `cond` states what SHOULD hold. While it does not hold the
+  // scenario stays green but prints `~ xfail` (same convention as test-classify-change.sh's
+  // REV2-C); the day the defect is fixed it flips to a normal pass and the call should be
+  // tightened to `ok`. It never silently asserts the buggy behaviour as correct.
+  xfail(cond, msg, ref) { this.count++; if (!cond) this.xfails.push(`${msg} [${ref}]`) }
 }
 const hasLog = (run, re) => run.logs.some((l) => re.test(l))
 const callsWith = (run, pred) => run.calls.filter(pred)
@@ -3533,6 +3538,88 @@ SCENARIOS.push({
   },
 })
 
+// ── REV3 (independent review of the speed sprint, batch 3 — 2026-09-22) ─────────────────────────
+// The FIX1 scenarios above prove the fallback WORKS. These prove the boundary it must NOT cross.
+const REVIEWER_NOT_FOUND = () => new Error("agent type 'pandacorp:reviewer' not found. Available agents: pandacorp:architect, pandacorp:implementer, pandacorp:devops")
+
+// REV3-H · DR-015 · the ORACLE must never degrade into the thing it judges.
+// The BL-0141 wrapper is generic over every `pandacorp:*` agentType, and its default fallback is
+// `pandacorp:implementer`. No reviewer-typed call site declares `fallbackAgentType`, so when
+// `pandacorp:reviewer` is the type the runtime does not know (the exact session/plugin skew BL-0141
+// was written for), the per-FRD gate — the independent judge whose whole contract is "edits test
+// files only, never production code" — is silently re-spawned as the IMPLEMENTER agent, which has
+// Write/Edit over production code. The verdict it then returns still promotes work orders to
+// VERIFIED. A missing oracle must FAIL the run, never be substituted.
+SCENARIOS.push({
+  name: 'REV3-H. an unknown pandacorp:reviewer agentType must FAIL the gate, never degrade the judge into pandacorp:implementer (DR-015)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-rev3h', deps: [], workOrders: [mkWo('wo-rev3h-001', 'PLANNED', { frd: 'frd-rev3h', artifacts: ['src/rev3h/thing.ts'] })] }]),
+  responses: [
+    { label: /^gate:/, throws: REVIEWER_NOT_FOUND(), times: 1 },
+  ],
+  assert(t, run) {
+    const gateCalls = byLabel(run, /^gate:/)
+    const degraded = gateCalls.filter((c) => c.opts.agentType === 'pandacorp:implementer')
+    t.ok(gateCalls.length >= 1, 'the per-FRD gate was reached at all')
+    t.xfail(
+      degraded.length === 0,
+      `the FRD gate was re-spawned as pandacorp:implementer after the reviewer agentType 404 (${degraded.length} degraded spawn(s)) — the judge became the builder`,
+      'REV3 defect D1, DR-015',
+    )
+    t.xfail(
+      !(run.result && run.result.note === 'all verified') || degraded.length === 0,
+      'the run still reported a normal verdict while its independent oracle had been substituted',
+      'REV3 defect D1, DR-015',
+    )
+    // What IS already true and must stay true: the substitution is at least audible in the log.
+    t.ok(
+      degraded.length === 0 || run.logs.some((l) => /pandacorp:reviewer.*no disponible/.test(l)),
+      'a reviewer substitution is at least logged, never completely silent',
+    )
+  },
+})
+
+// REV3-I · the fallback's own failure must not be swallowed.
+// `catch { throw e }` in the wrapper discards the FALLBACK's error entirely (no binding, no log),
+// so an operator sees only the original not-found and never learns why the rescue failed
+// (error-handling.md: never swallow an error).
+SCENARIOS.push({
+  name: 'REV3-I. when the fallback agentType also fails, its own failure reason is still surfaced somewhere (never silently discarded)',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  responses: [
+    { label: 'baseline-precheck', throws: MECH_NOT_FOUND(), times: 1 },
+    { label: 'baseline-precheck', throws: new Error('EPIPE: the fallback spawn died for an unrelated reason'), times: 1 },
+  ],
+  assert(t, run) {
+    t.ok(Boolean(run.error), 'the engine throws')
+    t.ok(run.error && /pandacorp:mech' not found/.test(run.error.message), 'the ORIGINAL not-found error is what propagates (intended)')
+    t.xfail(
+      run.logs.some((l) => /EPIPE/.test(l)) || (run.error && /EPIPE/.test(String(run.error.message) + String(run.error.cause || ''))),
+      "the fallback's own failure reason (EPIPE) is discarded by the wrapper's bare `catch { throw e }` — nothing logs or chains it",
+      'REV3 defect D5, error-handling.md',
+    )
+  },
+})
+
+// REV3-J · the visual-qa tier must not leak into any BLOCKING judge.
+// E-3 downgraded an ADVISORY pass to sonnet. The per-FRD gate, the close-out and the diagnose pass
+// are DR-072 BLOCKING lenses and must stay on the judge tier — a single misplaced VISUAL_QA_MODEL
+// would silently cheapen the thing that decides VERIFIED.
+SCENARIOS.push({
+  name: 'REV3-J. the sonnet visual-qa tier never leaks into a blocking judge (per-FRD gate / close-out / diagnose stay on the judge model)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-rev3j', deps: [], workOrders: [mkWo('wo-rev3j-001', 'PLANNED', { frd: 'frd-rev3j', artifacts: ['src/rev3j/page.tsx'] })] }]),
+  assert(t, run) {
+    const blocking = run.calls.filter((c) => /^(gate:|close-out$|diagnose:)/.test(c.label))
+    t.ok(blocking.length >= 1, 'at least one blocking judge ran')
+    const cheapened = blocking.filter((c) => c.opts.model !== 'opus')
+    t.ok(cheapened.length === 0, `every blocking judge stayed on the judge tier (cheapened: ${cheapened.map((c) => `${c.label}=${c.opts.model}`).join(', ')})`)
+    const vq = byLabel(run, 'visual-qa')
+    t.ok(vq.length === 0 || vq.every((c) => c.opts.model === 'sonnet'), 'visual-qa, the ADVISORY pass, is the only one on sonnet')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3550,6 +3637,7 @@ for (const s of SCENARIOS) {
   if (t.failures.length === 0) {
     passed++
     console.log(`PASS  ${s.name}  (${t.count} assertions)`)
+    for (const x of t.xfails) console.log(`      ~ xfail ${x}`)
   } else {
     failed++
     console.log(`FAIL  ${s.name}`)
