@@ -59,8 +59,46 @@
 // `cache_creation_cost_usd_estimated` is a SEPARATE, clearly-labeled estimate (1.25x each model's
 // verified INPUT rate — cache-write pricing itself is not in the audited table, so this is not treated
 // as a verified number) and is never folded into `cost_usd_total`, which keeps its existing meaning.
+//
+// F5 addition (docs/proposals/37 §A.7/§4.1 J1-13, depends on I-1/WP-09 above): a PER-CHANGE rollup,
+// `--session <path>` in place of `--dir`. Two transcript kinds exist per Claude Code session (verified
+// live 2026-09-22 against real on-disk sessions): the top-level `<projectSlug>/<sessionId>.jsonl`
+// (the owner's own conversation) and, one level down, `<projectSlug>/<sessionId>/subagents/*.jsonl`
+// — FLAT ad hoc Task/Agent-tool transcripts (`agent-<agentId>.jsonl` + a `.meta.json` sidecar, e.g. a
+// real panda-mirror session). This is deliberately NEVER the same directory the WP-09 join reads:
+// a full `/implement` build launched FROM a session lands its own transcripts one level deeper, at
+// `subagents/workflows/wf_<runId>/agent-*.jsonl`, and that run already gets its OWN `usage_summary`
+// from `--dir` joined against its own `wf_<runId>.json`. Folding those into a `--session` rollup too
+// would double-count a build's cost under both artifacts — so `--session` globs `subagents/*.jsonl`
+// ONE LEVEL ONLY, and a nested `subagents/workflows/` directory is simply invisible to it, by design.
+//
+// The window is either explicit (`--window <ISO-start>..<ISO-end>`) or derived from two commits'
+// OWN COMMITTER dates (`--commits <sha1>..<sha2> --repo <path>`, `git log --format=%cI` — never author
+// date, which a rebase/cherry-pick changes without changing when the work actually landed). With
+// NEITHER flag the window is unbounded: every session-own call counts, and — because the flat
+// subagents glob above already excludes nested build runs — this reproduces a whole session's OWN
+// cost, matching how docs/proposals/37 §0.5's manual-session table was read by hand (e.g. session
+// `1744c53f`: 322 calls, $18.72, verified live 2026-09-22 by running this exact mode with no window).
+//
+// `context_avg_tokens_per_call` is `(input + cache_read + cache_creation) / calls` — the same
+// definition proposals/37 §0.4/§0.5 used for its "contexto medio/llamada" column, so this mode's
+// output is directly comparable to that memo's numbers, not a new incompatible metric.
+//
+// DR-078: an unreadable/missing `--session` file, or a genuinely corrupt non-trailing transcript line
+// (in the session file OR a subagent file), fails loud — never a silent empty/zero rollup. A window
+// with zero matching calls is a real, tolerated shape: `calls: 0` plus an explicit `note`, exit 0.
+//
+// `--card <path.md>` optionally reads that change-card's `rigor:` frontmatter line (a hand-rolled read
+// — no YAML dependency, same precedent as `generate-codex-agents.mjs`). The field is still only a
+// proposal (docs/proposals/37), so a card that simply has no `rigor:` line yet reports `rigor: null`,
+// never an error; an explicitly-requested `--card` path that cannot be READ AT ALL is an error (the
+// owner named it). `--out <path>` appends the `{"kind":"change_usage", ...}` line to that file (e.g.
+// the project's `.pandacorp/track.jsonl`); by default (no `--out`) this mode is a pure dry run and
+// performs NO file writes at all — it only prints the summary line to stdout, same as `--dir` always
+// has.
 
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { appendFileSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 
 const PRICING = {
@@ -89,6 +127,12 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dir') out.dir = argv[++i]
     else if (argv[i] === '--wf-json') out.wfJson = argv[++i]
+    else if (argv[i] === '--session') out.session = argv[++i]
+    else if (argv[i] === '--window') out.window = argv[++i]
+    else if (argv[i] === '--commits') out.commits = argv[++i]
+    else if (argv[i] === '--repo') out.repo = argv[++i]
+    else if (argv[i] === '--card') out.card = argv[++i]
+    else if (argv[i] === '--out') out.out = argv[++i]
   }
   return out
 }
@@ -120,6 +164,108 @@ function addUsage(bucket, usage) {
   bucket.output_tokens += usage.output_tokens || 0
   bucket.cache_creation_input_tokens += usage.cache_creation_input_tokens || 0
   bucket.cache_read_input_tokens += usage.cache_read_input_tokens || 0
+}
+
+// Parses ANY transcript JSONL file — a top-level session file or an `agent-*.jsonl` subagent
+// transcript, they share the exact same line shape — into its billable `assistant` entries. Shared
+// by `--dir` mode (per agent-*.jsonl) and `--session` mode (the session file + its flat subagents),
+// so the trailing-partial-write tolerance and the fail-loud-on-corruption rule (DR-078) live in ONE
+// place. A trailing incomplete line (an in-flight streaming write) is tolerated and counted; a
+// corrupt line that is NOT the trailing one is a genuinely malformed transcript and throws.
+function parseTranscriptFile(filePath) {
+  const raw = readFileSync(filePath, 'utf8')
+  const lines = raw.split('\n')
+  while (lines.length && lines[lines.length - 1] === '') lines.pop()   // the trailing '' after the final \n is not a real line
+  const entries = []
+  let skippedIncompleteLines = 0
+  lines.forEach((line, index) => {
+    if (!line.trim()) return
+    let entry
+    try {
+      entry = JSON.parse(line)
+    } catch (error) {
+      const isLastLineOfFile = index === lines.length - 1
+      if (isLastLineOfFile) { skippedIncompleteLines++; return }
+      throw new Error(`malformed transcript line (not the trailing partial write) at ${filePath}:${index + 1}: ${error.message}`)
+    }
+    if (!entry || entry.type !== 'assistant') return
+    const message = entry.message
+    const usage = message && message.usage
+    const model = message && message.model
+    if (!usage || !model) return
+    entries.push({ model, usage, timestamp: entry.timestamp })
+  })
+  return { entries, skippedIncompleteLines }
+}
+
+// `.../<sessionId>.jsonl` → `.../<sessionId>/subagents` — see the F5 header note above: FLAT only,
+// deliberately never recursing into a nested `subagents/workflows/wf_<runId>/` (a build run's own,
+// separately-tracked transcripts).
+function subagentsDirFor(sessionPath) {
+  const sessionId = path.basename(sessionPath).replace(/\.jsonl$/, '')
+  return path.join(path.dirname(sessionPath), sessionId, 'subagents')
+}
+
+// A missing subagents/ directory is a real, common shape (most sessions spawn no ad hoc subagent at
+// all) — tolerated as an empty list, never an error. `.meta.json` sidecars are excluded by construction
+// (they don't end in `.jsonl`), no separate exclusion filter needed.
+function listFlatSubagentFiles(subagentsDir) {
+  let names
+  try { names = readdirSync(subagentsDir) } catch { return [] }
+  return names.filter((name) => name.endsWith('.jsonl')).sort()
+}
+
+// `--window <ISO-start>..<ISO-end>` — a literal, explicit window; order-independent.
+function parseWindowArg(raw) {
+  const parts = raw.split('..')
+  if (parts.length !== 2) throw new Error(`--window must be "<ISO-start>..<ISO-end>", got: ${raw}`)
+  const [startIso, endIso] = parts
+  const start = Date.parse(startIso)
+  const end = Date.parse(endIso)
+  if (Number.isNaN(start) || Number.isNaN(end)) throw new Error(`--window has an unparseable ISO timestamp: ${raw}`)
+  return { start: Math.min(start, end), end: Math.max(start, end) }
+}
+
+// `--commits <sha1>..<sha2>` — derives the window from those two commits' own COMMITTER dates
+// (`git log --format=%cI`; never author date, which a rebase/cherry-pick changes without changing
+// when the work actually landed) in `--repo`. Order-independent: the window is [min, max] of the two.
+function deriveWindowFromCommits(raw, repo) {
+  const parts = raw.split('..')
+  if (parts.length !== 2) throw new Error(`--commits must be "<sha1>..<sha2>", got: ${raw}`)
+  if (!repo) throw new Error('--commits requires --repo <path-to-git-repo>')
+  const timestamps = parts.map((sha) => {
+    let out
+    try {
+      out = execFileSync('git', ['-C', repo, 'log', '-1', '--format=%cI', sha], { encoding: 'utf8' })
+    } catch (error) {
+      throw new Error(`--commits could not resolve ${sha} in ${repo}: ${String(error.message).split('\n')[0]}`)
+    }
+    const iso = out.trim()
+    const ms = Date.parse(iso)
+    if (!iso || Number.isNaN(ms)) throw new Error(`--commits: ${sha} in ${repo} has no resolvable committer date`)
+    return ms
+  })
+  return { start: Math.min(...timestamps), end: Math.max(...timestamps) }
+}
+
+// Minimal, hand-rolled frontmatter read for a change-card's `rigor:` line — no YAML dependency, same
+// precedent as `generate-codex-agents.mjs` (this repo's frontmatter is a small known subset of YAML).
+// An explicitly-requested `--card` that cannot be read at all is an error (the owner named it); a card
+// that reads fine but simply has no `rigor:` line yet is a real, expected shape (the field is still
+// only a proposal in docs/proposals/37) — reported as `null`, never thrown.
+function readCardRigor(cardPath) {
+  let raw
+  try {
+    raw = readFileSync(cardPath, 'utf8')
+  } catch (error) {
+    throw new Error(`--card could not be read: ${cardPath}: ${error.message}`)
+  }
+  const match = raw.match(/^---\n([\s\S]*?)\n---/)
+  if (!match) return null
+  const line = match[1].split('\n').find((l) => /^rigor:\s*/.test(l))
+  if (!line) return null
+  const value = line.replace(/^rigor:\s*/, '').trim().replace(/^["']|["']$/g, '')
+  return value || null
 }
 
 // Collapses one agent's per-model buckets (almost always exactly one model) into the row `agents[]`
@@ -185,8 +331,7 @@ function loadWorkflowAgents(wfJsonPath) {
   return { missing: false, byAgentId }
 }
 
-function main() {
-  const { dir, wfJson } = parseArgs(process.argv.slice(2))
+function runDirMode({ dir, wfJson }) {
   if (!dir) return fail('missing required --dir <transcript-run-dir>')
 
   let stat
@@ -207,29 +352,14 @@ function main() {
   for (const name of files) {
     const agentId = agentIdFromFilename(name)
     const filePath = path.join(dir, name)
-    const raw = readFileSync(filePath, 'utf8')
-    const lines = raw.split('\n')
-    while (lines.length && lines[lines.length - 1] === '') lines.pop()   // the trailing '' after the final \n is not a real line
-    lines.forEach((line, index) => {
-      if (!line.trim()) return
-      let entry
-      try {
-        entry = JSON.parse(line)
-      } catch (error) {
-        const isLastLineOfFile = index === lines.length - 1
-        if (isLastLineOfFile) { skippedIncompleteLines++; return }
-        throw new Error(`malformed transcript line (not the trailing partial write) at ${filePath}:${index + 1}: ${error.message}`)
-      }
-      if (!entry || entry.type !== 'assistant') return
-      const message = entry.message
-      const usage = message && message.usage
-      const model = message && message.model
-      if (!usage || !model) return
+    const { entries, skippedIncompleteLines: skipped } = parseTranscriptFile(filePath)
+    skippedIncompleteLines += skipped
+    for (const { model, usage } of entries) {
       callsTotal++
       addUsage(models[model] || (models[model] = emptyBucket()), usage)
       const agentModels = agentUsage[agentId] || (agentUsage[agentId] = {})
       addUsage(agentModels[model] || (agentModels[model] = emptyBucket()), usage)
-    })
+    }
   }
 
   const unpricedModels = []
@@ -324,6 +454,110 @@ function main() {
   if (agentsUnjoined) summary.agents_unjoined = agentsUnjoined   // D-10: named, not dropped (DR-078)
 
   process.stdout.write(JSON.stringify(summary) + '\n')
+}
+
+// F5: per-CHANGE rollup — see the header note above for the flat-subagents-only / no-double-count
+// rationale and the window-derivation rules.
+function runSessionMode({ session, windowArg, commitsArg, repo, card, out }) {
+  let stat
+  try { stat = statSync(session) } catch { return fail(`session transcript does not exist: ${session}`) }
+  if (!stat.isFile()) return fail(`--session is not a file: ${session}`)
+  if (windowArg && commitsArg) return fail('pass only one of --window / --commits, not both')
+
+  let window = null
+  let windowSource = null
+  if (windowArg) { window = parseWindowArg(windowArg); windowSource = 'explicit' }
+  else if (commitsArg) { window = deriveWindowFromCommits(commitsArg, repo); windowSource = 'commits' }
+
+  const inWindow = (isoTimestamp) => {
+    if (!window) return true
+    const ms = Date.parse(isoTimestamp)
+    return !Number.isNaN(ms) && ms >= window.start && ms <= window.end
+  }
+
+  // The session's OWN entries — parseTranscriptFile fails loud on genuine corruption (DR-078).
+  const { entries: sessionEntries, skippedIncompleteLines: sessionSkipped } = parseTranscriptFile(session)
+  const included = sessionEntries.filter((e) => inWindow(e.timestamp))
+  let skippedIncompleteLines = sessionSkipped
+
+  // The session's FLAT subagents only — never the nested build-run transcripts (see header note).
+  const subagentsDir = subagentsDirFor(session)
+  let subagentsContributing = 0
+  for (const name of listFlatSubagentFiles(subagentsDir)) {
+    const filePath = path.join(subagentsDir, name)
+    const { entries, skippedIncompleteLines: skipped } = parseTranscriptFile(filePath)
+    skippedIncompleteLines += skipped
+    const inWindowEntries = entries.filter((e) => inWindow(e.timestamp))
+    if (inWindowEntries.length) subagentsContributing++
+    included.push(...inWindowEntries)
+  }
+
+  const models = {}
+  let contextTokensSum = 0
+  for (const { model, usage } of included) {
+    addUsage(models[model] || (models[model] = emptyBucket()), usage)
+    contextTokensSum += (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0)
+  }
+
+  const unpricedModels = []
+  let costUsdTotal = 0
+  let cacheCreationCostUsdEstimated = 0
+  for (const [model, bucket] of Object.entries(models)) {
+    const price = priceFor(model)
+    if (!price) { unpricedModels.push(model); bucket.cost_usd = null; continue }
+    const cost = (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
+    bucket.cost_usd = round(cost)
+    costUsdTotal += cost
+    cacheCreationCostUsdEstimated += (bucket.cache_creation_input_tokens * price.in * 1.25) / 1e6
+  }
+
+  const calls = included.length
+  const isoNoMillis = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z')
+  let wallClockS
+  if (window) {
+    wallClockS = round((window.end - window.start) / 1000)
+  } else {
+    const timestamps = included.map((e) => Date.parse(e.timestamp)).filter((ms) => !Number.isNaN(ms))
+    wallClockS = timestamps.length ? round((Math.max(...timestamps) - Math.min(...timestamps)) / 1000) : 0
+  }
+
+  const summary = {
+    kind: 'change_usage',
+    at: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    session,
+    window: window ? { start: isoNoMillis(window.start), end: isoNoMillis(window.end) } : null,
+    window_source: windowSource,
+    calls,
+    context_avg_tokens_per_call: calls ? round(contextTokensSum / calls) : null,
+    models,
+    cost_usd_total: round(costUsdTotal),
+    cost_excludes: ['cache_creation_input_tokens'],
+    unpriced_models: unpricedModels.sort(),
+    skipped_incomplete_lines: skippedIncompleteLines,
+    cache_creation_cost_usd_estimated: round(cacheCreationCostUsdEstimated),
+    cache_creation_pricing: 'estimated 1.25x input; not verified',
+    subagents: subagentsContributing,
+    wall_clock_s: wallClockS,
+  }
+  if (calls === 0) summary.note = 'no calls found in window'   // DR-078: tolerated, not an error
+  if (card) {
+    summary.card = card
+    summary.rigor = readCardRigor(card)
+  }
+
+  // Dry run by default (no --out): never write any file, only print. `--out` appends the SAME line
+  // the caller decides where it lands — same idiom as every other `.pandacorp/track.jsonl` writer.
+  if (out) appendFileSync(out, `${JSON.stringify(summary)}\n`)
+
+  process.stdout.write(JSON.stringify(summary) + '\n')
+}
+
+function main() {
+  const args = parseArgs(process.argv.slice(2))
+  if (args.session) {
+    return runSessionMode({ session: args.session, windowArg: args.window, commitsArg: args.commits, repo: args.repo, card: args.card, out: args.out })
+  }
+  return runDirMode(args)
 }
 
 try {

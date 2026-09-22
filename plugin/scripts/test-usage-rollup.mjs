@@ -265,12 +265,168 @@ const run = async (args) => {
   await rm(dir, { recursive: true })
 }
 
-// The event stream is not widened (BL-0096 Done-when): the script performs no file writes at all —
-// it only reads transcripts and prints the ONE summary line to stdout; the caller decides where it
-// lands (`.pandacorp/track.jsonl`, never `~/.claude/dashboard-events.ndjson`).
+// The event stream is not widened (BL-0096 Done-when): --dir mode performs no file writes at all —
+// it only reads transcripts and prints the ONE summary line to stdout. F5's --session mode adds
+// exactly ONE deliberate, opt-in exception (`--out`, proven dry-run-by-default in the F5 section
+// below) — so the ban narrows to "no unconditional write", not "no write function anywhere in the
+// file", and the caller still decides where any write lands (never `~/.claude/dashboard-events.ndjson`).
 {
   const source = await (await import('node:fs/promises')).readFile(SCRIPT, 'utf8')
-  ok(!/writeFileSync|appendFileSync|createWriteStream/.test(source), 'the rollup script never writes to any file — it only reads transcripts and prints to stdout')
+  ok(/appendFileSync/.test(source), 'the ONE write path (appendFileSync, gated behind --out) is present')
+  ok(!/writeFileSync|createWriteStream/.test(source), 'no OTHER write primitive is ever used — appendFileSync behind --out is the single opt-in exception')
+}
+
+// ============================================================================================
+// F5 (docs/proposals/37 §A.7/§4.1 J1-13): --session per-change rollup.
+// ============================================================================================
+
+const assistantLineAt = (model, usage, timestamp, uuid = 'u1') => JSON.stringify({
+  parentUuid: null, isSidechain: false, promptId: 'p1', type: 'assistant',
+  message: { model, usage }, uuid, timestamp, userType: 'external',
+  entrypoint: 'cli', cwd: '/tmp', sessionId: 's1', version: '1.0.0', gitBranch: 'main',
+})
+
+// (F5-a) A session with 3 in-window calls of its own, plus a flat subagent whose OWN calls straddle
+// the window (one inside, one outside — only the inside one counts), plus a SECOND flat subagent
+// entirely outside the window (contributes nothing, and does not count toward `subagents`).
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-session-'))
+  const sessionPath = path.join(root, 'sess1.jsonl')
+  await writeFile(sessionPath, [
+    assistantLineAt('claude-sonnet-5', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:10:00Z', 'm1'),
+    assistantLineAt('claude-sonnet-5', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:20:00Z', 'm2'),
+    assistantLineAt('claude-sonnet-5', { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:30:00Z', 'm3'),
+  ].join('\n') + '\n')
+  const subagentsDir = path.join(root, 'sess1', 'subagents')
+  await mkdir(subagentsDir, { recursive: true })
+  await writeFile(path.join(subagentsDir, 'agent-in.jsonl'), assistantLineAt('claude-opus-5', { input_tokens: 1000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:15:00Z', 'a1') + '\n')
+  await writeFile(path.join(subagentsDir, 'agent-out.jsonl'), assistantLineAt('claude-opus-5', { input_tokens: 999999, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T12:00:00Z', 'a2') + '\n')
+  await writeFile(path.join(subagentsDir, 'agent-in.meta.json'), '{ this is not valid JSONL and would throw if ever read')
+
+  const { code, stdout } = await run(['--session', sessionPath, '--window', '2026-09-11T10:00:00Z..2026-09-11T11:00:00Z'])
+  ok(code === 0, 'F5-a: a session + in-window subagent exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.kind === 'change_usage', 'F5-a: kind is change_usage')
+  ok(summary.calls === 4, 'F5-a: counts the session\'s 3 calls plus the ONE in-window subagent call (out-of-window subagent excluded)')
+  ok(summary.subagents === 1, 'F5-a: subagents counts only the file that actually contributed an in-window call')
+  const expectedCost = round3((300 * 2 + 30 * 10 + 1000 * 5) / 1e6)
+  ok(Math.abs(summary.cost_usd_total - expectedCost) < 1e-6, `F5-a: cost sums session sonnet-5 calls + the in-window opus-5 subagent call (expected ${expectedCost}, got ${summary.cost_usd_total})`)
+  ok(summary.context_avg_tokens_per_call === round3((300 + 1000) / 4), 'F5-a: context_avg_tokens_per_call = (input+cache_read+cache_creation)/calls — output_tokens is NOT context')
+  ok(summary.window_source === 'explicit', 'F5-a: window_source records an explicit --window')
+  await rm(root, { recursive: true })
+}
+function round3(n) { return Math.round(n * 1e6) / 1e6 }
+
+// (F5-b) --commits derives the window from two real commits' committer dates in a temp git repo.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-commits-'))
+  const repo = path.join(root, 'repo')
+  await mkdir(repo, { recursive: true })
+  const git = (args, env = {}) => exec('git', ['-C', repo, ...args], { env: { ...process.env, ...env } })
+  await git(['init', '-q'])
+  await git(['config', 'user.email', 'test@example.com'])
+  await git(['config', 'user.name', 'Test'])
+  await writeFile(path.join(repo, 'a.txt'), 'one')
+  await git(['add', 'a.txt'])
+  await git(['commit', '-q', '-m', 'first'], { GIT_AUTHOR_DATE: '2026-09-11T10:00:00Z', GIT_COMMITTER_DATE: '2026-09-11T10:00:00Z' })
+  const { stdout: sha1out } = await git(['rev-parse', 'HEAD'])
+  const sha1 = sha1out.trim()
+  await writeFile(path.join(repo, 'a.txt'), 'two')
+  await git(['add', 'a.txt'])
+  await git(['commit', '-q', '-m', 'second'], { GIT_AUTHOR_DATE: '2026-09-11T11:00:00Z', GIT_COMMITTER_DATE: '2026-09-11T11:00:00Z' })
+  const { stdout: sha2out } = await git(['rev-parse', 'HEAD'])
+  const sha2 = sha2out.trim()
+
+  const sessionPath = path.join(root, 'sess2.jsonl')
+  await writeFile(sessionPath, [
+    assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:30:00Z', 'w1'),   // inside [10:00,11:00]
+    assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T09:00:00Z', 'w2'),   // outside, before
+  ].join('\n') + '\n')
+
+  const { code, stdout } = await run(['--session', sessionPath, '--commits', `${sha1}..${sha2}`, '--repo', repo])
+  ok(code === 0, 'F5-b: --commits against a real temp git repo exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.window_source === 'commits', 'F5-b: window_source records a --commits-derived window')
+  ok(summary.window.start === '2026-09-11T10:00:00Z' && summary.window.end === '2026-09-11T11:00:00Z', 'F5-b: window is derived from the two commits\' own committer dates')
+  ok(summary.calls === 1, 'F5-b: only the call inside the derived window counts')
+  await rm(root, { recursive: true })
+}
+
+// (F5-c) A corrupted --session transcript fails LOUD (DR-078) — never a silent empty/zero rollup.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-session-bad-'))
+  const sessionPath = path.join(root, 'sess3.jsonl')
+  await writeFile(sessionPath, [
+    assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:00:00Z'),
+    '{ this line is not valid JSON and is NOT the last line',
+    userLine(),
+  ].join('\n') + '\n')
+  const { code, stdout, stderr } = await run(['--session', sessionPath])
+  ok(code !== 0, 'F5-c: a corrupted session transcript fails loud')
+  ok(stdout.trim() === '', 'F5-c: no summary line is printed on a corrupted session')
+  ok(/ERROR/.test(stderr) && /malformed transcript line/.test(stderr), 'F5-c: the failure names the malformed-transcript-line cause')
+  await rm(root, { recursive: true })
+}
+
+// (F5-d) A window with zero matching calls is tolerated: calls:0 + an explicit note, exit 0 — never
+// a hard failure and never silently indistinguishable from "the reader couldn't parse the shape".
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-session-empty-'))
+  const sessionPath = path.join(root, 'sess4.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:00:00Z') + '\n')
+  const { code, stdout } = await run(['--session', sessionPath, '--window', '2026-01-01T00:00:00Z..2026-01-02T00:00:00Z'])
+  ok(code === 0, 'F5-d: a window with zero matches does not fail the run')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.calls === 0, 'F5-d: calls is 0, not omitted or thrown')
+  ok(summary.note === 'no calls found in window', 'F5-d: an explicit note names the empty-window shape (DR-078)')
+  ok(summary.cost_usd_total === 0, 'F5-d: cost is a real, honest zero')
+  await rm(root, { recursive: true })
+}
+
+// (F5-e) --out appends exactly one valid change_usage line to track.jsonl and touches nothing else;
+// omitting --out (the default) never writes any file (proven above by (F5-a)/(F5-b)/(F5-d) which all
+// ran without --out).
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-session-out-'))
+  const sessionPath = path.join(root, 'sess5.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:00:00Z') + '\n')
+  const trackPath = path.join(root, 'track.jsonl')
+  const preexisting = '{"kind":"frd_end","frd":"frd-99-unrelated","at":"2026-01-01T00:00:00Z"}\n'
+  await writeFile(trackPath, preexisting)
+
+  const { code, stdout } = await run(['--session', sessionPath, '--out', trackPath])
+  ok(code === 0, 'F5-e: --out exits 0')
+  const printed = JSON.parse(stdout.trim())
+  ok(printed.kind === 'change_usage', 'F5-e: stdout still prints the same change_usage summary')
+
+  const trackContent = await (await import('node:fs/promises')).readFile(trackPath, 'utf8')
+  const trackLines = trackContent.trim().split('\n')
+  ok(trackLines.length === 2, 'F5-e: exactly ONE new line was appended — the pre-existing line is untouched')
+  ok(trackLines[0] === preexisting.trim(), 'F5-e: the pre-existing track.jsonl line is byte-identical, never rewritten')
+  const appended = JSON.parse(trackLines[1])
+  ok(appended.kind === 'change_usage' && appended.calls === 1, 'F5-e: the appended line is a valid change_usage record matching stdout')
+  await rm(root, { recursive: true })
+}
+
+// (F5-f) --card reads a change-card's `rigor:` frontmatter line; a card without one yet reports
+// rigor: null (a real, expected shape — the field is still only a proposal), never an error.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-session-card-'))
+  const sessionPath = path.join(root, 'sess6.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 5, output_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }, '2026-09-11T10:00:00Z') + '\n')
+  const cardPath = path.join(root, 'card.md')
+  await writeFile(cardPath, '---\ntype: change\nrigor: L1\n---\n\n# A change\n')
+  const { code, stdout } = await run(['--session', sessionPath, '--card', cardPath])
+  ok(code === 0, 'F5-f: --card exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.rigor === 'L1', 'F5-f: rigor is read from the card\'s frontmatter')
+
+  const cardNoRigor = path.join(root, 'card-norigor.md')
+  await writeFile(cardNoRigor, '---\ntype: change\n---\n\n# Another change\n')
+  const { stdout: stdout2 } = await run(['--session', sessionPath, '--card', cardNoRigor])
+  const summary2 = JSON.parse(stdout2.trim())
+  ok(summary2.rigor === null, 'F5-f: a card with no rigor: line yet reports null, not an error')
+  await rm(root, { recursive: true })
 }
 
 console.log(`RESULT: ${passed} passed, 0 failed`)
