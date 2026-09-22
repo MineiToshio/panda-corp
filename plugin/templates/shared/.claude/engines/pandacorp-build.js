@@ -48,6 +48,11 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //   args.maxSpend: output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts
 //     subagent work; unenforced if the supervisor dies). Secondary ceiling. null = off.
 //     (DR-050, owner decision: run to completion, stop by health/budget, not by feature count.)
+//   args.safePointEveryWave: escape hatch (WP-11) — true restores the unthrottled per-wave-boundary
+//     safe-point cadence for a TARGETED build too (bare-run parity). Default false: a targeted build
+//     (a specific `change`/`frds` — safePoint() drains nothing there, DR-069) runs the safe-point sweep
+//     once at the first wave boundary and then only every WAVE_THROTTLE boundaries — see the call site
+//     for why (Date.now() is unavailable in a Workflow script). null/false = off (the throttle applies).
 const MODE = (args && args.mode) || 'powerful'
 // Normalize change: accept 'slug', 'slug.md', '.pandacorp/inbox/changes/slug', '.pandacorp/inbox/changes/slug.md' → just the slug
 const CHANGE = (args && args.change) ? String(args.change).split('/').pop().replace(/\.md$/, '') : null
@@ -61,6 +66,17 @@ let ONLY = (args && !args.change && args.frds) ? args.frds.map(normalizeFolder) 
 // the LAUNCH args (immutable — ONLY gets reassigned to the change's affected FRDs at line ~351, so we
 // can't derive intent from ONLY later; this const captures "was this launched as targeted" up front).
 const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)
+// WP-11: safePoint() drains NOTHING on a targeted run (DR-069 — it returns ready: [] by design), so
+// calling it at every wave boundary is near-pure overhead (FRD-24 measured 2 × ~52s = 105s for zero
+// drain). Ideal would be "skip if <10 min since the last safe point", but Date.now()/new Date() are
+// unavailable in a Workflow script (they would break resume) and safePoint()'s own prompt/schema is out
+// of scope for this change — no safe way to obtain "now" from here. Fallback, counted in-engine
+// (deterministic, replay-safe — not wall time): once per run (the first wave boundary) + once every
+// SAFE_POINT_WAVE_THROTTLE boundaries after that. A bare run (drains the queue) is UNCHANGED — every
+// boundary, as before. args.safePointEveryWave === true restores the unthrottled cadence for a targeted
+// run too (escape hatch).
+const SAFE_POINT_WAVE_THROTTLE = 3
+const SAFE_POINT_EVERY_WAVE = Boolean(args && args.safePointEveryWave === true)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
@@ -1838,6 +1854,11 @@ async function drainConverge() {
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
 if (gateQueue.length) await capturePin([...gateQueue])
 
+// WP-11: counts safe-point CHECKPOINTS this run (every wantSafePoint boundary, whether that's an
+// upcoming wave or an idle/gate-settle sweep) — the throttle for a targeted run below. Declared outside
+// the loop so it survives across iterations; unused (and harmless) on a bare run.
+let safePointChecks = 0
+
 while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
@@ -1871,8 +1892,19 @@ while (true) {
     || (nothingInFlight && gateQueue.length === 0)
     || (!nothingInFlight && globalQueue.size === 0 && gateSettledSinceSafePoint)
   if (wantSafePoint) {
-    gateSettledSinceSafePoint = false
-    if ((await safePoint()) === 'stop') { stopReason = 'rethink'; break }
+    // WP-11: a targeted run (safePoint() drains nothing there, DR-069) throttles this checkpoint — run
+    // the FIRST one, then only every SAFE_POINT_WAVE_THROTTLE-th one after (counted in-engine, replay-safe
+    // — see the const above for why not wall time). A bare run (the real queue drain) keeps the original
+    // per-boundary cadence, untouched. args.safePointEveryWave restores per-boundary on a targeted run too.
+    const throttled = TARGETED && !SAFE_POINT_EVERY_WAVE
+    safePointChecks++
+    const runSafePoint = !throttled || safePointChecks === 1 || safePointChecks % SAFE_POINT_WAVE_THROTTLE === 1
+    if (runSafePoint) {
+      gateSettledSinceSafePoint = false
+      if ((await safePoint()) === 'stop') { stopReason = 'rethink'; break }
+    } else {
+      log(`⊘ safe point #${safePointChecks} saltado (build dirigido, no drena nada — WP-11: 1×/corrida + 1×/${SAFE_POINT_WAVE_THROTTLE} boundaries; args.safePointEveryWave:true restaura la cadencia por ola)`)
+    }
   }
 
   // ── C2 launch ready gates as BACKGROUND promises (up to MAX_CONCURRENT_GATES) — WHILE the loop keeps

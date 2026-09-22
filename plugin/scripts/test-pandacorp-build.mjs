@@ -1769,6 +1769,67 @@ SCENARIOS.push({
   },
 })
 
+// ── WP-11. safe-point cadence in a TARGETED run is throttled (1×/run + 1×/3 checkpoints), a BARE run
+// is UNCHANGED (every wantSafePoint boundary still fires, as C1c always did). All three scenarios use
+// the SAME 2-wave shape — one FRD, two WOs where the second `deps` on the first, forcing two sequential
+// wave dispatches under `pro` (wave width 2, which would otherwise co-schedule both in ONE wave). This
+// shape produces exactly 3 wantSafePoint checkpoints in total, VERIFIED against the unmodified engine
+// (a single-WO/single-wave bare run alone already produces 2, not 1): the two wave boundaries, PLUS one
+// unconditional idle-sweep checkpoint after the FRD's only gate settles (C2's bounded idle-wait sweep,
+// `nothingInFlight && gateQueue.length === 0` — pre-existing, untouched by WP-11, present in bare mode
+// too). So "2 waves" is 3 checkpoints, not 2 — the counts below are the real, engine-verified numbers,
+// not a naive one-per-wave guess (CONV-13: asserted from an in-session run, not assumed).
+const wp11Plan = (frd) => mkPlan([{
+  frd,
+  deps: [],
+  workOrders: [
+    mkWo(`wo-${frd}-001`, 'PLANNED', { frd, artifacts: [`src/${frd}/a/**`] }),
+    mkWo(`wo-${frd}-002`, 'PLANNED', { frd, artifacts: [`src/${frd}/b/**`], deps: [`wo-${frd}-001`] }),
+  ],
+}])
+SCENARIOS.push({
+  name: 'WP-11a. TARGETED 2-wave run — safe-point throttled to exactly 1 real spawn (first checkpoint only)',
+  args: { mode: 'pro', frds: ['frd-wp11a'] },
+  plan: wp11Plan('frd-wp11a'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const builds = byLabel(run, /^build:/)
+    t.ok(builds.length === 2, `both WOs still build across their two waves (got ${builds.length})`)
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length === 1, `exactly one safe-point spawn on a targeted run (got ${sp.length})`)
+    t.ok(sp[0] && sp[0].index < builds[0].index, 'the one safe point that DID run happened before the first wave (owner signals still checked at least once)')
+    t.ok(hasLog(run, /safe point #2 saltado/) && hasLog(run, /safe point #3 saltado/), 'the 2nd and 3rd checkpoints are logged as skipped (throttled), not silently dropped')
+    t.ok(hasLog(run, /1×\/corrida \+ 1×\/3/), 'the skip log names the WP-11 throttle policy')
+  },
+})
+SCENARIOS.push({
+  name: 'WP-11b. bare 2-wave run — safe-point cadence UNCHANGED (fires at all 3 checkpoints, C1c untouched)',
+  args: { mode: 'pro' },   // no change, no frds → TARGETED === false, the queue-drain run
+  plan: wp11Plan('frd-wp11b'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const builds = byLabel(run, /^build:/)
+    t.ok(builds.length === 2, `both WOs still build across their two waves (got ${builds.length})`)
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length === 3, `a bare run keeps the ORIGINAL per-checkpoint cadence — 2 wave boundaries + 1 post-gate idle sweep (got ${sp.length})`)
+    t.ok(!run.logs.some((l) => /saltado/.test(l)), 'no safe point is ever throttled on a bare run (the drain must never be skipped)')
+  },
+})
+SCENARIOS.push({
+  name: 'WP-11c. args.safePointEveryWave:true escape hatch — restores the unthrottled cadence on a TARGETED run too',
+  args: { mode: 'pro', frds: ['frd-wp11c'], safePointEveryWave: true },
+  plan: wp11Plan('frd-wp11c'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const builds = byLabel(run, /^build:/)
+    t.ok(builds.length === 2, `both WOs still build across their two waves (got ${builds.length})`)
+    const sp = byLabel(run, 'safe-point')
+    t.ok(sp.length === 3, `the escape hatch matches the bare-run cadence exactly — all 3 checkpoints fire (got ${sp.length})`)
+    t.ok(!run.logs.some((l) => /saltado/.test(l)), 'the escape hatch never throttles a checkpoint')
+    t.ok(sp[0] && /TARGETED BUILD/.test(sp[0].prompt), 'the run is still genuinely targeted (the safe-point prompt still refuses to drain the queue) — only the CADENCE is restored, not the DR-069 scope guard')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
