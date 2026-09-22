@@ -148,6 +148,77 @@ Algo.
     expect(items[0]?.cls).toBe("standard");
   });
 
+  it("parses a 'building' item as a valid in-flight state, not an error (DR-069 §7)", () => {
+    // The build engine stamps this while the change's FRDs are in flight, plus the
+    // affected_frds/integration_* fields it manages — irrelevant to this reader, but
+    // present on a real card, so the fixture includes them for realism.
+    writeChange(
+      "mc-in-flight.md",
+      `---
+type: feature
+class: standard
+status: building
+date: 2026-09-10
+frd: frd-04-project-workspace
+rebuilds_verified: false
+depends_on:
+affected_frds: ["frd-04-project-workspace"]
+---
+
+# Cambio en construcción
+
+## Qué se quiere
+Algo que el build ya está integrando.
+`,
+    );
+    const { items, errors } = readChangeQueue(projectPath);
+    expect(errors).toEqual([]);
+    expect(items[0]).toMatchObject({ id: "mc-in-flight", status: "building" });
+  });
+
+  it("parses a 'closing' item with implemented_sha/closing_at (sync close-out, plugin 9.104.0)", () => {
+    writeChange(
+      "mc-closing.md",
+      `---
+type: bug
+class: standard
+status: closing
+date: 2026-09-15
+frd:
+rebuilds_verified: false
+depends_on:
+implemented_sha: a1b2c3d4
+closing_at: 2026-09-20T10:00:00.000Z
+---
+
+# Cambio cerrándose
+
+## Pasos para reproducir
+1. Algo.
+
+## Esperado
+Otra cosa.
+
+## Actual
+Lo que pasaba.
+`,
+    );
+    const { items, errors } = readChangeQueue(projectPath);
+    expect(errors).toEqual([]);
+    expect(items[0]).toMatchObject({
+      id: "mc-closing",
+      status: "closing",
+      implementedSha: "a1b2c3d4",
+      closingAt: "2026-09-20T10:00:00.000Z",
+    });
+  });
+
+  it("defaults implementedSha/closingAt to empty string when absent", () => {
+    writeChange("mc-export-csv.md", VALID_FEATURE);
+    const { items } = readChangeQueue(projectPath);
+    expect(items[0]).toMatchObject({ implementedSha: "", closingAt: "" });
+  });
+
   it("skips README.md and template files", () => {
     writeChange("mc-export-csv.md", VALID_FEATURE);
     writeChange("README.md", "| Card | Tipo | Clase | Estado |\n");
@@ -188,6 +259,21 @@ type: bug
     const { items, errors } = readChangeQueue(projectPath);
     expect(items).toEqual([]);
     expect(errors).toHaveLength(1);
+    expect(errors[0]?.reason).toMatch(/status/i);
+  });
+
+  it("surfaces an out-of-range enum (status) as an error — a near-miss value stays rejected", () => {
+    writeChange(
+      "mc-badstatus.md",
+      `---
+type: bug
+status: in_progress
+---
+# Estado invalido
+`,
+    );
+    const { items, errors } = readChangeQueue(projectPath);
+    expect(items).toEqual([]);
     expect(errors[0]?.reason).toMatch(/status/i);
   });
 

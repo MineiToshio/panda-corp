@@ -19,6 +19,8 @@ import { DiscardChangeButton } from "./DiscardChangeButton";
 const STATUS_META: Record<ChangeQueueStatus, { label: string; tone: ChipTone }> = {
   ready: { label: "Listo", tone: "ok" },
   draft: { label: "Borrador", tone: "secondary" },
+  building: { label: "En construcción", tone: "warn" },
+  closing: { label: "Cerrando", tone: "info" },
   done: { label: "Hecho", tone: "info" },
   discarded: { label: "Descartado", tone: "secondary" },
 } as const;
@@ -98,6 +100,10 @@ export function ChangeDetail({
         {item.date !== "" && <MetaLine label="Fecha" value={item.date} />}
         {item.frd !== "" && <MetaLine label="FRD afectado" value={item.frd} />}
         {item.dependsOn !== "" && <MetaLine label="Depende de" value={item.dependsOn} />}
+        {/* Written only by sync's close-out (status: closing, DR-069 §7) — evidence
+            the owner can check, not just the bare "Cerrando" label. */}
+        {item.closingAt !== "" && <MetaLine label="Cerrando desde" value={item.closingAt} />}
+        {item.implementedSha !== "" && <MetaLine label="Commit" value={item.implementedSha} />}
       </div>
 
       {/* Rebuilds-already-verified notice — the owner must not miss this (DR-069) */}

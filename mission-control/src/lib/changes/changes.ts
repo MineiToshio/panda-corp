@@ -15,6 +15,14 @@ import matter from "gray-matter";
  * silently dropped — it is surfaced in `errors[]` so the UI can render an error
  * state instead of a misleadingly-empty list.
  *
+ * `status` includes two ENGINE-MANAGED transient values the owner never writes
+ * (DR-069 §7): `building` (the build stamps this while the change's FRDs are in
+ * flight — the safe-point drain won't re-drain it) and `closing` (`/pandacorp:sync`'s
+ * close-out mode stamps this, plugin 9.104.0, alongside `implemented_sha`/`closing_at`,
+ * while it batch-archives an already-implemented card). Both are "in flight": open,
+ * but not pending drain — treated distinctly from `ready`/`draft` everywhere a reader
+ * derives a pending/open count (see `OPEN_STATUSES` below).
+ *
  * Traceability:
  *   IF-04-changes → REQ-04-006 (read the change queue), REQ-04-007 (fail-loud)
  */
@@ -25,7 +33,7 @@ import matter from "gray-matter";
 
 type ChangeType = "bug" | "feature" | "change";
 type ChangeClass = "expedite" | "standard" | "intangible" | "fixed-date";
-export type ChangeQueueStatus = "ready" | "draft" | "done" | "discarded";
+export type ChangeQueueStatus = "ready" | "draft" | "building" | "closing" | "done" | "discarded";
 
 export type ChangeQueueItem = {
   /** Filename stem (no `.md`) — the same slug `/pandacorp:implement change:<id>` expects. */
@@ -37,6 +45,10 @@ export type ChangeQueueItem = {
   frd: string;
   rebuildsVerified: boolean;
   dependsOn: string;
+  /** Commit(s) that implemented this change — written only by sync's close-out (`status: closing`). */
+  implementedSha: string;
+  /** ISO timestamp the close-out started — written alongside `implementedSha`; "" otherwise. */
+  closingAt: string;
   /** One-line title — the body's first `# ` (H1) heading. */
   title: string;
   /** The markdown body with that first H1 line removed — rendered in the detail view. */
@@ -57,7 +69,14 @@ export type ChangeQueueReadResult = {
 
 const VALID_TYPES: readonly ChangeType[] = ["bug", "feature", "change"];
 const VALID_CLASSES: readonly ChangeClass[] = ["expedite", "standard", "intangible", "fixed-date"];
-const VALID_STATUSES: readonly ChangeQueueStatus[] = ["ready", "draft", "done", "discarded"];
+const VALID_STATUSES: readonly ChangeQueueStatus[] = [
+  "ready",
+  "draft",
+  "building",
+  "closing",
+  "done",
+  "discarded",
+];
 
 /** Files inside .pandacorp/inbox/changes/ that are never change items. */
 const SKIP_FILES: readonly string[] = ["README.md"];
@@ -87,6 +106,19 @@ function coerceString(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number") return String(value);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return "";
+}
+
+/**
+ * Coerce a full-precision ISO-8601 timestamp field (`closing_at`) to a trimmed string.
+ * Unlike `coerceString`, an unquoted YAML timestamp that gray-matter parses into a
+ * `Date` is NOT truncated to a day — `doc-lint.sh`'s 48h staleness check (DR-069 §7)
+ * needs the time component, and the code-conventions.md trap about lexicographic
+ * ISO-string comparison only holds when precision is preserved consistently.
+ */
+function coerceTimestamp(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value instanceof Date) return value.toISOString();
   return "";
 }
 
@@ -164,7 +196,9 @@ function parseChangeFile(filePath: string, id: string): ParseOutcome {
     return { error: `${id}: invalid or missing type (bug|feature|change)` };
   }
   if (!isChangeQueueStatus(fm.status)) {
-    return { error: `${id}: invalid or missing status (ready|draft|done|discarded)` };
+    return {
+      error: `${id}: invalid or missing status (ready|draft|building|closing|done|discarded)`,
+    };
   }
 
   const extracted = extractTitle(typeof parsed.content === "string" ? parsed.content : "");
@@ -182,6 +216,8 @@ function parseChangeFile(filePath: string, id: string): ParseOutcome {
       frd: coerceString(fm.frd),
       rebuildsVerified: coerceBoolean(fm.rebuilds_verified),
       dependsOn: coerceString(fm.depends_on),
+      implementedSha: coerceString(fm.implemented_sha),
+      closingAt: coerceTimestamp(fm.closing_at),
       title: extracted.title,
       body: extracted.body,
     },
@@ -247,16 +283,24 @@ export function readChangeQueue(projectPath: string): ChangeQueueReadResult {
   return { items, errors };
 }
 
-/** The statuses ChangesPanel shows by default ("open" — ready + draft; DR-092/DR-115). */
+/**
+ * The statuses ChangesPanel shows by default ("open" — ready + draft; DR-092/DR-115).
+ *
+ * Deliberately EXCLUDES `building`/`closing`: those are "in flight" (the engine is
+ * already draining/closing the item — DR-069 §7), not "pending" (waiting to be picked
+ * up). A pending-count badge built on this set must not inflate while the build is
+ * simply doing its job.
+ */
 const OPEN_STATUSES: ReadonlySet<ChangeQueueStatus> = new Set(["ready", "draft"]);
 
 /**
  * Count the OPEN bugs in a project's change queue (DR-092/DR-115 live derivation).
  *
  * "Open" mirrors ChangesPanel's default-visible groups: `status` is `"ready"` or
- * `"draft"` (NOT `"done"` — archived/resolved — and NOT `"discarded"`) and `type`
- * is `"bug"`. Reuses `readChangeQueue` — no independent parsing — so a bug moved to
- * `done/` (or flipped to `discarded` in place) stops inflating the badge.
+ * `"draft"` (NOT `"building"`/`"closing"` — already in flight, NOT `"done"` —
+ * archived/resolved — and NOT `"discarded"`) and `type` is `"bug"`. Reuses
+ * `readChangeQueue` — no independent parsing — so a bug moved to `done/` (or flipped
+ * to `discarded`/`building`/`closing` in place) stops inflating the badge.
  * Malformed queue files are already surfaced via `errors[]` by `readChangeQueue`;
  * this helper only tallies successfully-parsed items.
  *
