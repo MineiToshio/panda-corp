@@ -109,6 +109,44 @@ if _is_linked_worktree && [ ! -f "$ROOT/factory/gamification-ledger.json" ]; the
   export PANDACORP_SKIP_LEDGER_OUTPUT_CHECK=1
 fi
 
+# --- Fast-path: skip the heavy generator re-runs (BL-0044) --------------------------------------
+# This gate is repo-wide (ROOT is always the factory root, even for a Mission Control session —
+# they share one .git, CLAUDE.md "Mission Control specifics"), so EVERY Stop anywhere in the repo
+# pays Check 0-7's node processes and mktemp copies even when the session never touched plugin/ or
+# factory/ (the only trees the generators derive FROM). Skip them ONLY when ALL three hold — any
+# doubt runs the full check below, unchanged (fail-closed):
+#   (a) this session's own .touched marker (DR-099) carries no path under plugin/ or factory/
+#   (b) `git status --porcelain` carries nothing under plugin/ — rules out an uncommitted change
+#       by ANY writer (this session, or a foreign one the attribution guard above already handled)
+#   (c) HEAD matches the sha recorded in derived-drift-last-ok.json, written ONLY by THIS hook
+#       below when every check passes — a new commit invalidates the fast-path by construction,
+#       mirroring verify-before-stop.sh's own last-green fast-path (same BL-0044 package)
+# No session context at all (manual/positional invocation, no stdin JSON) never qualifies — same
+# fail-closed stance as the BL-0082 attribution guard above.
+last_ok="$ROOT/.pandacorp/run/derived-drift-last-ok.json"
+fastpath=0
+if [ -n "$input" ]; then
+  _pc_sid_fp=$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)
+  if [ -n "$_pc_sid_fp" ]; then
+    _pc_touched_fp="$ROOT/.pandacorp/run/sessions/$_pc_sid_fp.touched"
+    _pc_touched_clean=1
+    if [ -s "$_pc_touched_fp" ]; then
+      _pc_mine_fp=$(sed "s#^${ROOT}/##" "$_pc_touched_fp" 2>/dev/null)
+      printf '%s\n' "$_pc_mine_fp" | grep -qE '^(plugin|factory)/' && _pc_touched_clean=0
+    fi
+    _pc_dirty_plugin=$(git -C "$ROOT" status --porcelain -- plugin 2>/dev/null)
+    if [ "$_pc_touched_clean" = "1" ] && [ -z "$_pc_dirty_plugin" ] && [ -f "$last_ok" ]; then
+      head_sha_fp=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)
+      _pc_ok_sha=$(jq -er '.sha | select(type == "string" and length > 0)' "$last_ok" 2>/dev/null)
+      [ -n "$head_sha_fp" ] && [ -n "$_pc_ok_sha" ] && [ "$head_sha_fp" = "$_pc_ok_sha" ] && fastpath=1
+    fi
+  fi
+fi
+if [ "$fastpath" = "1" ]; then
+  echo "check-derived-drift: fast-path (no plugin/factory touched or dirty, HEAD==last ok ${head_sha_fp}) — BL-0044" >&2
+  exit 0
+fi
+
 # --- Check 0: canonical runtime sources + complete manifest projections -----------------------
 node "$ROOT/plugin/scripts/check-runtime-sources.mjs" "$ROOT" \
   || red "runtime source graph, tier mapping, or full manifest projection is invalid. Regenerate manifests with: node plugin/scripts/generate-plugin-manifests.mjs"
@@ -190,5 +228,17 @@ cp "$ROOT/plugin/scripts/generate-event-vocabulary.mjs" "$tmp/plugin/scripts/" |
 node "$tmp/plugin/scripts/generate-event-vocabulary.mjs" >/dev/null 2>&1 || red "event vocabulary generator failed"
 cmp -s "$tmp/mission-control/src/lib/events/event-vocabulary.json" "$ROOT/mission-control/src/lib/events/event-vocabulary.json" \
   || red "Mission Control event vocabulary is stale; run node plugin/scripts/generate-event-vocabulary.mjs"
+
+# CLEAN: record the commit every check above just verified so a later Stop on an unchanged tree
+# (nothing under plugin/ touched or dirty) can fast-path above (BL-0044). Best-effort — a write
+# failure here never blocks the (already-passed) Stop; the next Stop just re-runs the full check.
+ok_sha_now=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)
+if [ -n "$ok_sha_now" ]; then
+  mkdir -p "$ROOT/.pandacorp/run" 2>/dev/null
+  tmp_ok=$(mktemp "$ROOT/.pandacorp/run/.derived-drift-last-ok.XXXXXX" 2>/dev/null) && {
+    printf '{"sha":"%s","at":"%s"}\n' "$ok_sha_now" "$(date -u +%FT%TZ 2>/dev/null || echo unknown)" > "$tmp_ok" \
+      && mv "$tmp_ok" "$last_ok"
+  }
+fi
 
 exit 0
