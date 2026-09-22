@@ -2422,25 +2422,29 @@ const siteKeepsOriginalAgentType = (labelAnchor) => {
   return /agentType: 'pandacorp:implementer'/.test(window) && !/MECH_AGENT/.test(window)
 }
 SCENARIOS.push({
-  name: 'WP03a. static scan — the 12 WP-03 sites PLUS the 2 integration-time reconciled sites (renew-lease, safe-point-pre-loop) carry agentType:MECH_AGENT(...)+effort:MECH_EFFORT; safe-point/apply-gate/persist-block keep their ORIGINAL agentType',
+  name: 'WP03a. static scan — the 12 WP-03 sites PLUS the 3 integration-time reconciled sites (renew-lease, safe-point-pre-loop, evidence:<frd>) carry agentType:MECH_AGENT(...)+effort:MECH_EFFORT; safe-point/apply-gate/persist-block keep their ORIGINAL agentType',
   args: { mode: 'pro' },
   plan: mkPlan([]),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     const mechAgentCount = (source.match(/agentType: MECH_AGENT\(/g) || []).length
     const mechEffortCount = (source.match(/effort: MECH_EFFORT/g) || []).length
-    // 14 = WP-03's original 12 + 2 reconciled at integration time (integration-speed-sprint-a merge
-    // notes, wp-03-plumbing-diet): the D-1 fix's 'renew-lease' spawn (minimal single-command lease
-    // renewal, matches the other mech sites exactly) and the E2/BL-0129 'safe-point-pre-loop' spawn
-    // (read-only queue scan, no Write/Edit needed — unlike in-loop 'safe-point' it never flips
-    // BLOCKED→PLANNED frontmatter or commits, so it has no judgment/mutation step keeping it out of mech).
-    t.ok(mechAgentCount === 14, `exactly 14 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 14, `exactly 14 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // 15 = WP-03's original 12 + 3 reconciled at integration time (integration-speed-sprint-a merge
+    // notes): the D-1 fix's 'renew-lease' spawn and the E2/BL-0129 'safe-point-pre-loop' spawn (both
+    // merged with wp-03-plumbing-diet, both single mechanical Bash+Read steps with no Write/Edit —
+    // unlike in-loop 'safe-point' they never flip BLOCKED→PLANNED frontmatter or commit, so nothing
+    // keeps them out of mech), plus WP-06's `evidence:<frd>` collector (merged with wp-06-digested-gate;
+    // its own comment already called it "a MECH, effort:'low', zero-judgment agent" but had hardcoded
+    // that shape instead of using the WP-03 MECH_AGENT/MECH_EFFORT helpers — reconciled onto them so it
+    // also respects args.mechLean:false like every other mech site).
+    t.ok(mechAgentCount === 15, `exactly 15 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 15, `exactly 15 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(!siteKeepsOriginalAgentType("label: 'renew-lease'"), 'renew-lease (D-1, reconciled at merge time) now carries MECH_AGENT/MECH_EFFORT like the other mechanical single-command spawns')
     t.ok(!siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'safe-point-pre-loop (E2/BL-0129, reconciled at merge time) now carries MECH_AGENT/MECH_EFFORT — it is read-only, no Write/Edit needed')
+    t.ok(!siteKeepsOriginalAgentType('label: `evidence:${frd}`'), 'evidence:<frd> (WP-06, reconciled at merge time) now carries MECH_AGENT/MECH_EFFORT instead of its own hardcoded pandacorp:implementer/low')
   },
 })
 // (b)+(a live cross-check of the static scan above) a default (MECH_LEAN) run: dispatch/commit/gate-worktree
@@ -2593,6 +2597,243 @@ SCENARIOS.push({
     t.ok(notify && notify.opts.agentType === 'pandacorp:mech' && notify.opts.effort === 'low', 'notify-end resolves to pandacorp:mech + effort low')
     const release = byLabel(run, 'release-lease')[0]
     t.ok(release && release.opts.agentType === 'pandacorp:mech' && release.opts.effort === 'low', 'release-lease (legacy, its own terminal spawn again) resolves to pandacorp:mech + effort low')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WP06 — DIGESTED GATE EVIDENCE (args.gateEvidence: 'explore' | 'digested')
+// The gate is the build's ONE independent oracle, so every assertion below is
+// paired: the DEFAULT ('explore', no args) must stay byte-identical to the
+// pre-WP-06 contract, and 'digested' may change only the gate's INPUT (the
+// evidence it is handed), never its model, its effort, or what it must prove.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Cross-scenario capture: the runner executes SCENARIOS strictly in order, so the
+// explore-mode gate opts recorded by WP06a are available to WP06e's A/B assertion.
+const wp06GateOpts = {}
+
+const wp06Wo = (id, frd, extra = {}) => ({ ...mkWo(id, 'PLANNED', { frd, artifacts: extra.artifacts || [`src/${id}/**`] }), acText: extra.acText })
+
+// A green report fixture shaped exactly like WP-05's `.pandacorp/run/gate-report.json`.
+const wp06GreenReport = JSON.stringify({
+  at: '2026-09-22T10:00:00Z', scope: 'since', green: true,
+  subgates: [{ name: 'biome', exit: 0, duration_ms: 1200, failures: [] }, { name: 'vitest', exit: 0, duration_ms: 8400, failures: [] }],
+})
+const wp06RedReport = JSON.stringify({
+  at: '2026-09-22T10:00:00Z', scope: 'since', green: false,
+  subgates: [{ name: 'tsc', exit: 2, duration_ms: 3100, failures: [
+    { file: 'src/wp06d-001/a.ts', line: 42, code: 'TS2345', msg: 'WP06-FAILURE-ONE argument of type string is not assignable' },
+    { file: 'src/wp06d-001/b.ts', line: 7, code: 'TS2551', msg: 'WP06-FAILURE-TWO property total does not exist on type Cart' },
+  ] }],
+})
+
+// ── (a) DEFAULT — no args.gateEvidence: the explore contract is untouched, zero collector spawns ──
+SCENARIOS.push({
+  name: 'WP06a. DEFAULT (no args.gateEvidence) — the gate keeps the explore contract; ZERO evidence spawns',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-wp06a', deps: [], workOrders: [wp06Wo('wo-wp06a-001', 'frd-wp06a', { acText: 'AC-06-001.1 WHEN the cart is empty THE SYSTEM SHALL show the empty state' })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-wp06a')[0]
+    t.ok(gate, 'the FRD gate ran')
+    if (gate) wp06GateOpts.explore = { model: gate.opts.model, effort: gate.opts.effort }
+    t.ok(gate && /Run the FOCUSED gate/.test(gate.prompt), 'explore keeps the literal "Run the FOCUSED gate" order')
+    t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'explore carries NO digested marker')
+    t.ok(gate && !/ATTACHMENT 1\/3/.test(gate.prompt), 'explore carries no evidence attachments')
+    t.ok(gate && !/GateEvidenceFallback/.test(gate.prompt), 'explore is not a fallback — no fallback event in the prompt')
+    t.ok(byLabel(run, /^evidence:/).length === 0, 'no evidence collector was spawned in the default mode')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp06a'), 'the FRD verified normally')
+  },
+})
+
+// ── (b) digested — ONE collector, spawned BEFORE the gate, and its output IS the gate's material ──
+SCENARIOS.push({
+  name: "WP06b. args.gateEvidence:'digested' — one evidence: spawn BEFORE gate:, whose report/diff/AC land in the gate prompt",
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06b', deps: [], workOrders: [wp06Wo('wo-wp06b-001', 'frd-wp06b', { artifacts: ['src/wp06b/**'], acText: 'AC-06-002.1 WHEN WP06-AC-PROBE THE SYSTEM SHALL render the panel' })] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: ' src/wp06b/panel.tsx | 12 ++++ WP06-STAT-PROBE', diff: '--- a/src/wp06b/panel.tsx\n+++ b/src/wp06b/panel.tsx\n+// WP06-DIFF-PROBE', truncated: false, ac: 'AC-06-002.1 WHEN WP06-AC-PROBE THE SYSTEM SHALL render the panel' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const evs = byLabel(run, /^evidence:/)
+    const gate = byLabel(run, 'gate:frd-wp06b')[0]
+    t.ok(evs.length === 1, `exactly ONE evidence collector spawned (got ${evs.length})`)
+    t.ok(evs[0] && evs[0].label === 'evidence:frd-wp06b', 'the collector is labelled evidence:<frd>')
+    t.ok(gate && evs[0] && evs[0].index < gate.index, `the collector spawns BEFORE the gate (evidence @${evs[0] && evs[0].index}, gate @${gate && gate.index})`)
+    t.ok(evs[0] && evs[0].opts.model === 'haiku' && evs[0].opts.effort === 'low', 'the collector runs on the MECH tier at effort low (it judges nothing)')
+    t.ok(evs[0] && /GATE WORKTREE/.test(evs[0].prompt), 'the collector runs in the PINNED gate worktree, not the moving main tree')
+    t.ok(evs[0] && /--since/.test(evs[0].prompt) && /--report-all/.test(evs[0].prompt), 'the collector runs verify.sh --since <last_green> --report-all')
+    t.ok(evs[0] && /src\/wp06b\/\*\*/.test(evs[0].prompt), "the collector is told the reviewed WOs' artifacts, so the diff is scoped to them")
+    t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'the gate prompt carries the digested marker')
+    t.ok(gate && !/1\) Review the changed work orders[\s\S]*?2\) Run the FOCUSED gate/.test(gate.prompt), 'the digested gate no longer carries the bare "run the FOCUSED gate" discovery order')
+    t.ok(gate && gate.prompt.includes('WP06-STAT-PROBE'), 'the diff STAT is attached to the gate prompt')
+    t.ok(gate && gate.prompt.includes('WP06-DIFF-PROBE'), 'the unified diff is attached to the gate prompt')
+    t.ok(gate && gate.prompt.includes('WP06-AC-PROBE'), 'the verbatim EARS acceptance criteria are attached to the gate prompt')
+    t.ok(gate && gate.prompt.includes('"name":"vitest"'), 'the gate-report.json content is attached verbatim')
+    t.ok(gate && /at most 8 additional file reads/.test(gate.prompt), 'the digested gate carries the bounded exploration budget (N=8)')
+    t.ok(gate && /Whole-FRD source oracle/.test(gate.prompt), 'WHOLE_FRD_ORACLE survives digested mode')
+    t.ok(gate && /adversarial tests/.test(gate.prompt), 'DR-080 adversarial tests are still demanded in digested mode')
+    t.ok(gate && /traceability/i.test(gate.prompt), 'the 7-class traceability inventory is still demanded in digested mode')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp06b'), 'the FRD verified through the digested gate')
+  },
+})
+
+// ── (c) fail-closed: a dead collector degrades to explore, loudly — never a gate without evidence ──
+SCENARIOS.push({
+  name: 'WP06c. fail-closed — a NULL collector verdict degrades the gate to EXPLORE mode with a GateEvidenceFallback',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06c', deps: [], workOrders: [wp06Wo('wo-wp06c-001', 'frd-wp06c')] }]),
+  responses: [{ prefix: 'evidence:', response: null }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-wp06c')[0]
+    t.ok(byLabel(run, /^evidence:/).length === 1, 'the collector was attempted')
+    t.ok(gate, 'the gate STILL ran (never skipped for want of evidence)')
+    t.ok(gate && /Run the FOCUSED gate/.test(gate.prompt), 'the gate fell back to the explore contract')
+    t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'no digested marker on the fallback gate')
+    t.ok(gate && /GateEvidenceFallback/.test(gate.prompt), 'the gate prompt emits the GateEvidenceFallback event')
+    t.ok(hasLog(run, /GateEvidenceFallback/), 'the fallback is logged, never silent')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp06c'), 'the run still converges through the explore gate')
+  },
+})
+SCENARIOS.push({
+  name: 'WP06c2. fail-closed — an unparseable report / a non-boolean green also degrade to EXPLORE',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([
+    { frd: 'frd-wp06c2a', deps: [], workOrders: [wp06Wo('wo-wp06c2a-001', 'frd-wp06c2a')] },
+    { frd: 'frd-wp06c2b', deps: [], workOrders: [wp06Wo('wo-wp06c2b-001', 'frd-wp06c2b')] },
+  ]),
+  responses: [
+    { label: 'evidence:frd-wp06c2a', response: { report: '{not json', diffStat: 's', diff: 'd', truncated: false, ac: 'a' } },
+    { label: 'evidence:frd-wp06c2b', response: { report: JSON.stringify({ at: 'x', scope: 'since', green: 'yes', subgates: [] }), diffStat: 's', diff: 'd', truncated: false, ac: 'a' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    for (const frd of ['frd-wp06c2a', 'frd-wp06c2b']) {
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(gate && /Run the FOCUSED gate/.test(gate.prompt), `${frd}: degraded to the explore contract`)
+      t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), `${frd}: no digested marker`)
+      t.ok(gate && /GateEvidenceFallback/.test(gate.prompt), `${frd}: the fallback event is emitted`)
+    }
+    t.ok(run.logs.filter((l) => /GateEvidenceFallback/.test(l)).length === 2, 'both malformed packs were logged as fallbacks')
+  },
+})
+
+// ── (d) a RED report reaches the gate whole — every failure row, not a summary ──
+SCENARIOS.push({
+  name: 'WP06d. a red report (green:false, 2 failures) reaches the gate prompt with BOTH failures intact',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06d', deps: [], workOrders: [wp06Wo('wo-wp06d-001', 'frd-wp06d', { artifacts: ['src/wp06d-001/**'] })] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06RedReport, diffStat: ' src/wp06d-001/a.ts | 3 +-', diff: '--- a/src/wp06d-001/a.ts', truncated: true, ac: 'AC-06-004.1 WHEN x THE SYSTEM SHALL y' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-wp06d')[0]
+    t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'a red report is still a VALID pack — digested mode holds (green:false is data, not a malformed pack)')
+    t.ok(gate && gate.prompt.includes('WP06-FAILURE-ONE'), 'failure #1 reaches the gate prompt')
+    t.ok(gate && gate.prompt.includes('WP06-FAILURE-TWO'), 'failure #2 reaches the gate prompt')
+    t.ok(gate && gate.prompt.includes('"green":false'), 'the red verdict itself reaches the gate prompt')
+    t.ok(gate && /TRUNCATED/.test(gate.prompt), 'a truncated diff is LABELLED as truncated (never passed off as complete)')
+  },
+})
+
+// ── (e) the trust boundary is untouched: identical model + effort in both modes (DR-015) ──
+SCENARIOS.push({
+  name: 'WP06e. DR-015 invariant — the gate spawn model AND effort are byte-identical in explore and digested',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06e', deps: [], workOrders: [wp06Wo('wo-wp06e-001', 'frd-wp06e')] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: 's', diff: 'd', truncated: false, ac: 'a' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-wp06e')[0]
+    t.ok(gate, 'the digested gate ran')
+    t.ok(gate && gate.opts.model === 'opus', 'the digested gate still runs on the OPUS judge (DR-015 — never downgraded)')
+    t.ok(gate && gate.opts.effort === 'xhigh', "the digested serial gate keeps effort:'xhigh'")
+    t.ok(gate && gate.opts.agentType === 'pandacorp:reviewer', 'the digested gate is still the reviewer agent')
+    t.ok(wp06GateOpts.explore, 'WP06a captured the explore-mode gate opts (A/B baseline)')
+    t.ok(wp06GateOpts.explore && gate && wp06GateOpts.explore.model === gate.opts.model,
+      `A/B: model identical in both modes (explore=${wp06GateOpts.explore && wp06GateOpts.explore.model}, digested=${gate && gate.opts.model})`)
+    t.ok(wp06GateOpts.explore && gate && wp06GateOpts.explore.effort === gate.opts.effort,
+      `A/B: effort identical in both modes (explore=${wp06GateOpts.explore && wp06GateOpts.explore.effort}, digested=${gate && gate.opts.effort})`)
+  },
+})
+
+// ── (f) the oracle still bites: a digested verdict missing the 7 traceability classes is RED ──
+SCENARIOS.push({
+  name: 'WP06f. enforceWholeFrdTraceability still REJECTS a green verdict missing the 7 classes in digested mode',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06f', deps: [], workOrders: [wp06Wo('wo-wp06f-001', 'frd-wp06f')] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: 's', diff: 'd', truncated: false, ac: 'a' } },
+    // a "green" verdict whose inventory covers only 2 of the 7 required contract classes
+    { prefix: 'gate:', response: { green: true, traceability: [
+      { contract: 'REQ-06-001', contractClass: 'requirement', status: 'pass', tests: ['t.test.ts'] },
+      { contract: 'AC-06-001.1', contractClass: 'acceptance-criterion', status: 'pass', tests: ['t.test.ts'] },
+    ] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-wp06f').length >= 1, 'the digested gate ran')
+    t.ok(byLabel(run, 'apply-gate:frd-wp06f').length === 0, 'NOTHING was stamped VERIFIED on a traceability-deficient verdict')
+    t.ok(hasLog(run, /whole-FRD traceability is missing/), 'the engine-side oracle named the traceability deficiency')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-wp06f'), 'the FRD did NOT pass')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-wp06f'), 'it ended BLOCKED instead (fail-closed)')
+  },
+})
+
+// ── (g) the SPLIT gate in digested mode: one collection, five readers (4 lenses + the closer) ──
+SCENARIOS.push({
+  name: 'WP06g. digested SPLIT gate — ONE collector feeds all 4 finder lenses AND the closer; effort still high, judge still opus',
+  args: { mode: 'powerful', gateEvidence: 'digested' },
+  plan: mkPlan([{
+    frd: 'frd-wp06g', deps: [],
+    // reopen_count >= 1 → the split engages on the FIRST gate this run (C1a serial-first)
+    workOrders: [{ ...mkWo('wo-wp06g-001', 'PLANNED', { frd: 'frd-wp06g', artifacts: ['src/wp06g/**'], reopen_count: 1 }), acText: 'AC-06-007.1 WHEN WP06G-AC THE SYSTEM SHALL hold' }],
+  }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: ' src/wp06g/x.ts | 2 +- WP06G-STAT', diff: '+// WP06G-DIFF', truncated: false, ac: 'AC-06-007.1 WHEN WP06G-AC THE SYSTEM SHALL hold' } },
+    { label: /^find:/, response: { findings: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^evidence:/).length === 1, 'ONE collector for the whole split gate (not one per lens)')
+    const finders = byLabel(run, /^find:/)
+    t.ok(finders.length === 4, `all 4 finder lenses spawned (got ${finders.length})`)
+    t.ok(finders.every((c) => c.prompt.includes('WP06G-DIFF') && c.prompt.includes('WP06G-AC')), 'every finder lens received the same evidence pack')
+    t.ok(finders.every((c) => /READ-ONLY/.test(c.prompt) && /do NOT run .verify\.sh./.test(c.prompt)), 'the finders stay read-only and still never run verify.sh')
+    const closer = byLabel(run, 'gate:frd-wp06g')[0]
+    t.ok(closer && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(closer.prompt), 'the split CLOSE stage carries the digested marker')
+    t.ok(closer && closer.prompt.includes('WP06G-STAT'), 'the closer received the diff stat')
+    t.ok(closer && closer.opts.model === 'opus', 'the split closer is still the OPUS judge (DR-015)')
+    t.ok(closer && closer.opts.effort === 'high', "the split closer keeps its own effort:'high' (C1d) — digested mode changes no effort anywhere")
+    t.ok(closer && /Whole-FRD source oracle/.test(closer.prompt), 'WHOLE_FRD_ORACLE survives in the split closer too')
+    t.ok(run.result && run.result.builtFrds.includes('frd-wp06g'), 'the FRD verifies through the digested split gate')
+  },
+})
+
+// ── (h) scope guard: a re-gate on the QUIESCED MAIN tree never carries a (stale-pin) evidence pack ──
+SCENARIOS.push({
+  name: 'WP06h. scope — a REJECT re-gate on main runs in EXPLORE mode (no stale-pin digest), and collects no second pack',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-wp06h', deps: [], workOrders: [wp06Wo('wo-wp06h-001', 'frd-wp06h')] }]),
+  responses: [
+    { prefix: 'evidence:', response: { report: wp06GreenReport, diffStat: 's', diff: 'd', truncated: false, ac: 'a' } },
+    // first gate rejects with no reopen list → repair, then ONE re-gate on main (which must be explore)
+    { label: 'gate:frd-wp06h', times: 1, response: { green: false, failure: 'integration is red' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-wp06h')
+    t.ok(gates.length === 2, `the first gate rejected and exactly one re-gate ran (got ${gates.length})`)
+    t.ok(gates[0] && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gates[0].prompt), 'the FIRST (pinned, concurrent) gate was digested')
+    t.ok(gates[1] && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gates[1].prompt), 'the re-gate on main is EXPLORE — a pack from a superseded pin is never reused')
+    t.ok(gates[1] && /Run the FOCUSED gate/.test(gates[1].prompt), 'the re-gate carries the full explore contract')
+    t.ok(gates[1] && !/GATE WORKTREE/.test(gates[1].prompt), 'the re-gate runs on the main tree, not the frozen worktree')
+    t.ok(byLabel(run, /^evidence:/).length === 1, 'no second collection was paid for the re-gate')
   },
 })
 

@@ -81,6 +81,25 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     a commit actually landed via commitWOGreen this wave AND no repair agent ran (attemptRepair commits
 //     on its own, invalidating the cached sha) — an empty/repaired wave still spawns `pin:` as before.
 //     Use `false` to revert every MECH site + both fusions to the pre-WP-03 shape (isolates a regression).
+//   args.gateEvidence: 'explore' (DEFAULT) | 'digested' — WP-06. Controls HOW the per-FRD gate gets its
+//     EVIDENCE; it never changes what the gate must PROVE. 'explore' (default, and the value any
+//     unrecognised string falls back to) is the historical contract byte-for-byte: the opus reviewer
+//     collects its own evidence — it explores the tree, runs `verify.sh --since` inside its own loop and
+//     parses the raw log (FRD-24 measured that as 99 calls / 54 tool-calls / 93.7k context per call / 31%
+//     of the run's wall clock, while the verdict itself is the cheap part). 'digested' spawns a cheap MECH
+//     `evidence:<frd>` COLLECTOR first — in the SAME pinned gate worktree — which runs
+//     `bash .pandacorp/verify.sh --since <last_green> --report-all` and hands the reviewer the resulting
+//     `gate-report.json`, the pinned diff (stat + a size-capped unified patch scoped to the reviewed WOs'
+//     artifacts) and the FRD's verbatim EARS acceptance criteria. The gate then judges from that material
+//     under a bounded exploration budget instead of re-deriving it. INVARIANTS THAT DO NOT MOVE: the judge
+//     stays opus at the same effort (DR-015 — never a cheaper judge), it still writes adversarial tests
+//     (DR-080), still returns the 7-class whole-FRD traceability inventory (enforceWholeFrdTraceability),
+//     and still owns every reject/blocked exit. FAIL-CLOSED: a collector that returns null, a `report` that
+//     is not valid JSON, or a `report.green` that is not a boolean makes THAT gate run in 'explore' mode
+//     (logged + a `GateEvidenceFallback` event) — there is never a gate without evidence.
+//     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
+//     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
+//     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
 const MODE = (args && args.mode) || 'powerful'
 // D-9: the args-string guard above (line ~17) re-parses the WHOLE args blob when scriptPath delivers it
 // JSON-stringified once — but that does NOT protect an individual boolean flag arriving as the literal
@@ -137,6 +156,13 @@ const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-06
 const FOUNDATION_GATE_NULL_CAP = (args && args.foundationGateNullCap) || 2   // WS-D/D5: a SEPARATE cap for null/garbled foundation-completeness gate verdicts (a dead gate agent) — counted on its OWN counter so a couple of dead gates never eat the real repair budget (FOUNDATION_REPAIR_CAP), and vice-versa
 const MAX_REOPENS = (args && args.maxReopens) || 3   // DR-072 NON-PROGRESS STOP: a WO reopened this many times across runs (same gate fault not resolving) → BLOCK needs-owner instead of grinding forever. "Refuse to treat repeated failure as progress" — the gate can't be satisfied autonomously, the owner must look.
 const FORCE_UI_PASSES = argBool(args, 'forceUiPasses', true)   // WP-01 escape hatch: always run the foundation-completeness gate + end-of-build visual-QA pass, bypassing the UI-artifact heuristic (artifactsTouchUi)
+// WP-06: 'explore' (default = today's behaviour, byte-identical) | 'digested' (pre-collected evidence pack).
+// Anything else falls back to 'explore' with a loud log — an unrecognised value must never silently pick a
+// mode the owner did not ask for.
+const GATE_EVIDENCE = (args && args.gateEvidence === 'digested') ? 'digested' : 'explore'
+if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' && args.gateEvidence !== 'digested') {
+  log(`⚠ args.gateEvidence='${args.gateEvidence}' no es 'explore' ni 'digested' — usando 'explore' (WP-06 fail-closed)`)
+}
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 // ── PROGRESSIVE-LEARNING RECOVERY (package A) — the diagnose ladder's two caps ──────────────────────
 const FINDING_SPREAD_THRESHOLD = (args && args.findingSpreadThreshold) || 3   // A2/A6: findings spread over MORE than this many files → the diagnoser leans 'architectural' (a localized point-fix can't reach a fault smeared across the codebase)
@@ -341,6 +367,14 @@ const BUILD_COMPLETE = (verdict, frdsDoneTotal) =>
 const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
   ` Also append the UiPassSkipped event (fire-and-forget): printf '{"event":"UiPassSkipped","at":"%s","project":"%s","pass":"${pass}","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 
+// WP-06 — the digested-evidence collector for THIS gate produced nothing usable (null verdict, a `report`
+// that is not valid JSON, or a non-boolean `green`), so the gate fell back to EXPLORE mode and collects its
+// own evidence exactly as it always did. Emitted so a silent, permanent degradation of the digested path is
+// visible in the stream instead of only showing up as a cost regression. Same fire-and-forget contract as
+// the events above; embedded in the gate prompt that actually ran (the engine has no shell of its own).
+const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
+  ` Also append the GateEvidenceFallback event (fire-and-forget — WP-06: the pre-collected evidence pack was unusable, so THIS gate ran in explore mode): printf '{"event":"GateEvidenceFallback","at":"%s","project":"%s","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
 // boundary is never these steps (the FRD gate re-verifies everything); they just execute a script.
@@ -537,6 +571,23 @@ function enforceWholeFrdTraceability(result) {
   if (missing || invalidBoundary || waivedFailure) return { green: false, traceability: Array.isArray(trace) ? trace : [], failure: 'whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict' }
   return result
 }
+// ── WP-06 evidence-pack schema (args.gateEvidence: 'digested') ───────────────
+// What the cheap `evidence:<frd>` collector returns to the ENGINE (never to the reviewer directly — the
+// engine validates it fail-closed first, then interpolates it into the gate prompt). `report` is the
+// VERBATIM text of `.pandacorp/run/gate-report.json` (a string, not a parsed object) precisely so the
+// engine can prove it is well-formed JSON with a boolean `green` before any reviewer sees it: a pack that
+// cannot be proven well-formed is discarded and the gate runs in explore mode.
+const EVIDENCE_SCHEMA = {
+  type: 'object', required: ['report'],
+  properties: {
+    report: { type: 'string', description: 'the VERBATIM contents of .pandacorp/run/gate-report.json after `bash .pandacorp/verify.sh --since <last_green_sha> --report-all` — the whole file as text, never a summary, never re-formatted' },
+    diffStat: { type: 'string', description: 'the output of `git diff <pin_base>..<pin> --stat` (the full stat, every file)' },
+    diff: { type: 'string', description: "the UNIFIED diff `git diff <pin_base>..<pin> -- <the reviewed work orders' artifact paths>`, capped at EVIDENCE_DIFF_MAX_LINES lines" },
+    truncated: { type: 'boolean', description: 'true iff the unified diff exceeded the line cap and was clipped — the gate is told so explicitly, so a clipped diff is never read as the complete change set' },
+    ac: { type: 'string', description: "the FRD's EARS acceptance criteria, VERBATIM from frd.md" },
+  },
+}
+
 // ── Split-gate schemas (proposal 31 T1.2) ────────────────────────────────────
 // The FIND stage's finders each report a flat list of {file, claim, evidence, severity}. `severity`
 // discriminates a blocking CORRECTION from an advisory nit (only corrections reach the adversarial
@@ -965,9 +1016,12 @@ const gateVerdictJournal = (frd, reviewIds, attemptNo) => JOURNAL(
 // mid-run it returns a sentinel and we fall back to the serial gate — the gate is NEVER skipped (contract 4).
 // Every gate call bumps frdState.gateAttempts (1-based `attempt` for the gate-open event, B8) so a re-gate is
 // distinguishable from a first gate.
-async function frdGate(frd, reviewIds, workFrom) {
+async function frdGate(frd, reviewIds, workFrom, evidencePack) {
   // C2: `workFrom` (optional) points the REVIEW spawns at the frozen gate worktree for the CONCURRENT path;
   // undefined → the legacy main-tree cwd (used by the converge re-gates, which run on a quiesced main tree).
+  // WP-06: `evidencePack` (optional) is the validated digested-evidence pack for THIS gate — supplied only
+  // by the concurrent path (launchGate), which is the only caller with a frozen pin to collect from. Absent
+  // (re-gates on main, the legacy synchronous path) → the gate runs in EXPLORE mode, unchanged.
   const st = frdState.get(frd)
   const priorAttempts = (st && st.gateAttempts) || 0   // gate attempts ALREADY made for this FRD this run
   const attemptNo = priorAttempts + 1                  // 1-based attempt number for THIS gate (B8)
@@ -979,7 +1033,7 @@ async function frdGate(frd, reviewIds, workFrom) {
   if (useSplit) {
     const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
     if (remaining >= splitGateEstimatedCost()) {
-      const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom)
+      const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom, evidencePack)
       if (!split || !split.__splitFailed) return enforceWholeFrdTraceability(split)   // sentinel __splitFailed → all finders died → fall to serial
     } else {
       log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
@@ -987,7 +1041,7 @@ async function frdGate(frd, reviewIds, workFrom) {
   } else if (P.reviewSplit) {
     log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
   }
-  return enforceWholeFrdTraceability(await frdGateSerial(frd, reviewIds, attemptNo, workFrom))
+  return enforceWholeFrdTraceability(await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack))
 }
 
 // ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
@@ -1001,10 +1055,141 @@ async function frdGate(frd, reviewIds, workFrom) {
 // but does NOT persist it (persistGateBlock does that on main).
 const GATE_PASS_RETURN = ` **If CORRECTION passes (visual nits, if any, APPEND to the punch-list at the MAIN tree \`${PROJECT_DIR}/.pandacorp/comms/visual-punch-list.md\` — absolute path, they do NOT block):** you are a REVIEW-ONLY gate — do NOT set any work order VERIFIED, do NOT reset reopen_count, do NOT recompute the FRD rollup, do NOT edit .pandacorp/status.yaml, do NOT advance last_green_sha, and do NOT \`git commit\` (you may be running in a FROZEN worktree; a separate serialized apply step on the MAIN tree performs every one of those writes). Just make sure the adversarial test files you wrote this cycle are SAVED in your working tree, and return { green: true, testFiles: [the repo-relative path of EACH new or changed test file you wrote this gate] } so the apply step can port them to the main tree.`
 
+// ── WP-06: DIGESTED GATE EVIDENCE ────────────────────────────────────────────────────────────────
+// The per-FRD gate is the build's ONE independent oracle, and FRD-24 measured where its money goes: the
+// opus reviewer spends most of its 99 calls / 54 tool-calls / 93.7k-context-per-call COLLECTING evidence
+// (walking the tree, running `verify.sh --since` inside its own loop, parsing the raw log); the verdict
+// itself is the cheap part. WP-06 moves that collection to a cheap MECH agent running in the SAME pinned
+// worktree and hands the reviewer a PACK. The oracle's authority is untouched: same opus judge, same
+// effort, same adversarial tests (DR-080), same 7-class traceability inventory, same reject/blocked exits.
+// Only the INPUT changes — and only when the owner asks (args.gateEvidence: 'digested'; default 'explore').
+//
+// WHERE IT RUNS (the choice this package asked us to justify): the collector needs (a) the pin sha and
+// (b) the wave's commits to exist, and BOTH only exist after the wave barrier — capturePin() runs at the
+// close of the wave, on the post-wave HEAD. There is therefore NO honest point "in parallel with the last
+// WO of the wave": evidence gathered before those commits land would describe a tree that does not
+// contain the work under review — exactly the stale-oracle defect this package must not create. So it is
+// launched AT WAVE CLOSE, immediately after capturePin(), as a background PROMISE chained on the
+// gate-worktree mutex. That still buys the overlap: the collector occupies the worktree while the main
+// loop runs its safe point and dispatches the NEXT build wave, and the gate — which chains behind it on
+// the same mutex — finds the worktree already pinned (ensureGateWorktree is idempotent: no extra spawn).
+const EVIDENCE_MARKER = 'YOUR EVIDENCE IS ALREADY COLLECTED'
+const EVIDENCE_READ_BUDGET = 8          // additional file reads a digested gate may spend before it must answer
+const EVIDENCE_DIFF_MAX_LINES = 1500    // size cap on the unified diff carried into the prompt; over it → stat + clipped largest files, LABELLED truncated
+
+// Fail-closed validation of a collector verdict. A pack is usable ONLY if it is an object whose `report`
+// parses as JSON and carries a BOOLEAN `green`. Anything else (null verdict, garbled JSON, `green: "yes"`)
+// returns a reason and the gate degrades to explore — a malformed digest is strictly worse than none,
+// because the reviewer would treat it as authoritative.
+function validateEvidence(pack) {
+  if (!pack || typeof pack !== 'object') return { evidence: null, fallbackReason: 'collector returned no verdict' }
+  if (typeof pack.report !== 'string' || !pack.report.trim()) return { evidence: null, fallbackReason: 'gate-report.json missing from the pack' }
+  let parsed
+  try { parsed = JSON.parse(pack.report) } catch { return { evidence: null, fallbackReason: 'gate-report.json is not valid JSON' } }
+  if (!parsed || typeof parsed !== 'object' || typeof parsed.green !== 'boolean') return { evidence: null, fallbackReason: 'gate-report.json has no boolean green' }
+  return { evidence: pack, fallbackReason: '' }
+}
+
+// The reviewed work orders' declared artifact globs — what the unified diff is scoped to (the same DR-060
+// `artifacts:` frontmatter the wave scheduler already trusts to prove disjointness).
+function reviewedArtifacts(frd, reviewIds) {
+  const st = frdState.get(frd)
+  const reviewed = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
+  return [...new Set(reviewed.flatMap((w) => w.artifacts || []).filter(Boolean))]
+}
+// The planner already extracted each WO's owning EARS criteria VERBATIM from frd.md (the DR-108 context
+// pack) — reuse it instead of paying a second extraction. The collector only COMPLETES it from frd.md if
+// the FRD carries normative acceptance criteria the planner threaded onto no single work order.
+function reviewedAcText(frd, reviewIds) {
+  const st = frdState.get(frd)
+  const reviewed = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
+  return reviewed.map((w) => w.acText).filter(Boolean).join('\n  ')
+}
+
+// The collector itself: a MECH, effort:'low', zero-judgment agent. It runs commands and pastes their
+// output. It NEVER reviews, NEVER writes a file, NEVER commits, NEVER touches frontmatter — it is not a
+// second opinion, so it cannot dilute the trust boundary (DR-015: the judge remains the only judge).
+async function collectGateEvidence(frd, reviewIds, pinSha) {
+  const artifacts = reviewedArtifacts(frd, reviewIds)
+  const acText = reviewedAcText(frd, reviewIds)
+  const scope = artifacts.length
+    ? `-- ${artifacts.join(' ')} (the reviewed work orders' declared artifacts)`
+    : '(the reviewed work orders declare no artifacts — do NOT scope by path; take the whole diff and let the line cap clip it)'
+  agentSpawned++
+  return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
+  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once: \`bash .pandacorp/verify.sh --since <PIN_BASE> --report-all\` (that argument ORDER is required — \`--since\` is positional). It may exit non-zero; that is FINE and expected — it is data, not a problem for you to fix. Then read \`.pandacorp/run/gate-report.json\`, which that run always writes, and return its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
+  2) \`git diff <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`.
+  3) \`git diff <PIN_BASE>..${pinSha} ${scope}\` → return it in \`diff\`. **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
+  4) \`ac\`: this FRD's EARS acceptance criteria, VERBATIM. The build plan already extracted the criteria these work orders own — start from exactly this text and return it unchanged${acText ? `:\n  ${acText}\n  ` : ` (the plan threaded none, so read docs/frds/${frd}/frd.md and copy its acceptance criteria verbatim). `}Only ADD to it: if docs/frds/${frd}/frd.md carries numbered acceptance criteria this list is missing, append those verbatim too. Never paraphrase, never renumber, never drop one.
+  Return { report, diffStat, diff, truncated, ac }.`,
+    { label: `evidence:${frd}`, phase: 'Review', model: MECH, effort: MECH_EFFORT, agentType: MECH_AGENT('pandacorp:implementer'), schema: EVIDENCE_SCHEMA, workFrom: worktreeWorkFrom(pinSha) })
+}
+
+// Start the collector for `frd` as a background promise on the gate-worktree mutex. Idempotent per FRD and
+// a no-op in explore mode, so the call sites need no mode branch of their own.
+function launchEvidence(frd) {
+  if (GATE_EVIDENCE !== 'digested') return
+  const st = frdState.get(frd)
+  if (!st || st.evidencePromise) return
+  const pinSha = st.pinSha
+  if (!pinSha) return   // no pin → no frozen tree to collect from; the gate resolves it inline (or degrades)
+  const work = gateWorktreeChain.then(async () => {
+    const ok = await ensureGateWorktree(pinSha)
+    if (!ok) return null   // worktree unavailable → this run is heading for the legacy synchronous path anyway
+    return await collectGateEvidence(frd, st.reviewIds, pinSha)
+  }).then((r) => r, () => null)
+  gateWorktreeChain = work.then(() => {}, () => {})   // keep the worktree mutex chain alive across errors
+  st.evidencePromise = work
+}
+
+// Resolve the pack for a gate about to run: await the prelaunched promise, or collect inline when there is
+// none (a resume gate enrolled before any wave). Validates fail-closed and LOGS every degradation.
+async function resolveGateEvidence(frd, reviewIds, pinSha) {
+  if (GATE_EVIDENCE !== 'digested') return null
+  const st = frdState.get(frd)
+  let raw = null
+  try { raw = (st && st.evidencePromise) ? await st.evidencePromise : await collectGateEvidence(frd, reviewIds, pinSha) }
+  catch (e) { log(`⚠ GateEvidenceFallback ${frd}: the evidence collector threw (${(e && e.message) || e}) — this gate runs in EXPLORE mode`); return { evidence: null, fallbackReason: 'collector threw' } }
+  const verdict = validateEvidence(raw)
+  if (!verdict.evidence) log(`⚠ GateEvidenceFallback ${frd}: ${verdict.fallbackReason} — this gate runs in EXPLORE mode (the gate is never skipped and never runs blind)`)
+  return verdict
+}
+
+const evidenceOf = (pack) => (pack && pack.evidence) || null
+const evidenceFallbackOf = (frd, pack) => ((pack && pack.fallbackReason) ? GATE_EVIDENCE_FALLBACK_EVENT(frd, pack.fallbackReason) : '')
+
+// The three attachments, interpolated at the TOP of the gate prompt (before the lenses) so they are the
+// reviewer's first material, plus the bounded exploration budget that replaces open-ended exploration.
+const evidenceBlock = (frd, ev) => ev ? `
+  **${EVIDENCE_MARKER} (WP-06).** A dedicated collector already ran the gate script and gathered the diff and the acceptance criteria at this exact pinned commit, in this exact worktree. **The three attachments below ARE your primary material** — read them first and judge from them. Do NOT re-walk the tree to rebuild what is already here.
+  **EXPLORATION BUDGET FOR THIS GATE: at most ${EVIDENCE_READ_BUDGET} additional file reads, plus at most ONE execution of the gate script if you genuinely must re-verify something below.** Writing your adversarial tests, running them, and building the traceability inventory are NOT exploration — they are the job, and they are not capped. **If ${EVIDENCE_READ_BUDGET} reads are not enough to reach a verdict you can defend, do NOT keep exploring: return the verdict you can defend and state in \`failure\` exactly what you still needed and why.** An honest bounded verdict beats an unbounded hunt.
+
+  ── ATTACHMENT 1/3 · GATE REPORT — verbatim \`.pandacorp/run/gate-report.json\` from \`bash .pandacorp/verify.sh --since <last_green_sha> --report-all\` run at THIS pin ──
+  ${ev.report}
+
+  ── ATTACHMENT 2/3 · THE CHANGE UNDER REVIEW — \`git diff <pin_base>..<pin>\`, the patch scoped to the reviewed work orders' declared artifacts ──${ev.truncated ? `
+  ⚠ **TRUNCATED**: the unified patch exceeded the ${EVIDENCE_DIFF_MAX_LINES}-line cap, so it carries the largest files clipped at hunk boundaries. This is NOT the complete change set — the \`--stat\` below IS complete, so reconcile against it and spend budgeted reads on any file you need in full.` : ''}
+  STAT:
+  ${ev.diffStat || '(the collector reported none)'}
+  PATCH:
+  ${ev.diff || '(the collector reported none)'}
+
+  ── ATTACHMENT 3/3 · EARS ACCEPTANCE CRITERIA of ${frd}, verbatim ──
+  ${ev.ac || `(the collector reported none — recover them from docs/frds/${frd}/frd.md within your read budget)`}
+` : ''
+
+// Step 2 of the gate. EXPLORE = the historical text, byte-for-byte. DIGESTED = the same obligation (the
+// focused gate must be clean) reached from the attached report, with ONE re-run allowed — which the
+// reviewer normally needs anyway, to exercise the adversarial tests DR-080 still requires it to write.
+const gateFocusedStep = (frd, ev) => ev
+  ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. You MAY run \`bash .pandacorp/verify.sh --since <last_green_sha>\` **once** — and only once — to exercise the adversarial tests you wrote this cycle or to confirm a specific result you doubt. It must pass clean.${PREVIEW_SMOKE(frd)}`
+  : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.${PREVIEW_SMOKE(frd)}`
+
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
-async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom) {
+async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack) {
+  const ev = evidenceOf(evidencePack)   // WP-06: null ⇒ this gate runs in EXPLORE mode (the historical contract)
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)}${evidenceFallbackOf(frd, evidencePack)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
  BUILD-JOURNAL (A1) — at WHICHEVER exit you take below (pass / reopen / blocked / fail), record this gate's verdict:${gateVerdictJournal(frd, reviewIds, attemptNo)}
 
   **THE GATE IS SPLIT (DR-072) — this is what makes the build converge instead of churning. Two categories with DIFFERENT consequences:**
@@ -1012,9 +1197,9 @@ async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom) {
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
 
   ${WHOLE_FRD_ORACLE}
-
+${evidenceBlock(frd, ev)}
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
-  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean.${PREVIEW_SMOKE(frd)}
+${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
 
@@ -1052,12 +1237,16 @@ const splitGateEstimatedCost = () => 4 * COST('sonnet') + Math.min(VERIFY_CAP, V
 // Normalized merge key so the same defect reported by two lenses dedups to one (DEDUP stage).
 const findingKey = (find) => `${String(find.file || '').trim().toLowerCase()}::${String(find.claim || '').trim().toLowerCase().replace(/\s+/g, ' ')}`
 
-async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom) {
+async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePack) {
+  // WP-06: the SAME validated pack feeds all four lenses and the closer — one collection, five readers. The
+  // finders are already forbidden to run verify.sh, so for them the pack is pure gain (they stop re-walking
+  // the tree for the diff and the AC). `ev` null ⇒ every stage runs in EXPLORE mode, unchanged.
+  const ev = evidenceOf(evidencePack)
   // ── FIND (parallel): 4 read-only finder lenses ── (C2: all run in the pinned worktree when workFrom is set)
   agentSpawned += 4 * COST('sonnet')   // weight every spawn (DR-070/DR-073) — the finders are the FIND stage's cost
   const finderResults = await parallel(FINDER_LENSES.map((L) => () =>
     agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find' })}FRD split-gate FIND stage — the ${L.key} lens for ${frd} (proposal 31 T1.2). You are ONE of four parallel read-only finders. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW), exercising them together with the rest of the feature. This FRD MAY have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation; do NOT re-review or change them.
-    Your lens: ${L.lens}
+    Your lens: ${L.lens}${evidenceBlock(frd, ev)}
     **READ-ONLY — findings ONLY:** do NOT write or modify tests, do NOT fix anything, do NOT run \`verify.sh\`, do NOT change any file or frontmatter. Just report. For each defect return { file (with a line if you can), claim (one sentence), severity ('correction' for a blocking defect in your lens; 'nit' for advisory polish), evidence (the concrete code/behavior you observed, so a skeptic can try to refute it) }. If your lens finds nothing, return { findings: [] }.`,
       { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA, workFrom }),
   ))
@@ -1113,7 +1302,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom) {
     : '(none — the finder sweep + adversarial verify surfaced no surviving blocking correction)'
   const nitList = nits.length ? nits.map((f) => `• ${f.file} — ${f.claim}`).join('\n  ') : '(none)'
   agentSpawned += COST(P.judge)   // the closer runs on the judge model — weight it honestly
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)} FRD review + integration gate for ${frd} — the CLOSE stage of the split gate (proposal 31 T1.2). A parallel finder sweep (4 diverse lenses) + per-finding adversarial verification ALREADY RAN — so you do NOT re-hunt findings from scratch; you act on the survivors below. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
+  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)}${evidenceFallbackOf(frd, evidencePack)} FRD review + integration gate for ${frd} — the CLOSE stage of the split gate (proposal 31 T1.2). A parallel finder sweep (4 diverse lenses) + per-finding adversarial verification ALREADY RAN — so you do NOT re-hunt findings from scratch; you act on the survivors below. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
  BUILD-JOURNAL (A1) — at WHICHEVER exit you take below (pass / reopen / blocked / fail), record this gate's verdict:${gateVerdictJournal(frd, reviewIds, attemptNo)}
 
   **SURVIVING BLOCKING CORRECTIONS (the finder sweep confirmed these — you must independently CONFIRM each one you act on; generator ≠ verifier, do not take the sweep's word):**
@@ -1127,9 +1316,9 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom) {
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
 
   ${WHOLE_FRD_ORACLE}
-
+${evidenceBlock(frd, ev)}
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
-  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green. It must pass clean.${PREVIEW_SMOKE(frd)}
+${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
 
@@ -2015,7 +2204,11 @@ function launchGate(frd) {
   const work = gateWorktreeChain.then(async () => {
     const ok = await ensureGateWorktree(pinSha)
     if (!ok) return { __worktreeFailed: true }
-    return await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha))
+    // WP-06: in digested mode, await the pack the wave close prelaunched (or collect it inline for a gate
+    // that never had a prelaunch, e.g. a resume gate). Null in explore mode → frdGate behaves exactly as
+    // it always has. A null/malformed pack degrades THIS gate to explore; the gate itself never skips.
+    const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)
+    return await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha), evidencePack)
   })
   gateWorktreeChain = work.then(() => {}, () => {})   // keep the worktree mutex chain alive across errors
   const tracked = work.then(
@@ -2060,7 +2253,7 @@ async function drainConverge() {
   }
 }
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
-if (gateQueue.length) await capturePin([...gateQueue])
+if (gateQueue.length) { await capturePin([...gateQueue]); for (const frd of gateQueue) launchEvidence(frd) }   // WP-06: no-op unless gateEvidence:'digested'
 
 // WP-11: counts safe-point CHECKPOINTS this run (every wantSafePoint boundary, whether that's an
 // upcoming wave or an idle/gate-settle sweep) — the throttle for a targeted run below. Declared outside
@@ -2291,7 +2484,13 @@ while (true) {
   // skipped when this wave's last landed commit sha is already known and trustworthy (no repair ran).
   const newlyGateReady = []
   for (const frd of waveFrds) if (enqueueGateIfComplete(frd)) newlyGateReady.push(frd)
-  if (newlyGateReady.length) await capturePin(newlyGateReady, waveRepairRan ? null : lastCommitSha)
+  if (newlyGateReady.length) {
+    await capturePin(newlyGateReady, waveRepairRan ? null : lastCommitSha)
+    // WP-06: the wave is closed and pinned — THE first moment the evidence can honestly describe the work
+    // under review. Fire the collectors as background promises so they occupy the gate worktree while the
+    // loop runs its safe point and dispatches the next wave (no-op unless gateEvidence:'digested').
+    for (const frd of newlyGateReady) launchEvidence(frd)
+  }
   } catch (loopErr) {
     // WS-D/D2: any throw inside the scheduler loop must NOT die with running:true left in status.yaml (Mission
     // Control would show a phantom running build forever). Log LOUD, guarantee running:false via a dedicated

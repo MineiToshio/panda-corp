@@ -115,6 +115,10 @@
     "ui.pass-skipped": {
       "display": "UiPassSkipped",
       "aliases": ["UiPassSkipped", "ui_pass_skipped", "ui-pass-skipped"]
+    },
+    "gate.evidence-fallback": {
+      "display": "GateEvidenceFallback",
+      "aliases": ["GateEvidenceFallback", "gate_evidence_fallback", "gate-evidence-fallback"]
     }
   }
 }
