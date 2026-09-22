@@ -12,7 +12,7 @@
 // Plain node, no framework — mirrors plugin/scripts/test-build-run-id.mjs's `ok()` idiom.
 
 import { execFile } from 'node:child_process'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
@@ -134,6 +134,100 @@ const run = async (args) => {
   const summary = JSON.parse(stdout.trim())
   ok(summary.models['claude-sonnet-5-20260901'].cost_usd === 2, 'the dated id prices via its family (claude-sonnet-5 = $2/MTok in) after stripping the date suffix')
   ok(summary.unpriced_models.length === 0, 'a dated snapshot of a known family is never reported as unpriced')
+  await rm(dir, { recursive: true })
+}
+
+// WP-09: per-agent join against the Workflow's own state file (`<session>/workflows/wf_<runId>.json`),
+// reached by walking up from `--dir` (`<session>/subagents/workflows/wf_<runId>`) — verified live
+// 2026-09-21 against the real wf_ddcc95c6-1d7 run. Also proves the cache-creation cost ESTIMATE (1.25x
+// input, never folded into cost_usd_total).
+
+// (g) 3 agents WITH a wf_*.json reachable via the default derived path (no --wf-json override): labels/
+// phase join correctly, concurrency_max counts a real overlap (B and C) but not a mere touching boundary
+// (A ends exactly when B starts), wall_clock_s spans first start to last end, by_phase aggregates.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-agents-'))
+  const sessionDir = path.join(root, 'session-g')
+  const runDir = path.join(sessionDir, 'subagents', 'workflows', 'wf_test1')
+  await mkdir(runDir, { recursive: true })
+  await mkdir(path.join(sessionDir, 'workflows'), { recursive: true })
+
+  await writeFile(path.join(runDir, 'agent-aaa.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  await writeFile(path.join(runDir, 'agent-bbb.jsonl'), assistantLine('claude-opus-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  await writeFile(path.join(runDir, 'agent-ccc.jsonl'), assistantLine('claude-opus-5', { input_tokens: 2000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+
+  const wfAgent = (agentId, label, phaseTitle, startedAt, durationMs, model) => ({
+    type: 'workflow_agent', index: 1, label, phaseIndex: 1, phaseTitle, agentId,
+    agentType: 'pandacorp:implementer', model, state: 'done', startedAt, queuedAt: startedAt, durationMs, toolCalls: 3,
+  })
+  const wfJson = {
+    runId: 'wf_test1',
+    workflowProgress: [
+      { type: 'workflow_phase', index: 1, title: 'Baseline' },
+      wfAgent('aaa', 'baseline', 'Baseline', 1000, 5000, 'claude-sonnet-5'),
+      wfAgent('bbb', 'build:WO-1', 'Build', 6000, 4000, 'claude-opus-5'),   // touches aaa's end (6000) — not concurrent
+      wfAgent('ccc', 'build:WO-2', 'Build', 7000, 2000, 'claude-opus-5'),   // overlaps bbb: [7000,9000) inside [6000,10000)
+    ],
+  }
+  await writeFile(path.join(sessionDir, 'workflows', 'wf_test1.json'), JSON.stringify(wfJson))
+
+  const { code, stdout } = await run(['--dir', runDir])
+  ok(code === 0, 'a run dir with a joinable wf json exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(Array.isArray(summary.agents) && summary.agents.length === 3, 'agents array has one row per joined agentId')
+  const byId = Object.fromEntries(summary.agents.map((a) => [a.agentId, a]))
+  ok(byId.aaa.label === 'baseline' && byId.aaa.phase === 'Baseline', 'label and phase come from the wf json join')
+  ok(byId.ccc.cost_usd === 10 && byId.bbb.cost_usd === 5 && byId.aaa.cost_usd === 2, 'per-agent cost is derived from ITS OWN transcript usage, not split evenly')
+  ok(summary.agents[0].agentId === 'ccc', 'agents are sorted by cost_usd desc (ccc=$10 first)')
+  ok(summary.concurrency_max === 2, 'concurrency_max counts the real bbb/ccc overlap, not the aaa/bbb touching boundary')
+  ok(summary.wall_clock_s === 9, 'wall_clock_s spans first startedAt (1000) to last end (10000)')
+  ok(summary.agents_duration_sum_s === 11, 'agents_duration_sum_s sums each agent duration independent of overlap (5+4+2)')
+  ok(summary.by_phase.Baseline.cost_usd === 2 && summary.by_phase.Baseline.duration_s === 5, 'by_phase aggregates the Baseline phase')
+  ok(summary.by_phase.Build.cost_usd === 15 && summary.by_phase.Build.duration_s === 6, 'by_phase aggregates the Build phase across bbb+ccc')
+  ok(summary.agents_join === undefined, 'no agents_join explanation is added on a successful join')
+  await rm(root, { recursive: true })
+}
+
+// (h) No wf_*.json anywhere reachable → agents: null + an explicit agents_join reason (DR-078: never a
+// silent empty array), while the rest of the summary (calls_total, models, cost_usd_total) is untouched.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-nowf-'))
+  await writeFile(path.join(dir, 'agent-zzz.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const { code, stdout } = await run(['--dir', dir])
+  ok(code === 0, 'a missing wf json does not fail the whole rollup')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.agents === null, 'agents is explicit null, never a silently empty array, when no wf json is reachable')
+  ok(typeof summary.agents_join === 'string' && /missing wf json/.test(summary.agents_join), 'agents_join names the path that was tried')
+  ok(summary.calls_total === 1 && summary.cost_usd_total > 0, 'the rest of the summary is computed exactly as without the join')
+  await rm(dir, { recursive: true })
+}
+
+// (i) A wf_*.json that EXISTS but is corrupt must fail LOUD (DR-078) — never silently drop the join.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-badwf-'))
+  const dir = path.join(root, 'run')
+  await mkdir(dir, { recursive: true })
+  await writeFile(path.join(dir, 'agent-www.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const wfPath = path.join(root, 'wf_bad.json')
+  await writeFile(wfPath, '{ this is not valid JSON')
+  const { code, stdout, stderr } = await run(['--dir', dir, '--wf-json', wfPath])
+  ok(code !== 0, 'a corrupt wf json fails the whole rollup loudly')
+  ok(stdout.trim() === '', 'no summary line is printed when the wf json is unreadable')
+  ok(/ERROR/.test(stderr), 'the failure is visible on stderr')
+  await rm(root, { recursive: true })
+}
+
+// (j) cache_creation_cost_usd_estimated is computed at 1.25x the model's input rate, labeled as an
+// estimate, and NEVER folded into cost_usd_total (that field keeps its existing, non-estimated meaning).
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-cachecost-'))
+  await writeFile(path.join(dir, 'agent-kkk.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1000000 }) + '\n')
+  const { code, stdout } = await run(['--dir', dir, '--wf-json', '/nonexistent/wf.json'])
+  ok(code === 0, 'a cache-creation-only line does not fail the rollup')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.cost_usd_total === 0, 'cache_creation_input_tokens still contributes nothing to cost_usd_total (back-compat)')
+  ok(summary.cache_creation_cost_usd_estimated === 2.5, 'the estimate is 1.25x the $2/MTok sonnet-5 input rate over 1M cache-creation tokens')
+  ok(summary.cache_creation_pricing === 'estimated 1.25x input; not verified', 'the estimate is labeled literally as unverified')
   await rm(dir, { recursive: true })
 }
 

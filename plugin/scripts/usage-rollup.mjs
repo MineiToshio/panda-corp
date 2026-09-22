@@ -39,6 +39,26 @@
 // DR-078: never silently return an empty/zero rollup for a shape this reader cannot parse). A trailing
 // incomplete last line (an in-flight streaming write — a real, expected shape while a subagent is still
 // writing) is tolerated: it is counted in `skipped_incomplete_lines`, never thrown.
+//
+// WP-09 addition: joins the per-model rollup against the Workflow's OWN state file — the object the
+// live supervisor already maintains at `<session-dir>/workflows/wf_<runId>.json` (NOT the transcript
+// dir), which carries per-agent `label`/`phaseTitle`/`startedAt`/`durationMs`/`agentType`/`model` in its
+// `workflowProgress[]` (`type: "workflow_agent"` entries, verified live 2026-09-21 against the real
+// wf_ddcc95c6-1d7 run — the same run this script cites in its own decision log). The rollup does not
+// know which agentId was `gate:<frd>` or `visual-qa` on its own; this join is what answers that. The
+// default location is derived by walking UP from `--dir` (`<session>/subagents/workflows/wf_<runId>` →
+// `<session>/workflows/wf_<runId>.json`); `--wf-json <path>` or `PANDACORP_WF_JSON` override it for a
+// run whose transcript dir moved or whose caller already knows the exact path.
+//
+// A MISSING wf json is a real, expected shape (an older run, or one launched outside the Workflow
+// supervisor) — tolerated as `agents: null` + an explicit `agents_join` reason, never a silent `[]`
+// (DR-078). A wf json that EXISTS but fails to parse, or lacks the `workflowProgress` array this join
+// depends on, is a genuinely corrupted/foreign artifact — fails loud, same discipline as a corrupted
+// transcript line.
+//
+// `cache_creation_cost_usd_estimated` is a SEPARATE, clearly-labeled estimate (1.25x each model's
+// verified INPUT rate — cache-write pricing itself is not in the audited table, so this is not treated
+// as a verified number) and is never folded into `cost_usd_total`, which keeps its existing meaning.
 
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
@@ -68,6 +88,7 @@ function parseArgs(argv) {
   const out = {}
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dir') out.dir = argv[++i]
+    else if (argv[i] === '--wf-json') out.wfJson = argv[++i]
   }
   return out
 }
@@ -77,8 +98,95 @@ function fail(message) {
   process.exit(1)
 }
 
+// `agent-<agentId>.jsonl` → `<agentId>` (the same id the Workflow's `workflowProgress[].agentId` uses).
+function agentIdFromFilename(name) {
+  return name.replace(/^agent-/, '').replace(/\.jsonl$/, '')
+}
+
+// `<session>/subagents/workflows/wf_<runId>` → `<session>/workflows/wf_<runId>.json` (verified live
+// 2026-09-21 against the real wf_ddcc95c6-1d7 run's on-disk layout).
+function defaultWfJsonPath(runDir) {
+  const sessionDir = path.dirname(path.dirname(path.dirname(runDir)))
+  return path.join(sessionDir, 'workflows', `${path.basename(runDir)}.json`)
+}
+
+function emptyBucket() {
+  return { calls: 0, input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+}
+
+function addUsage(bucket, usage) {
+  bucket.calls++
+  bucket.input_tokens += usage.input_tokens || 0
+  bucket.output_tokens += usage.output_tokens || 0
+  bucket.cache_creation_input_tokens += usage.cache_creation_input_tokens || 0
+  bucket.cache_read_input_tokens += usage.cache_read_input_tokens || 0
+}
+
+// Collapses one agent's per-model buckets (almost always exactly one model) into the row `agents[]`
+// wants: totals across every model it called, a `cost_usd` that is null (never invented) if ANY of its
+// models is unpriced, and the `model` it called the MOST — the one that actually explains its cost.
+function summarizeAgentUsage(agentModels) {
+  const totals = emptyBucket()
+  let costUsd = 0
+  let allPriced = true
+  let dominantModel = null
+  let dominantCalls = -1
+  for (const [model, bucket] of Object.entries(agentModels)) {
+    totals.calls += bucket.calls
+    totals.input_tokens += bucket.input_tokens
+    totals.output_tokens += bucket.output_tokens
+    totals.cache_creation_input_tokens += bucket.cache_creation_input_tokens
+    totals.cache_read_input_tokens += bucket.cache_read_input_tokens
+    if (bucket.calls > dominantCalls) { dominantCalls = bucket.calls; dominantModel = model }
+    const price = priceFor(model)
+    if (!price) { allPriced = false; continue }
+    costUsd += (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
+  }
+  return { ...totals, model: dominantModel, cost_usd: allPriced ? round(costUsd) : null }
+}
+
+// Sweep-line max overlap of [startedAt, startedAt + durationMs) intervals. Ends are processed BEFORE
+// starts at an identical timestamp so two agents that merely touch (one ends exactly when the next
+// starts) are never counted as concurrent.
+function computeConcurrencyMax(rows) {
+  const events = []
+  for (const r of rows) { events.push([r.startedAt, 1]); events.push([r.startedAt + r.durationMs, -1]) }
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  let current = 0
+  let max = 0
+  for (const [, delta] of events) { current += delta; if (current > max) max = current }
+  return max
+}
+
+// Reads the Workflow's own state file and returns its `workflow_agent` entries keyed by `agentId`.
+// A MISSING file is a real, tolerated shape (`{ missing: true }`, DR-078 — never a silent empty join).
+// An EXISTING but unparsable file, or one missing the `workflowProgress` array this join depends on, is
+// a corrupted/foreign artifact and fails loud — same discipline as a corrupted transcript line.
+function loadWorkflowAgents(wfJsonPath) {
+  let raw
+  try {
+    raw = readFileSync(wfJsonPath, 'utf8')
+  } catch {
+    return { missing: true }
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(raw)
+  } catch (error) {
+    throw new Error(`malformed workflow json at ${wfJsonPath}: ${error.message}`)
+  }
+  if (!parsed || !Array.isArray(parsed.workflowProgress)) {
+    throw new Error(`malformed workflow json at ${wfJsonPath}: missing workflowProgress array`)
+  }
+  const byAgentId = new Map()
+  for (const entry of parsed.workflowProgress) {
+    if (entry && entry.type === 'workflow_agent' && entry.agentId) byAgentId.set(entry.agentId, entry)
+  }
+  return { missing: false, byAgentId }
+}
+
 function main() {
-  const { dir } = parseArgs(process.argv.slice(2))
+  const { dir, wfJson } = parseArgs(process.argv.slice(2))
   if (!dir) return fail('missing required --dir <transcript-run-dir>')
 
   let stat
@@ -92,10 +200,12 @@ function main() {
     .sort()
 
   const models = {}
+  const agentUsage = {}   // agentId → { model → bucket } — almost always a single model per agent
   let skippedIncompleteLines = 0
   let callsTotal = 0
 
   for (const name of files) {
+    const agentId = agentIdFromFilename(name)
     const filePath = path.join(dir, name)
     const raw = readFileSync(filePath, 'utf8')
     const lines = raw.split('\n')
@@ -116,23 +226,74 @@ function main() {
       const model = message && message.model
       if (!usage || !model) return
       callsTotal++
-      const bucket = models[model] || (models[model] = { calls: 0, input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 })
-      bucket.calls++
-      bucket.input_tokens += usage.input_tokens || 0
-      bucket.output_tokens += usage.output_tokens || 0
-      bucket.cache_creation_input_tokens += usage.cache_creation_input_tokens || 0
-      bucket.cache_read_input_tokens += usage.cache_read_input_tokens || 0
+      addUsage(models[model] || (models[model] = emptyBucket()), usage)
+      const agentModels = agentUsage[agentId] || (agentUsage[agentId] = {})
+      addUsage(agentModels[model] || (agentModels[model] = emptyBucket()), usage)
     })
   }
 
   const unpricedModels = []
   let costUsdTotal = 0
+  let cacheCreationCostUsdEstimated = 0
   for (const [model, bucket] of Object.entries(models)) {
     const price = priceFor(model)
     if (!price) { unpricedModels.push(model); bucket.cost_usd = null; continue }
     const cost = (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
     bucket.cost_usd = round(cost)
     costUsdTotal += cost
+    // 1.25x the model's own VERIFIED input rate — there is no verified cache-WRITE rate in the audited
+    // table, so this stays a clearly-labeled estimate and is deliberately excluded from cost_usd_total.
+    cacheCreationCostUsdEstimated += (bucket.cache_creation_input_tokens * price.in * 1.25) / 1e6
+  }
+
+  const wfJsonPath = wfJson || process.env.PANDACORP_WF_JSON || defaultWfJsonPath(dir)
+  const wf = loadWorkflowAgents(wfJsonPath)
+
+  let agents = null
+  let agentsJoin
+  let wallClockS = null
+  let agentsDurationSumS = null
+  let concurrencyMax = null
+  let byPhase = null
+
+  if (wf.missing) {
+    agentsJoin = `missing wf json at ${wfJsonPath}`
+  } else {
+    const rows = []
+    for (const [agentId, agentModels] of Object.entries(agentUsage)) {
+      const wfEntry = wf.byAgentId.get(agentId)
+      if (!wfEntry) continue   // a transcript with no matching workflow_agent entry — not part of the joinable set
+      const usage = summarizeAgentUsage(agentModels)
+      rows.push({
+        agentId,
+        label: wfEntry.label,
+        phase: wfEntry.phaseTitle,
+        agentType: wfEntry.agentType,
+        model: usage.model,
+        startedAt: wfEntry.startedAt,
+        durationMs: wfEntry.durationMs,
+        calls: usage.calls,
+        input_tokens: usage.input_tokens,
+        output_tokens: usage.output_tokens,
+        cache_read_input_tokens: usage.cache_read_input_tokens,
+        cache_creation_input_tokens: usage.cache_creation_input_tokens,
+        cost_usd: usage.cost_usd,
+      })
+    }
+    rows.sort((a, b) => (b.cost_usd ?? -1) - (a.cost_usd ?? -1))
+    agents = rows
+    agentsDurationSumS = round(rows.reduce((sum, r) => sum + r.durationMs, 0) / 1000)
+    concurrencyMax = computeConcurrencyMax(rows)
+    wallClockS = rows.length
+      ? round((Math.max(...rows.map((r) => r.startedAt + r.durationMs)) - Math.min(...rows.map((r) => r.startedAt))) / 1000)
+      : 0
+    byPhase = {}
+    for (const r of rows) {
+      const b = byPhase[r.phase] || (byPhase[r.phase] = { cost_usd: 0, duration_s: 0, calls: 0 })
+      b.cost_usd = round(b.cost_usd + (r.cost_usd || 0))
+      b.duration_s = round(b.duration_s + r.durationMs / 1000)
+      b.calls += r.calls
+    }
   }
 
   const summary = {
@@ -145,7 +306,15 @@ function main() {
     cost_excludes: ['cache_creation_input_tokens'],
     unpriced_models: unpricedModels.sort(),
     skipped_incomplete_lines: skippedIncompleteLines,
+    cache_creation_cost_usd_estimated: round(cacheCreationCostUsdEstimated),
+    cache_creation_pricing: 'estimated 1.25x input; not verified',
+    agents,
+    wall_clock_s: wallClockS,
+    agents_duration_sum_s: agentsDurationSumS,
+    concurrency_max: concurrencyMax,
+    by_phase: byPhase,
   }
+  if (agentsJoin) summary.agents_join = agentsJoin
 
   process.stdout.write(JSON.stringify(summary) + '\n')
 }
