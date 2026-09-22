@@ -15,6 +15,9 @@
 #     advisory, not eligible for greenfield fail-closed]
 #   - status.yaml keys not declared by the canonical template  [SOFT — DR-115 schema drift: a fact
 #     with a writer but no schema home, the `last_harvest` class]
+#   - a change-queue card stuck in `status: closing` for more than 48h  [FAIL-LOUD ON EVERY PROJECT,
+#     unlike every other finding above: a build-safety check for /pandacorp:sync's close-out mode
+#     (proposal 37 §A.6), not doc-spine completeness; see the dedicated block below]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
 # `created_via: scaffold`) is expected to carry a COMPLETE doc spine from birth, so the HARD-ELIGIBLE
 # findings above become fail-closed for it — a missing frontmatter key is a real defect, not drift to
@@ -46,6 +49,58 @@ if [ "$GREENFIELD" != 1 ]; then trap 'exit 0' EXIT; fi
 
 VERBOSE=0
 if [ "${1:-}" = "-v" ] || [ "${1:-}" = "--verbose" ]; then VERBOSE=1; fi
+
+# --- Stale `closing` change-card guard (F3 close-out mode, proposal 37 §A.6) --------------------
+# /pandacorp:sync's close-out mode stamps a queue card `status: closing` + `closing_at` the instant
+# it starts batch-closing an already-implemented change, so an interrupted close-out (the session
+# died mid-commit) stays VISIBLE instead of silently vanishing. A card stuck in `closing` past 48h
+# means the close-out never finished: code may be committed with NO matching docs, or the card may
+# be lying about its own state. This is a BUILD-SAFETY check, not doc-spine completeness, so unlike
+# every other finding in this script it is FAIL-LOUD ON EVERY PROJECT regardless of `created_via`;
+# a stuck `closing` card is exactly as dangerous on a brownfield/adopted project as on a greenfield
+# one. It runs BEFORE the `[ -d docs ]` early-exit below (a project can have a change queue with no
+# docs/ yet) and, on a hit, clears the brownfield-forgiving EXIT trap set above so the gate actually
+# reds instead of being silently forced back to 0.
+closing_frontmatter() { awk '/^---[[:space:]]*$/{c++; next} c==1{print} c>=2{exit}' "$1"; }
+closing_stale=0
+closing_findings=""
+if [ -d .pandacorp/inbox/changes ]; then
+  now_epoch=$(date -u +%s 2>/dev/null || echo 0)
+  for card in .pandacorp/inbox/changes/*.md; do
+    [ -f "$card" ] || continue
+    status=$(closing_frontmatter "$card" | grep -E '^status:' | head -1 | sed -E 's/^status:[[:space:]]*"?([a-zA-Z]*)"?.*/\1/' || true)
+    [ "$status" = "closing" ] || continue
+    closing_at=$(closing_frontmatter "$card" | grep -E '^closing_at:' | head -1 | sed -E 's/^closing_at:[[:space:]]*"?([^"[:space:]]*)"?.*/\1/' || true)
+    if [ -z "$closing_at" ]; then
+      closing_stale=$((closing_stale + 1))
+      closing_findings="${closing_findings}  • $card is status: closing with no closing_at timestamp -- cannot prove it is recent, treated as stale"$'\n'
+      continue
+    fi
+    # macOS `date -j` first (this factory's own dev machines), GNU `date -d` as the fallback.
+    closing_epoch=$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "$closing_at" +%s 2>/dev/null || date -u -d "$closing_at" +%s 2>/dev/null || echo 0)
+    if [ "$closing_epoch" -le 0 ]; then
+      closing_stale=$((closing_stale + 1))
+      closing_findings="${closing_findings}  • $card has an unparseable closing_at ('$closing_at') -- treated as stale"$'\n'
+      continue
+    fi
+    age_hours=$(( (now_epoch - closing_epoch) / 3600 ))
+    if [ "$age_hours" -ge 48 ]; then
+      closing_stale=$((closing_stale + 1))
+      closing_findings="${closing_findings}  • $card has been status: closing for ${age_hours}h (> 48h) -- /pandacorp:sync close-out was interrupted; resume it or finish its artifacts by hand"$'\n'
+    fi
+  done
+fi
+if [ "$closing_stale" -gt 0 ]; then
+  trap - EXIT   # this finding blocks on EVERY project; never let the brownfield-forgiving trap eat it
+  echo "════════════════════════════════════════════════════════════════════════"
+  echo "✗ DOC-LINT: $closing_stale change-card(s) stuck in status: closing past 48h (proposal 37 §A.6)."
+  printf '%s' "$closing_findings"
+  echo "    This BLOCKS on every project regardless of created_via: it is a build-safety check, not"
+  echo "    doc-spine advisory. Resume the interrupted /pandacorp:sync close-out, or finish its"
+  echo "    artifacts by hand and move the card to done/."
+  echo "════════════════════════════════════════════════════════════════════════"
+  exit 1
+fi
 
 [ -d docs ] || exit 0
 
