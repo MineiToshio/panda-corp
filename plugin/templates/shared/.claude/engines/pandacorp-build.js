@@ -487,6 +487,15 @@ let mechUnavailable = false   // sticky once 'pandacorp:mech' itself 404s once �
 let mechFallbackLogged = false   // the explanatory log fires ONCE this run, not once per call site
 const AGENT_TYPE_NOT_FOUND_RE = /agent type '([^']+)' not found/
 const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
+// REV3-H / D1 (DR-015): these types are INDEPENDENT ORACLES — their whole contract is judging work
+// someone else built (the reviewer edits test files only, never production code; the security-auditor
+// and test-writer never touch app code either). The generic BL-0141 degradation exists so a builder
+// role can fall back to the plugin's stock implementer, but an oracle has no honest substitute: silently
+// re-spawning a missing reviewer AS pandacorp:implementer would let the builder judge its own work and
+// still promote it to VERIFIED. So an oracle-typed call with no call-site-declared `fallbackAgentType`
+// re-throws instead of retrying — a missing judge FAILS the gate, it is never impersonated.
+const ORACLE_TYPES = new Set(['pandacorp:reviewer', 'pandacorp:security-auditor', 'pandacorp:test-writer'])
+let oracleNoFallbackLogged = false   // the explanatory log fires ONCE this run, not once per call site
 agent = async (prompt, opts = {}) => {
   // C2: a per-call `workFrom` override lets the CONCURRENT gate run from the pinned gate worktree instead
   // of the project root (default). undefined → the legacy WORK_FROM (cd PROJECT_DIR). '' → no preamble.
@@ -509,6 +518,15 @@ agent = async (prompt, opts = {}) => {
     // Only ever retry the SPECIFIC "unknown agentType" rejection of the type THIS call itself requested —
     // a generic/unrelated failure (timeout, malformed response, a tool error) is never treated as retryable.
     if (!match || match[1] !== requestedType) throw e
+    // D1 (DR-015): an oracle type with no explicit fallback declared at the call site never degrades
+    // into the default builder fallback — re-throw the original not-found so the gate fails honestly.
+    if (ORACLE_TYPES.has(requestedType) && !rest.fallbackAgentType) {
+      if (!oracleNoFallbackLogged) {
+        oracleNoFallbackLogged = true
+        log(`agentType '${requestedType}' no disponible en este runtime — es un tipo oráculo sin fallback explícito, así que el gate falla en vez de degradar el juez (DR-015).`)
+      }
+      throw e
+    }
     const fallback = rest.fallbackAgentType || DEFAULT_AGENT_FALLBACK
     if (fallback === requestedType) throw e   // no distinct fallback to retry with
     if (requestedType === 'pandacorp:mech') {
@@ -523,8 +541,12 @@ agent = async (prompt, opts = {}) => {
     const retryPrompt = requestedType === 'pandacorp:mech' && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
     try {
       return await __rawAgent(retryPrompt, { ...rest, agentType: fallback })
-    } catch {
-      throw e   // the fallback ALSO failed — never a second retry; surface the ORIGINAL not-found error
+    } catch (e2) {
+      // D5 (error-handling.md: never swallow an error): the fallback's own failure reason must not be
+      // discarded — log it so an operator can tell WHY the rescue failed, then still surface the
+      // ORIGINAL not-found error (never a second retry, never masking the root cause with e2).
+      log(`⚠ fallback ${fallback} also failed: ${e2 && e2.message ? e2.message : e2}`)
+      throw e
     }
   }
 }

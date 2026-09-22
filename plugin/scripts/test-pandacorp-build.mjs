@@ -3561,15 +3561,13 @@ SCENARIOS.push({
     const gateCalls = byLabel(run, /^gate:/)
     const degraded = gateCalls.filter((c) => c.opts.agentType === 'pandacorp:implementer')
     t.ok(gateCalls.length >= 1, 'the per-FRD gate was reached at all')
-    t.xfail(
+    t.ok(
       degraded.length === 0,
       `the FRD gate was re-spawned as pandacorp:implementer after the reviewer agentType 404 (${degraded.length} degraded spawn(s)) — the judge became the builder`,
-      'REV3 defect D1, DR-015',
     )
-    t.xfail(
+    t.ok(
       !(run.result && run.result.note === 'all verified') || degraded.length === 0,
       'the run still reported a normal verdict while its independent oracle had been substituted',
-      'REV3 defect D1, DR-015',
     )
     // What IS already true and must stay true: the substitution is at least audible in the log.
     t.ok(
@@ -3594,10 +3592,9 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(Boolean(run.error), 'the engine throws')
     t.ok(run.error && /pandacorp:mech' not found/.test(run.error.message), 'the ORIGINAL not-found error is what propagates (intended)')
-    t.xfail(
+    t.ok(
       run.logs.some((l) => /EPIPE/.test(l)) || (run.error && /EPIPE/.test(String(run.error.message) + String(run.error.cause || ''))),
-      "the fallback's own failure reason (EPIPE) is discarded by the wrapper's bare `catch { throw e }` — nothing logs or chains it",
-      'REV3 defect D5, error-handling.md',
+      "the fallback's own failure reason (EPIPE) is surfaced (logged), never silently discarded",
     )
   },
 })
