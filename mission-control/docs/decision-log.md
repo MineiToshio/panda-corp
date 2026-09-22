@@ -1,5 +1,28 @@
 # Decision Log — Mission Control
 
+## 2026-09-22 — Pandacorp overlay upgraded 8.82.0 → 8.82.1 (plugin 9.104.2, gate-worktree bootstrap fix)
+
+Propagated plugin 9.104.2 (factory `main`, commit `7e26de6f`, fast-forward of `close-9.104.2`) by hand,
+same resync pattern as the prior entry below. Only two template files changed since 8.82.0, both
+re-synced and confirmed byte-identical via `cmp` against the canonical source immediately after copying:
+- `.claude/engines/pandacorp-build.js` — `ensureGateWorktree` now bootstraps the pinned gate worktree with
+  `.pandacorp/worktree-bootstrap.sh` on both the create and reuse path (BL-0149) and memoizes its in-flight
+  spawn per `sha` so the evidence collector and the C2 probe can no longer race into two spawns for the
+  same FRD (BL-0150); `collectGateEvidence`/`validateEvidence` gained the sanity gate and `report_suspect`
+  fallback described in BL-0149.
+- `.pandacorp/worktree-bootstrap.sh` — step 1 (dependencies) gained an idempotency guard
+  (`node_modules/.pandacorp-lock-sha`) so a bootstrap re-run with an unchanged lockfile skips `pnpm
+  install`, needed now that the gate-worktree reuse path runs this script on every reuse.
+
+**Why:** Mission Control is itself a build target under this engine (FRD-25's Canary A/B/C series ran
+against it); staying on the pre-fix engine would keep letting `gateEvidence: 'digested'` runs pay the
+same contaminated-evidence cost BL-0149's own investigation found. No project doc/behavior change — pure
+machinery resync, per `AGENTS.md`'s "Other runtimes" / overlay-upgrade discipline.
+
+**Impact:** `.claude/engines/pandacorp-build.js`, `.pandacorp/worktree-bootstrap.sh` (both byte-identical
+to `plugin/templates/shared/` post-copy), `.pandacorp/status.yaml` (`overlay_version` 8.82.0 → 8.82.1).
+Gate: `bash .pandacorp/verify.sh --since 9dcd0936` (machinery-only change, not product code).
+
 ## 2026-09-22 — Pandacorp overlay upgraded 8.81.0 → 8.82.0 (plugin 9.104.0, speed sprint second batch)
 
 Propagated plugin 9.104.0 (factory `main`, merge commit landing F2-F5, quick wins, fix1/BL-0141, the

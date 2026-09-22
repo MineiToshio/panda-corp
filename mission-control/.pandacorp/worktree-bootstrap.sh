@@ -17,22 +17,30 @@ SLUG="$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-')"
 echo "▸ bootstrapping worktree $BRANCH"
 
 # ── 1. Dependencies — hardlink from the shared store (never symlink node_modules; .next stays local) ─
+# Idempotent (BL-0149): a re-run of this script (e.g. the gate worktree re-bootstraps on every reuse,
+# ensureGateWorktree) must not pay a full reinstall when node_modules is already present and
+# pnpm-lock.yaml hasn't moved since the last bootstrap in THIS worktree — skip via a lockfile-hash
+# marker stored INSIDE node_modules (so a deleted node_modules always re-triggers a real install).
 if [ -f package.json ] && command -v pnpm >/dev/null 2>&1; then
-  echo "  • pnpm install (hardlinks from the global store)"
-  pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install
+  LOCK_MARKER="node_modules/.pandacorp-lock-sha"
+  LOCK_SHA=""
+  [ -f pnpm-lock.yaml ] && LOCK_SHA="$(shasum -a 256 pnpm-lock.yaml 2>/dev/null | awk '{print $1}')"
+  if [ -d node_modules ] && [ -n "$LOCK_SHA" ] && [ -f "$LOCK_MARKER" ] && [ "$(cat "$LOCK_MARKER" 2>/dev/null)" = "$LOCK_SHA" ]; then
+    echo "  • pnpm install skipped (node_modules present, pnpm-lock.yaml unchanged)"
+  else
+    echo "  • pnpm install (hardlinks from the global store)"
+    pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install
+    [ -n "$LOCK_SHA" ] && mkdir -p node_modules && echo "$LOCK_SHA" > "$LOCK_MARKER"
+  fi
 fi
 
 # ── 2. launch.json on autoPort — gitignored, so copy the main one and flip ephemeral ports ──────────
 # Every app server in the worktree runs on an OS-assigned port (autoPort), named *-<slug>, so N parallel
 # worktrees never collide on a fixed port. The main checkout keeps its reserved ports untouched.
-# CRUCIAL: also RETARGET the absolute paths in runtimeArgs (the value after `-C`/`--directory`) that point
-# into the MAIN checkout ($MAIN_WT/...) so servers serve the WORKTREE's own copy — otherwise `next dev` /
-# `http.server` silently serve the main repo's code/content, missing whatever this session is editing.
-# Out-of-repo paths (a /tmp scratchpad, etc.) are NOT under $MAIN_WT and are left untouched.
 if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
-  echo "  • launch.json → autoPort (name suffix -$SLUG) + retarget paths to worktree"
+  echo "  • launch.json → autoPort (name suffix -$SLUG)"
   mkdir -p "$WORKTREE/.claude"
-  jq --arg s "$SLUG" --arg m "$MAIN_WT" --arg w "$WORKTREE" '
+  jq --arg s "$SLUG" '
     # drop a "--port"/"-p" flag AND the value token right after it
     def strip_port:
       . as $a
@@ -40,14 +48,11 @@ if [ -f "$MAIN_WT/.claude/launch.json" ] && command -v jq >/dev/null 2>&1; then
           | select(($a[$i] != "--port") and ($a[$i] != "-p")
                    and (($i == 0) or (($a[$i-1] != "--port") and ($a[$i-1] != "-p"))))
           | $a[$i] ];
-    # rewrite a path token that lives under the MAIN checkout to the same path under this worktree
-    def retarget:
-      if (type == "string") and startswith($m + "/") then $w + .[($m|length):] else . end;
     .configurations |= map(
       .name = "\(.name)-\($s)"
       | .autoPort = true                                   # OS assigns a free $PORT
       | del(.port)                                         # no fixed port field
-      | if .runtimeArgs then .runtimeArgs |= (map(retarget) | strip_port) else . end
+      | if .runtimeArgs then .runtimeArgs |= strip_port else . end
     )' "$MAIN_WT/.claude/launch.json" > "$WORKTREE/.claude/launch.json" 2>/dev/null \
     || cp "$MAIN_WT/.claude/launch.json" "$WORKTREE/.claude/launch.json"
 fi
