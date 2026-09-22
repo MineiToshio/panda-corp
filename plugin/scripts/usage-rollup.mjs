@@ -251,6 +251,7 @@ function main() {
 
   let agents = null
   let agentsJoin
+  let agentsUnjoined = null   // D-10: transcripts with COST but no matching workflowProgress row (DR-078: named, not dropped)
   let wallClockS = null
   let agentsDurationSumS = null
   let concurrencyMax = null
@@ -260,9 +261,10 @@ function main() {
     agentsJoin = `missing wf json at ${wfJsonPath}`
   } else {
     const rows = []
+    const unjoined = []   // D-10: a transcript with COST and no workflowProgress row must not vanish silently (DR-078)
     for (const [agentId, agentModels] of Object.entries(agentUsage)) {
       const wfEntry = wf.byAgentId.get(agentId)
-      if (!wfEntry) continue   // a transcript with no matching workflow_agent entry — not part of the joinable set
+      if (!wfEntry) { unjoined.push({ agentId, cost_usd: summarizeAgentUsage(agentModels).cost_usd }); continue }
       const usage = summarizeAgentUsage(agentModels)
       rows.push({
         agentId,
@@ -282,6 +284,10 @@ function main() {
     }
     rows.sort((a, b) => (b.cost_usd ?? -1) - (a.cost_usd ?? -1))
     agents = rows
+    if (unjoined.length) {
+      agentsUnjoined = unjoined
+      agentsJoin = `${unjoined.length} transcript(s) with cost but no matching workflowProgress row — see agents_unjoined`
+    }
     agentsDurationSumS = round(rows.reduce((sum, r) => sum + r.durationMs, 0) / 1000)
     concurrencyMax = computeConcurrencyMax(rows)
     wallClockS = rows.length
@@ -315,6 +321,7 @@ function main() {
     by_phase: byPhase,
   }
   if (agentsJoin) summary.agents_join = agentsJoin
+  if (agentsUnjoined) summary.agents_unjoined = agentsUnjoined   // D-10: named, not dropped (DR-078)
 
   process.stdout.write(JSON.stringify(summary) + '\n')
 }

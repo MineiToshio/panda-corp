@@ -217,6 +217,40 @@ const run = async (args) => {
   await rm(root, { recursive: true })
 }
 
+// (k) D-10: a transcript with COST but NO matching workflowProgress row must not silently vanish from
+// the join (DR-078) — it is named in a new `agents_unjoined` array (agentId + its own cost_usd) and
+// `agents_join` carries an explanatory note, while the JOINABLE agents still populate `agents` normally.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-unjoined-'))
+  const sessionDir = path.join(root, 'session-k')
+  const runDir = path.join(sessionDir, 'subagents', 'workflows', 'wf_test2')
+  await mkdir(runDir, { recursive: true })
+  await mkdir(path.join(sessionDir, 'workflows'), { recursive: true })
+
+  await writeFile(path.join(runDir, 'agent-aaa.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  // 'ghost' has a real transcript (real cost) but NO workflow_agent entry below — e.g. a supervisor
+  // crash/race that left the wf json's own state a step behind the transcript directory.
+  await writeFile(path.join(runDir, 'agent-ghost.jsonl'), assistantLine('claude-opus-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+
+  const wfJson = {
+    runId: 'wf_test2',
+    workflowProgress: [
+      { type: 'workflow_agent', index: 1, label: 'baseline', phaseIndex: 1, phaseTitle: 'Baseline', agentId: 'aaa', agentType: 'pandacorp:implementer', model: 'claude-sonnet-5', state: 'done', startedAt: 1000, queuedAt: 1000, durationMs: 5000, toolCalls: 3 },
+    ],
+  }
+  await writeFile(path.join(sessionDir, 'workflows', 'wf_test2.json'), JSON.stringify(wfJson))
+
+  const { code, stdout } = await run(['--dir', runDir])
+  ok(code === 0, 'an unjoined transcript does not fail the whole rollup')
+  const summary = JSON.parse(stdout.trim())
+  ok(Array.isArray(summary.agents) && summary.agents.length === 1 && summary.agents[0].agentId === 'aaa', 'the JOINABLE agent still populates agents normally')
+  ok(Array.isArray(summary.agents_unjoined) && summary.agents_unjoined.length === 1, 'the unjoinable transcript is named in agents_unjoined, not silently dropped')
+  ok(summary.agents_unjoined[0].agentId === 'ghost', 'agents_unjoined records the orphan transcript\'s agentId')
+  ok(summary.agents_unjoined[0].cost_usd === 5, 'agents_unjoined carries that transcript\'s OWN cost_usd (1M input tokens at the $5/MTok opus-5 rate)')
+  ok(typeof summary.agents_join === 'string' && /agents_unjoined/.test(summary.agents_join), 'agents_join notes that agents_unjoined has entries')
+  await rm(root, { recursive: true })
+}
+
 // (j) cache_creation_cost_usd_estimated is computed at 1.25x the model's input rate, labeled as an
 // estimate, and NEVER folded into cost_usd_total (that field keeps its existing, non-estimated meaning).
 {
