@@ -1,5 +1,28 @@
 # Decision Log — Mission Control
 
+## 2026-09-23 — Pandacorp overlay upgraded 8.82.1 → 8.82.2 (plugin 9.104.4, nested-project bootstrap fix)
+
+Propagated plugin 9.104.4 (factory `main`, `fix-nested-bootstrap` branch, BL-0155/BL-0156), same resync
+pattern as the prior entry below. Only one template file changed since 8.82.1, re-synced and confirmed
+byte-identical via `cmp` against the canonical source immediately after copying:
+- `.pandacorp/worktree-bootstrap.sh` — step 1 (dependency install) used to check bare `package.json`
+  (correct only when the project IS the worktree root). Mission Control lives NESTED inside the
+  factory's own repo, so that file never existed at the worktree root and step 1 silently installed
+  NOTHING in a fresh gate worktree for THIS project — confirmed live by canary B2
+  (`gate-worktree-not-bootstrapped`, the gate having to `pnpm install` by hand). Step 1 now resolves the
+  real project dir the same way step 3 already did (`$WORKTREE/mission-control` before `$WORKTREE`)
+  and installs there.
+
+**Why:** this is the exact defect canary B2 hit while measuring `gateEvidence: 'digested'` against this
+project's own real topology — staying on the pre-fix overlay would keep every future gate worktree for
+Mission Control coming up empty. No project doc/behavior change — pure machinery resync, per
+`AGENTS.md`'s "Other runtimes" / overlay-upgrade discipline.
+
+**Impact:** `.pandacorp/worktree-bootstrap.sh` (byte-identical to `plugin/templates/shared/` post-copy),
+`.pandacorp/status.yaml` (`overlay_version` 8.82.1 → 8.82.2). Gate: N/A (machinery-only change, not
+product code; `plugin/scripts/run-engine-tests.sh` is the relevant gate and ran green 23/23, twice, in
+the factory repo).
+
 ## 2026-09-22 — Pandacorp overlay upgraded 8.82.0 → 8.82.1 (plugin 9.104.2, gate-worktree bootstrap fix)
 
 Propagated plugin 9.104.2 (factory `main`, commit `7e26de6f`, fast-forward of `close-9.104.2`) by hand,
