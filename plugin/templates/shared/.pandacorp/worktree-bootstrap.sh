@@ -16,21 +16,39 @@ SLUG="$(echo "$BRANCH" | tr '/' '-' | tr -cd '[:alnum:]-')"
 
 echo "▸ bootstrapping worktree $BRANCH"
 
+# ── 0. Project dir resolution — Mission Control lives NESTED inside the factory's own repo (shares
+# its .git; panda-corp/ itself is not an npm package), so its package.json is at
+# $WORKTREE/mission-control, never at $WORKTREE's own root; every other product project's own repo
+# root IS $WORKTREE. Resolve it ONCE here (steps 1 and 3 both need "the real project dir inside this
+# worktree") via $WORKTREE-relative paths only, so the result never depends on the CWD this script
+# happened to be invoked from.
+APP_DIR=""
+for candidate in "$WORKTREE/mission-control" "$WORKTREE"; do
+  if [ -f "$candidate/package.json" ]; then APP_DIR="$candidate"; break; fi
+done
+
 # ── 1. Dependencies — hardlink from the shared store (never symlink node_modules; .next stays local) ─
 # Idempotent (BL-0149): a re-run of this script (e.g. the gate worktree re-bootstraps on every reuse,
 # ensureGateWorktree) must not pay a full reinstall when node_modules is already present and
 # pnpm-lock.yaml hasn't moved since the last bootstrap in THIS worktree — skip via a lockfile-hash
 # marker stored INSIDE node_modules (so a deleted node_modules always re-triggers a real install).
-if [ -f package.json ] && command -v pnpm >/dev/null 2>&1; then
-  LOCK_MARKER="node_modules/.pandacorp-lock-sha"
+#
+# BL-0155: this used to check bare `package.json` (CWD-relative) — correct only when the project IS
+# the worktree root. For a nested project (Mission Control, the real production topology) that file
+# never exists at the worktree root, so this step silently installed NOTHING (canary B2's confirmed
+# root cause of `gate-worktree-not-bootstrapped`: the evidence collector correctly refused to fabricate
+# a report against a worktree with no node_modules, and the gate had to bootstrap by hand, burning the
+# exact cost `gateEvidence: digested` exists to avoid). Use the $APP_DIR resolved above instead.
+if [ -n "$APP_DIR" ] && command -v pnpm >/dev/null 2>&1; then
+  LOCK_MARKER="$APP_DIR/node_modules/.pandacorp-lock-sha"
   LOCK_SHA=""
-  [ -f pnpm-lock.yaml ] && LOCK_SHA="$(shasum -a 256 pnpm-lock.yaml 2>/dev/null | awk '{print $1}')"
-  if [ -d node_modules ] && [ -n "$LOCK_SHA" ] && [ -f "$LOCK_MARKER" ] && [ "$(cat "$LOCK_MARKER" 2>/dev/null)" = "$LOCK_SHA" ]; then
-    echo "  • pnpm install skipped (node_modules present, pnpm-lock.yaml unchanged)"
+  [ -f "$APP_DIR/pnpm-lock.yaml" ] && LOCK_SHA="$(shasum -a 256 "$APP_DIR/pnpm-lock.yaml" 2>/dev/null | awk '{print $1}')"
+  if [ -d "$APP_DIR/node_modules" ] && [ -n "$LOCK_SHA" ] && [ -f "$LOCK_MARKER" ] && [ "$(cat "$LOCK_MARKER" 2>/dev/null)" = "$LOCK_SHA" ]; then
+    echo "  • pnpm install skipped ($APP_DIR/node_modules present, pnpm-lock.yaml unchanged)"
   else
-    echo "  • pnpm install (hardlinks from the global store)"
-    pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install
-    [ -n "$LOCK_SHA" ] && mkdir -p node_modules && echo "$LOCK_SHA" > "$LOCK_MARKER"
+    echo "  • pnpm install ($APP_DIR, hardlinks from the global store)"
+    ( cd "$APP_DIR" && pnpm install --prefer-offline >/dev/null 2>&1 || pnpm install )
+    [ -n "$LOCK_SHA" ] && mkdir -p "$APP_DIR/node_modules" && echo "$LOCK_SHA" > "$LOCK_MARKER"
   fi
 fi
 
@@ -64,15 +82,12 @@ fi
 #   PANDACORP_FACTORY_ROOT is unset, which in a fresh worktree resolves to this worktree's own
 #   near-empty factory/ (gitignored files like profile.md/portfolio.md aren't checked out) and trips
 #   the onboarding gate. Write a worktree-local .env.local pointing at the main checkout instead.
-if grep -q '"name": *"pandacorp"' "$WORKTREE/package.json" 2>/dev/null \
-   || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; then
-  for APP_DIR in "$WORKTREE/mission-control" "$WORKTREE"; do
-    if [ -f "$APP_DIR/package.json" ]; then
-      echo "  • PANDACORP_FACTORY_ROOT → $MAIN_WT ($APP_DIR/.env.local, gitignored)"
-      echo "PANDACORP_FACTORY_ROOT=$MAIN_WT" > "$APP_DIR/.env.local"
-      break
-    fi
-  done
+# BL-0155: reuses the SAME $APP_DIR resolved in step 0 (was its own duplicate search loop) — one
+# resolution, two consumers.
+if [ -n "$APP_DIR" ] && { grep -q '"name": *"pandacorp"' "$WORKTREE/package.json" 2>/dev/null \
+   || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; }; then
+  echo "  • PANDACORP_FACTORY_ROOT → $MAIN_WT ($APP_DIR/.env.local, gitignored)"
+  echo "PANDACORP_FACTORY_ROOT=$MAIN_WT" > "$APP_DIR/.env.local"
 fi
 
 # ── 4. Per-project hook — stateful projects clone their DB here (CREATE DATABASE ... TEMPLATE, §4) ───
