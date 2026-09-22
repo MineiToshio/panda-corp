@@ -109,6 +109,12 @@ const TARGETED = Boolean(CHANGE) || Boolean(args && args.frds)
 // (escape hatch).
 const SAFE_POINT_WAVE_THROTTLE = 3
 const SAFE_POINT_EVERY_WAVE = argBool(args, 'safePointEveryWave', true)
+// BL-0129: a BARE run (TARGETED === false) whose planner finds NOTHING to build used to exit via
+// ensureStopped('nothing to build') BEFORE the main loop ever ran — so the DR-069 ready-changes queue
+// (only ever drained by safePoint(), which lives INSIDE that loop) was never scanned. `drainOnEmptyPlan`
+// is the escape hatch: false restores that pre-fix behavior (immediate exit, no drain). Ignored on a
+// TARGETED run — the drain there stays forbidden regardless (DR-069 targeted-build scope, unchanged).
+const DRAIN_ON_EMPTY_PLAN = !(args && args.drainOnEmptyPlan === false)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
@@ -710,18 +716,24 @@ if (CHANGE) {
 }
 
 // ── Plan: read FRDs, their Build Plans and the frontmatter state (no inferred "done") ──
-phase('Plan')
-agentSpawned += COST(P.judge)   // DR-070/DR-073: weighted — the planner runs on the judge model
-const plan = await agent(
-  `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
+// BL-0129: wrapped in a function (was a single inline `const plan = await agent(...)`) so the SAME
+// agent/prompt/schema can be re-run after a pre-loop queue drain (drainReadyQueuePreLoop below) without
+// duplicating this prose — the prompt itself is unchanged byte-for-byte from before this refactor.
+async function runPlanner(label) {
+  agentSpawned += COST(P.judge)   // DR-070/DR-073: weighted — the planner runs on the judge model
+  return await agent(
+    `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
   - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title, **\`difficulty\`** (low|medium|high, default medium) and **\`reopen_count\`** (number, default 0) — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - docs/product/architecture.md → the platform stack.
   - **FOUNDATION (DR-057, web only): read docs/design/components.md** (the shared-component inventory) and skim every FRD's \`mocks/\`/\`fdd.md\` to grasp the COMPLETE set of shared primitives the surfaces reference. The foundation work orders must build the UNION of those primitives — not a hand-picked subset (the gap that shipped flat Party surfaces: Room/AgentSprite/etc. were never in the foundation). Mark \`foundation: true\` on EVERY WO that builds a shared primitive the inventory lists, so the engine builds them all before surfaces fan out.
   Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, **\`path\` (the WO file's repo-relative path — DR-108, the builder opens THE file instead of hunting)**, **\`acText\` (DR-108 CONTEXT PACK — copy VERBATIM from frd.md the EARS acceptance-criteria lines THIS work order owns per the Build Plan; bounded to its own ACs, never the whole FRD. You are the ONLY agent that reads frd.md in full — this hand-off is what lets each builder construct against the real AC scope on the FIRST attempt instead of a one-line summary)**, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**, and **\`priorAttempts\` (A4 CROSS-PASS LEARNING) — if \`${JOURNAL_PATH}\` EXISTS, read it and, for EACH WO, synthesize a BOUNDED digest (the last 2 relevant entries) of what earlier attempts tried and why they did not hold: \`[{ attempt, classification, findingKey, tried, why }]\` drawn from that WO's attempt/verdict/diagnosis lines. Return \`[]\` (or omit) when the journal is absent or has no entries for the WO — it is fed to the builder as HYPOTHESES to verify against the CURRENT code, never as gospel**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A).${ONLY ? ` TARGETED BUILD — also check cross-FRD deps of the requested FRDs: for each dep folder listed in their Build Plans, read the frontmatter \`implementation_status\` of every work-orders/wo-*.md in that dep. If ALL are VERIFIED the dep is satisfied; if ANY is not VERIFIED, include it in unsatisfiedDeps as { frd: '<requested-frd>', dep: '<the-dep-folder>' }. Return unsatisfiedDeps:[] when all deps are satisfied.` : ''}`,
-  { label: 'plan', phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
-)
+    { label, phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
+  )
+}
+phase('Plan')
+let plan = await runPlanner('plan')
 // WS-D/D3: SPLIT the old single guard. A null/garbled planner verdict (agent died / no `frds` array) is
 // NOT "all verified" — reading it that way silently declared a project done. Fail LOUD with a distinct
 // note. Only a REAL empty `frds` array (the planner ran and found nothing pending) is all-verified.
@@ -731,9 +743,32 @@ if (!plan || !plan.frds) {
   return { mode: MODE, builtFrds: [], blockedFrds: ['plan'], blockedReasons: { plan: 'error' }, note: 'planner failed' }
 }
 if (plan.frds.length === 0) {
-  log('Nothing to build: every FRD is VERIFIED.')
-  await ensureStopped('nothing to build')
-  return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'all verified' }
+  // BL-0129: a BARE run (never a TARGETED one — that scope stays forbidden, unchanged) whose planner
+  // found nothing pending used to exit here immediately, so the DR-069 ready-changes queue was never
+  // drained (safePoint() below only runs inside the main loop, which this path never reaches). Drain
+  // ONCE before declaring "nothing to build"; if it surfaces real work, re-plan and fall through into
+  // the normal loop with it instead of reporting a false "all verified".
+  if (!TARGETED && DRAIN_ON_EMPTY_PLAN) {
+    const drain = await drainReadyQueuePreLoop()
+    if (drain.stop) {
+      await ensureStopped('owner stop signal')
+      return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
+    }
+    if (drain.drained) {
+      log('Cola de changes drenada antes del plan vacío (BL-0129) — replanificando con el trabajo recién creado.')
+      plan = await runPlanner('plan-post-drain')
+      if (!plan || !plan.frds) {
+        log('planner returned no verdict after the pre-loop drain — fail-loud (NOT treating a dead/garbled plan as "all verified")')
+        await ensureStopped('planner failed')
+        return { mode: MODE, builtFrds: [], blockedFrds: ['plan'], blockedReasons: { plan: 'error' }, note: 'planner failed' }
+      }
+    }
+  }
+  if (plan.frds.length === 0) {
+    log('Nothing to build: every FRD is VERIFIED and the change queue is empty — cola vacía (BL-0129: checked, not skipped).')
+    await ensureStopped('nothing to build')
+    return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'all verified' }
+  }
 }
 
 // Dep-satisfaction gate (targeted build only) — refuse to start if the requested FRDs have deps that are not VERIFIED.
@@ -1501,6 +1536,49 @@ async function safePoint() {
     }
   }
   return null
+}
+
+// ── BL-0129: pre-loop DR-069 drain for a BARE run's empty-plan early exit ────────────────────────
+// safePoint() above is the IN-LOOP drain — it closes over loop-scoped state (frdState, globalQueue,
+// enrollFrd, detectCycles) that is declared further down and does not exist yet before the scheduler
+// loop is built, so calling safePoint() itself from the pre-loop 'nothing to build' branch would throw
+// (temporal dead zone on those bindings). This sibling reuses the SAME fenced stop-receipt check and the
+// SAME SAFE_POINT_SCHEMA as safePoint()'s prompt (only the queue-listing step — a bare run never has
+// answered-decision unblocks to re-enroll here: an empty plan means no BLOCKED work orders exist at all),
+// and drains via the existing processChange() — never reimplementing that FRD/WO-creation prose. It does
+// NOT splice new FRDs into an in-flight schedule (there isn't one yet); the caller re-runs runPlanner()
+// from scratch instead. Called ONLY for a bare run (never TARGETED — that scope forbids the drain,
+// unchanged) and only when plan.frds.length === 0.
+async function drainReadyQueuePreLoop() {
+  agentSpawned++
+  const sp = await agent(
+    `${RENEW_LEASE} Pre-build safe-point check (DR-069/BL-0129) — read the owner's signals; change ONLY what is specified:
+    0) Execute exactly \`${INSPECT_STOP}\`. This is the EXCLUSIVE source of truth for the owner stop file. Preserve its JSON output verbatim as \`stop_receipt\`. NEVER use shell \`test\`, \`[\`, \`stat\`, \`ls\`, filesystem aliases, or infer stop from path presence/absence or an exit code. If the command fails or its JSON cannot be returned exactly, throw/fail this safe point and mutate nothing — NEVER guess \`stop:false\`.
+    1) Read .pandacorp/status.yaml → set \`stop: true\` iff \`rethink_pending: true\`. Do not derive this field from the stop file; the engine evaluates the fenced \`stop_receipt.stop\` itself.
+    2) List .pandacorp/inbox/changes/*.md (IGNORE the done/ subfolder): collect the slugs whose frontmatter \`status\` is "ready" — \`class: expedite\` FIRST, then standard FIFO by date. Skip draft/done/building (a \`building\` change is already integrated and in flight — never re-drain it, WS-A/D1).
+    Return { stop: <rethink_pending boolean>, stop_receipt: <the exact inspect-stop JSON object>, ready: [...slugs, expedite first], unblocked: [] } (empty arrays when there is nothing).`,
+    { label: 'safe-point-pre-loop', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer', schema: SAFE_POINT_SCHEMA },
+  )
+  const receipt = sp && sp.stop_receipt
+  if (!receipt || receipt.status_exists !== true || typeof receipt.stop !== 'boolean' || receipt.method !== 'node-lstat') {
+    throw new Error('FATAL: pre-loop safe-point returned an invalid fenced stop receipt; refusing to guess owner stop state')
+  }
+  if (receipt.stop === true || sp.stop === true) {
+    log('⏸ señal fenced de stop/rethink en el drenado previo al plan — el owner re-planificó o detuvo; el motor para antes de construir.')
+    return { stop: true, drained: false }
+  }
+  if (!sp.ready || !sp.ready.length) return { stop: false, drained: false }
+  log(`⇩ Drenando ${sp.ready.length} change(s) ready de la cola antes de declarar "nothing to build" (BL-0129/DR-069): ${sp.ready.join(', ')}`)
+  let drained = false
+  for (const slug of sp.ready) {
+    if (capHit()) { log('⛔ Techo de agentes — el resto de la cola espera a la próxima corrida'); break }
+    if (drainedThisRun.has(slug)) { log(`⚠ Change '${slug}' ya drenada ESTA corrida pero reaparece 'ready' — el sello 'building' no cuajó; la salto (WS-D/D9)`); continue }
+    const proc = await processChange(slug, 'Plan')
+    if (!proc || proc.done !== true || !proc.affectedFrds || !proc.affectedFrds.length) { log(`⊘ Change '${slug}' no drenada: ${proc?.failure || 'sin FRDs afectados'}`); continue }
+    drainedThisRun.add(slug)   // WS-D/D9 backstop: never re-drain this run even if the 'building' stamp failed to land
+    drained = true
+  }
+  return { stop: false, drained }
 }
 
 // ── A2 DIAGNOSE (progressive-learning recovery) — read-only reviewer, judge model ────────────────
