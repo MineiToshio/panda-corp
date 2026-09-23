@@ -12,6 +12,13 @@ change collects, never whether a red gate blocks. A red blocks at every level.
 
 ## 1. Provisional classification, by probable paths
 
+**Record the project root now, before §3 isolates into a worktree and moves your cwd**
+(BL-0162): `PROJECT_ROOT="$(pwd)"`. This is the checkout that actually has `.pandacorp/inbox/`
+materialized — it is gitignored, so a worktree created later never contains it. §5 step 1 needs
+this value; capturing it here, once, before any `cd`/`EnterWorktree`, is cheaper than
+reconstructing it later and is the fix for the exact failure BL-0162 found (a `--card` path
+resolved inside the isolated worktree, ENOENT, fail-closed to `critical`).
+
 There is no diff yet, so the level is derived from the files the change will plausibly touch.
 
 1. Enumerate the probable paths yourself, in this session, from the owner's description plus a
@@ -95,6 +102,15 @@ the reason. A broken classifier must never be the reason a change ran cheap.
 ---
 
 ## 3. Delegated implementation
+
+**Emit `ChangeNowStart` here, once, before delegating** (fire-and-forget observability, never
+load-bearing): `echo '{}' | bash "${CLAUDE_PLUGIN_ROOT}/scripts/emit-event.sh" ChangeNowStart`
+— the same helper the harness's own hooks use for `SubagentStop`; it reads `.cwd` off its input
+(falls back to `$PWD`, which is `$PROJECT_ROOT` here, before any worktree isolation) and
+resolves the project by walking up to the nearest `.pandacorp/status.yaml`. This is the only
+signal that currently tells Mission Control's Party panel a `--now` run is in flight at all — the
+`change.integrated`/`change.reconciled` events are wired only from the build engine's own drain,
+never from this fast path.
 
 **Never implement in the owner's session.** A turn in a long owner session carries the whole
 accumulated context; a fresh subagent starts clean. Delegation is a cost lever even at equal
@@ -243,8 +259,20 @@ learn it — that is why `needs-owner` above stays a description, not a token.
 
 ## 5. Definitive classification, close-out and landing
 
-1. **Reclassify on the REAL diff**, which is the only classification that certifies anything:
-   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/classify-change.sh" --repo . --range <base>..<head> --card <card>`
+1. **Reclassify on the REAL diff**, which is the only classification that certifies anything.
+   **Point `--repo`/`--range` at the WORKTREE, but keep `--card` on `$PROJECT_ROOT` (§1) —
+   never a path inside the worktree (BL-0162):**
+   `--repo`/`--range` must resolve against the worktree because S17/madge only trusts the
+   on-disk import graph when the classifier's own `HEAD` is the branch tip being classified
+   (`isHeadRange` in `classify-change.mjs`) — pointing them at the original checkout, whose
+   `HEAD` is still `main`, would silently SKIP S17 as "historical range" instead of running it.
+   `--card`, by contrast, must stay on `$PROJECT_ROOT`: `.pandacorp/inbox/` is gitignored, so
+   `git worktree add` never materializes it inside the worktree, and a `--card` path resolved
+   there fails to read (ENOENT) — which the classifier, correctly, fails closed on to
+   `critical` (valve (c) above). The two flags are already independent (`--card` is read as a
+   plain file path, never joined against `--repo`), so this needs no new flag, only the right
+   two paths:
+   `bash "${CLAUDE_PLUGIN_ROOT}/scripts/classify-change.sh" --repo <worktree> --range <base>..<head> --card "$PROJECT_ROOT/.pandacorp/inbox/changes/<slug>.md"`
    where `<base>` is the merge base of the worktree branch. Write the verdict back into the card,
    replacing the provisional one.
 2. **If it came out `critical`, do NOT land it.** The provisional pass missed something the real
@@ -270,6 +298,10 @@ learn it — that is why `needs-owner` above stays a description, not a token.
    branch, nothing is lost, and here is what is needed.
 6. **One closing line to the owner**, Spanish, for example:
    `hecho · nivel normal · gate verde (since) · commit a1b2c3d · card archivada en done/`.
+   **Emit `ChangeNowEnd` alongside it**, the counterpart of §3's `ChangeNowStart`, in EVERY
+   terminal outcome of the fast path — a clean landing here AND a hand-back at step 2 or step 5
+   (a run that never lands is still a run that ended): `echo '{}' | bash
+   "${CLAUDE_PLUGIN_ROOT}/scripts/emit-event.sh" ChangeNowEnd`.
    Append the real cost only when a rollup actually produced it for THIS change. F5
    (`plugin/scripts/usage-rollup.mjs`) has a per-change session mode: run
    `node plugin/scripts/usage-rollup.mjs --session <transcript.jsonl> --commits <base>..<head> --repo . --card <card.md>`

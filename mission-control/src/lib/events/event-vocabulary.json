@@ -83,6 +83,14 @@
       "display": "ChangeIntegrated",
       "aliases": ["change_reconciled"]
     },
+    "change.now-start": {
+      "display": "ChangeNowStart",
+      "aliases": ["ChangeNowStart", "change_now_start", "change-now-start"]
+    },
+    "change.now-end": {
+      "display": "ChangeNowEnd",
+      "aliases": ["ChangeNowEnd", "change_now_end", "change-now-end"]
+    },
     "dispatch.uncertain": {
       "display": "DispatchUncertain",
       "aliases": ["DispatchUncertain", "dispatch_uncertain", "uncertain_requires_owner"]

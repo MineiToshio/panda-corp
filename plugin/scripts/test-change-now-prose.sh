@@ -88,9 +88,17 @@ must "now-mode.md says a partial scope is not a verdict" "$NOW" 'A .?partial.? s
 must_doc "now-mode.md accepts only green + scope in {since, full} as the L0 verdict" "$NOW" 'green: true. and .scope. in .\{since, full\}'
 
 echo "-- Re-classification on the REAL diff, and a risen-to-critical change never lands"
-must "change/SKILL.md reclassifies with --range on the real diff" "$CHANGE" 'classify-change\.sh --repo \. --range'
+must "change/SKILL.md reclassifies with --range on the real diff" "$CHANGE" 'classify-change\.sh --repo <worktree> --range'
 must "change/SKILL.md refuses to land a change that rose to critical" "$CHANGE" '[Rr]isen to .?critical.*do NOT land it'
 must "now-mode.md repeats it as its own numbered step" "$NOW" 'came out .?critical.*do NOT land it'
+
+echo "-- BL-0162: --card stays on \$PROJECT_ROOT, NEVER a path inside the isolated worktree"
+must "now-mode.md captures \$PROJECT_ROOT before any worktree isolation (§1)" "$NOW" 'PROJECT_ROOT="\$\(pwd\)"'
+must "now-mode.md's reclassify step points --repo/--range at the worktree" "$NOW" '--repo <worktree> --range <base>\.\.<head>'
+must "now-mode.md's reclassify step keeps --card on \$PROJECT_ROOT" "$NOW" '--card "\$PROJECT_ROOT/\.pandacorp/inbox/changes'
+must_doc "now-mode.md explains WHY: .pandacorp/inbox/ is gitignored and a worktree never materializes it" "$NOW" 'gitignored, so.*git worktree add.*never materializes it'
+must_not "now-mode.md's reclassify step no longer resolves --card inside the worktree" "$NOW" '--card <card>`$'
+must "change/SKILL.md's step D keeps the same worktree/\$PROJECT_ROOT split" "$CHANGE" '--repo <worktree> --range <base>\.\.<head> --card "\$PROJECT_ROOT/\.pandacorp/inbox/changes'
 
 echo "-- Hand-back is 'draft' + '## Bloqueado', never an invented status token"
 must "now-mode.md records a hand-back as status: draft" "$NOW" 'status: draft.? plus a'
@@ -128,6 +136,13 @@ must "now-mode.md requires an immediate chat hand-back on a failed landing (DR-0
 
 echo "-- CONV-13: no invented cost figure in the closing line"
 must "now-mode.md forbids estimating a cost nobody measured" "$NOW" 'an unmeasured number is not a number'
+
+echo "-- Observability: the fast path emits ChangeNowStart/ChangeNowEnd (§4.6 dry-run finding)"
+must "now-mode.md emits ChangeNowStart before delegating" "$NOW" 'emit-event\.sh" ChangeNowStart'
+must "now-mode.md emits ChangeNowEnd on every terminal outcome, not only success" "$NOW" 'emit-event\.sh" ChangeNowEnd'
+must "the event vocabulary declares change.now-start" "$HERE/plugin/runtime/event-vocabulary.json" '"change\.now-start"'
+must "the event vocabulary declares change.now-end" "$HERE/plugin/runtime/event-vocabulary.json" '"change\.now-end"'
+must "Mission Control's projection is in sync (regenerated, not hand-edited)" "$HERE/mission-control/src/lib/events/event-vocabulary.json" '"change\.now-start"'
 
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]
