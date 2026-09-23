@@ -59,6 +59,24 @@ Gates:     frd-02 → frd-03 → frd-05  (serializados, árbol quieto)
 
 Los **gates de review siguen siendo uno por FRD** y corren **serializados en las fronteras de oleada** — nunca mientras hay builders en vuelo, así su suite whole-project siempre ve un árbol quieto. La frontera de confianza no cambió; solo el scheduling.
 
+## Los args del motor (sprint de velocidad)
+
+El sprint de velocidad de 2026-09-22 (plugin 9.103.0) añadió una serie de flags al motor de `implement`. Todos tienen un valor por defecto elegido por el motor — el propietario normalmente no los toca, pero es útil saber qué hace cada uno si algo se comporta distinto a lo esperado:
+
+| `args.*` | Por defecto | Qué hace | Cuándo cambiarlo |
+|---|---|---|---|
+| `forceUiPasses` | `false` | Fuerza que corran siempre los pases que tocan UI (foundation-gate, visual-qa), ignorando los artefactos declarados por las work orders. | Si sospechas que un cambio visual se coló sin pasar por el gate de UI. |
+| `leanCloseOut` | `true` | Funde el archivado de changes y la liberación de la lease en el agente de cierre, y resuelve `visual-qa` como una promesa antes de la cadena de hardening. | Rara vez — es una optimización de coste interna, no cambia el resultado. |
+| `strictBaseline` | `false` | Trata cualquier ruta sucia (que no sea `status.yaml`) bajo una lease válida como una escalada, no como un baseline limpio. | Si quieres que el motor sea más estricto ante cualquier archivo modificado inesperado al arrancar. |
+| `safePointEveryWave` | `false` | Fuerza el safe-point completo en cada oleada, incluso en un run dirigido (por FRD o por change). | Si quieres puntos de recuperación más frecuentes en un build dirigido, a cambio de más coste. |
+| `mechLean` | `true` | Enruta los pasos mecánicos del motor (commits, dispatch stamps, sync de rollups) a través del agente `pandacorp:mech`, más barato. | Rara vez — desactivarlo vuelve a los pasos mecánicos previos al sprint. |
+| `repairBudgetFactor` | `3` | Tope de gasto en reparación acotada (scoped repair), como múltiplo del coste ponderado del build, antes de que el motor se rinda honestamente a `needs-owner`. | Si quieres que el motor insista más (o menos) antes de escalar un bloqueo. |
+| `scopedRepair` | `false` | Permite que un rojo puramente mecánico en un sub-gate se repare con `--only`/`--files` en vez de un ciclo de parche a todo el proyecto. | Se activa solo tras pasar su canario de validación — no es un flag para tocar a mano todavía. |
+| `gateEvidence` | `'explore'` | Modo de evidencia del gate: `'explore'` (idéntico byte a byte al gate anterior al sprint) o `'digested'` (evidencia recolectada por el agente mech, con presupuesto de exploración acotado). | `'digested'` solo tras su canario A/B obligatorio — no cambia el default sin eso. |
+| `drainOnEmptyPlan` | `true` | En un run sin objetivo (bare) con el plan vacío, drena la cola de changes listas antes de declarar "nada que construir". | Ponlo en `false` si quieres que un run bare con plan vacío no toque la cola de changes. |
+
+Estos flags viven en el código del motor (`factory/standards/build-orchestration.md` es su fuente canónica) — no son algo que el propietario configure normalmente desde Mission Control.
+
 ## Monitorización en Mission Control
 
 Mientras el build corre, Mission Control muestra en tiempo real:
