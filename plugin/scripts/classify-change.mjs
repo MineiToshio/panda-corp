@@ -234,6 +234,44 @@ const S7_CONTENT = [
 const BASE64_LITERAL = /["']([A-Za-z0-9+/]{32,}={0,2})["']/;
 
 /**
+ * S8 — BL-0165: `rmSync`/`rmdirSync` cleaning up a directory the SAME test file created via
+ * `mkdtempSync`/`os.tmpdir()` is test hygiene, not data loss — 66 existing test files in this repo
+ * already write exactly this in an `afterEach`. The carve-out is narrow and fail-closed:
+ *   - it applies ONLY to the `rmSync`/`rmdirSync` pattern — every other S8 pattern (SQL DELETE/DROP,
+ *     `truncate`, `deleteMany`, `unlink`, a forced push/reset, `git clean`, a deploy command, and
+ *     shell `rm -rf`) still floors unconditionally, in or out of a test file;
+ *   - it applies ONLY inside a test surface (`*.test.ts`/`*.spec.ts`, `_tests/`, `src/test/`);
+ *   - it requires EVERY `rmSync`/`rmdirSync` call in the file's added content to target an argument
+ *     that visibly traces to `mkdtempSync`/`mkdtemp`/`tmpdir` — either inline (`rmSync(tmpdir())`)
+ *     or via a variable assignment in the same added content — a `const`/`let`/`var` declared with
+ *     an initializer, OR a plain reassignment of a variable declared earlier (the common
+ *     `let tmpDir: string;` + `beforeEach(() => { tmpDir = mkdtempSync(...); })` shape) — whose
+ *     right-hand side calls one of those. A call whose argument is a literal path, an untraced
+ *     identifier, or anything else this cannot positively resolve to a temp source leaves the WHOLE
+ *     file un-exempted (fail-closed: "cannot determine it is temporary" stays critical, never the
+ *     reverse).
+ */
+const TMP_SOURCE_CALL = /\b(?:mkdtempSync|mkdtemp|tmpdir)\b/;
+const TMP_VAR_DECL = /\b(?:(?:const|let|var)\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:await\s+)?[^;\n]*\b(?:mkdtempSync|mkdtemp|tmpdir)\b[^;\n]*/g;
+const RM_TMP_CALL = /\b(?:rmSync|rmdirSync)\s*\(\s*([^)]*)\)/g;
+const isTestSurface = (p) => /\.(test|spec)\.[jt]sx?$/.test(p) || /(^|\/)_tests?\//.test(p) || /(^|\/)src\/test\//.test(p);
+
+/** True only when EVERY rmSync/rmdirSync call in `joined` traces to a temp source (see S8 note above). */
+function rmCallsAreTempCleanup(joined) {
+  const tmpVars = new Set();
+  for (const m of joined.matchAll(new RegExp(TMP_VAR_DECL.source, "g"))) tmpVars.add(m[1]);
+  let sawAny = false;
+  for (const m of joined.matchAll(new RegExp(RM_TMP_CALL.source, "g"))) {
+    sawAny = true;
+    const arg = m[1];
+    const traced = TMP_SOURCE_CALL.test(arg) || [...tmpVars].some((v) => new RegExp(`\\b${v}\\b`).test(arg));
+    if (!traced) return false;
+  }
+  return sawAny;
+}
+const isRmSyncText = (text) => /\b(rmSync|rmdirSync)\b/.test(text);
+
+/**
  * S8 — irreversible operations and data loss, detected in ADDED content.
  * Fragmented literals (see the header note): nothing here is ever executed.
  */
@@ -581,6 +619,15 @@ function classify(opts, ctx) {
   const added = files.reduce((n, f) => n + f.added, 0);
   const deleted = files.reduce((n, f) => n + f.deleted, 0);
   const churn = added + deleted;
+  // BL-0164: the S3 size ladder's `> 150` threshold is meant to catch a LARGE change, not a
+  // well-tested small one — this project mandates TDD (acceptance tests before implementation) and
+  // DR-080 has the reviewer commit its own adversarial suite, so a genuine small production change
+  // routinely carries 2-4x its own line count in test files. `productionChurn` is `churn` with test
+  // surfaces (`isTestSurface`, same predicate S8 already uses) excluded — used ONLY for the S3
+  // large-diff threshold below. `files.length > 10` is untouched (still counts every file), and
+  // every content/path floor signal (S5-S9) still scans test files' added lines exactly as before —
+  // this narrows one size heuristic, it does not exempt tests from anything else.
+  const productionChurn = files.reduce((n, f) => n + (isTestSurface(f.path) ? 0 : f.added + f.deleted), 0);
   const newFiles = files.filter((f) => f.status === "A");
   const stats = { files: files.length, added, deleted, new_files: newFiles.length };
 
@@ -636,16 +683,22 @@ function classify(opts, ctx) {
   if (!ctx.linesKnown) notes.push("content signals not evaluated: --files carries no diff body");
 
   // --- S1/S2/S3 · size ladder (exactly one fires) -------------------------------------------
-  const newUnderSrc = newFiles.filter((f) => /(^|\/)src\//.test(f.path) || /^(app|components|lib|hooks)\//.test(f.path));
+  // BL-0164: a brand-new file under src/ used to escalate S3 to `critical` on its own, regardless of
+  // what it was — TDD makes a new test/helper file the norm for almost any real change, so this
+  // turned "add a test" into a de-facto critical trigger. A new file is escalated ELSEWHERE, on what
+  // it actually is: S4 (a new route file), S5 (a new auth/data-layer path — `_actions/`, `actions.*`,
+  // `app/api/**`, `middleware.*`, `queries/`, `lib/data/**`, …), or any S5-S9 CONTENT signal. Those
+  // checks run over every file regardless of new-vs-modified, so removing the blanket new-file trigger
+  // here loses no floor coverage — it only stops flooring plain new components/tests/helpers, which
+  // still land at `normal` (S2) via the `newFiles.length` branch below, never `micro`.
   const newRoutes = newFiles.filter((f) => ROUTE_FILE.test(f.path));
   if (!ctx.linesKnown) {
     if (files.length > 10) add("S3", "critical", `${files.length} files`);
     else add("S15", "normal", "line counts unavailable (--files mode) — cannot certify a micro change");
-  } else if (churn > 150 || files.length > 10 || newUnderSrc.length > 0) {
+  } else if (productionChurn > 150 || files.length > 10) {
     const why = [];
-    if (churn > 150) why.push(`${churn} lines`);
+    if (productionChurn > 150) why.push(`${productionChurn} non-test lines (${churn} total)`);
     if (files.length > 10) why.push(`${files.length} files`);
-    if (newUnderSrc.length) why.push(`new source file: ${newUnderSrc[0].path}`);
     add("S3", "critical", why.join(", "));
   } else if (churn <= 20 && files.length <= 3 && newFiles.length === 0 && newRoutes.length === 0) {
     add("S1", "micro", `${churn} lines, ${files.length} file(s), no new files`);
@@ -685,7 +738,32 @@ function classify(opts, ctx) {
   if (s7Content) add("S7", "critical", `key-shaped literal in added content (${s7Content.path})`);
 
   // --- S8 · FLOOR irreversible / data loss ---------------------------------------------------
-  const s8 = findContent(codeAdded, S8_CONTENT) || findContentJoined(codeAddedJoinedByFile, S8_CONTENT_JOINED);
+  // BL-0165: an rmSync/rmdirSync match is skipped (search continues) when it is exempt test-tmpdir
+  // cleanup (see rmCallsAreTempCleanup above); every other S8 pattern is unaffected.
+  const joinedByPath = new Map(codeAddedJoinedByFile.map((f) => [f.path, f.joined]));
+  const isExemptRmFile = (p) => isTestSurface(p) && rmCallsAreTempCleanup(joinedByPath.get(p) || "");
+  const findS8 = () => {
+    for (const { path: p, line } of codeAdded) {
+      for (const re of S8_CONTENT) {
+        const m = line.match(re);
+        if (!m) continue;
+        const text = m[0].trim().slice(0, 60);
+        if (isRmSyncText(text) && isExemptRmFile(p)) continue;
+        return { path: p, match: text };
+      }
+    }
+    for (const { path: p, joined } of codeAddedJoinedByFile) {
+      for (const re of S8_CONTENT_JOINED) {
+        const m = joined.match(re);
+        if (!m) continue;
+        const text = m[0].trim().slice(0, 60).replace(/\s+/g, " ");
+        if (isRmSyncText(text) && isExemptRmFile(p)) continue;
+        return { path: p, match: text };
+      }
+    }
+    return null;
+  };
+  const s8 = findS8();
   if (s8) add("S8", "critical", `irreversible/destructive operation added: '${s8.match}' (${s8.path}) — owner gate`);
 
   // --- S9 · FLOOR the oracles themselves (DR-080) --------------------------------------------

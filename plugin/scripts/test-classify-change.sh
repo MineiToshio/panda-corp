@@ -524,6 +524,107 @@ run --repo "$REPO" --files "src/lib/alpha.ts"
 printf '%s' "$OUT" | jq -e '.notes | any(test("content signals not evaluated"))' >/dev/null 2>&1 \
   && ok "REV2-D: the missing-content degradation is declared in notes" || bad "REV2-D: the degradation is silent :: $OUT"
 
+# ---- BL-0164/BL-0165 ----
+# Canary 2 (`change-now-canary-2-report.md` §4.1/§4.2): S3 escalated ANY new file under src/ to
+# `critical` regardless of content — TDD makes a new test/helper file the norm for almost any real
+# change, so this made a hand-back near-guaranteed. S8 floored ANY rmSync/rmdirSync regardless of
+# context, including cleanup of a directory the test itself created via mkdtempSync — a pattern
+# already used, unflagged, in 66 existing test files in this repo.
+
+echo "Case BL-0164-neg — a new component test + a new pure helper under src/ do NOT escalate on their own"
+mkdir -p "$REPO/src/app/projects/[slug]/_party/event-vm/_tests"
+printf 'export function formatEvent(kind: string): string {\n  return kind.toUpperCase();\n}\n' \
+  > "$REPO/src/app/projects/[slug]/_party/event-vm/formatEvent.ts"
+{
+  echo 'import { describe, it, expect } from "vitest";'
+  echo 'import { formatEvent } from "../formatEvent";'
+  echo 'describe("formatEvent", () => {'
+  echo '  it("uppercases", () => { expect(formatEvent("x")).toBe("X"); });'
+  echo '});'
+} > "$REPO/src/app/projects/[slug]/_party/event-vm/_tests/formatEvent.test.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "BL-0164: new test + new pure helper under src/ stay at normal (floored by S17, not by S3)"
+has_sig S3 && bad "BL-0164: S3 should not fire for a plain new test/helper pair :: $OUT" || ok "BL-0164: no S3 signal from a plain new test/helper pair"
+G reset -q --mixed HEAD >/dev/null 2>&1
+rm -rf "$REPO/src/app/projects"
+
+echo "Case BL-0164-pos — control: a brand-new API route file still escalates (via S5, not S3)"
+mkdir -p "$REPO/src/app/api/newendpoint"
+printf 'export async function GET() {\n  return new Response("ok");\n}\n' > "$REPO/src/app/api/newendpoint/route.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "BL-0164: a new app/api/** route still escalates"
+has_floor S5 && ok "BL-0164: S5 in floor_hits (path-based, independent of S3)" || bad "BL-0164: S5 not in floor_hits :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1
+rm -rf "$REPO/src/app/api/newendpoint"
+
+echo "Case BL-0165-neg — rmSync of a mkdtempSync-created dir, cleaned up inside a test file, is not floor"
+mkdir -p "$REPO/src/lib/_tests"
+{
+  echo 'import { mkdtempSync, rmSync } from "node:fs";'
+  echo 'import { tmpdir } from "node:os";'
+  echo 'import path from "node:path";'
+  echo 'import { afterEach, describe, it } from "vitest";'
+  echo 'describe("reader", () => {'
+  echo '  afterEach(() => {'
+  echo '    const tmpDir = mkdtempSync(path.join(tmpdir(), "reader-"));'
+  echo '    rmSync(tmpDir, { recursive: true, force: true });'
+  echo '  });'
+  echo '  it("works", () => {});'
+  echo '});'
+} > "$REPO/src/lib/_tests/reader.test.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "BL-0165: rmSync on a traced mkdtempSync dir inside a test file stays at normal (floored by S17, not by S8)"
+has_floor S8 && bad "BL-0165: rmSync tmpdir cleanup in a test should not hit the S8 floor :: $OUT" || ok "BL-0165: no S8 floor hit from traced tmpdir cleanup"
+G reset -q --mixed HEAD >/dev/null 2>&1
+rm -rf "$REPO/src/lib/_tests"
+
+echo "Case BL-0165-pos — control: rmSync outside a test surface still hits the floor"
+printf 'export function wipeProject(projectDir: string) {\n  rmSync(projectDir, { recursive: true, force: true });\n}\n' \
+  >> "$REPO/src/lib/cleanup.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "BL-0165: rmSync outside a test file still hits the floor"
+has_floor S8 && ok "BL-0165: S8 in floor_hits" || bad "BL-0165: S8 not in floor_hits :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/cleanup.ts 2>/dev/null
+
+echo "Case BL-0165-pos2 — control: an UNTRACED rmSync target inside a test file still fails closed"
+mkdir -p "$REPO/src/lib/_tests"
+{
+  echo 'import { rmSync } from "node:fs";'
+  echo 'import { afterEach, describe, it } from "vitest";'
+  echo 'describe("reader", () => {'
+  echo '  afterEach(() => {'
+  echo '    rmSync("/Users/shared/real-project-dir", { recursive: true, force: true });'
+  echo '  });'
+  echo '  it("works", () => {});'
+  echo '});'
+} > "$REPO/src/lib/_tests/untraced.test.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "BL-0165: an rmSync target this cannot trace to a temp source still floors, even inside a test file"
+has_floor S8 && ok "BL-0165: S8 in floor_hits (fail-closed on an untraced target)" || bad "BL-0165: S8 not in floor_hits :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1
+rm -rf "$REPO/src/lib/_tests"
+
+echo "Case BL-0164-churn-neg — a big test-only diff on an EXISTING test file does not hit the S3 size floor"
+for i in $(seq 1 160); do printf '  it("generated case %s", () => {});\n' "$i" >> "$REPO/src/components/_tests/foo.test.ts"; done
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "BL-0164: 160 added test-only lines stay at normal (floored by S17, not by S3)"
+has_sig S3 && bad "BL-0164: S3 should not fire from test-only churn :: $OUT" || ok "BL-0164: no S3 signal from test-only churn"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/components/_tests/foo.test.ts 2>/dev/null
+
+echo "Case BL-0164-churn-pos — control: the SAME line count in PRODUCTION code still hits the S3 size floor"
+for i in $(seq 1 160); do printf 'export const generated_%s = %s;\n' "$i" "$i" >> "$REPO/src/lib/alpha.ts"; done
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "BL-0164: 160 added production lines still hit the S3 size floor"
+has_sig S3 && ok "BL-0164: S3 reported for production-only churn" || bad "BL-0164: S3 missing for production churn :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/alpha.ts 2>/dev/null
+
 echo
 echo "passed: $pass   failed: $fail   xfail: $xfail"
 [ "$fail" -eq 0 ] || exit 1
