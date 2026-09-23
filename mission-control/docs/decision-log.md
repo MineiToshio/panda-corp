@@ -1,5 +1,33 @@
 # Decision Log — Mission Control
 
+## 2026-09-23 — Manual: speed-sprint build args + `pandacorp:mech` documented (change `manual-speed-sprint-args`, close-out)
+
+Closed out via `/pandacorp:change --now` (rigor `normal`, the first real end-to-end run of the fast
+path on this project). Added the `args.*` table (`forceUiPasses`, `leanCloseOut`, `strictBaseline`,
+`safePointEveryWave`, `mechLean`, `repairBudgetFactor`, `scopedRepair`, `gateEvidence`,
+`drainOnEmptyPlan`) from the 2026-09-22 speed sprint to `content/manual/concepts/construccion-desatendida.md`,
+and the `pandacorp:mech` agent (proposal 37 WP-03 / DR-108, not DR-046 — an opus reviewer caught the
+card's own citation as wrong during the L1 gate) to `content/manual/concepts/el-equipo.md`.
+
+**Why:** the Manual had drifted behind the engine — a dozen new `args.*` flags and a new agent shipped
+in plugin 9.103.0 with zero owner-facing documentation. `factory/standards/build-orchestration.md`
+stays the canonical source; this is its curated explainer for the owner.
+
+**No owning FRD/WO.** This is Manual content kept in sync with an external canonical doc, not a new
+product capability traceable to an `REQ-08-*`/`AC-08-*` — FRD-08's two existing work orders
+(WO-08-001/002, both `VERIFIED`) don't cover it and minting a synthetic WO with invented requirement
+ids would have polluted FRD-08's real traceability spine for no real gain. Recorded here instead,
+per `docs/rules/documentation-and-decisions.md`'s spirit (the canonical-doc-owns-the-fact table has no
+clean row for "sync Manual prose to a factory standard"; this decision-log entry is that fact's home).
+
+**Gate:** `verify.sh --since d9addc89 --report-all`, green, `scope: since` (re-run independently by
+both the sonnet implementer and the opus L1 reviewer). One repair cycle: the reviewer blocked the
+first pass on two factual errors in the Mech paragraph (safe-point wrongly attributed to Mech; the
+wrong DR citation), the implementer fixed both, the reviewer re-ran the gate and approved.
+
+**Impact:** `content/manual/concepts/construccion-desatendida.md`, `content/manual/concepts/el-equipo.md`.
+Commits `e2504b55` + `d0b4ac51` on worktree branch `worktree-agent-a74bff8d1f6267c84`, merged to `main`.
+
 ## 2026-09-23 — Pandacorp overlay upgraded 8.82.1 → 8.82.2 (plugin 9.104.4, nested-project bootstrap fix)
 
 Propagated plugin 9.104.4 (factory `main`, `fix-nested-bootstrap` branch, BL-0155/BL-0156), same resync
