@@ -274,6 +274,37 @@ printf '%s' "$OUT" | jq -e '[.notes[]] | map(test("S17")) | any' >/dev/null && o
 G reset -q --mixed HEAD >/dev/null 2>&1
 rm -f "$REPO/src/lib/formatting.ts"
 
+echo "Case 20b — BL-0161: S17 finds a NESTED project's own madge, not the git toplevel's"
+# A project without its own .git (shares its parent's, like Mission Control inside panda-corp):
+# `git rev-parse --show-toplevel` resolves to the OUTER repo, which has no node_modules of its
+# own — before the projectRoot/repoRoot split, S17 looked for madge there and always "skipped
+# (madge unavailable)", so this project could never certify `micro`. Re-run Case 20's exact
+# graph, but with the project one directory below the git toplevel and madge installed only
+# in the PROJECT (never the outer repo), to prove the lookup now follows `--repo`.
+OUTER="$TMP/outer"
+mkdir -p "$OUTER"
+git -C "$OUTER" init -q -b main
+OUTER_G() { git -C "$OUTER" -c user.email=t@example.com -c user.name=Tester -c commit.gpgsign=false "$@"; }
+NESTED="$OUTER/project"
+mkdir -p "$NESTED/src/app/api/x" "$NESTED/src/lib"
+printf 'export async function GET() { return null; }\n' > "$NESTED/src/app/api/x/route.ts"
+printf 'export const fmt = (s) => s.trim();\n' > "$NESTED/src/lib/formatting.ts"
+OUTER_G add -A >/dev/null && OUTER_G commit -qm "chore: nested project seed" >/dev/null
+mkdir -p "$NESTED/node_modules/.bin"
+{
+  echo '#!/bin/bash'
+  echo 'echo "{\"app/api/x/route.ts\":[\"lib/formatting.ts\"],\"lib/formatting.ts\":[]}"'
+} > "$NESTED/node_modules/.bin/madge"
+chmod +x "$NESTED/node_modules/.bin/madge"
+[ ! -d "$OUTER/node_modules" ] || { echo "FATAL: test setup leaked madge to the outer repo"; exit 1; }
+printf '\nexport const fmt2 = (s) => s.trimEnd();\n' >> "$NESTED/src/lib/formatting.ts"
+OUTER_G add -A >/dev/null
+run --repo "$NESTED" --staged
+expect_rigor critical "BL-0161: nested project — S17 certifies via the project's own madge"
+has_floor S17 && ok "S17 in floor_hits (projectRoot madge lookup, not repoRoot/git-toplevel)" || bad "S17 not in floor_hits :: $OUT"
+printf '%s' "$OUT" | jq -e '[.notes[]] | map(test("madge unavailable")) | any | not' >/dev/null \
+  && ok "S17 not skipped as 'madge unavailable' for the nested project" || bad "S17 wrongly skipped :: $OUT"
+
 echo "Case 21 — the floor beats a pile of micro signals (max wins)"
 printf '.x { color: red; }\n' >> "$REPO/styles/main.css"
 printf 'DUMMY=1\n' >> "$REPO/.env.example"

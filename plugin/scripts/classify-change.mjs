@@ -27,7 +27,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 
 const LEVELS = ["micro", "normal", "critical"];
@@ -454,9 +454,19 @@ function readFrontmatter(file, label) {
  * the forward graph (`a -> [deps]`), so the answer is a BFS from every floor node looking for a
  * touched node. Only meaningful when the graph on disk matches the diff: a historical range is
  * explicitly SKIPPED (noted, never silently downgraded) rather than answered with today's graph.
+ *
+ * BL-0161: madge is looked up and run under `ctx.projectRoot` (where `--repo` points — the
+ * project's OWN directory, where its `node_modules/.bin/madge` and `src/` actually live), never
+ * `ctx.repoRoot` (the git worktree top-level). The two differ for a project that shares its
+ * parent's `.git` instead of owning one (e.g. Mission Control inside the panda-corp factory
+ * repo): `git rev-parse --show-toplevel` there resolves to the factory root, which has no
+ * `node_modules` of its own, so S17 silently "skipped (madge unavailable)" on every change to
+ * that project and could never certify `micro`. Graph nodes come back relative to `projectRoot`,
+ * so they are re-anchored onto `ctx.projectPrefix` (projectRoot's path relative to repoRoot) to
+ * compare against `ctx.files`, whose paths ARE repoRoot-relative (git diff's own frame).
  */
 function reverseDependency(opts, ctx, notes) {
-  const bin = path.join(ctx.repoRoot, "node_modules/.bin/madge");
+  const bin = path.join(ctx.projectRoot, "node_modules/.bin/madge");
   // D3: madge missing is a TOOL absence, not a classifier failure and not "nothing recognisable"
   // (S15) — the caller floors this at `normal` (never `micro`, never `critical`), distinct from
   // every OTHER skip reason below (historical range, no source root, a failed run), which stay
@@ -466,19 +476,19 @@ function reverseDependency(opts, ctx, notes) {
     notes.push("S17: skipped (historical range — the on-disk import graph does not describe it)");
     return null;
   }
-  const srcDir = ["src", "app", "lib"].find((d) => existsSync(path.join(ctx.repoRoot, d)));
+  const srcDir = ["src", "app", "lib"].find((d) => existsSync(path.join(ctx.projectRoot, d)));
   if (!srcDir) { notes.push("S17: skipped (no analysable source root)"); return null; }
 
   let graph;
   try {
-    const out = execFileSync(bin, ["--json", srcDir], { cwd: ctx.repoRoot, encoding: "utf8", maxBuffer: MAX_BUFFER, timeout: 120000 });
+    const out = execFileSync(bin, ["--json", srcDir], { cwd: ctx.projectRoot, encoding: "utf8", maxBuffer: MAX_BUFFER, timeout: 120000 });
     graph = JSON.parse(out);
   } catch (e) {
     notes.push(`S17: skipped (madge failed: ${String(e.message || e).split("\n")[0]})`);
     return null;
   }
 
-  const toRepo = (n) => normalizePath(path.posix.join(srcDir, n));
+  const toRepo = (n) => normalizePath(path.posix.join(ctx.projectPrefix, srcDir, n));
   const touched = new Set(ctx.files.map((f) => f.path));
   const floorNodes = Object.keys(graph).filter((n) => isFloorPath(toRepo(n)));
   const seen = new Set();
@@ -713,10 +723,23 @@ function resolveAttempts(opts, ctx) {
 
 // ---------------------------------------------------------------------------------------------
 
+/** Resolves symlinks when it can (keeps a TMPDIR-vs-realpath mismatch from breaking the
+ * repoRoot/projectRoot comparison below); falls back to a plain absolute path otherwise. */
+function realOrResolved(p) {
+  try { return realpathSync(p); } catch { return path.resolve(p); }
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!existsSync(opts.repo)) throw new FailClosed(`repo path does not exist: ${opts.repo}`);
   const ctx = opts.mode === "files" ? collectFromFileList(opts) : collectFromGit(opts);
+  // BL-0161: `--repo` is the PROJECT's own directory (where its `node_modules`/`src` live), which
+  // is NOT always `ctx.repoRoot` (git's top-level — the factory root for a nested project like
+  // Mission Control, which shares panda-corp's `.git` instead of owning one). `projectPrefix` is
+  // how far `--repo` sits below the git top-level, so S17 can re-anchor madge's project-relative
+  // graph nodes onto the repoRoot-relative paths `ctx.files` already carries (git diff's frame).
+  ctx.projectRoot = realOrResolved(opts.repo);
+  ctx.projectPrefix = normalizePath(path.relative(realOrResolved(ctx.repoRoot), ctx.projectRoot));
   process.stdout.write(`${JSON.stringify(classify(opts, ctx))}\n`);
 }
 
