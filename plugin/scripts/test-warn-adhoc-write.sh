@@ -27,8 +27,33 @@ echo "== warn-adhoc-write.sh BL-0033 scoping self-test =="
 # Factory fixture: a git repo with factory/constitution.md, no .pandacorp/status.yaml
 fx=$(mktemp -d)
 ( cd "$fx" && git init -q )
-mkdir -p "$fx/factory/standards" "$fx/plugin/skills/foo" "$fx/plugin/scripts" "$fx/plugin/templates/shared" "$fx/docs" "$fx/mission-control/src"
+mkdir -p "$fx/factory/standards" "$fx/plugin/skills/foo" "$fx/plugin/scripts" "$fx/plugin/templates/shared" "$fx/docs" "$fx/mission-control/src" \
+  "$fx/plugin/agents" "$fx/plugin/.claude-plugin" "$fx/plugin/.codex-plugin" "$fx/plugin/runtime" "$fx/.codex/agents"
 touch "$fx/factory/constitution.md"
+
+# BL-0044 fixture: a source-graph.json shaped like the real one (DR-115 single source of truth) —
+# the two plugin manifests + the .codex/agents mirrors as generated OUTPUTS of plugin_identity /
+# shared_agents, plugin/agents/*.md as shared_agents' source_glob, and a single-file output
+# (factory/gamification-ledger.json) sitting inside an otherwise-prose directory, which is the
+# exact shape that would break a naive directory-prefix match.
+cat > "$fx/plugin/runtime/source-graph.json" <<'JSON'
+{
+  "facts": {
+    "plugin_identity": {
+      "source": "plugin/runtime/plugin-metadata.json",
+      "outputs": ["plugin/.claude-plugin/plugin.json", "plugin/.codex-plugin/plugin.json"]
+    },
+    "shared_agents": {
+      "source_glob": "plugin/agents/*.md",
+      "outputs": [".codex/agents/reviewer.toml"]
+    },
+    "durable_gamification_accounting": {
+      "source": "mission-control/src/lib/gamification/ledger.ts",
+      "outputs": ["factory/gamification-ledger.json"]
+    }
+  }
+}
+JSON
 
 expect "factory standards prose → NO nudge"        0 "$(run_hook "$fx" "$fx/factory/standards/quality.md")"
 expect "factory registry yaml → NO nudge"          0 "$(run_hook "$fx" "$fx/factory/decisions/registry.yaml")"
@@ -40,6 +65,29 @@ expect "mission-control code → nudge"              1 "$(run_hook "$fx" "$fx/mi
 # WS-A F11: cwd parked in a factory SUBDIR must still resolve to the repo root and nudge.
 expect "F11 mission-control code, cwd=SUBDIR → nudge" 1 "$(run_hook "$fx/mission-control/src" "$fx/mission-control/src/app.tsx")"
 expect "F11 factory prose, cwd=SUBDIR → still NO nudge" 0 "$(run_hook "$fx/factory/standards" "$fx/factory/standards/quality.md")"
+
+# BL-0044: derived plugin surfaces (source/output of check-derived-drift.sh's projections, DR-113)
+# must keep the nudge even though their path would otherwise match the factory-prose exemption.
+expect "BL-0044 plugin/agents/*.md (shared_agents source_glob) → nudge" 1 "$(run_hook "$fx" "$fx/plugin/agents/reviewer.md")"
+expect "BL-0044 plugin/.claude-plugin/plugin.json (plugin_identity output) → nudge" 1 "$(run_hook "$fx" "$fx/plugin/.claude-plugin/plugin.json")"
+expect "BL-0044 plugin/.codex-plugin/plugin.json (plugin_identity output) → nudge" 1 "$(run_hook "$fx" "$fx/plugin/.codex-plugin/plugin.json")"
+# Exact-file output collision guard: factory/gamification-ledger.json is a derived OUTPUT living
+# inside factory/ (otherwise prose) — it must nudge on itself WITHOUT blanketing the rest of
+# factory/ (the two "factory standards/registry → NO nudge" controls above already prove the
+# blanket didn't happen; this proves the file itself is still correctly caught).
+expect "BL-0044 factory/gamification-ledger.json (exact-file output) → nudge" 1 "$(run_hook "$fx" "$fx/factory/gamification-ledger.json")"
+# A legitimate hand-edited SOURCE (not an output) in the same directory as a derived output must
+# stay ungated by this mechanism — only the generated output itself is a derived surface.
+expect "BL-0044 plugin/runtime/plugin-metadata.json (source, not an output) → NO nudge from derived-surface matching" 0 "$(run_hook "$fx" "$fx/plugin/runtime/plugin-metadata.json")"
+
+# Fail-open control: a factory repo with NO source-graph.json (e.g. an older checkout mid-rebase)
+# must never let is_derived_plugin_surface crash or wrongly nudge on unrelated prose.
+fx2=$(mktemp -d)
+( cd "$fx2" && git init -q )
+mkdir -p "$fx2/factory"
+touch "$fx2/factory/constitution.md" "$fx2/factory/x.md"
+expect "BL-0044 missing source-graph.json → fails open, prose still NO nudge" 0 "$(run_hook "$fx2" "$fx2/factory/x.md")"
+rm -rf "$fx2"
 
 # The factory landing hint must NOT name the merge queue (it doesn't exist there)
 out=$(run_hook "$fx" "$fx/plugin/scripts/foo.sh")
