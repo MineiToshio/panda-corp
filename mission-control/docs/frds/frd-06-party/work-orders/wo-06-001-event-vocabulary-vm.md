@@ -93,3 +93,37 @@ export function toEventVM(event: DashboardEvent): EventVM  // pure, no I/O, no D
 **Test files:** 49 tests in `event-vm.test.ts` (all GREEN). EventFeed tests unchanged (31 tests, GREEN).
 
 **Gate at hand-off:** 181 test files, 5004 tests GREEN + 2 expected-fail + 5 skipped. `biome check` clean on WO-06-001 files (6 infos = fixable `useLiteralKeys` style suggestions only). `tsc --noEmit` clean. 1 pre-existing failure in `agentColorTokens.integration.reviewer.test.ts` (about `--color-agent-guild` in achievements files — pre-exists this WO, out of scope).
+
+## Status Note (2026-09-23 — `UiPassSkipped` first-class event, change `render-uipassskipped-timeline`)
+
+**Built:** the build engine's `UiPassSkipped` event (WP-01, `plugin/templates/shared/.claude/engines/pandacorp-build.js`)
+now renders with its own vocabulary entry instead of falling into the generic fallback.
+
+**Files delivered / modified:**
+- `src/app/projects/[slug]/_party/event-vm/event-vm.ts` — `EventType` extended with `ui_pass_skipped`
+  (`EVENT_ICON["ui_pass_skipped"] = "⏭️"`); `RAW_EVENT_TYPE["UiPassSkipped"]` mapped; `uiPassSkippedLabel`
+  helper composes the Spanish label from `uiPass`/`frd`/`reason` (all optional, falls back to the plain
+  vocabulary label when none are present).
+- `src/lib/events/event-types.ts` — new `uiPass?: string` field on `Event`. Named `uiPass`, not `pass`,
+  because the raw NDJSON `pass` field is a STRING on `UiPassSkipped` ("foundation-gate" | "visual-qa")
+  but a BOOLEAN on `PreviewSmoke` — same wire field name, two incompatible producers.
+- `src/lib/events/events.ts` — `applyResultFields` resolves `pass` by value type: `typeof src.pass ===
+  "string"` → `ev.uiPass`; the existing boolean branch (`PreviewSmoke`) is untouched, so the two never
+  collide.
+- Tests: `event-vm/_tests/event-vm.uipassskipped.test.ts` (implementer, TDD-red-then-green) +
+  `event-vm/_tests/event-vm.uipassskipped.review.test.ts` (reviewer's DR-080 adversarial suite,
+  3 tests) + `lib/events/_tests/events.uipassskipped.test.ts` (parser coverage, incl. the
+  string/boolean `pass` disambiguation).
+
+**Path:** landed via `/pandacorp:change --now` (canario 2, 2026-09-23) → definitive reclassification on
+the real diff hit `critical` on two classifier false positives (S3 "any new file under `src/`", S8
+FLOOR on a test's own `rmSync(tmpDir)` cleanup) → hand-back, work preserved on branch
+`change/render-uipassskipped-timeline`, card returned to `draft` with `## Bloqueado`. Fixed in plugin
+9.107.0 (BL-0164/BL-0165); landed by the operator following `now-mode.md` §5 from the reclassification
+step: `rigor: normal` (S2, 280 lines/6 files, no floor_hits) on the rebased diff `c0a9b157..7446d4cd`,
+gate green (`scope: since`, 11/11 subgates), reviewer opus APPROVED (0 correctness/security, 4 advisory
+nits — one of them, `fragua-snapshot.ts:287`'s multi-FRD-id ambiguity, preexisting and filed
+separately, see decision log), merged to `main` via `--ff-only` (no merge queue on this repo).
+
+**Gate:** `verify.sh --since c0a9b157 --report-all`, `scope: since`, `green: true`, 11/11 subgates
+(662 vitest + 42 playwright, all passing).

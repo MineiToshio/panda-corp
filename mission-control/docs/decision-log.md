@@ -1,5 +1,48 @@
 # Decision Log — Mission Control
 
+## 2026-09-23 — `UiPassSkipped` rendered in the La Fragua timeline (change `render-uipassskipped-timeline`, close-out)
+
+**What:** the build engine's `UiPassSkipped` event (emitted when a run skips the foundation-gate or
+visual-qa pass — no UI artifacts detected between the ready/built WOs, or `args.forceUiPasses:false`)
+now has its own entry in the Party timeline vocabulary instead of falling into the generic fallback:
+icon `⏭️`, Spanish label composed from `uiPass`/`frd`/`reason` when present. Files: `event-vm.ts` (new
+`ui_pass_skipped` `EventType` + icon + label), `event-types.ts` (new `uiPass?: string` field, distinct
+from `PreviewSmoke`'s boolean `pass` — same wire field name, two producers, resolved by value type),
+`events.ts` (the resolving branch in `applyResultFields`). Owning WO: `WO-06-001` (`event-vocabulary-vm`,
+already `VERIFIED` — Status Note appended, no field change; the addition is within its existing scope).
+
+**Why:** the event already reached production (motor) and the canonical vocabulary
+(`plugin/runtime/event-vocabulary.json`) months ago, but Mission Control's own render never followed —
+found during the 2026-09-22 speed-sprint adversarial review (out of scope for that fix, filed as its
+own card).
+
+**Path (why this took two attempts):** first landing attempt via `/pandacorp:change --now` (canario 2,
+2026-09-23) hand-backed at `critical` — the definitive reclassification on the real diff hit two
+classifier false positives, not a real risk in the change: **S3** flags ANY new file under `src/` as
+`critical` regardless of size/content (the change added TDD test files, which this project requires),
+and **S8 FLOOR** flags `rmSync` as an irreversible/destructive operation without distinguishing a
+test's own `mkdtempSync`/`os.tmpdir()` cleanup from a real deletion (an existing, verified pattern in
+66 other test files in this repo). Both were fixed in plugin 9.107.0 (BL-0164/BL-0165). Landed by the
+operator following `now-mode.md` §5 from the reclassification step onward (not a fresh `--now` run):
+rebased the preserved worktree/branch (`change/render-uipassskipped-timeline`) onto `main`
+(`c0a9b157`, no conflicts), reclassified on the rebased diff → `rigor: normal` (S2 only, 280
+lines/6 files, `floor_hits: []`), re-ran the level's gate (`verify.sh --since c0a9b157 --report-all`
+→ green, `scope: since`, 11/11 subgates), and merged `--ff-only` (this repo has no merge queue,
+constitution §11). The implementation itself was unchanged from the original attempt: sonnet
+implementer (TDD) → opus reviewer, APPROVED on the first pass, 0 `correctness`/`security` findings,
+4 advisory nits.
+
+**Impact:** `mission-control/src/app/projects/[slug]/_party/event-vm/event-vm.ts`,
+`mission-control/src/lib/events/event-types.ts`, `mission-control/src/lib/events/events.ts`, their
+`_tests/`, `docs/frds/frd-06-party/work-orders/wo-06-001-event-vocabulary-vm.md` (Status Note).
+
+**Follow-up filed separately:** the reviewer's adversarial suite also found a preexisting (not
+introduced by this change) ambiguity in `fragua-snapshot.ts:287` — `detectModeAndFrd` assigns a
+comma-joined multi-FRD-id string (e.g. `"frd-03-board,frd-06-party"`, a real emitted shape) whole to
+`currentFrdId` instead of splitting it. Filed as a capture-only change card
+(`.pandacorp/inbox/changes/fragua-snapshot-multi-frd-ambiguity.md`), not fixed here (out of scope for
+this change, advisory nit per DR-072).
+
 ## 2026-09-23 — Manual: speed-sprint build args + `pandacorp:mech` documented (change `manual-speed-sprint-args`, close-out)
 
 Closed out via `/pandacorp:change --now` (rigor `normal`, the first real end-to-end run of the fast
