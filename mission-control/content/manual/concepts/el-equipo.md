@@ -48,7 +48,7 @@ Rol genérico de construcción — ejecuta work orders con TDD. En la práctica 
 
 ### Mech
 
-Ejecutor mecánico de bajo juicio (DR-046) — solo tiene acceso a `Bash` y `Read`, nunca a `Write`/`Edit`, así que no puede tocar código de producto. Corre los pasos de plomería del motor de `implement` que no requieren decidir nada: el commit por work order, el sello de dispatch de cada oleada, el chequeo de safe-point por FRD, el sync de rollups, el archivado de changes y la notificación de fin de run. No reemplaza al `implementer` ni al `reviewer` — ejecuta exactamente el comando que se le indica y nada más; cualquier paso que implique juicio (por ejemplo, decidir qué hacer con un ítem drenado en un safe-point) se queda en el implementer. Corre en el tier más barato del motor (`effort: 'low'`).
+Ejecutor mecánico de bajo juicio — solo tiene acceso a `Bash` y `Read`, nunca a `Write`/`Edit`, así que no puede tocar código de producto. Corre los pasos de plomería del motor de `implement` que no requieren decidir nada: el commit por work order, el sello de dispatch de cada oleada, el sync de rollups, y la notificación de fin de run (más el archivado de changes cuando `leanCloseOut` está desactivado — por defecto ese paso vive en el cierre del reviewer). No reemplaza al `implementer` ni al `reviewer` — ejecuta exactamente el comando que se le indica y nada más. El safe-point se queda explícitamente en el implementer y nunca pasa por Mech: decidir qué hacer con un ítem drenado (o con cualquier otra cosa en ese punto) es juicio, no un script. Corre sobre el modelo MECH (haiku por defecto, configurable con `args.mechModel`) a `effort: 'low'`.
 
 ### Librarian
 
