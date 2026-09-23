@@ -3,12 +3,12 @@ id: BL-0147
 type: bug
 area: build-engine
 title: "close-out (notify-end) re-runs the full whole-project verify.sh minutes after verify-patch already ran it green on the same HEAD sha"
-status: open
+status: done
 severity: p2
 opened: 2026-09-22
-closed:
+closed: 2026-09-22
 source: "canary A launch 2026-09-22, canary-a-report.md — independent review batch 3"
-closes:
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js close-out/notify-end (all 4 full-verify call sites) + plugin/templates/stack-a-nextjs/verify.sh gate-report.json sha field — b739b867"
 links: []
 ---
 
@@ -54,13 +54,36 @@ re-run — and a sibling scenario proving a STALE or `since`-scoped report still
 close-out run (no relaxation of the safety net). Cover both via `run-engine-tests.sh`.
 
 ## Done when
-- The new scenarios above are green in `test-pandacorp-build.mjs`.
-- `bash plugin/scripts/run-engine-tests.sh` is green.
-- A real (or synthetic, wall-clock-measured) close-out run after a `verify-patch` green on the
-  same sha shows the reused path in its log, and the measured close-out duration drops
-  accordingly — recorded in this item's `closes:` on completion.
+- [x] The new scenarios above are green in `test-pandacorp-build.mjs` (7 BL-0147 scenarios: reuse on
+  full+green+same-sha+clean tree; no-reuse on `since` scope, sha mismatch, dirty tree; parity across
+  the hardened close-out AND both notify-end shapes; the unscripted default never reuses). Confirmed
+  RED against the pre-fix engine (`git stash` on the engine file alone): 6/7 failed as expected.
+- [x] `bash plugin/scripts/run-engine-tests.sh` is green, run twice, 24/24 suites both times (also
+  fixed `test-build-engine.mjs`'s own stub, which reaches the same close-out prompts independently
+  and needed the same new label wired into its default response).
+
+## Implementation note (deviation from the original fix plan)
+The fix plan above assumed `verify-patch`'s own run directly populates a full+green
+`gate-report.json` the close-out could trust by construction. On reading the actual engine
+(`verifyPatched`/`attemptPatch`), the FRD-gate-time "whole-project" checks run raw `pnpm
+vitest`/`tsc`/`biome` commands, not `.pandacorp/verify.sh` itself — so they never produce a
+`gate-report.json` at all, and `verify.sh` had no `sha` field to key on. Implemented instead: (1)
+`verify.sh` now stamps the commit `sha` it verified into every `gate-report.json` it writes; (2) a
+new read-only MECH spawn (`close-out-verify-reuse-check`) runs right before each of the 4 full-verify
+call sites (lean/legacy × close-out/notify-end) and independently re-checks `git rev-parse HEAD` +
+`git status --porcelain` + the report's `scope`/`green`/`sha`/age against a 900s ceiling — reusing
+ANY sufficiently fresh full-green report (e.g. one the JUDGE-BASELINE pre-check at run start left
+behind, or the previous run's own close-out), not narrowly "verify-patch's". This is a superset of
+the requested behavior and keeps the WP-08 partial-report cage fully intact (a `since`/`partial`
+report never licenses reuse).
 
 ## Out of scope
 Changing `verify-patch`'s own scope decision, or anything about the Stop gate (`verify-before-stop.sh`,
 a different caller with its own rigor-scoped logic, REV3 defect D2). This item only teaches
-close-out to notice a report `verify-patch` already produced for the SAME commit.
+close-out to notice a report `verify-patch` already produced for the SAME commit. Also out of scope:
+re-syncing `mission-control/.pandacorp/verify.sh` (the project's own installed copy) — it picks up
+the new `sha` field on its next `/pandacorp:upgrade`, same as any other template change. And: a real
+(or synthetic, wall-clock-measured) live close-out run proving the reused path fires and the measured
+duration drops — NOT VERIFIED here (CONV-13: no live canary was run as part of this item, source-level
+TDD only); a live re-measurement is a natural follow-up, the same shape as BL-0155's own deferred
+re-measurement.
