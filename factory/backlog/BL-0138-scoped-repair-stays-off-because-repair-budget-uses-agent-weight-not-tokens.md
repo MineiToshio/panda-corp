@@ -3,13 +3,13 @@ id: BL-0138
 type: bug
 area: build-engine
 title: "WP-08's scopedRepair defaults to false because repairBudgetFactor's COST() is agent-weight, not tokens, and starves the patch ladder on 1-WO FRDs"
-status: open
+status: done
 severity: p2
 opened: 2026-09-22
-closed:
+closed: 2026-09-22
 source: "docs/proposals/37-fast-change-path-and-implement-cost.md speed sprint, package WP-08 (branch wp-08-scoped-repair)"
-closes:
-links: []
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js repairBudgetFactor/canAffordRepair — real-token second opinion (path 1) on top of the already-shipped absolute floor (path 2, commit fbeef8b3)"
+links: [BL-0135]
 ---
 
 ## Problem
@@ -61,6 +61,67 @@ citing WP-08 and WP-09; plugin version bumped per DR-034.
 ## Out of scope
 Redesigning the `scope:partial` cage or the 3x brake multiplier themselves (WP-08's own scope, already
 shipped and correct) — this item only fixes the budget INPUT the brake compares against.
+
+## Resolution (2026-09-22)
+Both fix-plan paths are now shipped, but the "Done when" criterion is met in a MODIFIED form: the
+budget-accuracy root cause this item's title names is fully closed, but `scopedRepair` itself stays at
+its existing default (`false`) — a deliberate, documented decision, not an oversight.
+
+**Path 2 (absolute floor) was already shipped**, independently of this item's close-out, in commit
+`fbeef8b3` ("close five REV2 gaps in the gate/repair/drain ladder", the sprint's own round-2 adversarial
+review, D4/REV2-3): `REPAIR_BUDGET_FLOOR = 9` floors `repairBudget()` regardless of `factor × base`,
+closing the exact 6-vs-9 gap this item's Problem section describes. `scopedRepair` was NOT flipped by
+that commit — it only fixed the brake's own coupling to `args.scopedRepair` (REV2-3: the brake used to be
+gated OFF by the same flag as the sonnet-fixer scoping) and added the floor.
+
+**Path 1 (real-token accounting) is landed by this close-out**, re-scoped after verifying the actual
+Workflow script API (the `workflow-authoring` skill reference, read before implementing): `agent()`
+returns NO per-call token usage — the ONLY live signal is `budget.spent()`, a single un-partitioned
+counter for the whole run. A per-FRD real-token REPAIR cost is trustworthy (every repair rung runs on a
+quiesced, one-FRD-at-a-time tree), but a per-FRD real-token BUILD cost is trustworthy only when that
+FRD's own wave built it alone — the engine's global-wave design (DR-050/BL-0021) deliberately builds
+multiple FRDs concurrently, sharing the same counter, so WP-09's `durationMs`/token instrumentation
+genuinely isn't available AT RUN TIME for the general case, exactly as this item's own Root Cause section
+anticipated. `canAffordRepair` now consults a real-token ceiling (`REPAIR_BUDGET_FACTOR ×` the FRD's real
+build tokens, when measurable) with OR semantics on top of the existing floored agent-weight ceiling — it
+can only RESCUE a rung the floor would have refused, never refuse one the floor would allow, and falls
+back to agent-weight with a fail-loud log (`repair brake on agent-weight, usage unavailable`) when a
+multi-FRD wave makes the real number untrustworthy. Proven RED→GREEN in
+`plugin/scripts/test-pandacorp-build.mjs` (`BL-0138-1` rescues a rung `WP08e` proves the floor alone
+refuses; `BL-0138-3` is the required control — a genuinely expensive repair still trips the brake;
+`BL-0138-4a` proves the fallback + its log; `BL-0138-2`/`BL-0138-5` are the unaffected-common-case and
+default-unchanged checks).
+
+**`scopedRepair` stays `false` — NOT flipped.** Re-reading the scoped-repair mechanism itself (the
+`scope:"partial"` cage + its `--only`/`--files`-narrowed INTERNAL self-repair cycles, WP-08 (b)) surfaced
+a risk the budget fix does nothing for: those internal cycles re-gate scoped to the sub-gates
+`gate-report.json` named for the ORIGINAL failure, so a misdiagnosed or cross-file regression introduced
+mid-repair could churn the internal budget against the wrong scope before the (always-unscoped) final
+certification re-gate catches it — late, not wrong, but not the fast path WP-08 promises either. The
+engine's own comment already states the real bar: "a tradeoff the owner should opt into on LIVE DATA" —
+and the decision log confirms that data does not exist: both Canary A and Canary B ran with the default,
+and BL-0138 itself is noted there as "confirmed still applicable"/"confirmed unused in this run" AFTER
+the floor had already landed. Flipping a build-wide default on an unvalidated internal-loop risk, for a
+backlog item chartered to fix the budget's INPUT measure (now done, twice over), would be disproportionate.
+
+**Activation criterion for a future item** (mirrors the bar already used for `gateEvidence:'digested'`,
+BL-0135): a dedicated canary run with `{"scopedRepair": true}` explicitly opted in, on a real
+patch-1→diagnose→patch-2(+) escalation, confirming (a) the sub-gate classifier correctly targets the
+actual failing sub-gate, (b) no case where the scoped `--files`-narrowed re-gate missed a regression the
+final unscoped certification then had to catch late, and (c) the mechanical sonnet fixer rarely needs an
+opus escalation. Until then this item's own budget fix stands on its own merits (it also helps the
+UNSCOPED ladder — the floor and the token layer both apply regardless of `scopedRepair`).
+
+**Impact:** `plugin/templates/shared/.claude/engines/pandacorp-build.js` (real-token layer:
+`buildTokensByFrd`/`buildTokensReliable`/`repairTokensByFrd`/`recordWaveBuildTokens`/`tokenRepairBudget`/
+`chargedRepair`, `canAffordRepair`'s OR check, two `budget`-shadowing local var renames), byte-identical
+copy at `mission-control/.claude/engines/pandacorp-build.js` (`cmp` confirmed). Five new scenarios in
+`plugin/scripts/test-pandacorp-build.mjs` (`// ---- BL-0138 ----`, appended at the end). Doc:
+`factory/standards/build-orchestration.md` §"gate-report.json and scoped repair" paragraph updated to
+describe both the floor and the real-token layer, and to separate the budget question (closed) from the
+scoped-repair-default question (still open, criterion above). Plugin version bump + `plugin/docs/decision-log.md`
+entry: left to the close-out agent per this session's own scope boundary (BL-0147 close-out work is
+active on a sibling branch touching the same engine).
 
 ## Corroborating observation (2026-09-21, owner-stated, unverified)
 Independently of this item's own root-cause analysis, the owner voiced the same-shaped complaint from the

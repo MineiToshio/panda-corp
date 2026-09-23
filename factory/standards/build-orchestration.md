@@ -508,11 +508,20 @@ mechanical red routes to a patch-1 on sonnet/medium, scoped with `--only`/`--fil
 usual ≤2 internal cycles), instead of the full opus in-place patch. The final certification re-gate stays
 whole-project, literally, and this is enforced as a hard cage, not a convention: no certifier (an inline
 gate, a concurrent worktree gate, a re-gate, the post-patch verifier, `applyGate`) ever accepts
-`report_scope: "partial"` as a passing verdict. The brake: `args.repairBudgetFactor` (default `3`) caps
-scoped-repair spend at 3 times the WO's own build cost before the engine gives up honestly to
-`needs-owner` with the work preserved, rather than grinding. `args.scopedRepair` (default `false` until
-canaried) gates the whole mechanism off until an A/B canary clears it. Scoped repair never overrides
-`cause: 'gate-test-defective'` (`LESSON-0002`): that still routes to `repairGateTest` (§6) unchanged.
+`report_scope: "partial"` as a passing verdict. The brake (`args.repairBrake`, default `true`,
+independent of `args.scopedRepair`): `args.repairBudgetFactor` (default `3`) caps repair spend per FRD at
+3 times its own build cost, floored at an absolute 9 agent-weight units regardless of factor x base
+(BL-0138 path 2) so a small FRD's build cost never starves the patch-1→diagnose→patch-2 escalator itself.
+BL-0138 path 1 layers a REAL-TOKEN second opinion on top, in the same units the repair actually spends
+(a `budget.spent()` delta, trustworthy only when the FRD's own build wave contained it alone) — it can
+only RESCUE a rung the floored agent-weight ceiling would have refused, never refuse one agent-weight
+alone would allow, and falls back to agent-weight with a logged fallback when a multi-FRD wave makes the
+real number untrustworthy. Exhausting either path is an honest give-up to `needs-owner` with the work
+preserved, rather than grinding. `args.scopedRepair` (default `false`) gates the scoped-repair mechanism
+(the sonnet/medium fixer + narrowed inner-loop re-gate) off until a live canary validates its OWN
+accuracy — a separate question from the budget's input measure, which BL-0138 already closes twice over.
+Scoped repair never overrides `cause: 'gate-test-defective'` (`LESSON-0002`): that still routes to
+`repairGateTest` (§6) unchanged.
 
 ## 5a. Concurrent gates — build and review finally overlap (DR-118)
 

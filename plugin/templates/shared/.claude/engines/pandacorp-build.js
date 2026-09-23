@@ -122,14 +122,26 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     gated the brake as well as the scoping) — that coupling is fixed: the brake now runs independently
 //     and defaults ON. Opt out with `{"repairBrake": false}` (restores the pre-D4 unbounded ladder).
 //     The COST() proxy is still coarse (opus=3, sonnet=1) and cannot see that ONE opus/xhigh agent might
-//     burn 85 tool calls — it brakes agent WEIGHT, not tokens (see the brake's own comment below).
+//     burn 85 tool calls — it brakes agent WEIGHT, not tokens. BL-0138 (path 1) adds a SECOND, REAL-TOKEN
+//     signal alongside it — see the brake's own comment below for what it can and cannot measure.
 //   args.repairBudgetFactor: how many times an FRD's own build spend its repair may cost before the
 //     brake fires (default 3 — the FRD-24 measurement was 3.5x). Only read when repairBrake is on. The
-//     budget floors at 9 units regardless of factor x base (BL-0138): on a realistic 1-WO FRD (build
-//     cost C=2, budget = 3x2 = 6) the unfloored ladder patch-1(3)+diagnose(3)+patch-2(3)=9 was cut BEFORE
-//     patch-2 — losing a whole rung of recovery depth on the smallest, most common FRD shape. The floor
-//     guarantees that escalator always fits; only the (pricier) in-run-retry rung after it is still
-//     gated by the real budget.
+//     budget floors at 9 units regardless of factor x base (BL-0138 path 2, shipped): on a realistic 1-WO
+//     FRD (build cost C=2, budget = 3x2 = 6) the unfloored ladder patch-1(3)+diagnose(3)+patch-2(3)=9 was
+//     cut BEFORE patch-2 — losing a whole rung of recovery depth on the smallest, most common FRD shape.
+//     The floor guarantees that escalator always fits regardless of the agent-weight proxy's accuracy.
+//     BL-0138 path 1 (real tokens) layers a SECOND, independent ceiling on top, in the SAME units the
+//     repair actually spends: REPAIR_BUDGET_FACTOR x this FRD's build spend measured in real output
+//     tokens (a budget.spent() delta), consulted with OR semantics — it can only RESCUE a rung the
+//     floored agent-weight ceiling would have refused, never refuse one agent-weight would have allowed.
+//     It is trustworthy only when the FRD's own build wave contained THAT ONE FRD alone (budget.spent()
+//     is a single un-partitioned counter for the whole run — a multi-FRD wave's delta can't be split
+//     among its FRDs); when it can't be isolated, the brake falls back to agent-weight alone and logs
+//     that fallback (see canAffordRepair). Real tokens are NOT tracked for the build-side denominator in
+//     the general case — the engine's own global-wave design deliberately builds MULTIPLE FRDs
+//     concurrently (see the module description above), so a per-FRD real-token BUILD cost is provably
+//     unmeasurable there without either serializing builds (an unacceptable regression) or an SDK change
+//     exposing per-agent token usage (agent() returns none today).
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
 //     nor advance last_green_sha, whatever scopedRepair/repairBrake say. See the cage section below.
@@ -1696,7 +1708,8 @@ async function persistGateBlock(frd, reviewIds, reason, failure) {
 // the real budget.
 // Honest about its own limits (stated here so nobody mistakes it for more than it is):
 //   • COST() is a coarse proxy (opus=3, sonnet=1). It cannot see that ONE opus/xhigh agent spent 85
-//     tool calls — the actual FRD-24 driver. It brakes agent WEIGHT, not tokens.
+//     tool calls — the actual FRD-24 driver. It brakes agent WEIGHT, not tokens. BL-0138 path 1 (below)
+//     adds a real-token SECOND opinion on top of it, not a replacement for it.
 //   • It is scoped to THIS run's measured build spend. buildCostByFrd is FROZEN after the FRD's first
 //     build wave (D4b) — an in-run retry rebuild (wo._isRetry) never inflates it, or the very spend the
 //     brake exists to bound would also raise the ceiling that bounds it.
@@ -1710,16 +1723,84 @@ const buildCostByFrd = new Map()    // frd -> COST()-weighted units spent BUILDI
 const repairCostByFrd = new Map()   // frd -> COST()-weighted units spent REPAIRING it this run
 const REPAIR_BUDGET_FLOOR = 9       // D4/BL-0138: absolute minimum, regardless of factor x base — see the block comment above
 const repairBudget = (frd) => Math.max(REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0), REPAIR_BUDGET_FLOOR)
-function chargeRepair(frd, model) {
+// ── BL-0138 path 1: a REAL-TOKEN second opinion on top of the agent-weight brake ───────────────────
+// agent() exposes no per-call usage (verified against the Workflow script API — there is no such field
+// on its return value); the ONLY live token signal is `budget.spent()`, ONE un-partitioned counter for
+// the whole run. A delta around a call is honest ONLY when nothing ELSE is spending in that window.
+// Every repair rung is provably on such a window: each one runs on a quiesced, one-FRD-at-a-time tree —
+// the wave build barrier resolves before the post-wave repair loop starts (`await parallel(...)` then a
+// sequential per-FRD `for`, see the Build-phase loop), and drainConverge() awaits every in-flight gate
+// (`settleGates(true)`) before draining its queue one item at a time. So repairTokensByFrd is always a
+// trustworthy real number. The BUILD side is the opposite: the engine's own global-wave design (see the
+// module description) deliberately builds MULTIPLE FRDs' work orders concurrently in one `parallel()`
+// barrier, so a `budget.spent()` delta around that barrier is shared across every FRD in it and cannot
+// be disentangled — buildTokensByFrd is only trustworthy for an FRD whose EVERY build wave contained
+// that FRD alone (buildTokensReliable), and is permanently marked unusable (never reset) the moment a
+// multi-FRD wave touches it, since an already-mixed total can't be un-mixed by a later clean wave.
+const buildTokensByFrd = new Map()       // frd -> real output tokens spent BUILDING it (single-FRD waves only)
+const buildTokensReliable = new Map()    // frd -> true iff every wave that built it so far was single-FRD
+const repairTokensByFrd = new Map()      // frd -> real output tokens spent REPAIRING it (always trustworthy)
+const loggedTokenFallback = new Set()    // frd -> already logged the agent-weight fallback once (avoid log spam per rung)
+// Records ONE wave's real build spend against every FRD it touched — call right after the wave's
+// `parallel(wave.map(buildWO))` barrier resolves, with the budget.spent() delta across that barrier.
+function recordWaveBuildTokens(waveFrds, tokensSpent) {
+  if (waveFrds.length === 1) {
+    const [frd] = waveFrds
+    // A zero delta is NOT evidence of a free build — budget.spent() never moving across a whole wave
+    // means token tracking isn't actually live for this run (a still-cold counter, an instrumentation
+    // gap), and treating that zero as a real ceiling would make the token layer WRONGLY permissive
+    // (repairTokensByFrd would also read 0, and 0 <= 0 rescues everything). Stay UNMARKED (neither
+    // reliable nor unreliable) until a genuinely positive delta is observed — a later single-FRD wave
+    // for the same FRD can still promote it.
+    if (tokensSpent > 0 && buildTokensReliable.get(frd) !== false) {
+      buildTokensByFrd.set(frd, (buildTokensByFrd.get(frd) || 0) + tokensSpent)
+      buildTokensReliable.set(frd, true)
+    }
+  } else {
+    for (const frd of waveFrds) buildTokensReliable.set(frd, false)   // sticky — a mixed total never becomes trustworthy again
+  }
+}
+// The real-token ceiling, or null when this FRD's build tokens can't be trusted (see above) — null is
+// the fallback signal, never treated as "budget 0" (that would make the token layer STRICTER, which it
+// must never be — see canAffordRepair's OR).
+const tokenRepairBudget = (frd) => (buildTokensReliable.get(frd) === true ? REPAIR_BUDGET_FACTOR * (buildTokensByFrd.get(frd) || 0) : null)
+function chargeRepair(frd, model, tokensSpent = 0) {
   if (!REPAIR_BRAKE) return
   repairCostByFrd.set(frd, (repairCostByFrd.get(frd) || 0) + COST(model))
+  if (tokensSpent > 0) repairTokensByFrd.set(frd, (repairTokensByFrd.get(frd) || 0) + tokensSpent)
+}
+// Wraps a repair rung's own agent()/buildWO call with a budget.spent() delta and charges it as REAL
+// tokens (BL-0138 path 1) — safe because every call site is on the quiesced tree described above.
+async function chargedRepair(frd, model, callFn) {
+  const before = budget.spent()
+  try {
+    return await callFn()
+  } finally {
+    chargeRepair(frd, model, budget.spent() - before)
+  }
 }
 function canAffordRepair(frd, model, units = 1) {
   if (!REPAIR_BRAKE) return true
-  const budget = repairBudget(frd)
+  const ceiling = repairBudget(frd)
   const spent = repairCostByFrd.get(frd) || 0
   if (spent === 0) return true                       // the first attempt is always affordable
-  return spent + COST(model) * units <= budget
+  if (spent + COST(model) * units <= ceiling) return true   // agent-weight (floored) already affords it
+  // Agent-weight says no — ask the real-token signal before agreeing. It is STRICTLY MORE PERMISSIVE,
+  // never stricter (OR, not AND): it can only rescue a false-early trip the coarse COST() proxy caused,
+  // never cut a repair the floored budget would have allowed. Unlike the weight check it cannot PRICE
+  // the next call in advance (no per-call token estimate exists before the call runs), so it compares
+  // spend-so-far only — still a real, honestly-measured second opinion for exactly the failure mode
+  // COST() cannot see (see the brake's block comment: one opus/xhigh agent burning far more real work
+  // than its "3 units" implies).
+  const tokenCeiling = tokenRepairBudget(frd)
+  if (tokenCeiling === null) {
+    if (!loggedTokenFallback.has(frd)) {
+      loggedTokenFallback.add(frd)
+      log(`… ${frd}: repair brake on agent-weight, usage unavailable (this FRD's build spend was mixed into a multi-FRD wave — no trustworthy per-FRD token total, BL-0138)`)
+    }
+    return false
+  }
+  return (repairTokensByFrd.get(frd) || 0) <= tokenCeiling
 }
 // The honest exit when the budget is gone: the work orders are filed needs-owner with the OBJECTIVE
 // gate report attached, the work stays on the branch (nothing is reverted or discarded — the owner may
@@ -1728,15 +1809,15 @@ function canAffordRepair(frd, model, units = 1) {
 async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
   agentSpawned += COST(P.judge)   // the exit is never charged to the repair budget — it IS the budget's conclusion
   const spent = repairCostByFrd.get(frd) || 0
-  const budget = repairBudget(frd)
+  const ceiling = repairBudget(frd)   // BL-0138: renamed from `budget` — that name shadowed the injected global budget object
   const report = gate && gate.gateReport ? JSON.stringify(gate.gateReport).slice(0, 4000) : '(the gate returned no machine-readable report; quote its `failure` text instead)'
-  const record = `El motor gastó ${spent} unidades de coste reparando ${frd}, por encima del techo de ${budget} (${REPAIR_BUDGET_FACTOR}× lo que costó construir esa feature en esta corrida). Seguir intentándolo sale más caro que construirla entera, así que paro y te lo paso: el trabajo está INTACTO en la rama y el informe objetivo del gate va adjunto.`
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}REPAIR BUDGET EXHAUSTED (WP-08) for ${frd}. Repair has cost ${spent} weighted cost-units against a ceiling of ${budget} (${REPAIR_BUDGET_FACTOR}× this FRD's own build spend this run). Do NOT patch, do NOT diagnose, do NOT retry — the point of stopping is to stop.
+  const record = `El motor gastó ${spent} unidades de coste reparando ${frd}, por encima del techo de ${ceiling} (${REPAIR_BUDGET_FACTOR}× lo que costó construir esa feature en esta corrida). Seguir intentándolo sale más caro que construirla entera, así que paro y te lo paso: el trabajo está INTACTO en la rama y el informe objetivo del gate va adjunto.`
+  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}REPAIR BUDGET EXHAUSTED (WP-08) for ${frd}. Repair has cost ${spent} weighted cost-units against a ceiling of ${ceiling} (${REPAIR_BUDGET_FACTOR}× this FRD's own build spend this run). Do NOT patch, do NOT diagnose, do NOT retry — the point of stopping is to stop.
   1) **PRESERVE the work exactly as it is.** Do NOT revert, do NOT \`git checkout\` anything, do NOT \`git rm\` anything, and never a hard reset — the partially-repaired build stays on the branch so the owner (or a later run) can pick it up. Commit nothing but the state changes in step 2/3.
   2) Set EACH reopened work order (${(reopenIds || []).join(', ')}) \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) and ATTACH the objective gate-report under it as a fenced \`\`\`json block so the owner reads the machine verdict, not a summary of it: ${record}
   GATE-REPORT (verbatim, from the failing gate): ${report}
-  4) COMMIT (Conventional Commits, scope) staging the frontmatter flips, decisions.md, status.yaml and \`.pandacorp/build-journal.jsonl\`.${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner","repair_units":${spent},"repair_budget":${budget}`)}${NOTIFY('FRD ' + frd + ' parado: la reparacion ya cuesta mas de ' + REPAIR_BUDGET_FACTOR + 'x construirlo — trabajo intacto, necesita tu decision')}
+  4) COMMIT (Conventional Commits, scope) staging the frontmatter flips, decisions.md, status.yaml and \`.pandacorp/build-journal.jsonl\`.${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner","repair_units":${spent},"repair_budget":${ceiling}`)}${NOTIFY('FRD ' + frd + ' parado: la reparacion ya cuesta mas de ' + REPAIR_BUDGET_FACTOR + 'x construirlo — trabajo intacto, necesita tu decision')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
     { label: `block-repair-budget:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
@@ -1746,15 +1827,14 @@ async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
 // BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
 async function attemptRepair(frd, context) {
   agentSpawned += COST(P.judge)   // DR-073: repair runs on the judge model — weight it honestly
-  chargeRepair(frd, P.judge)          // WP-08: a fix agent — charged to this FRD's repair budget
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
+  return await chargedRepair(frd, P.judge, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
   2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
   3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml. **DR-070 — discard the blocked WO's committed-but-broken code so it doesn't pollute sibling FRDs' global gate: revert its files to the last green (\`git checkout <last_green_sha> -- <its existing files>\`; \`git rm\` newly-created ones; NEVER a hard reset of the whole tree).** Commit only the status change + the revert, and return { green: false, blocked_reason, failure }:
      - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
-    { label: `repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+    { label: `repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA }))
 }
 
 // ── DR-073 in-place PATCH: fix the specific finding(s) on the EXISTING build, don't rebuild ──────
@@ -1782,7 +1862,6 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
   const patchModel = scoped ? 'sonnet' : 'opus'
   const patchEffort = scoped ? 'medium' : 'xhigh'
   agentSpawned += COST(patchModel)   // A6: patch-2 is weighted like patch-1 (opus=3); WP-08: a mechanical patch-1 is weighted as the sonnet it is
-  chargeRepair(frd, patchModel)
   if (scoped) log(`◦ ${frd}: gate-report classes ${mech.classes.join('+')} are MECHANICAL (${mech.subgates.join(', ')}) — patch-1 on sonnet/medium with a scoped inner loop instead of opus/xhigh (WP-08)`)
   const scopeFlags = scoped
     ? `--only=${mech.subgates.join(',')}${mech.files.length ? ` --files=${mech.files.join(',')}` : ''}`
@@ -1796,7 +1875,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
   const patchAttemptJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"patch","role":"builder","kind":"attempt","classification":"","seam":null,"findingKey":"%s","tried":"%s","verdict":"","why":"%s","confidence":"%s"`,
     ` "<the primary reopened work order you patched, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its current reopen_count, an integer>" "<\`<file>::<one-line claim>\` of the primary finding>" "<one line: what you changed>" "<one line: why>" "<low|medium|high>"`)
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'patch' })}Patch-in-place repair (DR-073)${priorDiagnosis ? ' — SECOND diagnosis-guided attempt (A3 patch-2)' : ''}. The build of ${frd} is ~CORRECT EXCEPT these specific findings:
+  return await chargedRepair(frd, patchModel, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'patch' })}Patch-in-place repair (DR-073)${priorDiagnosis ? ' — SECOND diagnosis-guided attempt (A3 patch-2)' : ''}. The build of ${frd} is ~CORRECT EXCEPT these specific findings:
   ${list}${diagText}
   Patch ONLY these on the EXISTING build — do NOT revert, do NOT rebuild from scratch, do NOT touch unrelated files. For each finding, make the RED-proven failing test PASS (production code, never weaken/skip a test). Reviewed work orders this cycle: ${(reviewIds || []).join(', ')}.
   BUILD-JOURNAL (A1): record ONE kind:"attempt" line for this patch (descriptive — verdict stays empty, a patcher never certifies itself):${patchAttemptJournal}
@@ -1806,7 +1885,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
   **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope), staging \`.pandacorp/build-journal.jsonl\` too (append-only — your attempt line) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
   **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — **or (BL-0051) it is a BLESSED test asserting a contract that a work order of THIS FRD intentionally DEROGATES**, which no correct implementation of the new contract can satisfy either — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it, EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line, which is a durable record of this attempt and is swept by the engine's next commit — do NOT undo it),${PATCH_RESULT(frd, 'gate-test-defective')} and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
   **If you CANNOT green it in place** (the ORIGINAL build genuinely fails beyond the findings, or your self-repair budget is spent): UNDO all your own edits the same way — leave the tree exactly as you found it (do NOT commit, do NOT revert the WO; the engine reverts cleanly), EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line (a durable record of this attempt — leave it; the engine's next commit sweeps it),${PATCH_RESULT(frd, 'code-fail')} and return { green: false, cause: 'code', failure: <why> }.`,
-    { label: `patch:${frd}`, phase: 'Review', model: patchModel, effort: patchEffort, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+    { label: `patch:${frd}`, phase: 'Review', model: patchModel, effort: patchEffort, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA }))
 }
 
 // ── BL-0001 gate-test repair: when the GATE's own test is the defect, fix the TEST, not the build ──
@@ -1821,7 +1900,6 @@ async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
   // WP-08: charged to the repair budget, but deliberately NEVER refused by it. This path exists to
   // preserve a CORRECT build against a defective/superseded gate test — refusing it would push the
   // flow into a revert + full rebuild, which costs strictly more than the agent the brake just saved.
-  chargeRepair(frd, P.judge)
   const list = (defectiveTests || []).map((t) => `• ${t.path}: ${t.why}`).join('\n  ') || '(see the patch output)'
   // BL-0051: the same INDEPENDENT reviewer also owns the DEADLOCK BREAK — when the diagnoser classified
   // `deadlocked-contract`, the flagged test is not internally inconsistent: it asserts a contract a SIBLING
@@ -1831,14 +1909,14 @@ async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
   const head = deadlock
     ? `GATE-TEST RE-BLESS — DEADLOCK BREAK (BL-0051) for ${frd}. The diagnoser classified this failure **deadlocked-contract** (confidence ${(deadlock && deadlock.confidence) || 'medium'}): a BLESSED reviewer test still asserts a contract that a work order of THIS SAME FRD intentionally DEROGATES, while the work order that would re-bless it \`dependsOn\` the derogating one — neither can ever go green (LESSON-0104). Diagnosis: ${(deadlock && deadlock.seam && deadlock.seam.why) || (deadlock && deadlock.decisionRecord) || '(see the build journal)'}. The blessed test(s) at issue:`
     : `GATE-TEST REPAIR (BL-0001) for ${frd}. The patch agent flagged these reviewer adversarial test(s) as DEFECTIVE — internally inconsistent, unsatisfiable by ANY correct implementation, or asserting a contract this FRD's own work orders intentionally derogate (BL-0051):`
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate-test-repair' })}${head}
+  return await chargedRepair(frd, P.judge, () => agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate-test-repair' })}${head}
   ${list}
   You are an INDEPENDENT reviewer (you own the gate's tests; the patcher may not touch them). For EACH flagged test, judge the claim on the evidence — do not take the patcher's word:
   - **Genuinely defective** (the assertion contradicts its own setup/config, or no correct implementation of the FRD's acceptance criteria could satisfy it): REPAIR the test so it correctly asserts the FRD's REAL acceptance criterion (fix the assertion/setup — e.g. force the viewport it assumed; NEVER delete the coverage or weaken what the AC requires).
   - **DEROGATED CONTRACT (BL-0051 deadlock break)** (the test is internally consistent, but the contract it encodes was intentionally SUPERSEDED by a work order of THIS FRD): before you accept this, PROVE the derogation is DECLARED — read ${frd}'s \`frd.md\`, its blueprint and the sibling work orders **including their \`dependsOn\` graph**, and confirm a work order states the new contract. Only then RE-BLESS the test: rewrite the assertion(s) to the NEW contract the FRD now specifies (never delete the coverage, never weaken what the acceptance criteria require — the re-blessed test must still FAIL against an implementation that gets the NEW contract wrong). **DR-080 stays intact:** you are the INDEPENDENT reviewer who OWNS this test, which is exactly why this edit is yours and never the implementer's/patcher's. If NO work order declares the derogation, it is not a derogation — fall through to "Actually right".
   - **Actually right** (the build really violates it, or the claimed derogation is undeclared): change NOTHING and return { green: false, cause: 'code', failure: 'test upheld: <why the build is wrong>' } — the engine falls back to the normal revert (or, for a deadlock claim, to the needs-owner block).
   After repairing: re-run the repaired test file(s) + the FULL FRD test files for ${frd} AND whole-project \`pnpm biome check .\` + \`pnpm tsc --noEmit\` against the EXISTING build (work orders this cycle: ${(reviewIds || []).join(', ')}). If everything is clean, COMMIT only the test repair(s) (Conventional Commits, scope; note WHY each test was defective in the commit body) and return { green: true } — an independent verifier still re-runs the objective gate and stamps. If red remains, change nothing further and return { green: false, cause: 'code', failure }.`,
-    { label: `gate-test-repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
+    { label: `gate-test-repair:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA }))
 }
 
 // ── Independent post-patch verification (constitution rule 4 — the patcher never certifies itself) ──
@@ -2190,12 +2268,11 @@ async function drainReadyQueuePreLoop() {
 // adversarially against the CURRENT code (poison self-purge) and writes its OWN kind:"diagnosis" line.
 async function diagnoseFailure(frd, gate, reviewIds) {
   agentSpawned += COST(P.judge)   // A6: the diagnoser runs on the judge model — weighted
-  chargeRepair(frd, P.judge)          // WP-08: part of the repair ladder — charged to this FRD's repair budget
   const findingsList = (gate.findings || []).map((x) => `• ${x.wo}: ${x.finding}${x.files && x.files.length ? ` [${x.files.join(', ')}]` : ''}`).join('\n  ') || '(see the gate output)'
   const diagJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"diagnose","role":"diagnoser","kind":"diagnosis","classification":"%s","seam":%s,"findingKey":"%s","tried":"","verdict":"","why":"%s","confidence":"%s"`,
     ` "<the primary reopened work order, else ${(gate.reopen || [])[0] || frd}>" "<its attempt number, an integer>" "<its current reopen_count, an integer>" "<point|architectural|gate-test-defective|deadlocked-contract>" "<a compact JSON object {\\"files\\":[...],\\"symbol\\":\\"...\\",\\"why\\":\\"...\\"} or the bare token null>" "<\`<file>::<one-line claim>\` of the fault>" "<one line: your diagnosis>" "<low|medium|high>"`)
-  return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'diagnose' })}DIAGNOSE (A2, progressive-learning recovery) for ${frd}. An in-place patch just FAILED to green the build (cause: code). You are a READ-ONLY diagnoser — change NOTHING, write no tests, fix nothing, run no revert. Read the CURRENT code, the failing gate findings, the reopened work orders (${(gate.reopen || []).join(', ')}), and the prior attempts recorded in ${JOURNAL_PATH} (if it exists). Findings:
+  return await chargedRepair(frd, P.judge, () => agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'diagnose' })}DIAGNOSE (A2, progressive-learning recovery) for ${frd}. An in-place patch just FAILED to green the build (cause: code). You are a READ-ONLY diagnoser — change NOTHING, write no tests, fix nothing, run no revert. Read the CURRENT code, the failing gate findings, the reopened work orders (${(gate.reopen || []).join(', ')}), and the prior attempts recorded in ${JOURNAL_PATH} (if it exists). Findings:
   ${findingsList}
   Classify the failure and recommend the CHEAPEST SAFE recovery. RULES:
   - A diagnosis with NO file:line anchor is confidence:low and CANNOT justify a block or an 'architectural' classification. **Default to 'point' unless the evidence forces otherwise.**
@@ -2207,7 +2284,7 @@ async function diagnoseFailure(frd, gate, reviewIds) {
   - \`decisionRecord\`: a SPANISH, owner-facing paragraph (what keeps failing, your diagnosis, what the owner must decide) — meaningful when you recommend block-needs-owner; a one-liner otherwise.
   BUILD-JOURNAL (A1) — record YOUR kind:"diagnosis" line (you are the diagnoser; this is the trust-split's diagnosis half):${diagJournal}
   Return { classification, seam, repeatsPrior, supersededPriors, recommendation, decisionRecord, confidence }.`,
-    { label: `diagnose:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: DIAGNOSE_SCHEMA })
+    { label: `diagnose:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: DIAGNOSE_SCHEMA }))
 }
 
 // ── A3 EARLY BLOCK needs-owner — a diagnosed doomed spec (architectural/deadlocked-contract, med|high) ──
@@ -2266,7 +2343,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   }
   if (budgetedRetry.length < retryWos.length) log(`↻ ${f.frd}: in-run retry trimmed to fit the agent budget — ${budgetedRetry.map((w) => w.id).join(', ')} now; the rest rebuild next pass (WS-D/D6)`)
   log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''} instead of paying a whole extra pass`)
-  for (const w of budgetedRetry) { chargeRepair(f.frd, 'opus'); await buildWO(w, f.frd) }
+  for (const w of budgetedRetry) await chargedRepair(f.frd, 'opus', () => buildWO(w, f.frd))
   const regate = await frdGate(f.frd, reviewIds)
   // WP-08 cage: the in-run retry's re-gate is a certification too — a partial one certifies nothing.
   if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
@@ -2917,7 +2994,12 @@ while (true) {
   // its body, which it correctly leaves untouched) on macOS' perl 5.34.1.
   await agent(`${dispatchSyncRollups}Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (change nothing else beyond the sync-rollups step above if present, do NOT commit this part) by running EXACTLY this command once per file, substituting its path: \`perl -0pi -e 's/\\A(---\\n(?:(?!---\\n).*\\n)*?)implementation_status:[^\\n]*/$1implementation_status: IN_PROGRESS/' <file>\`. Files: ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
     { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT })
+  // BL-0138 path 1: bracket the wave's own build barrier with a real-token delta, attributed to
+  // buildTokensByFrd only when this wave is single-FRD (see recordWaveBuildTokens's own comment for why
+  // a multi-FRD wave's delta can't be split among its FRDs).
+  const waveBuildTokensBefore = budget.spent()
   const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
+  recordWaveBuildTokens(waveFrds, budget.spent() - waveBuildTokensBefore)
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
   // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
   // its disjoint artifacts), so there is no batched after-wave commit. A mid-wave interruption keeps

@@ -3935,6 +3935,193 @@ SCENARIOS.push({
     t.ok(end && /complete suite, NO --since/.test(end.prompt) && !/CloseOutVerifyReused/.test(end.prompt), 'the unscripted (agent-returns-nothing-usable) default never reuses — the full rerun is the fail-safe default')
   },
 })
+// ---- BL-0138 ----
+// ═════════════════════════════════════════════════════════════════════════════
+// BL-0138 — the repair brake gets a REAL-TOKEN second opinion (path 1 of the BL's fix plan), on top
+// of the already-shipped 9-unit agent-weight floor (path 2, WP08e/REV2-3/FIX2-D4* above). Verified
+// against the Workflow script API before implementing (workflow-authoring skill): agent() returns no
+// per-call usage field, so the only live token signal is `budget.spent()` — ONE un-partitioned counter
+// for the whole run. That makes a real per-FRD REPAIR cost trustworthy (every repair rung runs on a
+// quiesced, one-FRD-at-a-time tree — see chargedRepair's own comment) but makes a real per-FRD BUILD
+// cost trustworthy ONLY when that FRD's wave built it alone (the engine's global-wave design otherwise
+// builds multiple FRDs concurrently, sharing the same counter). canAffordRepair therefore consults the
+// token ceiling with OR semantics: it can only RESCUE a rung the floored agent-weight ceiling would
+// have refused, never refuse one agent-weight alone would have allowed — so it narrows BL-0138's false
+// early trip without weakening the brake's own runaway-loop guarantee.
+//
+// DECISION recorded here for the test that proves it (BL-0138-4): `scopedRepair` stays at its EXISTING
+// default of `false`. The budget-accuracy bug this item's title names is now fixed twice over (the
+// floor, and this real-token layer) — but re-reading the scoped-repair mechanism itself (the
+// `scope:"partial"` cage + its `--only`/`--files`-narrowed INTERNAL cycles) turned up a SEPARATE,
+// unrelated risk the budget fix does nothing for: those internal cycles re-gate scoped to the sub-gates
+// verify.sh's report named, so a misclassified or cross-file regression could churn the internal budget
+// against the wrong scope before the (always-unscoped) final certification catches it late. The code's
+// own comment already states the real bar for flipping the default — "a tradeoff the owner should opt
+// into on LIVE DATA" — and the decision log confirms that data does not exist yet (Canary A and B both
+// ran with the default, `scopedRepair` "confirmed still applicable"/"confirmed unused"). Proposed
+// activation criterion, mirroring the bar already used for `gateEvidence:'digested'` (BL-0135): a
+// dedicated canary run with `{"scopedRepair": true}` explicitly opted in, on a real patch-1→diagnose→
+// patch-2(+) escalation, confirming (a) the sub-gate classifier correctly targets the actual failing
+// sub-gate, (b) no case where the scoped re-gate missed a regression the final unscoped certification
+// then had to catch late, and (c) the mechanical sonnet fixer rarely needs an opus escalation.
+// ═════════════════════════════════════════════════════════════════════════════
+
+// A scenario-local mutable token counter, read by the engine's own `budget.spent()`. `charge(n)`
+// simulates an agent call's real output-token cost — called INSIDE a scripted `response` function so
+// the increment lands before the engine's post-call `budget.spent()` snapshot (chargedRepair brackets
+// each repair rung, and the wave barrier bracket, with a before/after read of exactly this counter).
+function makeTokenBudget() {
+  let spent = 0
+  return { budget: { total: 0, spent: () => spent, remaining: () => Infinity }, charge: (n) => { spent += n } }
+}
+
+// ── BL-0138-1. RED (without path 1) / GREEN (with it): the real-token ceiling rescues a rung the
+// floored agent-weight budget alone refuses — the exact WP08e shape (1-WO FRD, repairBudgetFactor 3,
+// patch-1/diagnose/patch-2 fit the 9-unit floor, the in-run retry does not), but this FRD's build was
+// measured at 10000 real tokens (a single-FRD wave, so buildTokensReliable is true) and the WHOLE
+// repair ladder — including the in-run retry — spends only ~200 tokens, far under 3x10000. Before this
+// fix, canAffordRepair had no token signal at all and WP08e's own assertions prove it blocks here; with
+// it, the in-run retry is rescued and the FRD converges.
+const tb1 = makeTokenBudget()
+SCENARIOS.push({
+  name: 'BL-0138-1. real-token layer rescues the in-run retry that the floored agent-weight budget alone would refuse (WP08e counterpart, token-generous build)',
+  args: { mode: 'pro', scopedRepair: true, repairBudgetFactor: 3 },
+  budget: tb1.budget,
+  plan: mkPlan([{
+    frd: 'frd-bl0138a-lib',
+    deps: [],
+    workOrders: [mkWo('wo-bl0138a-001', 'PLANNED', { frd: 'frd-bl0138a-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'build:', times: 1, response: (call) => { tb1.charge(10000); return { green: true } } },   // the initial build — sets buildTokensByFrd
+    { prefix: 'build:', response: (call) => { tb1.charge(50); return { green: true } } },                // the in-run retry's own rebuild
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-bl0138a-001'], findings: [{ wo: 'wo-bl0138a-001', finding: 'src/lib/a.ts:9 wrong', files: ['src/lib/a.ts'] }] } },
+    { prefix: 'patch:', response: (call) => { tb1.charge(50); return { green: false, cause: 'code', failure: 'still red' } } },
+    { prefix: 'diagnose:', response: (call) => { tb1.charge(50); return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 2, 'patch-1 and patch-2 both ran, same as the floor-only WP08e baseline')
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'RESCUED: the real-token ceiling (3x the measured 10000-token build) easily covers the ~200 tokens the whole ladder spent, so the in-run retry runs instead of an honest exhaustion exit')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0138a-lib'), 'the FRD converges — the token layer let the in-run retry finish the job that the agent-weight floor alone (WP08e) refuses')
+  },
+})
+
+// ── BL-0138-2. below the factor: no brake fires — the common case is unaffected by the new layer
+// (both signals agree there is room; the token layer is never even consulted since agent-weight alone
+// already affords every rung).
+const tb2 = makeTokenBudget()
+SCENARIOS.push({
+  name: 'BL-0138-2. real-token layer adds nothing when agent-weight alone already affords the ladder — patch-1 fixes it clean, no brake anywhere',
+  args: { mode: 'pro', repairBudgetFactor: 3 },
+  budget: tb2.budget,
+  plan: mkPlan([{
+    frd: 'frd-bl0138b-lib',
+    deps: [],
+    workOrders: [mkWo('wo-bl0138b-001', 'PLANNED', { frd: 'frd-bl0138b-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'build:', response: (call) => { tb2.charge(5000); return { green: true } } },
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-bl0138b-001'], findings: [{ wo: 'wo-bl0138b-001', finding: 'src/lib/b.ts:4 wrong', files: ['src/lib/b.ts'] }] } },
+    { prefix: 'patch:', response: (call) => { tb2.charge(50); return { green: true } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^block-repair-budget:/).length === 0, 'no brake — patch-1 alone fixed it')
+    t.ok(byLabel(run, /^diagnose:/).length === 0, 'never escalated past patch-1')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0138b-lib'), 'the FRD converges normally')
+  },
+})
+
+// ── BL-0138-3. CONTROL — a fixture that should still trip the brake keeps tripping it: when the
+// FRD's real build spend is genuinely small (proportionally, not just in agent-weight units) and the
+// repair ladder genuinely grinds through it, BOTH the floored agent-weight ceiling AND the real-token
+// ceiling say no by the in-run retry — the token layer only narrows the false-early-trip case
+// (BL-0138-1), it never removes the brake. Same 1-WO/repairBudgetFactor:3 shape as WP08e, but the
+// measured build cost is small (100 tokens) and each repair rung is proportionally expensive (150
+// tokens) — repairTokensByFrd exceeds 3x100=300 by the same in-run-retry checkpoint where the floor
+// would already refuse, so the honest exit still fires.
+const tb3 = makeTokenBudget()
+SCENARIOS.push({
+  name: 'BL-0138-3. CONTROL — a genuinely expensive repair still trips the brake: the token layer never rescues when real spend does not justify it',
+  args: { mode: 'pro', scopedRepair: true, repairBudgetFactor: 3 },
+  budget: tb3.budget,
+  plan: mkPlan([{
+    frd: 'frd-bl0138c-lib',
+    deps: [],
+    workOrders: [mkWo('wo-bl0138c-001', 'PLANNED', { frd: 'frd-bl0138c-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'build:', times: 1, response: (call) => { tb3.charge(100); return { green: true } } },
+    { prefix: 'gate:', times: 1, response: { green: false, reopen: ['wo-bl0138c-001'], findings: [{ wo: 'wo-bl0138c-001', finding: 'src/lib/c.ts:9 wrong', files: ['src/lib/c.ts'] }] } },
+    { prefix: 'patch:', response: (call) => { tb3.charge(150); return { green: false, cause: 'code', failure: 'still red' } } },
+    { prefix: 'diagnose:', response: (call) => { tb3.charge(150); return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^patch:/).length === 2, 'patch-1 and patch-2 still both run — the agent-weight floor still guarantees that escalator (unchanged invariant)')
+    const block = byLabel(run, /^block-repair-budget:/)[0]
+    t.ok(Boolean(block), 'CONTROL HOLDS: the in-run retry is STILL refused — real spend (450+ tokens against a 300-token ceiling) does not justify a rescue, so the brake fires exactly as it did before this fix')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-bl0138c-lib'), 'the FRD lands blocked, same as the pre-existing WP08e/REV2-3 guarantee')
+  },
+})
+
+// ── BL-0138-4. FALLBACK — a multi-FRD wave makes real per-FRD tokens unmeasurable; the brake falls
+// back to agent-weight alone (identical outcome to WP08e) AND logs the fallback explicitly (fail-loud,
+// never a silent wrong number). Two independent 1-WO FRDs, disjoint artifacts, mode 'pro' (P.wave=2) —
+// both build in ONE wave, so recordWaveBuildTokens marks BOTH unreliable. Only frd-bl0138d-1 is driven
+// through the WP08e ladder; frd-bl0138d-2's gate passes untouched (default green).
+const tb4 = makeTokenBudget()
+SCENARIOS.push({
+  name: 'BL-0138-4a. FALLBACK — a multi-FRD wave makes real tokens unusable for repair budgeting; the brake falls back to agent-weight (same outcome as WP08e) and logs the fallback',
+  args: { mode: 'pro', scopedRepair: true, repairBudgetFactor: 3 },
+  budget: tb4.budget,
+  plan: mkPlan([
+    { frd: 'frd-bl0138d-1', deps: [], workOrders: [mkWo('wo-bl0138d-1-001', 'PLANNED', { frd: 'frd-bl0138d-1', artifacts: ['src/lib/d1/**'] })] },
+    { frd: 'frd-bl0138d-2', deps: [], workOrders: [mkWo('wo-bl0138d-2-001', 'PLANNED', { frd: 'frd-bl0138d-2', artifacts: ['src/lib/d2/**'] })] },
+  ]),
+  responses: [
+    { prefix: 'build:', response: (call) => { tb4.charge(10000); return { green: true } } },   // both FRDs' builds land in the SAME multi-FRD wave
+    { prefix: 'gate:frd-bl0138d-1', times: 1, response: { green: false, reopen: ['wo-bl0138d-1-001'], findings: [{ wo: 'wo-bl0138d-1-001', finding: 'src/lib/d1/a.ts:9 wrong', files: ['src/lib/d1/a.ts'] }] } },
+    { prefix: 'patch:frd-bl0138d-1', response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'diagnose:frd-bl0138d-1', response: { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^dispatch:/)[0] && /frd-bl0138d-1\+frd-bl0138d-2|frd-bl0138d-2\+frd-bl0138d-1/.test(byLabel(run, /^dispatch:/)[0].label), 'both FRDs really did share ONE wave (P.wave=2 fits both 1-WO FRDs)')
+    t.ok(byLabel(run, /^patch:frd-bl0138d-1/).length === 2, 'patch-1 and patch-2 still both run — the agent-weight floor is untouched by the fallback')
+    const block = byLabel(run, /^block-repair-budget:frd-bl0138d-1/)[0]
+    t.ok(Boolean(block), 'FALLBACK: even though the measured build tokens (10000) would normally give huge token headroom, the multi-FRD wave makes that number untrustworthy, so the brake still fires on agent-weight alone — identical outcome to WP08e')
+    t.ok(hasLog(run, /brake on agent-weight, usage unavailable/), 'the fallback is logged explicitly, fail-loud — never a silent wrong number (BL-0138)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0138d-2'), 'the sibling FRD in the same wave is unaffected — it converges normally')
+  },
+})
+
+// ── BL-0138-5. DECISION CHECK — scopedRepair's default is UNCHANGED by this fix. With scopedRepair
+// omitted entirely (proving the DEFAULT, not an explicit false — see WP08f for the explicit-false
+// case), a mechanical gate report still runs the full opus/xhigh ladder, unscoped — exactly as before.
+SCENARIOS.push({
+  name: 'BL-0138-5. DECISION — scopedRepair keeps defaulting to false: the budget fix alone does not justify flipping it (see this file\'s BL-0138 header for why + the activation criterion)',
+  args: { mode: 'pro' },   // scopedRepair intentionally omitted
+  plan: mkPlan([{
+    frd: 'frd-bl0138e-lib',
+    deps: [],
+    workOrders: [mkWo('wo-bl0138e-001', 'PLANNED', { frd: 'frd-bl0138e-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { prefix: 'gate:', response: wp08MechGate('wo-bl0138e-001', 'src/lib/e.ts'), times: 1 },
+    { prefix: 'patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const patch = byLabel(run, /^patch:/)[0]
+    t.ok(patch && patch.opts.model === 'opus' && patch.opts.effort === 'xhigh', 'still opus/xhigh — the scoped sonnet/medium path never activates on the default')
+    t.ok(patch && !/--only=/.test(patch.prompt) && !/--files=/.test(patch.prompt), 'no scoped gate anywhere in the patch prompt — the DEFAULT (not just an explicit false) stays byte-for-byte the unscoped ladder')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0138e-lib'), 'and the FRD still converges exactly as today')
+  },
+})
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
