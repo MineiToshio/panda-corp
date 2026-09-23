@@ -90,6 +90,34 @@ const S5_CONTENT = [
 ];
 
 /**
+ * S5 — REV2-C / BL-0140: a real ownership-equality guard written with no auth vocabulary and no
+ * auth-path file. `if (ctx.u.id !== row.o) return null;` denies access on mismatch using entirely
+ * generic identifiers, so every S5_CONTENT vocabulary term (which needs a word like `auth`/
+ * `session`/`permission`/`ownerId`) never sees it. The shape that DOES generalise without reading
+ * identifier names: a `!==` comparison between two MEMBER EXPRESSIONS (a real `.prop` chain on
+ * each side — a bare identifier or a literal cannot be a stored identity/ownership field),
+ * immediately guarding an early `return`/`throw`.
+ *
+ * `===` is deliberately EXCLUDED: it denies on MATCH, the shape of an ordinary equality/dedup
+ * check (`if (a.id === b.id) …`), not a denial-on-mismatch guard — including it was tried against
+ * the backtest corpus and it is what turns "list dedup" and "enum switch" fixtures into false
+ * positives (BL-0140's own negative corpus). A bare identifier on either side (`if (status !==
+ * "done") return`) also does not match: MEMBER_EXPR requires at least one `.prop`, so a status
+ * flag compared to a string literal is not a candidate at all.
+ *
+ * Matched over each file's ADDED lines JOINED (the same `codeAddedJoinedByFile` REV2-A already
+ * built for S8), so a guard whose `if (...)` and `return` land on separate added lines is not
+ * missed. The gap between the `)` and the `return`/`throw` is plain whitespace/brace only (no
+ * bounded "skip anything" like S8_CONTENT_JOINED's) — an unrelated `return` elsewhere in the file
+ * cannot bridge to an unrelated `)` and false-fire.
+ */
+const MEMBER_EXPR = String.raw`[A-Za-z_$][\w$]*(?:\??\.[A-Za-z_$][\w$]*)+`;
+const OWNERSHIP_GUARD = new RegExp(
+  String.raw`\bif\s*\(\s*${MEMBER_EXPR}\s*!==\s*${MEMBER_EXPR}\s*\)\s*\{?\s*(?:return|throw)\b`,
+);
+const S5_STRUCTURAL_JOINED = [OWNERSHIP_GUARD];
+
+/**
  * S6 — money. Fires on the path OR on added content.
  *
  * Deliberately NOT word-anchored: real code writes `OrderPayment`, `storePaymentMutations`,
@@ -612,6 +640,8 @@ function classify(opts, ctx) {
   if (s5Path) add("S5", "critical", `auth/data surface: ${s5Path.path}`);
   const s5Content = findContent(allAdded, S5_CONTENT);
   if (s5Content && !s5Path) add("S5", "critical", `auth token in added content: '${s5Content.match}' (${s5Content.path})`);
+  const s5Guard = !s5Path && !s5Content ? findContentJoined(codeAddedJoinedByFile, S5_STRUCTURAL_JOINED) : null;
+  if (s5Guard) add("S5", "critical", `ownership-equality guard in added content: '${s5Guard.match}' (${s5Guard.path})`);
 
   // --- S6 · FLOOR money / PII ---------------------------------------------------------------
   const moneyPath = files.find((f) => anyMatch(S6_MONEY, f.path));

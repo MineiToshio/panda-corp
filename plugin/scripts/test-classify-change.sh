@@ -461,12 +461,35 @@ printf 'export function pick(ctx: { u: { id: string } }, row: { o: string; body:
 printf '  if (ctx.u.id !== row.o) return null;\n  return row.body;\n}\n' >> "$REPO/src/lib/beta.ts"
 G add -A >/dev/null
 run --repo "$REPO" --staged
-# Known gap (REV2-C, round-2 independent review): S5 only matches AUTH VOCABULARY (auth/permission/
-# role/...) and AUTH PATHS (middleware/guard files). A real ownership-equality guard written in plain
-# identifiers (`ctx.u.id !== row.o`) carries neither and evades the floor entirely. No structural
-# heuristic exists yet for "equality guard over an identifier-shaped field" -- tracked as BL-0140
-# (structural ownership-guard heuristic + mandatory S17/madge floor once designed and backtested).
-xf "REV2-C: an ownership check with no auth vocabulary and no auth path evades S5 entirely" "BL-0140"
+# BL-0140 FIXED: S5 now also matches the STRUCTURAL shape (a `!==` comparison between two member
+# expressions immediately guarding an early return/throw), independent of vocabulary. See
+# classify-change.mjs's OWNERSHIP_GUARD / S5_STRUCTURAL_JOINED.
+expect_rigor critical "REV2-C: an ownership-equality guard with no auth vocabulary and no auth path now hits the S5 floor"
+has_floor S5 && ok "REV2-C: S5 in floor_hits" || bad "REV2-C: S5 not in floor_hits :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+
+echo "Case REV2-C-neg1 — control: a bare-identifier inequality guard is NOT an ownership check"
+printf 'export function isOpen(status: string) {\n  if (status !== "done") return false;\n  return true;\n}\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "REV2-C-neg1: bare-identifier guard stays cheap (floored to normal by S17, not by S5)"
+has_floor S5 && bad "REV2-C-neg1: bare-identifier guard should not hit the S5 floor :: $OUT" || ok "REV2-C-neg1: no S5 floor hit"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+
+echo "Case REV2-C-neg2 — control: an === equality check (list dedup) is a MATCH guard, not a denial guard"
+printf 'export function dedupe(a: { id: string }, b: { id: string }) {\n  if (a.id === b.id) return true;\n  return false;\n}\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "REV2-C-neg2: === dedup check stays cheap (floored to normal by S17, not by S5)"
+has_floor S5 && bad "REV2-C-neg2: === dedup should not hit the S5 floor :: $OUT" || ok "REV2-C-neg2: no S5 floor hit"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
+
+echo "Case REV2-C-neg3 — control: an enum-style switch over member expressions is not a guard clause"
+printf 'export function label(x: { kind: string }) {\n  switch (x.kind) {\n    case "a": return "A";\n    default: return "B";\n  }\n}\n' >> "$REPO/src/lib/beta.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor normal "REV2-C-neg3: enum switch stays cheap (floored to normal by S17, not by S5)"
+has_floor S5 && bad "REV2-C-neg3: enum switch should not hit the S5 floor :: $OUT" || ok "REV2-C-neg3: no S5 floor hit"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/lib/beta.ts 2>/dev/null
 
 echo "Case REV2-D — --files mode (no diff body) can never certify micro, and says so in notes"

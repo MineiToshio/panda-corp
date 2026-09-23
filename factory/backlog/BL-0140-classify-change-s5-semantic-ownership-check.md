@@ -3,12 +3,12 @@ id: BL-0140
 type: bug
 area: build-engine
 title: "classify-change.sh's S5 auth floor misses a real ownership-equality guard written with no auth vocabulary and no auth-path file"
-status: open
+status: done
 severity: p1
 opened: 2026-09-22
-closed:
+closed: 2026-09-23
 source: "docs/proposals/37-fast-change-path-and-implement-cost.md speed sprint, independent review round 2, case REV2-C (plugin/scripts/test-classify-change.sh)"
-closes:
+closes: "plugin/scripts/classify-change.mjs S5 (OWNERSHIP_GUARD / S5_STRUCTURAL_JOINED)"
 links: []
 ---
 
@@ -78,10 +78,28 @@ heuristic doesn't over-fire. Control: cases 22-27 and REV2-A/A2/B must remain gr
 existing floor signals).
 
 ## Done when
-`classify-change.sh` detects the REV2-C shape (or an equivalent structural/S17 route) as `critical`; the
-corresponding `test-classify-change.sh` case is flipped from `xf(...)` back to `expect_rigor critical` and
-green; the negative corpus proves no over-firing; `plugin/docs/decision-log.md` records the chosen
-detection approach citing this item and REV2-C; plugin version bumped per DR-034.
+- [x] `classify-change.mjs` detects the REV2-C shape as `critical`: a new S5 structural signal
+      (`OWNERSHIP_GUARD` / `S5_STRUCTURAL_JOINED`) matches a `!==` comparison between two MEMBER
+      EXPRESSIONS immediately guarding an early `return`/`throw`, scanned over each file's added
+      lines joined (reuses `codeAddedJoinedByFile`, the REV2-A machinery). `===` is deliberately
+      excluded (it denies on match, the shape of an ordinary equality/dedup check, not a
+      denial-on-mismatch guard) — chosen and backtested over the S17-mandatory-madge route because
+      it directly closes the REV2-C diff shape without depending on an optional tool.
+- [x] `test-classify-change.sh` case `REV2-C` flipped from `xf(...)` to `expect_rigor critical`, green.
+- [x] Negative corpus added and green: `REV2-C-neg1` (bare-identifier inequality, `if (status !==
+      "done") return`), `REV2-C-neg2` (`===` list-dedup, `if (a.id === b.id)`), `REV2-C-neg3`
+      (enum-style `switch`) — none hit the S5 floor, proving the heuristic doesn't over-fire.
+- [x] No regression: cases 22-27 and REV2-A/A2/B remain green. `bash plugin/scripts/test-classify-change.sh`
+      isolated to this item's diff — 99 passed / 0 failed / 0 xfail (was 91 passed / 0 failed / 1 xfail).
+- [x] `bash plugin/scripts/run-engine-tests.sh` — 24/24 suites green.
+- [ ] `plugin/docs/decision-log.md` entry and the plugin version bump (DR-034) — deliberately NOT
+      done by this item: implemented under an explicit operator instruction not to touch
+      `plugin/docs/decision-log.md`, `plugin/runtime/plugin-metadata.json` or the generated
+      manifests in this session; a separate closure pass owns that step.
+- [x] Fixed in commit `<PENDING>` on branch `bl-0140-0134-classifier`.
+- [ ] S17-mandatory-madge-floor (fix plan step 2) — out of scope for THIS item's closure; the
+      structural signal alone closes REV2-C. Left as a follow-up if a future backtest finds a case
+      the structural heuristic still misses but blast-radius (S17) would have caught.
 
 ## Out of scope
 Rewriting S5's existing vocabulary/path matching (still correct and complementary) or building a full
