@@ -112,6 +112,13 @@ export type Event = {
   outcome?: string;
   /** Preview-smoke pass flag (`pass`, PreviewSmoke). */
   pass?: boolean;
+  /**
+   * Which UI pass was skipped (`pass`, UiPassSkipped: "foundation-gate" | "visual-qa").
+   * Named `uiPass` (not `pass`) because the raw NDJSON field is a STRING here but a
+   * BOOLEAN on PreviewSmoke — same wire field name, two incompatible producers; the
+   * parser resolves it by value type into these two separate typed fields.
+   */
+  uiPass?: string;
   /** Routes exercised in a preview smoke (`routes`, PreviewSmoke). */
   routes?: number;
   /** Failed-route count in a preview smoke (`failed`, PreviewSmoke). */

@@ -61,7 +61,11 @@ export type EventType =
   // patch outcome. PreviewSmoke resolves into test_ok/test_fail (no own type).
   | "reopen"
   | "hardening"
-  | "patch";
+  | "patch"
+  // UiPassSkipped (render-uipassskipped-timeline change): a build run skipped
+  // the foundation-gate or visual-qa pass (no UI artifacts detected, or
+  // forceUiPasses:false) — first-class so it no longer falls into the fallback.
+  | "ui_pass_skipped";
 
 /**
  * Fixed bounded vocabulary: event type → emoji glyph rendered as text
@@ -89,6 +93,7 @@ export const EVENT_ICON: Record<EventType, string> = {
   reopen: "↩️",
   hardening: "🛡️",
   patch: "🩹",
+  ui_pass_skipped: "⏭️",
 };
 
 /** Fallback icon for event types outside the canonical vocabulary. */
@@ -117,6 +122,7 @@ const RAW_EVENT_TYPE: Record<string, EventType> = {
   PreviewSmoke: "test_ok",
   Hardening: "hardening",
   PatchResult: "patch",
+  UiPassSkipped: "ui_pass_skipped",
 };
 
 /** Resolve a raw event name to its bounded EventType key (or itself if already one). */
@@ -154,6 +160,8 @@ const EVENT_LABEL: Record<EventType, string> = {
   hardening: "Endurecimiento",
   /** PatchResult — the reviewer's patch attempt outcome (verdict-aware). */
   patch: "Parche",
+  /** UiPassSkipped — refined by deriveLabel/uiPassSkippedLabel with pass/frd/reason. */
+  ui_pass_skipped: "Pase de UI omitido",
 };
 
 const FALLBACK_LABEL = "Evento";
@@ -208,6 +216,16 @@ function hardeningLabel(event: DashboardEvent): string {
   return suffix !== "" ? `Endurecimiento: ${suffix}` : "Endurecimiento";
 }
 
+/** UiPassSkipped — which UI pass was skipped, on which FRD, and why (all optional). */
+function uiPassSkippedLabel(event: DashboardEvent): string {
+  const parts = [event.uiPass, event.frd, event.reason].filter(
+    (part): part is string => part !== undefined && part !== "",
+  );
+  return parts.length > 0
+    ? `Pase de UI omitido: ${parts.join(" · ")}`
+    : resolveLabel("ui_pass_skipped");
+}
+
 /** Derive the Spanish label for a raw event, refining the verdict-bearing kinds. */
 function deriveLabel(event: DashboardEvent, typeKey: string): string {
   switch (event.event) {
@@ -224,6 +242,8 @@ function deriveLabel(event: DashboardEvent, typeKey: string): string {
       return event.outcome ? `Parche: ${event.outcome}` : "Parche";
     case "BuildRelaunch":
       return "Build relanzado";
+    case "UiPassSkipped":
+      return uiPassSkippedLabel(event);
     default:
       return resolveLabel(typeKey);
   }

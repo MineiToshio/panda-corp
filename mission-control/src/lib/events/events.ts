@@ -274,6 +274,10 @@ function applyResultFields(obj: Record<string, unknown>, ev: Event): void {
   if (typeof src.stage === "string") ev.stage = src.stage;
   if (typeof src.outcome === "string") ev.outcome = src.outcome;
   if (typeof src.pass === "boolean") ev.pass = src.pass;
+  // UiPassSkipped names the skipped pass in the SAME `pass` field, but as a string
+  // ("foundation-gate" | "visual-qa") — resolved by value type into its own field
+  // so it never collides with PreviewSmoke's boolean `pass`.
+  if (typeof src.pass === "string") ev.uiPass = src.pass;
 
   applyResultNumberFields(src, ev);
 
