@@ -120,6 +120,10 @@
       "display": "GateEvidenceFallback",
       "aliases": ["GateEvidenceFallback", "gate_evidence_fallback", "gate-evidence-fallback"]
     },
+    "gate.close-out-verify-reused": {
+      "display": "CloseOutVerifyReused",
+      "aliases": ["CloseOutVerifyReused", "close_out_verify_reused", "close-out-verify-reused"]
+    },
     "gate.stop-scope": {
       "display": "StopGate",
       "aliases": ["StopGate", "stop_gate", "stop-gate"]

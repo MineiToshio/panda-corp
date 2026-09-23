@@ -144,6 +144,11 @@ GATE_SCOPE="full"
 # WP-08: `partial` outranks `since`. It is the WEAKEST claim this script can make about a run, and the
 # engine's certification cage keys on exactly this value — so when both apply, report the weaker one.
 [ -n "$ONLY_GATES$SCOPE_FILES" ] && GATE_SCOPE="partial"
+# BL-0147: stamp the commit this run verified so a LATER reader (the build engine's close-out/
+# notify-end) can prove a report was produced for the EXACT commit it is about to re-verify, instead
+# of trusting scope+green alone (which say nothing about WHICH commit). Best-effort — a fixture/non-
+# git checkout (or a detached/rebasing tree mid-op) leaves it empty, never fails the gate over it.
+GATE_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
 
 GATE_FRAGMENTS_DIR=$(mktemp -d)
 : > "$GATE_FRAGMENTS_DIR/fragments.jsonl"
@@ -284,11 +289,11 @@ run_gate() {
 write_gate_report() {
   local green_exit="$1" green="false"
   [ "$green_exit" -eq 0 ] && green="true"
-  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
+  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
 import json
 import sys
 
-at, scope, green_str, frag_path, out_path = sys.argv[1:6]
+at, scope, green_str, sha, frag_path, out_path = sys.argv[1:7]
 subgates = []
 with open(frag_path, "r") as fh:
     for line in fh:
@@ -296,7 +301,7 @@ with open(frag_path, "r") as fh:
         if line:
             subgates.append(json.loads(line))
 
-report = {"at": at, "scope": scope, "green": green_str == "true", "subgates": subgates}
+report = {"at": at, "scope": scope, "green": green_str == "true", "sha": sha, "subgates": subgates}
 with open(out_path, "w") as fh:
     json.dump(report, fh, indent=2)
     fh.write("\n")

@@ -153,6 +153,7 @@ function defaultResponse(label) {
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
+  if (label === 'close-out-verify-reuse-check') return { canReuse: false, reason: 'no-report' } // BL-0147: safe default — the full rerun happens exactly as pre-BL-0147 unless a scenario scripts a fresh full-green report
   if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
@@ -2449,16 +2450,18 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const mechAgentCount = (source.match(/agentType: MECH_AGENT\(/g) || []).length
     const mechEffortCount = (source.match(/effort: MECH_EFFORT/g) || []).length
-    // 15 = WP-03's original 12 + 3 reconciled at integration time (integration-speed-sprint-a merge
+    // 16 = WP-03's original 12 + 3 reconciled at integration time (integration-speed-sprint-a merge
     // notes): the D-1 fix's 'renew-lease' spawn and the E2/BL-0129 'safe-point-pre-loop' spawn (both
     // merged with wp-03-plumbing-diet, both single mechanical Bash+Read steps with no Write/Edit —
     // unlike in-loop 'safe-point' they never flip BLOCKED→PLANNED frontmatter or commit, so nothing
     // keeps them out of mech), plus WP-06's `evidence:<frd>` collector (merged with wp-06-digested-gate;
     // its own comment already called it "a MECH, effort:'low', zero-judgment agent" but had hardcoded
     // that shape instead of using the WP-03 MECH_AGENT/MECH_EFFORT helpers — reconciled onto them so it
-    // also respects args.mechLean:false like every other mech site).
-    t.ok(mechAgentCount === 15, `exactly 15 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 15, `exactly 15 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // also respects args.mechLean:false like every other mech site) + 1 more, BL-0147's
+    // 'close-out-verify-reuse-check' (a pure read-only git/gate-report check, the same zero-judgment
+    // shape as the other mech sites, defined ONCE and called from all 4 close-out/notify-end branches).
+    t.ok(mechAgentCount === 16, `exactly 16 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 16, `exactly 16 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -2553,9 +2556,11 @@ SCENARIOS.push({
 // SAME stub harness shape against both engine sources (git show integration-speed-sprint-a:... vs this
 // file): base = 19 total spawns, after WP-03 = 17 (-2: fusion i removes the standalone sync-rollups spawn,
 // fusion ii removes the pin: spawn since both WOs committed this wave) — see the session report for the
-// side-by-side trace.
+// side-by-side trace. BL-0147 adds back ONE spawn (+1 = 18): the 'close-out-verify-reuse-check' read-only
+// MECH step that runs right before the hardened close-out's full verify.sh, deciding whether a recent
+// full-green gate-report can be reused instead of re-running the whole suite.
 SCENARIOS.push({
-  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 17)',
+  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 18, incl. BL-0147s reuse-check)',
   args: { mode: 'pro' },
   plan: mkPlan([{
     frd: 'frd-g13a-lib',
@@ -2567,7 +2572,7 @@ SCENARIOS.push({
   }], { hasFrontend: true }),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(run.calls.length === 17, `total spawns for this fixture is 17 (was 19 on integration-speed-sprint-a before WP-03) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
+    t.ok(run.calls.length === 18, `total spawns for this fixture is 18 (was 19 on integration-speed-sprint-a before WP-03, 17 after WP-03, +1 for BL-0147's reuse-check) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
     t.ok(byLabel(run, 'sync-rollups').length === 0, 'the removed spawn: standalone sync-rollups (fusion i)')
     t.ok(byLabel(run, /^pin:/).length === 0, 'the removed spawn: pin (fusion ii — the wave committed both WOs)')
   },
@@ -3760,6 +3765,174 @@ SCENARIOS.push({
     t.ok(run.result && !run.result.builtFrds.includes('frd-r3'), 'never built')
     t.ok(hasLog(run, /STILL incomplete after the re-ask/), 'the log names the terminal state explicitly, never silent')
     t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-r3'] === 'needs-owner', "blocked as 'needs-owner' — the exact bug this fixes is a default 'error' the code never earned (canary C gate 2)")
+  },
+})
+
+// ---- BL-0147 ----
+// close-out/notify-end no longer ALWAYS re-pays the whole-project verify.sh: right before running it,
+// a cheap read-only MECH spawn ('close-out-verify-reuse-check') decides whether a recent FULL, GREEN
+// `.pandacorp/run/gate-report.json` already certifies this EXACT commit. Reuse is opt-in and narrow —
+// scope:"full" + green:true + sha==HEAD + a clean tree + not older than the ceiling — and ANY doubt
+// keeps today's full rerun exactly as before (the WP-08 partial-report cage is never relaxed).
+
+// (a) the canonical GREEN path: full + green + sha matches HEAD + clean tree ⇒ notify-end REUSES the
+// report instead of re-running verify.sh, and logs CloseOutVerifyReused so the saving is auditable.
+SCENARIOS.push({
+  name: 'BL-0147a. notify-end REUSES a fresh full-green gate-report at HEAD — no full verify.sh rerun, CloseOutVerifyReused logged',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0147a',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147a-001', 'PLANNED', { frd: 'frd-bl0147a', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'full', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 42 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const check = byLabel(run, 'close-out-verify-reuse-check')
+    t.ok(check.length === 1, 'the reuse-check spawns exactly once')
+    t.ok(check[0].opts.agentType === 'pandacorp:mech' && check[0].opts.effort === 'low', 'the reuse-check itself runs on the cheap MECH tier (read-only, zero judgment)')
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(check[0].index < end.index, 'the reuse-check runs BEFORE the closing agent, so its verdict is available to shape that prompt')
+    t.ok(/BL-0147 REUSE/.test(end.prompt) && /do NOT re-run/.test(end.prompt), 'the closing prompt tells the agent to reuse the report instead of re-running verify.sh')
+    t.ok(!/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt), 'the "run the FULL verify.sh" instruction is REPLACED, not merely supplemented')
+    t.ok(/"event":"CloseOutVerifyReused"/.test(end.prompt) && /"sha":"deadbeef"/.test(end.prompt) && /"ageSeconds":42/.test(end.prompt), 'the CloseOutVerifyReused event is emitted carrying the reused sha + age')
+  },
+})
+
+// (b) a "since"-scoped report (the per-FRD focused gate, never a certification) must NEVER license reuse
+// — the WP-08 partial-report cage stays intact, this fix never relaxes it.
+SCENARIOS.push({
+  name: 'BL-0147b. notify-end does NOT reuse a "since"-scoped report — the WP-08 partial-report cage stays intact',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0147b',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147b-001', 'PLANNED', { frd: 'frd-bl0147b', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: false, reason: 'scope-not-full', reportScope: 'since', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 42 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt) && /complete suite, NO --since/.test(end.prompt), 'a "since"-scoped report never licenses reuse — the full rerun instruction is untouched')
+    t.ok(!/BL-0147 REUSE/.test(end.prompt) && !/"event":"CloseOutVerifyReused"/.test(end.prompt), 'no reuse framing or event when scope is not "full"')
+  },
+})
+
+// (c) a SHA mismatch (HEAD moved past the report, e.g. a later commit landed) must NEVER license reuse.
+SCENARIOS.push({
+  name: 'BL-0147c. notify-end does NOT reuse a report whose sha does not match HEAD',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0147c',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147c-001', 'PLANNED', { frd: 'frd-bl0147c', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: false, reason: 'sha-mismatch', reportScope: 'full', reportGreen: true, reportSha: 'aaaaaaa', headSha: 'bbbbbbb', dirty: false, ageSeconds: 10 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt), 'a sha mismatch (report proves an OLDER commit, not HEAD) never licenses reuse — the full rerun instruction is untouched')
+    t.ok(!/BL-0147 REUSE/.test(end.prompt) && !/"event":"CloseOutVerifyReused"/.test(end.prompt), 'no reuse framing or event on a sha mismatch')
+  },
+})
+
+// (d) a dirty working tree (uncommitted changes since the report ran) must NEVER license reuse — the
+// report certified a COMMIT, and an uncommitted diff on top of it was never verified.
+SCENARIOS.push({
+  name: 'BL-0147d. notify-end does NOT reuse a report over a dirty working tree',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0147d',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147d-001', 'PLANNED', { frd: 'frd-bl0147d', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: false, reason: 'dirty-tree', reportScope: 'full', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: true, ageSeconds: 10 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt), 'a dirty tree (uncommitted diff since the report ran) never licenses reuse — the full rerun instruction is untouched')
+    t.ok(!/BL-0147 REUSE/.test(end.prompt) && !/"event":"CloseOutVerifyReused"/.test(end.prompt), 'no reuse framing or event over a dirty tree')
+  },
+})
+
+// (e) the SAME reuse mechanism also wires into the OTHER full-verify site: the hardened release
+// close-out (allDone path), not just notify-end — the fix covers all four call sites, not one.
+SCENARIOS.push({
+  name: 'BL-0147e. the hardened release close-out ALSO reuses a fresh full-green report — not just notify-end',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bl0147e-lib',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147e-001', 'PLANNED', { frd: 'frd-bl0147e-lib', artifacts: ['src/lib/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'full', reportGreen: true, reportSha: 'cafef00d', headSha: 'cafef00d', dirty: false, ageSeconds: 120 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const closing = byLabel(run, 'close-out')[0]
+    t.ok(closing, 'close-out ran (allDone + hardened)')
+    t.ok(/BL-0147 REUSE/.test(closing.prompt) && /"event":"CloseOutVerifyReused"/.test(closing.prompt), 'the release close-out prompt also reuses the report instead of re-running the full suite')
+    t.ok(!/THEN run the FULL `bash \.pandacorp\/verify\.sh`/.test(closing.prompt), 'the THEN-run-full instruction is replaced')
+    t.ok(/kill any test dev servers with TaskStop/.test(closing.prompt) && /BL-0012 \+ WS-D\/D4 fail-closed/.test(closing.prompt), 'the surrounding instructions (kill dev servers, the on-disk release assertions) are UNCHANGED — only the verify clause is swapped')
+  },
+})
+
+// (f) parity check: the LEGACY close-out shape (args.leanCloseOut:false) wires the same reuse check
+// into its own notify-end, so the fix is not lean-shape-only.
+SCENARIOS.push({
+  name: 'BL-0147f. legacy close-out shape (args.leanCloseOut:false) — notify-end also reuses a fresh full-green report',
+  args: { mode: 'balanced', maxAgents: 7, leanCloseOut: false },
+  plan: mkPlan([{
+    frd: 'frd-bl0147f',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147f-001', 'PLANNED', { frd: 'frd-bl0147f', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'full', reportGreen: true, reportSha: 'beefcafe', headSha: 'beefcafe', dirty: false, ageSeconds: 5 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran (legacy shape)')
+    t.ok(/BL-0147 REUSE/.test(end.prompt) && /"event":"CloseOutVerifyReused"/.test(end.prompt), 'legacy notify-end also reuses the report')
+  },
+})
+
+// (g) static safeguard check: the reuse-check prompt itself encodes ALL FOUR conditions (scope:"full",
+// green:true, sha==HEAD, clean tree) plus the age ceiling, and the harness's SAFE DEFAULT (no scripted
+// response — simulating an agent that returns nothing usable) never reuses, proving fail-closed-by-default.
+SCENARIOS.push({
+  name: 'BL-0147g. the reuse-check prompt encodes all four safety conditions plus the age ceiling; the unscripted default never reuses',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0147g',
+    deps: [],
+    workOrders: [mkWo('wo-bl0147g-001', 'PLANNED', { frd: 'frd-bl0147g', artifacts: ['src/a/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const check = byLabel(run, 'close-out-verify-reuse-check')[0]
+    t.ok(check, 'the reuse-check spawns')
+    t.ok(/reportScope === "full"/.test(check.prompt), 'requires scope:"full"')
+    t.ok(/reportGreen === true/.test(check.prompt), 'requires green:true')
+    t.ok(/reportSha === headSha/.test(check.prompt), 'requires the report sha to match HEAD')
+    t.ok(/dirty === false/.test(check.prompt), 'requires a clean tree')
+    t.ok(/ageSeconds <= 900/.test(check.prompt), 'requires the report to be no older than the 900s ceiling')
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end && /complete suite, NO --since/.test(end.prompt) && !/CloseOutVerifyReused/.test(end.prompt), 'the unscripted (agent-returns-nothing-usable) default never reuses — the full rerun is the fail-safe default')
   },
 })
 
