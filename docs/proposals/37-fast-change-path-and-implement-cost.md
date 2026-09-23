@@ -1175,3 +1175,33 @@ Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEv
 | Manual MC | Drenar cards gitignored `manual-speed-sprint-args.md` y `render-uipassskipped-timeline.md` de la cola de MC | p2 | mínimo | owner/agente |
 | BL-0148 | MC rechazaba building/closing | — cerrado hoy (commit `98b9b91f`) | — | — |
 | G-3 | Escalada test-writer por dificultad de la WO | descartado (duplica BL-0115, ya cerrado) | 0 $ | n/a |
+
+### Tanda 3 (2026-09-22, 9.106.0)
+
+Integración en serie de tres ramas ya construidas y cerradas en su propio worktree: **BL-0147**
+(close-out reutiliza un `gate-report.json` full+verde del mismo sha en vez de repetir `verify.sh`
+completo — el fichero ahora estampa `sha`), **BL-0138** (freno de reparación con segundo criterio
+de tokens reales sobre el ya-existente piso de 9 unidades por peso de agente — `scopedRepair`
+**sigue en `false`**: al releer el mecanismo de reparación con alcance apareció un riesgo distinto
+al que este fix arregla, sin datos en vivo todavía que justifiquen el flip) y **BL-0161/BL-0162**
+(los dos bugs de contrato reales que destapó el **primer dry-run real de `/pandacorp:change --now`**
+sobre Mission Control — informe `change-now-dryrun-report.md`, sesión `e4c52a6e-6796-4768-a5fe-49177084ebe4`,
+no está en el repo, solo en el scratchpad de esa sesión).
+
+El dry-run confirma que `--now` **funciona de punta a punta** — subagente implementer en worktree
+aislado, gate del nivel, reviewer opus independiente que bloqueó de verdad 2 hallazgos reales (no
+sello de goma), ciclo de reparación real, cierre con `sync --close-out` hasta `main` — pero le costó
+**~22 min y ≈$33 medidos** (≈$38 con la creación de caché no facturada) a un cambio de 2 páginas de
+docs que debería haber sido casi trivial. Encontró además **BL-0161** (el clasificador nunca podía
+certificar `micro` en Mission Control por resolver `node_modules` desde la raíz git de la fábrica,
+no del proyecto anidado) y **BL-0162**, el hallazgo más grave del canario: el paso D de
+reclasificación lee `--card` desde dentro del worktree aislado del implementer, pero
+`.pandacorp/inbox/` está gitignored y nunca se materializa ahí — seguido al pie de la letra, degrada
+CUALQUIER cambio seguro a `critical` por una razón espuria (falla en la dirección insegura, al
+revés que BL-0161). Ambos ya están cerrados en `main` (commits `e450ce81`/`2e99ba79`). **BL-0163**
+queda abierto — sin entry point documentado para apuntar `--now` a una card `ready` ya existente —
+como decisión pendiente del owner, no implementación.
+
+**Veredicto sobre `--now`: sigue en opt-in, no pasa a default.** El propio criterio del dry-run
+(§5 del informe) es que hace falta repetir este mismo canario, de punta a punta, con las dos
+correcciones en vigor, antes de considerar el flip — ese re-run todavía no ha ocurrido.
