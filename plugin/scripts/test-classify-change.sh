@@ -425,6 +425,32 @@ expect_rigor normal "CSS visibility stays cheap (floored to normal by S17, not b
 has_floor S5 && bad "CSS visibility should not itself hit the S5 auth floor :: $OUT" || ok "no S5 floor hit from CSS visibility"
 G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- styles/main.css 2>/dev/null
 
+non_critical_case() { # <relative path> <label> <line to append> — BL-0134: factory DATA must NOT floor at S7
+  local rel="$1" label="$2" line="$3"
+  mkdir -p "$REPO/$(dirname "$rel")"
+  printf '%s\n' "$line" >> "$REPO/$rel"
+  G add -A >/dev/null
+  run --repo "$REPO" --staged
+  local got; got=$(rigor)
+  if [ "$got" != "critical" ]; then ok "$label → $got (not critical)"; else bad "$label: expected non-critical, got critical :: $OUT"; fi
+  has_floor S7 && bad "$label: should not hit the S7 floor :: $OUT" || ok "$label: no S7 floor hit"
+  G reset -q --mixed HEAD >/dev/null 2>&1
+  git -C "$REPO" checkout -q -- "$rel" 2>/dev/null || rm -f "$REPO/$rel"
+}
+
+echo "Case 28 — BL-0134: factory DATA subtrees (append-only bookkeeping) do not floor at S7"
+non_critical_case "factory/memory/LESSON-9999.md" "factory/memory/ lesson append" "times_applied: 3"
+non_critical_case "factory/backlog/BL-9999-example.md" "factory/backlog/ status flip" "status: doing"
+non_critical_case "factory/ideas/example-idea.md" "factory/ideas/ card edit" "score: 7"
+non_critical_case "factory/inbox/changes/drain-2026-09-23.md" "factory/inbox/ drain" "processed: true"
+non_critical_case "factory/portfolio.md" "factory/portfolio.md rollup" "- example: on track"
+
+echo "Case 29 — BL-0134 control: factory MACHINERY subtrees still floor at S7 (no false negative introduced)"
+floor_case "factory/standards/example-standard.md" "factory/standards/ still critical (machinery)" "## New rule"
+floor_case "factory/decisions/registry.yaml" "factory/decisions/ still critical (machinery)" "- id: DR-999"
+floor_case "factory/templates/example-template.md" "factory/templates/ still critical (machinery)" "# Template"
+floor_case "plugin/scripts/example-script.sh" "plugin/** still critical (machinery, unaffected by the factory/** split)" "echo hi"
+
 # ═══════════════════════════════════════════════════════════════════════════════════════════
 # REV2 — INDEPENDENT REVIEW (DR-015). Three FLOOR-EVASION attacks the classifier's own suite
 # does not try. Each one is an EDIT to a pre-existing, already-recognised file, so the S1/S3

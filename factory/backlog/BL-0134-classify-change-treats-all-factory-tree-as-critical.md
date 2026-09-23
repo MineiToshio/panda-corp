@@ -3,12 +3,12 @@ id: BL-0134
 type: bug
 area: build-engine
 title: "classify-change.sh scores every factory/** path as critical (S7), flagging append-only bookkeeping writes as false positives"
-status: open
+status: done
 severity: p2
 opened: 2026-09-22
-closed:
+closed: 2026-09-23
 source: "docs/proposals/37-fast-change-path-and-implement-cost.md (speed sprint, package F1 'f1-classify-change') — 600-commit backtest scratchpad f1-backtest.tsv"
-closes:
+closes: "plugin/scripts/classify-change.mjs S7 (FACTORY_DATA_PATHS / isFactoryMachinery)"
 links: [DR-069]
 ---
 
@@ -57,9 +57,35 @@ fixtures critical. GREEN = only the machinery fixtures stay critical. Re-run aga
 machinery-critical commits are unchanged.
 
 ## Done when
-The data/machinery split ships in `classify-change.sh`; the fixture suite above is green; the backtest
-delta (false positives cleared, zero new false negatives) is recorded in `plugin/docs/decision-log.md`
-citing the F1 report; plugin version bumped per DR-034.
+- [x] `classify-change.mjs`'s S7 splits `factory/**` into DATA (`factory/memory/**`,
+      `factory/backlog/**`, `factory/ideas/**`, `factory/inbox/**`, `factory/portfolio.md` — an
+      explicit allow-list, `FACTORY_DATA_PATHS`/`isFactoryBookkeeping`) and MACHINERY (everything
+      else under `factory/**`, plus all of `plugin/**`, unchanged — `isFactoryMachinery`).
+      Fail-closed: an unlisted `factory/` path stays machinery by default, never the reverse.
+- [x] Both `s7Path` (in `classify()`) and `isFloorPath` (S17's reverse-dependency floor detection)
+      route through the same `isFactoryMachinery` predicate — one writer, no second derivation to drift.
+- [x] Fixture suite added and green: Case 28 (5 DATA fixtures — memory append, backlog status
+      flip, ideas card edit, inbox drain, portfolio.md rollup — none hit the S7 floor, none
+      `critical`) and Case 29 (4 MACHINERY controls — `factory/standards/`, `factory/decisions/`,
+      `factory/templates/`, `plugin/scripts/` — all still `critical`, proving no false negative
+      was introduced by the split).
+- [x] `bash plugin/scripts/test-classify-change.sh` — 113 passed / 0 failed / 0 xfail (all of
+      BL-0140 + BL-0134's fixtures together; isolated to this item's own diff on top of BL-0140:
+      also 113/0/0, i.e. +14 cases over BL-0140's own 99).
+- [x] `bash plugin/scripts/run-engine-tests.sh` — 24/24 suites green.
+- [x] `mission-control/**` confirmed unaffected: it is never under `factory/` or `plugin/`, so
+      S7's blanket never applied to it before or after this change (paths there are anchored
+      `mission-control/...` relative to the git toplevel per BL-0161, never `factory/...`).
+- [ ] Re-running the real 600-commit backtest (`f1-backtest.tsv`, the F1 report) — **NOT VERIFIED**:
+      that scratchpad artifact is not present in this repo (only referenced in
+      `docs/proposals/37`), so the ~15-false-positive delta could not be re-measured against the
+      real corpus in this session. Verified instead against a purpose-built fixture suite
+      (Cases 28/29 above) covering every DATA/MACHINERY subtree the fix plan names.
+- [ ] `plugin/docs/decision-log.md` entry and the plugin version bump (DR-034) — deliberately NOT
+      done by this item: implemented under an explicit operator instruction not to touch
+      `plugin/docs/decision-log.md`, `plugin/runtime/plugin-metadata.json` or the generated
+      manifests in this session; a separate closure pass owns that step.
+- [x] Fixed in commit `<PENDING>` on branch `bl-0140-0134-classifier`.
 
 ## Out of scope
 Redesigning the other 16 classification signals (S1-S6, S8-S17) — this item is scoped to S7's

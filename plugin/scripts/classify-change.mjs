@@ -184,8 +184,6 @@ const S7_PATHS = [
   /(^|\/)next\.config\.[^/]+$/,
   /(^|\/)biome\.json$/,
   /(^|\/)\.pandacorp\/[^/]*\.sh$/,
-  /^plugin\//,
-  /^factory\//,
   /(^|\/)\.claude\//,
   /(^|\/)package\.json$/,
   /(^|\/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock[b]?)$/,
@@ -194,6 +192,29 @@ const S7_PATHS = [
   /(^|\/)(vercel|wrangler|fly|netlify|railway)\.(json|toml|yml|yaml)$/i,
   /\.tf(vars)?$/,
 ];
+
+/**
+ * S7 — BL-0134: `factory/**` and `plugin/**` are the factory's own two-plane split
+ * (`factory/backlog/README.md`'s three-plane model), not one undifferentiated surface. `plugin/**`
+ * is ALWAYS machinery (skills, agents, hooks, engines — ships to every project). `factory/**` is
+ * split: a handful of DATA subtrees are routine, append-only bookkeeping written by harvest/
+ * backlog/portfolio jobs (a malformed row there degrades one read, never the pipeline) — S7's
+ * floor does not apply to THEM, so they classify by whatever their own size/content signals say.
+ * Every OTHER `factory/` path (standards, decisions, templates, the registry, anything not on the
+ * allow-list below) stays MACHINERY, fail-closed: unlisted is machinery until proven otherwise,
+ * never the reverse. The 600-commit backtest (F1 report, `docs/proposals/37`) found ~15 false
+ * positives from exactly this undifferentiated blanket.
+ */
+const FACTORY_DATA_PATHS = [
+  /^factory\/memory\//,
+  /^factory\/backlog\//,
+  /^factory\/ideas\//,
+  /^factory\/inbox\//,
+  /^factory\/portfolio\.md$/,
+];
+const isFactoryBookkeeping = (p) => anyMatch(FACTORY_DATA_PATHS, p);
+/** S7 — the factory's own machinery: all of `plugin/**`, plus `factory/**` minus the bookkeeping carve-out above. */
+const isFactoryMachinery = (p) => /^plugin\//.test(p) || (/^factory\//.test(p) && !isFactoryBookkeeping(p));
 
 /** S7 — key-shaped literals in added content. Length-anchored so prose cannot trip them. */
 const S7_CONTENT = [
@@ -543,7 +564,7 @@ function isHeadRange(opts, ctx) {
 }
 
 const isFloorPath = (p) =>
-  anyMatch(S5_PATHS, p) || anyMatch(S6_MONEY, p) || anyMatch(S7_PATHS, p) || anyMatch(S9_PATHS_ANY, p);
+  anyMatch(S5_PATHS, p) || anyMatch(S6_MONEY, p) || anyMatch(S7_PATHS, p) || isFactoryMachinery(p) || anyMatch(S9_PATHS_ANY, p);
 
 // ---------------------------------------------------------------------------------------------
 // Classification
@@ -658,7 +679,7 @@ function classify(opts, ctx) {
   else if (piiPath && !ctx.linesKnown) add("S6", "critical", `schema surface with no readable body: ${piiPath.path}`);
 
   // --- S7 · FLOOR secrets / infra / factory machinery ---------------------------------------
-  const s7Path = files.find((f) => anyMatch(S7_PATHS, f.path));
+  const s7Path = files.find((f) => anyMatch(S7_PATHS, f.path) || isFactoryMachinery(f.path));
   if (s7Path) add("S7", "critical", `secrets/infra/factory surface: ${s7Path.path}`);
   const s7Content = findContent(allAdded, S7_CONTENT) || findBase64Secret(allAdded);
   if (s7Content) add("S7", "critical", `key-shaped literal in added content (${s7Content.path})`);
