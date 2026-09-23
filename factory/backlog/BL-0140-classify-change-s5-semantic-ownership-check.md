@@ -96,7 +96,7 @@ existing floor signals).
       done by this item: implemented under an explicit operator instruction not to touch
       `plugin/docs/decision-log.md`, `plugin/runtime/plugin-metadata.json` or the generated
       manifests in this session; a separate closure pass owns that step.
-- [x] Fixed in commit `<PENDING>` on branch `bl-0140-0134-classifier`.
+- [x] Fixed in commit `abdf50a8` on branch `bl-0140-0134-classifier`.
 - [ ] S17-mandatory-madge-floor (fix plan step 2) — out of scope for THIS item's closure; the
       structural signal alone closes REV2-C. Left as a follow-up if a future backtest finds a case
       the structural heuristic still misses but blast-radius (S17) would have caught.

@@ -85,7 +85,7 @@ machinery-critical commits are unchanged.
       done by this item: implemented under an explicit operator instruction not to touch
       `plugin/docs/decision-log.md`, `plugin/runtime/plugin-metadata.json` or the generated
       manifests in this session; a separate closure pass owns that step.
-- [x] Fixed in commit `<PENDING>` on branch `bl-0140-0134-classifier`.
+- [x] Fixed in commit `58ac4fd4` on branch `bl-0140-0134-classifier`.
 
 ## Out of scope
 Redesigning the other 16 classification signals (S1-S6, S8-S17) — this item is scoped to S7's
