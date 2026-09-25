@@ -16,7 +16,7 @@
 #              single-FRD/change run expected to spend most of its time inside one long gate).
 #   --parallel-gates: OPT-IN (engine args.parallelGates, default off — D1/BL-0186): up to --gate-slots FRD
 #              gates review at once, each in its own gate worktree, landing on main one at a time. Size the
-#              pool to the machine (default 3; the red-team measured 16 GB → 2). --gate-slots alone is an error.
+#              pool to the machine (default 2 = the 16 GB machine the red-team measured). --gate-slots alone is an error.
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.

@@ -183,8 +183,8 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     (apply / patch ladder / persist-block, never two at once), with a stale-pin guard (main advanced in
 //     code since the pin → `verify.sh --since <pin>` before stamping; red → the PASS becomes a reopen).
 //     See the "D1 PARALLEL FRD GATES" section below and factory/standards/build-orchestration.md §5c.
-//   args.gateSlots: the pool size when parallelGates is on (integer 1..8, **default 3**; anything else →
-//     3 with a loud log). `args.maxParallelGates` (the proposal's name) is accepted as an alias; gateSlots
+//   args.gateSlots: the pool size when parallelGates is on (integer 1..8, **default 2** — the red-team's
+//     16 GB measurement, X6; anything else → 2 with a loud log). `args.maxParallelGates` (the proposal's name) is accepted as an alias; gateSlots
 //     wins when both are set. Ignored (logged) when parallelGates is off.
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
@@ -269,6 +269,9 @@ if (args && args.driftPolicy !== undefined && args.driftPolicy !== 'record' && a
 // D1 (BL-0186): see the arg doc above. argBool tolerates the stringly-typed "true" (D-9).
 const PARALLEL_GATES = argBool(args, 'parallelGates', true)
 const GATE_SLOTS_MAX = 8
+// 2, not the proposal's 3: the red-team measured the build machine at 16 GB (addendum e6/X6), where each slot
+// runs its own next dev + Chromium + vitest + tsc — raise it explicitly on a bigger machine.
+const GATE_SLOTS_DEFAULT = 2
 const GATE_SLOTS = (() => {
   const raw = args && (args.gateSlots !== undefined && args.gateSlots !== null ? args.gateSlots : args.maxParallelGates)
   if (!PARALLEL_GATES) {
@@ -278,11 +281,11 @@ const GATE_SLOTS = (() => {
   if (args && args.gateSlots !== undefined && args.gateSlots !== null && args.maxParallelGates !== undefined && args.maxParallelGates !== null && Number(args.gateSlots) !== Number(args.maxParallelGates)) {
     log(`⚠ both args.gateSlots=${args.gateSlots} and args.maxParallelGates=${args.maxParallelGates} were passed — gateSlots wins (D1)`)
   }
-  if (raw === undefined || raw === null) return 3
+  if (raw === undefined || raw === null) return GATE_SLOTS_DEFAULT
   const n = Number(raw)
   if (Number.isInteger(n) && n >= 1 && n <= GATE_SLOTS_MAX) return n
-  log(`⚠ args.gateSlots='${raw}' is not an integer 1..${GATE_SLOTS_MAX} — using 3 gate slots (D1 fail-closed)`)
-  return 3
+  log(`⚠ args.gateSlots='${raw}' is not an integer 1..${GATE_SLOTS_MAX} — using ${GATE_SLOTS_DEFAULT} gate slots (D1 fail-closed)`)
+  return GATE_SLOTS_DEFAULT
 })()
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates ONLY. Default OFF — see the arg doc above.
@@ -2272,14 +2275,23 @@ async function ensureGateWorktree(sha, slot = LEGACY_SLOT) {
   const pooled = slot !== LEGACY_SLOT
   const attempt = (async () => {
     agentSpawned++
-    const r = await agent(
+    let r
+    try {
+    r = await agent(
       pooled
         ? gateWorktreePrompt(slot.path, sha, `PANDACORP_E2E_PORT=${slot.port} bash .pandacorp/worktree-bootstrap.sh`, `The engine drops THIS gate slot (${slot.id}) from the parallel pool for the rest of the run (D1); the other slots keep gating.`)
         : gateWorktreePrompt(GATE_WORKTREE, sha, 'bash .pandacorp/worktree-bootstrap.sh', 'The engine falls back to synchronous gates on the quiet main tree for the rest of the run.'),
       { label: pooled ? `gate-worktree:${slot.id}` : 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: GATE_WORKTREE_SCHEMA })
+    } catch (e) {
+      // D1: a probe that died mid-way may have left a half-done checkout — never trust the old clean proof
+      // (the next acquisition re-probes). The LEGACY_SLOT keeps its pre-D1 behaviour (flag-off parity).
+      if (pooled) { slot.clean = false; slot.lastSha = null }
+      throw e
+    }
     if (r && r.ok === true) { slot.state = 'ready'; slot.lastSha = sha; slot.clean = true; return true }
     slot.state = 'failed'; slot.lastSha = null; slot.clean = false
     const dirty = (r && Array.isArray(r.dirty)) ? r.dirty.filter(Boolean) : []
+    if (pooled) slot.failedOnDirt = dirty.length > 0   // D1: dirt is slot-specific (another slot may be clean); any other failure is not
     if (pooled) {
       if (dirty.length) log(`⊘ D1 (BL-0183): REFUSING to gate over a DIRTY gate slot ${slot.id} (${slot.path}) — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
       log(`⚠ D1: gate slot ${slot.id} (${slot.path}) could not be prepared (${(r && r.failure) || 'no verdict'}) — dropped from the parallel pool (${gatePool.filter((x) => x.state !== 'failed').length}/${gatePool.length} slot(s) left)`)
@@ -3582,6 +3594,7 @@ const convergeQueue = []        // reject verdicts needing on-main convergence (
 function enqueueGateIfComplete(frd) {
   const st = frdState.get(frd)
   if (!st || st.enqueued || st.failed) return false
+  if (PARALLEL_GATES && st.gateUnlanded) return false   // D1 #2: never queue a second gate of an FRD whose verdict has not landed (the landing re-checks)
   if (st.toBuildIds.size === 0 && st.reviewIds.length > 0) { st.enqueued = true; gateQueue.push(frd); return true }   // C2: newly gate-ready → the caller pins it
   return false
 }
@@ -3851,7 +3864,7 @@ function gateConflict(frd, force = false) {
   if (!force) {
     for (const u of up) {
       const x = frdState.get(u)
-      if (x && !x.failed && !x.gateLanded && (x.toBuildIds.size > 0 || gateQueue.includes(u))) return `depends on ${u}, which has not gated yet (it lands first)`
+      if (x && !x.failed && (x.toBuildIds.size > 0 || gateQueue.includes(u))) return `depends on ${u}, which has not gated yet (it lands first)`
     }
   }
   return null
@@ -3872,8 +3885,11 @@ function logGateDeferral(frd, why) {
 // Start ONE gate as a background promise that owns `slot` from probe to release.
 function launchGateInSlot(frd, slot, est) {
   const st = frdState.get(frd)
+  // SNAPSHOTS, never live references (red-team of this change, #2): a safe point may re-enroll an unblocked WO
+  // into this FRD (reviewIds.push, a later re-pin) while this gate is in flight — the verdict must land
+  // exactly the WOs this gate reviewed, judged at exactly the pin it reviewed.
   const pinSha = st.pinSha
-  const reviewIds = st.reviewIds
+  const reviewIds = [...st.reviewIds]
   slot.busy = frd
   st.gateSlotPath = slot.path
   st.gateUnlanded = true
@@ -3882,7 +3898,7 @@ function launchGateInSlot(frd, slot, est) {
   log(`▶ D1: gate ${frd} → slot ${slot.id} (${slot.path}, e2e port ${slot.port}) · ${gatesInFlight.size + 1}/${GATE_SLOTS} in flight`)
   const work = (async () => {
     const ok = await ensureGateWorktree(pinSha, slot)
-    if (!ok) return { __worktreeFailed: true }
+    if (!ok) return { __worktreeFailed: true, __slotDirty: Boolean(slot.failedOnDirt) }
     const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)   // digested: collected INLINE in this slot (launchEvidence is a no-op under D1)
     slot.clean = false
     let gate
@@ -3893,7 +3909,7 @@ function launchGateInSlot(frd, slot, est) {
   })()
   // ONE settle handler (ok or crash): the verdict joins the landing FIFO, and the slot + its reservation are
   // freed in the same tick, so a free slot always means "no gate in flight there".
-  const settle = (gate) => { gatesInFlight.delete(frd); slot.busy = null; gateReserved -= est; gateResults.push({ f: st.f, reviewIds, gate, slot: slot.id }) }
+  const settle = (gate) => { gatesInFlight.delete(frd); slot.busy = null; gateReserved -= est; gateResults.push({ f: st.f, reviewIds, pin: pinSha, gate, slot: slot.id }) }
   const tracked = work.then(settle, (e) => settle({ green: false, blocked_reason: 'error', failure: `gate crashed: ${(e && e.message) || e}` }))
   gatesInFlight.set(frd, tracked)
 }
@@ -3911,6 +3927,7 @@ function launchParallelGates(force = false) {
     const slot = freeSlot()
     if (!slot) break
     const frd = gateQueue[i]
+    if (frdState.get(frd) && frdState.get(frd).gateUnlanded) { logGateDeferral(frd, 'its previous gate has not landed yet'); i++; continue }   // #2: never two gates of one FRD
     const why = gateConflict(frd, force)
     if (why) { logGateDeferral(frd, why); i++; continue }
     const est = gateCostEstimate(frd)
@@ -3951,9 +3968,8 @@ const STALE_PIN_SCHEMA = { type: 'object', required: ['count'], properties: { co
  * D1 stale-pin guard for a PASS about to land. Returns null when it may land as reviewed, else the REOPEN
  * verdict it becomes (the re-verify on the landing tree was red, partial, or produced nothing — fail-closed).
  */
-async function stalePinGuard(frd, reviewIds, gate) {
-  const st = frdState.get(frd)
-  const pin = (st && st.pinSha) || null
+async function stalePinGuard(frd, reviewIds, gate, launchPin) {
+  const pin = launchPin || null   // the pin THIS gate reviewed (snapshotted at launch), never a later re-pin
   let count = -1
   if (pin) {
     agentSpawned++
@@ -3967,7 +3983,7 @@ async function stalePinGuard(frd, reviewIds, gate) {
   if (count === 0) { log(`◦ D1: no code commit on main since ${frd}'s pin ${pin} — its verdict lands as reviewed`); return null }
   log(`↻ D1: main ${count > 0 ? `gained ${count} code commit(s)` : 'may have advanced (the count is unknown)'} since ${frd}'s pin ${pin || '(none)'} — porting its reviewer tests and re-verifying with verify.sh ${pin ? `--since ${pin}` : '(full)'} on main before landing (stale-pin guard)`)
   const rv = await reverifyAtLanding(frd, gate, pin, count)
-  if (rv && rv.green === true && !isPartialReport(rv)) { log(`✓ D1: ${frd} re-verified green on the landing tree — landing its PASS`); return null }
+  if (rv && rv.green === true && !isPartialReport(rv)) { log(`✓ D1: ${frd} re-verified green on the landing tree — landing its PASS`); gate.__reverified = true; return null }
   if (rv && rv.green === true) refusePartial(frd, 'the landing re-verify')
   const failure = `D1 stale-pin guard: main advanced since the gate's pin ${pin || '(none)'} and \`verify.sh ${pin ? `--since ${pin}` : ''}\` on the landing tree is RED${rv && rv.failure ? `: ${rv.failure}` : rv ? '' : ' (no verdict)'}`
   log(`⊘ ${frd}: ${failure} — the PASS is converted into a REOPEN (patch-first on main); it is never stamped VERIFIED over an unverified combination`)
@@ -3981,31 +3997,71 @@ async function stalePinGuard(frd, reviewIds, gate) {
 // Land ONE settled verdict on main (the lane). `final` (post-loop): a verdict whose slot failed is gated on
 // main right away instead of being re-queued for another slot.
 async function landParallelVerdict(final = false) {
-  const { f, reviewIds, gate } = gateResults.shift()
+  const { f, reviewIds, pin, gate } = gateResults.shift()
   const st = frdState.get(f.frd)
   gateSettledSinceSafePoint = true
+  const builtBefore = builtFrds.length
+  let ported = false   // did THIS landing copy the reviewer's tests onto main (re-verify or the reopen port)?
   try {
     if (gate && gate.__worktreeFailed) {
-      if (!final && liveSlots().length) { log(`↻ D1: ${f.frd}'s gate slot failed its probe — re-queued for another slot (${liveSlots().length} live)`); gateQueue.unshift(f.frd); return }
+      // Only DIRT is slot-specific (another slot may be clean) — and even then once per FRD: any other probe
+      // failure (unreachable sha, bootstrap) would just burn the next slot the same way. Else: gate on main.
+      if (!final && gate.__slotDirty && st && !st.slotRequeued && liveSlots().length) {
+        st.slotRequeued = true
+        log(`↻ D1: ${f.frd}'s gate slot was dirty — re-queued ONCE for another slot (${liveSlots().length} live)`)
+        gateQueue.unshift(f.frd)
+        return
+      }
       await convergeOne({ f, reviewIds, gate: null, __needsLegacy: true })
       return
     }
     if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the parallel FRD gate'); reopenedFrds.push(f.frd); return }
     if (gate && gate.green === true) {
-      const reopened = await stalePinGuard(f.frd, reviewIds, gate)
-      if (reopened) { await convergeOne({ f, reviewIds, gate: reopened }); return }
       const ev = gate.reviewerEvidence
-      const ok = ev
-        ? await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
-        : await applyGate(f.frd, reviewIds, gate.testFiles, gateWorktreePathOf(f.frd))
+      if (!ev) {
+        // The release's evidence is the ONLY copy of this gate's tests and report — its slot may already hold
+        // another FRD's gate, so never read it. Fail loud: re-gate this FRD on the quiet main tree instead.
+        log(`⊘ D1: ${f.frd}'s PASS carries no salvaged evidence (its release returned nothing) — NOT applying from a slot another gate may now occupy; re-gating it on main`)
+        await convergeOne({ f, reviewIds, gate: null, __needsLegacy: true })
+        return
+      }
+      const reopened = await stalePinGuard(f.frd, reviewIds, gate, pin)
+      if (reopened || gate.__reverified) ported = ev.tests.length > 0
+      if (reopened) { await convergeOne({ f, reviewIds, gate: reopened }); return }
+      const ok = await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
       if (ok) { log(`✓ ${f.frd} VERIFIED (parallel gate, landed on main)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return }
+      ported = ported || ev.tests.length > 0   // the apply agent may have copied them before failing
       await convergeOne({ f, reviewIds, gate })   // apply failed → converge (repair) on main, exactly as C2's harvest does
       return
     }
+    ported = Boolean(gate && Array.isArray(gate.reopen) && gate.reopen.length && gate.reviewerEvidence && gate.reviewerEvidence.tests.length)
     await convergeOne({ f, reviewIds, gate })   // reject / block / crash → the unchanged ladder, in the lane
   } finally {
-    if (st) { st.gateUnlanded = false; if (!gateQueue.includes(f.frd)) st.gateLanded = true }   // re-queued (slot failed) ≠ landed
+    if (st) st.gateUnlanded = false
+    // A landing that did NOT certify the FRD may leave the reviewer's ported tests UNTRACKED on main (a block,
+    // a budget stop, a deferred reopen) — and the next landing's `verify.sh --since` (vitest --changed runs
+    // untracked files) would execute them against another FRD: a chain of false reopens. Remove exactly those
+    // copies (the evidence dir keeps the originals). A certified landing committed them.
+    if (ported && builtFrds.length === builtBefore) await unportReviewerTests(f.frd, gate.reviewerEvidence)
+    // #2: an unblocked WO the safe point re-enrolled while this gate was in flight could not be queued then
+    // (enqueueGateIfComplete refuses an unlanded FRD) — queue it now, re-pinned at the current HEAD.
+    if (st && !gateQueue.includes(f.frd) && enqueueGateIfComplete(f.frd)) { st.pinSha = null; log(`↻ D1: ${f.frd} gained work while its gate was in flight — queued for a fresh gate at HEAD`) }
   }
+}
+// Remove the reviewer's ported test copies that are still UNTRACKED on main and byte-identical to the salvaged
+// originals (sha256) — nothing tracked, nothing edited since, never anything else. MECH, zero judgment.
+const UNPORT_SCHEMA = { type: 'object', properties: { removed: { type: 'array', items: { type: 'string' } }, kept: { type: 'array', items: { type: 'string' } } } }
+async function unportReviewerTests(frd, ev) {
+  if (!ev || !ev.tests.length) return
+  agentSpawned++
+  let r = null
+  try {
+    r = await agent(`MECHANICAL COMMAND RUNNER — D1 lane cleanup for ${frd} (BL-0186). This landing did NOT certify ${frd}, so the reviewer's test copies ported onto the MAIN tree must not stay behind as untracked files (the next landing's \`verify.sh --since\` would run them). The originals stay in ${ev.dir}. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`. For EACH entry of EXPECTED: if \`$TOP/<path>\` exists AND \`git -C "$TOP" ls-files --error-unmatch -- <path>\` FAILS (it is untracked) AND \`shasum -a 256 "$TOP/<path>"\` equals its sha256, run \`git -C "$TOP" clean -f -- <path>\` and add the path to \`removed\`; otherwise touch nothing and add it to \`kept\` (tracked, edited, or already gone). Never a blanket clean, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { removed, kept }.`,
+      { label: `unport-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: UNPORT_SCHEMA })
+  } catch (e) { log(`⚠ D1: the lane cleanup for ${frd} threw (${(e && e.message) || e}) — untracked reviewer test copies may remain on main`) }
+  const removed = (r && Array.isArray(r.removed)) ? r.removed : []
+  const kept = (r && Array.isArray(r.kept)) ? r.kept : []
+  log(`◦ D1: ${frd} did not land VERIFIED — removed ${removed.length} untracked reviewer test cop${removed.length === 1 ? 'y' : 'ies'} from main${kept.length ? `; left in place (tracked/edited/gone): ${kept.join(', ')}` : ''} (originals kept in ${ev.dir})`)
 }
 // Run-end invariant (C2-v, kept): every gate already spawned is waited for and its verdict landed.
 async function drainParallelGates() {

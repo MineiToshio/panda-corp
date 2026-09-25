@@ -619,7 +619,7 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
 §5a overlaps a gate with the **build**, but gates still serialize with **each other**, and any reject quiesces
 every in-flight gate before its ladder runs — canary D2 spent 57.6 of 87.5 min in that post-wave gate segment
 (`docs/proposals/38-parallel-frd-gates-and-drift-policy.md`, Decision 1, and its red-team addendum). The
-opt-in **`args.parallelGates`** (default **off**; `args.gateSlots`, default **3**, 1..8, alias
+opt-in **`args.parallelGates`** (default **off**; `args.gateSlots`, default **2** — the 16 GB machine the red-team measured, X6 — 1..8, alias
 `args.maxParallelGates`; launcher `--parallel-gates [--gate-slots N]`) lets several FRD gates **review** at
 once. Off, the engine is the §5a topology byte-for-byte. On, these conditions hold — each is a tested engine
 behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not a guideline:
@@ -630,8 +630,9 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   the BL-0178 drift proof (its `--source` is the slot; `drift-proof.mjs` keys its temp worktrees by FRD + pid +
   clock and its evidence dir by FRD, so two gates never share a tmp tree), then the BL-0182 release in a
   `finally` — so a **crash still salvages and frees its slot** and never takes the run down. A slot that fails
-  its probe (dirty, orphaned) leaves the pool **loudly** and keeps its evidence (BL-0067); only when every slot
-  has failed does the run fall to the legacy synchronous gate on main.
+  its probe (dirty, orphaned) leaves the pool **loudly** and keeps its evidence (BL-0067). Its FRD is re-queued
+  for another slot only when the failure was **dirt** (slot-specific), and at most once; any other failure
+  gates that FRD on main. Only when every slot has failed does the run fall to the legacy synchronous gate.
 - **One explicit e2e port per slot.** Each slot is bootstrapped with `PANDACORP_E2E_PORT=3800+10·k`. The BL-0154
   hash of the worktree path is not a separator: its free-port probe only sees servers already listening, and
   the hash is not injective (Mission Control's `gate-worktree-3` hashes to 3900, main's reserved port).
@@ -641,7 +642,10 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   also waits while its upstream is still building or queued for its gate, so the upstream **lands first** —
   otherwise the dependent could land `VERIFIED` on a WO the upstream's ladder later reverts. Two FRDs whose
   WOs depend on each other across FRDs (no WO cycle) would wait forever on that rule, so the idle path waives
-  it for the head of the queue (logged); they still never gate together.
+  it for the head of the queue (logged); they still never gate together. One FRD never has two gates: a WO a
+  safe point unblocks while its FRD's gate is in flight waits for that verdict to land, then the FRD is
+  re-queued and re-pinned at HEAD. A verdict carries **snapshots** of the reviewed WO ids and the pin taken at
+  launch, so a landing stamps exactly what its gate reviewed and the guard compares against exactly that pin.
 - **Budget.** `maxAgents` is cost-weighted: N opus reviewers launched together commit ~3N units at once. A gate
   is launched **alongside others** only if the budget still covers its estimated cost plus one landing after
   reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
@@ -659,7 +663,12 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   ported tests, a patch, a revert). Zero → it lands as reviewed. Otherwise (or when the count is unknown) the
   reviewer's tests are ported **first**, `verify.sh --since <pin>` re-runs on main (BL-0179 stamps its scope;
   `partial` certifies nothing), and the ported tests run by path; red → the PASS becomes a **reopen** with that
-  failure and takes the patch-first ladder.
+  failure and takes the patch-first ladder. A PASS without salvaged evidence is never applied from its slot
+  (another gate may occupy it) — it is re-gated on main. A landing that ported the reviewer's tests but did
+  **not** certify its FRD (a block, a budget stop, a deferred reopen) removes those copies from main when they
+  are still untracked and byte-identical to the salvaged originals, which stay in the evidence dir — otherwise
+  the next landing's `verify.sh --since` (vitest `--changed` runs untracked files) would run them against
+  another FRD.
 - **`needs-owner` in one, the rest land.** A block is terminal for its FRD only; the other gates keep reviewing
   and land after it. The consecutive-blocks breaker counts in landing order, and the run-end invariant still
   waits for every spawned gate and lands its verdict.
@@ -671,7 +680,8 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
 Honest limits: `verify.sh --since` is vitest `--changed` (import-affected tests), so a coupling through a
 fixture/JSON/CSS can slip to the close-out **full** suite, which stays the final backstop; machine contention
 (N reviewers × vitest/tsc/Playwright/`next dev`) is not modelled — size `gateSlots` to the machine (the
-red-team measured 16 GB → 2); a session killed mid-run leaves its slots dirty, and the next run drops them from
+red-team measured 16 GB → 2, the default); the post-run audit that every `last_green_sha` publication
+covers only verified FRDs (X5) is not built yet (BL-0187); a session killed mid-run leaves its slots dirty, and the next run drops them from
 the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
 shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 
