@@ -4730,6 +4730,59 @@ SCENARIOS.push({
 // OTHER half unchanged: when real work genuinely remains queued at the ceiling, the brake still reports
 // 'agents' and still stops. Not re-duplicated here; re-asserted by re-running the full suite (run-engine-tests.sh).
 
+// ---- BL-0180 ----
+// The WP-08 cage in applyGate told the agent to read the bare relative path
+// `.pandacorp/run/gate-report.json`, which resolves against the agent's OWN cwd — the MAIN tree,
+// since applyGate is documented to run "on the MAIN tree (no workFrom)". On the concurrent C2 gate
+// path (harvestGateResults → applyGate(..., GATE_WORKTREE)) the report that actually certifies the
+// verdict was written by the reviewer INSIDE the gate worktree, not on main; main's own report file
+// (if any) belongs to an unrelated run (proposal 38 §5 L1, evidence: main's report was scope:"full"
+// from an unrelated close-out while the worktree's was the gate's own scope:"since"). Confirmed live
+// in the canary tree. Fixed: the cage now points at `${sourceDir}/.pandacorp/run/gate-report.json`
+// whenever a sourceDir (the gate worktree) is given, and at the bare path only on the legacy
+// sourceDir:null path (gate already ran in place on main).
+SCENARIOS.push({
+  name: 'BL-0180a. apply-gate WP-08 cage reads the GATE WORKTREE\'s report on the concurrent (C2) path, not main\'s',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bl0180a',
+    deps: [],
+    workOrders: [mkWo('wo-bl0180a-001', 'PLANNED', { frd: 'frd-bl0180a', artifacts: ['src/bl0180a/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const apply = byLabel(run, /^apply-gate:/)[0]
+    t.ok(apply, 'the serialized apply-gate ran (concurrent gate path, the default C2 flow)')
+    t.ok(apply && /gate-worktree\/\.pandacorp\/run\/gate-report\.json/.test(apply.prompt),
+      `BL-0180: the cage must read the GATE WORKTREE's report (sourceDir was passed), not a bare relative path — prompt: ${apply && apply.prompt.slice(0, 400)}`)
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0180b. apply-gate WP-08 cage reads the bare main-tree path on the LEGACY path (sourceDir:null — the gate already ran in place)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bl0180b',
+    deps: [],
+    workOrders: [mkWo('wo-bl0180b-001', 'PLANNED', { frd: 'frd-bl0180b', artifacts: ['src/bl0180b/**'] })],
+  }]),
+  responses: [
+    // force the reject → legacy on-main convergence ladder, then a clean re-verify, so the FRD
+    // converges via gateConverge (sourceDir:null) instead of the concurrent applyGate.
+    { label: /^gate:/, response: { green: false, reopen: ['wo-bl0180b-001'], recommendation: 'patch', confidence: 'high' }, times: 1 },
+    { prefix: 'patch:', response: { done: true } },
+    { prefix: 'verify-patch:', response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const apply = byLabel(run, /^apply-gate:/)[0]
+    t.ok(apply, 'apply-gate ran via the legacy patch-then-verify convergence on main')
+    t.ok(apply && /(?<!gate-worktree\/)\.pandacorp\/run\/gate-report\.json/.test(apply.prompt),
+      `BL-0180: on the legacy path (sourceDir:null) the cage keeps reading the bare main-tree path — prompt: ${apply && apply.prompt.slice(0, 400)}`)
+    t.ok(apply && !/gate-worktree\/\.pandacorp\/run\/gate-report\.json/.test(apply.prompt),
+      'BL-0180: no regression — the legacy path must NOT be pointed at a worktree path that does not apply to it')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
