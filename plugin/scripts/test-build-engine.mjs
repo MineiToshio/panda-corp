@@ -79,6 +79,7 @@ function defaultResponse(label) {
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }
   if (label.startsWith('apply-gate:')) return { done: true }
   if (label.startsWith('persist-block:')) return { done: true }
+  if (label.startsWith('gate-release:')) return { salvaged: [], remaining: [] }   // BL-0182: the C2 gate-worktree release (salvage + exact clean) — a clean tree, nothing left behind
   if (label.startsWith('commit:')) return { committed: 1 }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('find:')) return { findings: [] }                 // FINDER_SCHEMA — nothing found

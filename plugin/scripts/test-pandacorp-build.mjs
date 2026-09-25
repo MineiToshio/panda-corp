@@ -144,6 +144,8 @@ function defaultResponse(label) {
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
   if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
   if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
+  if (label.startsWith('gate-release:')) return null                        // BL-0182: answered by releaseDefault(call) — it needs the prompt (see runEngine)
+  if (label.startsWith('port-reviewer-tests:') || label.startsWith('reviewer-test-hash:')) return null   // BL-0184: echo EXPECTED — see hashEchoDefault(call)
   if (label.startsWith('commit:')) return { committed: 1, sha: 'defaultcommitsha' }   // WP-03 fusion (ii): the real mech commit writer always reports its own sha
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
@@ -157,6 +159,22 @@ function defaultResponse(label) {
   if (label === 'close-out-verify-reuse-check') return { canReuse: false, reason: 'no-report' } // BL-0147: safe default — the full rerun happens exactly as pre-BL-0147 unless a scenario scripts a fresh full-green report
   if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
+}
+
+// BL-0182/0184 prompt-aware defaults (the happy path): a gate release salvages exactly the test files the
+// gate DECLARED (the JSON the engine embeds in the release prompt) and leaves the worktree clean; a port /
+// integrity check observes every EXPECTED file intact (echoes the JSON the engine embeds).
+function promptAwareDefault(call) {
+  if (call.label.startsWith('gate-release:')) {
+    const m = call.prompt.match(/declared these test files \(JSON\): (\[[^\]]*\])/)
+    const declared = m ? JSON.parse(m[1]) : []
+    return { salvaged: declared.map((p) => ({ path: p, status: 'untracked', sha256: `sha-${p}` })), remaining: [] }
+  }
+  if (call.label.startsWith('port-reviewer-tests:') || call.label.startsWith('reviewer-test-hash:')) {
+    const m = call.prompt.match(/EXPECTED \(JSON\): (\[.*?\])\. Return/)
+    return { hashes: m ? JSON.parse(m[1]) : [] }
+  }
+  return null
 }
 
 // ── Scenario runner ──────────────────────────────────────────────────────────
@@ -192,7 +210,7 @@ async function runEngine(scenario) {
       }
       return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
     }
-    const def = defaultResponse(call.label)
+    const def = promptAwareDefault(call) ?? defaultResponse(call.label)
     if (def === null) {
       unmatched.push(call.label || call.prompt.slice(0, 80))
       return {}
@@ -1039,12 +1057,14 @@ SCENARIOS.push({
 })
 
 // ── 22. A3 honest degrade — at the agent ceiling, patch-1 code-fail does NOT diagnose (legacy revert) ──
-// maxAgents=16 (mode pro): the loop-top brake passes at the gate iteration (12<16), but the serial gate
-// (+3) and patch-1 (+3, opus) push agentSpawned to 18 ≥ 16, so capHit() is true when the ladder decides.
+// maxAgents=17 (mode pro): the loop-top brake passes at the gate iteration (12<17) and again at the harvest
+// after the serial gate (+3) and its BL-0182 worktree release (+1) — 16<17 — but patch-1 (+3, opus) pushes
+// agentSpawned to 19 ≥ 17, so capHit() is true when the ladder decides. (It was 16 before BL-0182 added the
+// per-gate release spawn; at 16 the ceiling now trips one loop-top EARLIER, with the reject still queued.)
 // The diagnose spawn is skipped (it would cost another COST(judge)); the legacy revert path runs instead.
 SCENARIOS.push({
   name: '22. A3 honest degrade — capHit at patch-1 code-fail skips the diagnosis (legacy revert path)',
-  args: { mode: 'pro', maxAgents: 16 },
+  args: { mode: 'pro', maxAgents: 17 },
   plan: mkPlan([{
     frd: 'frd-22-cap',
     deps: [],
@@ -2486,8 +2506,11 @@ SCENARIOS.push({
     // also respects args.mechLean:false like every other mech site) + 1 more, BL-0147's
     // 'close-out-verify-reuse-check' (a pure read-only git/gate-report check, the same zero-judgment
     // shape as the other mech sites, defined ONCE and called from all 4 close-out/notify-end branches).
-    t.ok(mechAgentCount === 16, `exactly 16 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 16, `exactly 16 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // + 3 (BL-0182/0184): the C2 gate-worktree release (`gate-release:<frd>`), the reject-path port of the
+    // reviewer's tests (`port-reviewer-tests:<frd>`) and the DR-080 hash check (`reviewer-test-hash:<frd>`) —
+    // all zero-judgment cp/git/shasum runners, the same shape as the gate-worktree probe itself = 19.
+    t.ok(mechAgentCount === 19, `exactly 19 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 19, `exactly 19 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -2584,9 +2607,10 @@ SCENARIOS.push({
 // fusion ii removes the pin: spawn since both WOs committed this wave) — see the session report for the
 // side-by-side trace. BL-0147 adds back ONE spawn (+1 = 18): the 'close-out-verify-reuse-check' read-only
 // MECH step that runs right before the hardened close-out's full verify.sh, deciding whether a recent
-// full-green gate-report can be reused instead of re-running the whole suite.
+// full-green gate-report can be reused instead of re-running the whole suite. BL-0182 adds ONE more (+1 = 19):
+// the 'gate-release:<frd>' MECH step that salvages + cleans the gate worktree after the concurrent gate.
 SCENARIOS.push({
-  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 18, incl. BL-0147s reuse-check)',
+  name: 'WP03e. G13a fixture — total spawn count drops vs the integration-speed-sprint-a base branch (19 -> 18, incl. BL-0147s reuse-check; +1 BL-0182 release = 19)',
   args: { mode: 'pro' },
   plan: mkPlan([{
     frd: 'frd-g13a-lib',
@@ -2598,7 +2622,8 @@ SCENARIOS.push({
   }], { hasFrontend: true }),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(run.calls.length === 18, `total spawns for this fixture is 18 (was 19 on integration-speed-sprint-a before WP-03, 17 after WP-03, +1 for BL-0147's reuse-check) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
+    t.ok(run.calls.length === 19, `total spawns for this fixture is 19 (was 19 on integration-speed-sprint-a before WP-03, 17 after WP-03, +1 for BL-0147's reuse-check, +1 for BL-0182's gate-worktree release) — got ${run.calls.length}: ${run.calls.map((c) => c.label).join(', ')}`)
+    t.ok(byLabel(run, 'gate-release:frd-g13a-lib').length === 1, 'the added spawn: exactly one BL-0182 gate-worktree release, right after the concurrent gate')
     t.ok(byLabel(run, 'sync-rollups').length === 0, 'the removed spawn: standalone sync-rollups (fusion i)')
     t.ok(byLabel(run, /^pin:/).length === 0, 'the removed spawn: pin (fusion ii — the wave committed both WOs)')
   },
@@ -4753,8 +4778,12 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const apply = byLabel(run, /^apply-gate:/)[0]
     t.ok(apply, 'the serialized apply-gate ran (concurrent gate path, the default C2 flow)')
-    t.ok(apply && /gate-worktree\/\.pandacorp\/run\/gate-report\.json/.test(apply.prompt),
-      `BL-0180: the cage must read the GATE WORKTREE's report (sourceDir was passed), not a bare relative path — prompt: ${apply && apply.prompt.slice(0, 400)}`)
+    // BL-0182 moved the report's durable home: the release step salvages the gate worktree's report into
+    // the FRD's evidence dir (a later chained gate can overwrite the worktree copy before this apply reads it).
+    // BL-0180's invariant — never main's own relative copy on the concurrent path — is what stays asserted.
+    t.ok(apply && /gate-evidence\/frd-bl0180a\/gate-report\.json/.test(apply.prompt),
+      `BL-0180/BL-0182: the cage must read the report the gate left behind (salvaged to its evidence dir), not a bare relative path — prompt: ${apply && apply.prompt.slice(0, 400)}`)
+    t.ok(apply && !/read `\.pandacorp\/run\/gate-report\.json`/.test(apply.prompt), 'BL-0180: never main\'s own bare relative report on the concurrent path')
   },
 })
 SCENARIOS.push({
@@ -4780,6 +4809,241 @@ SCENARIOS.push({
       `BL-0180: on the legacy path (sourceDir:null) the cage keeps reading the bare main-tree path — prompt: ${apply && apply.prompt.slice(0, 400)}`)
     t.ok(apply && !/gate-worktree\/\.pandacorp\/run\/gate-report\.json/.test(apply.prompt),
       'BL-0180: no regression — the legacy path must NOT be pointed at a worktree path that does not apply to it')
+  },
+})
+
+// ---- BL-0182..0184 ----
+// The three C2 (DR-118) defects the proposal-38 red-team confirmed by reading code (X1-X3):
+//  BL-0182 — every verdict left the gate worktree dirty and the NEXT chained gate probed it BEFORE anything
+//            cleaned it → the run fell to the legacy synchronous path (canary D2's exact shape).
+//  BL-0183 — same-pin gates skipped the probe (and its clean check), so a gate could run over another FRD's
+//            untracked tests, which vitest `--changed` executes; a dirty tree must fail LOUD with its paths.
+//  BL-0184 — a C2 reject stranded the reviewer's RED tests in the worktree; the patch + verifyPatched ran on
+//            main without them (DR-080). Now they are ported, sha256-pinned and run explicitly by path.
+// A STATEFUL worktree model: the gate writes its test file into `dirt`; the gate-worktree probe refuses a
+// dirty tree (like the real `status --porcelain` check); the release salvages + cleans `dirt`.
+function c2WorktreeModel({ releaseLeaves = [] } = {}) {
+  const dirt = new Set()
+  return {
+    dirt,
+    probe: () => (dirt.size
+      ? { ok: false, failure: 'gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved', dirty: [...dirt].map((p) => `?? ${p}`) }
+      : { ok: true, created: false }),
+    release: () => {
+      const salvaged = [...dirt].filter((p) => !releaseLeaves.includes(p)).map((p) => ({ path: p, status: 'untracked', sha256: `sha-${p}` }))
+      for (const s of salvaged) dirt.delete(s.path)
+      return { salvaged, remaining: [...dirt].map((p) => `?? ${p}`) }
+    },
+  }
+}
+// Two FRDs at DIFFERENT pins: frd-*-a is gate-ready after wave 1; frd-*-b (a dep chain) after wave 2. Distinct
+// commit shas → distinct pins → frd-b's chained acquisition MUST spawn the probe (the clean check).
+const twoPinPlan = (tag) => mkPlan([
+  { frd: `frd-${tag}-a`, deps: [], workOrders: [mkWo(`wo-${tag}-a1`, 'PLANNED', { frd: `frd-${tag}-a`, artifacts: [`src/${tag}a/**`] })] },
+  { frd: `frd-${tag}-b`, deps: [], workOrders: [
+    mkWo(`wo-${tag}-b1`, 'PLANNED', { frd: `frd-${tag}-b`, artifacts: [`src/${tag}b1/**`] }),
+    mkWo(`wo-${tag}-b2`, 'PLANNED', { frd: `frd-${tag}-b`, artifacts: [`src/${tag}b2/**`], deps: [`wo-${tag}-b1`] }),
+  ] },
+])
+const distinctCommitShas = { prefix: 'commit:', response: (call) => ({ committed: 1, sha: `sha${call.index}` }) }
+for (const [verdict, gateAResponse] of [
+  ['pass', { green: true }],
+  ['reopen', { green: false, reopen: ['wo-182VV-a1'], findings: [{ wo: 'wo-182VV-a1', finding: 'off-by-one at src/182VVa/x.ts:3', failingTest: 'src/182VVa/_tests/a.reviewer.test.ts', files: ['src/182VVa/x.ts'] }] }],
+  ['blocked', { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'the AC contradicts the blueprint — the owner must decide' }],
+  ['crash', null],
+]) {
+  const tag = `182${verdict.slice(0, 2)}`
+  const wt = c2WorktreeModel()
+  const testPath = `src/${tag}a/_tests/a.reviewer.test.ts`
+  // a crashing reviewer has usually written its file before dying — the response fn dirties, then throws
+  const gateA = verdict === 'crash'
+    ? { label: `gate:frd-${tag}-a`, times: 1, response: () => { wt.dirt.add(testPath); throw new Error('terminal API error mid-review') } }
+    : { label: `gate:frd-${tag}-a`, times: 1, response: () => { wt.dirt.add(testPath); return JSON.parse(JSON.stringify(gateAResponse).replace(/182VV/g, tag)) } }
+  SCENARIOS.push({
+    name: `BL-0182a-${verdict}. two CHAINED C2 gates at different pins — a ${verdict.toUpperCase()} verdict on the first leaves the worktree clean, so the SECOND gate stays concurrent (never legacy)`,
+    args: { mode: 'pro' },
+    plan: twoPinPlan(tag),
+    responses: [
+      distinctCommitShas,
+      gateA,
+      { label: 'gate-worktree', response: () => wt.probe() },
+      { prefix: 'gate-release:', response: () => wt.release() },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gA = byLabel(run, `gate:frd-${tag}-a`)[0]
+      const rel = byLabel(run, `gate-release:frd-${tag}-a`)[0]
+      const gB = byLabel(run, `gate:frd-${tag}-b`)[0]
+      t.ok(gA && /GATE WORKTREE/.test(gA.prompt), 'the first gate ran concurrently in the pinned worktree')
+      t.ok(gB && /GATE WORKTREE/.test(gB.prompt), `BL-0182: the SECOND chained gate still runs in the C2 worktree after a ${verdict} — not the legacy synchronous path on main`)
+      t.ok(!hasLog(run, /legacy synchronous gate path/i), 'BL-0182: no fallback to the legacy synchronous gate path this run')
+      t.ok(rel && gA && rel.index > gA.index, `BL-0182: the worktree RELEASE ran right after the first gate, whatever its verdict (${verdict})`)
+      const probes = byLabel(run, 'gate-worktree')
+      t.ok(Boolean(rel && gB && probes.length >= 2 && probes.some((p) => p.index > rel.index && p.index < gB.index)), 'the second gate (a different pin) probed the worktree AFTER the release, not before it')
+      t.ok(wt.dirt.size === 0, `the worktree ends clean (left: ${[...wt.dirt].join(', ')})`)
+      t.ok(rel && /--untracked-files=all/.test(rel.prompt) && /gate-evidence\/frd-/.test(rel.prompt) && /clean -f --/.test(rel.prompt) && /NEVER a blanket/.test(rel.prompt) && /remaining/.test(rel.prompt),
+        'the release salvages every file (--untracked-files=all) into .pandacorp/run/gate-evidence/<frd>/, cleans EXACTLY those paths (never a blanket clean) and re-lists as its postcondition')
+      if (verdict === 'pass') {
+        const apply = byLabel(run, `apply-gate:frd-${tag}-a`)[0]
+        t.ok(apply && new RegExp(`gate-evidence/frd-${tag}-a/<path>`).test(apply.prompt) && apply.prompt.includes(testPath) && /rev-parse --show-toplevel/.test(apply.prompt),
+          'a PASS ports the SALVAGED test file from the evidence dir to the repo-root-relative path on main (the worktree is already clean)')
+      }
+      if (verdict === 'reopen') t.ok(byLabel(run, `port-reviewer-tests:frd-${tag}-a`).length === 1, 'the reopen\'s stranded test was ported onto main for the patch ladder (BL-0184)')
+      t.ok(run.result && run.result.builtFrds.includes(`frd-${tag}-b`), 'the second FRD verifies via the concurrent gate')
+    },
+  })
+}
+// BL-0183a — SAME pin: before the fix the second acquisition took the no-spawn fast path and gated over the
+// first reviewer's leftovers. When the release cannot prove the tree clean, the next gate must re-probe and
+// refuse LOUDLY (with the path) — never run a gate over a dirty worktree in silence.
+{
+  const wt = c2WorktreeModel({ releaseLeaves: ['src/183a/_tests/stuck.reviewer.test.ts'] })
+  SCENARIOS.push({
+    name: 'BL-0183a. same-pin chained gates — a release that leaves a path behind makes the NEXT gate re-probe and fail LOUD with that path (no silent fast path over a dirty tree)',
+    args: { mode: 'pro' },
+    plan: mkPlan([
+      { frd: 'frd-183a-x', deps: [], workOrders: [mkWo('wo-183a-x1', 'PLANNED', { frd: 'frd-183a-x', artifacts: ['src/183ax/**'] })] },
+      { frd: 'frd-183a-y', deps: [], workOrders: [mkWo('wo-183a-y1', 'PLANNED', { frd: 'frd-183a-y', artifacts: ['src/183ay/**'] })] },
+    ]),
+    responses: [
+      { label: /^gate:frd-183a-/, times: 1, response: () => { wt.dirt.add('src/183a/_tests/stuck.reviewer.test.ts'); return { green: true } } },
+      { label: 'gate-worktree', response: () => wt.probe() },
+      { prefix: 'gate-release:', response: () => wt.release() },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gates = byLabel(run, /^gate:frd-183a-/)
+      t.ok(gates.length === 2, `both FRDs were gated (got ${gates.length})`)
+      const [first, second] = gates
+      t.ok(first && /GATE WORKTREE/.test(first.prompt), 'the first gate ran in the worktree')
+      const probes = byLabel(run, 'gate-worktree')
+      t.ok(probes.length === 2, `BL-0183: the same-pin second acquisition RE-PROBED instead of the silent fast path (probes: ${probes.length})`)
+      t.ok(hasLog(run, /REFUSING to gate over a DIRTY gate worktree[\s\S]*stuck\.reviewer\.test\.ts/), 'BL-0183: the refusal is LOUD and names the dirty path')
+      t.ok(second && !/GATE WORKTREE/.test(second.prompt), 'BL-0183: the second gate did NOT run over the dirty worktree — it ran on the quiet main tree (legacy)')
+      t.ok(run.result && run.result.builtFrds.length === 2, 'both FRDs still verify (the fallback is honest, never a skip)')
+    },
+  })
+}
+// BL-0183b — a FOREIGN untracked file already in the gate worktree (another FRD's / another run's test) at the
+// very first probe: the probe lists it with --untracked-files=all and the engine refuses LOUDLY with the path.
+SCENARIOS.push({
+  name: 'BL-0183b. a foreign untracked file in the gate worktree → the probe fails LOUD naming the path, and the gate runs on main (never over it)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-183b', deps: [], workOrders: [mkWo('wo-183b-001', 'PLANNED', { frd: 'frd-183b', artifacts: ['src/183b/**'] })] }]),
+  responses: [
+    { label: 'gate-worktree', response: { ok: false, failure: 'gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved', dirty: ['?? src/other/_tests/foreign.reviewer.test.ts'] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const wt = byLabel(run, 'gate-worktree')[0]
+    t.ok(wt && /status --porcelain=v1 --untracked-files=all/.test(wt.prompt) && /dirty: \[every line/.test(wt.prompt), 'the probe lists every untracked file individually and returns them as `dirty`')
+    t.ok(hasLog(run, /REFUSING to gate over a DIRTY gate worktree.*src\/other\/_tests\/foreign\.reviewer\.test\.ts/), 'BL-0183: the engine fails LOUD with the foreign path')
+    const gate = byLabel(run, 'gate:frd-183b')[0]
+    t.ok(gate && !/GATE WORKTREE/.test(gate.prompt), 'the gate ran on main, not over the dirty worktree')
+    t.ok(byLabel(run, /^gate-release:/).length === 0, 'no release on the legacy path (nothing ran in the worktree)')
+  },
+})
+// BL-0183c — the gate command itself runs the reviewer's tests BY PATH, not via `--changed`.
+SCENARIOS.push({
+  name: 'BL-0183c. the gate prompt runs the reviewer\'s own adversarial tests explicitly by path (never trusting vitest --changed to collect them)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-183c', deps: [], workOrders: [mkWo('wo-183c-001', 'PLANNED', { frd: 'frd-183c', artifacts: ['src/183c/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-183c')[0]
+    t.ok(gate && /RUN YOUR OWN ADVERSARIAL TESTS EXPLICITLY, BY PATH/.test(gate.prompt) && /pnpm vitest run <path>/.test(gate.prompt) && /--changed/.test(gate.prompt),
+      'the gate step names the --changed hazard and runs every adversarial test file by path')
+  },
+})
+// BL-0184a — a C2 REOPEN: the reviewer's RED test (salvaged by the release) is ported onto main BEFORE the
+// patch, the patch is told it may not touch it, its hash is checked BEFORE the verifier, and the verifier
+// runs it explicitly by path.
+const REOPEN_184 = (tag) => ({ green: false, reopen: [`wo-${tag}-001`], findings: [{ wo: `wo-${tag}-001`, finding: `wrong total at src/${tag}/sum.ts:7`, failingTest: `src/${tag}/_tests/sum.reviewer.test.ts`, files: [`src/${tag}/sum.ts`] }] })
+const reopenPlan184 = (tag) => mkPlan([{ frd: `frd-${tag}`, deps: [], workOrders: [mkWo(`wo-${tag}-001`, 'PLANNED', { frd: `frd-${tag}`, artifacts: [`src/${tag}/**`] })] }])
+const releaseWith184 = (tag) => ({ prefix: 'gate-release:', times: 1, response: { salvaged: [{ path: `mission-control/src/${tag}/_tests/sum.reviewer.test.ts`, status: 'untracked', sha256: 'aaa111' }, { path: `mission-control/notes-${tag}.md`, status: 'untracked', sha256: 'bbb222' }], remaining: [] } })
+SCENARIOS.push({
+  name: 'BL-0184a. C2 reopen — the reviewer\'s RED test is ported to main before the patch, hash-checked before the verifier, and verifyPatched runs it explicitly by path',
+  args: { mode: 'pro' },
+  plan: reopenPlan184('184a'),
+  responses: [
+    { label: 'gate:frd-184a', times: 1, response: REOPEN_184('184a') },
+    releaseWith184('184a'),
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const path = 'mission-control/src/184a/_tests/sum.reviewer.test.ts'
+    const port = byLabel(run, 'port-reviewer-tests:frd-184a')[0]
+    const patch = byLabel(run, 'patch:frd-184a')[0]
+    const hash = byLabel(run, 'reviewer-test-hash:frd-184a')[0]
+    const verify = byLabel(run, 'verify-patch:frd-184a')[0]
+    t.ok(port && patch && port.index < patch.index, 'BL-0184: the reviewer\'s test was PORTED onto main BEFORE the patch')
+    t.ok(port && port.prompt.includes(path) && /gate-evidence\/frd-184a/.test(port.prompt) && /rev-parse --show-toplevel/.test(port.prompt) && /shasum -a 256/.test(port.prompt), 'the port copies from the evidence dir to the SAME repo-root-relative path and hashes the copy')
+    t.ok(port && !port.prompt.includes('notes-184a.md'), 'a non-test file the gate left behind is kept as evidence only — never ported')
+    t.ok(patch && patch.prompt.includes(path) && /may NOT edit, move, rename, skip, delete or re-type them/.test(patch.prompt), 'DR-080: the patch prompt names the reviewer test and forbids editing it')
+    t.ok(hash && verify && patch.index < hash.index && hash.index < verify.index, 'the engine checks the reviewer test\'s sha256 AFTER the patch and BEFORE the independent verifier')
+    t.ok(hash && /EXPECTED \(JSON\): .*aaa111/.test(hash.prompt), 'the integrity check pins the hash the release recorded')
+    t.ok(verify && verify.prompt.includes(path) && /pnpm vitest run "\$\(git rev-parse --show-toplevel\)\/<path>"/.test(verify.prompt), 'BL-0184: verifyPatched runs the reviewer\'s test EXPLICITLY by path')
+    t.ok(run.result && run.result.builtFrds.includes('frd-184a'), 'the FRD verifies through the patch ladder')
+  },
+})
+// BL-0184b — the patch ALTERED the reviewer's test: the engine's hash check fails the verification before the
+// certifier is ever spawned, the originals are restored, and the ladder falls to revert (never VERIFIED).
+SCENARIOS.push({
+  name: 'BL-0184b. the reviewer\'s test hash changed after the patch → DR-080 breach: no verifier spawn, not VERIFIED, revert',
+  args: { mode: 'pro' },
+  plan: reopenPlan184('184b'),
+  responses: [
+    { label: 'gate:frd-184b', times: 1, response: REOPEN_184('184b') },
+    releaseWith184('184b'),
+    { label: 'reviewer-test-hash:frd-184b', response: { hashes: [{ path: 'mission-control/src/184b/_tests/sum.reviewer.test.ts', sha256: 'tampered999' }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'reviewer-test-hash:frd-184b').length >= 1, 'the integrity check ran')
+    t.ok(byLabel(run, 'verify-patch:frd-184b').length === 0, 'DR-080: the certifier was NEVER spawned over a tampered reviewer test')
+    t.ok(hasLog(run, /DR-080 BREACH[\s\S]*sum\.reviewer\.test\.ts[\s\S]*tampered999/), 'the breach is logged loudly with the path and both hashes')
+    const hash = byLabel(run, 'reviewer-test-hash:frd-184b')[0]
+    t.ok(hash && /RESTORE the reviewer's original/.test(hash.prompt), 'the check restores the reviewer\'s original on a mismatch')
+    t.ok(byLabel(run, 'revert:frd-184b').length === 1, 'the tampered patch falls to the revert path')
+    t.ok(!run.result || !run.result.builtFrds.includes('frd-184b') || byLabel(run, /^gate:frd-184b/).length > 1, 'never VERIFIED off the tampered patch (only a fresh re-gate may verify it)')
+  },
+})
+// BL-0184c — the port itself fails (a file missing from the evidence dir): never patch blind; re-gate on main.
+SCENARIOS.push({
+  name: 'BL-0184c. the reviewer\'s tests cannot be ported → no blind patch; the FRD re-gates on the MAIN tree',
+  args: { mode: 'pro' },
+  plan: reopenPlan184('184c'),
+  responses: [
+    { label: 'gate:frd-184c', times: 1, response: REOPEN_184('184c') },
+    releaseWith184('184c'),
+    { label: 'port-reviewer-tests:frd-184c', response: { hashes: [{ path: 'mission-control/src/184c/_tests/sum.reviewer.test.ts', sha256: null }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-184c')
+    const port = byLabel(run, 'port-reviewer-tests:frd-184c')[0]
+    t.ok(hasLog(run, /could not port the reviewer's test files onto main.*missing/), 'the failed port is logged loudly')
+    t.ok(Boolean(gates.length === 2 && port && gates[1].index > port.index && !/GATE WORKTREE/.test(gates[1].prompt)), 'the FRD re-gates on the MAIN tree after the failed port')
+    t.ok(gates.length === 2 && !byLabel(run, 'patch:frd-184c').some((p) => p.index < gates[1].index), 'no patch ran without the reviewer\'s tests (DR-080)')
+  },
+})
+// BL-0184d — the gate-test repair is the tests' OWNER (BL-0001): its edits re-pin the hashes, never a false breach.
+SCENARIOS.push({
+  name: 'BL-0184d. a gate-test repair (the reviewer, the tests\' owner) edits a pinned test → hashes re-pinned, verification proceeds',
+  args: { mode: 'pro' },
+  plan: reopenPlan184('184d'),
+  responses: [
+    { label: 'gate:frd-184d', times: 1, response: REOPEN_184('184d') },
+    releaseWith184('184d'),
+    { label: 'patch:frd-184d', response: { green: false, cause: 'gate-test-defective', defectiveTests: [{ path: 'mission-control/src/184d/_tests/sum.reviewer.test.ts', why: 'asserts a rounding the AC does not require' }] } },
+    { label: 'reviewer-test-hash:frd-184d', response: { hashes: [{ path: 'mission-control/src/184d/_tests/sum.reviewer.test.ts', sha256: 'repaired777' }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const hash = byLabel(run, 'reviewer-test-hash:frd-184d')[0]
+    t.ok(hash && /Record only/.test(hash.prompt), 'after the owner\'s repair the check records (re-pins) instead of restoring')
+    t.ok(!hasLog(run, /DR-080 BREACH/), 'no false DR-080 breach for the owner\'s own repair')
+    t.ok(byLabel(run, 'verify-patch:frd-184d').length === 1 && run.result && run.result.builtFrds.includes('frd-184d'), 'the independent verifier ran and the FRD verified')
   },
 })
 

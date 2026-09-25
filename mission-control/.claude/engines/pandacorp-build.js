@@ -493,6 +493,18 @@ const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${
 // the gate prompt is worktree-relative; absolute ${PROJECT_DIR}/... paths (dashboard events, track.jsonl,
 // punch-list) still target the MAIN tree (append-only, no git — worktree-safe).
 const worktreeWorkFrom = (pinSha) => `Work from the GATE WORKTREE ${GATE_WORKTREE} — cd there FIRST. It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+// BL-0182/0184: the durable, gitignored home of everything a gate leaves in GATE_WORKTREE (the reviewer's
+// adversarial tests, snapshots, its gate-report.json) — salvaged there by releaseGateWorktree after EVERY
+// verdict, so the worktree can be cleaned for the next gate without losing the evidence, and so the PASS
+// port (applyGate) and the reject port (portReviewerTests) read a copy no later gate can overwrite.
+const GATE_EVIDENCE_ROOT = PROJECT_DIR === '.' ? '.pandacorp/run/gate-evidence' : `${PROJECT_DIR}/.pandacorp/run/gate-evidence`
+const gateEvidenceDir = (frd) => `${GATE_EVIDENCE_ROOT}/${frd}`
+// Which salvaged paths are the reviewer's TEST evidence (ported to main) vs anything else it left behind
+// (kept in the evidence dir only). Snapshot PNGs under e2e/ and __tests__/ ride with their specs.
+const REVIEWER_TEST_PATH = /(^|\/)(__tests__|_tests|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
+// BL-0183: `verify.sh --since` selects tests with vitest `--changed <sha>`, which (vitest 4.1.9) ALSO runs
+// every UNCOMMITTED file in the tree — so which tests certify this FRD must never be left to it.
+const REVIEWER_TESTS_EXPLICIT = `\n  **RUN YOUR OWN ADVERSARIAL TESTS EXPLICITLY, BY PATH (BL-0183):** the focused gate's vitest step selects tests with \`--changed <sha>\`, which ALSO picks up any uncommitted file in the tree — it is NOT the contract for which tests certify this FRD. After that verify.sh run, run EVERY adversarial test file you wrote this gate by its path — \`pnpm vitest run <path> [<path> …]\` (a Playwright spec: \`pnpm playwright test <path>\`) — never relying on \`--changed\` to have collected them. On a PASS every one of them must pass; on a reopen the RED-proven ones must fail for the reason you state. (On the concurrent path the engine refuses to start a gate over a dirty worktree, so every uncommitted file you see there is yours.)`
 
 // Owner notification — macOS desktop only (osascript). Fire-and-forget; never blocks the
 // build. (Phone push, when Remote Control is on, is sent by the supervising agent via
@@ -1557,9 +1569,9 @@ const evidenceBlock = (frd, ev) => ev ? `
 // PLUS a MANDATORY re-run (REV2-1/DR-080): ATTACHMENT 1 was collected BEFORE the reviewer's own
 // adversarial tests existed, so it cannot possibly certify them — a permissive "you MAY re-run" let a gate
 // write tests it never executed and certify green off stale evidence. The re-run is required, not offered.
-const gateFocusedStep = (frd, ev) => ev
+const gateFocusedStep = (frd, ev) => (ev
   ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. **You MUST run verify.sh exactly once — \`bash .pandacorp/verify.sh --since <last_green_sha>\` — after writing your adversarial tests: ATTACHMENT 1 predates them and therefore cannot certify them.** Do NOT pass \`--only\`/\`--files\` on that re-run: this gate is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on. It must pass clean.${REPORT_SCOPE_DIRECTIVE} Return THAT run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` — never ATTACHMENT 1's — when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
-  : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
+  : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`) + REVIEWER_TESTS_EXPLICIT
 
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
 async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack, directive = '') {
@@ -1719,21 +1731,28 @@ ${GATE_PASS_RETURN}
 // second call for the SAME sha now reuses the FIRST call's pending promise instead of spawning its
 // own agent; a call for a DIFFERENT sha (not expected on the current call sites, all sharing one
 // FRD's pinSha) still proceeds independently. Idempotent: a no-op (no spawn) once frozen at `sha`.
+// BL-0183: the no-spawn fast path is taken ONLY when the tree is ALSO known clean (gateWorktreeClean — set
+// by this probe's own clean check or by the previous gate's releaseGateWorktree postcondition). Before,
+// two FRDs pinned at the SAME sha skipped the probe — and with it the clean check — so the second gate ran
+// in a tree still holding the first reviewer's untracked tests, which vitest `--changed` then executed.
+// Any acquisition over a tree not proven clean re-probes, and a dirty tree fails LOUD with its paths.
 async function ensureGateWorktree(sha) {
   if (worktreeState === 'failed') return false
-  if (worktreeState === 'ready' && lastWorktreeSha === sha) return true   // already frozen at this sha — no spawn
+  if (worktreeState === 'ready' && lastWorktreeSha === sha && gateWorktreeClean) return true   // frozen at this sha AND proven clean — no spawn
   if (gateWorktreeInFlight && gateWorktreeInFlightSha === sha) return gateWorktreeInFlight   // BL-0150: reuse the SAME pending spawn, never a second one
   const attempt = (async () => {
     agentSpawned++
     const r = await agent(
       `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
       1) If the directory ${GATE_WORKTREE} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\`, \`cd\` into it, and run \`bash .pandacorp/worktree-bootstrap.sh\` (BL-0149 — it reconstitutes node_modules and everything else a fresh worktree needs; it is idempotent, safe to re-run, and skips reinstalling when the lockfile hasn't changed). Return { ok: true, created: true }.
-      2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain\` is empty. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved" }.
+      2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` prints nothing. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved", dirty: [every line that status command printed, verbatim — the engine names them in its log (BL-0183); [] when the failure was not dirt] }.
       3) For a registered CLEAN reuse, \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`, then re-run \`bash .pandacorp/worktree-bootstrap.sh\` inside ${GATE_WORKTREE} (BL-0149 — same idempotent script; it is cheap when pnpm-lock.yaml is unchanged, so you do NOT need to diff the lockfile yourself first). Return { ok: true, created: false }.
       If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence, worktree-bootstrap.sh exits non-zero), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
-      { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' } } } })
-    if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; return true }
-    worktreeState = 'failed'; lastWorktreeSha = null
+      { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' }, dirty: { type: 'array', items: { type: 'string' } } } } })
+    if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; gateWorktreeClean = true; return true }
+    worktreeState = 'failed'; lastWorktreeSha = null; gateWorktreeClean = false
+    const dirty = (r && Array.isArray(r.dirty)) ? r.dirty.filter(Boolean) : []
+    if (dirty.length) log(`⊘ C2 (BL-0183): REFUSING to gate over a DIRTY gate worktree ${GATE_WORKTREE} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
     log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
     return false
   })()
@@ -1741,6 +1760,136 @@ async function ensureGateWorktree(sha) {
   gateWorktreeInFlightSha = sha
   try { return await attempt }
   finally { if (gateWorktreeInFlight === attempt) { gateWorktreeInFlight = null; gateWorktreeInFlightSha = null } }
+}
+
+// ── C2 gate-worktree RELEASE (MECH) — the post-condition of EVERY gate (BL-0182/0183/0184) ─────────
+// The review-only gate writes its adversarial tests (and snapshots, scratch) into GATE_WORKTREE whatever
+// its verdict: a PASS left them there because applyGate only COPIED them out, a reject stranded them (the
+// patch ladder runs on main), a block left them until persistGateBlock's salvage — which runs on the
+// main loop, AFTER the next chained gate's ensureGateWorktree had already found the tree dirty (canary D2
+// went legacy exactly so). So the release runs INSIDE the gate's own gateWorktreeChain link, before the
+// chain lets the next gate in: salvage every `git status` path (+ the gitignored gate-report.json) to
+// gateEvidenceDir(frd), clean EXACTLY those paths, and re-list. The chain's next acquisition then sees a
+// tree proven clean (gateWorktreeClean) — or, when the release could not prove it, re-probes and fails
+// loud. Returns { dir, tests:[{path, sha256}] } — the salvaged TEST files, repo-root-relative, with the
+// sha256 of the salvaged copy (the DR-080 fingerprint the reject path holds the patch to).
+const GATE_RELEASE_SCHEMA = {
+  type: 'object', required: ['salvaged', 'remaining'],
+  properties: {
+    salvaged: { type: 'array', items: { type: 'object', required: ['path', 'status'], properties: { path: { type: 'string' }, status: { type: 'string', enum: ['untracked', 'modified', 'deleted'] }, sha256: { type: ['string', 'null'] } } } },
+    remaining: { type: 'array', items: { type: 'string' }, description: 'every line the post-clean `git status --porcelain=v1 --untracked-files=all` printed — [] iff the worktree is clean' },
+    failure: { type: 'string' },
+  },
+}
+async function releaseGateWorktree(frd, gate) {
+  const declared = (gate && Array.isArray(gate.testFiles)) ? gate.testFiles.filter(Boolean) : []
+  const dir = gateEvidenceDir(frd)
+  agentSpawned++
+  let r = null
+  try {
+    r = await agent(
+      `C2 gate-worktree RELEASE for ${frd} (BL-0182). The FRD gate for ${frd} just finished in the gate worktree ${GATE_WORKTREE}; whatever it left there must be SALVAGED to the durable evidence dir ${dir} and then CLEANED, so the next gate starts on a clean tree. You run commands only — judge nothing, edit no source, run no git command that writes the MAIN tree. Do EXACTLY, in order:
+      1) LIST: \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\`. \`--untracked-files=all\` is REQUIRED — plain \`--porcelain\` collapses a new directory to one \`?? dir/\` line and its files would never be salvaged. Each line is \`XY <path>\`; the path is relative to the worktree ROOT (git prints repo-root paths even for a nested project) — keep it EXACTLY as printed (unquote it if git double-quoted it).
+      2) SALVAGE each listed path: \`??\` → untracked; a \`D\` in either status column → deleted; anything else → modified. Untracked/modified: \`mkdir -p\` the parent and \`cp ${GATE_WORKTREE}/<path> ${dir}/<path>\` (overwrite), then \`shasum -a 256 ${dir}/<path>\` and record { path, status, sha256 }. Deleted: record { path, status: "deleted", sha256: null } (nothing to copy).
+      3) REPORT: the gate's report is gitignored, so step 1 does not list it. Let P = \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` (empty for a flat project, e.g. \`mission-control/\` for a nested one). If ${GATE_WORKTREE}/<P>.pandacorp/run/gate-report.json exists, copy it to ${dir}/gate-report.json (overwrite).
+      4) CLEAN exactly the listed paths, one at a time, and ONLY a path whose step-2 copy SUCCEEDED (or a deleted one): untracked → \`git -C ${GATE_WORKTREE} clean -f -- <path>\`; modified or deleted → \`git -C ${GATE_WORKTREE} checkout -- <path>\`. NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\`, and never remove, prune or recreate the worktree (BL-0067).
+      5) POSTCONDITION: re-run the step-1 command and return every line it prints as \`remaining\` ([] when clean).
+      The gate declared these test files (JSON): ${JSON.stringify(declared)} — informational only; salvage what git lists, not this list.
+      Return { salvaged: [...], remaining: [...] }. If a command fails, stop there and return what you have plus \`failure: "<what failed>"\` — never clean a path you could not copy.`,
+      { label: `gate-release:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: GATE_RELEASE_SCHEMA })
+  } catch (e) { log(`⚠ C2 (BL-0182): the gate-worktree release for ${frd} threw (${(e && e.message) || e})`) }
+  const salvaged = (r && Array.isArray(r.salvaged)) ? r.salvaged.filter((x) => x && typeof x.path === 'string' && x.path) : []
+  const remaining = (r && Array.isArray(r.remaining)) ? r.remaining.filter(Boolean) : null
+  if (remaining && remaining.length === 0 && !(r && r.failure)) gateWorktreeClean = true
+  else {
+    gateWorktreeClean = false   // the next acquisition re-probes instead of taking the no-spawn fast path (BL-0183)
+    log(`⚠ C2 (BL-0182): the gate worktree is NOT proven clean after ${frd}'s gate (${(r && r.failure) || (remaining ? 'paths remain' : 'no release verdict')})${remaining && remaining.length ? `: ${remaining.join(' | ')}` : ''} — the next gate re-probes it and falls back to the legacy path rather than gate over it`)
+  }
+  const tests = salvaged
+    .filter((x) => x.status !== 'deleted' && typeof x.sha256 === 'string' && x.sha256 && REVIEWER_TEST_PATH.test(x.path))
+    .map((x) => ({ path: x.path, sha256: x.sha256 }))
+  const other = salvaged.filter((x) => !tests.some((t) => t.path === x.path))
+  if (other.length) log(`◦ ${frd}: the gate also left non-test path(s) in the worktree — kept as evidence in ${dir} only, never ported: ${other.map((x) => `${x.path} (${x.status})`).join(', ')}`)
+  const undeclared = declared.filter((d) => !tests.some((t) => t.path === d || t.path.endsWith(`/${d}`)))
+  if (undeclared.length) log(`⚠ ${frd}: the gate declared test file(s) the worktree did not contain — nothing to port for them: ${undeclared.join(', ')}`)
+  return { dir, tests }
+}
+
+// ── BL-0184: the reject path holds the patch to the reviewer's OWN test files (DR-080) ─────────────
+// A C2 reject used to leave the reviewer's RED-proven tests in the worktree while attemptPatch and
+// verifyPatched ran on main — the patcher was told to satisfy a test it never had (free to re-type it)
+// and the certifier never ran it. Now: portReviewerTests copies the salvaged files onto main at the SAME
+// repo-root-relative path before the patch (the path the tests were written for, so their relative
+// imports and the runner's include globs resolve exactly as in the gate — running them from the evidence
+// dir would break both), checks the copies' sha256, and records them here for the convergence of THIS
+// verdict only (drainConverge clears it; a revert starts a fresh gate on main that owns its own tests).
+const reviewerTestsByFrd = new Map()   // frd -> { dir, tests:[{path, sha256}], rebless:boolean }
+const REVIEWER_TEST_HASH_SCHEMA = { type: 'object', properties: { hashes: { type: 'array', items: { type: 'object', required: ['path'], properties: { path: { type: 'string' }, sha256: { type: ['string', 'null'] } } } }, failure: { type: 'string' } } }
+// Pure: every expected file must be observed with the SAME sha256. Returns the problems (empty = intact).
+function compareReviewerHashes(expected, observed) {
+  const seen = new Map((Array.isArray(observed) ? observed : []).filter((o) => o && typeof o.path === 'string').map((o) => [o.path, o.sha256]))
+  const problems = []
+  for (const e of expected || []) {
+    const got = seen.get(e.path)
+    if (!got) problems.push(`${e.path}: missing`)
+    else if (got !== e.sha256) problems.push(`${e.path}: sha256 ${got} ≠ reviewer's ${e.sha256}`)
+  }
+  return problems
+}
+const reviewerTestPaths = (rt) => rt.tests.map((t) => t.path).join(', ')
+async function portReviewerTests(frd, gate) {
+  const ev = gate && gate.reviewerEvidence
+  if (!gate || !Array.isArray(gate.reopen) || !gate.reopen.length || !ev || !ev.tests.length) return null   // nothing stranded → the ladder runs exactly as before
+  agentSpawned++
+  const r = await agent(
+    `BL-0184 — PORT the reviewer's adversarial test files for ${frd} onto the MAIN tree BEFORE the patch (DR-080: the patch is judged by the reviewer's OWN files, never a re-typed copy). The review-only gate rejected in the gate worktree; the engine salvaged its test files into ${ev.dir}. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\` (the MAIN repo root — the paths below are REPO-ROOT-relative, exactly as git listed them). For EACH entry of EXPECTED: \`mkdir -p\` the parent and \`cp ${ev.dir}/<path> "$TOP/<path>"\` (overwrite), then \`shasum -a 256 "$TOP/<path>"\` and record { path, sha256 } (sha256 null when the source is missing or the copy failed). Stage nothing, commit nothing, touch nothing else. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { hashes: [{ path, sha256 }] }.`,
+    { label: `port-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVIEWER_TEST_HASH_SCHEMA })
+  const problems = compareReviewerHashes(ev.tests, r && r.hashes)
+  if (problems.length) {
+    log(`⊘ ${frd} (BL-0184): could not port the reviewer's test files onto main (${problems.join('; ')}) — a patch would run without the tests that judge it (DR-080); re-gating ${frd} on the MAIN tree instead`)
+    return false
+  }
+  reviewerTestsByFrd.set(frd, { dir: ev.dir, tests: ev.tests.map((t) => ({ path: t.path, sha256: t.sha256 })), rebless: false })
+  log(`▹ ${frd}: the reviewer's ${ev.tests.length} RED test file(s) ported onto main for the patch ladder, sha256-pinned (BL-0184): ${ev.tests.map((t) => t.path).join(', ')}`)
+  return true
+}
+// The independent gate-test repair (BL-0001/BL-0051) is the reviewer — the tests' OWNER — so its edits are
+// legitimate: the next integrity check re-pins the hashes instead of calling them a breach.
+function markReviewerTestsReblessed(frd) { const rt = reviewerTestsByFrd.get(frd); if (rt) rt.rebless = true }
+// Run BEFORE the independent verifier may stamp: returns null when intact (or nothing is pinned), else a
+// red REPAIR_SCHEMA verdict. The engine compares — never the agent — and the originals are restored.
+async function checkReviewerTestIntegrity(frd) {
+  const rt = reviewerTestsByFrd.get(frd)
+  if (!rt || !rt.tests.length) return null
+  agentSpawned++
+  const r = await agent(
+    `BL-0184 — DR-080 integrity check of the reviewer's test files for ${frd}, BEFORE the independent verifier runs. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`. For EACH entry of EXPECTED run \`shasum -a 256 "$TOP/<path>"\` and record { path, sha256 } (sha256 null when the file is missing).${rt.rebless ? ' Record only — change nothing.' : ` THEN, for every file whose hash differs from EXPECTED or that is missing, RESTORE the reviewer's original: \`mkdir -p\` the parent and \`cp ${rt.dir}/<path> "$TOP/<path>"\` — record the hash you OBSERVED before restoring, never the restored one.`} Edit nothing else, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(rt.tests)}. Return { hashes: [{ path, sha256 }] }.`,
+    { label: `reviewer-test-hash:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVIEWER_TEST_HASH_SCHEMA })
+  if (rt.rebless) {
+    const observed = (r && Array.isArray(r.hashes)) ? r.hashes : []
+    const missing = rt.tests.filter((t) => !observed.some((o) => o && o.path === t.path && typeof o.sha256 === 'string' && o.sha256))
+    if (missing.length) {
+      log(`⊘ ${frd} (BL-0184): the gate-test repair left reviewer test file(s) missing (${missing.map((t) => t.path).join(', ')}) — coverage is never deleted; verification refused`)
+      return { green: false, failure: `DR-080: reviewer test file(s) missing after the gate-test repair: ${missing.map((t) => t.path).join(', ')}` }
+    }
+    rt.tests = rt.tests.map((t) => ({ path: t.path, sha256: observed.find((o) => o.path === t.path).sha256 }))
+    rt.rebless = false
+    return null
+  }
+  const problems = compareReviewerHashes(rt.tests, r && r.hashes)
+  if (!problems.length) return null
+  log(`⊘ ${frd} (BL-0184): DR-080 BREACH — the reviewer's test file(s) changed or vanished after the gate (${problems.join('; ')}); originals restored, the patch is NOT certified`)
+  return { green: false, failure: `DR-080: the reviewer's test file(s) were modified or removed after the gate (${problems.join('; ')}) — a patch may not edit the tests that judge it` }
+}
+const reviewerTestsPatchDirective = (frd) => {
+  const rt = reviewerTestsByFrd.get(frd)
+  if (!rt || !rt.tests.length) return ''
+  return `\n  **THE GATE'S OWN RED TESTS ARE ON THIS TREE (BL-0184, DR-080):** ${reviewerTestPaths(rt)} (REPO-ROOT-relative — run them by absolute path, \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>"\`). They are the REVIEWER's: you may NOT edit, move, rename, skip, delete or re-type them — make them PASS with production code. The engine pinned their sha256; the independent verification FAILS the patch on any difference. If you believe one is defective, take the gate-test-defective exit below and leave the file untouched.`
+}
+const reviewerTestsVerifyDirective = (frd) => {
+  const rt = reviewerTestsByFrd.get(frd)
+  if (!rt || !rt.tests.length) return ''
+  return `\n  **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080) — run them EXPLICITLY, by path:** the review-only gate rejected on these reviewer-authored files, ported onto this tree and sha256-checked by the engine just before you: ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: run \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>" …\` for each (a Playwright spec: \`pnpm playwright test\` with the same absolute path), IN ADDITION to the FRD test files above — never trust \`--changed\`/affected selection to have picked them up. Every one must PASS; a missing one is RED. Do NOT edit them. On green, \`git add --\` each of them in your commit.`
 }
 
 // ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
@@ -1772,14 +1921,21 @@ async function capturePin(frds, preSha = null) {
 async function applyGate(frd, reviewIds, testFiles, sourceDir) {
   agentSpawned++
   const files = (testFiles || []).filter(Boolean)
-  const port = sourceDir && files.length
-    ? ` FIRST port the reviewer's adversarial test files from the gate worktree onto the main tree — for EACH of these repo-relative paths copy \`${sourceDir}/<path>\` → \`<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
-    : (files.length ? ` The reviewer's adversarial test files are already on the main tree (${files.join(', ')}) — just make sure they are staged in the commit below.` : '')
+  // BL-0182: on the concurrent path `sourceDir` is the gate's EVIDENCE dir (releaseGateWorktree salvaged
+  // the worktree there and cleaned it before the next gate could start), holding repo-root-relative paths.
+  const fromEvidence = Boolean(sourceDir && sourceDir.startsWith(GATE_EVIDENCE_ROOT))
+  const port = fromEvidence && files.length
+    ? ` FIRST port the reviewer's adversarial test files — salvaged out of the gate worktree ${GATE_WORKTREE} into ${sourceDir} by the release step — onto the main tree. The paths are REPO-ROOT-relative (as git listed them): let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`, and for EACH path copy \`${sourceDir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
+    : sourceDir && files.length
+      ? ` FIRST port the reviewer's adversarial test files from the gate worktree onto the main tree — for EACH of these repo-relative paths copy \`${sourceDir}/<path>\` → \`<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
+      : (files.length ? ` The reviewer's adversarial test files are already on the main tree (${files.join(', ')}) — just make sure they are staged in the commit below.` : '')
   // BL-0180: the gate that PASSED may have run inside a DIFFERENT checkout than this applier (the C2
   // concurrent path reviews in GATE_WORKTREE while this MECH step writes on main — see the comment atop
   // this function). Its gate-report.json therefore lives at sourceDir, not at the applier's own cwd; a
   // bare relative path here silently reads main's OWN (unrelated) report instead, defeating the cage.
-  const gateReportPath = sourceDir ? `${sourceDir}/.pandacorp/run/gate-report.json` : '.pandacorp/run/gate-report.json'
+  // BL-0182: the release step copies that report into the evidence dir, where no LATER chained gate can
+  // overwrite it before this (main-loop-paced) apply reads it.
+  const gateReportPath = fromEvidence ? `${sourceDir}/gate-report.json` : sourceDir ? `${sourceDir}/.pandacorp/run/gate-report.json` : '.pandacorp/run/gate-report.json'
   const applyJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":0,"reopen_count":0,"rung":"gate","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"gate passed in the pinned worktree; applied on main","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
@@ -1818,7 +1974,7 @@ async function persistGateBlock(frd, reviewIds, reason, failure, alreadyTracked 
   agentSpawned++
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)}
-    **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain\`. For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. Return { done: true }.`,
+    **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` (BL-0182: without \`--untracked-files=all\` a new directory collapses to one \`?? dir/\` line and its files are never salvaged; paths are worktree-ROOT-relative). For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
   return link.then(() => true, () => false)
@@ -2010,7 +2166,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"patch","role":"builder","kind":"attempt","classification":"","seam":null,"findingKey":"%s","tried":"%s","verdict":"","why":"%s","confidence":"%s"`,
     ` "<the primary reopened work order you patched, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its current reopen_count, an integer>" "<\`<file>::<one-line claim>\` of the primary finding>" "<one line: what you changed>" "<one line: why>" "<low|medium|high>"`)
   return await chargedRepair(frd, patchModel, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'patch' })}Patch-in-place repair (DR-073)${priorDiagnosis ? ' — SECOND diagnosis-guided attempt (A3 patch-2)' : ''}. The build of ${frd} is ~CORRECT EXCEPT these specific findings:
-  ${list}${diagText}
+  ${list}${diagText}${reviewerTestsPatchDirective(frd)}
   Patch ONLY these on the EXISTING build — do NOT revert, do NOT rebuild from scratch, do NOT touch unrelated files. For each finding, make the RED-proven failing test PASS (production code, never weaken/skip a test). Reviewed work orders this cycle: ${(reviewIds || []).join(', ')}.
   BUILD-JOURNAL (A1): record ONE kind:"attempt" line for this patch (descriptive — verdict stays empty, a patcher never certifies itself):${patchAttemptJournal}
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
@@ -2031,6 +2187,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
 // that could never converge (LESSON-0002).
 async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
   agentSpawned += COST(P.judge)
+  markReviewerTestsReblessed(frd)   // BL-0184: this reviewer OWNS the pinned tests (DR-080) — its edits re-pin their hashes, never a breach
   // WP-08: charged to the repair budget, but deliberately NEVER refused by it. This path exists to
   // preserve a CORRECT build against a defective/superseded gate test — refusing it would push the
   // flow into a revert + full rebuild, which costs strictly more than the agent the brake just saved.
@@ -2057,11 +2214,14 @@ async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
 // A DIFFERENT agent re-runs the objective gate over the patched build and only IT may stamp VERIFIED +
 // advance last_green_sha. Mechanical re-run (the scripts are the oracle), so a worker-model agent suffices.
 async function verifyPatched(frd, reviewIds) {
+  const breach = await checkReviewerTestIntegrity(frd)   // BL-0184: never spawn the certifier over tampered/missing reviewer tests
+  if (breach) return breach
   agentSpawned++
   const resolutionJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
-  const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
+  const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. ${reviewerTestsVerifyDirective(frd)}
+  **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
   **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
   **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.
   **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. You are THE certification: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
@@ -2091,6 +2251,7 @@ async function verifyPatched(frd, reviewIds) {
 // increments reopen_count, still preserves reviewer tests, and the wo_reopen event carries reason:"seam".
 async function revertAndReopen(frd, reopenIds, opts = {}) {
   agentSpawned += COST(P.judge)
+  reviewerTestsByFrd.delete(frd)   // BL-0184: the pinned tests bound THIS verdict's patch ladder; the retry's fresh gate on main owns its own
   const seamFiles = (opts.seamFiles && opts.seamFiles.length) ? opts.seamFiles : null
   const reopenReason = seamFiles ? 'seam' : 'gate-reject'
   const revertJournal = JOURNAL(
@@ -2816,6 +2977,7 @@ const gateQueue = []          // FRD folders whose build WOs are all committed +
 // ── C2 concurrent-gate state ──────────────────────────────────────────────────────────────────────
 let worktreeState = 'unknown'   // 'unknown' | 'ready' | 'failed' (failed → legacy synchronous gate path)
 let lastWorktreeSha = null      // the sha the worktree is currently checked out at (skip redundant checkout/install)
+let gateWorktreeClean = false   // BL-0183: true ONLY right after a probe's clean check or a gate release's verified-clean postcondition — the no-spawn fast path requires it
 let gateWorktreeInFlight = null   // BL-0150: the SHARED pending ensureGateWorktree() promise, memoized so a concurrent caller reuses it instead of spawning a second gate-worktree agent
 let gateWorktreeInFlightSha = null   // the sha gateWorktreeInFlight is preparing — only a call for this SAME sha reuses it
 let concurrentGates = null      // null = undecided (probe at the first gate); true = concurrent; false = legacy inline
@@ -2942,7 +3104,15 @@ function launchGate(frd) {
     // that never had a prelaunch, e.g. a resume gate). Null in explore mode → frdGate behaves exactly as
     // it always has. A null/malformed pack degrades THIS gate to explore; the gate itself never skips.
     const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)
-    return await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha), evidencePack)
+    // BL-0182: the gate + its RELEASE are ONE link of the worktree chain — the reviewer dirties the tree,
+    // and the release (salvage + exact clean, whatever the verdict, even a crash) runs before the chain
+    // admits the next gate, so the next acquisition finds a clean tree instead of falling back to legacy.
+    gateWorktreeClean = false
+    let gate
+    let released = null
+    try { gate = await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha), evidencePack) }
+    finally { released = await releaseGateWorktree(frd, gate) }
+    return (gate && typeof gate === 'object') ? { ...gate, reviewerEvidence: released } : gate
   })
   gateWorktreeChain = work.then(() => {}, () => {})   // keep the worktree mutex chain alive across errors
   const tracked = work.then(
@@ -2967,7 +3137,13 @@ async function harvestGateResults() {
       continue
     }
     if (gate && gate.green === true) {
-      const ok = await applyGate(f.frd, reviewIds, gate.testFiles, GATE_WORKTREE)
+      // BL-0182: port what the release SALVAGED (git's own list, repo-root-relative) from the evidence dir —
+      // the worktree is already clean for the next gate. Only a gate with no release verdict falls back to
+      // the declared list read straight from the worktree.
+      const ev = gate.reviewerEvidence
+      const ok = ev
+        ? await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
+        : await applyGate(f.frd, reviewIds, gate.testFiles, GATE_WORKTREE)
       if (ok) { log(`✓ ${f.frd} VERIFIED (concurrent gate, applied on main)`); builtFrds.push(f.frd); consecutiveBlocks = 0; progressed = true }
       else convergeQueue.push({ f, reviewIds, gate })   // apply failed → converge (repair) on main
       continue
@@ -2989,7 +3165,12 @@ async function drainConverge() {
   while (convergeQueue.length) {
     const item = convergeQueue.shift()
     if (item.__needsLegacy) { await gateAndConverge(item.f, item.reviewIds); continue }   // worktree-failed gate → whole gate+converge on main
-    await gateConverge(item.f, item.reviewIds, item.gate)
+    // BL-0184: a C2 reopen's RED tests were salvaged from the worktree — port them onto the (quiesced)
+    // main tree, sha256-pinned, BEFORE the patch ladder; a failed port never patches blind (DR-080).
+    const ported = await portReviewerTests(item.f.frd, item.gate)
+    if (ported === false) { await gateAndConverge(item.f, item.reviewIds); continue }
+    try { await gateConverge(item.f, item.reviewIds, item.gate) }
+    finally { reviewerTestsByFrd.delete(item.f.frd) }
   }
 }
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
