@@ -155,6 +155,30 @@ for tok in $redirs; do
   # An empty token is an extraction artifact (e.g. a trailing quote left over), never a real redirect
   # target — do NOT let it fall into _protected_under's "" case, which returns true (BL-0120).
   [ -n "$tok" ] || continue
+  # BL-0167: a bare "." or ".." is never a genuine single-file truncation target (the shell refuses to
+  # open a directory for writing) — the only way the extractor captures one is as an artifact of
+  # adjacent NON-redirect text that happens to contain "> .."/"> ." (a git-range placeholder written
+  # as "<base>..<head>", an ellipsis, …). This bit real: `unquoted_cmd`'s quote-stripping above is
+  # line-based (`sed -E "s/\"[^\"]*\"//g"` matches a pair on ONE line), so a multi-line
+  # `-m "$(cat <<'EOF' … EOF)"` heredoc commit body — the very form this repo's own git workflow
+  # uses — never gets its middle lines stripped: whatever text sits on those lines feeds the
+  # extraction verbatim. Left unfiltered, the captured ".." resolves via _protected_under's
+  # directory-contains-.pandacorp fallback for almost any Pandacorp cwd, false-positiving the whole
+  # command. Skipping it costs nothing: `cmd > .` / `cmd > ..` was never a meaningful protection —
+  # the shell errors on it at runtime regardless.
+  case "$tok" in .|..) continue ;; esac
+  # BL-0158: a `>` only TRUNCATES a file that already has content — creating a BRAND-NEW file (e.g. a
+  # new card under .pandacorp/inbox/changes/, the change-queue mechanism's own routine write target)
+  # is not a truncation and must not be blocked just because the path resembles a protected one.
+  # Resolve the operand the same way _protected_under does and skip when nothing exists there yet;
+  # truncating an EXISTING protected file (a card overwritten in place, a done/ archive entry,
+  # decisions.md, …) is still blocked below — this only widens what counts as "not a truncation".
+  case "$tok" in
+    /*) abs_tok="$tok" ;;
+    "~/"*) abs_tok="$HOME/${tok#\~/}" ;;
+    *) abs_tok="$cwd/$tok" ;;
+  esac
+  [ -e "${abs_tok%/}" ] || continue
   if _protected_under "$tok"; then
     block "redirect '> $tok' truncates a protected Pandacorp state path to zero — this append-only layer has no git history; never reset it in place, archive/move instead or ask the owner (BL-0035)"
   fi

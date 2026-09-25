@@ -29,8 +29,20 @@ check() { # $1 label, $2 expected rc, $3 cwd, $4 cmd
 # tests don't depend on this repo's layout) — and a nested subdir for scope walk-up.
 fx=$(mktemp -d)
 ( cd "$fx" && git init -q )
-mkdir -p "$fx/myapp/.pandacorp/inbox" "$fx/factory/ideas" "$fx/factory/memory" "$fx/src/deep"
+mkdir -p "$fx/myapp/.pandacorp/inbox/changes" "$fx/factory/ideas" "$fx/factory/memory" "$fx/src/deep"
 echo "# Pandacorp" > "$fx/CLAUDE.md"
+# Real Pandacorp projects gitignore the whole .pandacorp/ state layer (BL-0035: it has no git
+# history by design) — mirror that here so the BL-0151 section's `git add -A && git commit` below
+# never tracks the fixture files added next; otherwise a worktree checkout of THIS repo would
+# legitimately contain a nested .pandacorp, which is a real positive for the parent-directory rule,
+# not the false one this file's later BL-0151 "ordinary worktree" cases mean to exercise.
+printf '.pandacorp/\nfactory/memory/\nfactory/ideas/\n' > "$fx/.gitignore"
+# Pre-existing protected files (BL-0158): the WS-A F3 "must block" cases below assert a genuine
+# TRUNCATION of a file that already has content — without these, the fixture never distinguished
+# "truncate" from "create", which is exactly how BL-0158's false positive slipped past this suite.
+echo "existing decision" > "$fx/myapp/.pandacorp/inbox/decisions.md"
+echo "existing inbox entry" > "$fx/factory/memory/_inbox.md"
+echo "existing card" > "$fx/myapp/.pandacorp/inbox/changes/existing-card.md"
 
 echo "== MUST BLOCK (expect 2) =="
 check "vercel --prod"                      2 "$fx" "vercel --prod"
@@ -97,6 +109,31 @@ echo "== BL-0120: quoted '>' / non-protected redirect targets must not false-pos
 check "redirect to /dev/null"              0 "$fx" 'bash plugin/scripts/validate-backlog.sh >/dev/null 2>&1; echo "done"'
 check "quoted email trailer in commit msg" 0 "$fx" 'git commit -m "Fix thing" -m "Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"'
 check "still blocks real truncation"       2 "$fx" 'echo "data" > factory/memory/_inbox.md'
+
+echo "== BL-0158: a redirect that CREATES a brand-new file is not a truncation =="
+check "create NEW card in inbox/changes"          0 "$fx" "cat /dev/null > myapp/.pandacorp/inbox/changes/new-bug.md"
+check "create NEW file elsewhere under .pandacorp" 0 "$fx" "echo notes > myapp/.pandacorp/inbox/new-notes.md"
+newcard_heredoc_cmd="cat > myapp/.pandacorp/inbox/changes/informe-bug.md <<'EOF'
+---
+type: bug
+---
+EOF"
+check "create NEW card via heredoc (repro shape)" 0 "$fx" "$newcard_heredoc_cmd"
+check "truncate EXISTING inbox/changes card"      2 "$fx" "cat /dev/null > myapp/.pandacorp/inbox/changes/existing-card.md"
+# NOTE: the native `Write` tool creating a new file is untested here by design — block-dangerous.sh
+# is wired ONLY to the Bash PreToolUse matcher (plugin/hooks/hooks.json), so a Write tool call never
+# reaches this script at all; there is no command string to construct a fixture from.
+
+echo "== BL-0167: a git-range placeholder in a commit message must not read as a redirect =="
+check "plain sha..sha range (no '>' at all)"       0 "$fx" 'git commit -m "fix a1b2c3..d4e5f6 range"'
+check "angle-bracket range on one line"            0 "$fx" 'git commit -m "fix spanning <a1b2c3d>..<d4e5f6a> range"'
+rangeheredoc_cmd='git commit -m "$(cat <<'"'"'EOF'"'"'
+fix(hooks): merge <3b820278>..<7446d4cd> range fix
+EOF
+)"'
+check "angle-bracket range inside heredoc -m (repro)" 0 "$fx" "$rangeheredoc_cmd"
+check "unrelated relative redirect is unaffected"  0 "$fx" "cat x > ../foo"
+check "bare '..' redirect target is inert, not blocked" 0 "$fx" "cat /dev/null > .."
 
 echo "== BL-0151: live/locked deployment worktree protection =="
 # Fixture: a commit (worktree add needs a HEAD) plus two extra worktrees of the SAME throwaway

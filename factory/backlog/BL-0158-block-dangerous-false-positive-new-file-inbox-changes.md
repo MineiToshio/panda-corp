@@ -3,12 +3,12 @@ id: BL-0158
 type: bug
 area: hooks
 title: "block-dangerous.sh (PreToolUse) false-positives a NEW file creation under .pandacorp/inbox/changes/ as truncating a protected path, silently dropping a real bug card"
-status: open
+status: done
 severity: p1
 opened: 2026-09-23
-closed:
+closed: 2026-09-24
 source: "canary-c-forensics.md §7 'Hallazgos hermanos' + timeline note — Canary C live run, wf_1cf782d6-2ed, frd-23-materialized-stats-read-model"
-closes:
+closes: "plugin/scripts/block-dangerous.sh redirect-truncation loop (WS-A F3) — added an existence check before treating a single-`>` redirect target as a truncation"
 links: [BL-0035, LESSON-0105, LESSON-0109]
 ---
 
@@ -34,39 +34,52 @@ change-queue mechanism itself (`/pandacorp:change`, `iterate`) writes to routine
 writing to.
 
 ## Root cause
-Not yet read line-by-line in this item (no source citation for `block-dangerous.sh`'s exact matched rule
-recorded here) — flagged as the first fix-plan step. Per LESSON-0109's established pattern, the likely
-mechanism is a path-name-based or generic-redirect-based rule that does not check whether the target
-actually pre-exists before classifying a `>` as a truncation.
+Read line-by-line (`plugin/scripts/block-dangerous.sh` WS-A F3 block, then lines 143-161): the
+redirect-truncation loop strips quoted regions from `$cmd`, extracts every single-`>` target via
+`grep -oE`, and calls `_protected_under "$tok"` on each — a PATH-SUBSTRING/PARENT-DIRECTORY match
+(`*/.pandacorp|*/.pandacorp/*`, or "the resolved dir contains a `.pandacorp` within 3 levels") with
+**no existence check at all**. `_protected_under` was written for the `rm -rf`/`find -delete`
+branches, where "the path resolves under a protected tree" is the right question regardless of
+whether the target currently exists (deleting a path that doesn't exist is a no-op either way). Reused
+verbatim for the redirect branch, the same question is wrong: a `>` redirect only DESTROYS data when
+the target already has content — creating a brand-new file is not a truncation, no matter how the path
+resolves. `cat > .pandacorp/inbox/changes/informe-phase-transitions-duplicate-key.md` matched
+`*/.pandacorp/*` and was blocked even though nothing existed there to lose.
 
 ## Fix plan
-1. Read `block-dangerous.sh`'s matched rule for this exact invocation and confirm whether it is a
-   path-substring match (`inbox/changes` resembling a "protected path" name) or a blanket `cat >`/`>` guard
-   with no existence check.
-2. Per LESSON-0109's standing guidance ("any gate reasoning over surface text will false-positive on
-   resembling content; change how the intent is EXPRESSED, never the gate" as the immediate workaround, but
-   also "file a BL when it recurs across unrelated call sites" — this is now a second class of false
-   positive specifically inside `.pandacorp/inbox/changes/`, a path the factory's own mechanisms write to
-   constantly): add an existence check (a truncation guard should never fire on a path that does not yet
-   exist) and/or an explicit allowlist carve-out for `**/.pandacorp/inbox/changes/*.md` new-file creation,
-   without weakening the gate for an actual truncation of an existing card or `done/` archive entry.
-3. **Once the gate is fixed, file the FRD-10 bug card itself** (`/pandacorp:change` on Mission Control,
-   duplicate React key in `Informe.tsx:707`, `/achievements` route) — it still does not exist anywhere the
-   owner or the build can see it, and this item's fix should not be considered complete until that real
-   defect is actually queued.
+1. **Done.** `plugin/scripts/block-dangerous.sh`'s redirect-truncation loop (WS-A F3, ~line 157) now
+   resolves each extracted target the same way `_protected_under` does (absolute / `~/` / `$cwd`-relative)
+   and skips it (`continue`) when nothing exists there yet — a general existence check, not a narrow
+   `inbox/changes/`-only allowlist, so it also covers e.g. a brand-new file directly under `.pandacorp/`
+   (BL-0158's own "and/or" option 1, chosen over option 2's narrower carve-out: it fixes the whole
+   false-positive CLASS, not just this one call site, matching LESSON-0109's "recurs across call sites"
+   guidance). Truncating an EXISTING protected file (a card overwritten in place, `done/` archive entries,
+   `decisions.md`, …) is unaffected — still blocked.
+2. Same edit also fixed the sibling BL-0167 false positive (a bare `.`/`..` extraction artifact from a
+   multi-line commit-message heredoc reading as a redirect) — see that item; both share the same loop.
+3. **Done.** Filed the FRD-10 bug card via the change-queue template at
+   `mission-control/.pandacorp/inbox/changes/informe-phase-transitions-duplicate-key.md` (gitignored per
+   the project's own conventions, not committed — see this item's closing report for confirmation it
+   exists on disk).
 
 ## Tests (prove the fix — TDD, RED → GREEN)
-A regression test in the existing `block-dangerous` test suite that: (a) confirms a genuine truncation of
-an existing protected-looking path is still blocked (no regression); (b) confirms creating a brand-new file
-under `.pandacorp/inbox/changes/` (or the specific pattern that triggered this instance) is no longer
-blocked. Re-run the exact failing command from this canary (or an equivalent fixture) against the fixed
-script and confirm exit 0.
+`plugin/scripts/test-block-dangerous.sh`, new `== BL-0158: …` section: (a) truncating an EXISTING
+`.pandacorp/inbox/changes/` card is still blocked (rc 2) — the fixture now pre-creates real content so
+this is a genuine truncation, not an accidental existence-check pass; (b) creating a NEW card in
+`inbox/changes/` (both a plain redirect and the original incident's `cat > … <<'EOF'` heredoc shape) is
+allowed (rc 0); (c) creating a new file directly under `.pandacorp/` (not just `inbox/changes/`) is
+allowed (rc 0), proving the fix is the general existence check, not a narrow allowlist. Confirmed RED
+against the pre-fix script (stashing only `block-dangerous.sh`): the 3 new "create" cases failed
+(expected 0, got 2) exactly as the canary reported. GREEN (75/75) after the fix, re-run 4× for
+determinism.
 
 ## Done when
-- The false-positive rule is fixed with a regression test proving both the fix (new file allowed) and the
-  non-regression (real truncation still blocked).
-- The FRD-10 duplicate-React-key bug (`Informe.tsx:707`, `/achievements`) has an actual card filed via
-  `/pandacorp:change` on Mission Control — not just documented in this backlog item.
+- [x] The false-positive rule is fixed (general existence check) with a regression test proving both the
+  fix (new file allowed) and the non-regression (real truncation still blocked) — confirmed RED before,
+  GREEN after, in `test-block-dangerous.sh`.
+- [x] The FRD-10 duplicate-React-key bug (`Informe.tsx:707`, `/achievements`) has an actual card filed at
+  `mission-control/.pandacorp/inbox/changes/informe-phase-transitions-duplicate-key.md` — not just
+  documented in this backlog item.
 
 ## Out of scope
 Re-running Canary C to re-confirm the fix end-to-end (a separate live canary run, not part of this item's
