@@ -14,6 +14,7 @@
 import { Chip } from "@/components/core/Chip/Chip";
 import { Panel } from "@/components/core/Panel/Panel";
 import type { ChangeQueueItem } from "@/lib/changes/changes";
+import { formatChangeDate } from "@/lib/changes/formatChangeDate";
 
 // ---------------------------------------------------------------------------
 // Type metadata — icon + color per change type
@@ -57,9 +58,20 @@ function TypeIcon({ icon, color, type }: { icon: string; color: string; type: st
 // ChangeCard
 // ---------------------------------------------------------------------------
 
-/** Evidence text: date · affected FRD, when present. */
-function evidenceText(item: ChangeQueueItem): string {
-  return [item.date, item.frd].filter((part) => part !== "").join(" · ");
+/** The date part of the evidence line: a relative label, or the raw string when unparseable. */
+type DateDisplay = { text: string; title: string | undefined };
+
+/**
+ * Resolve the date part of the evidence line (REQ-04-011): a Spanish relative
+ * label with the raw ISO date as a tooltip, or — when the date can't be parsed
+ * — the raw string shown visibly (never hidden, DR-078). `null` when the item
+ * carries no date at all (nothing to show).
+ */
+function resolveDateDisplay(item: ChangeQueueItem, now: Date): DateDisplay | null {
+  if (item.date === "") return null;
+  const result = formatChangeDate(item.date, now);
+  if (result.ok) return { text: result.label, title: item.date };
+  return { text: item.date, title: undefined };
 }
 
 /** When `onSelect` is provided the whole card is a button that opens the detail. */
@@ -71,7 +83,8 @@ export function ChangeCard({
   onSelect?: (item: ChangeQueueItem) => void;
 }): React.JSX.Element {
   const meta = TYPE_META[item.type];
-  const evidence = evidenceText(item);
+  const dateDisplay = resolveDateDisplay(item, new Date());
+  const hasEvidence = dateDisplay !== null || item.frd !== "";
 
   const card = (
     <Panel variant="rpgpanel">
@@ -116,8 +129,8 @@ export function ChangeCard({
             {item.title}
           </p>
 
-          {/* Evidence line — date · FRD afectado */}
-          {evidence !== "" && (
+          {/* Evidence line — relative date (raw date as tooltip) · FRD afectado */}
+          {hasEvidence && (
             <div
               style={{
                 fontSize: "11px",
@@ -132,7 +145,13 @@ export function ChangeCard({
                 className="ti ti-calendar-event"
                 style={{ fontSize: "11px", verticalAlign: "-1px" }}
               />
-              {evidence}
+              {dateDisplay !== null && (
+                <span data-testid="change-card-date" title={dateDisplay.title}>
+                  {dateDisplay.text}
+                </span>
+              )}
+              {dateDisplay !== null && item.frd !== "" && <span aria-hidden="true">·</span>}
+              {item.frd !== "" && item.frd}
             </div>
           )}
         </div>
