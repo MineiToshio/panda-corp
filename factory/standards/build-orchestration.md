@@ -496,6 +496,22 @@ The build engine reviews and tests **per FRD**, not per work order:
 1. **Never take `$?` after a bare pipe as the gate's verdict.** `bash verify.sh 2>&1 | tail` reports `tail`'s exit code — almost always 0 — so a genuinely red gate reads green. Any wrapper that pipes a gate's output for readability must capture the gate's own status: `set -o pipefail`, or `${PIPESTATUS[0]}`, or simply run it un-piped. This is the false-GREEN direction, and it is the dangerous one: it lets a build close on a red tree.
 2. **A broad e2e / `webServer` failure is triaged before it is diagnosed as a regression.** Two independent, similarly-disguised causes come first: (a) **port collision** — another process (often a sibling project) already answering on the port, silently reused via Playwright's `reuseExistingServer`, so every test runs against the WRONG app; (b) **orphaned same-project lock** — a stray `next dev` from an earlier session tripping Next's *process-level* dev-server lock even when the reserved port is completely free, which no port-bind check catches. Pass the project's reserved `PORT` from `factory/ports.yaml` explicitly, check `lsof -i :<port>` and the running dev processes, and prefer a **fresh** server boot over reusing a long-lived one (accumulated HMR state produced false-red mobile-nav failures that passed clean on a clean boot). This is the false-RED direction: cheap to check, and it has burned six recorded runs across two projects. `BL-0037`/`BL-0049` track the code-side fix; until one lands, this triage is the mechanism.
 
+**Pre-existing drift never blocks the cycle's work orders (DR-122, BL-0178).** The whole-FRD oracle still
+records every contradiction as a `fail`. The reviewer may only *propose* one as pre-existing
+(`claim: "preexisting"` plus a probe test under `.pandacorp/run/drift-probes/<frd>/`, outside the collected
+tree). The **engine** decides with a differential proof: `drift-proof.mjs`, run by a MECH spawn, runs the probe
+twice at the gate pin and twice at that pin's `last_green_sha`. The claim is drift only when the probe fails on
+an assertion at both shas, the base precedes the cycle, and no reviewed work order owns the contract. If it is
+green at `last_green_sha`, it is a regression and routes patch-first. If it is green at the pin, the claim is
+discarded. Anything unprovable (unloadable, flaky, owned) is a cycle fault. Proven drift becomes a `draft`
+change card (idempotent) plus the FRD's `drift:` frontmatter, which only the certifying landing writes; the
+FRD lands `VERIFIED`. One choke point (`finalizeGate`) serves every gate path, so the outcome no longer depends
+on the ladder rung (canary D2: FRD-02 blocked a correct WO over drift that FRD-03 shipped silently).
+`verifyPatched` inherits the gate's still-open fails and certifies only when a passing test proves each one
+closed. A reviewer that blocks `needs-owner` while carrying a claim defers its terminal telemetry to the
+engine, so a block lifted by the proof is never reported as both blocked and passed (BL-0185). Rollback:
+`args.driftPolicy: 'block'`.
+
 **`gate-report.json` and scoped repair: a red gate's cause is read, not guessed (WP-05, WP-08, proposal
 37).** `verify.sh` now ALWAYS writes `.pandacorp/run/gate-report.json`, deleted at the start of every run
 (`LESSON-0155`, so a stale report can never be read as this run's verdict), shaped
@@ -557,6 +573,16 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
   reused only when Git registers its exact path and its tree is clean. Dirty, orphaned, unregistered, locked or
   ambiguous residue is **preserved as crash evidence** and forces the synchronous fallback; neither baseline nor
   probe deletes, resets, prunes, recreates or force-removes this protected `.pandacorp/` path (BL-0067).
+- **Release after EVERY verdict (BL-0182..0184).** The gate and a MECH `gate-release:<frd>` step form one
+  link of the worktree chain. Whatever the verdict (pass, reopen, block, crash), the release salvages every
+  `git status --porcelain=v1 --untracked-files=all` path, plus the gitignored `gate-report.json`, into
+  `.pandacorp/run/gate-evidence/<frd>/`. It then cleans exactly those paths and re-lists them as its
+  postcondition, so the next chained gate starts on a tree proven clean. The same-sha no-spawn fast path
+  requires that proof; otherwise it re-probes, and a dirty tree fails loud with its paths. A PASS ports from
+  the evidence dir, and so does a re-apply after a failed apply (BL-0185). On a REJECT, `drainConverge` first
+  ports the reviewer's tests onto main at the same repo-root-relative path and pins their sha256 (DR-080). The
+  patch may not edit them. The engine re-checks the hashes before the independent verifier, which runs those
+  tests explicitly by path; a failed port re-gates on main instead of patching blind.
 - **HONEST LIMITS (stated plainly).** Gate reviews **serialize with each other** (one worktree). And `applyGate`
   **trusts the worktree gate's green without a main-side re-run** — so the integration window `[pin, apply]`
   (main advanced while the gate reviewed the older pin) is NOT re-verified at apply time. That window is covered

@@ -8,7 +8,7 @@ severity: p2
 opened: 2026-09-25
 closed: 2026-09-25
 source: "Cross-review of the serial merge bl-0181-rollup -> bl-0182-0184-c2 -> bl-0178-drift-policy (plugin 9.111.0); the C2 branch left case (a) open and the D2 branch noted case (b)"
-closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js gateConverge (green re-apply from reviewerEvidence; needs-owner block persisted un-alreadyTracked when deferred; post-repair fallback), finalizeGate (__outcomeDeferred), frdGateSerial/frdGateSplit blocked branch (deferral clause) — fixed in the 9.111.0 integration commit"
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js gateConverge (green re-apply from reviewerEvidence; needs-owner block persisted un-alreadyTracked when deferred; post-repair fallback), finalizeGate (__outcomeDeferred), frdGateSerial/frdGateSplit blocked branch (deferral clause) — fixed in 505dddab"
 links: [BL-0178, BL-0182, BL-0184, BL-0159, BL-0180, DR-122]
 ---
 

@@ -9,7 +9,7 @@ opened: 2026-09-25
 closed: 2026-09-25
 source: "canary D2 (wf_faf48b18-881), canary-d-frd02-forensics.md §5/§7 finding H1, proposal F3 (deliberately NOT implemented per owner instruction)"
 closes: "73c803a4 — plugin/templates/shared/.claude/engines/pandacorp-build.js (adjudicateDrift/finalizeGate/verifyPatched), plugin/scripts/drift-proof.mjs"
-links: [BL-0157, BL-0174, BL-0175, BL-0176, BL-0177]
+links: [BL-0157, BL-0174, BL-0175, BL-0176, BL-0177, BL-0185, DR-122]
 ---
 
 ## Problem
