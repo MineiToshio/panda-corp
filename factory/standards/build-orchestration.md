@@ -99,7 +99,8 @@ moved, from "feature" to "ready set" — what happens to the per-FRD **gate** it
 not this one: since DR-118 a gate no longer waits for a wave boundary to review a quiet tree (that was
 the pre-C2 topology); it runs **concurrently with the next wave's build**, against its own pinned,
 detached worktree snapshot. Gates still **serialize with each other** (one gate worktree, one mutex
-chain) — see §5a for the full mechanism, its honest limits, and the legacy synchronous fallback.
+chain) — see §5a for the full mechanism, its honest limits, and the legacy synchronous fallback — unless the
+run opts into `args.parallelGates` (§5c).
 
 **Disjoint artifacts within a wave — declared and ENGINE-ENFORCED (DR-060).** Work orders that build
 in parallel must NOT write the same file/module — parallel implementers collide (a real failure mode,
@@ -605,12 +606,74 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
   ports the reviewer's tests onto main at the same repo-root-relative path and pins their sha256 (DR-080). The
   patch may not edit them. The engine re-checks the hashes before the independent verifier, which runs those
   tests explicitly by path; a failed port re-gates on main instead of patching blind.
-- **HONEST LIMITS (stated plainly).** Gate reviews **serialize with each other** (one worktree). And `applyGate`
+- **HONEST LIMITS (stated plainly).** Gate reviews **serialize with each other** (one worktree) — the opt-in
+  exception is §5c. And `applyGate`
   **trusts the worktree gate's green without a main-side re-run** — so the integration window `[pin, apply]`
   (main advanced while the gate reviewed the older pin) is NOT re-verified at apply time. That window is covered
   by **subsequent gates' whole-project checks** (every later gate re-runs biome/tsc/knip over the then-current
   main) and by the **close-out FULL suite** (`verify.sh`, no `--since`) — the backstop that must be green before
   `phase: release`. This is a deliberate, bounded trust trade, not an oversight.
+
+## 5c. Parallel FRD gates (flag, DR-118 extension)
+
+§5a overlaps a gate with the **build**, but gates still serialize with **each other**, and any reject quiesces
+every in-flight gate before its ladder runs — canary D2 spent 57.6 of 87.5 min in that post-wave gate segment
+(`docs/proposals/38-parallel-frd-gates-and-drift-policy.md`, Decision 1, and its red-team addendum). The
+opt-in **`args.parallelGates`** (default **off**; `args.gateSlots`, default **3**, 1..8, alias
+`args.maxParallelGates`; launcher `--parallel-gates [--gate-slots N]`) lets several FRD gates **review** at
+once. Off, the engine is the §5a topology byte-for-byte. On, these conditions hold — each is a tested engine
+behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not a guideline:
+
+- **A pool of N gate worktrees.** Slot *k* is `.pandacorp/run/gate-worktree-<k>` (never the single C2 path, so
+  a dirty legacy worktree cannot poison the pool). A gate owns its slot for its whole link — probe (BL-0183
+  clean proof), digested evidence (collected **inline in the slot**; no prelaunch on a shared chain), review,
+  the BL-0178 drift proof (its `--source` is the slot; `drift-proof.mjs` keys its temp worktrees by FRD + pid +
+  clock and its evidence dir by FRD, so two gates never share a tmp tree), then the BL-0182 release in a
+  `finally` — so a **crash still salvages and frees its slot** and never takes the run down. A slot that fails
+  its probe (dirty, orphaned) leaves the pool **loudly** and keeps its evidence (BL-0067); only when every slot
+  has failed does the run fall to the legacy synchronous gate on main.
+- **One explicit e2e port per slot.** Each slot is bootstrapped with `PANDACORP_E2E_PORT=3800+10·k`. The BL-0154
+  hash of the worktree path is not a separator: its free-port probe only sees servers already listening, and
+  the hash is not injective (Mission Control's `gate-worktree-3` hashes to 3900, main's reserved port).
+- **Eligibility.** A gate launches only if its FRD neither depends on nor is depended on by (cross-FRD WO
+  `dependsOn`, transitive, plus FRD-level deps) any FRD whose verdict has **not landed**, and its reviewed
+  artifacts are disjoint from theirs (DR-060's own `artifactsOverlap`, fail-safe on undeclared). A dependent FRD
+  also waits while its upstream is still building or queued for its gate, so the upstream **lands first** —
+  otherwise the dependent could land `VERIFIED` on a WO the upstream's ladder later reverts. Two FRDs whose
+  WOs depend on each other across FRDs (no WO cycle) would wait forever on that rule, so the idle path waives
+  it for the head of the queue (logged); they still never gate together.
+- **Budget.** `maxAgents` is cost-weighted: N opus reviewers launched together commit ~3N units at once. A gate
+  is launched **alongside others** only if the budget still covers its estimated cost plus one landing after
+  reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
+  conservative in between; the wave picker subtracts the same reservation). Otherwise the engine logs
+  `gate deferred: agent budget`. With nothing in flight the first eligible gate always starts (progress
+  guarantee); the loop-top brake is still what stops the run.
+- **One landing lane on main.** Verdicts land **one at a time, in arrival order**: PASS → stale-pin guard →
+  `applyGate`; REJECT, BLOCK or crash → the unchanged DR-072/073/117 ladder (BL-0184 port included). The
+  quiesce is gone — reviews in other slots never touch main — but no build wave overlaps a landing, so main
+  keeps **one writer at a time**, and every shared document (decision records, work-order frontmatter and
+  README rollups, `status.yaml`, `last_green_sha`) is written only there, never from a gate. The BL-0175
+  backstop salvage is **not** run from `persistGateBlock` under the flag: another gate may occupy that slot.
+- **Stale-pin guard.** Before a PASS is stamped, a MECH counts the main-tree commits since its pin that touched
+  code (`git rev-list --count <pin>..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'` — another landing's
+  ported tests, a patch, a revert). Zero → it lands as reviewed. Otherwise (or when the count is unknown) the
+  reviewer's tests are ported **first**, `verify.sh --since <pin>` re-runs on main (BL-0179 stamps its scope;
+  `partial` certifies nothing), and the ported tests run by path; red → the PASS becomes a **reopen** with that
+  failure and takes the patch-first ladder.
+- **`needs-owner` in one, the rest land.** A block is terminal for its FRD only; the other gates keep reviewing
+  and land after it. The consecutive-blocks breaker counts in landing order, and the run-end invariant still
+  waits for every spawned gate and lands its verdict.
+- **Repair-token honesty (BL-0138).** With gates reviewing while a build wave or a repair rung runs on main,
+  `budget.spent()` absorbs their spend too. That FRD's token layer is switched off for the run (sticky, like a
+  mixed multi-FRD wave), the brake falls back to agent-weight and says why in the log, and the polluted delta is
+  never recorded.
+
+Honest limits: `verify.sh --since` is vitest `--changed` (import-affected tests), so a coupling through a
+fixture/JSON/CSS can slip to the close-out **full** suite, which stays the final backstop; machine contention
+(N reviewers × vitest/tsc/Playwright/`next dev`) is not modelled — size `gateSlots` to the machine (the
+red-team measured 16 GB → 2); a session killed mid-run leaves its slots dirty, and the next run drops them from
+the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
+shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 
 ## 5b. The phase model & `deploy_target` (DR-085)
 

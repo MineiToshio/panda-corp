@@ -173,6 +173,19 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     patch-first; passes at the pin → the claim is discarded (logged); unloadable/flaky/owned/unprovable →
 //     a cycle fault (fail-closed). 'block' is the rollback switch: claims are ignored and every `fail` is a
 //     cycle fault exactly as before BL-0178. Any other value falls back to 'record' with a loud log.
+//   args.parallelGates: OPT-IN (**default FALSE**, D1 — proposal 38 Decision 1 + its red-team addendum,
+//     BL-0186). Off = the DR-118/C2 topology byte-for-byte (one gate worktree, gates serialized on one
+//     mutex chain, a reject quiesces every in-flight gate). On = a POOL of `gateSlots` gate worktrees
+//     (`.pandacorp/run/gate-worktree-<k>`, k = 1..N, each bootstrapped with its OWN explicit e2e port), so
+//     up to N FRD gates REVIEW at once — but only FRDs that do not depend on each other (cross-FRD
+//     `dependsOn`, transitive, plus FRD-level deps) and whose artifacts are disjoint (DR-060's own
+//     artifactsOverlap); every verdict then LANDS on main through ONE serialized lane in arrival order
+//     (apply / patch ladder / persist-block, never two at once), with a stale-pin guard (main advanced in
+//     code since the pin → `verify.sh --since <pin>` before stamping; red → the PASS becomes a reopen).
+//     See the "D1 PARALLEL FRD GATES" section below and factory/standards/build-orchestration.md §5c.
+//   args.gateSlots: the pool size when parallelGates is on (integer 1..8, **default 3**; anything else →
+//     3 with a loud log). `args.maxParallelGates` (the proposal's name) is accepted as an alias; gateSlots
+//     wins when both are set. Ignored (logged) when parallelGates is off.
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
 //     nor advance last_green_sha, whatever scopedRepair/repairBrake say. See the cage section below.
@@ -253,6 +266,24 @@ const DRIFT_POLICY = (args && args.driftPolicy === 'block') ? 'block' : 'record'
 if (args && args.driftPolicy !== undefined && args.driftPolicy !== 'record' && args.driftPolicy !== 'block') {
   log(`⚠ args.driftPolicy='${args.driftPolicy}' no es 'record' ni 'block' — usando 'record' (BL-0178)`)
 }
+// D1 (BL-0186): see the arg doc above. argBool tolerates the stringly-typed "true" (D-9).
+const PARALLEL_GATES = argBool(args, 'parallelGates', true)
+const GATE_SLOTS_MAX = 8
+const GATE_SLOTS = (() => {
+  const raw = args && (args.gateSlots !== undefined && args.gateSlots !== null ? args.gateSlots : args.maxParallelGates)
+  if (!PARALLEL_GATES) {
+    if (raw !== undefined && raw !== null) log(`⚠ args.gateSlots/maxParallelGates='${raw}' ignored — args.parallelGates is off, so gates keep the single C2 worktree (D1)`)
+    return 0
+  }
+  if (args && args.gateSlots !== undefined && args.gateSlots !== null && args.maxParallelGates !== undefined && args.maxParallelGates !== null && Number(args.gateSlots) !== Number(args.maxParallelGates)) {
+    log(`⚠ both args.gateSlots=${args.gateSlots} and args.maxParallelGates=${args.maxParallelGates} were passed — gateSlots wins (D1)`)
+  }
+  if (raw === undefined || raw === null) return 3
+  const n = Number(raw)
+  if (Number.isInteger(n) && n >= 1 && n <= GATE_SLOTS_MAX) return n
+  log(`⚠ args.gateSlots='${raw}' is not an integer 1..${GATE_SLOTS_MAX} — using 3 gate slots (D1 fail-closed)`)
+  return 3
+})()
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates ONLY. Default OFF — see the arg doc above.
 const REPAIR_BRAKE = !argBool(args, 'repairBrake', false)   // D4/REV2-3: the repair-cost BRAKE, independent of SCOPED_REPAIR. Default ON — explicit {"repairBrake": false} restores the pre-D4 unbounded ladder.
@@ -539,8 +570,31 @@ const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${
 // "not bootstrapped" and its artifact-scoped diff came back EMPTY, and reviewers spent turns rediscovering
 // the project. The cd now appends the project's repo prefix (`git rev-parse --show-prefix`: empty for a flat
 // project, `mission-control/` for MC), computed by git at run time — never guessed by the engine.
-const GATE_PROJECT_CD = `cd "${GATE_WORKTREE}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"`
-const worktreeWorkFrom = (pinSha) => `Work from the GATE WORKTREE ${GATE_WORKTREE} — FIRST cd into the PROJECT directory inside it, exactly: \`${GATE_PROJECT_CD}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+// D1: `wt` is the gate worktree THIS gate occupies — the single C2 worktree by default, or its pool slot's
+// path under args.parallelGates (gateWorktreePathOf below). The project-prefix cd applies to EVERY slot: a
+// slot is a whole-repo checkout too, so a nested project's gate enters `gate-worktree-<k>/<prefix>`.
+const gateProjectCd = (wt = GATE_WORKTREE) => `cd "${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"`
+const GATE_PROJECT_CD = gateProjectCd()
+const worktreeWorkFrom = (pinSha, wt = GATE_WORKTREE) => `Work from the GATE WORKTREE ${wt} — FIRST cd into the PROJECT directory inside it, exactly: \`${gateProjectCd(wt)}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+// ── D1 gate-slot pool geometry (args.parallelGates, BL-0186) ──────────────────────────────────────
+// Slot k (1-based) lives at `${GATE_WORKTREE}-<k>` — never the single C2 path, so a dirty legacy worktree
+// (BL-0067 crash evidence, e.g. Mission Control's own) can never poison the pool, and the flag-off path
+// keeps its exact directory. Each slot is bootstrapped with an EXPLICIT e2e port: worktree-bootstrap.sh's
+// BL-0154 hash of the worktree path does NOT separate slots reliably — its free-port probe only sees
+// servers ALREADY listening, so N bootstraps before any `next dev` starts cannot see each other, and the
+// hash is not injective (verified 2026-09-25 with the script's own shasum formula on Mission Control's
+// slot paths: gate-worktree-1 → 3988, -2 → 3902, -3 → 3900 = main's reserved port). 3800 + 10·k sits
+// outside the [3900, 3999] range the hash hands out to every other worktree.
+const GATE_SLOT_PORT_BASE = 3800
+const gateSlotPath = (k) => `${GATE_WORKTREE}-${k}`
+const gateSlotPort = (k) => GATE_SLOT_PORT_BASE + 10 * k
+// The worktree a gate for `frd` runs in: its pool slot's path under parallelGates (recorded when the slot is
+// acquired, and kept after the release for the landing's own prose), else the single C2 worktree.
+const gateWorktreePathOf = (frd) => { const st = frdState.get(frd); return (st && st.gateSlotPath) || GATE_WORKTREE }
+// Under parallelGates the BL-0175 backstop salvage in persistGateBlock would clean a slot ANOTHER FRD's gate
+// may already occupy (landings no longer quiesce the gates) — so it is left out there: each slot is salvaged
+// by its own gate's release, in the `finally` of the slot link, the only writer of a slot's cleanliness.
+const PARALLEL_PERSIST_NO_SALVAGE = `    **No gate-worktree salvage here (D1, args.parallelGates):** this gate's slot was already salvaged and cleaned by its own release step, and another FRD's gate may be reviewing in that slot right now — do NOT touch any ${gateSlotPath('<k>')} directory. `
 // BL-0182/0184: the durable, gitignored home of everything a gate leaves in GATE_WORKTREE (the reviewer's
 // adversarial tests, snapshots, its gate-report.json) — salvaged there by releaseGateWorktree after EVERY
 // verdict, so the worktree can be cleaned for the next gate without losing the evidence, and so the PASS
@@ -1288,7 +1342,7 @@ const precheck = await preLoopGuarded(() => agent(
   `You are the Pandacorp baseline PRE-CHECK (mechanical — cheap; do NOT run verify.sh, do NOT fix code, just return a verdict). Do these steps IN ORDER:
   **STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}
   **STEP 0 — deterministic root + owner-stop receipt (BL-0068):** execute exactly \`${INSPECT_STOP}\` with Node (NEVER shell \`test\`, \`[\` or an alias-sensitive builtin). If it fails, STOP and return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" }. Preserve its JSON receipt. If receipt.stop is true, return { stop: true } immediately; if false, continue. Never infer stop from a command exit code.
-  **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.
+  **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.${PARALLEL_GATES ? ` The SAME protection covers every parallel gate slot ${gateSlotPath('<k>')} (D1, args.parallelGates): never delete, recreate, prune, reset, clean or force-remove any of them — a dirty slot is dropped from the pool by its own probe, never cleaned.` : ''}
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
   **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed>, leaseValid: true }. **dirtyPaths entries are BARE paths, project-relative, with the 2-character XY status code AND its separating space STRIPPED** (\`git status --porcelain\` prints \` M .pandacorp/status.yaml\` — status code, space, path; report \`.pandacorp/status.yaml\` only, never the raw porcelain line). This is not cosmetic: the engine matches dirtyPaths[0] against the literal string \`.pandacorp/status.yaml\` with strict equality to decide the exclusion (BL-0160 — a path still carrying its status code silently fails that match and forces an avoidable judge-baseline every time). (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
@@ -1684,7 +1738,7 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
   const st = frdState.get(frd)
   // BL-0178: where THIS gate's reviewer worked (its probe files live there) and the sha it judged.
   const concurrent = typeof workFrom === 'string' && workFrom.length > 0
-  const drift = concurrent ? { pin: (st && st.pinSha) || null, source: GATE_WORKTREE } : { pin: null, source: PROJECT_DIR }
+  const drift = concurrent ? { pin: (st && st.pinSha) || null, source: gateWorktreePathOf(frd) } : { pin: null, source: PROJECT_DIR }   // D1: the probe lives in THIS gate's slot
   const priorAttempts = (st && st.gateAttempts) || 0   // gate attempts ALREADY made for this FRD this run
   const attemptNo = priorAttempts + 1                  // 1-based attempt number for THIS gate (B8)
   if (st) st.gateAttempts = attemptNo
@@ -1814,13 +1868,14 @@ async function collectGateEvidence(frd, reviewIds, pinSha) {
   3b) \`tests\`: the test files this cycle ADDED or CHANGED — the output lines of \`git diff --relative --name-only --diff-filter=AMR <PIN_BASE>..${pinSha} | grep -E '(^|/)(__tests__|_tests|tests?|e2e)/|\\.(test|spec)\\.[cm]?[jt]sx?$' || true\`, one path per array item, verbatim ([] when it prints nothing).
   4) \`ac\`: this FRD's EARS acceptance criteria, VERBATIM. The build plan already extracted the criteria these work orders own — each line is prefixed with the \`[WO id]\` that owns it; start from exactly this text and return it unchanged${acText ? `:\n  ${acText}\n  ` : ` (the plan threaded none, so read docs/frds/${frd}/frd.md and copy its acceptance criteria verbatim). `}Only ADD to it: if docs/frds/${frd}/frd.md carries numbered acceptance criteria this list is missing, append those verbatim too, each prefixed \`[not owned by a reviewed work order]\`. Never paraphrase, never renumber, never drop one.
   Return { report, diffStat, diff, truncated, tests, ac, report_suspect } — or, if step 0 refused, just { report: null, reason }.`,
-    { label: `evidence:${frd}`, phase: 'Review', model: MECH, effort: MECH_EFFORT, agentType: MECH_AGENT('pandacorp:implementer'), schema: EVIDENCE_SCHEMA, workFrom: worktreeWorkFrom(pinSha) })
+    { label: `evidence:${frd}`, phase: 'Review', model: MECH, effort: MECH_EFFORT, agentType: MECH_AGENT('pandacorp:implementer'), schema: EVIDENCE_SCHEMA, workFrom: worktreeWorkFrom(pinSha, gateWorktreePathOf(frd)) })   // D1: the gate's own slot
 }
 
 // Start the collector for `frd` as a background promise on the gate-worktree mutex. Idempotent per FRD and
 // a no-op in explore mode, so the call sites need no mode branch of their own.
 function launchEvidence(frd) {
   if (GATE_EVIDENCE !== 'digested') return
+  if (PARALLEL_GATES) return   // D1: no slot is assigned at wave close — the collector runs INLINE in the gate's own slot link (resolveGateEvidence)
   const st = frdState.get(frd)
   if (!st || st.evidencePromise) return
   const pinSha = st.pinSha
@@ -2186,43 +2241,58 @@ ${GATE_PASS_RETURN}
 // node_modules, so its biome/tsc/knip/madge sub-gates failed on environment noise, not real
 // findings, and the reviewer had to redo the expensive work `digested` exists to avoid). One label
 // 'gate-worktree'. Returns true iff the worktree is ready at `sha`. First hard failure →
-// worktreeState 'failed' → the whole run falls back to the legacy synchronous gate path.
+// LEGACY_SLOT.state 'failed' → the whole run falls back to the legacy synchronous gate path.
 // BL-0150: memoized by `sha` on a SHARED in-flight promise — `launchEvidence`, `launchGate` and the
 // concurrent-gate probe each call this independently (no shared mutex between them), and canary B
 // caught two concurrent `gate-worktree` agents (different keys, 5ms apart) spawned because both
-// callers raced the SAME `worktreeState !== 'ready'` check before either's spawn had resolved. A
+// callers raced the SAME `state !== 'ready'` check before either's spawn had resolved. A
 // second call for the SAME sha now reuses the FIRST call's pending promise instead of spawning its
 // own agent; a call for a DIFFERENT sha (not expected on the current call sites, all sharing one
 // FRD's pinSha) still proceeds independently. Idempotent: a no-op (no spawn) once frozen at `sha`.
-// BL-0183: the no-spawn fast path is taken ONLY when the tree is ALSO known clean (gateWorktreeClean — set
+// BL-0183: the no-spawn fast path is taken ONLY when the tree is ALSO known clean (slot.clean — set
 // by this probe's own clean check or by the previous gate's releaseGateWorktree postcondition). Before,
 // two FRDs pinned at the SAME sha skipped the probe — and with it the clean check — so the second gate ran
 // in a tree still holding the first reviewer's untracked tests, which vitest `--changed` then executed.
 // Any acquisition over a tree not proven clean re-probes, and a dirty tree fails LOUD with its paths.
-async function ensureGateWorktree(sha) {
-  if (worktreeState === 'failed') return false
-  if (worktreeState === 'ready' && lastWorktreeSha === sha && gateWorktreeClean) return true   // frozen at this sha AND proven clean — no spawn
-  if (gateWorktreeInFlight && gateWorktreeInFlightSha === sha) return gateWorktreeInFlight   // BL-0150: reuse the SAME pending spawn, never a second one
+// D1: `slot` is the worktree being acquired — LEGACY_SLOT (the single C2 worktree, flag off: prompt, label
+// and logs byte-identical to the pre-D1 engine) or one pool slot under args.parallelGates, whose state,
+// in-flight memo (BL-0150) and clean proof (BL-0183) are its OWN. A failed pool slot only leaves the pool;
+// the run falls to the legacy synchronous path only when EVERY slot has failed (launchParallelGates).
+const gateWorktreePrompt = (wt, sha, bootstrap, onFailure) =>
+  `C2 gate worktree — prepare a FROZEN detached checkout at ${wt} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
+      1) If the directory ${wt} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${wt} ${sha}\`, \`cd\` into it, and run \`${bootstrap}\` (BL-0149 — it reconstitutes node_modules and everything else a fresh worktree needs; it is idempotent, safe to re-run, and skips reinstalling when the lockfile hasn't changed). Return { ok: true, created: true }.
+      2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${wt} status --porcelain=v1 --untracked-files=all\` prints nothing. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved", dirty: [every line that status command printed, verbatim — the engine names them in its log (BL-0183); [] when the failure was not dirt] }.
+      3) For a registered CLEAN reuse, \`git -C ${wt} checkout --detach ${sha}\`, then re-run \`${bootstrap}\` inside ${wt} (BL-0149 — same idempotent script; it is cheap when pnpm-lock.yaml is unchanged, so you do NOT need to diff the lockfile yourself first). Return { ok: true, created: false }.
+      If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence, worktree-bootstrap.sh exits non-zero), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. ${onFailure} NEVER modify preserved crash evidence.`
+const GATE_WORKTREE_SCHEMA = { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' }, dirty: { type: 'array', items: { type: 'string' } } } }
+async function ensureGateWorktree(sha, slot = LEGACY_SLOT) {
+  if (slot.state === 'failed') return false
+  if (slot.state === 'ready' && slot.lastSha === sha && slot.clean) return true   // frozen at this sha AND proven clean — no spawn
+  if (slot.inFlight && slot.inFlightSha === sha) return slot.inFlight   // BL-0150: reuse the SAME pending spawn, never a second one
+  const pooled = slot !== LEGACY_SLOT
   const attempt = (async () => {
     agentSpawned++
     const r = await agent(
-      `C2 gate worktree — prepare a FROZEN detached checkout at ${GATE_WORKTREE} pinned to commit ${sha} (MAIN-tree git op; this is the only main-tree git command you run here). Do EXACTLY:
-      1) If the directory ${GATE_WORKTREE} does NOT exist: first confirm \`git -C ${PROJECT_DIR} worktree list --porcelain\` has NO worktree entry for that exact path. Then run \`git -C ${PROJECT_DIR} worktree add --detach ${GATE_WORKTREE} ${sha}\`, \`cd\` into it, and run \`bash .pandacorp/worktree-bootstrap.sh\` (BL-0149 — it reconstitutes node_modules and everything else a fresh worktree needs; it is idempotent, safe to re-run, and skips reinstalling when the lockfile hasn't changed). Return { ok: true, created: true }.
-      2) If the directory ALREADY exists: reuse it ONLY if \`git -C ${PROJECT_DIR} worktree list --porcelain\` records that exact canonical path AND \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` prints nothing. If either check fails, DO NOT mutate anything; return { ok: false, failure: "gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved", dirty: [every line that status command printed, verbatim — the engine names them in its log (BL-0183); [] when the failure was not dirt] }.
-      3) For a registered CLEAN reuse, \`git -C ${GATE_WORKTREE} checkout --detach ${sha}\`, then re-run \`bash .pandacorp/worktree-bootstrap.sh\` inside ${GATE_WORKTREE} (BL-0149 — same idempotent script; it is cheap when pnpm-lock.yaml is unchanged, so you do NOT need to diff the lockfile yourself first). Return { ok: true, created: false }.
-      If ANY step fails (stuck lock, unreachable sha, linked path conflict, dirty/orphan evidence, worktree-bootstrap.sh exits non-zero), do NOT retry and DO NOT delete, reset, clean, prune, recreate, or force-remove the path: return { ok: false, failure: "<what failed>" }. The engine falls back to synchronous gates on the quiet main tree for the rest of the run. NEVER modify preserved crash evidence.`,
-      { label: 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['ok'], properties: { ok: { type: 'boolean' }, created: { type: 'boolean' }, failure: { type: 'string' }, dirty: { type: 'array', items: { type: 'string' } } } } })
-    if (r && r.ok === true) { worktreeState = 'ready'; lastWorktreeSha = sha; gateWorktreeClean = true; return true }
-    worktreeState = 'failed'; lastWorktreeSha = null; gateWorktreeClean = false
+      pooled
+        ? gateWorktreePrompt(slot.path, sha, `PANDACORP_E2E_PORT=${slot.port} bash .pandacorp/worktree-bootstrap.sh`, `The engine drops THIS gate slot (${slot.id}) from the parallel pool for the rest of the run (D1); the other slots keep gating.`)
+        : gateWorktreePrompt(GATE_WORKTREE, sha, 'bash .pandacorp/worktree-bootstrap.sh', 'The engine falls back to synchronous gates on the quiet main tree for the rest of the run.'),
+      { label: pooled ? `gate-worktree:${slot.id}` : 'gate-worktree', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: GATE_WORKTREE_SCHEMA })
+    if (r && r.ok === true) { slot.state = 'ready'; slot.lastSha = sha; slot.clean = true; return true }
+    slot.state = 'failed'; slot.lastSha = null; slot.clean = false
     const dirty = (r && Array.isArray(r.dirty)) ? r.dirty.filter(Boolean) : []
+    if (pooled) {
+      if (dirty.length) log(`⊘ D1 (BL-0183): REFUSING to gate over a DIRTY gate slot ${slot.id} (${slot.path}) — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
+      log(`⚠ D1: gate slot ${slot.id} (${slot.path}) could not be prepared (${(r && r.failure) || 'no verdict'}) — dropped from the parallel pool (${gatePool.filter((x) => x.state !== 'failed').length}/${gatePool.length} slot(s) left)`)
+      return false
+    }
     if (dirty.length) log(`⊘ C2 (BL-0183): REFUSING to gate over a DIRTY gate worktree ${GATE_WORKTREE} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
     log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
     return false
   })()
-  gateWorktreeInFlight = attempt
-  gateWorktreeInFlightSha = sha
+  slot.inFlight = attempt
+  slot.inFlightSha = sha
   try { return await attempt }
-  finally { if (gateWorktreeInFlight === attempt) { gateWorktreeInFlight = null; gateWorktreeInFlightSha = null } }
+  finally { if (slot.inFlight === attempt) { slot.inFlight = null; slot.inFlightSha = null } }
 }
 
 // ── C2 gate-worktree RELEASE (MECH) — the post-condition of EVERY gate (BL-0182/0183/0184) ─────────
@@ -2233,7 +2303,7 @@ async function ensureGateWorktree(sha) {
 // went legacy exactly so). So the release runs INSIDE the gate's own gateWorktreeChain link, before the
 // chain lets the next gate in: salvage every `git status` path (+ the gitignored gate-report.json) to
 // gateEvidenceDir(frd), clean EXACTLY those paths, and re-list. The chain's next acquisition then sees a
-// tree proven clean (gateWorktreeClean) — or, when the release could not prove it, re-probes and fails
+// tree proven clean (slot.clean) — or, when the release could not prove it, re-probes and fails
 // loud. Returns { dir, tests:[{path, sha256}] } — the salvaged TEST files, repo-root-relative, with the
 // sha256 of the salvaged copy (the DR-080 fingerprint the reject path holds the patch to).
 const GATE_RELEASE_SCHEMA = {
@@ -2244,18 +2314,19 @@ const GATE_RELEASE_SCHEMA = {
     failure: { type: 'string' },
   },
 }
-async function releaseGateWorktree(frd, gate) {
+async function releaseGateWorktree(frd, gate, slot = LEGACY_SLOT) {
+  const wt = slot.path   // D1: the slot this gate occupied (LEGACY_SLOT.path === GATE_WORKTREE, flag off)
   const declared = (gate && Array.isArray(gate.testFiles)) ? gate.testFiles.filter(Boolean) : []
   const dir = gateEvidenceDir(frd)
   agentSpawned++
   let r = null
   try {
     r = await agent(
-      `C2 gate-worktree RELEASE for ${frd} (BL-0182). The FRD gate for ${frd} just finished in the gate worktree ${GATE_WORKTREE}; whatever it left there must be SALVAGED to the durable evidence dir ${dir} and then CLEANED, so the next gate starts on a clean tree. You run commands only — judge nothing, edit no source, run no git command that writes the MAIN tree. Do EXACTLY, in order:
-      1) LIST: \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\`. \`--untracked-files=all\` is REQUIRED — plain \`--porcelain\` collapses a new directory to one \`?? dir/\` line and its files would never be salvaged. Each line is \`XY <path>\`; the path is relative to the worktree ROOT (git prints repo-root paths even for a nested project) — keep it EXACTLY as printed (unquote it if git double-quoted it).
-      2) SALVAGE each listed path: \`??\` → untracked; a \`D\` in either status column → deleted; anything else → modified. Untracked/modified: \`mkdir -p\` the parent and \`cp ${GATE_WORKTREE}/<path> ${dir}/<path>\` (overwrite), then \`shasum -a 256 ${dir}/<path>\` and record { path, status, sha256 }. Deleted: record { path, status: "deleted", sha256: null } (nothing to copy).
-      3) REPORT: the gate's report is gitignored, so step 1 does not list it. Let P = \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` (empty for a flat project, e.g. \`mission-control/\` for a nested one). If ${GATE_WORKTREE}/<P>.pandacorp/run/gate-report.json exists, copy it to ${dir}/gate-report.json (overwrite).
-      4) CLEAN exactly the listed paths, one at a time, and ONLY a path whose step-2 copy SUCCEEDED (or a deleted one): untracked → \`git -C ${GATE_WORKTREE} clean -f -- <path>\`; modified or deleted → \`git -C ${GATE_WORKTREE} checkout -- <path>\`. NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\`, and never remove, prune or recreate the worktree (BL-0067).
+      `C2 gate-worktree RELEASE for ${frd} (BL-0182). The FRD gate for ${frd} just finished in the gate worktree ${wt}; whatever it left there must be SALVAGED to the durable evidence dir ${dir} and then CLEANED, so the next gate starts on a clean tree. You run commands only — judge nothing, edit no source, run no git command that writes the MAIN tree. Do EXACTLY, in order:
+      1) LIST: \`git -C ${wt} status --porcelain=v1 --untracked-files=all\`. \`--untracked-files=all\` is REQUIRED — plain \`--porcelain\` collapses a new directory to one \`?? dir/\` line and its files would never be salvaged. Each line is \`XY <path>\`; the path is relative to the worktree ROOT (git prints repo-root paths even for a nested project) — keep it EXACTLY as printed (unquote it if git double-quoted it).
+      2) SALVAGE each listed path: \`??\` → untracked; a \`D\` in either status column → deleted; anything else → modified. Untracked/modified: \`mkdir -p\` the parent and \`cp ${wt}/<path> ${dir}/<path>\` (overwrite), then \`shasum -a 256 ${dir}/<path>\` and record { path, status, sha256 }. Deleted: record { path, status: "deleted", sha256: null } (nothing to copy).
+      3) REPORT: the gate's report is gitignored, so step 1 does not list it. Let P = \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` (empty for a flat project, e.g. \`mission-control/\` for a nested one). If ${wt}/<P>.pandacorp/run/gate-report.json exists, copy it to ${dir}/gate-report.json (overwrite).
+      4) CLEAN exactly the listed paths, one at a time, and ONLY a path whose step-2 copy SUCCEEDED (or a deleted one): untracked → \`git -C ${wt} clean -f -- <path>\`; modified or deleted → \`git -C ${wt} checkout -- <path>\`. NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\`, and never remove, prune or recreate the worktree (BL-0067).
       5) POSTCONDITION: re-run the step-1 command and return every line it prints as \`remaining\` ([] when clean).
       The gate declared these test files (JSON): ${JSON.stringify(declared)} — informational only; salvage what git lists, not this list.
       Return { salvaged: [...], remaining: [...] }. If a command fails, stop there and return what you have plus \`failure: "<what failed>"\` — never clean a path you could not copy.`,
@@ -2263,9 +2334,9 @@ async function releaseGateWorktree(frd, gate) {
   } catch (e) { log(`⚠ C2 (BL-0182): the gate-worktree release for ${frd} threw (${(e && e.message) || e})`) }
   const salvaged = (r && Array.isArray(r.salvaged)) ? r.salvaged.filter((x) => x && typeof x.path === 'string' && x.path) : []
   const remaining = (r && Array.isArray(r.remaining)) ? r.remaining.filter(Boolean) : null
-  if (remaining && remaining.length === 0 && !(r && r.failure)) gateWorktreeClean = true
+  if (remaining && remaining.length === 0 && !(r && r.failure)) slot.clean = true
   else {
-    gateWorktreeClean = false   // the next acquisition re-probes instead of taking the no-spawn fast path (BL-0183)
+    slot.clean = false   // the next acquisition re-probes instead of taking the no-spawn fast path (BL-0183)
     log(`⚠ C2 (BL-0182): the gate worktree is NOT proven clean after ${frd}'s gate (${(r && r.failure) || (remaining ? 'paths remain' : 'no release verdict')})${remaining && remaining.length ? `: ${remaining.join(' | ')}` : ''} — the next gate re-probes it and falls back to the legacy path rather than gate over it`)
   }
   const tests = salvaged
@@ -2388,7 +2459,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
   // the worktree there and cleaned it before the next gate could start), holding repo-root-relative paths.
   const fromEvidence = Boolean(sourceDir && sourceDir.startsWith(GATE_EVIDENCE_ROOT))
   const port = fromEvidence && files.length
-    ? ` FIRST port the reviewer's adversarial test files — salvaged out of the gate worktree ${GATE_WORKTREE} into ${sourceDir} by the release step — onto the main tree. The paths are REPO-ROOT-relative (as git listed them): let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`, and for EACH path copy \`${sourceDir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
+    ? ` FIRST port the reviewer's adversarial test files — salvaged out of the gate worktree ${gateWorktreePathOf(frd)} into ${sourceDir} by the release step — onto the main tree. The paths are REPO-ROOT-relative (as git listed them): let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`, and for EACH path copy \`${sourceDir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
     : sourceDir && files.length
       ? ` FIRST port the reviewer's adversarial test files from the gate worktree onto the main tree — for EACH of these repo-relative paths copy \`${sourceDir}/<path>\` → \`<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
       : (files.length ? ` The reviewer's adversarial test files are already on the main tree (${files.join(', ')}) — just make sure they are staged in the commit below.` : '')
@@ -2443,7 +2514,7 @@ async function persistGateBlock(frd, reviewIds, reason, failure, alreadyTracked 
   const driftNote = blockDrift.length ? ` BL-0178: the pre-existing drift the engine proved for this gate (${blockDrift.join(', ')}) is ALREADY filed as draft change card(s) and is NOT a reason for this block — do not list it as a blocker in decisions.md.` : ''
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.${driftNote} Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)}
-    **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` (BL-0182: without \`--untracked-files=all\` a new directory collapses to one \`?? dir/\` line and its files are never salvaged; paths are worktree-ROOT-relative). For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. Return { done: true }.`,
+${PARALLEL_GATES ? PARALLEL_PERSIST_NO_SALVAGE : `    **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` (BL-0182: without \`--untracked-files=all\` a new directory collapses to one \`?? dir/\` line and its files are never salvaged; paths are worktree-ROOT-relative). For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. `}Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
   return link.then(() => true, () => false)
@@ -2492,6 +2563,21 @@ const buildTokensByFrd = new Map()       // frd -> real output tokens spent BUIL
 const buildTokensReliable = new Map()    // frd -> true iff every wave that built it so far was single-FRD
 const repairTokensByFrd = new Map()      // frd -> real output tokens spent REPAIRING it (always trustworthy)
 const loggedTokenFallback = new Set()    // frd -> already logged the agent-weight fallback once (avoid log spam per rung)
+// D1 (args.parallelGates): with gates reviewing in their slots while the build wave or a landing's repair
+// rung runs on main, budget.spent() also absorbs THEIR spend — the "quiet window" the two deltas above rely
+// on no longer exists. Such a delta is never read as real: the FRD's token layer is switched off for the
+// run (sticky, same as a mixed multi-FRD wave) and the brake runs on agent-weight alone, LOUDLY, with the
+// real reason. (The red-team's X9: the token layer is an OR-rescue, so a polluted delta could never trip a
+// false needs-owner — this keeps the brake honest, not safe-by-accident.)
+const tokenFallbackReason = new Map()    // frd -> why its token layer is off (the fallback log names it)
+function markTokensUnreliable(frd, why) {
+  buildTokensReliable.set(frd, false)
+  if (!tokenFallbackReason.has(frd)) {
+    tokenFallbackReason.set(frd, why)
+    log(`… ${frd}: repair brake on agent-weight, usage unreliable — ${why} (budget.spent() is one un-partitioned counter; D1/BL-0138)`)
+    loggedTokenFallback.add(frd)
+  }
+}
 // Records ONE wave's real build spend against every FRD it touched — call right after the wave's
 // `parallel(wave.map(buildWO))` barrier resolves, with the budget.spent() delta across that barrier.
 function recordWaveBuildTokens(waveFrds, tokensSpent) {
@@ -2524,10 +2610,13 @@ function chargeRepair(frd, model, tokensSpent = 0) {
 // tokens (BL-0138 path 1) — safe because every call site is on the quiesced tree described above.
 async function chargedRepair(frd, model, callFn) {
   const before = budget.spent()
+  // D1: a parallel gate still reviewing in its slot spends into the same counter during this rung.
+  const gatesAlongside = PARALLEL_GATES ? gatesInFlight.size : 0
+  if (gatesAlongside) markTokensUnreliable(frd, `${gatesAlongside} parallel gate(s) were reviewing while its repair rung ran`)
   try {
     return await callFn()
   } finally {
-    chargeRepair(frd, model, budget.spent() - before)
+    chargeRepair(frd, model, gatesAlongside ? 0 : budget.spent() - before)   // a polluted delta is never recorded as this FRD's repair tokens
   }
 }
 function canAffordRepair(frd, model, units = 1) {
@@ -3475,11 +3564,16 @@ const doneIds = new Set()     // committed (IN_REVIEW) or VERIFIED wo ids — sa
 const blockedIds = new Set()
 const gateQueue = []          // FRD folders whose build WOs are all committed + PINNED — gates launch FIFO
 // ── C2 concurrent-gate state ──────────────────────────────────────────────────────────────────────
-let worktreeState = 'unknown'   // 'unknown' | 'ready' | 'failed' (failed → legacy synchronous gate path)
-let lastWorktreeSha = null      // the sha the worktree is currently checked out at (skip redundant checkout/install)
-let gateWorktreeClean = false   // BL-0183: true ONLY right after a probe's clean check or a gate release's verified-clean postcondition — the no-spawn fast path requires it
-let gateWorktreeInFlight = null   // BL-0150: the SHARED pending ensureGateWorktree() promise, memoized so a concurrent caller reuses it instead of spawning a second gate-worktree agent
-let gateWorktreeInFlightSha = null   // the sha gateWorktreeInFlight is preparing — only a call for this SAME sha reuses it
+// A gate worktree's lifecycle state (D1: one object per worktree — the single C2 worktree is LEGACY_SLOT;
+// under args.parallelGates each pool slot carries its own):
+//   state     'unknown' | 'ready' | 'failed' (failed → legacy synchronous path for LEGACY_SLOT; out of the pool for a slot)
+//   lastSha   the sha it is checked out at (skip redundant checkout/install)
+//   clean     BL-0183: true ONLY right after a probe's clean check or a gate release's verified-clean postcondition — the no-spawn fast path requires it
+//   inFlight  BL-0150: the SHARED pending ensureGateWorktree() promise, memoized so a concurrent caller reuses it instead of spawning a second probe
+//   inFlightSha  the sha inFlight is preparing — only a call for this SAME sha reuses it
+//   busy      D1 only: the FRD whose gate occupies the slot (null = free)
+const mkGateSlot = (id, path, port) => ({ id, path, port, state: 'unknown', lastSha: null, clean: false, inFlight: null, inFlightSha: null, busy: null })
+const LEGACY_SLOT = mkGateSlot(0, GATE_WORKTREE, null)
 let concurrentGates = null      // null = undecided (probe at the first gate); true = concurrent; false = legacy inline
 let gateWorktreeChain = Promise.resolve()   // single worktree = one checkout at a time → serialize (checkout+review) among gates
 const gatesInFlight = new Map() // frd -> promise (settled entries are deleted; size capped at MAX_CONCURRENT_GATES)
@@ -3607,7 +3701,7 @@ function launchGate(frd) {
     // BL-0182: the gate + its RELEASE are ONE link of the worktree chain — the reviewer dirties the tree,
     // and the release (salvage + exact clean, whatever the verdict, even a crash) runs before the chain
     // admits the next gate, so the next acquisition finds a clean tree instead of falling back to legacy.
-    gateWorktreeClean = false
+    LEGACY_SLOT.clean = false
     let gate
     let released = null
     try { gate = await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha), evidencePack) }
@@ -3662,15 +3756,262 @@ async function settleGates(all) {
 }
 // Drain the convergeQueue on the (quiesced) main tree: run the exact pre-C2 convergence ladder per reject.
 async function drainConverge() {
-  while (convergeQueue.length) {
-    const item = convergeQueue.shift()
-    if (item.__needsLegacy) { await gateAndConverge(item.f, item.reviewIds); continue }   // worktree-failed gate → whole gate+converge on main
-    // BL-0184: a C2 reopen's RED tests were salvaged from the worktree — port them onto the (quiesced)
-    // main tree, sha256-pinned, BEFORE the patch ladder; a failed port never patches blind (DR-080).
-    const ported = await portReviewerTests(item.f.frd, item.gate)
-    if (ported === false) { await gateAndConverge(item.f, item.reviewIds); continue }
-    try { await gateConverge(item.f, item.reviewIds, item.gate) }
-    finally { reviewerTestsByFrd.delete(item.f.frd) }
+  while (convergeQueue.length) await convergeOne(convergeQueue.shift())
+}
+// ONE reject/blocked/failed verdict's convergence on main — shared by the C2 drain above and the D1 landing
+// lane below (same ladder, same DR-080 port, byte-for-byte).
+async function convergeOne(item) {
+  if (item.__needsLegacy) { await gateAndConverge(item.f, item.reviewIds); return }   // worktree-failed gate → whole gate+converge on main
+  // BL-0184: a C2 reopen's RED tests were salvaged from the worktree — port them onto the (quiesced)
+  // main tree, sha256-pinned, BEFORE the patch ladder; a failed port never patches blind (DR-080).
+  const ported = await portReviewerTests(item.f.frd, item.gate)
+  if (ported === false) { await gateAndConverge(item.f, item.reviewIds); return }
+  try { await gateConverge(item.f, item.reviewIds, item.gate) }
+  finally { reviewerTestsByFrd.delete(item.f.frd) }
+}
+
+// ── D1 PARALLEL FRD GATES (args.parallelGates, proposal 38 Decision 1 + red-team addendum, BL-0186) ──────
+// C2 overlaps a gate with the BUILD, but gates still serialize with EACH OTHER on one worktree, and any
+// reject quiesces every in-flight gate before its ladder runs — canary D2's 57.6-min post-wave gate segment.
+// Under the flag, three pieces replace that, and NOTHING else in the trust boundary moves:
+//  1. A POOL of GATE_SLOTS worktrees (gatePool). A gate occupies one slot for its whole link — probe, digested
+//     evidence (collected inline in the slot), review, drift proof, and the BL-0182 release in a `finally` —
+//     so a crash still salvages and frees its slot. A slot that fails its probe (dirty, orphaned) leaves the
+//     pool, loudly; only when EVERY slot has failed does the run fall to the legacy synchronous gate on main.
+//  2. ELIGIBILITY. A gate launches only if its FRD neither depends on nor is depended on by (cross-FRD WO
+//     `deps`, transitive, plus FRD-level deps) any FRD whose verdict has not LANDED yet, and its reviewed
+//     artifacts are disjoint from theirs (DR-060's own artifactsOverlap, fail-safe on undeclared). Otherwise
+//     it waits in gateQueue. Why the dependency rule (red-team R6): B could PASS on its pin while A's ladder
+//     REVERTS the WO B built on, and land VERIFIED over a broken tree.
+//     BUDGET: maxAgents is cost-weighted — N opus reviewers launched together commit ~3N units at once. A gate
+//     is launched alongside others only if the budget still covers its estimated cost + one landing after
+//     reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
+//     conservative in between); otherwise `gate deferred: agent budget`. With nothing in flight the first
+//     eligible gate always launches (progress guarantee — the loop-top brake is still what stops the run).
+//  3. ONE LANDING LANE on main. Verdicts land strictly one at a time, in arrival order (gateResults is
+//     FIFO): PASS → stale-pin guard → applyGate; REJECT/BLOCK/crash → convergeOne (the unchanged DR-072/073/
+//     117 ladder, BL-0184 port). The quiesce is gone — reviews in other slots never touch main — but a build
+//     wave never overlaps a landing either: the loop lands, then `continue`s, so main keeps ONE writer at a
+//     time and every shared document (decision records, work-order frontmatter + README rollups,
+//     status.yaml, last_green_sha) is written only here, never from a gate.
+//     STALE-PIN GUARD (red-team R5/X4): a PASS was judged at its pin; if main gained CODE commits since
+//     (`git rev-list --count <pin>..HEAD` outside .pandacorp/ and docs/ — another landing's ported tests, a
+//     patch, a revert), the reviewer's tests are ported FIRST and `verify.sh --since <pin>` re-runs on main
+//     before anything is stamped; red → the PASS becomes a REOPEN with that failure and takes the ladder.
+// Honest limits: `--since` is vitest `--changed` (import-affected tests), so a coupling through a fixture/JSON/
+// CSS can still slip to the close-out FULL suite, which stays the final backstop (DR-118's stated limit).
+// Contention (N reviewers × vitest/tsc/Playwright/next dev on one machine) is not modelled here — size
+// gateSlots to the machine (the red-team measured 16 GB → 2).
+const gatePool = PARALLEL_GATES ? Array.from({ length: GATE_SLOTS }, (_, i) => mkGateSlot(i + 1, gateSlotPath(i + 1), gateSlotPort(i + 1))) : []
+let gateReserved = 0                    // cost-weighted units reserved by in-flight gates (released at settle, X10)
+const GATE_LANDING_COST = 2             // one PASS landing on main: the stale-pin check + the apply (a re-verify adds 1)
+const liveSlots = () => gatePool.filter((x) => x.state !== 'failed')
+const freeSlot = () => liveSlots().find((x) => !x.busy) || null
+const deferredGateLog = new Map()       // frd -> the last deferral reason logged (one line per change, never per spin)
+// FRD folder → the FRDs it DIRECTLY builds on: FRD-level deps + the owner FRD of every cross-FRD WO dep.
+function frdDirectUpstream(frd, woOwner) {
+  const st = frdState.get(frd)
+  const up = new Set((st && st.f.deps) || [])
+  for (const w of (st ? st.f.workOrders : [])) for (const d of (w.deps || [])) { const o = woOwner.get(d); if (o) up.add(o) }
+  up.delete(frd)
+  return up
+}
+// Transitive closure of frdDirectUpstream (a WO chain A→B→C across FRDs makes C upstream of A).
+function frdUpstream(frd) {
+  const woOwner = new Map()
+  for (const [k, x] of frdState) for (const w of x.f.workOrders) woOwner.set(w.id, k)
+  const seen = new Set()
+  const stack = [frd]
+  while (stack.length) for (const y of frdDirectUpstream(stack.pop(), woOwner)) if (y !== frd && !seen.has(y)) { seen.add(y); stack.push(y) }
+  return seen
+}
+// The artifacts a gate's landing may touch = its reviewed WOs' globs; [] when ANY is undeclared, which
+// artifactsOverlap reads as "overlaps everything" (fail-safe, DR-060).
+function frdGateArtifacts(frd) {
+  const st = frdState.get(frd)
+  const wos = st ? st.f.workOrders.filter((w) => st.reviewIds.includes(w.id)) : []
+  if (!wos.length || wos.some((w) => !(w.artifacts && w.artifacts.length))) return []
+  return [...new Set(wos.flatMap((w) => w.artifacts))]
+}
+/**
+ * Why `frd`'s gate may NOT run now, or null when it is eligible. (1) The spec'd pairing rule: no dependency
+ * either way and disjoint artifacts with every FRD whose verdict has not LANDED. (2) Landing order: an
+ * upstream FRD still queued for its gate or still building this run lands FIRST — otherwise the dependent
+ * could land VERIFIED on a WO its upstream's ladder later reverts (the stale-pin guard only sees a revert
+ * that lands BEFORE it). `force` (the idle path, nothing left to build or in flight) waives (2) only.
+ */
+function gateConflict(frd, force = false) {
+  const up = frdUpstream(frd)
+  for (const [other, x] of frdState) {
+    if (other === frd || !x.gateUnlanded) continue
+    if (up.has(other)) return `depends on ${other} (verdict not landed yet)`
+    if (frdUpstream(other).has(frd)) return `${other} depends on it (verdict not landed yet)`
+    if (artifactsOverlap({ artifacts: frdGateArtifacts(frd) }, { artifacts: frdGateArtifacts(other) })) return `artifacts overlap ${other} (DR-060)`
+  }
+  if (!force) {
+    for (const u of up) {
+      const x = frdState.get(u)
+      if (x && !x.failed && !x.gateLanded && (x.toBuildIds.size > 0 || gateQueue.includes(u))) return `depends on ${u}, which has not gated yet (it lands first)`
+    }
+  }
+  return null
+}
+// The cost-weighted units ONE gate link is expected to spend: probe + (digested collector) + the review
+// (the split when frdGate would pick it) + the release. The drift proof is rare and not reserved.
+function gateCostEstimate(frd) {
+  const st = frdState.get(frd)
+  const reviewed = st ? st.f.workOrders.filter((w) => st.reviewIds.includes(w.id)) : []
+  const split = P.reviewSplit && (((st && st.gateAttempts) || 0) >= 1 || reviewed.some((w) => (w.reopen_count || 0) >= 1))
+  return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
+}
+function logGateDeferral(frd, why) {
+  if (deferredGateLog.get(frd) === why) return
+  deferredGateLog.set(frd, why)
+  log(`⏸ D1: gate for ${frd} deferred: ${why}`)
+}
+// Start ONE gate as a background promise that owns `slot` from probe to release.
+function launchGateInSlot(frd, slot, est) {
+  const st = frdState.get(frd)
+  const pinSha = st.pinSha
+  const reviewIds = st.reviewIds
+  slot.busy = frd
+  st.gateSlotPath = slot.path
+  st.gateUnlanded = true
+  gateReserved += est
+  deferredGateLog.delete(frd)
+  log(`▶ D1: gate ${frd} → slot ${slot.id} (${slot.path}, e2e port ${slot.port}) · ${gatesInFlight.size + 1}/${GATE_SLOTS} in flight`)
+  const work = (async () => {
+    const ok = await ensureGateWorktree(pinSha, slot)
+    if (!ok) return { __worktreeFailed: true }
+    const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)   // digested: collected INLINE in this slot (launchEvidence is a no-op under D1)
+    slot.clean = false
+    let gate
+    let released = null
+    try { gate = await frdGate(frd, reviewIds, worktreeWorkFrom(pinSha, slot.path), evidencePack) }
+    finally { released = await releaseGateWorktree(frd, gate, slot) }   // BL-0182: salvage + exact clean, whatever the verdict — even a crash
+    return (gate && typeof gate === 'object') ? { ...gate, reviewerEvidence: released } : gate
+  })()
+  // ONE settle handler (ok or crash): the verdict joins the landing FIFO, and the slot + its reservation are
+  // freed in the same tick, so a free slot always means "no gate in flight there".
+  const settle = (gate) => { gatesInFlight.delete(frd); slot.busy = null; gateReserved -= est; gateResults.push({ f: st.f, reviewIds, gate, slot: slot.id }) }
+  const tracked = work.then(settle, (e) => settle({ green: false, blocked_reason: 'error', failure: `gate crashed: ${(e && e.message) || e}` }))
+  gatesInFlight.set(frd, tracked)
+}
+// Fill free slots from gateQueue (FIFO, skipping what is not eligible yet). Returns false iff the pool has
+// no live slot left — the caller then takes the legacy synchronous path for the rest of the run. `force`: see
+// gateConflict (the idle path's progress guarantee).
+function launchParallelGates(force = false) {
+  if (!liveSlots().length) {
+    if (concurrentGates !== false) log(`⚠ D1: every gate slot failed — falling back to the LEGACY synchronous gate path for the rest of the run`)
+    concurrentGates = false
+    return false
+  }
+  if (concurrentGates === null) { concurrentGates = true; log(`▹ D1: PARALLEL FRD gates — up to ${GATE_SLOTS} gate(s) review at once in ${gatePool.map((x) => x.path).join(', ')}; verdicts land on main one at a time (args.parallelGates)`) }
+  for (let i = 0; i < gateQueue.length;) {
+    const slot = freeSlot()
+    if (!slot) break
+    const frd = gateQueue[i]
+    const why = gateConflict(frd, force)
+    if (why) { logGateDeferral(frd, why); i++; continue }
+    const est = gateCostEstimate(frd)
+    const pipelineBusy = gatesInFlight.size > 0 || gateResults.length > 0
+    if (MAX_AGENTS && pipelineBusy) {
+      const remaining = MAX_AGENTS - agentSpawned - gateReserved
+      if (remaining < est + GATE_LANDING_COST) {
+        logGateDeferral(frd, `agent budget — ~${est} units for the gate + ${GATE_LANDING_COST} for its landing, only ${remaining} left after reserving ${gateReserved} for ${gatesInFlight.size} gate(s) in flight (maxAgents ${MAX_AGENTS})`)
+        i++
+        continue
+      }
+    }
+    gateQueue.splice(i, 1)
+    launchGateInSlot(frd, slot, est)
+  }
+  return true
+}
+// Re-verify a PASS on the MAIN tree at landing time (the stale-pin guard's second half). MECH: it ports the
+// reviewer's tests FIRST (X4 — they must run against the landing tree), runs verify.sh --since <pin>, runs the
+// ported tests by path, and returns the report's verdict; the ENGINE decides.
+const REVERIFY_SCHEMA = { type: 'object', required: ['green'], properties: { green: { type: 'boolean' }, failure: { type: 'string' }, report_scope: REPORT_SCOPE, gateReport: FRD_GATE_SCHEMA.properties.gateReport } }
+async function reverifyAtLanding(frd, gate, pin, count) {
+  const ev = gate && gate.reviewerEvidence
+  const files = ev ? ev.tests.map((x) => x.path) : ((gate && gate.testFiles) || []).filter(Boolean)
+  const since = pin ? `--since ${pin}` : ''
+  agentSpawned++
+  try {
+    return await agent(`MECHANICAL GATE RE-RUN — D1 stale-pin guard for ${frd} (BL-0186; BL-0179 stamps the report's scope). The review-only gate for ${frd} PASSED at pin ${pin || '(unknown)'}, but the MAIN tree gained ${count >= 0 ? count : 'an unknown number of'} code commit(s) since then, so the verdict may not describe the tree it would certify. Re-run the objective gate on the MAIN tree at HEAD before anything is stamped. You judge nothing, fix nothing, stage nothing, commit nothing. Do EXACTLY, in order:
+  1) PORT FIRST (the reviewer's adversarial tests must run against the landing tree):${files.length && ev ? ` let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`; for EACH path copy \`${ev.dir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.` : files.length ? ` the reviewer's test files (${files.join(', ')}) must be present on this tree; if one is missing, say so in \`failure\` and return green:false.` : ' (the gate left no test files — skip this step).'}
+  2) Run \`bash .pandacorp/verify.sh ${since}\` — NEVER with \`--only\`/\`--files\` (a scoped run stamps scope:"partial" and certifies nothing). It may exit non-zero; that is data.
+  3) ${files.length ? `Run EACH of the reviewer's test files explicitly by path — \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>"\` (a Playwright spec: \`pnpm playwright test "$(git rev-parse --show-toplevel)/<path>"\`): ${files.join(', ')}.` : 'No reviewer test files to run.'}
+  4) Read \`.pandacorp/run/gate-report.json\` and return { green: <true ONLY if that report is green AND every step-3 run passed>, report_scope: <its \`scope\` VERBATIM>, failure: <one sentence naming the first red sub-gate or test>, gateReport: <the report verbatim when it is red> }.`,
+      { label: `reverify:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVERIFY_SCHEMA })
+  } catch (e) { log(`⚠ D1: the landing re-verify for ${frd} threw (${(e && e.message) || e}) — treated as RED (fail-closed)`); return null }
+}
+const STALE_PIN_SCHEMA = { type: 'object', required: ['count'], properties: { count: { type: 'number', description: 'the integer the command printed; -1 if it failed' }, failure: { type: 'string' } } }
+/**
+ * D1 stale-pin guard for a PASS about to land. Returns null when it may land as reviewed, else the REOPEN
+ * verdict it becomes (the re-verify on the landing tree was red, partial, or produced nothing — fail-closed).
+ */
+async function stalePinGuard(frd, reviewIds, gate) {
+  const st = frdState.get(frd)
+  const pin = (st && st.pinSha) || null
+  let count = -1
+  if (pin) {
+    agentSpawned++
+    let r = null
+    try {
+      r = await agent(`MECHANICAL COMMAND RUNNER — D1 stale-pin guard for ${frd} (BL-0186). Execute exactly this command once, from anywhere, and return the integer it prints as \`count\`: \`git -C ${PROJECT_DIR} rev-list --count ${pin}..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'\` — the MAIN-tree commits since the pin ${pin} that touched CODE (anything outside .pandacorp/ and docs/). Change nothing. If the command fails, return { count: -1, failure: "<its error>" }.`,
+        { label: `stale-pin:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STALE_PIN_SCHEMA })
+    } catch (e) { log(`⚠ D1: the stale-pin check for ${frd} threw (${(e && e.message) || e}) — re-verifying (fail-closed)`) }
+    count = (r && Number.isInteger(r.count) && r.count >= 0) ? r.count : -1
+  }
+  if (count === 0) { log(`◦ D1: no code commit on main since ${frd}'s pin ${pin} — its verdict lands as reviewed`); return null }
+  log(`↻ D1: main ${count > 0 ? `gained ${count} code commit(s)` : 'may have advanced (the count is unknown)'} since ${frd}'s pin ${pin || '(none)'} — porting its reviewer tests and re-verifying with verify.sh ${pin ? `--since ${pin}` : '(full)'} on main before landing (stale-pin guard)`)
+  const rv = await reverifyAtLanding(frd, gate, pin, count)
+  if (rv && rv.green === true && !isPartialReport(rv)) { log(`✓ D1: ${frd} re-verified green on the landing tree — landing its PASS`); return null }
+  if (rv && rv.green === true) refusePartial(frd, 'the landing re-verify')
+  const failure = `D1 stale-pin guard: main advanced since the gate's pin ${pin || '(none)'} and \`verify.sh ${pin ? `--since ${pin}` : ''}\` on the landing tree is RED${rv && rv.failure ? `: ${rv.failure}` : rv ? '' : ' (no verdict)'}`
+  log(`⊘ ${frd}: ${failure} — the PASS is converted into a REOPEN (patch-first on main); it is never stamped VERIFIED over an unverified combination`)
+  const tests = gate && gate.reviewerEvidence ? gate.reviewerEvidence.tests.map((x) => x.path) : []
+  return {
+    ...gate, green: false, reopen: [...reviewIds], failure,
+    findings: [{ wo: reviewIds[0], finding: `${failure}. The gate passed at its pin; the combination with what landed on main since is red — find the interaction in \`git diff ${pin || '<pin>'}..HEAD\`.`, failingTest: tests.length ? tests.join(', ') : '(see the gate report)', files: [] }],
+    gateReport: (rv && rv.gateReport) || (gate && gate.gateReport), report_scope: rv && rv.report_scope,
+  }
+}
+// Land ONE settled verdict on main (the lane). `final` (post-loop): a verdict whose slot failed is gated on
+// main right away instead of being re-queued for another slot.
+async function landParallelVerdict(final = false) {
+  const { f, reviewIds, gate } = gateResults.shift()
+  const st = frdState.get(f.frd)
+  gateSettledSinceSafePoint = true
+  try {
+    if (gate && gate.__worktreeFailed) {
+      if (!final && liveSlots().length) { log(`↻ D1: ${f.frd}'s gate slot failed its probe — re-queued for another slot (${liveSlots().length} live)`); gateQueue.unshift(f.frd); return }
+      await convergeOne({ f, reviewIds, gate: null, __needsLegacy: true })
+      return
+    }
+    if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the parallel FRD gate'); reopenedFrds.push(f.frd); return }
+    if (gate && gate.green === true) {
+      const reopened = await stalePinGuard(f.frd, reviewIds, gate)
+      if (reopened) { await convergeOne({ f, reviewIds, gate: reopened }); return }
+      const ev = gate.reviewerEvidence
+      const ok = ev
+        ? await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
+        : await applyGate(f.frd, reviewIds, gate.testFiles, gateWorktreePathOf(f.frd))
+      if (ok) { log(`✓ ${f.frd} VERIFIED (parallel gate, landed on main)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return }
+      await convergeOne({ f, reviewIds, gate })   // apply failed → converge (repair) on main, exactly as C2's harvest does
+      return
+    }
+    await convergeOne({ f, reviewIds, gate })   // reject / block / crash → the unchanged ladder, in the lane
+  } finally {
+    if (st) { st.gateUnlanded = false; if (!gateQueue.includes(f.frd)) st.gateLanded = true }   // re-queued (slot failed) ≠ landed
+  }
+}
+// Run-end invariant (C2-v, kept): every gate already spawned is waited for and its verdict landed.
+async function drainParallelGates() {
+  while (gatesInFlight.size || gateResults.length) {
+    if (!gateResults.length) await Promise.race([...gatesInFlight.values()])
+    else await landParallelVerdict(true)
   }
 }
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
@@ -3701,6 +4042,11 @@ while (true) {
   if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
 
+  if (PARALLEL_GATES) {
+    // ── D1 landing lane: land ONE settled verdict (arrival order) on main, then re-check the brakes and the
+    // pool — no quiesce: the other slots keep reviewing; no wave dispatch overlaps a landing. ──
+    if (gateResults.length) { await landParallelVerdict(); continue }
+  } else {
   // ── C2 harvest: apply settled PASS gates on main (serialized); queue rejects for convergence ──
   await harvestGateResults()
 
@@ -3711,6 +4057,7 @@ while (true) {
     await settleGates(true)
     await drainConverge()
     continue
+  }
   }
 
   // ── DR-069 safe point (owner signals; may enroll drained-change FRDs into this run) ──
@@ -3751,12 +4098,20 @@ while (true) {
   // ── C2 launch ready gates as BACKGROUND promises (up to MAX_CONCURRENT_GATES) — WHILE the loop keeps
   // dispatching build waves. The FIRST gate probes the worktree synchronously: success → concurrent for
   // the whole run; failure → the legacy synchronous gate path (a real, tested fallback). ──
-  if (gateQueue.length) {
+  // D1: under args.parallelGates the pool takes this step (per-slot lazy probes, eligibility, budget);
+  // launchParallelGates() returns false only once EVERY slot has failed → the legacy path below. An FRD the
+  // safe-point drain enrolled already gate-ready carries no pin (only wave closes and the pre-loop resume pin);
+  // a slot probed at an undefined sha would fail and leave the pool, so it is pinned at the current HEAD first.
+  if (PARALLEL_GATES && concurrentGates !== false) {
+    const unpinned = gateQueue.filter((x) => { const st = frdState.get(x); return st && !st.pinSha })
+    if (unpinned.length) await capturePin(unpinned)
+  }
+  if (gateQueue.length && !(PARALLEL_GATES && concurrentGates !== false && launchParallelGates())) {
     if (concurrentGates === null) {
       concurrentGates = await ensureGateWorktree(frdState.get(gateQueue[0]).pinSha)   // probe → creates the worktree at the first pin
       log(concurrentGates ? '▹ C2: gates run CONCURRENTLY with builds in a pinned worktree' : '↩ C2: legacy synchronous gate path (worktree unavailable) for the whole run')
     }
-    if (concurrentGates && worktreeState !== 'failed') {
+    if (concurrentGates && LEGACY_SLOT.state !== 'failed') {
       while (gateQueue.length && gatesInFlight.size < MAX_CONCURRENT_GATES) launchGate(gateQueue.shift())
     } else {
       // legacy synchronous gate path: one gate inline per iteration, pre-C2 topology (gate on the quiet main tree).
@@ -3779,7 +4134,26 @@ while (true) {
   // ── C2 nothing left to build: if gates are still in flight / settling / converging, IDLE-WAIT (settle
   // one and loop); else the run is done. ──
   if (globalQueue.size === 0) {
+    if (PARALLEL_GATES && (gatesInFlight.size || gateResults.length)) {
+      if (!gateResults.length) await Promise.race([...gatesInFlight.values()])   // D1: wait for ONE verdict; it lands at the loop top
+      continue
+    }
     if (gatesInFlight.size || gateResults.length || convergeQueue.length) { await settleGates(false); continue }
+    if (PARALLEL_GATES && gateQueue.length && concurrentGates !== false) {
+      // Nothing left to build and nothing in flight, yet gates wait — only rule (2) of gateConflict can do
+      // that (e.g. two FRDs whose WOs depend on each other across FRDs): waive it so the run progresses.
+      log(`⚠ D1: ${gateQueue.length} gate(s) still wait on each other's landing with nothing left to build or in flight — waiving the landing-order rule for the head of the queue so the run progresses`)
+      if (launchParallelGates(true) && gatesInFlight.size) continue
+    }
+    if (PARALLEL_GATES && gateQueue.length) {
+      // Unreachable by construction (with nothing in flight the first queued gate is always eligible and
+      // launched) — but a queued gate must never be dropped silently: gate it on main instead.
+      const frd = gateQueue.shift()
+      log(`⚠ D1: ${frd} is gate-ready but no parallel gate could start with nothing in flight — gating it on main (legacy) rather than dropping it`)
+      const st = frdState.get(frd)
+      await gateAndConverge(st.f, st.reviewIds)
+      continue
+    }
     break   // nothing to build and no gate outstanding → done
   }
 
@@ -3839,7 +4213,9 @@ while (true) {
   // the old cap counted raw WOs (1 each) while an opus WO costs COST+1 (≈4), so an opus wave blew the
   // cap ~4× (a 6-cap run reached 13). Now the picker is COST-aware: count cap P.wave AND a cost budget
   // = the remaining agent allowance, so the in-engine brake holds even if the supervisor is dead.
-  const remainingAgents = MAX_AGENTS ? Math.max(1, MAX_AGENTS - agentSpawned) : Infinity
+  // D1: under parallelGates the units the in-flight gates are expected to spend are reserved (gateReserved) — a
+  // wave never plans on budget those gates are about to consume.
+  const remainingAgents = MAX_AGENTS ? Math.max(1, MAX_AGENTS - agentSpawned - (PARALLEL_GATES ? gateReserved : 0)) : Infinity
   const { picked: wave, cutBy: waveCutBy } = pickDisjointWave(candidates, P.wave, remainingAgents, woWaveCost)   // DR-060: never co-schedule overlapping artifacts — now across FRDs; DR-073/D2: cost-budgeted width
   const waveFrds = [...new Set(wave.map((w) => w._frd))]
   log(`⚒ wave: ${wave.length} WO(s) across ${waveFrds.length} FRD(s) — ${wave.map((w) => w.id).join(', ')}`)
@@ -3894,8 +4270,10 @@ while (true) {
   // buildTokensByFrd only when this wave is single-FRD (see recordWaveBuildTokens's own comment for why
   // a multi-FRD wave's delta can't be split among its FRDs).
   const waveBuildTokensBefore = budget.spent()
+  const gatesAlongsideWave = PARALLEL_GATES ? gatesInFlight.size : 0   // D1: parallel gates reviewing during this wave spend into the same counter
   const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
-  recordWaveBuildTokens(waveFrds, budget.spent() - waveBuildTokensBefore)
+  if (gatesAlongsideWave) for (const frd of waveFrds) markTokensUnreliable(frd, `${gatesAlongsideWave} parallel gate(s) were reviewing during its build wave`)
+  else recordWaveBuildTokens(waveFrds, budget.spent() - waveBuildTokensBefore)
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
   // instant its self-test passed (commitWOGreen — one serialized git writer, selective `git add` of
   // its disjoint artifacts), so there is no batched after-wave commit. A mid-wave interruption keeps
@@ -3960,8 +4338,11 @@ while (true) {
 // ── C2 run-end invariant: settle EVERY in-flight gate + drain the convergeQueue BEFORE hardening/close-out/
 // notify-end (the loop may have broken — budget/agents/blocks — with gates still running; a gate already
 // spawned is work we committed to, and its apply/converge decides builtFrds/release honestly). ──
-await settleGates(true)
-await drainConverge()
+if (PARALLEL_GATES) await drainParallelGates()   // D1: the same invariant, landed through the one lane
+else {
+  await settleGates(true)
+  await drainConverge()
+}
 
 // ── Close-out shared prompt fragments (WP-02) — defined ONCE, reused byte-identically by both the
 // lean (default) and legacy (args.leanCloseOut:false) shapes below, so the ACTUAL agent instructions

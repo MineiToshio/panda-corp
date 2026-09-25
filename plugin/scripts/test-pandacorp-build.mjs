@@ -2513,9 +2513,14 @@ SCENARIOS.push({
     // returns its stdout verbatim (zero judgment; the ENGINE applies the pre-existing-drift predicate).
     // Integrated total (BL-0182..0184 + BL-0178 merge): 16 + 3 + 2 = 21.
     // + 1 (BL-0189): 'gate-inventory:<frd>' — runs ONE gate-inventory.mjs check and returns its stdout verbatim
-    // (zero judgment; the ENGINE parses the cache and compares fingerprints). 22, recounted from the source below.
-    t.ok(mechAgentCount === 22, `exactly 22 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 22, `exactly 22 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // (zero judgment; the ENGINE parses the cache and compares fingerprints). = 22.
+    // + 2 (BL-0186, D1 parallelGates — both spawned ONLY under that flag): 'stale-pin:<frd>' (one `git
+    // rev-list --count` at a PASS landing) and 'reverify:<frd>' (port + `verify.sh --since <pin>` + the report
+    // verbatim when main advanced) — zero-judgment command runners; the ENGINE reads the count and the
+    // report's green/scope. The flag-off engine never reaches either site (spawn sequence unchanged). = 24,
+    // recounted from the source below.
+    t.ok(mechAgentCount === 24, `exactly 24 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 24, `exactly 24 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -5877,6 +5882,455 @@ SCENARIOS.push({
       const gate = byLabel(run, `gate:${frd}`)[0]
       t.ok(hasLog(run, /cached contract inventory is STALE — frd\.md changed normatively/) && gate && !gcHasBlock(gate.prompt), 'STALE: the gate runs the full whole-FRD inventory')
       for (const r of gcCleanups.splice(0)) gcFs.rmSync(r, { recursive: true, force: true })
+    },
+  })
+}
+
+// ---- D1 parallelGates ----
+// proposal 38 Decision 1 + its red-team addendum (BL-0186): args.parallelGates runs up to `gateSlots` FRD gates
+// at once, each in its own gate worktree `gate-worktree-<k>` (explicit e2e port 3800+10k); a gate runs only if
+// its FRD neither depends on nor is depended on by an FRD whose verdict has not landed, and its artifacts are
+// disjoint (DR-060); verdicts land on main ONE at a time in arrival order (the lane), with a stale-pin guard.
+// CONCURRENCY IS OBSERVED, not assumed: a gate's response is a promise the scenario resolves itself (a
+// controller), so "N gates started before the first result" is a fact of the recorded timeline. Every
+// deferred verdict also resolves on a short timer, so a SERIAL engine (the pre-D1 one, the RED baseline)
+// cannot hang the suite — it just fails the concurrency assertions.
+const d1Resume = (tag, n, artifactsOf = (k) => [`src/${tag}${k}/**`]) => mkPlan(Array.from({ length: n }, (_, i) => {
+  const k = i + 1
+  return { frd: `frd-${tag}-${k}`, deps: [], workOrders: [mkWo(`wo-${tag}-${k}`, 'IN_REVIEW', { frd: `frd-${tag}-${k}`, artifacts: artifactsOf(k) })] }
+}))
+function d1Harness({ order = [], autoFlushAt = Infinity, verdicts = {}, staleCounts = [], fallbackMs = 5, onStart = {} } = {}) {
+  const tl = []
+  const pending = new Map()
+  const lane = { active: 0, max: 0 }
+  let started = 0
+  let staleIdx = 0
+  const thrown = new Set()
+  const release = (frd) => { const r = pending.get(frd); if (r) { pending.delete(frd); r() } }
+  const flush = (list) => { for (const frd of list) release(frd) }
+  const seen = new Set()
+  const gate = (call) => {
+    const frd = call.label.slice('gate:'.length)
+    const repeat = seen.has(frd)   // a later gate of the same FRD (a re-gate on main) answers on the next macrotask
+    seen.add(frd)
+    tl.push(`start:${frd}`)
+    started++
+    const v = verdicts[frd]
+    const deferred = new Promise((resolve, reject) => {
+      const done = () => {
+        tl.push(`result:${frd}`)
+        if (v && v.throws && !thrown.has(frd)) { thrown.add(frd); return reject(new Error(v.throws)) }   // throws ONCE (the crash); a later re-gate of that FRD answers green
+        const verdict = typeof v === 'function' ? v(call) : ((v && !v.throws) ? v : { green: true })
+        resolve('traceability' in verdict ? verdict : { ...verdict, traceability: validTraceability })
+      }
+      pending.set(frd, done)
+      // a MACROtask: every started gate has subscribed to its own promise by then, so the resolution order
+      // below IS the arrival order the engine sees (a synchronous flush would race the runner's own adoption)
+      if (started === autoFlushAt) setTimeout(() => flush(order), 0)
+      if (onStart[frd]) setTimeout(() => onStart[frd]({ flush }), 0)
+      setTimeout(() => release(frd), repeat ? 0 : fallbackMs)
+    })
+    // The runner adds a default traceability to an OBJECT gate answer by spreading it — which would flatten a
+    // promise into {}. Mark this one as carrying its own (the resolved verdict does, above).
+    deferred.traceability = undefined
+    return deferred
+  }
+  const writer = (value) => async (call) => {
+    lane.active++; lane.max = Math.max(lane.max, lane.active)
+    tl.push(`start:${call.label}`)
+    await new Promise((r) => setTimeout(r, 1))
+    tl.push(`end:${call.label}`)
+    lane.active--
+    return typeof value === 'function' ? value(call) : value
+  }
+  const responses = [
+    { label: /^gate:/, response: gate },
+    { prefix: 'gate-worktree:', response: { ok: true, created: true } },
+    { prefix: 'stale-pin:', response: writer(() => ({ count: staleCounts.length ? staleCounts[Math.min(staleIdx++, staleCounts.length - 1)] : 0 })) },
+    { prefix: 'reverify:', response: writer({ green: true, report_scope: 'since' }) },
+    { prefix: 'apply-gate:', response: writer({ done: true }) },
+    { prefix: 'persist-block:', response: writer({ done: true }) },
+    { prefix: 'port-reviewer-tests:', response: writer((call) => promptAwareDefault(call)) },
+    { prefix: 'patch:', response: writer({ green: true }) },
+    { prefix: 'verify-patch:', response: writer({ green: true }) },
+  ]
+  const at = (tag) => tl.indexOf(tag)
+  return { tl, lane, responses, at, flush, release }
+}
+const d1Slot = (call) => ((call && call.prompt.match(/GATE WORKTREE (\S+gate-worktree(?:-\d+)?) /)) || [])[1] || null
+
+// (a) three disjoint FRDs → three gates in flight at once; landings serialized, in ARRIVAL order.
+{
+  const h = d1Harness({ order: ['frd-d1a-3', 'frd-d1a-1', 'frd-d1a-2'], autoFlushAt: 3 })
+  SCENARIOS.push({
+    name: 'D1a. parallelGates — 3 disjoint FRDs: 3 gates STARTED before the first result, each in its own slot; verdicts land ONE at a time in arrival order (3 → 1 → 2)',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1a', 3),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const firstResult = h.tl.findIndex((x) => x.startsWith('result:'))
+      t.ok(['frd-d1a-1', 'frd-d1a-2', 'frd-d1a-3'].every((f) => h.at(`start:${f}`) >= 0 && h.at(`start:${f}`) < firstResult), `all 3 gates started before the first verdict (timeline: ${h.tl.slice(0, 6).join(' ')})`)
+      const slots = ['frd-d1a-1', 'frd-d1a-2', 'frd-d1a-3'].map((f) => d1Slot(byLabel(run, `gate:${f}`)[0]))
+      t.ok(slots.every(Boolean) && new Set(slots).size === 3 && slots.every((x, i) => x.endsWith(`gate-worktree-${i + 1}`)), `each gate ran in its OWN slot (FIFO → slot 1, 2, 3): ${slots.join(', ')}`)
+      const applies = byLabel(run, /^apply-gate:/).map((c) => c.label)
+      t.ok(JSON.stringify(applies) === JSON.stringify(['apply-gate:frd-d1a-3', 'apply-gate:frd-d1a-1', 'apply-gate:frd-d1a-2']), `landings in ARRIVAL order (got ${applies.join(', ')})`)
+      t.ok(h.lane.max === 1, `the landing lane never ran two main-tree writers at once (max ${h.lane.max})`)
+      t.ok(byLabel(run, /^stale-pin:/).length === 3 && byLabel(run, /^reverify:/).length === 0, 'every PASS landing asked the stale-pin guard once; no code moved (count 0) → no re-verify')
+      t.ok(byLabel(run, /^gate-release:/).length === 3 && byLabel(run, /^gate-release:/).every((c) => /gate-worktree-\d/.test(c.prompt)), 'each gate released (salvage + exact clean) ITS OWN slot')
+      t.ok(!hasLog(run, /legacy synchronous gate path/i) && hasLog(run, /D1: PARALLEL FRD gates/), 'the pool ran — never the legacy path')
+      t.ok(run.result && ['frd-d1a-1', 'frd-d1a-2', 'frd-d1a-3'].every((f) => run.result.builtFrds.includes(f)), 'all three FRDs VERIFIED')
+    },
+  })
+}
+// (b) an FRD that DEPENDS on one whose verdict has not landed waits for that landing.
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'D1b. parallelGates — frd-b depends on frd-a (cross-FRD dependsOn): its gate WAITS until frd-a\'s verdict has landed (red-team R6)',
+    args: { mode: 'pro', parallelGates: true },
+    plan: mkPlan([
+      { frd: 'frd-d1b-a', deps: [], workOrders: [mkWo('wo-d1b-a1', 'PLANNED', { frd: 'frd-d1b-a', artifacts: ['src/d1ba/**'] })] },
+      { frd: 'frd-d1b-b', deps: [], workOrders: [mkWo('wo-d1b-b1', 'PLANNED', { frd: 'frd-d1b-b', artifacts: ['src/d1bb/**'], deps: ['wo-d1b-a1'] })] },
+    ]),
+    responses: [distinctCommitShas, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-d1b-b deferred: depends on frd-d1b-a/), 'the deferral is logged with its reason')
+      t.ok(hasLog(run, /frd-d1b-b: repair brake on agent-weight, usage unreliable — 1 parallel gate\(s\) were reviewing during its build wave/), 'BL-0138: the wave that built frd-b ran alongside frd-a\'s gate → its build-token total is never trusted (loud agent-weight fallback)')
+      t.ok(h.at('start:frd-d1b-b') > h.at('end:apply-gate:frd-d1b-a') && h.at('end:apply-gate:frd-d1b-a') > 0, `frd-b's gate started only AFTER frd-a landed (timeline: ${h.tl.join(' ')})`)
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1b-a') && run.result.builtFrds.includes('frd-d1b-b'), 'both verify')
+    },
+  })
+}
+// (c) overlapping artifacts → queued; a disjoint third FRD still runs alongside.
+{
+  const h = d1Harness({ order: ['frd-d1c-1', 'frd-d1c-3'], autoFlushAt: 2 })
+  SCENARIOS.push({
+    name: 'D1c. parallelGates — two FRDs whose artifacts OVERLAP never gate together (DR-060); a disjoint third one does',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1c', 3, (k) => (k === 3 ? ['src/d1c3/**'] : ['src/shared/**'])),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-d1c-2 deferred: artifacts overlap frd-d1c-1 \(DR-060\)/), 'the overlap deferral is logged')
+      t.ok(h.at('start:frd-d1c-3') < h.at('result:frd-d1c-1'), 'the disjoint frd-3 gated alongside frd-1')
+      t.ok(h.at('start:frd-d1c-2') > h.at('end:apply-gate:frd-d1c-1'), 'the overlapping frd-2 gated only after frd-1 landed')
+      t.ok(run.result && run.result.builtFrds.length === 3, 'all three verify')
+    },
+  })
+}
+// (d) budget: a second concurrent gate that would not fit maxAgents (gate + one landing) is deferred, loudly.
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'D1d. parallelGates — maxAgents cannot cover a SECOND concurrent opus gate + its landing → `gate deferred: agent budget`, gates run one at a time (the first always runs)',
+    // pre-loop: precheck 1 + baseline 3 + plan 3 + pin 1 = 8; gate 1 reserves 5 and its probe is charged (9):
+    // 20 − 9 − 5 = 6 < 5 + 2 → the second gate waits. With nothing in flight the next one always starts.
+    args: { mode: 'pro', parallelGates: true, maxAgents: 20 },
+    plan: d1Resume('d1d', 3),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-d1d-2 deferred: agent budget/), 'the budget deferral is logged explicitly')
+      t.ok(h.at('start:frd-d1d-2') > h.at('result:frd-d1d-1'), `the second gate started only after the first returned (timeline: ${h.tl.join(' ')})`)
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1d-1'), 'the first gate ran and landed (progress guarantee)')
+    },
+  })
+}
+// (e1) main advanced in CODE since the pin → re-verify with verify.sh --since <pin> (tests ported first) → land.
+{
+  const h = d1Harness({ order: ['frd-d1e-1', 'frd-d1e-2'], autoFlushAt: 2, staleCounts: [0, 1], verdicts: { 'frd-d1e-2': { green: true, testFiles: ['src/d1e2/_tests/x.reviewer.test.ts'] } } })
+  SCENARIOS.push({
+    name: 'D1e1. parallelGates — the 2nd PASS lands after the 1st committed code: stale-pin count 1 → port reviewer tests FIRST, verify.sh --since <pin> on main, then apply',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1e', 2),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const sp = byLabel(run, 'stale-pin:frd-d1e-2')[0]
+      t.ok(sp && /rev-list --count pinsha0\.\.HEAD -- \. ':\(exclude\)\.pandacorp' ':\(exclude\)docs'/.test(sp.prompt) && sp.opts.agentType === 'pandacorp:mech', 'the guard counts CODE commits since the pin via a MECH (everything but .pandacorp/ and docs/)')
+      const rv = byLabel(run, 'reverify:frd-d1e-2')[0]
+      t.ok(rv && /verify\.sh --since pinsha0/.test(rv.prompt) && !/verify\.sh --since pinsha0 --only|--files=/.test(rv.prompt), 're-verified with verify.sh --since <pin>, never scoped')
+      t.ok(rv && rv.prompt.indexOf('PORT FIRST') >= 0 && rv.prompt.indexOf('PORT FIRST') < rv.prompt.indexOf('verify.sh --since') && /gate-evidence\/frd-d1e-2\/<path>/.test(rv.prompt), 'the reviewer\'s tests are ported from the evidence dir BEFORE the re-run (X4)')
+      t.ok(rv && /run EACH of the reviewer's test files explicitly by path/i.test(rv.prompt), 'the ported reviewer tests run by path on the landing tree')
+      t.ok(byLabel(run, 'reverify:frd-d1e-1').length === 0, 'the 1st landing (count 0) needed no re-verify')
+      t.ok(h.at('end:reverify:frd-d1e-2') < h.at('start:apply-gate:frd-d1e-2'), 'stamped only after the re-verify')
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1e-2') && byLabel(run, /^patch:/).length === 0, 'green re-verify → lands VERIFIED, no patch')
+    },
+  })
+}
+// (e2) … and a RED re-verify turns the PASS into a REOPEN that goes down the normal ladder.
+{
+  const h = d1Harness({ order: ['frd-d1f-1', 'frd-d1f-2'], autoFlushAt: 2, staleCounts: [0, 2], verdicts: { 'frd-d1f-2': { green: true, testFiles: ['src/d1f2/_tests/x.reviewer.test.ts'] } } })
+  SCENARIOS.push({
+    name: 'D1e2. parallelGates — the landing re-verify is RED → the PASS becomes a REOPEN: reviewer tests ported + pinned, patch-first, independent verify (never stamped over the red combination)',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1f', 2),
+    responses: [{ prefix: 'reverify:', response: { green: false, report_scope: 'since', failure: 'tsc: TS2322 in src/d1f1/x.ts:4 — the two landings disagree on a type' } }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /frd-d1f-2: D1 stale-pin guard[\s\S]*RED[\s\S]*converted into a REOPEN/), 'the conversion is logged')
+      t.ok(byLabel(run, 'apply-gate:frd-d1f-2').length === 0, 'NEVER applied over the red combination')
+      const patch = byLabel(run, 'patch:frd-d1f-2')[0]
+      t.ok(patch && /D1 stale-pin guard/.test(patch.prompt) && /TS2322/.test(patch.prompt), 'the patch is handed the re-verify failure as its finding')
+      t.ok(h.at('start:port-reviewer-tests:frd-d1f-2') >= 0 && h.at('start:port-reviewer-tests:frd-d1f-2') < h.at('start:patch:frd-d1f-2'), 'the reviewer tests were ported + sha256-pinned before the patch (BL-0184)')
+      t.ok(byLabel(run, 'verify-patch:frd-d1f-2').length === 1 && run.result && run.result.builtFrds.includes('frd-d1f-2'), 'VERIFIED only through the independent post-patch verifier')
+    },
+  })
+}
+// (f) needs-owner in slot 2 lands while slots 1 and 3 are still reviewing; they land after it.
+{
+  const h = d1Harness({ order: ['frd-d1g-2'], autoFlushAt: 3, verdicts: { 'frd-d1g-2': { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'AC-12-004 contradicts the blueprint — the owner must decide' } } })
+  const persist = h.responses.find((r) => r.prefix === 'persist-block:')
+  const inner = persist.response
+  persist.response = async (call) => { const r = await inner(call); h.flush(['frd-d1g-1', 'frd-d1g-3']); return r }
+  SCENARIOS.push({
+    name: 'D1f. parallelGates — a needs-owner BLOCK in slot 2 is persisted while slots 1 and 3 are STILL reviewing (no quiesce); 1 and 3 then land VERIFIED',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1g', 3),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(d1Slot(byLabel(run, 'gate:frd-d1g-2')[0]).endsWith('gate-worktree-2'), 'the blocking gate ran in slot 2')
+      t.ok(h.at('end:persist-block:frd-d1g-2') < h.at('result:frd-d1g-1') && h.at('end:persist-block:frd-d1g-2') < h.at('result:frd-d1g-3'), `the block landed while 1 and 3 were still in flight (timeline: ${h.tl.join(' ')})`)
+      const pb = byLabel(run, 'persist-block:frd-d1g-2')[0]
+      t.ok(pb && /No gate-worktree salvage here \(D1/.test(pb.prompt) && !/gate-worktree status --porcelain|clean -f --/.test(pb.prompt), 'persist-block never salvages/cleans a slot another gate may occupy')
+      t.ok(run.result && run.result.blockedFrds.includes('frd-d1g-2') && run.result.builtFrds.includes('frd-d1g-1') && run.result.builtFrds.includes('frd-d1g-3'), 'frd-2 BLOCKED (terminal for it); 1 and 3 VERIFIED')
+      t.ok(h.lane.max === 1, 'landings stayed serialized')
+    },
+  })
+}
+// (g) a gate that CRASHES frees its slot in `finally` (salvaged + cleaned) and the run goes on.
+{
+  const dirt = new Map()   // slot path -> Set of untracked paths (a stateful per-slot worktree model)
+  const bag = (p) => { if (!dirt.has(p)) dirt.set(p, new Set()); return dirt.get(p) }
+  const h = d1Harness({ order: ['frd-d1h-1'], autoFlushAt: 2, verdicts: { 'frd-d1h-1': { throws: 'terminal API error mid-review' } }, fallbackMs: 200, onStart: { 'frd-d1h-3': ({ flush }) => flush(['frd-d1h-2', 'frd-d1h-3']) } })
+  const gateR = h.responses[0].response
+  SCENARIOS.push({
+    name: 'D1g. parallelGates (2 slots) — a gate CRASHES in slot 1: its release still salvages + cleans the slot (finally), the queued 3rd FRD takes slot 1 while slot 2 is still reviewing, and the run completes',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2 },
+    plan: d1Resume('d1h', 3),
+    responses: [
+      { label: /^gate:/, response: (call) => { const slot = d1Slot(call); if (slot) bag(slot).add(`src/${call.label.slice(5)}/_tests/x.reviewer.test.ts`); return gateR(call) } },
+      { prefix: 'gate-worktree:', response: (call) => { const slot = (call.prompt.match(/checkout at (\S+) pinned/) || [])[1]; return bag(slot).size ? { ok: false, failure: 'gate worktree is dirty, orphaned, unregistered, or ambiguous; evidence preserved', dirty: [...bag(slot)].map((x) => `?? ${x}`) } : { ok: true, created: false } } },
+      { prefix: 'gate-release:', response: (call) => { const slot = (call.prompt.match(/finished in the gate worktree (\S+);/) || [])[1]; const salvaged = [...bag(slot)].map((x) => ({ path: x, status: 'untracked', sha256: `sha-${x}` })); bag(slot).clear(); return { salvaged, remaining: [] } } },
+      ...h.responses.slice(1),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const rel = byLabel(run, 'gate-release:frd-d1h-1')[0]
+      t.ok(rel && /gate-worktree-1;/.test(rel.prompt), 'the crashed gate\'s slot was released (finally)')
+      const g3 = byLabel(run, 'gate:frd-d1h-3')[0]
+      t.ok(g3 && d1Slot(g3).endsWith('gate-worktree-1'), 'the 3rd FRD reused slot 1 — freed by the crash, proven clean')
+      t.ok(h.at('start:frd-d1h-3') < h.at('result:frd-d1h-2'), 'it started while slot 2 was still reviewing')
+      t.ok(!hasLog(run, /dropped from the parallel pool|legacy synchronous gate path/i), 'no slot left the pool, no legacy fallback')
+      t.ok([...dirt.values()].every((b) => b.size === 0), 'every slot ends clean')
+      t.ok(run.result && ['frd-d1h-1', 'frd-d1h-2', 'frd-d1h-3'].every((f) => run.result.builtFrds.includes(f)), 'the crashed FRD recovers through the normal repair path; the run completes')
+    },
+  })
+}
+// (h) flag OFF → the C2 topology, untouched (the byte-level proof is the differential run in BL-0186).
+for (const [label, flag] of [['absent', undefined], ['false', false], ['"false" string', 'false']]) {
+  const tag = `d1i${label.length}`
+  SCENARIOS.push({
+    name: `D1h-${label}. parallelGates ${label} → single C2 worktree, one mutex chain, no D1 spawn (gate-worktree, never gate-worktree-<k>; no stale-pin/reverify)`,
+    args: { mode: 'pro', ...(flag === undefined ? {} : { parallelGates: flag }), ...(label === 'false' ? { gateSlots: 2 } : {}) },
+    plan: twoPinPlan(tag),
+    responses: [distinctCommitShas],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gates = byLabel(run, /^gate:/)
+      t.ok(gates.length === 2 && gates.every((g) => /gate-worktree /.test(g.prompt) && !/gate-worktree-\d/.test(g.prompt)), 'both gates ran in the single C2 worktree')
+      t.ok(byLabel(run, /^(gate-worktree:|stale-pin:|reverify:)/).length === 0 && byLabel(run, 'gate-worktree').length >= 1, 'only the legacy probe label; no D1 spawn')
+      t.ok(!hasLog(run, /D1: /) || (label === 'false' && hasLog(run, /ignored — args\.parallelGates is off/)), 'no D1 log (gateSlots without the flag is only reported as ignored)')
+      t.ok(run.result && run.result.builtFrds.length === 2, 'both FRDs verify')
+    },
+  })
+}
+// (i) one EXPLICIT e2e port per slot (the path hash can collide — even with main's 3900); pool size args.
+SCENARIOS.push({
+  name: 'D1i. parallelGates — each slot is bootstrapped with its OWN explicit PANDACORP_E2E_PORT (3810/3820/3830), distinct paths, label gate-worktree:<k>',
+  args: { mode: 'pro', parallelGates: true },
+  plan: d1Resume('d1j', 3),
+  responses: d1Harness({ order: ['frd-d1j-1', 'frd-d1j-2', 'frd-d1j-3'], autoFlushAt: 3 }).responses,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const probes = byLabel(run, /^gate-worktree:\d$/)
+    const ports = probes.map((c) => (c.prompt.match(/PANDACORP_E2E_PORT=(\d+) bash \.pandacorp\/worktree-bootstrap\.sh/) || [])[1])
+    const paths = probes.map((c) => (c.prompt.match(/checkout at (\S+) pinned/) || [])[1])
+    t.ok(probes.length === 3 && JSON.stringify(ports.sort()) === JSON.stringify(['3810', '3820', '3830']), `three distinct explicit ports (got ${ports.join(', ')})`)
+    t.ok(new Set(paths).size === 3 && paths.every((x) => /gate-worktree-\d$/.test(x)) && !ports.includes('3900'), 'three distinct slot paths, never main\'s 3900')
+    t.ok(probes.every((c) => (c.prompt.match(/PANDACORP_E2E_PORT=\d+ bash/g) || []).length === 2), 'the port is passed on create AND on reuse')
+    t.ok(probes.every((c) => /drops THIS gate slot/.test(c.prompt)), 'a failed slot is dropped from the pool, not the whole run')
+  },
+})
+for (const [label, extra, want, logRe] of [
+  ['gateSlots:2', { gateSlots: 2 }, 2, null],
+  ['maxParallelGates:2 (alias)', { maxParallelGates: 2 }, 2, null],
+  ['gateSlots:"abc" (invalid)', { gateSlots: 'abc' }, 3, /gateSlots='abc' is not an integer 1\.\.8 — using 3/],
+  ['gateSlots:9 (above the cap)', { gateSlots: 9 }, 3, /gateSlots='9' is not an integer 1\.\.8/],
+]) {
+  SCENARIOS.push({
+    name: `D1i-${label}. the pool has ${want} slot(s)`,
+    args: { mode: 'pro', parallelGates: true, ...extra },
+    plan: d1Resume(`d1k${want}${label.length}`, 4),
+    responses: d1Harness({ fallbackMs: 2 }).responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const slots = new Set(byLabel(run, /^gate:/).map(d1Slot))
+      t.ok(slots.size === want, `${want} distinct slots used across 4 gates (got ${[...slots].join(', ')})`)
+      if (logRe) t.ok(hasLog(run, logRe), 'the invalid value is reported loudly')
+      t.ok(run.result && run.result.builtFrds.length === 4, 'all four verify')
+    },
+  })
+}
+// (j) BL-0138 honesty: a repair rung that runs on main while another gate is still reviewing cannot trust its
+// budget.spent() delta → the FRD's token layer is switched off, LOUDLY, and nothing polluted is recorded.
+{
+  const h = d1Harness({ order: ['frd-d1l-1'], autoFlushAt: 2, verdicts: { 'frd-d1l-1': { green: false, reopen: ['wo-d1l-1'], findings: [{ wo: 'wo-d1l-1', finding: 'off-by-one at src/d1l1/x.ts:3', failingTest: 'src/d1l1/_tests/x.reviewer.test.ts', files: ['src/d1l1/x.ts'] }], failure: 'off-by-one' } } })
+  const patch = h.responses.find((r) => r.prefix === 'patch:')
+  const inner = patch.response
+  patch.response = async (call) => { const r = await inner(call); h.flush(['frd-d1l-2']); return r }
+  SCENARIOS.push({
+    name: 'D1j. parallelGates — a patch rung running while another gate reviews marks that FRD\'s repair tokens UNRELIABLE (agent-weight fallback, logged with the reason — BL-0138)',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1l', 2),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(h.at('start:patch:frd-d1l-1') < h.at('result:frd-d1l-2'), 'the patch ran while frd-2 was still in flight')
+      t.ok(hasLog(run, /frd-d1l-1: repair brake on agent-weight, usage unreliable — 1 parallel gate\(s\) were reviewing while its repair rung ran/), 'the fallback is loud and names the real reason')
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1l-1') && run.result.builtFrds.includes('frd-d1l-2'), 'both verify')
+    },
+  })
+}
+// (k) BL-0178 × D1: two gates proving drift at once read their probes from THEIR slot, and drift-proof.mjs
+// never shares a temp tree between them (its tmp root is keyed by FRD + pid + clock; each FRD its own card dir).
+{
+  const h = d1Harness({ order: ['frd-d1m-1', 'frd-d1m-2'], autoFlushAt: 2, verdicts: {
+    'frd-d1m-1': { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-d1m-1', 'REQ-71-001', 'legacy drift one')) },
+    'frd-d1m-2': { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-d1m-2', 'REQ-72-001', 'legacy drift two')) },
+  } })
+  const driftSrc = readFileSync(path.resolve(__dirname, 'drift-proof.mjs'), 'utf8')
+  SCENARIOS.push({
+    name: 'D1k. parallelGates × BL-0178 — each concurrent gate\'s differential drift proof reads ITS slot, and drift-proof.mjs keys its temp worktrees by FRD + pid + clock (no shared tmp)',
+    args: { mode: 'pro', parallelGates: true },
+    plan: d1Resume('d1m', 2),
+    responses: [
+      { prefix: 'drift-proof:frd-d1m-1', response: b178Proof({ frd: 'frd-d1m-1', wos: ['wo-d1m-1'], owned: ['REQ-71-009'], probes: [['REQ-71-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+      { prefix: 'drift-proof:frd-d1m-2', response: b178Proof({ frd: 'frd-d1m-2', wos: ['wo-d1m-2'], owned: ['REQ-72-009'], probes: [['REQ-72-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+      b178Record,
+      ...h.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const src = (f) => ((byLabel(run, `drift-proof:${f}`)[0] || { prompt: '' }).prompt.match(/--source '([^']+)'/) || [])[1]
+      t.ok(/gate-worktree-1$/.test(src('frd-d1m-1') || '') && /gate-worktree-2$/.test(src('frd-d1m-2') || ''), `each proof reads its own slot (${src('frd-d1m-1')} | ${src('frd-d1m-2')})`)
+      t.ok(/drift-proof', `\$\{o\.frd\}-\$\{process\.pid\}-\$\{Date\.now\(\)\}`/.test(driftSrc) && /gate-evidence', o\.frd, 'drift'/.test(driftSrc), 'drift-proof.mjs tmp root = <frd>-<pid>-<clock>, evidence dir per FRD — two gates never share one')
+      t.ok(byLabel(run, /^drift-record:/).length === 2 && run.result && run.result.builtFrds.length === 2, 'both drifts recorded once each; both FRDs VERIFIED')
+    },
+  })
+}
+// (l) the gates never write shared state: every gate/probe/release/evidence runs with a slot workFrom; every
+// shared-document writer (apply, persist, patch, verify, the guard) runs on MAIN with no workFrom.
+{
+  const h = d1Harness({ order: ['frd-d1n-2', 'frd-d1n-1'], autoFlushAt: 2 })
+  SCENARIOS.push({
+    name: 'D1l. parallelGates — only the landing lane writes main: gate prompts stay review-only in their slot; apply/stale-pin run on the main tree',
+    args: { mode: 'pro', parallelGates: true, gateEvidence: 'digested' },
+    plan: d1Resume('d1n', 2),
+    responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, ac: '' } }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gates = byLabel(run, /^gate:/)
+      t.ok(gates.every((g) => /gate-worktree-\d/.test(g.prompt) && /do NOT edit \.pandacorp\/status\.yaml/.test(g.prompt) && /do NOT \\`git commit\\`|do NOT `git commit`/.test(g.prompt)), 'gate prompts are review-only, in their slot')
+      const inSlot = (c) => ((c.prompt.match(/^Work from the GATE WORKTREE (\S+) /) || [])[1] || null)
+      const ev = byLabel(run, /^evidence:/)
+      t.ok(ev.length === 2 && ev.every((c) => /gate-worktree-\d$/.test(inSlot(c) || '')) && new Set(ev.map(inSlot)).size === 2, 'digested evidence is collected INLINE in each gate\'s own slot (never a prelaunch on a shared chain)')
+      t.ok(gates.every((g) => inSlot(g) === (inSlot(ev.find((e) => e.label === g.label.replace('gate:', 'evidence:'))) || 'x')), 'each gate reviews in the very slot its evidence was collected in')
+      const writers = byLabel(run, /^(apply-gate|stale-pin):/)
+      t.ok(writers.length === 4 && writers.every((c) => !inSlot(c)), 'every landing step runs on the main tree')
+      t.ok(h.lane.max === 1, 'one writer at a time')
+    },
+  })
+}
+
+// (m) landing ORDER: a dependent FRD that is gate-ready while its upstream is still BUILDING waits for the
+// upstream's gate to land first (else it could land VERIFIED on a WO the upstream's ladder later reverts).
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'D1m. parallelGates — frd-d (dep on frd-u\'s first WO) is gate-ready while frd-u still builds: its gate waits until frd-u has gated AND landed',
+    args: { mode: 'pro', parallelGates: true },
+    plan: mkPlan([
+      { frd: 'frd-d1o-u', deps: [], workOrders: [
+        mkWo('wo-d1o-u1', 'PLANNED', { frd: 'frd-d1o-u', artifacts: ['src/d1ou1/**'] }),
+        mkWo('wo-d1o-u2', 'PLANNED', { frd: 'frd-d1o-u', artifacts: ['src/d1ou2/**'], deps: ['wo-d1o-u1'] }),
+        mkWo('wo-d1o-u3', 'PLANNED', { frd: 'frd-d1o-u', artifacts: ['src/d1ou3/**'], deps: ['wo-d1o-u2'] }),
+      ] },
+      { frd: 'frd-d1o-d', deps: [], workOrders: [mkWo('wo-d1o-d1', 'PLANNED', { frd: 'frd-d1o-d', artifacts: ['src/d1od/**'], deps: ['wo-d1o-u1'] })] },
+    ]),
+    responses: [distinctCommitShas, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-d1o-d deferred: depends on frd-d1o-u, which has not gated yet/), 'the landing-order deferral is logged')
+      const buildU3 = byLabel(run, 'build:wo-d1o-u3')[0]
+      const gateD = byLabel(run, 'gate:frd-d1o-d')[0]
+      t.ok(buildU3 && gateD && gateD.index > buildU3.index, 'frd-d did not gate while frd-u was still building')
+      t.ok(h.at('start:frd-d1o-d') > h.at('end:apply-gate:frd-d1o-u'), 'frd-d gated only after frd-u landed')
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1o-u') && run.result.builtFrds.includes('frd-d1o-d'), 'both verify')
+    },
+  })
+}
+// (n) two FRDs whose WOs depend on EACH OTHER across FRDs (no WO cycle, so no cycle block): the landing-order
+// rule would wait forever — the idle path waives it for the head of the queue; they still never gate together.
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'D1n. parallelGates — mutually dependent FRDs (x2→y1, y2→x1) never deadlock: the idle path waives the landing-order rule, and they still gate one at a time',
+    args: { mode: 'pro', parallelGates: true },
+    plan: mkPlan([
+      { frd: 'frd-d1p-x', deps: [], workOrders: [mkWo('wo-d1p-x1', 'PLANNED', { frd: 'frd-d1p-x', artifacts: ['src/d1px1/**'] }), mkWo('wo-d1p-x2', 'PLANNED', { frd: 'frd-d1p-x', artifacts: ['src/d1px2/**'], deps: ['wo-d1p-y1'] })] },
+      { frd: 'frd-d1p-y', deps: [], workOrders: [mkWo('wo-d1p-y1', 'PLANNED', { frd: 'frd-d1p-y', artifacts: ['src/d1py1/**'] }), mkWo('wo-d1p-y2', 'PLANNED', { frd: 'frd-d1p-y', artifacts: ['src/d1py2/**'], deps: ['wo-d1p-x1'] })] },
+    ]),
+    responses: [distinctCommitShas, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /waiving the landing-order rule/), 'the waiver is logged')
+      const [first, second] = ['frd-d1p-x', 'frd-d1p-y'].map((f) => h.at(`start:${f}`)).sort((a, b) => a - b)
+      const firstFrd = h.tl[first].slice('start:'.length)
+      t.ok(second > h.at(`end:apply-gate:${firstFrd}`), 'the second gate started only after the first landed (never together)')
+      t.ok(!hasLog(run, /gating it on main \(legacy\)/), 'no legacy fallback was needed')
+      t.ok(run.result && run.result.builtFrds.length === 2, 'both verify')
+    },
+  })
+}
+
+// (o) an FRD a safe-point drain enrolls ALREADY gate-ready (a bug change's WO lands IN_REVIEW) carries no pin;
+// it is pinned at HEAD before a slot is probed at it — a probe at an undefined sha would cost the pool a slot.
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'D1o. parallelGates — a drained change\'s gate-ready FRD (no wave pinned it) is pinned at HEAD before it takes a slot; no slot is lost',
+    args: { mode: 'pro', parallelGates: true },
+    plan: mkPlan([{ frd: 'frd-d1q-a', deps: [], workOrders: [mkWo('wo-d1q-a1', 'PLANNED', { frd: 'frd-d1q-a', artifacts: ['src/d1qa/**'] })] }]),
+    responses: [
+      { label: 'safe-point', times: 1, response: { stop: false, ready: ['fix-login'], unblocked: [] } },
+      { label: 'process-change:fix-login', response: { done: true, affectedFrds: ['frd-d1q-new'], changeFile: 'fix-login.md' } },
+      { label: 'plan-drained:fix-login', response: { frds: [{ frd: 'frd-d1q-new', deps: [], workOrders: [mkWo('wo-d1q-n1', 'IN_REVIEW', { frd: 'frd-d1q-new', artifacts: ['src/d1qn/**'] })] }] } },
+      { prefix: 'pin:frd-d1q-new', response: { sha: 'drainpin1' } },
+      ...h.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const pin = byLabel(run, 'pin:frd-d1q-new')[0]
+      const probe = byLabel(run, /^gate-worktree:\d$/).find((c) => /drainpin1/.test(c.prompt))
+      const gate = byLabel(run, 'gate:frd-d1q-new')[0]
+      t.ok(pin && probe && gate && pin.index < probe.index && probe.index < gate.index, 'pinned, then the slot probed AT that pin, then the gate')
+      t.ok(!byLabel(run, /^gate-worktree:\d$/).some((c) => /pinned to commit undefined/.test(c.prompt)), 'no slot is ever probed at an undefined sha')
+      t.ok(!hasLog(run, /dropped from the parallel pool/), 'no slot lost')
+      t.ok(run.result && run.result.builtFrds.includes('frd-d1q-new') && run.result.builtFrds.includes('frd-d1q-a'), 'both FRDs verify')
     },
   })
 }

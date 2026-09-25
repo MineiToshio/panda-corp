@@ -7,12 +7,16 @@
 # Usage:  launch-implement.sh <project-dir> [mode] [maxAgents] [auto|new|continue-run-id]
 #           [--frds <comma-separated-frds> | --change <change>]
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
+#           [--parallel-gates [--gate-slots <1-8>]]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
 #   --ttl:     atomic lease TTL in seconds (default 3600 — BL-0153: a build phase dominated by
 #              back-to-back gate/repair attempts with no intervening safe-point can go silently
 #              unrenewed well past the historical 600s default; raise further for a targeted
 #              single-FRD/change run expected to spend most of its time inside one long gate).
+#   --parallel-gates: OPT-IN (engine args.parallelGates, default off — D1/BL-0186): up to --gate-slots FRD
+#              gates review at once, each in its own gate worktree, landing on main one at a time. Size the
+#              pool to the machine (default 3; the red-team measured 16 GB → 2). --gate-slots alone is an error.
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -20,7 +24,7 @@ set -uo pipefail
 
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
-FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"
+FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -33,6 +37,8 @@ while [ "$#" -gt 0 ]; do
     --max-frds) [ "$#" -ge 2 ] || { echo "ERROR: --max-frds requires a value." >&2; exit 3; }; MAX_FRDS="$2"; shift 2 ;;
     --max-spend) [ "$#" -ge 2 ] || { echo "ERROR: --max-spend requires a value." >&2; exit 3; }; MAX_SPEND="$2"; shift 2 ;;
     --ttl) [ "$#" -ge 2 ] || { echo "ERROR: --ttl requires a value." >&2; exit 3; }; TTL="$2"; shift 2 ;;
+    --parallel-gates) PARALLEL_GATES="1"; shift ;;
+    --gate-slots) [ "$#" -ge 2 ] || { echo "ERROR: --gate-slots requires a value." >&2; exit 3; }; GATE_SLOTS="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -43,6 +49,10 @@ for pair in "maxAgents:$MAX_AGENTS" "maxFrds:$MAX_FRDS" "maxSpend:$MAX_SPEND" "t
   [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: ${pair%%:*} must be a positive integer." >&2; exit 3; }
 done
 [ -z "$FRDS" ] || [ -z "$CHANGE" ] || { echo "ERROR: --frds and --change are mutually exclusive." >&2; exit 3; }
+if [ -n "$GATE_SLOTS" ]; then
+  [ -n "$PARALLEL_GATES" ] || { echo "ERROR: --gate-slots only applies with --parallel-gates." >&2; exit 3; }
+  [[ "$GATE_SLOTS" =~ ^[1-8]$ ]] || { echo "ERROR: --gate-slots must be an integer 1-8." >&2; exit 3; }
+fi
 if [ -n "$FRDS" ]; then
   IFS=',' read -r -a FRD_ITEMS <<< "$FRDS"
   for item in "${FRD_ITEMS[@]}"; do
@@ -123,8 +133,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents) args.maxAgents = Number(maxAgents);
 args.projectDir = projectDir;
@@ -136,6 +146,8 @@ if (frds) args.frds = frds.split(",");
 if (change) args.change = change;
 if (maxFrds) args.maxFrds = Number(maxFrds);
 if (maxSpend) args.maxSpend = Number(maxSpend);
+if (parallelGates) args.parallelGates = true;
+if (gateSlots) args.gateSlots = Number(gateSlots);
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?
