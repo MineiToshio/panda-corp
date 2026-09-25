@@ -63,7 +63,11 @@ const LABEL_STYLE: React.CSSProperties = {
   marginRight: "calc(var(--spacing, 0.25rem) * 2)",
 };
 
-/** The toggle <button> is a transparent shell; the visual pill is the shared Chip. */
+/**
+ * The toggle <button> is a transparent shell; the visual pill is the shared Chip.
+ * No maxWidth — mirrors the wo-frd-filter fix (visual QA sweep): a fixed cap clipped long
+ * labels mid-character with no ellipsis; the container already wraps via CONTAINER_STYLE.
+ */
 const TOGGLE_STYLE: React.CSSProperties = {
   display: "inline-flex",
   background: "none",
@@ -71,7 +75,6 @@ const TOGGLE_STYLE: React.CSSProperties = {
   padding: 0,
   margin: 0,
   cursor: "pointer",
-  maxWidth: "200px",
 };
 
 // ---------------------------------------------------------------------------

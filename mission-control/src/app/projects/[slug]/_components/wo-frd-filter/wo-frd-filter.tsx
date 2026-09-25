@@ -46,7 +46,12 @@ const LABEL_STYLE: React.CSSProperties = {
   marginRight: "calc(var(--spacing, 0.25rem) * 2)",
 };
 
-/** The toggle <button> is a transparent shell; the visual pill is the shared Chip. */
+/**
+ * The toggle <button> is a transparent shell; the visual pill is the shared Chip.
+ * No maxWidth: the prototype's `.chip` (index.html L72) never caps pill width, and a fixed
+ * 200px clipped long FRD slugs (e.g. "frd-23-materialized-stats-read-model") mid-character
+ * with no ellipsis — the container already wraps via CONTAINER_STYLE's flexWrap.
+ */
 const TOGGLE_STYLE: React.CSSProperties = {
   display: "inline-flex",
   background: "none",
@@ -54,7 +59,6 @@ const TOGGLE_STYLE: React.CSSProperties = {
   padding: 0,
   margin: 0,
   cursor: "pointer",
-  maxWidth: "200px",
 };
 
 // ---------------------------------------------------------------------------
