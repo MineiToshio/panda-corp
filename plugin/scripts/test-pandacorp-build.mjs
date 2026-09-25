@@ -152,6 +152,7 @@ function defaultResponse(label) {
   if (label.startsWith('block-repair-budget:')) return { green: false, blocked_reason: 'needs-owner' } // WP-08 cost-brake honest exit (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
+  if (label.startsWith('gate-change-wos:')) return { results: label.slice('gate-change-wos:'.length).split('+').filter(Boolean).map((frd) => ({ frd, gated: true })) } // BL-0171: happy-path default — every FRD the change touched passes the DR-100 readiness/grounding/consistency gate
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
   if (label === 'close-out-verify-reuse-check') return { canReuse: false, reason: 'no-report' } // BL-0147: safe default — the full rerun happens exactly as pre-BL-0147 unless a scenario scripts a fresh full-green report
   if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
@@ -219,6 +220,7 @@ async function runEngine(scenario) {
 const mkWo = (id, status, extra = {}) => ({
   id,
   status,
+  docStatus: extra.docStatus,   // BL-0171: the LITERAL `status:` (DRAFT|ACTIVE) frontmatter field — distinct from `status` above (implementation_status). undefined by default (pre-BL-0171 fixtures, treated as buildable).
   path: extra.path || `docs/frds/${extra.frd || 'frd-x'}/work-orders/${id}.md`,
   deps: extra.deps || [],
   artifacts: extra.artifacts,
@@ -4317,6 +4319,185 @@ SCENARIOS.push({
     const precheck = byLabel(run, 'baseline-precheck')[0]
     t.ok(Boolean(precheck), 'the pre-check spawned')
     t.ok(/BARE path/.test(precheck.prompt) && /XY status code/.test(precheck.prompt) && /STRIPPED/.test(precheck.prompt), 'the STEP 3 prompt spells out the bare-path requirement with the XY-status-code example, not just "exactly as printed"')
+  },
+})
+
+// ---- BL-0171 ----
+// Canary D (canary-d-wave-investigation.md, 2026-09-25): processChange() creates/updates FRDs+WOs via
+// its own iterate/bug logic, born `status: DRAFT` (the work-order template default) with none of the
+// DR-100 readiness/grounding/consistency stamps /pandacorp:architecture's own step 9/9b/9b2 requires — a
+// LATER relaunch's preflight (preflight-implement.sh §3/§5) refuses an un-gated DRAFT WO, but the FIRST
+// launch (the SAME run that just created them) had no such check and built them straight away. These
+// scenarios lock in the fix: a FRESH judge-tier gate (gateChangeWorkOrders) now runs between
+// processChange and any scheduling, and the engine itself (enrollFrd) refuses a still-DRAFT WO no matter
+// which path let it reach the plan.
+SCENARIOS.push({
+  name: 'BL-0171a. change gate FAILS — the change-created FRD is left DRAFT, NOT built this run, and the engine reports it needs-owner instead of silently scheduling an ungated WO',
+  args: { mode: 'pro', change: 'chg-bl0171' },
+  responses: [
+    { label: /^process-change:/, response: { done: true, affectedFrds: ['frd-bl0171-gate'], changeFile: 'chg-bl0171.md' } },
+    { label: /^gate-change-wos:/, response: { results: [{ frd: 'frd-bl0171-gate', gated: false, failure: 'AC-01-002 sin cobertura de ningún WO' }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, /^gate-change-wos:/)[0]
+    t.ok(Boolean(gate), 'the fresh DR-100 gate agent ran for the change-created FRD')
+    t.ok(gate && gate.opts.agentType === 'pandacorp:architect', 'the gate runs as a FRESH architect-tier agent, never processChange\'s own author (self-certification, constitution rule 4)')
+    t.ok(hasLog(run, /frd-bl0171-gate.*did NOT pass the DR-100/), 'the engine logs clearly WHICH FRD failed the gate and why it is not building this run')
+    t.ok(byLabel(run, 'plan').length === 0, 'the engine never even reaches the planner — an ungated change is never scheduled/built THIS run (the canary-d bug)')
+    t.ok(byLabel(run, /^dispatch:/).length === 0, 'no wave ever dispatches the ungated work order')
+    t.ok(run.result && run.result.blockedFrds && run.result.blockedFrds.length === 0, 'the pre-loop bail returns the standard "change not processed" shape (WS-D/D3), same contract as any other unprocessable change')
+    t.ok(run.result && /no procesada/.test(run.result.note || ''), 'the run honestly reports the change as not processed, not as silently skipped')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0171b. change gate PASSES — a fresh architect-tier DR-100 gate runs (readiness+grounding+consistency), and the gated FRD builds normally this run',
+  args: { mode: 'pro', change: 'chg-bl0171-ok' },
+  plan: mkPlan([{
+    frd: 'frd-bl0171-ok',
+    deps: [],
+    workOrders: [mkWo('wo-bl0171-ok-001', 'PLANNED', { frd: 'frd-bl0171-ok', artifacts: ['src/bl0171/**'] })],
+  }]),
+  responses: [
+    { label: /^process-change:/, response: { done: true, affectedFrds: ['frd-bl0171-ok'], changeFile: 'chg-bl0171-ok.md' } },
+    // gate-change-wos left UNSCRIPTED on purpose — exercises the harness's own happy-path DEFAULT
+    // response (gated:true for every FRD named in the label), proving the default matches production's
+    // "everything greens" shape and every pre-existing change-drain scenario keeps working unmodified.
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, /^gate-change-wos:/)[0]
+    t.ok(Boolean(gate) && gate.label === 'gate-change-wos:frd-bl0171-ok', 'the gate runs, scoped to exactly the FRD folder(s) the change touched')
+    t.ok(/READINESS/.test(gate.prompt) && /GROUNDING/.test(gate.prompt) && /CONSISTENCY/.test(gate.prompt), 'the gate prompt asserts all three DR-100 dimensions, mirroring architecture step 9/9b/9b-consistency')
+    t.ok(/DRAFT.*ACTIVE/.test(gate.prompt), 'the gate prompt instructs the DRAFT→ACTIVE flip + evidence stamp on a pass, mirroring architecture step 9b2')
+    t.ok(byLabel(run, 'plan').length === 1, 'a gated change proceeds into planning/build normally this run')
+    t.ok(byLabel(run, /^dispatch:/).length >= 1, 'the now-ACTIVE FRD actually gets dispatched/built this run')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0171c. defense-in-depth — a WO whose plan entry reports docStatus: DRAFT is refused by the engine itself (enrollFrd), even OUTSIDE the change-gate path, and the FRD surfaces as needs-owner instead of vanishing silently',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bl0171-draft',
+    deps: [],
+    workOrders: [mkWo('wo-bl0171-draft-001', 'PLANNED', { frd: 'frd-bl0171-draft', artifacts: ['src/bl0171d/**'], docStatus: 'DRAFT' })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /frd-bl0171-draft.*still `status: DRAFT`/), 'the engine logs the refusal clearly, naming the WO and the FRD, and pointing back to /pandacorp:architecture')
+    t.ok(byLabel(run, /^dispatch:/).length === 0, 'the DRAFT WO is never dispatched')
+    t.ok(byLabel(run, /^(build|selftest):/).length === 0, 'no builder agent ever spawns for an ungated WO')
+    t.ok(run.result && run.result.blockedFrds && run.result.blockedFrds.includes('frd-bl0171-draft'), 'the FRD surfaces as blocked (needs-owner) rather than silently reporting "0 to build" with no attribution')
+    t.ok(run.result && run.result.blockedReasons && run.result.blockedReasons['frd-bl0171-draft'] === 'needs-owner', 'the block reason is needs-owner (route back to /pandacorp:architecture), never a generic error')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0171d. control — a WO with docStatus: ACTIVE (or no docStatus at all, the pre-BL-0171 legacy shape) builds normally; the defense-in-depth filter never widens beyond a literal DRAFT',
+  args: { mode: 'pro' },
+  plan: mkPlan([{
+    frd: 'frd-bl0171-active',
+    deps: [],
+    workOrders: [
+      mkWo('wo-bl0171-active-001', 'PLANNED', { frd: 'frd-bl0171-active', artifacts: ['src/bl0171a/**'], docStatus: 'ACTIVE' }),
+      mkWo('wo-bl0171-active-002', 'PLANNED', { frd: 'frd-bl0171-active', artifacts: ['src/bl0171a2/**'] }),   // no docStatus at all — legacy WO
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!hasLog(run, /still `status: DRAFT`/), 'no refusal fires for an ACTIVE or unset docStatus')
+    t.ok(byLabel(run, /^dispatch:/).length >= 1, 'both work orders are dispatched normally')
+  },
+})
+
+// ---- BL-0172 ----
+// Canary D also left docs/frds/*/frd.md and blueprint.md dirty, UNCOMMITTED, after a partial-close run:
+// notify-end runs ${SYNC_ROLLUPS} (which rewrites those rollup documents DIRECTLY ON DISK, never through
+// git — see syncRollupsUnlocked in plugin/runtime/build-state.mjs) but its only LATER staging
+// instruction is ${RELEASE_LEASE}, whose own text is a literal "stage ONLY .pandacorp/status.yaml" —
+// silently starving the rollup-doc commit. These scenarios lock in the fix: a dedicated commit
+// instruction now sits between sync-rollups and RELEASE_LEASE in both the lean and legacy notify-end
+// prompts.
+SCENARIOS.push({
+  name: 'BL-0172a. notify-end (lean, partial close) commits the rollup docs sync-rollups just rewrote, in their OWN commit, BEFORE RELEASE_LEASE\'s status.yaml-only commit',
+  args: { mode: 'pro', maxAgents: 1 },   // forces an immediate agents-ceiling stop → the partial notify-end path, never the full release close-out
+  plan: mkPlan([{ frd: 'frd-bl0172', deps: [], workOrders: [mkWo('wo-bl0172-001', 'PLANNED', { frd: 'frd-bl0172', artifacts: ['src/bl0172/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(Boolean(end), 'notify-end ran (the partial-close path — maxAgents:1 guarantees stopReason=\'agents\')')
+    const syncIdx = end.prompt.indexOf('sync-rollups')
+    const commitIdx = end.prompt.indexOf('stage ONLY those rollup documents')
+    const releaseLeaseIdx = end.prompt.indexOf('quiesce Claude build lease')
+    t.ok(syncIdx >= 0, 'notify-end still runs the governed sync-rollups writer (BL-0159)')
+    t.ok(commitIdx >= 0 && commitIdx > syncIdx, 'BL-0172: a dedicated rollup-doc commit instruction now immediately follows the sync-rollups call')
+    t.ok(releaseLeaseIdx >= 0 && releaseLeaseIdx > commitIdx, 'the rollup-doc commit happens BEFORE RELEASE_LEASE\'s own status.yaml-only commit — RELEASE_LEASE\'s literal "stage ONLY .pandacorp/status.yaml" can no longer starve it')
+    t.ok(/frd\.md or blueprint\.md/.test(end.prompt), 'the new instruction names the exact rollup documents to stage (docs/frds/*/frd.md, blueprint.md)')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0172b. legacy notify-end (args.leanCloseOut:false) partial close ALSO gets the dedicated rollup-doc commit instruction right after sync-rollups',
+  args: { mode: 'pro', maxAgents: 1, leanCloseOut: false },
+  plan: mkPlan([{ frd: 'frd-bl0172b', deps: [], workOrders: [mkWo('wo-bl0172b-001', 'PLANNED', { frd: 'frd-bl0172b', artifacts: ['src/bl0172b/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(Boolean(end), 'legacy notify-end ran')
+    const syncIdx = end.prompt.indexOf('sync-rollups')
+    const commitIdx = end.prompt.indexOf('stage ONLY those rollup documents')
+    t.ok(syncIdx >= 0 && commitIdx >= 0 && commitIdx > syncIdx, 'BL-0172: the legacy notify-end path also stages+commits the rollup docs right after sync-rollups, not left for a later status.yaml-only commit to silently skip')
+  },
+})
+
+// ---- BL-0173 ----
+// Canary D measured maxAgents:8, agentSpawned:11 BEFORE the first wave was even picked (process-change +
+// plan + safe-point + foundation-gate overhead, opus-weighted) — remainingAgents collapsed to
+// Math.max(1, 8-11)=1, and pickDisjointWave's own anti-deadlock floor admitted exactly 1 of 4 ready,
+// disjoint WOs. The deferred-reason label for the other 3 was the SAME generic '(blocked:wave-cap)' a
+// real P.wave count-cap or dependency stall would print — indistinguishable without reconstructing the
+// cause by hand from the journal. This scenario replicates the report's own PROJECTED next-run shape
+// (§3: precheck(1)+plan(3)+safe-point(1)+foundation-gate(3)=8, no process-change) and locks in the fix:
+// pickDisjointWave now reports WHY it cut short, and the engine logs it loudly + labels deferred WOs
+// accordingly.
+SCENARIOS.push({
+  name: 'BL-0173. a wave collapsed to 1 WO by pre-wave AGENT-BUDGET overhead is now distinguishable from a real count-cap/dependency cut — replica of the canary-d projected-next-run shape (maxAgents:8, 3 disjoint ready WOs, only 1 fits the remaining budget)',
+  args: { mode: 'powerful', maxAgents: 8 },
+  plan: mkPlan([
+    { frd: 'frd-bl0173-a', deps: [], workOrders: [mkWo('wo-bl0173-a-001', 'PLANNED', { frd: 'frd-bl0173-a', artifacts: ['src/components/bl0173/A.tsx'] })] },
+    { frd: 'frd-bl0173-b', deps: [], workOrders: [mkWo('wo-bl0173-b-001', 'PLANNED', { frd: 'frd-bl0173-b', artifacts: ['src/components/bl0173/B.tsx'] })] },
+    { frd: 'frd-bl0173-c', deps: [], workOrders: [mkWo('wo-bl0173-c-001', 'PLANNED', { frd: 'frd-bl0173-c', artifacts: ['src/components/bl0173/C.tsx'] })] },
+  ], { hasFrontend: true }),
+  responses: [
+    // BL-0124 fast path (leasedStatusOnly) — no judge-baseline spawn, matching the report's own §3
+    // overhead arithmetic exactly (precheck 1 + plan 3 + safe-point 1 + foundation-gate 3 = 8).
+    { label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /⚒ wave: 1 WO\(s\)/), 'the wave collapses to exactly 1 of the 3 ready, disjoint WOs — reproducing the canary-d shape')
+    t.ok(hasLog(run, /⚠ oleada reducida a 1 WO por presupuesto de agentes agotado/), 'BL-0173: the engine now names the REAL reason — agent-budget exhaustion, never a silent, indistinguishable wave-cap')
+    t.ok(hasLog(run, /remainingAgents=1/), 'the warning names the exact remaining-budget figure that forced the collapse')
+    t.ok(hasLog(run, /Esto NO es un recorte por dependencias\/artefactos\/tope de conteo/), 'the warning explicitly rules out the other, already-documented cut reasons (deps/artifacts/P.wave)')
+    t.ok(hasLog(run, /↻ deferred:.*\(blocked:agent-budget\)/), 'the two deferred-but-ready WOs are labeled agent-budget, not the generic wave-cap label the report found indistinguishable from a real stall')
+    t.ok(!hasLog(run, /\(blocked:wave-cap\)/), 'no deferred WO is mislabeled wave-cap when the true cause is the agent budget, not the mode\'s P.wave count-cap')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0173 control. a real P.wave COUNT-cap cut still labels its deferred WOs wave-cap, unchanged (WP-09\'s own scenario, re-asserted here as the sibling-audit control for BL-0173)',
+  args: { mode: 'pro' },   // P.wave=2, no maxAgents ceiling — this run's cut can ONLY be the count cap
+  plan: mkPlan([{
+    frd: 'frd-bl0173-ctrl',
+    deps: [],
+    workOrders: [
+      mkWo('wo-bl0173-ctrl-001', 'PLANNED', { frd: 'frd-bl0173-ctrl', artifacts: ['src/bl0173ctrl/a/**'] }),
+      mkWo('wo-bl0173-ctrl-002', 'PLANNED', { frd: 'frd-bl0173-ctrl', artifacts: ['src/bl0173ctrl/b/**'] }),
+      mkWo('wo-bl0173-ctrl-003', 'PLANNED', { frd: 'frd-bl0173-ctrl', artifacts: ['src/bl0173ctrl/c/**'] }),
+    ],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /⚒ wave: 2 WO\(s\)/), 'P.wave=2 caps the wave at 2, not 1 — the agent-budget floor never applies here (no maxAgents)')
+    t.ok(hasLog(run, /↻ deferred:.*\(blocked:wave-cap\)/), 'the 3rd disjoint, ready WO is still labeled wave-cap — the count-cap label is UNCHANGED by the BL-0173 fix')
+    t.ok(!hasLog(run, /oleada reducida a 1 WO por presupuesto de agentes/), 'the new agent-budget warning never fires for a genuine count-cap cut')
   },
 })
 

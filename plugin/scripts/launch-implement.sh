@@ -159,4 +159,22 @@ echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
 [ -z "$MAX_AGENTS" ] && echo "  WARNING: no maxAgents given — an OVERNIGHT run MUST pass one (the real guardrail)."
+# BL-0173 (canary-d, 2026-09-25): maxAgents is the run's TOTAL cost-weighted spend budget, never a
+# concurrency/wave-width knob (see this file's own header + plugin/skills/implement/SKILL.md's DR-050
+# table) — but the FIXED pre-wave overhead (baseline precheck + plan + the first wave's own safe-point +
+# a UI build's foundation-gate, each judge-tier spawn opus-weighted x3) can by itself reach ~8-11 units
+# BEFORE the first wave is ever picked, and a targeted `--change` run adds ~3 more (its own process-
+# change spawn). With `powerful` mode's own wave width of 8, a maxAgents below that overhead collapses
+# the FIRST wave to exactly 1 WO regardless of how many are really ready and disjoint — silently, unless
+# the owner already knows to read the engine's own "reducida a 1 WO por presupuesto de agentes agotado"
+# log line. Warn about it HERE, before the run even starts, for `powerful` mode specifically (its
+# highest wave width makes the mismatch worst) when the given ceiling is below the floor.
+if [ "$MODE" = "powerful" ] && [ -n "$MAX_AGENTS" ] && [ "$MAX_AGENTS" -lt 15 ]; then
+  echo "  WARNING: maxAgents=$MAX_AGENTS is a TOTAL run budget, NOT concurrency — powerful mode's own fixed"
+  echo "  pre-wave overhead (baseline+plan+safe-point+foundation-gate, opus-weighted) alone can reach ~8-11"
+  echo "  units before the first wave is even picked (~11-14 if this is a --change run). With < 15, the"
+  echo "  FIRST wave will likely collapse to exactly 1 WO no matter how many are really ready and disjoint"
+  echo "  (BL-0173) — raise maxAgents, or expect and read the engine's own 'oleada reducida a 1 WO por"
+  echo "  presupuesto de agentes agotado' log line rather than mis-reading it as a dependency stall."
+fi
 exit 0

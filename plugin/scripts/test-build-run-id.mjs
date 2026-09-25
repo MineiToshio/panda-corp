@@ -129,6 +129,27 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   ok(rejected && !leaseExists && /^running: false$/m.test(status), "post-acquire Workflow serialization failure releases the fenced lease");
   await rm(root, { recursive: true });
 }
+{
+  // BL-0173 (canary-d): maxAgents at/below powerful mode's own fixed pre-wave overhead (~8-11 units,
+  // process-change+plan+safe-point+foundation-gate, opus-weighted) silently collapses the first wave to
+  // exactly 1 WO. launch-implement.sh now warns about it BEFORE the run even starts.
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "8"]);
+  ok(/maxAgents=8 is a TOTAL run budget, NOT concurrency/.test(launched.stdout), "BL-0173: powerful mode below the ~15 pre-wave-overhead floor warns that the first wave will likely collapse to 1 WO");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "20"]);
+  ok(!/TOTAL run budget, NOT concurrency/.test(launched.stdout), "BL-0173 control: powerful mode at/above the floor prints no agent-budget warning");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "pro", "8"]);
+  ok(!/TOTAL run budget, NOT concurrency/.test(launched.stdout), "BL-0173 control: a non-powerful mode never prints the powerful-specific warning, even below 15");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
 const repo = path.resolve(path.dirname(resolver), "../..");
 const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
 ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");

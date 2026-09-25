@@ -246,6 +246,18 @@ const TRACK_PATH = PROJECT_DIR === '.' ? '.pandacorp/track.jsonl' : `${PROJECT_D
 const WORK_FROM = PROJECT_DIR === '.' ? '' : `Work from the project root ${PROJECT_DIR} — cd there FIRST; every relative path below is relative to it.\n`
 // GENERATED from plugin/runtime/prompts/sync-rollups.md — do not hand-edit this fragment.
 const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE_CLI_COMMAND}} sync-rollups --project \"{{PROJECT_DIR}}\" --token \"{{LEASE_TOKEN}}\" --epoch \"{{LEASE_EPOCH}}\"`. Do not edit FRD/blueprint rollups or work-order counters yourself. The command re-derives them from work-order frontmatter, advances producer freshness, validates the lease fence inside the mutation mutex, and fails closed. Return its JSON `corrected` value.".replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))
+// BL-0172: SYNC_ROLLUPS's own text only ever asks for the governed CLI write itself — the command
+// rewrites docs/frds/*/frd.md and blueprint.md DIRECTLY ON DISK (see syncRollupsUnlocked in
+// plugin/runtime/build-state.mjs), never through git. Every call site is responsible for staging+
+// committing THAT mutation itself. Most already do, folded into one broader "stage X, Y, Z and commit"
+// sentence a few words later — but the notify-end/partial-close prompts' only LATER staging instruction
+// is RELEASE_LEASE, whose own text is a literal "stage ONLY .pandacorp/status.yaml" (line below): that
+// silently starves the rollup-doc commit THIS same prompt just asked sync-rollups for, leaving
+// frd.md/blueprint.md dirty, uncommitted, after the run ends (canary-d evidence, BL-0172 — work_orders_
+// in_review already reflected the new rollup in status.yaml, but the tracked frd.md/blueprint.md that
+// same command rewrote never made it into a commit). Appended right after ${SYNC_ROLLUPS} wherever no
+// broader commit sentence already covers it.
+const SYNC_ROLLUPS_COMMIT = ' If that command changed any docs/frds/*/frd.md or blueprint.md on disk, stage ONLY those rollup documents and commit them right now, as their OWN commit (Conventional Commits, scope) — BEFORE anything else below.'
 // GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
 const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. **The inventory needs at least one entry for EACH of the 7 contract classes** (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion): a numbered REQ-NN-MMM requirement is its OWN `requirement` entry, distinct from the acceptance-criterion entries that verify it — do not cover a requirement only through its ACs and skip the `requirement` entry. If a class genuinely does not apply to this FRD, add a `not-applicable` entry for it with `tests: []` instead of omitting the class — an omitted class is itself RED even when every other class is complete. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
@@ -636,6 +648,7 @@ const PLAN_SCHEMA = {
               properties: {
                 id: { type: 'string' },
                 status: { type: 'string', description: 'implementation_status from the WO frontmatter' },
+                docStatus: { type: 'string', description: "BL-0171 defense-in-depth: the LITERAL `status:` frontmatter field on the WO file (DRAFT|ACTIVE) — DR-100's gating field, DISTINCT from `status` above (which is really `implementation_status`). Omit/leave empty when the WO has no `status:` line at all (a legacy WO predating this field defaults to buildable, matching preflight-implement.sh's own grep). The engine refuses to schedule a WO whose docStatus is literally DRAFT — never built un-gated, even if some other path let it reach the plan." },
                 path: { type: 'string', description: 'repo-relative path of this work-order markdown file, e.g. docs/frds/frd-03-x/work-orders/wo-03-001-y.md — injected into the builder prompt so the agent opens THE file instead of hunting for it (DR-108)' },
                 acText: { type: 'string', description: "DR-108 context pack: the FRD's EARS acceptance-criteria lines that THIS work order must satisfy, copied VERBATIM from frd.md (only the ACs this WO owns per the Build Plan — bounded, not the whole FRD). Injected into the builder + test-writer prompts so the first attempt builds against the REAL AC scope instead of a one-line summary (first-attempt gate failures were the top rework cause)." },
                 difficulty: { type: 'string', description: 'low|medium|high from the WO frontmatter (default medium). high → built on opus a-priori (DR-073 HYBRID)' },
@@ -901,6 +914,31 @@ const PROCESS_CHANGE_SCHEMA = {
     failure: { type: 'string' },
   },
 }
+// BL-0171: processChange's own agent is the AUTHOR of the FRDs/WOs it just created/updated — grading its
+// own plan is exactly the self-certification the constitution (rule 4) and /pandacorp:architecture's own
+// step 9 forbid. A work order the work-order template births `status: DRAFT` and a brand-new blueprint.md
+// carries none of the DR-100 readiness/grounding/consistency stamps until a FRESH reviewer runs the SAME
+// evidence contract architecture's step 9/9b/9b2 requires before the DRAFT→ACTIVE flip. Without this gate
+// the engine would schedule and BUILD an ungated WO in THIS SAME run (canary-d, 2026-09-25): the launch-
+// time preflight (plugin/scripts/preflight-implement.sh §3/§5) only ever catches a DRAFT WO/blueprint on a
+// LATER relaunch, once the change already created them on disk. This schema is the FRESH gate's verdict,
+// one entry per affected FRD folder.
+const CHANGE_GATE_SCHEMA = {
+  type: 'object', required: ['results'],
+  properties: {
+    results: {
+      type: 'array',
+      items: {
+        type: 'object', required: ['frd', 'gated'],
+        properties: {
+          frd: { type: 'string', description: 'the FRD folder graded (one of the affected FRDs passed in)' },
+          gated: { type: 'boolean', description: 'true iff every DRAFT work order this change added/touched in this FRD passed readiness+grounding+consistency AND was stamped/flipped to ACTIVE in this same call' },
+          failure: { type: 'string', description: 'what failed and what the owner/architect must fix, when gated is false — nothing was changed on disk for this FRD' },
+        },
+      },
+    },
+  },
+}
 // DR-057 (extended) foundation-completeness gate: the foundation = the UNION of EVERY shared
 // primitive any UI surface's mock/fdd references; it must be COMPLETE + green BEFORE surfaces fan out.
 const FOUNDATION_SCHEMA = {
@@ -1011,6 +1049,50 @@ log('Baseline green — planning by FRD.')
 const integratedChanges = []   // { file, frds } — every change this run integrated; archived at close-out when its FRDs verify
 const drainedThisRun = new Set()   // WS-D/D9: slugs the safe-point drain already integrated THIS run — a backstop so a
 // change whose `building` stamp failed to land can't be re-drained in a loop (each safe point re-lists the queue)
+
+// BL-0171: a FRESH, INDEPENDENT judge-tier gate over what processChange just created/updated — never the
+// SAME agent that authored it (self-certification, constitution rule 4). Runs the SAME evidence contract
+// /pandacorp:architecture's step 9/9b/9b2 requires before a blueprint/work-order may leave `status: DRAFT`
+// (readiness + repo-grounding + cross-doc consistency), scoped to the delta a change actually touches —
+// architecture's own three PARALLEL fresh-context gates are proportionate to a brand-new multi-WO FRD
+// surface; a change is typically one FRD/one WO, so ONE fresh judge pass covering all three dimensions is
+// the right-sized equivalent (still a genuinely independent reviewer, still the same fail-closed default,
+// still the same DR-100 stamp — just not fanned out into 3 separate spawns for a 1-WO delta). On PASS it
+// stamps the evidence AND flips DRAFT→ACTIVE itself, in the SAME call (mirrors architecture 9b2 exactly);
+// on FAIL it changes nothing — the DRAFT stays DRAFT, never built.
+async function gateChangeWorkOrders(affectedFrds, phaseTitle) {
+  agentSpawned += COST(P.judge)
+  const gate = await agent(
+    `You are a FRESH, INDEPENDENT reviewer running the Pandacorp DR-100 readiness gate — the SAME evidence contract /pandacorp:architecture's step 9/9b/9b2 requires before a blueprint/work-order may leave \`status: DRAFT\` (see plugin/skills/architecture/SKILL.md). You did NOT write these documents; grade them as an outside reviewer would, fail-closed.
+
+For EACH of these FRD folders: ${affectedFrds.join(', ')}
+1. Read its frd.md, blueprint.md and every work-orders/wo-*.md whose frontmatter is \`status: DRAFT\` (a WO already \`status: ACTIVE\` from a prior gate is NOT yours to re-grade — leave it untouched).
+2. READINESS (mirrors architecture step 9): every REQ/AC this change touches maps to a component; the new/updated DRAFT work order(s) are each covered unambiguously; the data model has no \`TBD\`; \`dependsOn\`/intra-FRD deps are acyclic and complete; each DRAFT WO's \`artifacts:\` globs don't overlap a SIBLING work order's; no \`[NEEDS CLARIFICATION]\` survives anywhere this change touched; if a DRAFT WO is backend and materializes an API contract, its \`docs/api/<wo-id>.md\` ownership is clear.
+3. GROUNDING (mirrors architecture step 9b): every file path, import and API each DRAFT WO's spec references actually exists (or is genuinely new and declared as such) — no invented symbol/path.
+4. CONSISTENCY (mirrors architecture step 9b-consistency): the new/updated content does not contradict an EXISTING ACTIVE/VERIFIED FRD, blueprint or ADR elsewhere in the project.
+5. If ALL THREE pass for this FRD's DRAFT work order(s): stamp evidence and flip status, in ONE commit per FRD (Conventional Commits, scope = the FRD slug):
+   - Every DRAFT work-orders/wo-*.md you gated → frontmatter \`status: DRAFT\` → \`status: ACTIVE\`.
+   - Its blueprint.md: if its frontmatter is STILL \`status: DRAFT\` (a brand-new FRD this change created), flip \`status: DRAFT\` → \`status: ACTIVE\` and ADD \`readiness_gate: passed <today YYYY-MM-DD>\`, \`grounding_gate: passed <today YYYY-MM-DD>\`, \`consistency_gate: passed <today YYYY-MM-DD>\`. If the blueprint is ALREADY \`status: ACTIVE\` (a change that only added a WO to an existing gated FRD), leave its status/stamps exactly as they are — only the new WO's own \`status:\` flips.
+   Return { frd, gated: true } for this FRD.
+6. If ANY of the three checks fails: change NOTHING for this FRD (every DRAFT WO and the blueprint stay exactly as they are — DRAFT stays DRAFT, never built), and return { frd, gated: false, failure: '<what failed and what the owner/architect must fix>' }.
+Return { results: [{ frd, gated, failure? }, ...] } — one entry per FRD folder listed above, in the same order.${NOTIFY('Verificando el readiness gate (DR-100) de la change')}`,
+    { label: `gate-change-wos:${affectedFrds.join('+')}`, phase: phaseTitle, model: P.judge, agentType: 'pandacorp:architect', schema: CHANGE_GATE_SCHEMA },
+  )
+  // Fail-closed: a null/garbled verdict is NOT "gated" for anything — never swallow a dead gate agent
+  // into a silent empty affectedFrds (error-handling.md: never swallow an error).
+  if (!gate || !Array.isArray(gate.results)) {
+    return { gatedFrds: [], failures: affectedFrds.map((frd) => ({ frd, failure: 'gate-change-wos returned no verdict (dead/garbled agent) — treating as NOT gated' })) }
+  }
+  const gatedFrds = gate.results.filter((r) => r && r.gated === true).map((r) => r.frd)
+  // Any affected FRD the gate's own results never mentioned is ALSO not gated (fail-closed default —
+  // an agent that forgot an FRD must not silently pass it).
+  const failures = affectedFrds.filter((frd) => !gatedFrds.includes(frd)).map((frd) => {
+    const r = gate.results.find((x) => x && x.frd === frd)
+    return { frd, failure: (r && r.failure) || 'gate-change-wos did not report this FRD as gated' }
+  })
+  return { gatedFrds, failures }
+}
+
 async function processChange(slug, phaseTitle) {
   agentSpawned += COST(P.judge)
   const proc = await agent(
@@ -1027,7 +1109,12 @@ async function processChange(slug, phaseTitle) {
     { label: `process-change:${slug}`, phase: phaseTitle, model: P.judge, agentType: 'pandacorp:implementer', schema: PROCESS_CHANGE_SCHEMA },
   )
   if (proc && proc.done === true && proc.affectedFrds && proc.affectedFrds.length) {
-    integratedChanges.push({ file: proc.changeFile || `${slug}.md`, frds: proc.affectedFrds })
+    // BL-0171: gate what processChange just created/updated (a FRESH agent, never its own author) BEFORE
+    // any of its FRDs may be scheduled/built this run — see gateChangeWorkOrders above for why.
+    const { gatedFrds, failures } = await gateChangeWorkOrders(proc.affectedFrds, phaseTitle)
+    for (const f of failures) log(`⊘ ${f.frd}: work order(s) from change '${proc.changeFile || slug}' did NOT pass the DR-100 readiness/grounding/consistency gate — left DRAFT, NOT built this run (needs-owner)${f.failure ? ': ' + f.failure : ''}.`)
+    proc.affectedFrds = gatedFrds
+    if (gatedFrds.length) integratedChanges.push({ file: proc.changeFile || `${slug}.md`, frds: gatedFrds })
   }
   return proc
 }
@@ -1051,11 +1138,12 @@ async function runPlanner(label) {
   agentSpawned += COST(P.judge)   // DR-070/DR-073: weighted — the planner runs on the judge model
   return await agent(
     `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
-  - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title, **\`difficulty\`** (low|medium|high, default medium) and **\`reopen_count\`** (number, default 0) — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
+  - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title, **\`difficulty\`** (low|medium|high, default medium), **\`reopen_count\`** (number, default 0) and **the LITERAL \`status:\` field** (DRAFT|ACTIVE — DR-100's gating field, distinct from \`implementation_status\`; absent when the WO predates this field) — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
+  - **DR-100 gating (BL-0171 defense-in-depth):** a WO whose LITERAL \`status:\` frontmatter reads \`DRAFT\` never passed the readiness/grounding/consistency gate (/pandacorp:architecture step 9b2) — report it via \`docStatus\` below EXACTLY as it reads on disk; the engine itself refuses to schedule it. Do not silently promote or omit it.
   - docs/product/architecture.md → the platform stack.
   - **FOUNDATION (DR-057, web only): read docs/design/components.md** (the shared-component inventory) and skim every FRD's \`mocks/\`/\`fdd.md\` to grasp the COMPLETE set of shared primitives the surfaces reference. The foundation work orders must build the UNION of those primitives — not a hand-picked subset (the gap that shipped flat Party surfaces: Room/AgentSprite/etc. were never in the foundation). Mark \`foundation: true\` on EVERY WO that builds a shared primitive the inventory lists, so the engine builds them all before surfaces fan out.
-  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, **\`path\` (the WO file's repo-relative path — DR-108, the builder opens THE file instead of hunting)**, **\`acText\` (DR-108 CONTEXT PACK — copy VERBATIM from frd.md the EARS acceptance-criteria lines THIS work order owns per the Build Plan; bounded to its own ACs, never the whole FRD. You are the ONLY agent that reads frd.md in full — this hand-off is what lets each builder construct against the real AC scope on the FIRST attempt instead of a one-line summary)**, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**, and **\`priorAttempts\` (A4 CROSS-PASS LEARNING) — if \`${JOURNAL_PATH}\` EXISTS, read it and, for EACH WO, synthesize a BOUNDED digest (the last 2 relevant entries) of what earlier attempts tried and why they did not hold: \`[{ attempt, classification, findingKey, tried, why }]\` drawn from that WO's attempt/verdict/diagnosis lines. Return \`[]\` (or omit) when the journal is absent or has no entries for the WO — it is fed to the builder as HYPOTHESES to verify against the CURRENT code, never as gospel**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
+  Return the FRDs that still have non-VERIFIED work orders, **in cross-FRD dependency order** (from the Build Plans). For each FRD: its \`frd\` folder, its \`deps\` (FRD folders that must be VERIFIED first), and its \`workOrders\` (each with id, frontmatter \`status\`, **\`docStatus\` (the LITERAL \`status:\` frontmatter field, DRAFT|ACTIVE — DR-100/BL-0171; omit when the WO has no \`status:\` line at all)**, **\`path\` (the WO file's repo-relative path — DR-108, the builder opens THE file instead of hunting)**, **\`acText\` (DR-108 CONTEXT PACK — copy VERBATIM from frd.md the EARS acceptance-criteria lines THIS work order owns per the Build Plan; bounded to its own ACs, never the whole FRD. You are the ONLY agent that reads frd.md in full — this hand-off is what lets each builder construct against the real AC scope on the FIRST attempt instead of a one-line summary)**, intra-FRD \`deps\`, one-line \`summary\`, **\`difficulty\` (low|medium|high — COPY it from the WO's \`difficulty:\` frontmatter; default \`medium\` when absent — DR-073: \`high\` builds on opus a-priori)**, **\`reopen_count\` (number — COPY it from the WO's \`reopen_count:\` frontmatter; default \`0\` when absent — DR-073: \`>=1\` builds on opus empirically)**, **its \`artifacts\` = the file/dir globs it writes, COPIED FROM the WO's \`artifacts:\` frontmatter — REQUIRED so the engine keeps parallel WOs disjoint (DR-060); if a WO has none in frontmatter, infer the files it will write from its title/summary**, and **\`foundation: true\` if this WO builds a shared design-system primitive / the inventory the other WOs reuse — DR-057, it must build before they fan out**, and **\`priorAttempts\` (A4 CROSS-PASS LEARNING) — if \`${JOURNAL_PATH}\` EXISTS, read it and, for EACH WO, synthesize a BOUNDED digest (the last 2 relevant entries) of what earlier attempts tried and why they did not hold: \`[{ attempt, classification, findingKey, tried, why }]\` drawn from that WO's attempt/verdict/diagnosis lines. Return \`[]\` (or omit) when the journal is absent or has no entries for the WO — it is fed to the builder as HYPOTHESES to verify against the CURRENT code, never as gospel**) **in the Build Plan's order**.${ONLY ? ' Limit to these FRD folders: ' + ONLY.join(', ') + '.' : ''}
   hasFrontend=true only if the stack is web (A).${ONLY ? ` TARGETED BUILD — also check cross-FRD deps of the requested FRDs: for each dep folder listed in their Build Plans, read the frontmatter \`implementation_status\` of every work-orders/wo-*.md in that dep. If ALL are VERIFIED the dep is satisfied; if ANY is not VERIFIED, include it in unsatisfiedDeps as { frd: '<requested-frd>', dep: '<the-dep-folder>' }. Return unsatisfiedDeps:[] when all deps are satisfied.` : ''}`,
     { label, phase: 'Plan', schema: PLAN_SCHEMA, model: P.judge, agentType: 'pandacorp:architect' },
   )
@@ -2158,17 +2246,26 @@ const uiPassesRequired = (builtWos) => FORCE_UI_PASSES || !builtWos.length || ar
 // picker stops when EITHER the count cap (P.wave) OR the projected cost budget is reached, but always
 // admits at least one WO (progress guarantee — a lone opus WO may exceed a tiny remaining budget; the
 // loop-top brake then stops cleanly at the next boundary). costBudget=Infinity ⇒ pure count cap.
+// BL-0173: `cutBy` names WHY the pick stopped short of `ready.length` — 'count-cap' (the mode's P.wave
+// size) vs 'agent-budget' (the projected cost would breach costBudget) used to be INDISTINGUISHABLE:
+// both fell through to the caller's generic '(blocked:wave-cap)' deferred-reason label. That hid a real
+// failure mode (canary-d, 2026-09-25): fixed PRE-wave overhead (precheck+process-change+plan+safe-point+
+// foundation-gate, opus-weighted) can consume most/all of a small `maxAgents` BEFORE the first wave is
+// even picked, so `remainingAgents` collapses to 1 and the progress-guarantee floor below silently
+// admits exactly ONE WO — logically identical, from the caller's side, to "only 1 WO was ready". Naming
+// the real reason lets the dispatch log say so instead of the owner mis-reading it as a dependency stall.
 const pickDisjointWave = (ready, max, costBudget = Infinity, costOf = () => 1) => {
   const picked = []
   let cost = 1   // the shared dispatch stamp spawns one MECH agent for the whole wave
+  let cutBy = null
   for (const w of ready) {
-    if (picked.length >= max) break
+    if (picked.length >= max) { cutBy = cutBy || 'count-cap'; break }
     if (picked.some((p) => artifactsOverlap(p, w))) continue   // overlaps a picked WO → defer to a later wave
-    if (picked.length > 0 && cost + costOf(w) > costBudget) break   // would breach the agent budget → next wave
+    if (picked.length > 0 && cost + costOf(w) > costBudget) { cutBy = cutBy || 'agent-budget'; break }   // would breach the agent budget → next wave
     picked.push(w)
     cost += costOf(w)
   }
-  return picked
+  return { picked, cutBy }
 }
 // Projected agent cost of building ONE work order this wave (mirrors the agentSpawned increments in
 // buildWO): solo = COST(worker)+commit; split web relay = 3×COST(worker)+closer+commit.
@@ -2246,7 +2343,7 @@ async function safePoint() {
       if (newFolders.length) {
         agentSpawned += COST(P.judge)
         const extra = await agent(
-          `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, path, acText (the EARS AC lines this WO owns, verbatim from frd.md — DR-108), difficulty, reopen_count, deps, artifacts, foundation, priorAttempts (A4 — if \`${JOURNAL_PATH}\` exists, a bounded digest [{attempt, classification, findingKey, tried, why}] of the last 2 attempts on this WO; [] otherwise), summary }] }] } in Build Plan order. Read-only.`,
+          `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, docStatus (the LITERAL \`status:\` frontmatter field, DRAFT|ACTIVE — DR-100/BL-0171; omit when the WO has none), path, acText (the EARS AC lines this WO owns, verbatim from frd.md — DR-108), difficulty, reopen_count, deps, artifacts, foundation, priorAttempts (A4 — if \`${JOURNAL_PATH}\` exists, a bounded digest [{attempt, classification, findingKey, tried, why}] of the last 2 attempts on this WO; [] otherwise), summary }] }] } in Build Plan order. Read-only.`,
           { label: `plan-drained:${slug}`, phase: 'Build', model: P.judge, agentType: 'pandacorp:architect', schema: PLAN_SCHEMA },
         )
         if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) { plan.frds.push(nf); enrollFrd(nf) } detectCycles(); log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
@@ -2717,14 +2814,30 @@ function enrollFrd(f) {
     blockFrdInSchedule(f.frd, 'error')
     return
   }
-  const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')
+  // BL-0171 defense-in-depth: a WO whose LITERAL `status:` frontmatter is DRAFT never passed the DR-100
+  // readiness/grounding/consistency gate (/pandacorp:architecture step 9b2) — refuse to schedule OR gate
+  // it, no matter which path let it reach the plan (the primary defense is gateChangeWorkOrders, above;
+  // this is the fail-loud backstop, mirroring preflight-implement.sh §5's own "un-gated DRAFT work
+  // order" check but INSIDE the run, not only at launch — never build a DRAFT WO). Mirrors preflight's
+  // own carve-out too: a DRAFT WO already VERIFIED is a stable foundation (built before this field
+  // existed), not a problem — only a NOT-yet-VERIFIED DRAFT WO is refused.
+  const draftWos = f.workOrders.filter((w) => w.docStatus === 'DRAFT' && w.status !== 'VERIFIED')
+  if (draftWos.length) log(`⊘ ${f.frd}: WO(s) ${draftWos.map((w) => w.id).join(', ')} are still \`status: DRAFT\` (never gated by /pandacorp:architecture's DR-100 readiness/grounding/consistency check) — refusing to build or gate them this run (needs-owner); route back to /pandacorp:architecture.`)
+  const draftIds = new Set(draftWos.map((w) => w.id))
+  const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED' && !draftIds.has(w.id))
   const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = built by a prior interrupted run → straight to the gate, don't rebuild
-  for (const w of f.workOrders) if (w.status === 'VERIFIED' || w.status === 'IN_REVIEW') doneIds.add(w.id)
-  for (const w of f.workOrders) if (w.status === 'BLOCKED') blockedIds.add(w.id)   // WS-A/D3: a dep on this fails closed
+  for (const w of f.workOrders) if ((w.status === 'VERIFIED' || w.status === 'IN_REVIEW') && !draftIds.has(w.id)) doneIds.add(w.id)
+  for (const w of f.workOrders) if (w.status === 'BLOCKED' || draftIds.has(w.id)) blockedIds.add(w.id)   // WS-A/D3: a dep on this fails closed
   for (const w of toBuild) globalQueue.set(w.id, { wo: w, frd: f.frd })
   frdState.set(f.frd, { f, reviewIds: pending.map((w) => w.id), toBuildIds: new Set(toBuild.map((w) => w.id)), failed: false, enqueued: false, gateAttempts: 0 })   // gateAttempts: 1-based gate-attempt counter per FRD this run (B8 event field + C1a serial-first gate)
   log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
   enqueueGateIfComplete(f.frd)   // resume / drained bug-fix: an all-IN_REVIEW FRD goes straight to the gate
+  // BL-0171: if excluding the DRAFT WO(s) above left NOTHING pending for this FRD (its only non-VERIFIED
+  // work WAS the ungated WO), it would otherwise silently vanish from both the schedule AND the close-out
+  // narrative (0 to build, never gate-eligible, never in blockedFrds). Surface it explicitly instead.
+  if (draftIds.size && pending.length === 0 && f.workOrders.some((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')) {
+    blockFrdInSchedule(f.frd, 'needs-owner')
+  }
 }
 for (const f of plan.frds) enrollFrd(f)
 detectCycles()   // WS-D/D13: fail LOUD on a dependency cycle up front, before it surfaces late as a generic stall
@@ -3009,9 +3122,17 @@ while (true) {
   // cap ~4× (a 6-cap run reached 13). Now the picker is COST-aware: count cap P.wave AND a cost budget
   // = the remaining agent allowance, so the in-engine brake holds even if the supervisor is dead.
   const remainingAgents = MAX_AGENTS ? Math.max(1, MAX_AGENTS - agentSpawned) : Infinity
-  const wave = pickDisjointWave(candidates, P.wave, remainingAgents, woWaveCost)   // DR-060: never co-schedule overlapping artifacts — now across FRDs; DR-073/D2: cost-budgeted width
+  const { picked: wave, cutBy: waveCutBy } = pickDisjointWave(candidates, P.wave, remainingAgents, woWaveCost)   // DR-060: never co-schedule overlapping artifacts — now across FRDs; DR-073/D2: cost-budgeted width
   const waveFrds = [...new Set(wave.map((w) => w._frd))]
   log(`⚒ wave: ${wave.length} WO(s) across ${waveFrds.length} FRD(s) — ${wave.map((w) => w.id).join(', ')}`)
+  // BL-0173: a wave silently collapsed to exactly 1 WO by pre-wave agent-BUDGET overhead (not a real
+  // dependency/artifact/count stall) used to be indistinguishable from "only 1 WO was genuinely ready" —
+  // canary-d measured this exact shape (maxAgents:8, agentSpawned:11 before wave 1, 4 disjoint WOs ready,
+  // only 1 dispatched). Call it out loudly the moment it happens so the owner reads the REAL reason
+  // instead of mis-diagnosing a scheduler/dependency bug.
+  if (waveCutBy === 'agent-budget' && wave.length === 1 && candidates.length > 1) {
+    log(`⚠ oleada reducida a 1 WO por presupuesto de agentes agotado (agentSpawned=${agentSpawned} ≥ maxAgents=${MAX_AGENTS}, remainingAgents=${remainingAgents}) — ${candidates.length - 1} WO(s) más estaban listos y disjuntos pero no caben en el presupuesto restante. Esto NO es un recorte por dependencias/artefactos/tope de conteo (P.wave=${P.wave}).`)
+  }
   // WP-09: name WHY each non-elected candidate was deferred (deps pending / artifacts overlap / blocked
   // by the foundation gate or the wave cap) — reuses pickDisjointWave's own artifactsOverlap, unmodified,
   // so a stalled wave is diagnosable from the log alone instead of re-deriving the scheduler's reasoning.
@@ -3021,7 +3142,9 @@ while (true) {
     if (unmetDeps.length) return `${wo.id}(deps:${unmetDeps.join('+')})`
     if (!candidates.some((c) => c.id === wo.id)) return `${wo.id}(blocked:foundation-pending)`
     const overlapsWith = wave.find((p) => artifactsOverlap(p, wo))
-    return overlapsWith ? `${wo.id}(artifacts:${overlapsWith.id})` : `${wo.id}(blocked:wave-cap)`
+    // BL-0173: the deferred-reason label itself now names an agent-budget cut distinctly from a real
+    // count-cap (P.wave) cut — both used to print the same generic '(blocked:wave-cap)'.
+    return overlapsWith ? `${wo.id}(artifacts:${overlapsWith.id})` : `${wo.id}(blocked:${waveCutBy === 'agent-budget' ? 'agent-budget' : 'wave-cap'})`
   })
   if (deferred.length) log(`↻ deferred: ${deferred.join(', ')}`)
 
@@ -3308,7 +3431,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
     const reuseLeanNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLeanNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLeanNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS} (BL-0159 — the WO count you are about to report MUST be this freshly-recomputed one, never a figure remembered from earlier in the run: a gate/repair/block resolved AFTER the last sync would otherwise under- or over-count against the real \`wo-*.md\` files on disk). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict (a later gate/repair attempt supersedes an earlier one automatically — blockedReasons/blockedFailures are never stale). Never narrate an earlier reject/findings you might recall from this run's own transcript as if it were still the open issue once a later attempt changed the outcome — if a fix commit landed and a later gate re-blocked for a DIFFERENT reason (or none), report THAT reason, not the first one you saw. Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
+    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLeanNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLeanNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — the WO count you are about to report MUST be this freshly-recomputed one, never a figure remembered from earlier in the run: a gate/repair/block resolved AFTER the last sync would otherwise under- or over-count against the real \`wo-*.md\` files on disk). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict (a later gate/repair attempt supersedes an earlier one automatically — blockedReasons/blockedFailures are never stale). Never narrate an earlier reject/findings you might recall from this run's own transcript as if it were still the open issue once a later attempt changed the outcome — if a fix commit landed and a later gate re-blocked for a DIFFERENT reason (or none), report THAT reason, not the first one you saw. Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
@@ -3377,7 +3500,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++
     const reuseLegacyNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLegacyNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLegacyNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS} (BL-0159 — report THIS freshly-recomputed WO count, never a figure remembered from earlier in the run). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict; never narrate an earlier reject/findings from this run's own transcript once a later attempt superseded it. Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
+    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLegacyNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLegacyNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — report THIS freshly-recomputed WO count, never a figure remembered from earlier in the run). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict; never narrate an earlier reject/findings from this run's own transcript once a later attempt superseded it. Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }

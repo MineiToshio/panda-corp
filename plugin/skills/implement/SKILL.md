@@ -80,6 +80,7 @@ Control the **concurrency and models** of the workflow (DR-014), not "team size"
 | Foundation repair cap | **2** internal cycles |
 | `maxFrds` default | **unlimited** (opt-in cap, supervised TEST runs only) |
 | `maxAgents` unit | **cost-weighted** (opus ≈ 3 units), bounded overshoot ≈ one expensive WO (**~11 units**) |
+| Fixed pre-wave overhead (`powerful`, UI project) | **~8 units bare / ~11 with `--change`** (precheck 1 + plan 3 + safe-point 1 + foundation-gate 3, +3 more for `process-change`) — BL-0173: a `maxAgents` at or below this floor collapses the FIRST wave to exactly 1 WO regardless of how many are really ready and disjoint (`launch-implement.sh` warns below `~15` in `powerful` mode; `pickDisjointWave`'s own log names the real cause as `presupuesto de agentes agotado`, distinct from a real dependency/count-cap stall) |
 
 The owner runs `implement` and leaves, even overnight. For that to be SAFE — **no silent stalls, no burning the week's tokens** — launching the build is **never** just firing the workflow. It is **two things, always**:
 
