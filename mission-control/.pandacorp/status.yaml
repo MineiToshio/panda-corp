@@ -13,8 +13,8 @@ running: false
 run_started_at: "2026-09-25T01:24:59.139Z"
 run_completed_at: "2026-07-07T05:30:00Z"
 repo: ""
-updated_at: "2026-09-25T02:52:06.332Z"
-last_event_at: "2026-09-25T02:52:06.332Z"
+updated_at: "2026-09-25T13:43:31.000Z"
+last_event_at: "2026-09-25T13:43:31.000Z"
 work_orders_total: 110
 work_orders_verified: 109
 work_orders_in_review: 1
@@ -26,8 +26,8 @@ pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false
-last_green_sha: "d6c252bb"
-safe_to_test: true  # FRD-05 (work-orders kanban) WO-05-007 (wo-state-filter secondary filter) VERIFIED at the gate CLOSE: state-filter component (WoStateFilter) + integration with WoFrdFilteredBoard + reviewer adversarial suite (frd-05-state-filter.gate.reviewer.test.tsx) pass GREEN; 11 subgates (structure/data-layer/api-error/doc-lint/residual-ambiguity/biome/tsc/knip/madge/vitest/playwright) all exit 0, full suite 7538 tests + 53s playwright layer clean, whole-project tsc --noEmit + biome check . clean. No defects; work order scope precise and complete (AC-05-007.1/2/3 all covered by reviewer tests). FRD-05 blueprint + FRD rollups updated. WO-05-007 promoted to VERIFIED; FRD-05 + its blueprint roll up to VERIFIED (109/110 WOs). last_green_sha points at d6c252bb (verified snapshot commit, ancestor-checked before publication, BL-0066 ordering). All prior FRDs + WOs unaffected. 2026-09-25
+last_green_sha: "5c594bde"
+safe_to_test: true  # INTEGRATION (canary D merge, 2026-09-25): canary-d-parallelism (4 WOs: WO-03-006/WO-04-008/WO-05-007 VERIFIED, WO-02-014 IN_REVIEW pending a fresh FRD-02 gate) rebased onto main and fast-forward merged (9b7bde44 -> main), then a FULL non-partial `.pandacorp/verify.sh --report-all` run at 5c594bde: .pandacorp/run/gate-report.json records scope:full, green:true, all 11 subgates (structure-guard/data-layer/api-error-contract/doc-lint/residual-ambiguity/biome/tsc/knip/madge/vitest/playwright) exit 0 — 450 test files / 7811 unit tests + 68 e2e (desktop+mobile: headers/responsive/shell/smoke/visual) all passed, no regressions from the merge. last_green_sha updated from the stale pre-rebase d6c252bb (orphaned by the rebase, no longer an ancestor of HEAD) to 5c594bde, the actual gated commit. Prior note (WO-05-007 gate) superseded below. 2026-09-25
 _release_prior_note: true  # RELEASE (DR-085): whole-project cross-feature INTEGRATION review (DR-060) PASSED + full verify.sh GREEN at ebe1c58f (biome/tsc/knip/madge clean, 7538 unit tests, 68 e2e — smoke+shell+visual+responsive, desktop+mobile). Cross-feature seams all AGREE: one shared WorkOrderState (board/DAG/detail import it, exhaustive Record maps tsc-enforced), one GuildOutcomes/computeGuildLevel, one LiveFrame/useLiveSnapshot (FRD-18/12/06/05), the FRD-23 stats read-model fail-loud (AggregateResult/PortadaResult discriminated unions + honest fallback, never fabricates a zero, DR-078), Manual reuses Config's catalog cards (no fork), deriveKpis/KpiHeader fully removed (SSOT). Hardening artifacts present & dated this run: docs/reviews/security-2026-07-06.md (no Critical/High) + events.md "## Verification 2026-07-06". Gate quarantine set EMPTY (0 BLOCKED needs-owner) → full gate ranged over every route. Killed one orphaned same-project next-dev server (PID 29197, BL-0049/LESSON-0040) that blocked the first Playwright run, then re-ran clean. Advisory-only (visual punch-list, non-blocking): _observability/FreshnessBadge (CMP-12-freshness) is a divergent 2nd FreshnessBadge with zero production consumers — superseded by the DR-066 modules/FreshnessBadge; tested-but-unmounted so knip doesn't flag it (cleanup nit, not a broken seam). All 102 WOs VERIFIED.
 # --- FRD-23 SSOT-split CLOSE (WO-23-006) 2026-07-07 ---
 # WO-23-006 (composed Informe reader) VERIFIED at the split-gate CLOSE → FRD-23 fully VERIFIED (all 6 WOs).
