@@ -6428,6 +6428,125 @@ for (const [kind, probeFail, requeued] of [
   })
 }
 
+// ---- INTEGRATION gate-cost × D1 (post-merge cross-review) ----
+// The two lanes were built in parallel and meet in the gate: the inventory cache (BL-0189) and the digested
+// collector on a nested project (BL-0187) must keep their guarantees when N gates run at once (BL-0186).
+const xaInvWrite = (frd) => new RegExp(`gate-inventory\\.mjs' write --project \\S+ --frd '${frd}'`)
+const xaApply = (h) => ({ prefix: 'apply-gate:', response: async (call) => {
+  const frd = call.label.slice('apply-gate:'.length)
+  const r = await h.responses.find((x) => x.prefix === 'apply-gate:').response(call)
+  return { ...r, inventory_output: JSON.stringify({ ok: true, path: `.pandacorp/run/gate-evidence/${frd}/inventory.json`, entries: gcTrace().length, gatedAt: 'abc1234' }) }
+} })
+// (a1) parallelGates × gateInventoryCache — two disjoint FRDs gate AT ONCE; each resolves ITS OWN cache inside
+// its gate link, and the cache is written ONLY by that FRD's landing, in the one-writer lane.
+{
+  const h = d1Harness({ order: ['frd-xa-2', 'frd-xa-1'], autoFlushAt: 2, verdicts: { 'frd-xa-1': { green: true, testFiles: [], traceability: gcTrace() }, 'frd-xa-2': { green: true, testFiles: [], traceability: gcTrace() } } })
+  SCENARIOS.push({
+    name: 'XA1. parallelGates × gateInventoryCache — 2 concurrent gates: one cache check per FRD before its own gate; the cache write rides ONLY in that FRD\'s landing (the serialized lane), never in a gate or another FRD\'s landing',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, gateInventoryCache: true },
+    plan: d1Resume('xa', 2),
+    responses: [gcCheck('frd-xa', null), xaApply(h), ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const firstResult = h.tl.findIndex((x) => x.startsWith('result:'))
+      t.ok(['frd-xa-1', 'frd-xa-2'].every((f) => h.at(`start:${f}`) >= 0 && h.at(`start:${f}`) < firstResult), `both gates were in flight together (timeline: ${h.tl.join(' ')})`)
+      for (const f of ['frd-xa-1', 'frd-xa-2']) {
+        const chk = byLabel(run, `gate-inventory:${f}`)
+        const gate = byLabel(run, `gate:${f}`)
+        t.ok(chk.length === 1 && gate.length === 1 && chk[0].index < gate[0].index && new RegExp(`--frd '${f}'`).test(chk[0].prompt), `${f}: exactly one cache check, for ITS OWN FRD, before its one gate`)
+        const writes = run.calls.filter((c) => xaInvWrite(f).test(c.prompt))
+        t.ok(writes.length === 1 && writes[0].label === `apply-gate:${f}`, `${f}: the cache is written once, by its OWN landing (got ${writes.map((c) => c.label).join(', ') || 'none'})`)
+      }
+      t.ok(run.calls.filter((c) => /gate-inventory\.mjs' write/.test(c.prompt)).every((c) => /^apply-gate:/.test(c.label)), 'no gate, probe, collector or release ever carries a cache write')
+      t.ok(h.lane.max === 1, `the landings (the only cache writers) never overlapped (max ${h.lane.max})`)
+      t.ok(run.logs.filter((l) => /contract inventory cached/.test(l)).length === 2, 'both landings\' receipts were read back')
+      t.ok(run.result && ['frd-xa-1', 'frd-xa-2'].every((f) => run.result.builtFrds.includes(f)), 'both FRDs VERIFIED')
+    },
+  })
+}
+// (a2) the SAME FRD under both flags: its second gate (a WO re-enrolled while the first was in flight) never
+// coincides with the first, and it checks the cache only AFTER the first landing wrote it — at a new pin.
+{
+  const h = d1Harness({ fallbackMs: 6, verdicts: { 'frd-xb-a': { green: true, testFiles: [], traceability: gcTrace() }, 'frd-xb-b': { green: true, testFiles: [], traceability: gcTrace() } } })
+  SCENARIOS.push({
+    name: 'XA2. parallelGates × gateInventoryCache — the same FRD gated twice: never two gates at once (gateUnlanded); the 2nd cache check follows the 1st landing\'s write; each write carries ITS gate\'s pin',
+    args: { mode: 'pro', parallelGates: true, gateInventoryCache: true },
+    plan: mkPlan([
+      { frd: 'frd-xb-a', deps: [], workOrders: [mkWo('wo-xb-a1', 'IN_REVIEW', { frd: 'frd-xb-a', artifacts: ['src/xba1/**'] }), mkWo('wo-xb-a2', 'BLOCKED', { frd: 'frd-xb-a', artifacts: ['src/xba2/**'] })] },
+      { frd: 'frd-xb-b', deps: [], workOrders: [mkWo('wo-xb-b1', 'PLANNED', { frd: 'frd-xb-b', artifacts: ['src/xbb1/**'] }), mkWo('wo-xb-b2', 'PLANNED', { frd: 'frd-xb-b', artifacts: ['src/xbb2/**'], deps: ['wo-xb-b1'] })] },
+    ]),
+    responses: [
+      distinctCommitShas,
+      { label: 'safe-point', times: 1, response: { stop: false, ready: [], unblocked: [] } },
+      { label: 'safe-point', times: 1, response: { stop: false, ready: [], unblocked: [{ frd: 'frd-xb-a', wo: 'wo-xb-a2' }] } },
+      { label: 'pin:frd-xb-a', times: 1, response: { sha: 'pinsha0' } },
+      { label: 'pin:frd-xb-a', times: 1, response: { sha: 'repin1' } },
+      gcCheck('frd-xb', null),
+      xaApply(h),
+      ...h.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const starts = h.tl.map((x, k) => (x === 'start:frd-xb-a' ? k : -1)).filter((k) => k >= 0)
+      t.ok(starts.length === 2 && starts[1] > h.at('end:apply-gate:frd-xb-a'), `frd-a's two gates never coincided — the 2nd started after the 1st LANDED (timeline: ${h.tl.join(' ')})`)
+      const chk = byLabel(run, 'gate-inventory:frd-xb-a')
+      const applies = byLabel(run, 'apply-gate:frd-xb-a')
+      t.ok(chk.length === 2 && applies.length === 2 && chk[1].index > applies[0].index, 'the 2nd cache check ran after the 1st landing (the writer) — a check never races its own FRD\'s write')
+      t.ok(/--pin 'pinsha0'/.test(chk[0].prompt) && /--pin 'repin1'/.test(chk[1].prompt), 'each check reads at the pin ITS gate judges')
+      t.ok(xaInvWrite('frd-xb-a').test(applies[0].prompt) && /--pin 'pinsha0'/.test(applies[0].prompt.split('LAST STEP (BL-0189')[1] || '') && /--pin 'repin1'/.test(applies[1].prompt.split('LAST STEP (BL-0189')[1] || ''), 'each landing writes the cache at the pin ITS gate reviewed (a snapshot, never the live re-pin)')
+      t.ok(run.calls.filter((c) => /gate-inventory\.mjs' write/.test(c.prompt)).every((c) => /^apply-gate:/.test(c.label)), 'only landings write the cache')
+      t.ok(run.result && run.result.builtFrds.includes('frd-xb-b'), 'frd-b verifies')
+    },
+  })
+}
+// (b) parallelGates × gateEvidence:'digested' on a NESTED project: slot k's collector, gate and bootstrap all
+// enter gate-worktree-<k>/<prefix> — executed against real slot worktrees, not string-matched.
+{
+  const fx = gcNestedFixture('frd-xc-1')
+  gcCleanups.splice(gcCleanups.indexOf(fx.root), 1)   // owned here: the GC block's last scenario empties gcCleanups before this one runs
+  const slotDir = (k) => path.join(fx.app, `.pandacorp/run/gate-worktree-${k}`)
+  for (const k of [1, 2]) {
+    gcGit(fx.app, 'worktree', 'add', '--detach', '-q', slotDir(k), fx.pin)
+    gcWrite(path.join(slotDir(k), 'mission-control/node_modules/.bin/vitest'), '#!/bin/sh\n')
+    gcWrite(path.join(slotDir(k), 'mission-control/.pandacorp/worktree-bootstrap.sh'), 'echo "BOOTSTRAP-IN $(pwd -P) PORT=$PANDACORP_E2E_PORT"\n')
+  }
+  const h = d1Harness({ order: ['frd-xc-2', 'frd-xc-1'], autoFlushAt: 2 })
+  SCENARIOS.push({
+    name: 'XB. parallelGates × digested on a nested project — slot k\'s collector cd lands in gate-worktree-<k>/mission-control (BOOTSTRAPPED there), its gate reviews there, and its bootstrap runs from there with ITS port',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    plan: d1Resume('xc', 2),
+    responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, tests: [], ac: '' } }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const cdOf = (c) => (c && (c.prompt.match(/FIRST cd into the PROJECT directory inside it, exactly: `([^`]+)`/) || [])[1]) || ''
+      const ev = byLabel(run, /^evidence:/)
+      t.ok(ev.length === 2, `both collectors ran (got ${ev.length})`)
+      const landed = new Set()
+      for (const c of ev) {
+        const frd = c.label.slice('evidence:'.length)
+        const k = (d1Slot(c) || '').match(/gate-worktree-(\d)$/)
+        const here = cdOf(c) ? gcBash(`${cdOf(c)} && pwd -P`, gcOs.tmpdir()) : { ok: false, out: '' }
+        t.ok(k && here.ok && here.out.trim() === gcFs.realpathSync(path.join(slotDir(k[1]), 'mission-control')), `${frd}: executed, the collector's cd lands in gate-worktree-${k && k[1]}/mission-control (got ${here.out.trim() || here.err})`)
+        landed.add(here.out.trim())
+        const step0 = (c.prompt.match(/[Rr]un exactly `(node -e "[^`]+")`/) || [])[1]
+        t.ok(step0 && gcBash(`${cdOf(c)} && ${step0}`, gcOs.tmpdir()).out === 'BOOTSTRAPPED', `${frd}: step 0 answers BOOTSTRAPPED from inside its slot's project dir`)
+        const gate = byLabel(run, `gate:${frd}`)[0]
+        t.ok(gate && cdOf(gate) === cdOf(c), `${frd}: its gate enters the SAME slot project dir as its collector`)
+      }
+      t.ok(landed.size === 2, 'the two concurrent collectors ran in two DIFFERENT slots')
+      for (const p of byLabel(run, /^gate-worktree:\d$/)) {
+        const k = p.label.slice(-1)
+        const boot = (p.prompt.match(/run exactly `(\(cd [^`]+\))`/) || [])[1]
+        const out = boot ? gcBash(boot, gcOs.tmpdir()) : { ok: false, out: '' }
+        t.ok(out.ok && out.out.trim() === `BOOTSTRAP-IN ${gcFs.realpathSync(path.join(slotDir(k), 'mission-control'))} PORT=${3800 + 10 * Number(k)}`, `slot ${k}: executed, the bootstrap runs .pandacorp/worktree-bootstrap.sh from gate-worktree-${k}/mission-control with port ${3800 + 10 * Number(k)} (got ${out.out.trim() || out.err})`)
+      }
+      const preFix = gcBash('bash .pandacorp/worktree-bootstrap.sh', slotDir(1))
+      t.ok(!preFix.ok, 'fixture check: the pre-fix form (bootstrap from the worktree ROOT) finds no script on a nested project')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

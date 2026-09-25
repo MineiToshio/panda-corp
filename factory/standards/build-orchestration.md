@@ -412,7 +412,10 @@ The build engine reviews and tests **per FRD**, not per work order:
   was built from). Ships behind a mandatory A/B canary with a seeded corpus before the default may change.
   **Nested projects (BL-0187):** every gate-worktree agent first `cd`s into the PROJECT directory inside
   the worktree (`<gate-worktree>/$(git rev-parse --show-prefix)`) — the worktree holds the whole repo, so
-  for Mission Control its root is the factory. The collector's diffs are `--relative` (project-scoped),
+  for Mission Control its root is the factory. The same cd fronts the worktree's own bootstrap
+  (`(cd <gate-worktree>/<prefix> && bash .pandacorp/worktree-bootstrap.sh)` — a nested project's
+  `.pandacorp/` is not at the worktree root) and applies per slot under `args.parallelGates`
+  (`gate-worktree-<k>/<prefix>`, §5c). The collector's diffs are `--relative` (project-scoped),
   its artifact pathspecs are quoted (git expands them, not the shell), its bootstrap probe is a Node
   `existsSync` (never shell `test`/`[`, which an owner alias can hijack), and the digest carries the cycle's
   added/changed test files and the WO-labelled acceptance criteria (the cycle's WO → contract map).
@@ -669,6 +672,12 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   are still untracked and byte-identical to the salvaged originals, which stay in the evidence dir — otherwise
   the next landing's `verify.sh --since` (vitest `--changed` runs untracked files) would run them against
   another FRD.
+- **Composes with the gate cost levers (BL-0187/0189).** Under `gateEvidence: 'digested'` the collector, the
+  gate and the slot's own bootstrap all enter `gate-worktree-<k>/<prefix>` (a nested project's directory inside
+  the slot). Under `gateInventoryCache` each gate resolves its own FRD's cache inside its link, and the cache is
+  written only by that FRD's `applyGate` in the landing lane, at the pin its gate reviewed; since one FRD never
+  has two gates, a check never races its own FRD's write (`test-pandacorp-build.mjs`, section
+  `INTEGRATION gate-cost × D1`).
 - **`needs-owner` in one, the rest land.** A block is terminal for its FRD only; the other gates keep reviewing
   and land after it. The consecutive-blocks breaker counts in landing order, and the run-end invariant still
   waits for every spawned gate and lands its verdict.

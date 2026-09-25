@@ -220,5 +220,25 @@ const run = (args, env = {}) => {
   rmSync(r.root, { recursive: true, force: true })
 }
 
+// ── prove: BL-0186 × BL-0187 — under args.parallelGates the engine passes `--source` = the gate's POOL SLOT
+// (`.pandacorp/run/gate-worktree-<k>`, relative to the project root the MECH runner starts in), a real
+// whole-repo worktree: the nested reviewer's probe lives at <slot>/<prefix>/ and is found and run there. ──
+{
+  const r = mkRepo()
+  const slot = '.pandacorp/run/gate-worktree-2'
+  git(r.app, 'worktree', 'add', '--detach', '-q', slot, r.pin)
+  const probe = '.pandacorp/run/drift-probes/frd-01-demo/ac-01-009-4.drift-probe.ts'
+  write(path.join(r.app, slot, 'app', probe), '// ASSERT src/lib/value.txt good\n')
+  check(!existsSync(path.join(r.app, probe)), 'prove (D1 slot): fixture — the probe exists ONLY in the slot, not in the main project')
+  const out = execFileSync('node', [SCRIPT, 'prove', '--project', '.', '--frd', 'frd-01-demo', '--source', slot, '--pin', r.pin.slice(0, 8),
+    '--wo', 'docs/frds/frd-01-demo/work-orders/wo-01-001-a.md', '--probe', probe],
+  { cwd: r.app, encoding: 'utf8', env: { ...process.env, PANDACORP_DRIFT_VITEST: `node ${r.fake}` }, stdio: ['ignore', 'pipe', 'pipe'] })
+  const json = JSON.parse(out.trim().split('\n').pop())
+  const p = json.probes && json.probes[0]
+  check(json.ok === true && p && p.missing !== true, 'prove (D1 slot): a relative --source naming a pool slot resolves from the project root, and the nested probe under <slot>/<prefix>/ is FOUND')
+  check(p && p.head.length === 2 && p.head.every((x) => x.parsed && x.failed > 0), 'prove (D1 slot): the slot\'s probe actually ran at the pin')
+  rmSync(r.root, { recursive: true, force: true })
+}
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)
