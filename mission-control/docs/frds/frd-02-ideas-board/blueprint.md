@@ -3,7 +3,7 @@ id: FRD-02-blueprint
 type: blueprint
 parent: FRD-02
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 last_updated: '2026-07-02'
 ---
 # FRD-02 — Ideas board — Feature blueprint
