@@ -10,6 +10,42 @@ change collects, never whether a red gate blocks. A red blocks at every level.
 
 ---
 
+## 0. Existing-card entry point — `--now <slug>` (BL-0163)
+
+Every step below (§1 onward) assumes the ordinary case: `--now` received a plain-language
+description and `change/SKILL.md` steps 1-4 just wrote a brand-new card. **`--now <slug>`** is
+the other case: the argument is a bare slug, not a sentence, and it names a card that is already
+sitting in `.pandacorp/inbox/changes/<slug>.md`. Before this file's §1 ever runs, `change/SKILL.md`
+step 0 resolves that file:
+
+- **The slug doesn't resolve to a file** → capture-only fallback: treat the rest of the input as an
+  ordinary description and proceed through steps 1-4 as if `--now <slug>` had never been passed. No
+  special state here.
+- **`status: draft`** → the fast path refuses it for the same reason it refuses any other draft
+  card (§2 below, "a `status: draft` card never enters the fast path") — the slug lookup changes
+  WHERE the card came from, never the draft/ready gate itself. Tell the owner and stop.
+- **`status: ready`** → this is the case BL-0163 exists for: an operator (or a re-run agent) who
+  would otherwise have re-described the same request and risked a near-duplicate card in the queue.
+  `change/SKILL.md` step 0 stamps `status: building` on the EXISTING card — reusing the exact value
+  the queue-drain engine already writes for "in flight" (step 4's status bullet) — which is what
+  keeps a concurrent `/pandacorp:implement` drain from also picking up this same card while the
+  fast path works it; this is the one documented case where the fast path itself writes `building`
+  rather than only the engine. Then execution resumes at **§1 below** (derive rigor on the
+  already-written card) exactly as if capture had just finished. **No new file is written and the
+  existing body is left untouched** unless the owner explicitly asks, in the same turn, for the
+  description to be revised.
+
+**Clearing `building` on any non-landing outcome.** Every valve in §2, a `critical` reclassification
+in §5, and an exhausted repair loop in §4 all still apply unchanged to a `--now <slug>` run — the
+slug entry point only skips capture, it does not soften a single valve. On any of those exits,
+before ending the turn, restore the card's status yourself: back to `ready` if no work was
+attempted (a valve fired immediately), or to `draft` + `## Bloqueado` per §4's hand-back contract
+if work was attempted and then handed back. A card must never be left at `building` with nothing
+actually in flight — that would silently starve it out of both the fast path (already ended) and
+the engine's own drain (which skips anything not `ready`).
+
+---
+
 ## 1. Provisional classification, by probable paths
 
 **Record the project root now, before §3 isolates into a worktree and moves your cwd**

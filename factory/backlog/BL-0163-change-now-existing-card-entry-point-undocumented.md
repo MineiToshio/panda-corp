@@ -3,12 +3,12 @@ id: BL-0163
 type: change
 area: plugin-skill
 title: "change --now has no documented way to point at an ALREADY-CAPTURED card (every SKILL.md step assumes --now writes a brand-new card from a description)"
-status: open
+status: done
 severity: p2
 opened: 2026-09-23
-closed:
+closed: 2026-09-24
 source: "first real /pandacorp:change --now dry-run on Mission Control 2026-09-23 (change-now-dryrun-report.md S4.4, 'Hueco de contrato: --now no documenta cómo apuntar a una card ya existente')"
-closes:
+closes: "plugin/skills/change/SKILL.md (new step 0) + references/now-mode.md (new §0) + plugin/skills/sync/SKILL.md (close-out normal tier, no-owning-WO exception) + plugin/scripts/test-change-now-prose.sh (BL-0163 assertions)"
 links: [BL-0161, BL-0162]
 ---
 
@@ -61,3 +61,43 @@ Not applicable while `status: open` -- this item is scoping/documentation only. 
 owner picks a direction for the existing-card entry point (or explicitly declines one) and, if a
 direction is picked, the corresponding `SKILL.md`/`now-mode.md` prose + `test-change-now-prose.sh`
 assertions land.
+
+## Resolution (2026-09-24)
+
+Direction **1** from the Fix plan above was picked: a `--now <slug>` argument. Implemented as a new
+**step 0** in `plugin/skills/change/SKILL.md` (and its own **§0** in
+`plugin/skills/change/references/now-mode.md`, since every later section already assumes a
+freshly-captured card):
+
+- `--now <slug>` (a bare identifier, not a description) resolves against
+  `.pandacorp/inbox/changes/<slug>.md`. Not found → a clear Spanish message, then ordinary capture
+  (step 1) using the rest of the input as the description — never a silent no-op.
+- Found, `status: draft` → the existing "draft never enters the fast path" valve applies unchanged;
+  the card is not re-captured, the owner is told it needs `status: ready` first, and the turn stops.
+- Found, `status: ready` → capture (steps 1-4) is skipped entirely: no re-description, no
+  near-duplicate card. The card is stamped `status: building` (the same value the queue-drain
+  engine already uses for "in flight"), which is what stops a concurrent `/pandacorp:implement`
+  drain from also picking up the same card while the fast path works it — this is now the one
+  documented case where the fast path itself writes `building`. Execution then resumes at step 4b
+  (derive rigor) exactly as if capture had just finished. Every existing valve (§2's three valves,
+  the `critical` reclassification, the exhausted repair loop) still applies unchanged; on any of
+  those exits the status is restored to `ready` (nothing attempted) or `draft` + `## Bloqueado`
+  (attempted then handed back) — a card is never left stuck at `building`.
+
+**The two related minor gaps** (S4.5, S4.9 in the dry-run report):
+- **S4.5 (close-out `normal` tier assumes an owning FRD/WO)** — resolved as a prose fix:
+  `plugin/skills/sync/SKILL.md`'s close-out step 4 `normal` bullet now names the no-owning-WO case
+  explicitly (a change with no `REQ-NN-MMM` trace, e.g. Manual/content prose) and says to record it
+  in the `docs/decision-log.md` entry already required at that tier instead of fabricating a
+  synthetic WO — codifying the judgment call the dry-run operator already made by hand.
+- **S4.9 (`--commits`-derived cost window over/under-attributes on a long-lived operator session)**
+  — **left open, not fixed here.** This is not a clear prose change: closing it properly means
+  `usage-rollup.mjs` deciding a size threshold for "implausibly long" and choosing a warn-vs-refuse
+  behavior, which is a script-logic/policy decision, not a documentation gap. The existing
+  `--window <ISO>..<ISO>` escape hatch already lets an operator sidestep it today (used by both
+  canary reports). Left for a separate, explicitly-scoped backlog item rather than guessed at here.
+
+**Test**: `plugin/scripts/test-change-now-prose.sh` extended with a new "BL-0163" section (9
+assertions) checking that both `SKILL.md` and `now-mode.md` document the `--now <slug>` entry
+point, the no-duplication guarantee, the `building` stamp, and the draft/clearing rules. Full suite
+green: 69 passed, 0 failed.

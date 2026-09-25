@@ -67,6 +67,17 @@ echo "-- F4 valve 3: a broken classifier is CRITICAL, never a cheap run"
 must "change/SKILL.md treats a classifier failure as critical" "$CHANGE" '[Tt]he classifier failed.*critical|treat as .?critical'
 must "now-mode.md states a broken classifier must never make a change run cheap" "$NOW" 'broken classifier must never be the reason a change ran cheap'
 
+echo "-- BL-0163: --now <slug> targets an already-captured card, never a re-capture/duplicate"
+must "change/SKILL.md documents the --now <slug> entry point in its argument line" "$CHANGE" '\*\*`--now <slug>`\*\*'
+must "change/SKILL.md has a step 0 for the existing-card entry point" "$CHANGE" '^0\. \*\*Existing-card entry point'
+must "change/SKILL.md refuses/falls back cleanly when the slug does not resolve" "$CHANGE" 'No such file.*fall back to ordinary capture|No hay ninguna card'
+must_doc "change/SKILL.md never re-captures or duplicates a ready card" "$CHANGE" 'skip steps 1-4 entirely.*no re-capture'
+must "change/SKILL.md stamps status: building on the existing ready card" "$CHANGE" 'Stamp `status: building`'
+must "change/SKILL.md keeps the draft-never-enters-fast-path rule for a --now <slug> draft hit" "$CHANGE" 'draft.? card never enters the fast path.? rule.*applies unchanged'
+must "now-mode.md carries its own §0 for the --now <slug> entry point" "$NOW" '^## 0\. Existing-card entry point'
+must_doc "now-mode.md states no new file is written and the body is left untouched" "$NOW" 'No new file is written and the +existing body is left untouched'
+must_doc "now-mode.md requires clearing building on any non-landing outcome" "$NOW" 'must never be left at .building. with nothing actually in flight'
+
 echo "-- F4: a draft card never enters the fast path (DR-069)"
 must "change/SKILL.md excludes status: draft from the fast path" "$CHANGE" 'status: draft.? card never enters the fast path'
 must "now-mode.md repeats the draft exclusion before any valve" "$NOW" 'draft.? card never enters the fast path'
