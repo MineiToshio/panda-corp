@@ -17,6 +17,32 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const DAYS_PER_MONTH_BUCKET = 30;
 const MONTHS_PER_YEAR = 12;
 
+/**
+ * The only accepted shape: ISO-8601 date, optionally with time, fraction and offset. `Date.parse`
+ * is not a validator (outside this shape V8 turns prose like "N/A 3" into 2001-01-01 and reads
+ * "07/09/2026" month-first), so the shape is checked before it ever runs.
+ */
+const ISO_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/;
+
+/** True when year/month/day name a real calendar day (rejects 2026-02-30, which Date.parse rolls over). */
+function isRealCalendarDay(year: number, month: number, day: number): boolean {
+  const probe = new Date(Date.UTC(year, month - 1, day));
+  return (
+    probe.getUTCFullYear() === year &&
+    probe.getUTCMonth() === month - 1 &&
+    probe.getUTCDate() === day
+  );
+}
+
+/** Epoch ms of a strict ISO-8601 `raw` string, or `NaN` (like `Date.parse`) for anything else. */
+function parseStrictIsoMs(raw: string): number {
+  const match = ISO_DATE_TIME.exec(raw);
+  if (!match) return Number.NaN;
+  if (!isRealCalendarDay(Number(match[1]), Number(match[2]), Number(match[3]))) return Number.NaN;
+  return Date.parse(raw);
+}
+
 /** Midnight UTC for the given date's calendar day (time-of-day dropped before diffing). */
 function startOfDayUTC(date: Date): number {
   return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
@@ -35,10 +61,11 @@ function startOfDayUTC(date: Date): number {
  * A future `date` (clock skew between the machine that wrote the portfolio row and this one) is
  * clamped to "hoy" rather than surfaced as a negative or invalid duration.
  *
- * Fails loud (DR-078): an unparseable `date` returns `{ ok: false, reason }`, never `null`/`""`.
+ * Fails loud (DR-078): anything that is not a strict ISO-8601 date on a real calendar day (prose,
+ * dd/mm/yyyy, 2026-02-30) returns `{ ok: false, reason }`, never `null`/`""` or a fabricated age.
  */
 export function formatLastSync(date: string, now: Date = new Date()): FormatLastSyncResult {
-  const parsedMs = Date.parse(date);
+  const parsedMs = parseStrictIsoMs(date.trim());
   if (Number.isNaN(parsedMs)) {
     return { ok: false, reason: `No se pudo interpretar la fecha de sincronización: "${date}"` };
   }
