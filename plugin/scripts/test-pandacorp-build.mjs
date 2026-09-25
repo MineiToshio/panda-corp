@@ -4121,7 +4121,148 @@ SCENARIOS.push({
   },
 })
 
+// ---- BL-0159 ----
+// canary-c-forensics.md §7 "Hallazgos hermanos": even with BL-0157's oracle fix landed, a gate that
+// reaches a terminal BLOCK without `apply-gate` ever running left NO trace (no review_end, no
+// GateVerdict, an unclosed review_start) and notify-end's owner-facing progress.md narrated a stale
+// "needs your decision" story off gate-1's superseded findings while also under-counting the real
+// on-disk work-order total. This closes the residual gap: EVERY terminal gate outcome — pass (already
+// covered pre-BL-0159) or ANY block, regardless of which of the several block-exit functions reaches
+// it — now emits review_end + GateVerdict through the single `emitGateOutcome` choke point, and
+// notify-end always re-syncs the rollup and narrates the LATEST recorded reason/failure, never a
+// stale one.
+// ─────────────────────────────────────────────────────────────────────────────
 
+// (a) needs-owner block via the B2 traceability re-ask, still deficient after one retry (persistGateBlock,
+// canary C gate 2's exact replica, post-BL-0157) — before BL-0159 this call emitted NOTHING.
+SCENARIOS.push({
+  name: 'BL-0159a. needs-owner block (traceability contract still deficient after the B2 re-ask) emits review_end + frd_end + GateVerdict via persist-block — canary C gate 2 replica, post-BL-0157',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159a', deps: [], workOrders: [mkWo('wo-bl0159a-001', 'PLANNED', { frd: 'frd-bl0159a', artifacts: ['src/bl0159a/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-bl0159a', response: { green: true, traceability: traceabilityWithout('requirement') } },   // same deficient verdict on every call — no `times`
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const block = byLabel(run, 'persist-block:frd-bl0159a')[0]
+    t.ok(Boolean(block), 'the still-deficient re-ask persists the block')
+    t.ok(block && /"kind":"review_end","frd":"frd-bl0159a","verdict":"blocked"/.test(block.prompt), 'BL-0159: persist-block now emits review_end (verdict:blocked) — silent before this fix (canary C gate 2 left an unclosed review_start)')
+    t.ok(block && /"kind":"frd_end","frd":"frd-bl0159a"/.test(block.prompt), 'BL-0159: persist-block now emits frd_end')
+    t.ok(block && /"event":"GateVerdict"[^`]*"frd":"frd-bl0159a"[^`]*"verdict":"blocked"[^`]*"blocked_reason":"needs-owner"/.test(block.prompt), 'BL-0159: persist-block now emits GateVerdict blocked/needs-owner')
+    t.ok(run.result && run.result.blockedReasons['frd-bl0159a'] === 'needs-owner', "blocked needs-owner (never the default 'error')")
+    t.ok(run.result && run.result.blockedFailures && /requirement/.test(run.result.blockedFailures['frd-bl0159a'] || ''), 'BL-0159: the concrete failure text (naming the missing class) is threaded into blockedFailures for notify-end to quote verbatim, not just the coarse reason code')
+  },
+})
+
+// (a2) regression guard — the OTHER persistGateBlock call site (the gate agent's OWN inline
+// 'blocked'/'fail' branch already self-emitted) must stay untouched: passing alreadyTracked:true must
+// NOT produce a second review_end/GateVerdict in the persist-block prompt.
+SCENARIOS.push({
+  name: 'BL-0159a2. a gate-self-classified needs-owner block (DR-072 reopen-cap) does NOT duplicate review_end/GateVerdict in persist-block (alreadyTracked:true)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159a2', deps: [], workOrders: [mkWo('wo-bl0159a2-001', 'PLANNED', { frd: 'frd-bl0159a2', reopen_count: 3, artifacts: ['src/bl0159a2/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-bl0159a2', response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened 3x, gate not satisfiable autonomously', traceability: validTraceability } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const block = byLabel(run, 'persist-block:frd-bl0159a2')[0]
+    t.ok(Boolean(block), 'the classified block is still persisted on main')
+    t.ok(block && !/"event":"GateVerdict"/.test(block.prompt), 'no SECOND GateVerdict — the reviewing gate agent already emitted one inline for this classification')
+    t.ok(block && !/"kind":"review_end"/.test(block.prompt), 'no SECOND review_end either')
+    t.ok(run.result && run.result.blockedReasons['frd-bl0159a2'] === 'needs-owner', 'still blocked needs-owner')
+  },
+})
+
+// (b) a generic block (blocked_reason:'error', no traceability defect, no prior classification) reached
+// through attemptRepair's own "cannot fix" branch — before BL-0159 this branch emitted NOTHING at all.
+SCENARIOS.push({
+  name: "BL-0159b. a generic block ('error', via attemptRepair's give-up branch) emits review_end + frd_end + GateVerdict too — never silent",
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159b', deps: [], workOrders: [mkWo('wo-bl0159b-001', 'PLANNED', { frd: 'frd-bl0159b', artifacts: ['src/bl0159b/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-bl0159b', response: { green: false, reopen: [], failure: 'mystery failure, no pinpoint', traceability: validTraceability } },
+    { label: 'repair:frd-bl0159b', response: { green: false, blocked_reason: 'error', failure: 'could not resolve' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const repair = byLabel(run, 'repair:frd-bl0159b')[0]
+    t.ok(Boolean(repair), 'the repair attempt ran')
+    t.ok(repair && /"kind":"review_end","frd":"frd-bl0159b","verdict":"blocked"/.test(repair.prompt), 'BL-0159: the repair prompt now carries the review_end printf for its own give-up branch — silent before this fix')
+    t.ok(repair && /"kind":"frd_end","frd":"frd-bl0159b"/.test(repair.prompt), 'BL-0159: and frd_end')
+    t.ok(repair && /"event":"GateVerdict"[^`]*"frd":"frd-bl0159b"[^`]*"verdict":"blocked"[^`]*"blocked_reason":"%s"/.test(repair.prompt), 'BL-0159: and GateVerdict, with the ACTUAL reason filled in by the agent at runtime (%s — the agent chooses among needs-owner|external|error, unknown at prompt-construction time)')
+    t.ok(byLabel(run, /^persist-block:/).length === 0, 'this path never touches persistGateBlock — the repair agent itself is the sole main-tree writer here')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-bl0159b'), 'the FRD ends blocked')
+    t.ok(run.result && run.result.blockedReasons['frd-bl0159b'] === 'error', "the reason IS 'error' here (that is a legitimate agent classification, not the old silent DEFAULT — the point is it is now TRACED, not that 'error' never happens)")
+    t.ok(run.result && run.result.blockedFailures && run.result.blockedFailures['frd-bl0159b'] === 'could not resolve', 'the concrete failure text reaches blockedFailures for notify-end to quote')
+  },
+})
+
+// (b2) the OTHER attemptRepair call site (a build-wave work-order self-test failure, BEFORE any review
+// ever starts) must NOT gain this telemetry — no review_start was ever emitted for it, so a review_end
+// here would announce the close of a review that never opened.
+SCENARIOS.push({
+  name: 'BL-0159b2. a build-wave self-test failure routed through attemptRepair (no review ever started) does NOT emit review_end/frd_end/GateVerdict',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159b2', deps: [], workOrders: [mkWo('wo-bl0159b2-001', 'PLANNED', { frd: 'frd-bl0159b2', artifacts: ['src/bl0159b2/**'] })] }]),
+  responses: [
+    { label: 'build:wo-bl0159b2-001', response: { green: false } },
+    { label: 'repair:frd-bl0159b2', response: { green: false, blocked_reason: 'error', failure: 'still broken' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const repair = byLabel(run, 'repair:frd-bl0159b2')[0]
+    t.ok(Boolean(repair), 'the repair attempt ran (build-wave self-test failure path)')
+    t.ok(repair && !/"kind":"review_end"/.test(repair.prompt), 'no review_end — no review_start was ever emitted for a build-wave failure, so there is no review to close')
+    t.ok(repair && !/"kind":"frd_end"/.test(repair.prompt), 'no frd_end either')
+    t.ok(repair && !/"event":"GateVerdict"/.test(repair.prompt), 'and no GateVerdict — this is a build failure, not a gate verdict')
+  },
+})
+
+// (c) PASS via apply-gate — after refactoring applyGate/verifyPatched onto the shared emitGateOutcome
+// helper, the emission must stay EXACTLY once (no duplicates introduced by the refactor).
+SCENARIOS.push({
+  name: 'BL-0159c. PASS via apply-gate still emits review_end/frd_end/GateVerdict exactly ONCE after the emitGateOutcome refactor — no duplicates',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159c', deps: [], workOrders: [mkWo('wo-bl0159c-001', 'PLANNED', { frd: 'frd-bl0159c', artifacts: ['src/bl0159c/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const apply = byLabel(run, 'apply-gate:frd-bl0159c')[0]
+    t.ok(Boolean(apply), 'apply-gate ran')
+    const reviewEndCount = (apply && (apply.prompt.match(/"kind":"review_end"/g) || [])).length
+    const frdEndCount = (apply && (apply.prompt.match(/"kind":"frd_end"/g) || [])).length
+    const gateVerdictCount = (apply && (apply.prompt.match(/"event":"GateVerdict"/g) || [])).length
+    t.ok(reviewEndCount === 1, `exactly one review_end (got ${reviewEndCount})`)
+    t.ok(frdEndCount === 1, `exactly one frd_end (got ${frdEndCount})`)
+    t.ok(gateVerdictCount === 1, `exactly one GateVerdict (got ${gateVerdictCount})`)
+    t.ok(apply && /verdict":"pass"/.test(apply.prompt), 'the pass verdict text is intact after the refactor onto emitGateOutcome')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0159c'), 'the FRD verifies')
+  },
+})
+
+// (d) notify-end: the WO rollup is re-synced from disk (the governed writer, never hand-derived) right
+// before the count is reported, and the closing narrative is built from blockedReasons/blockedFailures
+// (this run's LATEST state) rather than an earlier attempt's stale findings — canary C's "106/106 with
+// 107 real files" + "needs owner decision" (fix already committed, gate 2 was green) symptom.
+SCENARIOS.push({
+  name: 'BL-0159d. notify-end re-syncs the rollup from disk before reporting the WO count, and narrates the LATEST blocked reason/failure (never a stale one)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0159d', deps: [], workOrders: [mkWo('wo-bl0159d-001', 'PLANNED', { frd: 'frd-bl0159d', artifacts: ['src/bl0159d/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-bl0159d', response: { green: false, reopen: [], blocked_reason: 'external', failure: 'upstream flaky', traceability: validTraceability } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(Boolean(end), 'notify-end ran')
+    const syncIdx = end.prompt.indexOf('sync-rollups --project')
+    const buildCompleteIdx = end.prompt.indexOf('"event":"BuildComplete"')
+    t.ok(syncIdx >= 0, 'BL-0159: notify-end now re-invokes the governed sync-rollups writer — before this fix it only ever read status.yaml\'s LAST-synced (possibly stale) counters')
+    t.ok(buildCompleteIdx > syncIdx, 'the resync happens BEFORE the WO count is reported (BuildComplete/progress.md), never after')
+    t.ok(/BL-0159 — narrate the LATEST state only/.test(end.prompt), 'BL-0159: the closing prompt explicitly forbids narrating a superseded earlier gate attempt\'s findings once a later one changed the outcome')
+    t.ok(/frd-bl0159d\(external: upstream flaky\)/.test(end.prompt), 'the blocked-FRD summary carries the CONCRETE failure text, not just the reason code — the closing agent no longer has to guess or dig through older transcript context')
+  },
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner

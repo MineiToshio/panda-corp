@@ -391,6 +391,21 @@ const BUILD_LAUNCH_EVENT =
 const GATE_VERDICT = (frd, verdict, fields = '', args = '') =>
   ` Also append the GateVerdict event for this exit (fire-and-forget — COUNTS only, never id arrays): printf '{"event":"GateVerdict","at":"%s","project":"%s","frd":"${frd}","verdict":"${verdict}"${fields}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}"${args} >> ~/.claude/dashboard-events.ndjson.`
 
+// B2b (BL-0159) — the SINGLE choke point for a gate's TERMINAL-outcome telemetry: a PASS or ANY block
+// (needs-owner | external | error). A REOPEN is not terminal (the FRD loops back into a build/patch pass
+// THIS same run) so it keeps its own inline review_end/GateVerdict emission in the reviewing agent's own
+// prompt (frdGateSerial/frdGateSplit, unchanged) — this helper is never used for it.
+// Before BL-0159, every block exit hand-rolled its OWN subset of this telemetry — persistGateBlock emitted
+// NOTHING, attemptRepair's own "cannot fix" branch emitted NOTHING, blockRepairBudgetExhausted/
+// blockEarlyNeedsOwner emitted GateVerdict but never review_end/frd_end — so a block reached via any path
+// OTHER than the reviewing agent's own inline 'blocked'/'fail' branch left a dangling review_start and no
+// GateVerdict at all in the dashboard/track streams (canary-c-forensics.md §7 — BL-0157 fixed ONE such
+// path, the traceability oracle; this closes the class for every OTHER terminal exit). `verdict` is
+// 'pass' | 'blocked' (the review_end/GateVerdict coarse category — a specific blocked_reason, when it
+// varies at runtime, travels through `fields`/`args`, same %s-placeholder contract as GATE_VERDICT itself).
+const emitGateOutcome = (frd, verdict, fields = '', args = '') =>
+  `${TRACK('review_end', `,"frd":"${frd}","verdict":"${verdict}"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, verdict, fields, args)}`
+
 // B3 — a per-WO reopen event on the DASHBOARD stream (the durable track.jsonl wo_reopen line stays; this is
 // the live counterpart). ONE line per reopened WO, emitted next to that track.jsonl line. reopen_count is the
 // NEW value after the increment.
@@ -1677,7 +1692,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
-    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
     **BEFORE you stamp anything (WP-08 cage):** read \`.pandacorp/run/gate-report.json\` — the report the gate you are applying left behind — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.`,
     { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
@@ -1689,10 +1704,18 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
 
 // ── C2 persist-block (serialized MAIN-tree writer) — the non-progress / classified BLOCK the review-only
 // gate could not write (it is review-only). Stamps BLOCKED + the decision record on main. ──
-async function persistGateBlock(frd, reviewIds, reason, failure) {
+// BL-0159: `alreadyTracked` (default false) — a caller passes true ONLY when the review-only gate agent
+// that classified THIS block already ran its own inline review_end/GateVerdict emission (the DR-072
+// non-progress-stop and generic "broken, can't pinpoint WOs" branches in frdGateSerial/frdGateSplit both
+// self-emit before returning). Every OTHER caller (the B2 traceability re-ask, still deficient after one
+// retry) never went through that agent-side branch at all — a deficient-but-GREEN verdict takes NEITHER
+// the reopen NOR the blocked/fail branch of the reviewer's own prompt, so nothing was ever emitted for it
+// (canary C gate 2's exact shape). Passing false there closes that gap via emitGateOutcome; passing true
+// avoids a duplicate review_end/GateVerdict for a block already told to the dashboard.
+async function persistGateBlock(frd, reviewIds, reason, failure, alreadyTracked = false) {
   agentSpawned++
   const link = commitChain.then(() => agent(
-    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope). Return { done: true }.`,
+    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)} Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
   return link.then(() => true, () => false)
@@ -1817,7 +1840,7 @@ async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
   2) Set EACH reopened work order (${(reopenIds || []).join(', ')}) \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) and ATTACH the objective gate-report under it as a fenced \`\`\`json block so the owner reads the machine verdict, not a summary of it: ${record}
   GATE-REPORT (verbatim, from the failing gate): ${report}
-  4) COMMIT (Conventional Commits, scope) staging the frontmatter flips, decisions.md, status.yaml and \`.pandacorp/build-journal.jsonl\`.${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner","repair_units":${spent},"repair_budget":${ceiling}`)}${NOTIFY('FRD ' + frd + ' parado: la reparacion ya cuesta mas de ' + REPAIR_BUDGET_FACTOR + 'x construirlo — trabajo intacto, necesita tu decision')}
+  4) COMMIT (Conventional Commits, scope) staging the frontmatter flips, decisions.md, status.yaml and \`.pandacorp/build-journal.jsonl\`.${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner","repair_units":${spent},"repair_budget":${ceiling}`)}${NOTIFY('FRD ' + frd + ' parado: la reparacion ya cuesta mas de ' + REPAIR_BUDGET_FACTOR + 'x construirlo — trabajo intacto, necesita tu decision')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
     { label: `block-repair-budget:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
@@ -1825,12 +1848,20 @@ async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
 // ── Repair pass: TRY TO FIX before giving up (owner's rule, DR-050) ────────────
 // The build resolves problems itself and only stops when it genuinely can't — then it
 // BLOCKS with a reason instead of dying. Run by a strong model (it's hard diagnosis).
-async function attemptRepair(frd, context) {
+// `gateBlocked` (BL-0159, default false): true ONLY when this call sits directly downstream of a FRD
+// gate/review attempt that already ran this cycle (gateConverge's "no specific reopen → attempt repair"
+// ladder) — so a step-3 give-up here IS a gate's terminal outcome and must emit review_end/frd_end/
+// GateVerdict (the exact shape canary C's gate 2 left untelemetried: attemptRepair itself SUCCEEDED that
+// run, but the re-gate it fed into then failed with no agent branch left to emit anything — see the
+// gateConverge call site). The OTHER call site (a build-wave work-order self-test failure, BEFORE any
+// review ever starts — no review_start was emitted for it) leaves this false: emitting review_end there
+// would announce the close of a review that never opened.
+async function attemptRepair(frd, context, gateBlocked = false) {
   agentSpawned += COST(P.judge)   // DR-073: repair runs on the judge model — weight it honestly
   return await chargedRepair(frd, P.judge, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
   2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
-  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, mirror it in .pandacorp/status.yaml. **DR-070 — discard the blocked WO's committed-but-broken code so it doesn't pollute sibling FRDs' global gate: revert its files to the last green (\`git checkout <last_green_sha> -- <its existing files>\`; \`git rm\` newly-created ones; NEVER a hard reset of the whole tree).** Commit only the status change + the revert, and return { green: false, blocked_reason, failure }:
+  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, then ${SYNC_ROLLUPS} **DR-070 — discard the blocked WO's committed-but-broken code so it doesn't pollute sibling FRDs' global gate: revert its files to the last green (\`git checkout <last_green_sha> -- <its existing files>\`; \`git rm\` newly-created ones; NEVER a hard reset of the whole tree).** Commit only the status change + the revert${gateBlocked ? `, then append ONE more printf naming the blocked_reason you are actually returning below (needs-owner, external or error) — literally: ${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the blocked_reason you return: needs-owner|external|error>"`)}` : ''}, and return { green: false, blocked_reason, failure }:
      - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
@@ -1928,7 +1959,7 @@ async function verifyPatched(frd, reviewIds) {
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
   const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
-  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${TRACK('review_end', `,"frd":"${frd}","verdict":"pass"`)}${TRACK('frd_end', `,"frd":"${frd}"`)}${GATE_VERDICT(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
+  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
   **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.
   **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. You are THE certification: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
@@ -2055,15 +2086,22 @@ const builtFrds = []
 const blockedFrds = []
 const reopenedFrds = []
 const blockedReasons = {}
+const blockedFailures = {}   // BL-0159: frd -> the concrete failure text behind blockedReasons[frd], when known (see blockFrd)
 let consecutiveBlocks = 0   // health breaker: non-external blocks in a row
 let stopReason = null       // 'budget' | 'blocks' | 'maxFrds' (null = ran to completion)
 let deferredWork = false    // WS-D/D4a: a safe-point drain routed a change's new WOs into an ALREADY-planned FRD
 // (they build on a LATER run) — so "all planned FRDs built" is NOT the whole story. Gates release (allDone) on !deferredWork.
 
-function blockFrd(frd, reason) {
+// `failure` (BL-0159, optional): the concrete reason TEXT behind `reason`'s coarse category, when the
+// caller already has one in scope (a gate's own `.failure`, a repair's, a synthesized one-liner). Threaded
+// into `blockedFailures` so notify-end's closing narrative (see the close-out prompts) can quote the REAL,
+// LATEST cause instead of guessing from an earlier gate attempt's stale findings — the exact canary C
+// symptom (BL-0159 §2: "solo recibio el reason error y relleno con findings viejos del gate 1").
+function blockFrd(frd, reason, failure = '') {
   reason = reason || 'error'
   blockedFrds.push(frd)
   blockedReasons[frd] = reason
+  if (failure) blockedFailures[frd] = String(failure).slice(0, 200)
   if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
 }
 
@@ -2299,7 +2337,7 @@ async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
   1) Read last_green_sha from .pandacorp/status.yaml and DISCARD the rejected code for the reopened work orders (${(reopenIds || []).join(', ')}): \`git checkout <last_green_sha> -- <their files that existed at last green>\` and \`git rm\` any files they newly created. **NEVER a whole-tree hard reset** (it would discard verified siblings). PRESERVE reviewer-authored / Status-Note-referenced TEST files — MOVE them to \`.pandacorp/run/preserved-tests/<wo-id>/\` (DR-107), do not delete.
   2) Set EACH reopened work order's frontmatter \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) — what the gate keeps rejecting, the diagnosis, and exactly what the owner must decide — and INLINE the build-journal digest for this WO: read the last few ${JOURNAL_PATH} lines for ${(reopenIds || [])[0] || frd} and summarize the attempt/diagnosis history so the owner sees how it got here. The record: ${record}
-  4) COMMIT (Conventional Commits, scope) staging the frontmatter flip, the code revert, decisions.md, status.yaml AND \`.pandacorp/build-journal.jsonl\` (append-only — sweeps the diagnosis line).${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)}${NOTIFY('FRD ' + frd + ' bloqueado (diagnóstico ' + cls + ') — necesita tu decisión')}
+  4) COMMIT (Conventional Commits, scope) staging the frontmatter flip, the code revert, decisions.md, status.yaml AND \`.pandacorp/build-journal.jsonl\` (append-only — sweeps the diagnosis line).${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`)}${NOTIFY('FRD ' + frd + ' bloqueado (diagnóstico ' + cls + ') — necesita tu decisión')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
     { label: `block-needs-owner:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
@@ -2323,7 +2361,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   if (!capHit() && !canAffordRepair(f.frd, 'opus', retryWos.length)) {
     log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08/D4)`)
     await blockRepairBudgetExhausted(f.frd, reopenIds, null)
-    blockFrd(f.frd, 'needs-owner')
+    blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before the in-run retry rebuild')
     return 'blocked'
   }
   // WS-D/D6: BUDGET the in-run retry against the remaining maxAgents allowance (each reopened WO now
@@ -2367,7 +2405,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
       const stillMissing = reregate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
       await persistGateBlock(f.frd, reviewIds, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
-      blockFrd(f.frd, 'needs-owner')
+      blockFrd(f.frd, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
       return 'blocked'
     }
   }
@@ -2444,7 +2482,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       // point — one more diagnosis + patch-2 is exactly the spend the brake exists to refuse.
       log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted, honest needs-owner exit with the work preserved (WP-08)`)
       await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
-      blockFrd(f.frd, 'needs-owner')
+      blockFrd(f.frd, 'needs-owner', 'repair budget exhausted after patch-1 (WP-08)')
       return 'blocked'
     } else if (patched && patched.cause === 'code' && !capHit()) {
       // ── A3 PROGRESSIVE-LEARNING RECOVERY LADDER ───────────────────────────────────────────────────
@@ -2493,7 +2531,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
           log(`⊘ ${f.frd}: the re-bless greened but the independent verification failed (${iv?.failure || 'red'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
         } else log(`⊘ ${f.frd}: the blessed test was UPHELD (${tr?.failure || 'no declared derogation'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
         await blockEarlyNeedsOwner(f.frd, gate.reopen, diag)
-        blockFrd(f.frd, 'needs-owner')
+        blockFrd(f.frd, 'needs-owner', (diag && diag.decisionRecord) || `diagnosed deadlocked-contract (confidence ${conf})`)
         return 'blocked'
       }
       // (b) architectural at confidence medium|high → EARLY BLOCK needs-owner: do NOT burn the remaining
@@ -2502,7 +2540,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       if (cls === 'architectural' && (conf === 'medium' || conf === 'high')) {
         log(`⊘ ${f.frd}: diagnosis = ${cls} (confidence ${conf}) — early BLOCK needs-owner, NOT burning the remaining reopens on a doomed spec (A3)`)
         await blockEarlyNeedsOwner(f.frd, gate.reopen, diag)
-        blockFrd(f.frd, 'needs-owner')
+        blockFrd(f.frd, 'needs-owner', (diag && diag.decisionRecord) || `diagnosed ${cls} (confidence ${conf})`)
         return 'blocked'
       }
       // confidence:low architectural/deadlocked falls through and is treated as 'point' (never block on a weak diagnosis).
@@ -2511,7 +2549,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         // WP-08 (d): the diagnosis fit the budget but patch-2 does not. Same honest exit.
         log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08)`)
         await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
-        blockFrd(f.frd, 'needs-owner')
+        blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before patch-2 (WP-08)')
         return 'blocked'
       }
       if (!repeats && patchesThisCycle < PATCH_ATTEMPT_CAP) {
@@ -2570,7 +2608,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       const stillMissing = regate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
       await persistGateBlock(f.frd, reviewIds, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
-      blockFrd(f.frd, 'needs-owner')
+      blockFrd(f.frd, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
       return 'blocked'
     }
     return await gateConverge(f, reviewIds, regate, true)
@@ -2597,22 +2635,39 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   // STOP instead of grinding another full cycle per capped FRD every run. 'error' still falls through to repair.
   if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
     log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
-    if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure)   // C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main
-    blockFrd(f.frd, gate.blocked_reason)
+    if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure, true)   // C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main. alreadyTracked:true (BL-0159) — the reviewing agent's OWN prompt already emitted review_end/GateVerdict for this classification (frdGateSerial/frdGateSplit's inline 'blocked'/'fail' branch); persisting the state here must not re-emit a duplicate.
+    blockFrd(f.frd, gate.blocked_reason, gate.failure)
     return 'blocked'
   }
 
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
   log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
-  const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'))
+  const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'), true)   // BL-0159: gateBlocked:true — a step-3 give-up here IS a gate's terminal outcome
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
     if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }   // WP-08 cage
     if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
   }
+  // BL-0159: the post-repair re-gate above is ALSO wrapped by enforceWholeFrdTraceability (frdGate wraps
+  // every call) and can come back a genuinely deficient-but-GREEN verdict the oracle downgraded WITHOUT
+  // the reviewing agent ever taking its own reopen/blocked/fail branch — those self-emit inline; a
+  // deficient green does not (the agent believed it was returning green; that telemetry is deferred to
+  // applyGate, which this verdict never reaches). Left unhandled this fell straight to the bare 'error'
+  // fallback below with ZERO review_end/GateVerdict trace — canary C gate 2's exact shape, reproducible
+  // here independently of BL-0157's already-covered call sites (gateConverge's own top-of-function guard,
+  // inRunRetry's). No repair budget is spent re-asking a THIRD gate this deep in the ladder — persist the
+  // block directly (needs-owner, never the silent 'error' default) so it is always traced.
+  if (gate && gate.traceabilityDeficient) {
+    const missing = (gate.missingClasses || []).join(', ') || 'see failure'
+    log(`⊘ ${f.frd}: post-repair re-gate traceability contract incomplete (missing: ${missing}) — BLOCK needs-owner, never 'error' (B2/BL-0159)`)
+    await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`)
+    blockFrd(f.frd, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`)
+    return 'blocked'
+  }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
+  const failureText = (fix && fix.failure) || (gate && gate.failure) || ''
   log(`⊘ ${f.frd}: BLOCKED (${reason})`)
-  blockFrd(f.frd, reason)
+  blockFrd(f.frd, reason, failureText)
   return 'blocked'
 }
 
@@ -3238,7 +3293,11 @@ if (LEAN_CLOSE_OUT) {
       log('Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).')
     }
   } else {
-    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+    // BL-0159: carry the concrete failure TEXT alongside each blocked_reason code — the engine's OWN
+    // live in-run state (blockedFailures, populated by blockFrd at the exact moment each FRD's terminal
+    // verdict was decided THIS run), never a re-derivation the closing agent has to go hunting for in
+    // older gate-attempt transcripts or a stale decisions.md entry.
+    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]}${blockedFailures[x] ? `: ${blockedFailures[x]}` : ''})`).slice(0, 8).join(', ') || 'ninguno'
     const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
       : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
       : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
@@ -3249,7 +3308,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
     const reuseLeanNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLeanNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLeanNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
+    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLeanNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLeanNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS} (BL-0159 — the WO count you are about to report MUST be this freshly-recomputed one, never a figure remembered from earlier in the run: a gate/repair/block resolved AFTER the last sync would otherwise under- or over-count against the real \`wo-*.md\` files on disk). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict (a later gate/repair attempt supersedes an earlier one automatically — blockedReasons/blockedFailures are never stale). Never narrate an earlier reject/findings you might recall from this run's own transcript as if it were still the open issue once a later attempt changed the outcome — if a fix commit landed and a later gate re-blocked for a DIFFERENT reason (or none), report THAT reason, not the first one you saw. Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
@@ -3306,7 +3365,8 @@ if (LEAN_CLOSE_OUT) {
       log('Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).')
     }
   } else {
-    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]})`).slice(0, 8).join(', ') || 'ninguno'
+    // BL-0159: see the lean-close-out twin above for why this carries failure text, not just the code.
+    const blk = blockedFrds.map((x) => `${x}(${blockedReasons[x]}${blockedFailures[x] ? `: ${blockedFailures[x]}` : ''})`).slice(0, 8).join(', ') || 'ninguno'
     const why = stopReason === 'agents' ? ' Paro por techo de agentes (maxAgents).'
       : stopReason === 'budget' ? ' Paro por techo de presupuesto.'
       : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
@@ -3317,7 +3377,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++
     const reuseLegacyNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLegacyNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLegacyNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
+    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded a FULL, GREEN run of this EXACT commit (sha ${reuseLegacyNotifyEnd.headSha}, ~${Math.max(0, Math.round(reuseLegacyNotifyEnd.ageSeconds || 0))}s ago, clean tree) — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS} (BL-0159 — report THIS freshly-recomputed WO count, never a figure remembered from earlier in the run). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict; never narrate an earlier reject/findings from this run's own transcript once a later attempt superseded it. Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
@@ -3340,4 +3400,4 @@ if (!LEAN_CLOSE_OUT && closed && closed.done === true) {
     { label: 'release-lease', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
 }
 
-return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, stopReason }
+return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures, stopReason }

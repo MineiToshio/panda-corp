@@ -3,12 +3,12 @@ id: BL-0159
 type: bug
 area: build-engine
 title: "A green gate reached without apply-gate running leaves no telemetry trace (review_end/GateVerdict/frd_end) and notify-end writes a false progress.md narrative to the owner"
-status: open
+status: done
 severity: p1
 opened: 2026-09-23
-closed:
+closed: 2026-09-24
 source: "canary-c-forensics.md §7 'Hallazgos hermanos' + §2 timeline — Canary C live run, wf_1cf782d6-2ed, frd-23-materialized-stats-read-model"
-closes:
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js emitGateOutcome (new) + persistGateBlock + attemptRepair + blockRepairBudgetExhausted + blockEarlyNeedsOwner + applyGate + verifyPatched + blockFrd + gateConverge + the two notify-end close-out prompts"
 links: [BL-0157]
 ---
 
@@ -72,13 +72,43 @@ narrative; (c) asserts the WO count in `progress.md`/`BuildComplete` matches an 
 `wo-*.md` file total.
 
 ## Done when
-- A completed gate attempt (pass or reopen) always emits its verdict event regardless of whether
-  `apply-gate` subsequently runs.
-- `progress.md` never narrates a decision as pending when a later commit/gate result already resolved it.
-- The WO count `notify-end` reports matches an independent on-disk count.
-- `bash plugin/scripts/run-engine-tests.sh` green, run twice.
+- [x] A completed gate attempt (pass or ANY block) always emits its verdict event regardless of whether
+  `apply-gate` subsequently runs. New `emitGateOutcome(frd, verdict, fields, args)` is the single choke
+  point (`review_end` + `frd_end` + `GateVerdict`); every block-exit function now routes through it —
+  `persistGateBlock` (previously emitted NOTHING; `alreadyTracked` param avoids a duplicate when the
+  reviewing agent's own inline branch already emitted), `attemptRepair`'s step-3 give-up branch
+  (previously emitted NOTHING; gated on a new `gateBlocked` param so the OTHER call site — a build-wave
+  self-test failure with no review ever started — stays silent, correctly), `blockRepairBudgetExhausted`
+  and `blockEarlyNeedsOwner` (previously emitted `GateVerdict` only, never `review_end`/`frd_end`).
+  `applyGate`/`verifyPatched` (the PASS paths) refactored onto the same helper — byte-identical emitted
+  text, now from one source (DR-115). A residual THIRD traceability-deficient path found while auditing
+  (gateConverge's post-`attemptRepair` re-gate, wrapped by `enforceWholeFrdTraceability` like every other
+  gate call but with no B2 handling at all) is now also routed to `persistGateBlock` instead of falling
+  through to the silent `'error'` default.
+- [x] `progress.md` never narrates a decision as pending when a later commit/gate result already resolved
+  it. `blockFrd` now threads a concrete `failure` TEXT (not just the reason code) into a new
+  `blockedFailures` map, populated at every call site from data the engine already has in scope THIS run
+  (a gate's own `.failure`, a repair's, a diagnosis record, or a synthesized one-liner for the
+  budget-exhausted paths) — never a re-derivation the closing agent has to reconstruct from older
+  transcript context. Both `notify-end` prompts (lean + legacy close-out) now quote `blockedReasons`
+  **and** `blockedFailures` in the `Blocked: …` summary and carry an explicit instruction to narrate ONLY
+  that latest recorded state, never a superseded earlier gate attempt's findings.
+- [x] The WO count `notify-end` reports matches an independent on-disk count. Both `notify-end` prompts now
+  invoke `${SYNC_ROLLUPS}` (the governed `sync-rollups` writer, which re-reads every `wo-*.md` from disk)
+  immediately before the `BuildComplete`/progress.md write, instead of trusting whatever `status.yaml`
+  counters the last unrelated sync left behind. `attemptRepair`'s own block branch (which used to say
+  "mirror it in .pandacorp/status.yaml" — a hand-rolled, DR-115-violating write) now also calls
+  `${SYNC_ROLLUPS}` instead.
+- [x] `bash plugin/scripts/run-engine-tests.sh` green, run twice (25/25 suites both times, incl. the new
+  BL-0159a/a2/b/b2/c/d scenarios in `test-pandacorp-build.mjs`, and the pre-existing 158 scenarios/162
+  suites unmodified and still green — no regression from the `emitGateOutcome` refactor).
 
 ## Out of scope
-BL-0157's own fix to `enforceWholeFrdTraceability` (the oracle-rewrite bug itself) — this item covers ONLY
-the residual telemetry-gap and narrative-staleness symptoms that remain even once that oracle is fixed,
-since a gate can in principle reach a terminal block via `apply-gate` never running through other paths too.
+BL-0157's own fix to `enforceWholeFrdTraceability` (the oracle-rewrite bug itself, already shipped) — this
+item covers ONLY the residual telemetry-gap and narrative-staleness symptoms, which is why one MORE
+previously-unguarded traceability-deficient path (the post-repair re-gate in `gateConverge`) surfaced and
+got the same B2 "persist needs-owner, never silent" treatment as part of closing the telemetry class, not
+as a re-opening of BL-0157's own oracle scope. Not attempted: a full THIRD B2 re-ask retry at that specific
+call site (accepted the conservative "persist directly, don't re-ask" behavior there — it is already deep
+in the recovery ladder and a repeat re-ask would spend more repair budget for a rare, now fully-traced,
+edge case).
