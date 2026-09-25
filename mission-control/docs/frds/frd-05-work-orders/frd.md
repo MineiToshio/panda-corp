@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-19'
+last_updated: '2026-09-24'
 ---
 # FRD-05 — Work orders (live view)
 
@@ -19,6 +19,7 @@ Read-only kanban of the work orders' state, with their FRD and reading the full 
 - **REQ-05-004** — WHEN the owner clicks a work order, it SHALL show a **Summary** and a **Full document** tab that renders the entire work order (acceptance criteria, scope, definition of done, evidence).
 - **REQ-05-005** — It SHALL show the project's progress (work orders done / total and %), aggregated across every feature's `work-orders/`.
 - **REQ-05-006** — The kanban SHALL reflect the live state (written by the agents in each feature's `docs/frds/frd-NN-<slug>/work-orders/`); the owner does NOT edit it.
+- **REQ-05-007** — The kanban SHALL offer a secondary filter by work-order state (`todo · in_progress · review · fail · done`, plus "all"), as `aria-pressed` pills in the same pattern as the FRD filter, combinable with it by logical AND (WO-05-007).
 - **Real-time / event-driven**: the work-order board SHALL update LIVE as the agents change work-order state — when a work order moves column (e.g. into Review, Fail or Done) the board SHALL reflect it without the owner reloading the page. **(reconciled from code 2026-07-07)** — the board (`WoLiveRefresh`) refreshes on TWO triggers, not just fresher events: a genuinely newer event, OR a moved SSE `stateVersion` (the max mtime of `status.yaml` + WO frontmatter, via the shared `lib/status/state-version-moved.ts`). The `stateVersion` trigger is what makes a **backward** transition visible — a gate reopen (`IN_REVIEW → PLANNED`) rewrites only the frontmatter and emits no event, so an event-only board would leave the reopened WO stranded in the wrong column. The open **WO detail pane** mounts the same `WoLiveRefresh` (`ProjectWorkspace.renderWorkOrdersTab`), so an open work order's status badge updates live too — same SSE transport, no second subscription.
 
 ## Edge cases

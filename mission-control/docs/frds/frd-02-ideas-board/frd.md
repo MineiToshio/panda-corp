@@ -7,7 +7,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/frds/frd-02-ideas-board/mocks/la-campana.html
-last_updated: '2026-07-02'
+last_updated: '2026-09-24'
 ---
 # FRD-02 — Ideas board
 
@@ -28,6 +28,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 - **REQ-02-008** — WHEN the owner presses "Discard idea", the system SHALL open a confirmation **modal** (the shared `Modal` core, DR-057) that captures an **optional reason** (quick-tags — *saturado/competencia · no me interesa el tema · no apalanca mi canal · muy complejo · no monetiza en Perú · otro* — plus free text) and SHALL write it to the `discard_reason` frontmatter field alongside `status`. The reason is optional (confirming without one writes only `status`), and the capture is part of the same write. (Owner rule: reveal-more is a modal, never an inline expand-that-pushes-content — the reason capture does **not** expand inline below the trigger. While the write is in flight the modal stays open with a disabled "Descartando…" state; backdrop/✕/Escape are inert until it settles.) This feeds `/pandacorp:discover`'s rejection-pattern learning so it stops proposing ideas the owner keeps rejecting (factory v9.8.0). On discard the system SHALL also record `status_before_discard` (the prior status) so a restore is exact.
 - The board SHALL NOT render a "Descartado" column. Discarded ideas are reached via a **"Ver descartadas" button** (beside "Capturar ideas", shown only when discarded ideas exist) that opens a **modal** listing them (title + discard reason); selecting one opens its detail. (Owner rule: no inline expand-that-pushes-content — reveal-more is a modal. The shared `Modal` core, DR-057, powers this and the intake modal.)
 - WHEN the owner opens a discarded idea's detail, the system SHALL show its **full documentation** (the Documentos tab, the default) and a banner with the **discard reason**, and SHALL offer **"Volver a agregar"** — which restores the idea to the status it had **before** being discarded (`status_before_discard`, fallback `discovered`) and clears `discard_reason` + `status_before_discard`. Restore is the board's second write (ADR-0002).
+- **REQ-02-014** — WHEN a board column has no cards, it SHALL show an accessible empty-state marker: an element with role `status` whose text is "Sin ideas en esta columna" (visually hidden), with the visual dash kept as `aria-hidden` decoration, so the empty state is not conveyed by shape alone (WO-02-014).
 
 ## Card detail — "La Campaña" + tabbed restructure (extension, 2026-06-18)
 

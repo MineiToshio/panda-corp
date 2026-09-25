@@ -32,6 +32,7 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 | WO-02-007 | PLANNED (UI) | **La Campaña card detail** — tabbed (5) + 6-phase pipeline | `app/board/_components/CardDetail/**`, `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005 |
 | WO-02-012 | VERIFIED | **Favourite flag** — visual highlight + star toggle (the third write) | `lib/favorite/**`, `components/core/FavoriteButton/**`, `app/board/{actions,IdeaBoardView,_components/BoardShell}/**`, `components/modules/IdeaCard/**` | WO-01-003, WO-02-004, WO-02-005 |
 | WO-02-013 | IN_REVIEW (bug) | **"Siguiente paso" interpolates the real idea name** — replace literal `<idea>` with the card slug in every next-step command | `components/modules/CampaignPipeline/**` | WO-02-003, WO-02-007, WO-02-011 |
+| WO-02-014 | PLANNED (change) | **Accessible empty-column marker** — `role="status"` + visually-hidden "Sin ideas en esta columna", dash `aria-hidden` | `app/board/IdeaBoardView/**` | WO-02-005 |
 
 ## Ordering & parallelism (Phase 2)
 

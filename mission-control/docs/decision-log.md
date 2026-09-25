@@ -61,6 +61,23 @@ application code touched (the two filed cards carry the code fixes).
 log; `.pandacorp/inbox/changes/{portfolio-rail-architecture-phase-leak,campaign-pipeline-ac02-010-8-rebuild}.md`
 + `.pandacorp/inbox/changes/README.md` (gitignored, not committed).
 
+## 2026-09-24 — Four small independent UX improvements planned as parallel work orders (change `canario-d-paralelismo-portfolio-board-changes-wo`)
+
+**What:** the change card was integrated into the build as four PLANNED work orders with disjoint
+artifacts and no `dependsOn` between them (DR-060), one per owning FRD:
+- [WO-02-014](frds/frd-02-ideas-board/work-orders/wo-02-014-empty-column-a11y.md) — accessible empty-column marker on the ideas board (REQ-02-014, [FRD-02](frds/frd-02-ideas-board/frd.md)).
+- [WO-03-006](frds/frd-03-portfolio/work-orders/wo-03-006-last-sync-chip.md) — relative "last sync" chip on the portfolio row (REQ-03-007, [FRD-03](frds/frd-03-portfolio/frd.md)).
+- [WO-04-008](frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md) — relative date on the Changes-tab card (REQ-04-011, [FRD-04](frds/frd-04-project-workspace/frd.md)).
+- [WO-05-007](frds/frd-05-work-orders/work-orders/wo-05-007-wo-state-filter.md) — secondary filter by work-order state on the kanban (REQ-05-007, [FRD-05](frds/frd-05-work-orders/frd.md)).
+
+**Why:** each closes a small real gap (a parsed-but-never-rendered `lastSync`, a shape-only empty
+state, a raw ISO date, no way to isolate WOs by state), and together they give the `powerful` engine
+at least three independent WOs in one wave so the canary D run can measure real build parallelism.
+The two relative-date helpers (`formatLastSync`, `formatChangeDate`) are deliberately separate per the
+card (distinct domains, disjoint artifacts); consolidating the project's scattered relative-time
+formatting is a rule-of-three follow-up, not part of this change. Noted in WO-03-006: `PortfolioTable`
+has no production importer today, so its chip is component-level only.
+
 ## 2026-09-23 — `UiPassSkipped` rendered in the La Fragua timeline (change `render-uipassskipped-timeline`, close-out)
 
 **What:** the build engine's `UiPassSkipped` event (emitted when a run skips the foundation-gate or

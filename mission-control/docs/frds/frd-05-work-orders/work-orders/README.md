@@ -11,6 +11,7 @@ Read [`../blueprint.md`](../blueprint.md) first.
 | [WO-05-001](./wo-05-001-work-orders-reader.md) | `lib/work-orders.ts` — discover + parse work orders | lib (TDD) | IF-05-work-orders | VERIFIED | WO-01-000 |
 | [WO-05-002](./wo-05-002-aggregate-progress.md) | `lib/work-orders.ts` — `aggregateProgress` | lib (TDD) | IF-05-work-orders | VERIFIED | WO-05-001 |
 | [WO-05-003](./wo-05-003-wo-board-tab.md) | Work-orders tab: live kanban board + detail (re-paint) | UI (Phase 2) | CMP-05-board/column/card/frd-filter/detail/progress/empty | VERIFIED | WO-05-001, WO-05-002, WO-04-001, WO-04-004, WO-01-009, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
+| [WO-05-007](./wo-05-007-wo-state-filter.md) | Work-orders kanban: secondary filter by state | UI | CMP-05-frd-filter (sibling), CMP-05-board | PLANNED | WO-05-003 |
 
 ## Phase 2 re-plan (presentational)
 
