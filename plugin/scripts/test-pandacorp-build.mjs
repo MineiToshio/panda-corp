@@ -3961,6 +3961,86 @@ SCENARIOS.push({
     t.ok(end && /complete suite, NO --since/.test(end.prompt) && !/CloseOutVerifyReused/.test(end.prompt), 'the unscripted (agent-returns-nothing-usable) default never reuses — the full rerun is the fail-safe default')
   },
 })
+
+// ---- BL-0179 ----
+// canary D's live measurement found BL-0147's reuse-check NEVER fires in a real run: every per-FRD
+// gate stamps scope:"since" (the fast focused path), and the reuse-check only ever licensed
+// scope:"full" — so its own target condition was practically unreachable. Fix: a "since"-scoped
+// report counts too, but ONLY when its OWN `since` anchor equals the run's CURRENT last_green_sha
+// (status.yaml) — that anchor is the proof the since-scoped run certifies exactly the delta onto an
+// already-certified base, nothing skipped. The WP-08 partial-report cage is untouched: "partial"
+// still never counts, and a "since" report anchored anywhere else still falls through to a full rerun.
+
+// (a) static safeguard check: the reuse-check prompt now encodes the since+matching-base arm — this
+// is the item's RED before the fix (the pre-fix prompt has no such text at all).
+SCENARIOS.push({
+  name: 'BL-0179a. the reuse-check prompt now encodes a "since"-scope arm anchored at the CURRENT last_green_sha',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0179a',
+    deps: [],
+    workOrders: [mkWo('wo-bl0179a-001', 'PLANNED', { frd: 'frd-bl0179a', artifacts: ['src/a/**'] })],
+  }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const check = byLabel(run, 'close-out-verify-reuse-check')[0]
+    t.ok(check, 'the reuse-check spawns')
+    t.ok(/reportScope === "since"/.test(check.prompt), 'the prompt now names a "since" arm')
+    t.ok(/reportSince === lastGreenSha/.test(check.prompt), 'the "since" arm requires the anchor to match the CURRENT last_green_sha')
+    t.ok(/last_green_sha.*from.*status\.yaml|Read.*last_green_sha/.test(check.prompt), 'the prompt instructs reading last_green_sha from status.yaml (the comparison needs a live value, not a guess)')
+    t.ok(/reportScope === "full"/.test(check.prompt), 'the original scope:"full" arm (BL-0147) is preserved, not replaced')
+  },
+})
+
+// (b) the canonical NEW-green path: a "since" report whose anchor matches last_green_sha ⇒ notify-end
+// REUSES it, and the closing prompt describes it HONESTLY as a since-scoped reuse (never mislabeled
+// "FULL") — this is the live gap canary D found: this scenario is the one that was ALWAYS unreachable
+// before the fix (no "since" report could ever satisfy the old scope==="full"-only check).
+SCENARIOS.push({
+  name: 'BL-0179b. notify-end REUSES a "since"-scoped report whose anchor matches last_green_sha — described honestly, not as "FULL"',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0179b',
+    deps: [],
+    workOrders: [mkWo('wo-bl0179b-001', 'PLANNED', { frd: 'frd-bl0179b', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'since', reportSince: 'aaaa111', lastGreenSha: 'aaaa111', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 30 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(/BL-0147 REUSE/.test(end.prompt) && /do NOT re-run/.test(end.prompt), 'the closing prompt still reuses (same mechanism, since-anchored case)')
+    t.ok(!/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt), 'the "run the FULL verify.sh" instruction is REPLACED, not merely supplemented')
+    t.ok(/SCOPED `--since aaaa111`/.test(end.prompt), 'the reused report is described as a since-scoped reuse, carrying its own anchor')
+    t.ok(!/a FULL, GREEN run of this EXACT commit/.test(end.prompt), 'a since-scoped reuse is never mislabeled as a FULL run')
+    t.ok(/"event":"CloseOutVerifyReused"/.test(end.prompt) && /"sha":"deadbeef"/.test(end.prompt) && /"ageSeconds":30/.test(end.prompt), 'the CloseOutVerifyReused event still fires on a since-anchored reuse')
+  },
+})
+
+// (c) control: a "since" report whose anchor does NOT match the current last_green_sha (an older
+// focused gate, superseded by a later commit) must NEVER license reuse — sibling of BL-0147b, proving
+// the new arm is exact-match only, never "any since report".
+SCENARIOS.push({
+  name: 'BL-0179c. control — a "since" report anchored at a DIFFERENT sha than last_green_sha does NOT reuse',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{
+    frd: 'frd-bl0179c',
+    deps: [],
+    workOrders: [mkWo('wo-bl0179c-001', 'PLANNED', { frd: 'frd-bl0179c', artifacts: ['src/a/**'] })],
+  }]),
+  responses: [
+    { label: 'close-out-verify-reuse-check', response: { canReuse: false, reason: 'since-mismatch', reportScope: 'since', reportSince: 'aaaa111', lastGreenSha: 'bbbb222', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 30 } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end, 'notify-end ran')
+    t.ok(/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt) && /complete suite, NO --since/.test(end.prompt), 'a since-report anchored at a stale/different sha never licenses reuse — the full rerun instruction is untouched')
+    t.ok(!/BL-0147 REUSE/.test(end.prompt) && !/"event":"CloseOutVerifyReused"/.test(end.prompt), 'no reuse framing or event on a since-anchor mismatch')
+  },
+})
 // ---- BL-0138 ----
 // ═════════════════════════════════════════════════════════════════════════════
 // BL-0138 — the repair brake gets a REAL-TOKEN second opinion (path 1 of the BL's fix plan), on top

@@ -289,11 +289,15 @@ run_gate() {
 write_gate_report() {
   local green_exit="$1" green="false"
   [ "$green_exit" -eq 0 ] && green="true"
-  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
+  # BL-0179: stamp the `--since` base sha (the anchor this scoped run certified FROM) as `since` so a
+  # later reader (the build engine's close-out reuse check) can prove a `scope:"since"` report covers
+  # exactly the delta onto an already-certified base, not just that SOME earlier commit was scoped.
+  # Empty (never written) on a `full`/`partial` run, where there is no such anchor.
+  python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
 import json
 import sys
 
-at, scope, green_str, sha, frag_path, out_path = sys.argv[1:7]
+at, scope, green_str, sha, since, frag_path, out_path = sys.argv[1:8]
 subgates = []
 with open(frag_path, "r") as fh:
     for line in fh:
@@ -302,6 +306,8 @@ with open(frag_path, "r") as fh:
             subgates.append(json.loads(line))
 
 report = {"at": at, "scope": scope, "green": green_str == "true", "sha": sha, "subgates": subgates}
+if since:
+    report["since"] = since
 with open(out_path, "w") as fh:
     json.dump(report, fh, indent=2)
     fh.write("\n")

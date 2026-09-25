@@ -223,6 +223,44 @@ else
 fi
 rm -rf "$FX"
 
+# ---- BL-0179 ----
+# The close-out reuse check (pandacorp-build.js) can only treat a `scope:"since"` report as
+# equivalent to a full one when it can PROVE the `--since` base matches the current last_green_sha —
+# which requires the report to carry that base at all. Before this fix, `write_gate_report` never
+# read $SINCE, so a `since`-scoped report had no way to say what it was scoped FROM.
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+out=$(run_verify "$FX" --since deadbeefcafe --report-all); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 0 ] && [ -f "$rf" ]; then
+  since=$(json_get "$rf" "d.get('since', '')")
+  if [ "$since" = "deadbeefcafe" ]; then
+    ok "(BL-0179) --since base is stamped into the report as 'since'"
+  else
+    bad "(BL-0179) expected since=deadbeefcafe, got since=$since" "$out"
+  fi
+else
+  bad "(BL-0179) --since: expected exit 0 + a written report (rc=$rc)" "$out"
+fi
+rm -rf "$FX"
+
+echo "Case (BL-0179 control) -- a full (unscoped) run stamps no 'since' field at all"
+FX=$(new_fixture)
+add_playwright_fixtures "$FX"
+out=$(run_verify "$FX" --report-all); rc=$?
+rf=$(report_path "$FX")
+if [ "$rc" -eq 0 ] && [ -f "$rf" ]; then
+  has_since=$(json_get "$rf" "'since' in d")
+  if [ "$has_since" = "False" ]; then
+    ok "(BL-0179) a full run carries no 'since' field (nothing to anchor)"
+  else
+    bad "(BL-0179) a full run should not carry 'since', got: $(json_get "$rf" "d.get('since')")" "$out"
+  fi
+else
+  bad "(BL-0179 control) full run: expected exit 0 + a written report (rc=$rc)" "$out"
+fi
+rm -rf "$FX"
+
 # --- Bonus: `--canary` is untouched — with no .pandacorp/canary.sh installed it stays the DR-079
 # vacuous pass, and (because it execs away / returns before the report scaffolding) it must NOT
 # write a gate-report.json of its own.
