@@ -3,7 +3,7 @@ id: WO-03-006
 type: work-order
 slug: last-sync-chip
 title: 'WO-03-006 — Portfolio row: relative "last sync" chip'
-status: DRAFT
+status: ACTIVE
 parent: FRD-03
 implementation_status: PLANNED
 difficulty: low

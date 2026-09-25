@@ -4,6 +4,9 @@ type: blueprint
 parent: FRD-05
 status: ACTIVE
 implementation_status: PLANNED
+readiness_gate: passed 2026-09-24
+grounding_gate: passed 2026-09-24
+consistency_gate: passed 2026-09-24
 last_updated: '2026-06-21'
 ---
 # FRD-05 — Work orders (live view) · feature blueprint

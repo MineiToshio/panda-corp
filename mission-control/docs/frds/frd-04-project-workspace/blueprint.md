@@ -4,6 +4,9 @@ type: blueprint
 parent: FRD-04
 status: ACTIVE
 implementation_status: PLANNED
+readiness_gate: passed 2026-09-24
+grounding_gate: passed 2026-09-24
+consistency_gate: passed 2026-09-24
 last_updated: '2026-07-03'
 ---
 # FRD-04 — Project workspace · feature blueprint

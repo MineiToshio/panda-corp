@@ -3,7 +3,7 @@ id: WO-04-008
 type: work-order
 slug: change-card-relative-date
 title: 'WO-04-008 — Changes tab: relative date on the change card'
-status: DRAFT
+status: ACTIVE
 parent: FRD-04
 implementation_status: PLANNED
 difficulty: low

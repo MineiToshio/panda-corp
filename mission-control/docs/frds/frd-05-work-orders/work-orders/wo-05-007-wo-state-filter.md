@@ -3,7 +3,7 @@ id: WO-05-007
 type: work-order
 slug: wo-state-filter
 title: 'WO-05-007 — Work-orders kanban: secondary filter by state'
-status: DRAFT
+status: ACTIVE
 parent: FRD-05
 implementation_status: PLANNED
 difficulty: low

@@ -4,6 +4,9 @@ type: blueprint
 parent: FRD-02
 status: ACTIVE
 implementation_status: IN_REVIEW
+readiness_gate: passed 2026-09-24
+grounding_gate: passed 2026-09-24
+consistency_gate: passed 2026-09-24
 last_updated: '2026-07-02'
 ---
 # FRD-02 — Ideas board — Feature blueprint
