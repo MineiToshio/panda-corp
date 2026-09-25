@@ -12,8 +12,7 @@ closes: "plugin/scripts/usage-rollup.mjs (parseTranscriptFile / addUsage)"
 links: [BL-0156]
 ---
 
-Shipped on branch `bl-0181-rollup` (worktree `/Users/Shared/Proyectos/panda-corp-bl-0181`, not yet
-merged to `main` — pending the owner/closing agent), 3 commits: `6b5c49b3` (the fix +
+Shipped on branch `bl-0181-rollup`, fast-forwarded into `main` on 2026-09-25 (plugin 9.111.0), 3 commits: `6b5c49b3` (the fix +
 `test-usage-rollup.mjs` coverage), `88424055` (7 corrected `usage_summary` lines appended to
 `mission-control/.pandacorp/track.jsonl`), `87e2bf88` (`docs/proposals/37` corrected cost figures).
 

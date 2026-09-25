@@ -1057,9 +1057,16 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
  * landing steps need — the proven drift (FRD `drift:` frontmatter) and the still-open fails that
  * verifyPatched inherits.
  */
+// The exact condition the gate prompt's blocked branch uses to skip its own terminal emission (BL-0185).
+const deferredGateOutcome = (raw) => Boolean(raw) && typeof raw === 'object' && raw.green !== true && raw.blocked_reason === 'needs-owner'
+  && Array.isArray(raw.traceability) && raw.traceability.some((e) => e && e.status === 'fail' && e.claim === 'preexisting')
 async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJECT_DIR) {
   const adjudicated = await adjudicateDrift(frd, reviewIds, raw, pinSha, sourceDir)
-  const result = enforceWholeFrdTraceability(adjudicated)
+  let result = enforceWholeFrdTraceability(adjudicated)
+  // BL-0185: a reviewer that blocks needs-owner while carrying a drift claim DEFERS its review_end/GateVerdict
+  // (its prompt says so) — the adjudication may still lift the block into a pass. When the verdict is STILL a
+  // block, the engine owes that one terminal emission: the block's persist step runs un-alreadyTracked.
+  if (deferredGateOutcome(raw) && result && result.green !== true && !(result.reopen && result.reopen.length)) result = { ...result, __outcomeDeferred: true }
   const st = frdState.get(frd)
   if (st) {
     st.landingDrift = (adjudicated && Array.isArray(adjudicated.__drift)) ? adjudicated.__drift : []
@@ -1844,7 +1851,7 @@ ${GATE_PASS_RETURN}
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
-  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then — **unless** that reason is 'needs-owner' AND a \`fail\` entry of your traceability carries \`claim: "preexisting"\` (BL-0178/BL-0185: then emit NOTHING here — the engine adjudicates the claim first and emits this gate's ONE terminal outcome itself, so a block it lifts is never reported as both blocked and passed) —${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
 }
 
@@ -1964,7 +1971,7 @@ ${GATE_PASS_RETURN}
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built, do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
-  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then — **unless** that reason is 'needs-owner' AND a \`fail\` entry of your traceability carries \`claim: "preexisting"\` (BL-0178/BL-0185: then emit NOTHING here — the engine adjudicates the claim first and emits this gate's ONE terminal outcome itself, so a block it lifts is never reported as both blocked and passed) —${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })   // C1d: the split closer drops xhigh→high — the finders already hunted; it adjudicates the survivors (the SERIAL gate keeps xhigh)
 }
 
@@ -3001,7 +3008,13 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     reopenedFrds.push(f.frd); return 'reopened'
   }
   if (gate && gate.green === true) {
-    const applied = await applyGate(f.frd, reviewIds, gate.testFiles, null)
+    // BL-0185: a CONCURRENT pass whose first apply failed lands here from the harvest — its reviewer's tests
+    // and gate-report live in the gate-EVIDENCE dir (the release already cleaned the worktree), never on
+    // main. Re-port from there exactly as the harvest did; only a gate that ran on main applies in place.
+    const ev = gate.reviewerEvidence
+    const applied = ev
+      ? await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
+      : await applyGate(f.frd, reviewIds, gate.testFiles, null)
     if (!applied) { log(`↻ ${f.frd}: the serialized apply step did not confirm the stamp — NOT marking it verified; it re-gates next pass`); reopenedFrds.push(f.frd); return 'reopened' }
     log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built'
   }
@@ -3198,7 +3211,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   // STOP instead of grinding another full cycle per capped FRD every run. 'error' still falls through to repair.
   if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
     log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
-    if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure, true)   // C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main. alreadyTracked:true (BL-0159) — the reviewing agent's OWN prompt already emitted review_end/GateVerdict for this classification (frdGateSerial/frdGateSplit's inline 'blocked'/'fail' branch); persisting the state here must not re-emit a duplicate.
+    if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure, !gate.__outcomeDeferred)   // BL-0185: a reviewer that deferred its emission (drift claim on the block) is emitted HERE instead. C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main. alreadyTracked:true (BL-0159) — the reviewing agent's OWN prompt already emitted review_end/GateVerdict for this classification (frdGateSerial/frdGateSplit's inline 'blocked'/'fail' branch); persisting the state here must not re-emit a duplicate.
     blockFrd(f.frd, gate.blocked_reason, gate.failure, gate.traceability)
     return 'blocked'
   }
@@ -3229,6 +3242,9 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
   const failureText = (fix && fix.failure) || (gate && gate.failure) || ''
+  // BL-0185: the post-repair re-gate blocked needs-owner with a drift claim, so its reviewer deferred the
+  // terminal emission to the engine — persist (and thereby emit) that block exactly once.
+  if (gate && gate.__outcomeDeferred && reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', failureText)
   log(`⊘ ${f.frd}: BLOCKED (${reason})`)
   blockFrd(f.frd, reason, failureText, gate && gate.traceability)
   return 'blocked'

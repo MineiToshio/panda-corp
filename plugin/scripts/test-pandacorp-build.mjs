@@ -5365,6 +5365,156 @@ SCENARIOS.push({
   },
 })
 
+// ---- BL-0185 (integration BL-0182..0184 × BL-0178) ----
+// Cross-review of the two engine packages once merged: (a) a concurrent PASS whose apply fails is re-applied
+// by gateConverge — it must port from the gate's EVIDENCE dir (the worktree is already clean), never assume
+// the tests are on main; (b) a needs-owner block carrying drift claims emits its terminal outcome ONCE — the
+// reviewer defers, the engine emits whatever survives adjudication; (c) the combined reject: 1 cycle fail +
+// 1 proven drift → reviewer tests ported + pinned, patch, verifyPatched green, drift card filed once.
+const b185GateEmits = (prompt) => /"kind":"review_end","frd":"[^"]+","verdict":"blocked"/.test(prompt) && /"event":"GateVerdict"[^']*"verdict":"blocked"/.test(prompt)
+{
+  const wt = c2WorktreeModel()
+  const testPath = 'src/185a/_tests/a.reviewer.test.ts'
+  SCENARIOS.push({
+    name: 'BL-0185a. a concurrent PASS whose apply fails is re-applied from the gate-evidence dir (tests + report), never "already on the main tree"',
+    args: { mode: 'pro' },
+    plan: mkPlan([{ frd: 'frd-185a', deps: [], workOrders: [mkWo('wo-185a-001', 'PLANNED', { frd: 'frd-185a', artifacts: ['src/185a/**'] })] }]),
+    responses: [
+      { label: 'gate:frd-185a', times: 1, response: () => { wt.dirt.add(testPath); return { green: true, testFiles: [testPath] } } },
+      { label: 'gate-worktree', response: () => wt.probe() },
+      { prefix: 'gate-release:', response: () => wt.release() },
+      { label: 'apply-gate:frd-185a', times: 1, response: { done: false } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const applies = byLabel(run, 'apply-gate:frd-185a')
+      t.ok(applies.length === 2, `the failed apply was retried once through the convergence (got ${applies.length})`)
+      const second = applies[1]
+      t.ok(second && /gate-evidence\/frd-185a\/<path>/.test(second.prompt) && second.prompt.includes(testPath) && /rev-parse --show-toplevel/.test(second.prompt),
+        'the re-apply ports the salvaged test from the evidence dir to its repo-root-relative path on main')
+      t.ok(second && /gate-evidence\/frd-185a\/gate-report\.json/.test(second.prompt), 'the re-apply\'s WP-08 cage reads the gate\'s salvaged report, not main\'s own')
+      t.ok(second && !/already on the main tree/.test(second.prompt), 'the re-apply never assumes the reviewer\'s tests are already on main (the worktree was cleaned)')
+      t.ok(run.result && run.result.builtFrds.includes('frd-185a'), 'the FRD lands VERIFIED on the re-apply')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'BL-0185b1. the gate\'s blocked exit defers its telemetry when a drift claim rides on a needs-owner block (the engine emits the one terminal outcome)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-185b1', 'wo-185b1-001'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-185b1')[0]
+    t.ok(gate && /emit NOTHING here/.test(gate.prompt) && /claim: "preexisting"/.test(gate.prompt), 'the blocked branch tells the reviewer to defer the outcome when a drift claim rides on a needs-owner block')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0185b2. a needs-owner block resting ONLY on proven drift is lifted → exactly ONE terminal outcome (the apply\'s pass), no blocked emission anywhere on the engine side',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-185b2', 'wo-185b2-001'),
+  responses: [
+    { label: 'gate:frd-185b2', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'AC-85-010.4 contradicted by legacy code', testFiles: [], traceability: b178Trace(b178Claim('frd-185b2', 'AC-85-010.4', 'legacy roster')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-185b2', wos: ['wo-185b2-001'], owned: ['REQ-85-001'], probes: [['AC-85-010.4', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^persist-block:/).length === 0, 'the lifted block is never persisted (so never emitted as blocked by the engine)')
+    const applies = byLabel(run, 'apply-gate:frd-185b2')
+    t.ok(applies.length === 1 && /"verdict":"pass"/.test(applies[0].prompt), 'exactly one terminal outcome: the apply\'s pass')
+    t.ok(run.calls.filter((c) => c.label !== 'gate:frd-185b2' && b185GateEmits(c.prompt)).length === 0, 'no engine-side spawn emits a blocked outcome for this FRD')
+    t.ok(run.result && run.result.builtFrds.includes('frd-185b2'), 'VERIFIED')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0185b3. a needs-owner block that STANDS after drift adjudication (another open fail) is emitted by the engine (persist-block, not alreadyTracked)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-185b3', 'wo-185b3-001'),
+  responses: [
+    { label: 'gate:frd-185b3', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'REQ-85-020 needs an owner decision', testFiles: [], traceability: b178Trace(
+      b178Claim('frd-185b3', 'AC-85-030.1', 'legacy'),
+      { contract: 'REQ-85-020 — ambiguous spec the owner must settle', contractClass: 'requirement', status: 'fail', tests: [] }) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-185b3', wos: ['wo-185b3-001'], owned: ['REQ-85-001'], probes: [['AC-85-030.1', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const pb = byLabel(run, 'persist-block:frd-185b3')
+    t.ok(pb.length === 1 && b185GateEmits(pb[0].prompt), 'the standing block is persisted AND its terminal outcome emitted by the engine (the reviewer deferred it)')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-185b3'), 'blocked needs-owner')
+    t.ok(byLabel(run, 'drift-record:frd-185b3').length === 1, 'the proven drift is still filed')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0185b4. control — a needs-owner block WITHOUT drift claims keeps the reviewer\'s own emission (persist-block alreadyTracked, BL-0159 unchanged)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-185b4', 'wo-185b4-001'),
+  responses: [
+    { label: 'gate:frd-185b4', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'the AC contradicts the blueprint', testFiles: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const pb = byLabel(run, 'persist-block:frd-185b4')
+    t.ok(pb.length === 1 && !b185GateEmits(pb[0].prompt), 'no duplicate: the reviewer already emitted this block')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0185b5. a post-repair re-gate that blocks needs-owner with a deferred drift claim is still emitted once (persisted by the engine)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-185b5', 'wo-185b5-001'),
+  responses: [
+    { label: 'gate:frd-185b5', times: 1, response: { green: false, reopen: [], blocked_reason: 'error', failure: 'the suite crashed', testFiles: [] } },
+    { label: 'gate:frd-185b5', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'REQ-85-050 needs an owner decision', testFiles: [], traceability: b178Trace(
+      b178Claim('frd-185b5', 'AC-85-040.1', 'legacy'),
+      { contract: 'REQ-85-050 — ambiguous spec the owner must settle', contractClass: 'requirement', status: 'fail', tests: [] }) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-185b5', wos: ['wo-185b5-001'], owned: ['REQ-85-001'], probes: [['AC-85-040.1', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'repair:frd-185b5').length >= 1 || byLabel(run, /^repair:/).length >= 1, 'the error block went through the repair + re-gate')
+    const pb = byLabel(run, 'persist-block:frd-185b5')
+    t.ok(pb.length === 1 && b185GateEmits(pb[0].prompt), 'the deferred block is persisted and emitted by the engine exactly once')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-185b5'), 'blocked')
+  },
+})
+{
+  const wt = c2WorktreeModel()
+  const testPath = 'src/185c/_tests/date.reviewer.test.ts'
+  const cycle = { contract: 'AC-85-060.2 — dates reject 2026-02-30', contractClass: 'acceptance-criterion', status: 'fail', tests: [testPath] }
+  SCENARIOS.push({
+    name: 'BL-0185c. C2 × D2 — reopen with 1 cycle fail + 1 proven drift: reviewer test ported + pinned, patch, verifyPatched proves the inherited fail, drift card filed ONCE and stamped',
+    args: { mode: 'pro' },
+    plan: b178Plan('frd-185c', 'wo-185c-001'),
+    responses: [
+      { label: 'gate:frd-185c', times: 1, response: () => { wt.dirt.add(testPath); return { green: false, reopen: ['wo-185c-001'], findings: [{ wo: 'wo-185c-001', finding: 'date validation accepts 2026-02-30 (src/185c/x.ts:12)', failingTest: testPath, files: ['src/185c/x.ts'] }], failure: 'date validation', traceability: b178Trace(cycle, b178Claim('frd-185c', 'AC-85-070.1', 'legacy ficha drift', 'spec')) } } },
+      { label: 'gate-worktree', response: () => wt.probe() },
+      { prefix: 'gate-release:', response: () => wt.release() },
+      { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-185c', wos: ['wo-185c-001'], owned: ['REQ-85-060'], probes: [['AC-85-070.1', ['fail', 'fail'], ['fail', 'fail']]] }) },
+      b178Record,
+      { label: 'verify-patch:frd-185c', response: { green: true, inheritedResolved: [{ contract: cycle.contract, pass: true, tests: [testPath] }] } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(!run.unmatched.length, `unmatched labels: ${run.unmatched.join(', ')}`)
+      const at = (l) => (byLabel(run, l)[0] || { index: -1 }).index
+      t.ok(at('drift-proof:frd-185c') >= 0 && at('drift-proof:frd-185c') < at('gate-release:frd-185c'), 'the differential proof ran inside the gate link, BEFORE the release cleaned the worktree')
+      t.ok(byLabel(run, 'drift-record:frd-185c').length === 1, 'the drift card is filed exactly once')
+      t.ok(byLabel(run, 'port-reviewer-tests:frd-185c').length === 1 && wt.dirt.size === 0, 'the reviewer\'s RED test was salvaged and ported onto main (BL-0184); the worktree ends clean')
+      const patch = byLabel(run, 'patch:frd-185c')[0]
+      t.ok(patch && patch.prompt.includes(testPath) && /THE GATE'S OWN RED TESTS ARE ON THIS TREE/.test(patch.prompt), 'the patch is held to the reviewer\'s own test file')
+      t.ok(patch && !/AC-85-070\.1/.test(patch.prompt), 'the patcher is never asked to fix the proven drift')
+      t.ok(at('reviewer-test-hash:frd-185c') >= 0 && at('reviewer-test-hash:frd-185c') < at('verify-patch:frd-185c'), 'the DR-080 hash check ran before the independent verifier')
+      const vp = byLabel(run, 'verify-patch:frd-185c')[0]
+      t.ok(vp && /INHERITED OPEN CONTRACTS/.test(vp.prompt) && vp.prompt.includes('AC-85-060.2') && !/• \[[^\]]+\] AC-85-070\.1/.test(vp.prompt), 'verifyPatched inherits the cycle fail only — never the proven drift')
+      t.ok(vp && /THE GATE'S OWN ADVERSARIAL TESTS \(BL-0184, DR-080\)/.test(vp.prompt) && vp.prompt.includes(testPath), 'verifyPatched runs the ported reviewer test explicitly by path')
+      t.ok(vp && /drift: \[AC-85-070\.1\]/.test(vp.prompt), 'the certifying verifier stamps drift: [AC-85-070.1] in the FRD frontmatter')
+      t.ok(byLabel(run, /^(revert|persist-block):/).length === 0, 'no revert, no block')
+      t.ok(run.result && run.result.builtFrds.includes('frd-185c'), 'the FRD lands VERIFIED')
+    },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

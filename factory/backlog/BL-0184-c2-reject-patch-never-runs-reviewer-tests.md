@@ -8,7 +8,7 @@ severity: p1
 opened: 2026-09-25
 closed: 2026-09-25
 source: "docs/proposals/38-parallel-frd-gates-and-drift-policy.md, Red-team addendum (2026-09-25) §A3 finding X3 (evidence e4)"
-closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js drainConverge/portReviewerTests/attemptPatch/checkReviewerTestIntegrity/verifyPatched (DR-080 on the C2 reject path) — fixed in 86c95003"
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js drainConverge/portReviewerTests/attemptPatch/checkReviewerTestIntegrity/verifyPatched (DR-080 on the C2 reject path) — fixed in e8a27fbf"
 links: [BL-0182, BL-0183, BL-0001, BL-0051]
 ---
 

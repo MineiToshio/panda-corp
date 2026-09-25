@@ -8,7 +8,7 @@ severity: p1
 opened: 2026-09-25
 closed: 2026-09-25
 source: "docs/proposals/38-parallel-frd-gates-and-drift-policy.md, Red-team addendum (2026-09-25) §A3 finding X2 (evidence e5: vitest 4.1.9 getUnstagedFiles = git ls-files --other --modified)"
-closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js ensureGateWorktree fast path + gate step 2 (gateFocusedStep) — fixed in 86c95003"
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js ensureGateWorktree fast path + gate step 2 (gateFocusedStep) — fixed in e8a27fbf"
 links: [BL-0182, BL-0184, BL-0150]
 ---
 

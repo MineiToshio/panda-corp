@@ -8,7 +8,7 @@ severity: p1
 opened: 2026-09-25
 closed: 2026-09-25
 source: "canary D2 (wf_faf48b18-881), canary-d-frd02-forensics.md §5/§7 finding H1, proposal F3 (deliberately NOT implemented per owner instruction)"
-closes: "e75152ca — plugin/templates/shared/.claude/engines/pandacorp-build.js (adjudicateDrift/finalizeGate/verifyPatched), plugin/scripts/drift-proof.mjs"
+closes: "73c803a4 — plugin/templates/shared/.claude/engines/pandacorp-build.js (adjudicateDrift/finalizeGate/verifyPatched), plugin/scripts/drift-proof.mjs"
 links: [BL-0157, BL-0174, BL-0175, BL-0176, BL-0177]
 ---
 
@@ -73,7 +73,7 @@ own audit, not this design item. Also out of scope: reconciling FRD-02's own AC-
 REQ-03-001 (product-level fixes for the owner to queue via `/pandacorp:sync`/`/pandacorp:change` on
 Mission Control itself, tracked in the memo's "acción de producto" note, not in this factory item).
 
-## Resolution (2026-09-25, e75152ca) — policy (a*), proposal 38 red-team addendum §A4
+## Resolution (2026-09-25, 73c803a4) — policy (a*), proposal 38 red-team addendum §A4
 The owner question is answered by the addendum: option (a) — pre-existing drift never blocks nor reopens
 the cycle — with the pre-existence PROVEN by the engine, never asserted by the reviewer.
 
