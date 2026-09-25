@@ -769,10 +769,23 @@ function classify(opts, ctx) {
   // --- S9 · FLOOR the oracles themselves (DR-080) --------------------------------------------
   const oracleAny = files.find((f) => anyMatch(S9_PATHS_ANY, f.path));
   if (oracleAny) add("S9", "critical", `oracle surface: ${oracleAny.path}`);
-  const oracleErosion = files.find(
-    (f) => anyMatch(S9_PATHS_NET_DELETE, f.path) && (!ctx.linesKnown || f.deleted > f.added || f.status === "D"),
-  );
+  // ---- BL-0170 ----
+  // `--files` mode (`!ctx.linesKnown`) carries no diff body — every entry is synthesized with
+  // `added: 0, deleted: 0, status: "M"` (collectFromFileList), so this arm cannot tell a brand-new
+  // test file from a genuine net deletion. Firing `critical` from `!ctx.linesKnown` alone floored
+  // any `--files` listing of a not-yet-existing test path (a work order enumerating its planned
+  // artifacts) straight to critical with a misleading always-`(+0/-0)` detail. Only a REAL diff
+  // (`ctx.linesKnown`) can certify a net deletion or an outright `status === "D"` delete; in
+  // `--files` mode we instead leave an advisory note (S15 already floors the change at `normal`,
+  // never `micro`, via the `!ctx.linesKnown` branch above) and do not escalate.
+  const oracleErosion = ctx.linesKnown
+    ? files.find((f) => anyMatch(S9_PATHS_NET_DELETE, f.path) && (f.deleted > f.added || f.status === "D"))
+    : null;
   if (oracleErosion) add("S9", "critical", `net deletion in a test surface: ${oracleErosion.path} (+${oracleErosion.added}/-${oracleErosion.deleted})`);
+  if (!ctx.linesKnown) {
+    const oracleTouch = files.find((f) => anyMatch(S9_PATHS_NET_DELETE, f.path));
+    if (oracleTouch) notes.push(`S9 not certifiable in --files mode: ${oracleTouch.path} (no diff body — cannot tell an addition from a deletion)`);
+  }
 
   // --- S10/S11 · the card --------------------------------------------------------------------
   const card = readFrontmatter(opts.card, "card");

@@ -524,6 +524,30 @@ run --repo "$REPO" --files "src/lib/alpha.ts"
 printf '%s' "$OUT" | jq -e '.notes | any(test("content signals not evaluated"))' >/dev/null 2>&1 \
   && ok "REV2-D: the missing-content degradation is declared in notes" || bad "REV2-D: the degradation is silent :: $OUT"
 
+# ---- BL-0170 ----
+# `--files` mode has no diff body: every entry is synthesized with `added:0, deleted:0, status:"M"`
+# (collectFromFileList). S9's net-deletion arm used to fire `critical` from `!ctx.linesKnown` alone,
+# so listing a NOT-YET-EXISTING test path (e.g. a work order enumerating its planned `_tests/*.test.ts`
+# artifacts before they exist) misread as a net deletion of test coverage. The fix: in `--files` mode,
+# S9's net-deletion arm does not evaluate at all (no counts to evaluate) and instead leaves an
+# advisory note; only a REAL diff (`ctx.linesKnown`) can certify a genuine net deletion.
+
+echo "Case BL-0170-neg — --files listing a NOT-YET-EXISTING test path does not escalate via S9"
+run --repo "$REPO" --files "src/lib/_tests/new-planned.test.ts"
+[ "$(rigor)" != "critical" ] && ok "BL-0170: --files test-path listing does not floor to critical (got $(rigor))" || bad "BL-0170: --files test-path listing wrongly floored to critical :: $OUT"
+has_floor S9 && bad "BL-0170: S9 should not be in floor_hits for a --files-mode test path :: $OUT" || ok "BL-0170: no S9 floor hit in --files mode"
+printf '%s' "$OUT" | jq -e '.notes | any(test("S9 not certifiable in --files mode"))' >/dev/null 2>&1 \
+  && ok "BL-0170: the S9 --files-mode degradation is declared in notes" || bad "BL-0170: the degradation note is missing :: $OUT"
+
+echo "Case BL-0170-pos — control: a real diff net-DELETING a test file's lines still hits the S9 floor"
+grep -v -e 'case 5"' -e 'case 6"' -e 'case 7"' "$REPO/src/components/_tests/foo.test.ts" > "$REPO/src/components/_tests/foo.test.ts.tmp"
+mv "$REPO/src/components/_tests/foo.test.ts.tmp" "$REPO/src/components/_tests/foo.test.ts"
+G add -A >/dev/null
+run --repo "$REPO" --staged
+expect_rigor critical "BL-0170: control - net deletion in a real diff test file still floors critical"
+has_floor S9 && ok "BL-0170: S9 in floor_hits for a genuine net deletion" || bad "BL-0170: S9 not in floor_hits for a genuine net deletion :: $OUT"
+G reset -q --mixed HEAD >/dev/null 2>&1; G checkout -q -- src/components/_tests/foo.test.ts 2>/dev/null
+
 # ---- BL-0164/BL-0165 ----
 # Canary 2 (`change-now-canary-2-report.md` §4.1/§4.2): S3 escalated ANY new file under src/ to
 # `critical` regardless of content — TDD makes a new test/helper file the norm for almost any real
