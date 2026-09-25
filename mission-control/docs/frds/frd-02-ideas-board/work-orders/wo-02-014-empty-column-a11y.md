@@ -5,7 +5,7 @@ slug: empty-column-a11y
 title: 'WO-02-014 — Accessible empty-column marker on the ideas board'
 status: DRAFT
 parent: FRD-02
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 difficulty: low
 reopen_count: 0
 artifacts:
@@ -59,4 +59,43 @@ conveys meaning by shape only (`docs/rules/accessibility.md`).
 
 ## Status Note
 
-_Pending — PLANNED._
+**Built:** `IdeaBoardView.tsx`'s empty-column marker (`colCards.length === 0` branch) now renders two
+siblings inside `EMPTY_COLUMN_STYLE`'s wrapper `<div>`:
+- `<span aria-hidden="true">—</span>` — the decorative dash, kept visually as-is (AC-02-014.2).
+- `<span role="status" aria-label="Sin ideas en esta columna" className="sr-only">Sin ideas en esta
+  columna</span>` — the accessible marker (AC-02-014.1). The `title="Columna vacía"` attribute was
+  dropped (redundant once real accessible text exists, per WO scope).
+
+**Interfaces / contracts exposed:** No prop/signature changes — this is an internal-markup-only
+change to `IdeaBoardView`'s empty-column rendering; `IdeaBoardViewProps` is untouched.
+
+**Integration seams:** None beyond the existing `IdeaBoardView` render tree; no consumer of
+`IdeaBoardView` needs to change.
+
+**Implicit decisions / assumptions:**
+- Reused the project's existing `sr-only` Tailwind v4 utility class (already used with the same
+  `role="status"` + `aria-label` + visible-text-duplicated-as-content pattern in
+  `src/components/modules/ProjectRail/ProjectRail.tsx` and
+  `src/app/projects/[slug]/_components/wo-board/wo-board.tsx`) rather than inventing a new
+  visually-hidden style object — no new shared component needed (DR-057), so
+  `docs/design/components.md` is unchanged.
+- ARIA note: `role="status"` does not derive its accessible NAME from content per the accname spec
+  (browsers/testing-library compute `Name ""` for a bare `<span role="status">text</text>`), so an
+  explicit `aria-label="Sin ideas en esta columna"` was added alongside the identical visible text
+  content — both mechanisms carry the same string, so AC-02-014.1 ("accessible name/text") is
+  satisfied whichever computation an assistive-tech/test harness uses.
+- The dash's plain-text node was wrapped in its own `<span aria-hidden="true">` (rather than adding
+  `aria-hidden` to the outer `EMPTY_COLUMN_STYLE` div) so the div itself remains in the accessibility
+  tree as the container for the sibling `role="status"` span — hiding the whole wrapper would have
+  hidden the status marker too.
+- `EMPTY_COLUMN_STYLE` (the visual style) is unchanged — no layout/visual regression (confirmed via a
+  Playwright screenshot of `/board` before/after: empty columns render an identical dash).
+
+**Test files:** `src/app/board/IdeaBoardView/_tests/IdeaBoardView.wo02014.test.tsx` (new, 3 tests:
+role=status name/text match, dash aria-hidden, non-empty column has no status element). Full
+`src/app/board` suite re-run green (21 files / 362 tests, including the reviewer acceptance suites
+`frd-02.integration.reviewer.test.tsx` / `frd-02.shell-integration.reviewer.test.tsx` — untouched,
+not edited per DR-080).
+
+**Verification:** `pnpm biome check .` clean; `pnpm tsc --noEmit` clean; `pnpm vitest run
+src/app/board` — 362/362 passing.

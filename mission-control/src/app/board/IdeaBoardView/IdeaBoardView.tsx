@@ -442,8 +442,11 @@ export function IdeaBoardView({
                   height drifts (DR-088). Card correctness is covered by unit tests. */}
               <div data-volatile style={COLUMN_CARDS_STYLE}>
                 {colCards.length === 0 ? (
-                  <div style={EMPTY_COLUMN_STYLE} title="Columna vacía">
-                    —
+                  <div style={EMPTY_COLUMN_STYLE}>
+                    <span aria-hidden="true">—</span>
+                    <span role="status" aria-label="Sin ideas en esta columna" className="sr-only">
+                      Sin ideas en esta columna
+                    </span>
                   </div>
                 ) : (
                   colCards.map((card) => (
