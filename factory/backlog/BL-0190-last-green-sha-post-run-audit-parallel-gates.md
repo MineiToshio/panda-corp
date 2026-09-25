@@ -1,5 +1,5 @@
 ---
-id: BL-0187
+id: BL-0190
 type: change
 area: build-engine
 title: "Add a post-run audit that every last_green_sha publication covers only verified-FRD commits (parallel-gates lane, red-team X5)"

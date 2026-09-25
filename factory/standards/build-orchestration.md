@@ -681,7 +681,7 @@ Honest limits: `verify.sh --since` is vitest `--changed` (import-affected tests)
 fixture/JSON/CSS can slip to the close-out **full** suite, which stays the final backstop; machine contention
 (N reviewers × vitest/tsc/Playwright/`next dev`) is not modelled — size `gateSlots` to the machine (the
 red-team measured 16 GB → 2, the default); the post-run audit that every `last_green_sha` publication
-covers only verified FRDs (X5) is not built yet (BL-0187); a session killed mid-run leaves its slots dirty, and the next run drops them from
+covers only verified FRDs (X5) is not built yet (BL-0190); a session killed mid-run leaves its slots dirty, and the next run drops them from
 the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
 shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 

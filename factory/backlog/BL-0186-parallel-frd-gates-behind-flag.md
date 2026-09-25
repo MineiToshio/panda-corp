@@ -9,7 +9,7 @@ opened: 2026-09-25
 closed: 2026-09-25
 source: "docs/proposals/38-parallel-frd-gates-and-drift-policy.md, Decision 1 (§1.3) with the conditions of its Red-team addendum (2026-09-25) §A3 (X1-X13) and §A6 row 5; canary D2 wf_faf48b18-881 (57.6 of 87.5 min in the post-wave gate segment)"
 closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js — D1 PARALLEL FRD GATES (gatePool, launchParallelGates, launchGateInSlot, gateConflict, stalePinGuard, landParallelVerdict, drainParallelGates; ensureGateWorktree/releaseGateWorktree per slot) + factory/standards/build-orchestration.md §5c — shipped in 51390909 + 8663a34c"
-links: [BL-0187, BL-0182, BL-0183, BL-0184, BL-0185, BL-0178, BL-0138, BL-0154, BL-0179, DR-118, DR-060, DR-122]
+links: [BL-0190, BL-0182, BL-0183, BL-0184, BL-0185, BL-0178, BL-0138, BL-0154, BL-0179, DR-118, DR-060, DR-122]
 ---
 
 ## Problem
@@ -118,7 +118,7 @@ engine, and the agent calls (label, prompt, opts), logs, phases and results were
 - A RAM-derived default (X6), a machine-wide Playwright `flock`, and a per-slot vitest worker cap: `gateSlots`
   is set by hand.
 - The X5 priority lane: landing is FIFO by arrival, as specified. The X5 post-run `last_green_sha` audit is
-  filed as BL-0187 (open).
+  filed as BL-0190 (open).
 - A behavioural test for the probe-throw reset (1-line fix, verified by reading only) and for the no-evidence
   PASS path, which is unreachable today because `releaseGateWorktree` always returns an evidence object.
 - The C2 flag-off path has the same live-`reviewIds` and untracked-port exposures. Fixing them there would break
