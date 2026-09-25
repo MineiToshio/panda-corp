@@ -85,10 +85,14 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   (ESCRIBE — the deliverable for the next phase), and the **whole team** of that phase — every
   specialist with its role and what it does (not only the lead). The teams SHALL be: research =
   `researcher`; product = `product-manager`; design = `designer` + `copywriter`; architecture =
-  `architect`; build = `implementer` + `reviewer` + `analytics`; release = `security-auditor` +
-  `devops`. The deliverable chain (LEE→ESCRIBE) SHALL be `research.md → PRD/FRDs (EARS) →
-  mockups + design tokens + components.md (microcopy) → blueprint + ADRs + Build Plan + work orders →
-  código → audit + deploy`.
+  `architect`; build = `implementer` + `reviewer` + `analytics` + `security-auditor`; release =
+  `devops` (**reconciled-from-code, DR-085, 2026-09-25**: the security audit is the LAST STEP of
+  construction, not a separate release activity — `security-auditor` sits on the build team, and
+  release keeps only `devops`; see `factory/decisions/registry.yaml` DR-085 and
+  `CampaignPipeline/phases.ts`). The deliverable chain (LEE→ESCRIBE) SHALL be `research.md →
+  PRD/FRDs (EARS) → mockups + design tokens + components.md (microcopy) → blueprint + ADRs +
+  Build Plan + work orders → código verificado y endurecido (auditado, GREEN) → app lanzada
+  (interna o externa) + plan de lanzamiento`.
 - AC-02-010.8 — THE fichas SHALL reflect the **current factory**: the **Design** ficha SHALL state
   that design uses **Claude Design** and produces **`components.md`** + **mocks** + design tokens (and
   microcopy via `copywriter`); the **Architecture** ficha SHALL state that it **plans the foundation

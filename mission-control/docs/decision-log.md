@@ -1,5 +1,66 @@
 # Decision Log — Mission Control
 
+## 2026-09-25 — FRD-02/FRD-03 doc↔code drift reconciled (canario D whole-FRD gate, `wf_faf48b18-881`)
+
+**What:** the whole-FRD gate exercised by canario D (speed-sprint close-out, `ed915b43`) surfaced
+three drift points between FRD-02 (`docs/frds/frd-02-ideas-board/frd.md`), FRD-03
+(`docs/frds/frd-03-portfolio/frd.md`) and the live code. Each was investigated independently via
+`git log`/`git show` (never assumed from the gate's finding alone, CONV-13) and resolved per whether
+the doc or the code carries the CURRENT decision:
+
+1. **FRD-02 AC-02-010.4 (team roster) — CODE wins, reconciled-from-code.** The AC still assigned
+   `security-auditor` to the `release` team and `implementer+reviewer+analytics` to `build`. That
+   was overtaken by **DR-085** (2026-06-23, `factory/decisions/registry.yaml`: *"the security audit
+   … [is] the LAST STEP of construction … NOT a separate release activity"*), which commit
+   `94439487` ("DR-085 phases", 2026-06-23) applied to `src/components/modules/CampaignPipeline/phases.ts`
+   — moving `security-auditor` onto the `build` team and leaving `release` with only `devops` —
+   **without** touching the FRD text (`git show 94439487 -- docs/frds/frd-02-ideas-board/frd.md`
+   returns empty). AC-02-010.4 rewritten to match: `build` = implementer+reviewer+analytics+
+   security-auditor, `release` = devops, and the deliverable-chain tail updated from
+   "`código → audit + deploy`" to "`código verificado y endurecido (auditado, GREEN) → app lanzada
+   (interna o externa) + plan de lanzamiento`" (matching `phases.ts`'s `writes` fields verbatim).
+2. **FRD-02 AC-02-010.8 (Claude Design / foundation-first / v2 build flow) — DOC wins, code never
+   rebuilt.** The exact wording AC-02-010.8 asks for was written once, in `cc2a7e65` (2026-06-20
+   00:59, WO-02-007) — 21 tests, phases.ts updated, WO Status Note. Twelve minutes earlier,
+   `6703a5e3` (WO-02-005, unrelated board repaint) had touched the same files; when `76054e96`
+   reverted `6703a5e3` six hours later, the revert (applied against the *then*-HEAD, not `6703a5e3`'s
+   parent) collaterally deleted `cc2a7e65`'s work too — `CampaignPipeline.ac010-8.test.tsx` (170
+   lines) and the WO Status Note (102 lines) vanish in `76054e96`'s diff, and its commit message
+   names only WO-02-005. Confirmed not a deliberate drop: neither `722b59be` (2026-06-22, board
+   repaint redone) nor `94439487` (2026-06-23, DR-085 phases) restored AC-02-010.8's content — they
+   built on the reverted (simpler) baseline without noticing the loss. FRD-02 left untouched (the
+   requirement is still correct and current); filed change card
+   `campaign-pipeline-ac02-010-8-rebuild.md` (gitignored, `.pandacorp/inbox/`) to rebuild
+   `phases.ts`'s design/architecture/build fichas from the lost `cc2a7e65` wording, merged with the
+   DR-085 team split from point 1.
+3. **FRD-03 REQ-03-001 (Portfolio rail scope) — DOC wins, code never caught up.** `src/lib/portfolio/portfolio.ts:329`
+   `ACTIVE_PHASES` has included `"architecture"` since its first implementation (`dd6604ee`,
+   2026-06-16) — predating the owner-approved **whole-app re-anchor** (`4cce1dc9`, 2026-06-19) that
+   narrowed the rail's rule to *"scoped to building + shipped projects only … earlier-phase projects
+   live in the board/dashboard, not here"* (the current FRD-03 text). `4cce1dc9` touched only the
+   FRD/FDD docs (`git show --stat` confirms zero code files), and the later DR-085 sweep
+   (`94439487`) that DID touch `portfolio.ts`'s `ACTIVE_PHASES` only removed `"operation"` (folded
+   into `release`) — it never revisited whether `"architecture"` belongs. No test in
+   `src/lib/portfolio/_tests/` asserts either way. FRD-03 left untouched (it already states the
+   owner's decision); filed bug card `portfolio-rail-architecture-phase-leak.md` (gitignored,
+   `.pandacorp/inbox/`) to drop `"architecture"` from `ACTIVE_PHASES`.
+
+**Why:** the gate exists to catch exactly this — a doc and its code silently diverging with no test
+anchoring either side. Per each case's own history (not the gate's say-so) the doc was reconciled
+only where the code demonstrably carries a later, deliberate decision (DR-085 in point 1); the other
+two are real code defects against a doc that already reflects the owner's call, so the doc stays
+put and the fix is queued instead of the FRD being rewritten down to match a bug.
+
+**Verified:** `git log`/`git show` on every commit named above (`94439487`, `cc2a7e65`, `6703a5e3`,
+`76054e96`, `722b59be`, `4cce1dc9`, `dd6604ee`); `grep` confirmed 0 references to "architecture" in
+`src/lib/portfolio/_tests/*.ts`. `.pandacorp/verify.sh --only=doc-lint` (no such target; ran
+`doc-lint.sh` directly — see result in the commit this entry ships with). Doc-only change; no
+application code touched (the two filed cards carry the code fixes).
+
+**Impact:** `docs/frds/frd-02-ideas-board/frd.md` (AC-02-010.4 only — AC-02-010.8 untouched); this
+log; `.pandacorp/inbox/changes/{portfolio-rail-architecture-phase-leak,campaign-pipeline-ac02-010-8-rebuild}.md`
++ `.pandacorp/inbox/changes/README.md` (gitignored, not committed).
+
 ## 2026-09-23 — `UiPassSkipped` rendered in the La Fragua timeline (change `render-uipassskipped-timeline`, close-out)
 
 **What:** the build engine's `UiPassSkipped` event (emitted when a run skips the foundation-gate or
