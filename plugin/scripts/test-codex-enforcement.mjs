@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -159,6 +159,36 @@ await test("generated Codex enforcement projections are deterministic", async ()
   ok(result.status === 0, result.stderr);
   const after = await Promise.all(tracked.map((file) => readFile(path.join(root, file), "utf8")));
   ok(before.every((body, index) => body === after[index]), "second generation changed output");
+});
+
+// BL-0169: reproduced live -- two `run-engine-tests.sh` invocations sharing this checkout raced a
+// non-atomic writeFileSync(.codex/config.toml) (this generator) against a concurrent
+// `codex --strict-config doctor` read, which observed a truncated file and failed "strict config
+// rejected" with empty stderr. Fixed by writing to a sibling temp file and renaming into place
+// (atomic on the same filesystem). This test exercises that race directly: it hammers the
+// generator with concurrent invocations while continuously reading the target file, and fails if
+// any read ever observes anything other than the complete, current content (a torn/partial read).
+await test("concurrent regeneration of .codex/config.toml never exposes a torn read (BL-0169)", async () => {
+  const target = path.join(root, ".codex/config.toml");
+  const expected = await readFile(target, "utf8");
+  let stop = false;
+  let torn = null;
+  const reader = (async () => {
+    while (!stop) {
+      const body = await readFile(target, "utf8").catch(() => null);
+      if (body !== null && body !== expected) { torn = body; break; }
+    }
+  })();
+  const generators = Array.from({ length: 12 }, () => new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(root, "plugin/scripts/generate-codex-enforcement.mjs")], { cwd: root, stdio: "ignore" });
+    child.on("close", (code) => resolve(code));
+  }));
+  const statuses = await Promise.all(generators);
+  stop = true;
+  await reader;
+  ok(statuses.every((code) => code === 0), `a concurrent generation exited non-zero: ${statuses.join(",")}`);
+  ok(torn === null, `torn read observed during concurrent regeneration: ${JSON.stringify(torn?.slice(0, 80))}`);
+  ok((await readFile(target, "utf8")) === expected, "config.toml content changed after concurrent regeneration");
 });
 
 // BL-0146 regression guard: every "stop" hook() call above went through verify-before-stop.sh via

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { randomBytes } from "node:crypto";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const policy = JSON.parse(readFileSync(path.join(root, "plugin/runtime/enforcement-policy.json"), "utf8"));
@@ -25,8 +26,20 @@ const outputs = [
   ["plugin/templates/shared/.codex/rules/pandacorp.rules", rules],
   ["plugin/hooks/codex-hooks.json", `${JSON.stringify(hooks, null, 2)}\n`]
 ];
+// BL-0169: writeFileSync(target, body) truncates-then-writes in place, which is NOT atomic — a
+// concurrent reader (e.g. `codex --strict-config doctor` in test-codex-enforcement.mjs, or the
+// real `codex` CLI) can observe a partial/truncated file mid-write and fail to parse it.
+// Reproduced live: two `run-engine-tests.sh` invocations sharing this checkout raced this exact
+// write against a concurrent `codex doctor` read, both times failing "strict config rejected"
+// with empty stderr (a truncated .codex/config.toml, not a real config defect). Writing to a
+// sibling temp file first and renaming into place is atomic on the same filesystem (POSIX
+// rename(2)) — any concurrent reader sees either the complete old file or the complete new one,
+// never a partial write.
 for (const [relative, body] of outputs) {
   const target = path.join(root, relative);
-  mkdirSync(path.dirname(target), { recursive: true });
-  writeFileSync(target, body);
+  const dir = path.dirname(target);
+  mkdirSync(dir, { recursive: true });
+  const tmp = path.join(dir, `.${path.basename(target)}.tmp-${randomBytes(6).toString("hex")}`);
+  writeFileSync(tmp, body);
+  renameSync(tmp, target);
 }
