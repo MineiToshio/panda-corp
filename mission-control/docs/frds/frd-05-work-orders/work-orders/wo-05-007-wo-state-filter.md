@@ -5,7 +5,7 @@ slug: wo-state-filter
 title: 'WO-05-007 — Work-orders kanban: secondary filter by state'
 status: ACTIVE
 parent: FRD-05
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
