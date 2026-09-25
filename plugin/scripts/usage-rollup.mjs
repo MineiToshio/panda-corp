@@ -17,9 +17,14 @@
 // REAL SHAPE, verified live 2026-09-03 against actual on-disk `agent-*.jsonl` files (BL-0096 fix plan's
 // [UNVERIFIED] item is now RESOLVED — transcripts DO carry usage; the SubagentStop hook payload does
 // not, matching the backlog note that scanned 6,621 event lines and found none): each line is a JSONL
-// entry `{ type: "user" | "assistant" | ..., message?: { model, usage: { input_tokens, output_tokens,
-// cache_creation_input_tokens, cache_read_input_tokens, ... } }, ... }`. Only `type === "assistant"`
-// entries carrying `message.usage` + `message.model` are billable calls.
+// entry `{ type: "user" | "assistant" | ..., message?: { id, model, usage: { input_tokens,
+// output_tokens, cache_creation_input_tokens, cache_read_input_tokens, ... } }, ... }`. Only
+// `type === "assistant"` entries carrying `message.usage` + `message.model` are billable calls.
+//
+// BL-0181: one billed API response streams across MULTIPLE such lines (one per content block), all
+// sharing the same `message.id` — see `dedupeByMessageId`'s own comment for the full evidence and the
+// dedupe rule (last line per `message.id` wins). Pre-BL-0181, every line was summed independently,
+// overcounting cost ~1.6-1.7x.
 //
 // PRICING is the dated, [VERIFIED] table in docs/proposals/33-model-era-audit.md §3 (fetched from the
 // Anthropic pricing page 2026-09-02), USD per MTok. Looked up by exact model id, falling back to the
@@ -206,11 +211,35 @@ function addUsage(bucket, usage) {
 // so the trailing-partial-write tolerance and the fail-loud-on-corruption rule (DR-078) live in ONE
 // place. A trailing incomplete line (an in-flight streaming write) is tolerated and counted; a
 // corrupt line that is NOT the trailing one is a genuinely malformed transcript and throws.
+// BL-0181: a single billed API response is written as SEVERAL JSONL lines — one per content/apiBlock
+// index — and EVERY line repeats that response's full `message.usage` (same input/cache_read/cache_
+// creation tokens, a partial-then-final `output_tokens`). Verified live 2026-09-25 against a real D2
+// subagent transcript (`wf_faf48b18-881/agent-a6a99231809a75183.jsonl`): the first line for a given
+// `message.id` carries `output_tokens: 1`, the LAST carries the true final count (253), while
+// input/cache tokens are byte-identical across all of that message's lines. Summing per line (the
+// pre-BL-0181 behaviour) therefore overcounted every run's cost ~1.6-1.7x (docs/proposals/38 red-team
+// addendum §A1: rollup 58.58 $ vs deduplicated 36.24 $ on that same D2 run, reproduced to the cent).
+// Dedupe by `message.id`, LAST line wins (it carries the complete usage). This collapse is done PER
+// FILE, in-order — never cross-file/cross-agent — because a `message.id` is scoped to the one API
+// call made by the one agent whose transcript file it appears in. A line with no `message.id` (a
+// shape never observed live, but tolerated per DR-078) is conservatively treated as its OWN unique
+// message: it is never merged with anything, so this fallback can only ever OVER-count a genuinely
+// id-less line, never silently drop or merge distinct calls.
+function dedupeByMessageId(rawEntries) {
+  const byMessageId = new Map()
+  const unidentified = []
+  for (const entry of rawEntries) {
+    if (!entry.messageId) { unidentified.push(entry); continue }
+    byMessageId.set(entry.messageId, entry)   // re-setting an existing key overwrites its value but keeps its original slot — later (fuller) line wins, order is irrelevant since aggregation is a commutative sum
+  }
+  return [...byMessageId.values(), ...unidentified]
+}
+
 function parseTranscriptFile(filePath) {
   const raw = readFileSync(filePath, 'utf8')
   const lines = raw.split('\n')
   while (lines.length && lines[lines.length - 1] === '') lines.pop()   // the trailing '' after the final \n is not a real line
-  const entries = []
+  const rawEntries = []
   let skippedIncompleteLines = 0
   lines.forEach((line, index) => {
     if (!line.trim()) return
@@ -227,9 +256,9 @@ function parseTranscriptFile(filePath) {
     const usage = message && message.usage
     const model = message && message.model
     if (!usage || !model) return
-    entries.push({ model, usage, timestamp: entry.timestamp })
+    rawEntries.push({ model, usage, timestamp: entry.timestamp, messageId: message.id })
   })
-  return { entries, skippedIncompleteLines }
+  return { entries: dedupeByMessageId(rawEntries), skippedIncompleteLines }
 }
 
 // `.../<sessionId>.jsonl` → `.../<sessionId>/subagents` — see the F5 header note above: FLAT only,

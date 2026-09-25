@@ -23,9 +23,13 @@ const SCRIPT = path.join(path.dirname(new URL(import.meta.url).pathname), 'usage
 let passed = 0
 const ok = (condition, name) => { if (!condition) throw new Error(name); passed++; console.log(`PASS  ${name}`) }
 
-const assistantLine = (model, usage, uuid = 'u1') => JSON.stringify({
+// `messageId` is optional and unset by default (undefined), matching every pre-BL-0181 fixture in this
+// file — those exercise call COUNTING/pricing, not the streamed-line dedupe, and must keep counting
+// one call per `assistantLine()` invocation. BL-0181's own tests pass it explicitly to model several
+// JSONL lines that share one real `message.id`, the shape `dedupeByMessageId` collapses.
+const assistantLine = (model, usage, uuid = 'u1', messageId) => JSON.stringify({
   parentUuid: null, isSidechain: true, promptId: 'p1', agentId: 'a1', type: 'assistant',
-  message: { model, usage }, uuid, timestamp: '2026-09-03T00:00:00Z', userType: 'external',
+  message: { model, usage, ...(messageId ? { id: messageId } : {}) }, uuid, timestamp: '2026-09-03T00:00:00Z', userType: 'external',
   entrypoint: 'workflow', cwd: '/tmp', sessionId: 's1', version: '1.0.0', gitBranch: 'main',
 })
 const userLine = () => JSON.stringify({ parentUuid: null, isSidechain: true, type: 'user', uuid: 'u0', timestamp: '2026-09-03T00:00:00Z' })
@@ -65,6 +69,49 @@ const run = async (args) => {
   ok(typeof summary.cost_usd_total === 'number' && summary.cost_usd_total > 0, 'a total cost rolls up across models')
   ok(Array.isArray(summary.cost_excludes) && summary.cost_excludes.includes('cache_creation_input_tokens'), 'cache-creation cost is explicitly excluded, never invented')
   ok(summary.skipped_incomplete_lines === 0, 'no incomplete lines in a clean fixture')
+  await rm(dir, { recursive: true })
+}
+
+// (BL-0181) Claude Code streams ONE billed API response across several JSONL lines (one per content
+// block), every line repeating that response's `message.id` with the SAME input/cache tokens but a
+// growing `output_tokens` — verified live against a real D2 subagent transcript (docs/proposals/38
+// red-team addendum §A1: the rollup's per-line sum reproduced its own reported 58.58 $ on that run to
+// the cent; deduplicating by `message.id`, last line wins, gives the true 36.24 $, a 1.62x factor).
+// 3 lines sharing one message.id must collapse to ONE call; a second, distinct message.id is a second
+// call — never 4.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-dedupe-'))
+  await writeFile(path.join(dir, 'agent-mmm.jsonl'), [
+    assistantLine('claude-sonnet-5', { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 1 }, 'u1', 'msg_A'),
+    assistantLine('claude-sonnet-5', { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 40 }, 'u2', 'msg_A'),
+    assistantLine('claude-sonnet-5', { input_tokens: 10, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 253 }, 'u3', 'msg_A'),
+    assistantLine('claude-sonnet-5', { input_tokens: 8, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 100 }, 'u4', 'msg_B'),
+  ].join('\n') + '\n')
+  const { code, stdout } = await run(['--dir', dir])
+  ok(code === 0, 'BL-0181: a transcript with repeated message.id lines exits 0')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.calls_total === 2, 'BL-0181: 3 streamed lines sharing msg_A count as ONE call, plus the distinct msg_B = 2 total (not 4)')
+  ok(summary.models['claude-sonnet-5'].calls === 2, 'BL-0181: per-model call count reflects the dedupe, not the raw line count')
+  ok(summary.models['claude-sonnet-5'].output_tokens === 353, 'BL-0181: dedupe keeps msg_A\'s LAST (final, complete) output_tokens of 253, not the sum of its 3 partials (1+40+253), plus msg_B\'s 100 = 353')
+  ok(summary.models['claude-sonnet-5'].input_tokens === 18, 'BL-0181: msg_A\'s input_tokens (10, identical on all 3 of its lines) is counted ONCE, plus msg_B\'s 8 = 18 (never 10*3+8=38)')
+  const expectedCost = Number((18 * 2 / 1e6 + 353 * 10 / 1e6).toFixed(6))
+  ok(summary.cost_usd_total === expectedCost, 'BL-0181: cost is computed from the deduplicated totals, not the per-line sum')
+  await rm(dir, { recursive: true })
+}
+
+// (BL-0181b) A line with NO message.id (a shape never observed live) is conservatively treated as its
+// OWN unique message — never merged with anything else, so an id-less line can only be OVER-counted,
+// never silently dropped or wrongly collapsed into another call (DR-078 direction).
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-dedupe-noid-'))
+  await writeFile(path.join(dir, 'agent-nnn.jsonl'), [
+    assistantLine('claude-sonnet-5', { input_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 1 }),
+    assistantLine('claude-sonnet-5', { input_tokens: 1, cache_read_input_tokens: 0, cache_creation_input_tokens: 0, output_tokens: 1 }),
+  ].join('\n') + '\n')
+  const { code, stdout } = await run(['--dir', dir])
+  ok(code === 0, 'BL-0181b: id-less transcript lines still roll up')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.calls_total === 2, 'BL-0181b: two id-less lines are never merged into one call')
   await rm(dir, { recursive: true })
 }
 
