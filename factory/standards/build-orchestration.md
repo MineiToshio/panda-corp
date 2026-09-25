@@ -92,10 +92,12 @@ wave from the READY work orders of **ALL FRDs**, not one feature at a time: a WO
 `dependsOn` are satisfied (dep committed → `IN_REVIEW`/`VERIFIED`) and its artifacts are disjoint from
 the rest of the wave; the wave is capped at the mode's size. The old strictly-sequential per-FRD loop
 made the mode's parallelism theoretical for right-sized (small) FRDs — the personal-page-v2 run built
-six INDEPENDENT 1-WO features single-file for ~4.5h in `powerful` (wave 8). The per-FRD **gates queue
-and run SERIALIZED at wave boundaries** (waves are synchronous barriers), so a gate's whole-project
-checks always see a **quiet tree** — the trust boundary is unchanged; only the scheduling unit moved
-from "feature" to "ready set".
+six INDEPENDENT 1-WO features single-file for ~4.5h in `powerful` (wave 8). Only the scheduling unit
+moved, from "feature" to "ready set" — what happens to the per-FRD **gate** itself is §5a's concern,
+not this one: since DR-118 a gate no longer waits for a wave boundary to review a quiet tree (that was
+the pre-C2 topology); it runs **concurrently with the next wave's build**, against its own pinned,
+detached worktree snapshot. Gates still **serialize with each other** (one gate worktree, one mutex
+chain) — see §5a for the full mechanism, its honest limits, and the legacy synchronous fallback.
 
 **Disjoint artifacts within a wave — declared and ENGINE-ENFORCED (DR-060).** Work orders that build
 in parallel must NOT write the same file/module — parallel implementers collide (a real failure mode,
