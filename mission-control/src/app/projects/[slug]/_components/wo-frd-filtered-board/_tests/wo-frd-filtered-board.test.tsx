@@ -237,3 +237,117 @@ describe("frd-05: AC-05-002.2 — WoFrdFilteredBoard 'All' restores full set", (
     expect(chip?.textContent).toContain("frd-03-gamma");
   });
 });
+
+// ---------------------------------------------------------------------------
+// WO-05-007 — state filter, AND-combination with the FRD filter
+// ---------------------------------------------------------------------------
+
+describe("frd-05: AC-05-007.1 — WoFrdFilteredBoard state-only filter", () => {
+  it("frd-05: AC-05-007.1 — WHEN rendered THEN shows the state filter control", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    expect(screen.getByTestId("wo-state-filter")).toBeDefined();
+  });
+
+  it("frd-05: AC-05-007.1 — WHEN a state is selected THEN only orders in that state are shown", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    const options = screen.getAllByTestId("wo-state-filter-option");
+    const doneOption = options.find((o) => o.textContent?.includes("Hecho"));
+    if (doneOption) {
+      fireEvent.click(doneOption);
+    }
+    const cards = screen.getAllByTestId("wo-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain(WO_ALPHA_2.title);
+  });
+
+  it("frd-05: AC-05-007.1 — WHEN state 'All' is clicked after a selection THEN the full set is restored", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    const options = screen.getAllByTestId("wo-state-filter-option");
+    const doneOption = options.find((o) => o.textContent?.includes("Hecho"));
+    if (doneOption) {
+      fireEvent.click(doneOption);
+    }
+    expect(screen.getAllByTestId("wo-card")).toHaveLength(1);
+    fireEvent.click(screen.getByTestId("wo-state-filter-all"));
+    expect(screen.getAllByTestId("wo-card")).toHaveLength(ALL_ORDERS.length);
+  });
+});
+
+describe("frd-05: AC-05-007.2 — WoFrdFilteredBoard FRD + state combine with AND", () => {
+  it("frd-05: AC-05-007.2 — WHEN an FRD and a state are both selected THEN only the intersection is shown", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    // FRD: frd-01-alpha (has one "todo" and one "done" order)
+    const frdOptions = screen.getAllByTestId("wo-frd-filter-option");
+    const alphaOption = frdOptions.find((o) => o.textContent?.includes("frd-01-alpha"));
+    if (alphaOption) {
+      fireEvent.click(alphaOption);
+    }
+    // State: done
+    const stateOptions = screen.getAllByTestId("wo-state-filter-option");
+    const doneOption = stateOptions.find((o) => o.textContent?.includes("Hecho"));
+    if (doneOption) {
+      fireEvent.click(doneOption);
+    }
+    const cards = screen.getAllByTestId("wo-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain(WO_ALPHA_2.title);
+  });
+
+  it("frd-05: AC-05-007.2 — WHEN FRD+state select an empty intersection THEN no cards are shown", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    const frdOptions = screen.getAllByTestId("wo-frd-filter-option");
+    const alphaOption = frdOptions.find((o) => o.textContent?.includes("frd-01-alpha"));
+    if (alphaOption) {
+      fireEvent.click(alphaOption);
+    }
+    const stateOptions = screen.getAllByTestId("wo-state-filter-option");
+    const reviewOption = stateOptions.find((o) => o.textContent?.includes("Review / Testing"));
+    if (reviewOption) {
+      fireEvent.click(reviewOption);
+    }
+    expect(screen.queryAllByTestId("wo-card")).toHaveLength(0);
+  });
+
+  it("frd-05: AC-05-007.2 — WHEN the FRD filter is cleared THEN the state filter's view is restored", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    const frdOptions = screen.getAllByTestId("wo-frd-filter-option");
+    const alphaOption = frdOptions.find((o) => o.textContent?.includes("frd-01-alpha"));
+    if (alphaOption) {
+      fireEvent.click(alphaOption);
+    }
+    const stateOptions = screen.getAllByTestId("wo-state-filter-option");
+    const doneOption = stateOptions.find((o) => o.textContent?.includes("Hecho"));
+    if (doneOption) {
+      fireEvent.click(doneOption);
+    }
+    expect(screen.getAllByTestId("wo-card")).toHaveLength(1);
+    // Clear the FRD filter ("All") — state filter (done) should still narrow the view.
+    fireEvent.click(screen.getByTestId("wo-frd-filter-all"));
+    const cards = screen.getAllByTestId("wo-card");
+    expect(cards).toHaveLength(1);
+    expect(cards[0]?.textContent).toContain(WO_ALPHA_2.title);
+  });
+
+  it("frd-05: AC-05-007.2 — WHEN the state filter is cleared THEN the FRD filter's view is restored", () => {
+    render(<WoFrdFilteredBoard orders={ALL_ORDERS} />);
+    const frdOptions = screen.getAllByTestId("wo-frd-filter-option");
+    const alphaOption = frdOptions.find((o) => o.textContent?.includes("frd-01-alpha"));
+    if (alphaOption) {
+      fireEvent.click(alphaOption);
+    }
+    const stateOptions = screen.getAllByTestId("wo-state-filter-option");
+    const doneOption = stateOptions.find((o) => o.textContent?.includes("Hecho"));
+    if (doneOption) {
+      fireEvent.click(doneOption);
+    }
+    expect(screen.getAllByTestId("wo-card")).toHaveLength(1);
+    // Clear the state filter ("All") — FRD filter (alpha) should still narrow the view.
+    fireEvent.click(screen.getByTestId("wo-state-filter-all"));
+    const cards = screen.getAllByTestId("wo-card");
+    expect(cards).toHaveLength(2);
+    for (const card of cards) {
+      const chip = card.querySelector("[data-testid='wo-frd-chip']");
+      expect(chip?.textContent).toContain("frd-01-alpha");
+    }
+  });
+});
