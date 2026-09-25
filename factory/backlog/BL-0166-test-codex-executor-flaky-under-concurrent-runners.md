@@ -51,3 +51,46 @@ inside an isolated investigation yet, only under organic multi-session contentio
 ## Out of scope
 Auditing every OTHER suite in `run-engine-tests.sh` for the same class of concurrency hazard (a
 reasonable follow-up once this one is confirmed and fixed, not part of this item).
+
+## Investigation (2026-09-24) — NOT reproduced in the named suite; negative evidence
+
+Followed `docs/rules/debugging.md`'s SOP (reproduce-first). Read the full data path of
+`plugin/scripts/test-codex-executor.mjs`: its `fixture()` helper uses `mkdtemp(os.tmpdir(), ...)`
+for every project it spins up (genuinely unique per invocation, no fixed shared path); its events
+file is explicitly scoped per test via `PANDACORP_CODEX_EVENTS_FILE` (so the BL's own suspicion —
+"does this suite use `PANDACORP_EVENTS_LOG`?" — resolves to "it uses the codex-specific env override
+correctly, already isolated"); the one confirmed shared-global-state read is
+`diagnoseUsageLimitFromRollouts()` (`plugin/runtime/codex/failure-diagnostics.mjs`) falling back to
+the real `$HOME/.codex` when `CODEX_HOME` is unset, hit only by the `"uncertain"` scenario test —
+measured overhead ~32ms standalone, not itself timing-critical.
+
+**Reproduction attempts, all clean:**
+- 3 rounds of `node plugin/scripts/test-codex-executor.mjs & node plugin/scripts/test-codex-executor.mjs & wait`
+  (the BL's own suggested repro) — 6 process runs, 306 individual test executions, **0 failures**,
+  both processes `exit:0` every round.
+- 1 round of 4-way concurrency (4 simultaneous invocations) — 204 test executions, **0 failures**.
+- 2 concurrent FULL `bash plugin/scripts/run-engine-tests.sh` batteries from the same checkout
+  (closer to the organic incident's shape: ~24-25 suites each, run in the same file order so both
+  processes reach `test-codex-executor.mjs` within moments of each other, confirmed by both logs
+  hitting `=== test-codex-executor.mjs ===` at the identical line number) — that suite's own section
+  in both logs: **0 `FAIL` lines**, both processes.
+
+Total: **9 concurrent invocations of the named suite across 4 reproduction shapes, 0 failures out of
+~612 individual test executions.** Per this item's own instruction ("si NO reproduces el fallo... deja
+BL-0166 abierto con la evidencia negativa y no inventes fix"), **no fix is applied here** — inventing
+one against a suite that will not fail would be guessing, not engineering. `status` stays `open`.
+
+**What the same investigation DID find and fix (sibling-audit, `docs/rules/debugging.md`: "what else
+shares this cause?").** The two full-battery concurrent runs above reliably (every attempt) failed a
+DIFFERENT suite at the exact same test, in both processes simultaneously:
+`test-codex-enforcement.mjs`'s "Codex 0.144.1 strict config accepts generated project config" — a
+genuine, confirmed, now-fixed race (non-atomic `writeFileSync` of `.codex/config.toml`, torn-read by
+a concurrent `codex doctor`). Filed and closed separately as **BL-0169** (its own root cause, RED→GREEN
+regression test, and a 3/3 concurrent-reproduction confirmation, so it does not inflate this item's
+own negative result). This is plausibly why the organic incident got attributed to
+"`test-codex-executor.mjs`" — the two suite names are adjacent alphabetically and both are
+Codex-related; a `run-engine-tests.sh` failure log skimmed quickly could easily conflate them. Also
+observed once, not diagnosed or fixed (would be further unbounded scope creep on this item): the SAME
+two full-battery runs both failed `test-codex-unattended.mjs`'s "foreground launcher owns the process
+lifetime and forwards termination" simultaneously — flagged separately as a background suggestion
+rather than a third backlog item bundled into this investigation.
