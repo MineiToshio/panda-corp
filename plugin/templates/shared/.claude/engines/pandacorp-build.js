@@ -1581,7 +1581,7 @@ ${GATE_PASS_RETURN}
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
-  If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)}${GATE_VERDICT(frd, 'fail')} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
 }
 
@@ -1700,7 +1700,7 @@ ${GATE_PASS_RETURN}
 
   **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built, do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
-  If it's broken and you can't pinpoint specific WOs,${TRACK('review_end', `,"frd":"${frd}","verdict":"fail"`)}${GATE_VERDICT(frd, 'fail')} return { green: false, failure, blocked_reason } (classify: 'needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error').${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
+  If it's broken and you can't pinpoint specific WOs, first classify \`blocked_reason\` ('needs-owner' if a human must act, 'external' if it's a transient outside failure, else 'error'), then${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the SAME blocked_reason value you are about to return>"`)} return { green: false, failure, blocked_reason }. **\`failure\` MUST open with ONE sentence naming what is RED and what the owner must do — any context or praise for what passed comes AFTER that sentence, never before it** (F1/BL-0174: the engine keeps only the first ~400 chars of \`failure\`; leading with praise for passing work silently drops the real blocking cause).${NOTIFY('FRD ' + frd + ' no paso la revision (correccion) — necesita tu atencion')}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })   // C1d: the split closer drops xhigh→high — the finders already hunted; it adjudicates the survivors (the SERIAL gate keeps xhigh)
 }
 
@@ -1800,10 +1800,20 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
 // the reopen NOR the blocked/fail branch of the reviewer's own prompt, so nothing was ever emitted for it
 // (canary C gate 2's exact shape). Passing false there closes that gap via emitGateOutcome; passing true
 // avoids a duplicate review_end/GateVerdict for a block already told to the dashboard.
+// F2/BL-0175: a reviewer that reaches a BLOCK verdict has usually already written its adversarial test
+// files into the (review-only) gate worktree before giving up — those files never get PORTED (that only
+// happens on a PASS, via applyGate's testFiles) so they are left untracked in GATE_WORKTREE. The NEXT
+// `ensureGateWorktree` reuse check (`git status --porcelain` must be empty) then sees them, refuses to
+// reuse the worktree, and C2 degrades to the legacy synchronous gate path for the REST of the run (and
+// forever after, since BL-0067 forbids ever deleting that evidence) — exactly the state canary D2 found
+// already stuck in MC real (`decision-id.reviewer.test.ts`) and canary C's own worktree
+// (`sealCoverage.reviewer.test.ts`). Salvage the evidence into a durable, gitignored home BEFORE
+// clearing the exact same paths, so the worktree goes back to clean without losing anything.
 async function persistGateBlock(frd, reviewIds, reason, failure, alreadyTracked = false) {
   agentSpawned++
   const link = commitChain.then(() => agent(
-    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)} Return { done: true }.`,
+    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)}
+    **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain\`. For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
   return link.then(() => true, () => false)
@@ -2185,11 +2195,22 @@ let deferredWork = false    // WS-D/D4a: a safe-point drain routed a change's ne
 // into `blockedFailures` so notify-end's closing narrative (see the close-out prompts) can quote the REAL,
 // LATEST cause instead of guessing from an earlier gate attempt's stale findings — the exact canary C
 // symptom (BL-0159 §2: "solo recibio el reason error y relleno con findings viejos del gate 1").
-function blockFrd(frd, reason, failure = '') {
+// `trace` (F1/BL-0174, optional): the gate's own `traceability` array, when the caller has one in scope.
+// A reviewer's `failure` prose often opens with praise for the passing work before naming the actual
+// blocking cause hundreds of characters in (canary D2, frd-02: "WO-02-014 ... is CORRECT and must NOT
+// be reverted. [...200+ chars later...] two FRD-vs-build contradictions") — a head-truncated slice kept
+// only the praise, so progress.md narrated a false "just needs your OK" story (BL-0159 emitted the right
+// verdict; the TEXT it quoted was wrong). Prefixing the failing contract ids from `trace` guarantees the
+// stored text names the actual cause even when the reviewer's prose doesn't lead with it.
+function blockFrd(frd, reason, failure = '', trace = null) {
   reason = reason || 'error'
   blockedFrds.push(frd)
   blockedReasons[frd] = reason
-  if (failure) blockedFailures[frd] = String(failure).slice(0, 200)
+  const failing = Array.isArray(trace)
+    ? trace.filter((e) => e && e.status === 'fail').map((e) => String(e.contract || '').split(' — ')[0]).filter(Boolean).slice(0, 4)
+    : []
+  const text = `${failing.length ? `FAIL ${failing.join(', ')} · ` : ''}${failure || ''}`
+  if (text) blockedFailures[frd] = text.slice(0, 400)
   if (reason !== 'external') consecutiveBlocks++   // external = not our bug; don't trip the breaker
 }
 
@@ -2502,7 +2523,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
       const stillMissing = reregate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
       await persistGateBlock(f.frd, reviewIds, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
-      blockFrd(f.frd, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
+      blockFrd(f.frd, 'needs-owner', reregate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`, reregate.traceability)
       return 'blocked'
     }
   }
@@ -2705,7 +2726,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       const stillMissing = regate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
       await persistGateBlock(f.frd, reviewIds, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
-      blockFrd(f.frd, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`)
+      blockFrd(f.frd, 'needs-owner', regate.failure || `gate traceability contract: missing ${stillMissing.join(', ')}`, regate.traceability)
       return 'blocked'
     }
     return await gateConverge(f, reviewIds, regate, true)
@@ -2733,7 +2754,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   if (gate && (gate.blocked_reason === 'needs-owner' || gate.blocked_reason === 'external')) {
     log(`⊘ ${f.frd}: gate classified ${gate.blocked_reason}${gate.failure ? ' — ' + gate.failure : ''} — blocking (no repair)`)
     if (gate.blocked_reason === 'needs-owner') await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure, true)   // C2: the review-only gate classified but did not persist — write BLOCKED + decisions.md on main. alreadyTracked:true (BL-0159) — the reviewing agent's OWN prompt already emitted review_end/GateVerdict for this classification (frdGateSerial/frdGateSplit's inline 'blocked'/'fail' branch); persisting the state here must not re-emit a duplicate.
-    blockFrd(f.frd, gate.blocked_reason, gate.failure)
+    blockFrd(f.frd, gate.blocked_reason, gate.failure, gate.traceability)
     return 'blocked'
   }
 
@@ -2758,13 +2779,13 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     const missing = (gate.missingClasses || []).join(', ') || 'see failure'
     log(`⊘ ${f.frd}: post-repair re-gate traceability contract incomplete (missing: ${missing}) — BLOCK needs-owner, never 'error' (B2/BL-0159)`)
     await persistGateBlock(f.frd, reviewIds, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`)
-    blockFrd(f.frd, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`)
+    blockFrd(f.frd, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`, gate.traceability)
     return 'blocked'
   }
   const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
   const failureText = (fix && fix.failure) || (gate && gate.failure) || ''
   log(`⊘ ${f.frd}: BLOCKED (${reason})`)
-  blockFrd(f.frd, reason, failureText)
+  blockFrd(f.frd, reason, failureText, gate && gate.traceability)
   return 'blocked'
 }
 
@@ -2978,7 +2999,18 @@ while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
-  if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
+  // F5/BL-0177: the ceiling can be reached on the SAME pass that finishes all remaining work (the
+  // closing agents — visual-qa/close-out-verify/notify-end — run outside this brake by design, so
+  // agentSpawned can cross MAX_AGENTS one beat after the last real gate/apply already cleared the
+  // queues). Reporting 'agents' then is cosmetic-wrong: canary D2 narrated "Paro por techo de
+  // agentes" for a run that had nothing left to build or gate. Only call it an agent-cap STOP when
+  // work actually remains; otherwise fall through unlabeled (stopReason stays null = ran to
+  // completion) and let the natural end-of-queue check a few lines below close the run honestly.
+  if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) {
+    const workRemains = globalQueue.size > 0 || gateQueue.length > 0 || gatesInFlight.size > 0 || gateResults.length > 0 || convergeQueue.length > 0
+    if (workRemains) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
+    log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) but no work remains (F5/BL-0177) — closing normally, not an agent-cap stop`)
+  }
   if (MAX_SPEND && budget.spent() >= MAX_SPEND) { stopReason = 'budget'; log(`Spend ceiling reached (${Math.round(budget.spent() / 1000)}k ≥ maxSpend ${Math.round(MAX_SPEND / 1000)}k) — stopping at a safe point`); break }
   if ((builtFrds.length + blockedFrds.length + reopenedFrds.length) >= MAX_FRDS) { stopReason = 'maxFrds'; log(`Reached the test cap maxFrds=${MAX_FRDS} (built+blocked+reopened) — stopping at a safe point`); break }
   if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }

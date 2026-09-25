@@ -1060,7 +1060,14 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^patch:/).length === 1, 'only patch-1 ran (no patch-2 without a diagnosis)')
     t.ok(byLabel(run, /^revert:/).length === 1, 'the legacy revert path ran (revert spawn)')
     t.ok(hasLog(run, /agent ceiling reached — skipping the A3 diagnosis/), 'the honest-degrade reason is logged')
-    t.ok(run.result && run.result.stopReason === 'agents', `the run stops at the agent ceiling (got ${run.result && run.result.stopReason})`)
+    // F5/BL-0177: the legacy revert defers wo-22-001's rebuild to a LATER run (WS-D4a) rather than
+    // re-queuing it THIS run, so by the time the loop-top brake re-checks the ceiling, every queue
+    // (globalQueue/gateQueue/gatesInFlight/gateResults/convergeQueue) is genuinely empty — there is no
+    // work this stop actually cut off. Before F5 the engine still reported `stopReason: 'agents'` here
+    // (cosmetically wrong: canary D2's "Paro por techo de agentes" narrated an agent-cap stop on a run
+    // that had nothing left to do); now it reports null (ran to completion), same as reaching the
+    // natural end-of-queue break a few lines later would.
+    t.ok(run.result && run.result.stopReason === null, `F5/BL-0177: no work remains when the ceiling is re-checked post-revert, so the run does NOT report an agent-cap stop (got ${run.result && run.result.stopReason})`)
   },
 })
 
@@ -1531,10 +1538,17 @@ SCENARIOS.push({
     const gate = byLabel(run, 'gate:frd-g11a-emit')[0]
     t.ok(gate, 'the gate ran')
     t.ok(gate && /"event":"GateVerdict"/.test(gate.prompt), 'the gate prompt carries the GateVerdict printf')
-    // C2: the review-only gate is the sole emitter of the REJECT verdicts (reopen/blocked/fail — worktree-safe
+    // C2: the review-only gate is the sole emitter of the REJECT verdicts (reopen/blocked — worktree-safe
     // absolute-path appends); the PASS verdict + achievement moved to the serialized apply-gate step on main.
-    t.ok(gate && /verdict":"reopen"/.test(gate.prompt) && /verdict":"blocked"/.test(gate.prompt) && /verdict":"fail"/.test(gate.prompt),
-      'the GateVerdict event is emitted on every REJECT exit branch (reopen/blocked/fail) from the review-only gate')
+    // F4/BL-0176: the generic "can't pinpoint specific WOs" exit used to hardcode a literal "fail" verdict
+    // in BOTH review_end and GateVerdict regardless of the blocked_reason the agent actually chose (canary
+    // D2: frd-02 blocked needs-owner but the dashboard showed verdict:"fail" and no frd_end ever closed the
+    // review). It now routes through emitGateOutcome(frd,'blocked',…) like every other terminal block, so
+    // the prompt carries "blocked" (with frd_end) instead of a mislabeled "fail" — never a bare "fail".
+    t.ok(gate && /verdict":"reopen"/.test(gate.prompt) && /verdict":"blocked"/.test(gate.prompt) && /"kind":"frd_end"/.test(gate.prompt),
+      'the GateVerdict/review_end/frd_end events are emitted on every REJECT exit branch (reopen/blocked) from the review-only gate')
+    t.ok(gate && !/verdict":"fail"/.test(gate.prompt),
+      'F4/BL-0176: no exit branch emits a bare "fail" verdict any more — the generic can\'t-pinpoint exit reports "blocked" (with the real blocked_reason) like every other terminal block')
     t.ok(gate && !/verdict":"pass"/.test(gate.prompt), 'C2: the PASS GateVerdict is NOT in the gate prompt — it moved to apply-gate (the main-tree writer)')
     const apply = byLabel(run, 'apply-gate:frd-g11a-emit')[0]
     t.ok(apply, 'the serialized apply-gate ran (a PASS was persisted on main)')
@@ -1700,9 +1714,13 @@ SCENARIOS.push({
 })
 
 // ── C2-v. Run-end awaits in-flight gates — a gate whose verdict is unharvested when a BRAKE trips is
-// still applied post-loop (never dropped). maxAgents is tuned so the agent ceiling trips at the top of the
-// iteration AFTER frd-v-a's gate settled (its verdict sits unharvested in gateResults); the post-loop
-// settleGates(true)+drainConverge apply it, so builtFrds still contains frd-v-a despite the 'agents' stop.
+// still applied post-loop (never dropped). maxAgents is tuned so agentSpawned crosses the ceiling on the
+// very apply-gate spawn that also clears every queue (frd-v-b's WOs already built, frd-v-a's gate already
+// harvested) — the unconditional post-loop settleGates(true) (line ~3155) is what actually guarantees
+// nothing settled-but-unharvested is ever dropped, regardless of why/whether the loop broke. F5/BL-0177
+// (2026-09) means this exact tuning no longer produces a 'agents' stopReason (nothing was left to cut off
+// when the brake re-checks) — the scenario now asserts the settle-never-drops guarantee directly instead
+// of via which label the run happens to report.
 SCENARIOS.push({
   name: 'C2-v. run-end awaits in-flight gates — a settled-but-unharvested gate is applied post-loop despite the agent-ceiling stop',
   args: { mode: 'pro', maxAgents: 24 },
@@ -1715,7 +1733,13 @@ SCENARIOS.push({
   ]),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(run.result && run.result.stopReason === 'agents', `the run stopped at the agent ceiling (got ${run.result && run.result.stopReason})`)
+    // F5/BL-0177: by the iteration the loop-top brake re-checks and finds agentSpawned ≥ maxAgents, the
+    // very apply-gate spawn that crossed the ceiling already cleared every queue (frd-v-b's WOs built,
+    // frd-v-a's gate harvested+applied) — there is no cut-off work left, so the run now reports null
+    // (ran to completion) instead of the old, cosmetically-wrong 'agents' label. This scenario's real
+    // point — that a settled gate is never DROPPED by a brake — still holds and is asserted below via
+    // apply-gate/builtFrds; it no longer depends on which stopReason the run happens to report.
+    t.ok(run.result && run.result.stopReason === null, `F5/BL-0177: no work remains when the ceiling is re-checked (the apply that crossed it also finished the run), so no agent-cap stop is reported (got ${run.result && run.result.stopReason})`)
     t.ok(byLabel(run, 'gate:frd-v-a').length === 1, 'frd-v-a gated concurrently (in flight when the ceiling tripped)')
     const applyA = byLabel(run, 'apply-gate:frd-v-a')[0]
     t.ok(applyA, 'the run-end settle applied frd-v-a AFTER the loop broke (the in-flight gate was awaited, not dropped)')
@@ -4500,6 +4524,131 @@ SCENARIOS.push({
     t.ok(!hasLog(run, /oleada reducida a 1 WO por presupuesto de agentes/), 'the new agent-budget warning never fires for a genuine count-cap cut')
   },
 })
+
+// ---- BL-0174..0177 ----
+// Speed-sprint close-out (canary D, wf_faf48b18-881, canary-d-frd02-forensics.md /
+// canary-d-wave-investigation.md): four engine defects the frd-02 block and the maxAgents overshoot
+// exposed, none of which any prior canary or scenario exercised.
+
+// F1/BL-0174 — blockFrd used to keep only the first 200 chars of `failure`. A reviewer's prose that
+// opens with praise for what passed ("WO-02-014 ... is CORRECT and must NOT be reverted. [...]") before
+// naming the actual blocking cause hundreds of characters later got truncated to JUST the praise —
+// progress.md then narrated a false "just needs your OK" story for a FRD that actually needed the owner
+// to reconcile two stale acceptance criteria. The fix prefixes the FAILING traceability contract ids
+// (when the caller has a `traceability` array in scope) and raises the cap to 400.
+const bl0174TraceWithFails = validTraceability.map((e) =>
+  ['requirement', 'acceptance-criterion'].includes(e.contractClass)
+    ? { ...e, status: 'fail', contract: `${e.contractClass} fixture — real bug` }
+    : e)
+SCENARIOS.push({
+  name: 'BL-0174a. blockFrd prefixes the FAILING traceability contract ids to `failure`, so a reviewer\'s praise-first prose never buries the real blocking cause',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0174a', deps: [], workOrders: [mkWo('wo-bl0174a-001', 'PLANNED', { frd: 'frd-bl0174a', artifacts: ['src/bl0174a/**'] })] }]),
+  responses: [
+    {
+      label: 'gate:frd-bl0174a',
+      response: {
+        green: false, reopen: [], blocked_reason: 'needs-owner',
+        // praise-first, real cause at the very end — replica of canary D2's frd-02 verdict shape.
+        failure: 'WO-bl0174a-001 (the only WO reviewed this cycle) is CORRECT and must NOT be reverted. The focused gate is GREEN and the implementation matches every reviewed acceptance criterion for this cycle. REAL CAUSE: AC-99-010.8 was never built in phases.ts.',
+        traceability: bl0174TraceWithFails,
+      },
+    },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const stored = run.result && run.result.blockedFailures && run.result.blockedFailures['frd-bl0174a']
+    t.ok(Boolean(stored), 'a failure text was stored')
+    t.ok(stored && stored.startsWith('FAIL requirement fixture, acceptance-criterion fixture'), `F1/BL-0174: the stored text OPENS with the failing contract ids, not the reviewer's praise (got: ${JSON.stringify(stored)})`)
+    t.ok(stored && /REAL CAUSE: AC-99-010\.8/.test(stored), 'F1/BL-0174: the actual blocking cause survives in the stored text (would have been cut by the old 200-char head-slice)')
+    t.ok(stored && stored.length <= 400, 'F1/BL-0174: the stored text respects the new 400-char cap')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0174b. DOC LOCK-IN — the gate prompt\'s generic "can\'t pinpoint specific WOs" exit instructs `failure` to open with the blocking cause, context/praise after',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0174b', deps: [], workOrders: [mkWo('wo-bl0174b-001', 'PLANNED', { frd: 'frd-bl0174b', artifacts: ['src/bl0174b/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-bl0174b')[0]
+    t.ok(gate, 'the gate ran')
+    t.ok(gate && /MUST open with ONE sentence naming what is RED/.test(gate.prompt), 'F1/BL-0174: the prompt requires `failure` to lead with the cause')
+    t.ok(gate && /context or praise .* comes AFTER/.test(gate.prompt), 'F1/BL-0174: the prompt explicitly forbids leading with praise for what passed')
+  },
+})
+
+// F2/BL-0175 — a reviewer that reaches a BLOCK verdict has usually already written adversarial test
+// files into the (review-only) gate worktree; those never get ported (only a PASS does, via applyGate's
+// testFiles), so they sit untracked. The next `ensureGateWorktree` reuse probe then sees a dirty tree and
+// degrades C2 to the legacy synchronous gate path for the rest of the run (and forever after, since
+// BL-0067 forbids deleting crash evidence) — exactly the state canary D2 found MC real's and canary C's
+// own gate-worktrees already stuck in. persistGateBlock now salvages+cleans the exact reported paths.
+SCENARIOS.push({
+  name: 'BL-0175a. persist-block salvages the gate worktree\'s test-file evidence into .pandacorp/run/gate-evidence/ and cleans exactly those paths, so C2 stays reusable after a block',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0175a', deps: [], workOrders: [mkWo('wo-bl0175a-001', 'PLANNED', { frd: 'frd-bl0175a', reopen_count: 3, artifacts: ['src/bl0175a/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-bl0175a', response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened 3x, gate not satisfiable autonomously', traceability: validTraceability } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const block = byLabel(run, 'persist-block:frd-bl0175a')[0]
+    t.ok(Boolean(block), 'the classified block is persisted on main')
+    t.ok(block && /gate-evidence\/\$\{frd\}|gate-evidence\/frd-bl0175a|gate-evidence\//.test(block.prompt), 'F2/BL-0175: the persist-block prompt salvages test files into .pandacorp/run/gate-evidence/')
+    t.ok(block && /status --porcelain/.test(block.prompt), 'F2/BL-0175: the prompt inspects the gate worktree via git status --porcelain to find exactly what to salvage')
+    t.ok(block && /clean -f --/.test(block.prompt), 'F2/BL-0175: the prompt cleans the EXACT reported paths (targeted clean, never a blanket clean/reset)')
+    t.ok(block && /NEVER a blanket/.test(block.prompt), 'F2/BL-0175: the prompt explicitly forbids a blanket clean/reset — BL-0067 crash evidence elsewhere in the worktree must survive untouched')
+  },
+})
+
+// F4/BL-0176 — the generic "can't pinpoint specific WOs" exit hardcoded review_end/GateVerdict to
+// verdict:"fail" regardless of the blocked_reason the agent actually chose. Canary D2's frd-02 blocked
+// needs-owner but the dashboard/track streams showed verdict:"fail" with no frd_end ever closing the
+// review (persistGateBlock's alreadyTracked:true then suppressed a second, correct emission) — the exact
+// H4 finding in canary-d-frd02-forensics.md §5. Now routed through emitGateOutcome('blocked', …) with the
+// real blocked_reason threaded in as a %s the agent fills at runtime, same contract as the reopen exit's
+// reopened-count %s.
+SCENARIOS.push({
+  name: 'BL-0176a. the generic can\'t-pinpoint exit now emits verdict:"blocked" (with frd_end and the real blocked_reason) — never a mislabeled "fail" with no frd_end',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl0176a', deps: [], workOrders: [mkWo('wo-bl0176a-001', 'PLANNED', { frd: 'frd-bl0176a', artifacts: ['src/bl0176a/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-bl0176a')[0]
+    t.ok(gate, 'the gate ran')
+    t.ok(gate && !/verdict":"fail"/.test(gate.prompt), 'F4/BL-0176: no more hardcoded verdict:"fail"')
+    t.ok(gate && /"event":"GateVerdict"[^`]*"verdict":"blocked"[^`]*"blocked_reason":"%s"/.test(gate.prompt), 'F4/BL-0176: GateVerdict reports "blocked" with the blocked_reason filled in by the agent at runtime (%s, same contract as the reopened-count placeholder elsewhere)')
+    t.ok(gate && /"kind":"frd_end","frd":"frd-bl0176a"/.test(gate.prompt), 'F4/BL-0176: frd_end now closes the review on this exit too — canary D2 never got one')
+  },
+})
+
+// F5/BL-0177 — the loop-top agent-ceiling brake used to set stopReason:'agents' unconditionally the
+// instant agentSpawned crossed maxAgents, even when the very spawn that crossed it also finished every
+// queue (globalQueue/gateQueue/gatesInFlight/gateResults/convergeQueue all empty). Canary D2 reported
+// "Paro por techo de agentes" for a run that, by the time the ceiling was re-checked, had nothing left to
+// build or gate — cosmetically wrong, confirmed by canary-d-wave-investigation.md's own analysis. Now the
+// brake only claims the 'agents' stop when real work remains; otherwise it falls through unlabeled
+// (stopReason stays null = ran to completion) and the natural end-of-queue check closes the run honestly.
+SCENARIOS.push({
+  // maxAgents:17 = the exact cost-weighted total (haiku/sonnet=1, opus=3) through this trivial single-WO
+  // build's SECOND safe-point: baseline-precheck(1)+baseline(3)+plan(3)+safe-point(1)+dispatch(1)+
+  // build(1)+commit(1)+gate-worktree(1)+gate(3)+apply-gate(1)+safe-point(1) = 17 — the WO is already
+  // built+gated+applied by the time that spawn runs, so the loop-top brake re-checks the ceiling with
+  // every queue already empty, exactly the canary D2 shape (verified against this harness's own defaults;
+  // a plan/response change here would need re-deriving this number).
+  name: 'BL-0177a. the agent-ceiling brake reports stopReason:null (not \'agents\') when the crossing spawn also cleared every queue — nothing was actually cut off',
+  args: { mode: 'pro', maxAgents: 17 },
+  plan: mkPlan([{ frd: 'frd-bl0177a', deps: [], workOrders: [mkWo('wo-bl0177a-001', 'PLANNED', { frd: 'frd-bl0177a', artifacts: ['src/bl0177a/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl0177a'), 'the single FRD still verifies (the brake never blocks progress, only mislabels the stop)')
+    t.ok(run.result && run.result.stopReason === null, `F5/BL-0177: no work remains once the only FRD is built+applied, so the run reports stopReason:null even though agentSpawned certainly crossed maxAgents:1 along the way (got ${run.result && run.result.stopReason})`)
+  },
+})
+// Regression guard — the pre-existing 'agents' scenarios (lines ~357/385/421/1419) already prove the
+// OTHER half unchanged: when real work genuinely remains queued at the ceiling, the brake still reports
+// 'agents' and still stops. Not re-duplicated here; re-asserted by re-running the full suite (run-engine-tests.sh).
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
