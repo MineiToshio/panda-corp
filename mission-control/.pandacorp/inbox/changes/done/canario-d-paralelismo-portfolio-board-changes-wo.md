@@ -1,12 +1,15 @@
 ---
 type: change
 class: standard
-status: ready
-note: "re-opened: frd-02-ideas-board quedó BLOCKED (needs-owner: WO-02-014)"
+status: done
+note: "3 of 4 WOs VERIFIED at the gate; WO-02-014 IN_REVIEW (whole-FRD oracle blocked on pre-existing FRD-02 drift, reconciled in main c34ba57c — see docs/decision-log.md 2026-09-25)"
 affected_frds: [frd-02-ideas-board, frd-03-portfolio, frd-04-project-workspace, frd-05-work-orders]
 date: 2026-09-24
 frd:
+implemented_sha: 9b7bde44fbc6026dcb09276b8ce3b31bcf6fb957
 rebuilds_verified: false
+shipped_at: "2026-09-25T13:37:51Z"
+shipped_note: "canary D parallelism run (wf_faf48b18-881), rebased onto main and fast-forward merged; WO-02-014 left IN_REVIEW pending a fresh FRD-02 gate"
 depends_on:
 supersedes:
 ---
