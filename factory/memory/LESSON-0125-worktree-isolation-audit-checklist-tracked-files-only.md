@@ -11,7 +11,14 @@ source: "synthesis over 5 evidence-anchored candidates, all panda-corp, 2026-07-
 new worktree resurrects already-removed UI/content the owner had already asked to cut, looking like a
 regression. Eval-gate note (librarian, 2026-09-10): this lesson's own evidence already spans two distinct
 projects (mission-control: LESSON-0093/0102; personal-page-v2: LESSON-0124/0131/0158 and this eighth
-facet) — activating `status: active` per the cross-project corroboration criterion."
+facet) — activating `status: active` per the cross-project corroboration criterion. Folded in a NINTH
+facet (mission-control, 2026-09-22, `.pandacorp/run/lessons.md`, fixed mechanically as BL-0151): a
+worktree-cleanup pass by a haiku-tier agent ran `git worktree remove` on the launchd-served, pinned local
+deployment (`/Users/Shared/local-deployments/panda-corp`, DR-089, not under `Proyectos/`) — the ordinary
+DR-096 'clean up disposable worktrees' cleanup instinct has no reason to distinguish a scoped-change
+worktree from an operator-pinned, actively-served one unless the cleanup step explicitly excludes
+detached-HEAD/locked worktrees and paths outside the project tree. The launchd process kept running with
+a ghost cwd (200 on `/`, 500 on `/board`) until manually restored. Librarian, 2026-09-25."
 provenance: agent-inferred
 created: 2026-07-09
 status: active
@@ -19,7 +26,7 @@ promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standa
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0073, LESSON-0090, LESSON-0093, LESSON-0111, LESSON-0124, LESSON-0131, LESSON-0158, DR-096]
+links: [LESSON-0073, LESSON-0090, LESSON-0093, LESSON-0111, LESSON-0124, LESSON-0131, LESSON-0158, DR-096, BL-0151]
 ---
 
 **Situation:** across five INDEPENDENT incidents over five days, DR-096 git-worktree isolation leaked in
@@ -29,7 +36,7 @@ generic glob was told to skip.** Each incident was diagnosed and fixed independe
 noticed they were the same class; by the fifth instance the pattern was explicit and worth compressing
 into one checklist rather than re-discovering it a sixth time.
 
-**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of EIGHT separate guarantees
+**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of NINE separate guarantees
 that each have to be individually engineered — the DR-096 mechanism (a second checkout with its own
 working tree) does not automatically provide any of them:
 1. **Dispatch fidelity** (LESSON-0073) — a sub-agent told to work in a worktree can still resolve paths
@@ -59,9 +66,13 @@ working tree) does not automatically provide any of them:
    local main; if local main holds unpushed commits (e.g. UI/content already removed), the new worktree
    silently resurrects that already-cut state, and it reads exactly like a regression to whoever reviews
    the worktree.
+9. **Cleanup must not remove a pinned/deployed worktree** (mission-control, 2026-09-22, BL-0151) — a
+   generic "clean up worktrees" pass has no innate way to tell a disposable scoped-change worktree apart
+   from an operator-pinned, actively-served one (a launchd deploy, DR-089) unless it explicitly checks for
+   a locked/detached-HEAD state and excludes paths outside the project's own tree before removing anything.
 
 **Apply next time:** when a new capability adopts or touches DR-096 worktree isolation, run this
-eight-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
+nine-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
 actually resolves paths relative to the worktree it was handed — check `git status` in both trees after
 a parallel wave; (2) if the worktree (or the main checkout) holds gitignored state that would be a real
 loss, confirm it has an external backstop, independent of the worktree; (3) if a process is
@@ -75,6 +86,10 @@ ran without error; (7) before starting a batch of parallel sessions, verify the 
 clean, and if a landing fails at the preflight, check whether the dirt belongs to a DIFFERENT session
 before assuming it's your own branch's fault; (8) if local main is ahead of `origin/main` (unpushed
 commits), push or rebase before opening a new worktree — otherwise the worktree can silently resurrect
-already-removed content that a reviewer will read as a regression. A symptom that reproduces "only inside
+already-removed content that a reviewer will read as a regression; (9) before ANY worktree-cleanup pass
+(by hand or by an agent), confirm the target is not `git worktree lock`ed and does not resolve under a
+known deploy-root path (check `git worktree list --porcelain` and the project's own infra docs) — a
+disposable-looking `git worktree remove` reads as an ordinary safe operation right up until it deletes the
+one worktree a daemon is actively serving from. A symptom that reproduces "only inside
 a worktree" or "only when a parallel session is active" is the tell to reach for this checklist before
 assuming a genuine logic regression.
