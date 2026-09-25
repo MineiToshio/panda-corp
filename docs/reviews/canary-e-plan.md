@@ -105,17 +105,34 @@ Estas cifras reproducen exactamente las del addendum (66.9 min de "serial-equiva
   "maxAgents": 40,
   "frds": ["frd-02-ideas-board", "frd-03-portfolio", "frd-04-project-workspace", "frd-05-work-orders"],
   "parallelGates": true,
-  "maxParallelGates": 2,
-  "gateEvidence": "digested",
-  "driftPolicy": "record"
+  "gateSlots": 2,
+  "gateEvidence": "digested"
 }
 ```
+
+**Actualizado tras 9.112.0:** el nombre canónico es `gateSlots` (`maxParallelGates` queda como alias); `driftPolicy` no se pasa porque `record` ya es el default (DR-122). `gateContextScope` y `gateInventoryCache` quedan **off** en E para aislar variables (E mide D1 + digested + DR-122; F medirá contexto + caché).
 
 **Nota sobre `maxParallelGates`:** el brief original de esta preparación mencionaba `gateSlots: 3`; el addendum (fuente de diseño canónica de este canario, hallazgo **X6**) fija el valor por defecto en **2 slots para una máquina de 16 GB** ("`maxParallelGates` default derived from `hw.memsize`: 16 GB → 2, ≥32 GB → 3"). La máquina de este checkout **no fue re-verificada por este agente** (e6 del addendum ya midió 16 GB / Apple M5 / 10 núcleos, sysctl en vivo) — si sigue siendo la misma máquina, el valor correcto es 2, no 3. Dejo ambos números explícitos para que quien lance el canario decida con el dato fresco.
 
 `driftPolicy: "record"` es el nombre de flag que el propio addendum recomienda para el rollback de a\* ("Add a rollback switch `args.driftPolicy: 'record' | 'block'`").
 
-## 10. Comando de preflight + launch (motor candidato `<VER>`, a rellenar cuando otro agente instale el engine)
+## 10. Comando de preflight + launch — 9.112.0 (vigente)
+
+Overlay 8.89.0 instalado en la rama `canary-e-parallel-gates` (commit `e045b293`: motor, `verify.sh` y `worktree-bootstrap.sh` byte-idénticos a las plantillas de 9.112.0). El launcher real de 9.112.0 acepta `--parallel-gates [--gate-slots N] [--gate-evidence explore|digested]`; NO existen `--max-parallel-gates` ni `--drift-policy` (la versión histórica de abajo los suponía y fallaría con exit 3):
+
+```bash
+cd /Users/Shared/Proyectos/panda-corp-canary-e/mission-control
+bash "$HOME/.claude/plugins/cache/panda-corp/pandacorp/9.112.0/scripts/preflight-implement.sh" \
+  /Users/Shared/Proyectos/panda-corp-canary-e/mission-control --target-runtime claude --run-mode auto
+bash "$HOME/.claude/plugins/cache/panda-corp/pandacorp/9.112.0/scripts/launch-implement.sh" \
+  /Users/Shared/Proyectos/panda-corp-canary-e/mission-control \
+  powerful 40 auto \
+  --frds frd-02-ideas-board,frd-03-portfolio,frd-04-project-workspace,frd-05-work-orders \
+  --parallel-gates --gate-slots 2 --gate-evidence digested \
+  --ttl 3600
+```
+
+### 10.1 Versión histórica (pre-9.112.0, sintaxis supuesta — NO usar)
 
 El `launch-implement.sh`/`preflight-implement.sh` instalados hoy (9.111.0) **no tienen** flags para `parallelGates`/`maxParallelGates`/`gateEvidence`/`driftPolicy` (confirmado: cero resultados en `plugin/scripts/preflight-implement.sh` y `plugin/scripts/launch-implement.sh`). El comando de abajo asume que el motor candidato `<VER>` los añade como flags `--parallel-gates`, `--max-parallel-gates`, `--gate-evidence`, `--drift-policy` (o el `args` JSON equivalente si el launcher pasa a aceptar overrides) — **a confirmar contra el script real de `<VER>` antes de ejecutar, no asumir la sintaxis**:
 
