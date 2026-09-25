@@ -124,3 +124,17 @@ than trust `factory/portfolio.md`'s cached column — defense-in-depth per AGENT
 replacement for fixing the portfolio's own staleness. No new root-cause information (still unconfirmed
 between (a)/(b)/(c) above); folded here per this item's own no-redundancy precedent. Source:
 factory/memory/_inbox.md agent-inferred note (2026-09-21 review-launch sweep, harvested 2026-09-22).
+
+**2026-09-23 (`pandacorp-memory-review` PASO 0 sweep) — SIXTH occurrence, FIRST on a THIRD project
+(PandaCast) and FIRST in the forward direction.** `factory/portfolio.md` showed PandaCast at `Fase:
+product`, while PandaCast's own `.pandacorp/status.yaml` (source of truth, AGENTS.md rule 5) read `phase:
+design` — the portfolio was stale BEHIND the project's actual forward progress (product to design), not a
+backward release-regression like the mission-control/personal-page-v2 occurrences above. This is new
+evidence for the root-cause question: the drift is not specific to the `release to implementation`
+regression shape (fix-plan step 3's original framing) — it recurs on ordinary forward phase advances too,
+on a third, structurally ordinary project. Not self-corrected in this pass (PASO 0 is read-only and does
+not invoke `sync-portfolio`, consistent with prior PASO 0 occurrences' restraint — only `review-launch`
+sweeps have corrected rows live so far, per the 2026-09-07/09-21 occurrences above). No new fix-design
+information beyond broadening the affected-project count to three and the affected-direction to both
+forward and backward; folded here per this item's own no-redundancy precedent. Source:
+factory/memory/_inbox.md agent-inferred note (2026-09-23 PASO 0 sweep, harvested 2026-09-25).

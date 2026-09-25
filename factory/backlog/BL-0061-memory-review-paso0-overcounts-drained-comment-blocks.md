@@ -217,3 +217,13 @@ apply TWO different regexes, one per file shape, not the single uniform regex th
 closing sentence assumed ("apply the SAME regex-anchored count uniformly to each portfolio project's own
 `.pandacorp/run/lessons.md`, not just the factory inbox"). Source: factory/memory/_inbox.md agent-inferred
 note (2026-09-11 finding, harvested 2026-09-13).
+
+## Corroborating occurrence (2026-09-24) — EIGHTH occurrence, no new information
+
+Another live PASO 0 hit of the original overcount bug: a raw `grep -c` non-empty-line count of
+`factory/memory/_inbox.md` reported 822 "pending" lines when only 3 were actually live past the last
+`<!-- Drained ... -->` boundary. Caught by manually finding the last drained-block boundary before trusting
+the count, avoiding a false full-sweep trigger. No new fix-design information beyond what the 2026-08-11/
+2026-09-05/2026-09-06/2026-09-13 annotations already established; folded here per this item's own
+no-redundancy precedent. Source: factory/memory/_inbox.md agent-inferred note (2026-09-24 PASO 0 sweep,
+harvested 2026-09-25).
