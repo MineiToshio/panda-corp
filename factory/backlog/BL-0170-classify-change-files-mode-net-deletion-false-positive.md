@@ -3,11 +3,12 @@ id: BL-0170
 type: bug
 area: build-engine
 title: "classify-change --files mode: a listed NEW test file reads as +0/-0 and trips S9 net-deletion → critical"
-status: open
+status: done
 severity: p2
 opened: 2026-09-24
+closed: 2026-09-25
 source: "canario D (2026-09-24) preparation — listing the planned _tests/*.test.ts files for the parallelism canary made the classifier read `critical` via S9; without them, `normal`"
-closes: "plugin/scripts/classify-change.mjs S9 net-deletion check (line ~773)"
+closes: "plugin/scripts/classify-change.mjs S9 net-deletion check (line ~773) — dbb97f91"
 links: []
 ---
 
@@ -62,15 +63,29 @@ Either direction needs a decision on whether `--files` mode should ever be allow
 all, given it structurally cannot distinguish an addition from a deletion — left to whoever picks
 this item up.
 
-## Tests (not written — this item documents, does not fix)
-Would need: a `--files` invocation listing ONLY new (not-yet-existing) `_tests/*.test.ts` paths,
-asserting the result is NOT `critical` via S9 alone; a control case with a real `--range`/`--staged`
-diff that DOES net-delete test coverage, asserting S9 `critical` still fires (regression guard for
-the genuine case the signal exists to catch).
+## Tests (BL-0170-neg/BL-0170-pos in `plugin/scripts/test-classify-change.sh`)
+- `--files` invocation listing ONLY a not-yet-existing `_tests/*.test.ts` path: rigor is never
+  `critical`, no `S9` floor hit, and the notes carry `"S9 not certifiable in --files mode"`.
+- Control: a real `--staged` diff that net-deletes lines from an EXISTING tracked test file still
+  floors `critical` with `S9` in `floor_hits` (the genuine case the signal exists to catch,
+  unaffected by this fix).
+
+## Resolution (direction 2, adapted)
+Implemented direction 2 from the fix plan, refined: in `--files` mode (`!ctx.linesKnown`) the
+net-deletion arm no longer evaluates at all (there are no real counts to evaluate — every entry
+is synthesized with `added:0, deleted:0, status:"M"`), so it can never fire `critical` on its own.
+Instead an advisory note (`"S9 not certifiable in --files mode: <path> (no diff body — cannot tell
+an addition from a deletion)"`) is added when a `--files`-mode listing touches a test-surface path,
+and S15 keeps flooring the change at `normal` (never `micro`) exactly as before. A REAL diff
+(`ctx.linesKnown`) is unaffected: `f.deleted > f.added || f.status === "D"` still floors `critical`
+as it always did — the genuine net-deletion case BL-0170's control test guards.
 
 ## Done when
-Not started — filed as evidence + fix plan only, per this session's instructions (do not fix now).
+- [x] `BL-0170-neg`/`BL-0170-pos` green in `plugin/scripts/test-classify-change.sh` (132/132 total,
+  0 failed).
+- [x] `bash plugin/scripts/run-engine-tests.sh` green (25/25 suites).
 
 ## Out of scope
-Re-running canario D's classification after a fix lands (separate, live verification once the fix
-is implemented and reviewed).
+Re-running canario D's classification after the fix (a live re-classification of the exact
+canario D `--files` list this item's evidence came from) — not performed here (CONV-13: no live
+canary re-run, source-level TDD only, matching this backlog batch's other items).
