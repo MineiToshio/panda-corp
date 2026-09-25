@@ -199,5 +199,26 @@ const run = (args, env = {}) => {
   rmSync(r.root, { recursive: true, force: true })
 }
 
+// ── prove: BL-0187 — --source is the gate worktree ROOT of a NESTED project; the reviewer (cd'd into the
+// project directory inside it) wrote its project-relative probe under <source>/<prefix>/ ──
+{
+  const r = mkRepo()
+  write(path.join(r.app, '.pandacorp/run/drift-probes/frd-01-demo/ac-01-009-4.drift-probe.ts'), '// ASSERT src/lib/value.txt good\n')
+  const { json } = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.repo, '--pin', r.pin.slice(0, 8),
+    '--wo', 'docs/frds/frd-01-demo/work-orders/wo-01-001-a.md', '--probe', '.pandacorp/run/drift-probes/frd-01-demo/ac-01-009-4.drift-probe.ts'],
+  { PANDACORP_DRIFT_VITEST: `node ${r.fake}` })
+  const p = json.probes && json.probes[0]
+  check(json.ok === true && p && p.missing !== true, 'prove (BL-0187): a nested project\'s probe under <worktree-root>/<prefix>/ is FOUND when --source is the worktree root')
+  check(p && p.head.length === 2 && p.head.every((x) => x.parsed && x.failed > 0), 'prove (BL-0187): the nested probe actually ran at the pin (fails on its assertion)')
+  // the fallback: a probe written at the source root itself (flat layout) is still found
+  const flat = path.join(r.repo, '.pandacorp/run/drift-probes/frd-01-demo/ac-01-003-1.drift-probe.ts')
+  write(flat, '// ASSERT src/lib/helper.txt ok\n')
+  const again = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.repo, '--pin', r.pin.slice(0, 8),
+    '--wo', 'docs/frds/frd-01-demo/work-orders/wo-01-001-a.md', '--probe', '.pandacorp/run/drift-probes/frd-01-demo/ac-01-003-1.drift-probe.ts'],
+  { PANDACORP_DRIFT_VITEST: `node ${r.fake}` }).json
+  check(again.ok === true && again.probes[0] && again.probes[0].missing !== true, 'prove (BL-0187): a probe at <source>/<path> (flat layout) is still found — the fallback is kept')
+  rmSync(r.root, { recursive: true, force: true })
+}
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

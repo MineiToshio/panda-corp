@@ -32,6 +32,8 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 // BL-0178: the pre-existing-drift fact gatherer ships next to the state CLI in the SAME installed plugin
 // scripts dir — derived from the already-validated capability path, never from CLAUDE_PLUGIN_ROOT (BL-0071).
 const DRIFT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'drift-proof.mjs'))}`
+// BL-0189: the FRD contract-inventory cache's I/O script ships in the same installed scripts dir (same rule).
+const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'gate-inventory.mjs'))}`
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
@@ -103,6 +105,23 @@ const DRIFT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'drift-
 //     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
 //     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
 //     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
+//   args.gateContextScope: OPT-IN (BL-0188, **default FALSE** until canary E measures it) — proposal 38
+//     addendum lever (g). Adds a CONTEXT-SCOPE directive to every FRD gate (serial, split finders and
+//     closer): read frd.md and this cycle's WOs in full, the FRD's other (VERIFIED) WOs header-only, the
+//     blueprint by section, rules/standards/memory as pointers, never the factory/engine source, heavy
+//     command output to a file + tail. A gate's cost ≈ turns × context-per-turn and cache reads are ~80%
+//     of it (D2: 125-143k tokens/turn), so what the reviewer READS is the lever (the spawn prompt is ~3-4% of a turn).
+//     It never relaxes an obligation: the whole-FRD oracle, DR-080 tests and the 7-class inventory stand.
+//   args.gateInventoryCache: OPT-IN (BL-0189, **default FALSE** until a repeat-gate canary measures it) —
+//     proposal 38 addendum lever (d), "FRD baseline gated at SHA". After a GREEN gate the certifying
+//     landing (applyGate — the single writer) persists .pandacorp/run/gate-evidence/<frd>/inventory.json:
+//     the adjudicated contract list (REQ/AC/…, class, status, evidence tests) + gatedAt + the sha256 of
+//     frd.md/blueprint.md's normative BODY at that pin (frontmatter excluded: rollups rewrite it on every
+//     landing). The next gate of that FRD runs a MECH `gate-inventory:<frd>` check first; ONLY when both
+//     fingerprints are unchanged at the new pin does the prompt inject the cached inventory — the reviewer
+//     deep-reviews the cycle's contracts, re-runs every other contract's evidence tests by path, samples
+//     the rest, and must still return EVERY cached contract (the engine refuses a green that drops one).
+//     Absent/stale → the full whole-FRD inventory, as today. Malformed → logged LOUD (DR-078), full oracle.
 //   args.scopedRepair: OPT-IN escape hatch (WP-08, **default FALSE**) — turns on the SCOPED repair loop
 //     ONLY (D4/REV2 split: scoping and the cost brake are now two INDEPENDENT levers — see
 //     args.repairBrake below for the brake, which is on by default regardless of this flag):
@@ -225,6 +244,8 @@ if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' &
 // args.visualQaModel='opus' restores the prior tier; anything else falls back to 'sonnet' with a loud
 // log — an unrecognised value must never silently pick a tier the owner did not ask for.
 const VISUAL_QA_MODEL = (args && args.visualQaModel === 'opus') ? 'opus' : 'sonnet'
+const GATE_CONTEXT_SCOPE = argBool(args, 'gateContextScope', true)       // BL-0188 — see the arg doc above (default off)
+const GATE_INVENTORY_CACHE = argBool(args, 'gateInventoryCache', true)   // BL-0189 — see the arg doc above (default off)
 if (args && args.visualQaModel !== undefined && args.visualQaModel !== 'sonnet' && args.visualQaModel !== 'opus') {
   log(`⚠ args.visualQaModel='${args.visualQaModel}' no es 'sonnet' ni 'opus' — usando 'sonnet' (E-3 fail-closed)`)
 }
@@ -508,10 +529,18 @@ const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 // falls back to the legacy synchronous gate path (a real, tested fallback).
 const MAX_CONCURRENT_GATES = (args && args.maxConcurrentGates) || 2   // cap on gate promises in flight at once (they still serialize on the single worktree; this bounds the backlog)
 const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${PROJECT_DIR}/.pandacorp/run/gate-worktree`   // detached worktree dir (gitignored run/ state); crash residue is preserved and causes synchronous fallback
-// The gate agent's cwd preamble: cd to the frozen worktree (NOT the project root). Every relative path in
-// the gate prompt is worktree-relative; absolute ${PROJECT_DIR}/... paths (dashboard events, track.jsonl,
-// punch-list) still target the MAIN tree (append-only, no git — worktree-safe).
-const worktreeWorkFrom = (pinSha) => `Work from the GATE WORKTREE ${GATE_WORKTREE} — cd there FIRST. It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+// The gate agent's cwd preamble: cd to the frozen worktree (NOT the main project root). Every relative path
+// in the gate prompt is relative to the PROJECT directory inside that worktree; absolute ${PROJECT_DIR}/...
+// paths (dashboard events, track.jsonl, punch-list) still target the MAIN tree (append-only, no git).
+// BL-0187: the worktree checks out the WHOLE repository. For a project nested in a larger repo (Mission
+// Control lives at <factory>/mission-control/, sharing the factory's .git) the worktree ROOT is the factory,
+// not the project — `.pandacorp/verify.sh`, `docs/frds/…` and `node_modules` do not exist there. "cd to the
+// worktree" left every gate-worktree agent one level too high: the digested collector's step 0 reported
+// "not bootstrapped" and its artifact-scoped diff came back EMPTY, and reviewers spent turns rediscovering
+// the project. The cd now appends the project's repo prefix (`git rev-parse --show-prefix`: empty for a flat
+// project, `mission-control/` for MC), computed by git at run time — never guessed by the engine.
+const GATE_PROJECT_CD = `cd "${GATE_WORKTREE}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"`
+const worktreeWorkFrom = (pinSha) => `Work from the GATE WORKTREE ${GATE_WORKTREE} — FIRST cd into the PROJECT directory inside it, exactly: \`${GATE_PROJECT_CD}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
 // BL-0182/0184: the durable, gitignored home of everything a gate leaves in GATE_WORKTREE (the reviewer's
 // adversarial tests, snapshots, its gate-report.json) — salvaged there by releaseGateWorktree after EVERY
 // verdict, so the worktree can be cleaned for the next gate without losing the evidence, and so the PASS
@@ -718,7 +747,7 @@ const refusePartial = (frd, what) =>
 const STOP_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' } } }
 // WP-08: apply-gate is one of exactly two agents that stamp VERIFIED + advance last_green_sha, so its
 // verdict carries the same REPORT_SCOPE field the other one does (one definition, not a second copy).
-const APPLY_GATE_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, report_scope: REPORT_SCOPE } }
+const APPLY_GATE_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, report_scope: REPORT_SCOPE, inventory_output: { type: 'string', description: 'BL-0189: the stdout of the inventory-cache write command, VERBATIM (only when the prompt asked for it)' } } }
 const CLOSE_RECEIPT_SCHEMA = { type: 'object', required: ['done', 'allowed_paths', 'lease_released'], properties: { done: { type: 'boolean' }, reason: { type: 'string' }, allowed_paths: { type: 'array', items: { type: 'string' } }, before_dirty: { type: 'array', items: { type: 'string' } }, after_dirty: { type: 'array', items: { type: 'string' } }, commit: {}, lease_released: { type: 'boolean' } } }
 // WS-D/D10: the cheap MECH baseline PRE-CHECK verdict (a discriminated union — exactly one of stop / green /
 // escalate / a BL-0022 failure). It does the root guard, consumes rethink_pending, honours the owner stop
@@ -1071,6 +1100,7 @@ async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJ
   if (st) {
     st.landingDrift = (adjudicated && Array.isArray(adjudicated.__drift)) ? adjudicated.__drift : []
     st.inheritedFails = (result && Array.isArray(result.traceability)) ? result.traceability.filter(isOpenFail) : []
+    st.inventoryCandidate = inventoryCandidateOf(result, pinSha)   // BL-0189: a GREEN verdict's inventory, persisted by its certifying landing (null otherwise)
   }
   return result
 }
@@ -1100,6 +1130,7 @@ const EVIDENCE_SCHEMA = {
     diffStat: { type: 'string', description: 'the output of `git diff <pin_base>..<pin> --stat` (the full stat, every file)' },
     diff: { type: 'string', description: "the UNIFIED diff `git diff <pin_base>..<pin> -- <the reviewed work orders' artifact paths>`, capped at EVIDENCE_DIFF_MAX_LINES lines" },
     truncated: { type: 'boolean', description: 'true iff the unified diff exceeded the line cap and was clipped — the gate is told so explicitly, so a clipped diff is never read as the complete change set' },
+    tests: { type: 'array', items: { type: 'string' }, description: 'BL-0187: the project-relative test files this cycle added or changed (`git diff --relative --name-only --diff-filter=AMR <pin_base>..<pin>` filtered to test paths), verbatim — [] when none' },
     ac: { type: 'string', description: "the FRD's EARS acceptance criteria, VERBATIM from frd.md" },
   },
 }
@@ -1661,18 +1692,24 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
   const reviewedWos = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
   const anyReopened = reviewedWos.some((w) => (w.reopen_count || 0) >= 1)
   const useSplit = P.reviewSplit && (priorAttempts >= 1 || anyReopened)   // first gates run SERIAL (DR-100: ~80% pass or need a ≤6-min fix)
-  if (useSplit) {
-    const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
-    if (remaining >= splitGateEstimatedCost()) {
-      const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom, evidencePack)
-      if (!split || !split.__splitFailed) return await finalizeGate(frd, reviewIds, split, drift.pin, drift.source)   // sentinel __splitFailed → all finders died → fall to serial
-    } else {
-      log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
+  // BL-0189: the inventory cache is resolved for THIS gate only (at the pin it judges) and dropped after it —
+  // a re-gate that calls frdGateSerial directly (the B2 re-ask, the ladder's re-gates) never sees it and
+  // runs the full whole-FRD inventory. No-op (no spawn) unless args.gateInventoryCache.
+  if (st && GATE_INVENTORY_CACHE) st.inventoryCache = await resolveInventoryCache(frd, drift.pin)   // guarded, not just null-returning: with the flag off the gate's promise timing stays byte-identical (no extra await tick)
+  try {
+    if (useSplit) {
+      const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
+      if (remaining >= splitGateEstimatedCost()) {
+        const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom, evidencePack)
+        if (!split || !split.__splitFailed) return enforceInventoryCoverage(frd, await finalizeGate(frd, reviewIds, split, drift.pin, drift.source))   // sentinel __splitFailed → all finders died → fall to serial
+      } else {
+        log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
+      }
+    } else if (P.reviewSplit) {
+      log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
     }
-  } else if (P.reviewSplit) {
-    log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
-  }
-  return await finalizeGate(frd, reviewIds, await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack), drift.pin, drift.source)
+    return enforceInventoryCoverage(frd, await finalizeGate(frd, reviewIds, await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack), drift.pin, drift.source))
+  } finally { if (st) st.inventoryCache = null }
 }
 
 // ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
@@ -1727,7 +1764,11 @@ function validateEvidence(pack) {
   // the signature of an unbootstrapped worktree rather than a real finding. Treat it exactly like a
   // null report: strictly worse than no evidence would be to hand a reviewer as authoritative.
   if (pack.report_suspect === true) return { evidence: null, fallbackReason: 'collector flagged report_suspect (3+ cheap sub-gates red on environment noise, e.g. an unbootstrapped worktree) — discarding the pack rather than risk it being read as authoritative' }
-  return { evidence: pack, fallbackReason: '' }
+  // BL-0188: verify.sh pretty-prints the report (2-space indent, one key per line). The attachment rides in
+  // EVERY turn of the gate's context, so it is re-serialized compactly — the SAME parsed value (lossless:
+  // every sub-gate, exit and failures[] row survives; only insignificant whitespace goes).
+  const tests = Array.isArray(pack.tests) ? pack.tests.filter((t) => typeof t === 'string' && t.trim()) : []
+  return { evidence: { ...pack, tests, reportCompact: JSON.stringify(parsed) }, fallbackReason: '' }
 }
 
 // The reviewed work orders' declared artifact globs — what the unified diff is scoped to (the same DR-060
@@ -1740,10 +1781,12 @@ function reviewedArtifacts(frd, reviewIds) {
 // The planner already extracted each WO's owning EARS criteria VERBATIM from frd.md (the DR-108 context
 // pack) — reuse it instead of paying a second extraction. The collector only COMPLETES it from frd.md if
 // the FRD carries normative acceptance criteria the planner threaded onto no single work order.
+// BL-0187: each work order's criteria are LABELLED with its id, so the attachment is also the cycle's
+// WO → contract traceability map (which reviewed work order owns which criterion), not an anonymous list.
 function reviewedAcText(frd, reviewIds) {
   const st = frdState.get(frd)
   const reviewed = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
-  return reviewed.map((w) => w.acText).filter(Boolean).join('\n  ')
+  return reviewed.filter((w) => w.acText).map((w) => `[${w.id}] ${w.acText}`).join('\n  ')
 }
 
 // The collector itself: a MECH, effort:'low', zero-judgment agent. It runs commands and pastes their
@@ -1752,18 +1795,25 @@ function reviewedAcText(frd, reviewIds) {
 async function collectGateEvidence(frd, reviewIds, pinSha) {
   const artifacts = reviewedArtifacts(frd, reviewIds)
   const acText = reviewedAcText(frd, reviewIds)
-  const scope = artifacts.length
-    ? `-- ${artifacts.join(' ')} (the reviewed work orders' declared artifacts)`
-    : '(the reviewed work orders declare no artifacts — do NOT scope by path; take the whole diff and let the line cap clip it)'
+  // BL-0187: the stat/patch/tests commands carry `--relative` — on the canary-D2 range Mission Control's stat
+  // was 301 files / 18,613 chars without it (the factory's own changes) vs 54 files / 3,405 chars with it.
+  // BL-0187: each artifact glob is SHELL-QUOTED so git (not the shell) expands it — unquoted, bash expands
+  // `src/x/**` against the pinned tree (a deleted file's hunk is lost) and zsh aborts on no match ("no
+  // matches found"), silently returning an empty patch. The explanation stays OUTSIDE the command span.
+  const scope = artifacts.length ? ` -- ${artifacts.map(shellQuote).join(' ')}` : ''
+  const scopeNote = artifacts.length
+    ? "the pathspecs are the reviewed work orders' declared artifacts, relative to THIS project directory"
+    : 'the reviewed work orders declare no artifacts — do NOT scope by path; take the whole project diff and let the line cap clip it'
   agentSpawned++
   return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
-  0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** Run \`test -e node_modules/.bin/vitest\`. If it does NOT exist, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
+  0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** From the project directory (the cd above), run exactly \`node -e "process.stdout.write(require('node:fs').existsSync('node_modules/.bin/vitest') ? 'BOOTSTRAPPED' : 'NOT-BOOTSTRAPPED')"\` — NEVER shell \`test\`/\`[\`, which an owner alias can hijack (BL-0187). If it prints NOT-BOOTSTRAPPED, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
   1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once: \`bash .pandacorp/verify.sh --since <PIN_BASE> --report-all\` (that argument ORDER is required — \`--since\` is positional). It may exit non-zero; that is FINE and expected — it is data, not a problem for you to fix. Then read \`.pandacorp/run/gate-report.json\`, which that run always writes, and return its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
   1b) **SANITY CHECK (BL-0149) on what step 1 just produced.** Look at the sub-gates in that report. If **3 or more** of the cheap sub-gates (biome/tsc/knip/madge and similar) are RED with an ENVIRONMENT-only message (\`command not found\`, \`Cannot find module\`, \`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\`, or equivalent "the tool itself could not run" text — never an actual lint/type finding), set \`report_suspect: true\`: this is a broken worktree, not a real verdict, and a reviewer must never mistake environment noise for a finding. Otherwise set \`report_suspect: false\`.
-  2) \`git diff <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`.
-  3) \`git diff <PIN_BASE>..${pinSha} ${scope}\` → return it in \`diff\`. **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
-  4) \`ac\`: this FRD's EARS acceptance criteria, VERBATIM. The build plan already extracted the criteria these work orders own — start from exactly this text and return it unchanged${acText ? `:\n  ${acText}\n  ` : ` (the plan threaded none, so read docs/frds/${frd}/frd.md and copy its acceptance criteria verbatim). `}Only ADD to it: if docs/frds/${frd}/frd.md carries numbered acceptance criteria this list is missing, append those verbatim too. Never paraphrase, never renumber, never drop one.
-  Return { report, diffStat, diff, truncated, ac, report_suspect } — or, if step 0 refused, just { report: null, reason }.`,
+  2) \`git diff --relative <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`. \`--relative\` is REQUIRED (BL-0187): it keeps the stat to THIS project — without it a nested project's stat lists every file the enclosing repo changed.
+  3) \`git diff --relative <PIN_BASE>..${pinSha}${scope}\` → return it in \`diff\` (${scopeNote}). **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
+  3b) \`tests\`: the test files this cycle ADDED or CHANGED — the output lines of \`git diff --relative --name-only --diff-filter=AMR <PIN_BASE>..${pinSha} | grep -E '(^|/)(__tests__|_tests|tests?|e2e)/|\\.(test|spec)\\.[cm]?[jt]sx?$' || true\`, one path per array item, verbatim ([] when it prints nothing).
+  4) \`ac\`: this FRD's EARS acceptance criteria, VERBATIM. The build plan already extracted the criteria these work orders own — each line is prefixed with the \`[WO id]\` that owns it; start from exactly this text and return it unchanged${acText ? `:\n  ${acText}\n  ` : ` (the plan threaded none, so read docs/frds/${frd}/frd.md and copy its acceptance criteria verbatim). `}Only ADD to it: if docs/frds/${frd}/frd.md carries numbered acceptance criteria this list is missing, append those verbatim too, each prefixed \`[not owned by a reviewed work order]\`. Never paraphrase, never renumber, never drop one.
+  Return { report, diffStat, diff, truncated, tests, ac, report_suspect } — or, if step 0 refused, just { report: null, reason }.`,
     { label: `evidence:${frd}`, phase: 'Review', model: MECH, effort: MECH_EFFORT, agentType: MECH_AGENT('pandacorp:implementer'), schema: EVIDENCE_SCHEMA, workFrom: worktreeWorkFrom(pinSha) })
 }
 
@@ -1806,8 +1856,8 @@ const evidenceBlock = (frd, ev) => ev ? `
   **${EVIDENCE_MARKER} (WP-06).** A dedicated collector already ran the gate script and gathered the diff and the acceptance criteria at this exact pinned commit, in this exact worktree. **The three attachments below ARE your primary material** — read them first and judge from them. Do NOT re-walk the tree to rebuild what is already here.
   **EXPLORATION BUDGET FOR THIS GATE: at most ${EVIDENCE_READ_BUDGET} additional file reads, plus EXACTLY ONE mandatory execution of the gate script AFTER you write your adversarial tests (step 2 below — not optional: ATTACHMENT 1 predates those tests and cannot certify them).** Writing your adversarial tests, running them, and building the traceability inventory are NOT exploration — they are the job, and they are not capped. **If ${EVIDENCE_READ_BUDGET} reads are not enough to reach a verdict you can defend, do NOT keep exploring: return the verdict you can defend and state in \`failure\` exactly what you still needed and why.** An honest bounded verdict beats an unbounded hunt.
 
-  ── ATTACHMENT 1/3 · GATE REPORT — verbatim \`.pandacorp/run/gate-report.json\` from \`bash .pandacorp/verify.sh --since <last_green_sha> --report-all\` run at THIS pin ──
-  ${ev.report}
+  ── ATTACHMENT 1/3 · GATE REPORT — \`.pandacorp/run/gate-report.json\` from \`bash .pandacorp/verify.sh --since <last_green_sha> --report-all\` run at THIS pin (whitespace-compacted by the engine; every sub-gate, exit and failures[] row is intact) ──
+  ${ev.reportCompact || ev.report}
 
   ── ATTACHMENT 2/3 · THE CHANGE UNDER REVIEW — \`git diff <pin_base>..<pin>\`, the patch scoped to the reviewed work orders' declared artifacts ──${ev.truncated ? `
   ⚠ **TRUNCATED**: the unified patch exceeded the ${EVIDENCE_DIFF_MAX_LINES}-line cap, so it carries the largest files clipped at hunk boundaries. This is NOT the complete change set — the \`--stat\` below IS complete, so reconcile against it and spend budgeted reads on any file you need in full.` : ''}
@@ -1815,6 +1865,8 @@ const evidenceBlock = (frd, ev) => ev ? `
   ${ev.diffStat || '(the collector reported none)'}
   PATCH:
   ${ev.diff || '(the collector reported none)'}
+  TEST FILES THIS CYCLE ADDED OR CHANGED (\`git diff --relative --name-only\`, test paths only — the implementers' evidence; run the ones covering the reviewed work orders BY PATH, never trusting \`--changed\` to have picked them up):
+  ${ev.tests && ev.tests.length ? ev.tests.join('\n  ') : '(none — the cycle added or changed no test file)'}
 
   ── ATTACHMENT 3/3 · EARS ACCEPTANCE CRITERIA of ${frd}, verbatim ──
   ${ev.ac || `(the collector reported none — recover them from docs/frds/${frd}/frd.md within your read budget)`}
@@ -1830,6 +1882,158 @@ const gateFocusedStep = (frd, ev) => (ev
   ? `  2) **Do NOT re-run the focused gate merely to discover its result — ATTACHMENT 1 above IS that result** (\`verify.sh --since <last_green_sha> --report-all\`, executed for you at this pin). Read every sub-gate's \`exit\` and every \`failures[]\` row in it; a red sub-gate there is first-class blocking evidence, and a \`green: false\` report can never be waived into a pass. **You MUST run verify.sh exactly once — \`bash .pandacorp/verify.sh --since <last_green_sha>\` — after writing your adversarial tests: ATTACHMENT 1 predates them and therefore cannot certify them.** Do NOT pass \`--only\`/\`--files\` on that re-run: this gate is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on. It must pass clean.${REPORT_SCOPE_DIRECTIVE} Return THAT run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` — never ATTACHMENT 1's — when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`
   : `  2) Run the FOCUSED gate \`bash .pandacorp/verify.sh --since <last_green_sha>\` (read last_green_sha from .pandacorp/status.yaml) — biome + tsc run globally, but only the TESTS affected since the last green (fast and scales; the full suite runs once at close-out). It must pass clean. Do NOT pass \`--only\`/\`--files\` here: this run is the FRD's certification oracle, and a scoped run stamps the report \`scope:"partial"\`, which the engine refuses to certify on.${REPORT_SCOPE_DIRECTIVE} Also return that run's \`.pandacorp/run/gate-report.json\` VERBATIM as \`gateReport\` when it is RED, so the engine can route the failing sub-gate without paying a model to re-read your prose.${PREVIEW_SMOKE(frd)}`) + REVIEWER_TESTS_EXPLICIT
 
+// ── BL-0188 · GATE CONTEXT SCOPE (args.gateContextScope) ─────────────────────────────────────────
+// The gate's spawn prompt carries NO FRD/blueprint/WO text — the reviewer reads those itself, and every
+// byte it reads or prints rides in its context for every later turn (D2: 59-80 turns/gate at 125-143k
+// tokens/turn; bash exploration 25-54% of turns). So the trim is a READ SCOPE, not a prompt diet. What it
+// never touches: frd.md is still read whole (the oracle's source) unless an engine-verified inventory
+// cache stands in for the re-inventory (BL-0189); and it relaxes no obligation (the whole-FRD oracle,
+// DR-080 adversarial tests, the 7-class traceability all stand as written above it in the prompt).
+const gateContextScope = (frd, reviewIds) => {
+  if (!GATE_CONTEXT_SCOPE) return ''
+  const st = frdState.get(frd)
+  const cycle = (st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)).map((w) => w.path || w.id) : []).join(', ') || reviewIds.join(', ')
+  const cached = Boolean(st && st.inventoryCache && st.inventoryCache.hit)
+  return `
+  **CONTEXT SCOPE (gate cost, BL-0188) — your obligations above are unchanged; this governs only HOW MUCH you read.** Everything you read or print stays in your context for every later turn, so read what the verdict needs, not the whole tree:
+  • ${cached ? `FRD: the engine-verified CACHED INVENTORY above stands in for a whole-file re-read — read the sections of \`docs/frds/${frd}/frd.md\` holding the contracts you deep-review.` : `READ IN FULL: \`docs/frds/${frd}/frd.md\` (the whole-FRD oracle needs every contract).`} Also in full: this cycle's work orders (${cycle}).
+  • HEADER ONLY: the FRD's OTHER work orders (VERIFIED in earlier cycles, a stable foundation) — their frontmatter (\`source_requirements\`, \`artifacts\`) and \`## Status Note\` (which tests cover them), never the whole body.
+  • SECTIONS ONLY: \`docs/frds/${frd}/blueprint.md\` — \`grep -n\` the REQ/CMP/IF ids this cycle's work orders cite and read those sections.
+  • POINTERS ONLY: \`docs/rules/*\`, \`AGENTS.md\`, the factory standards and memory — open one only when a specific finding hinges on it (memory: grep \`INDEX.md\` for a matching trigger).
+  • NEVER: the factory, plugin or build-engine source (\`plugin/\`, \`.claude/engines/\`, an enclosing repo's \`factory/\` when this project is nested) — it is not the product under review.
+  • HEAVY OUTPUT → FILE + TAIL: run verify.sh / vitest / playwright / \`git log\` with stdout+stderr redirected to \`.pandacorp/run/gate-logs/<name>.log\` (gitignored) and read \`tail -n 80\` plus a \`grep\` of the failures — never print a whole log into the conversation.`
+}
+
+// ── BL-0189 · FRD CONTRACT-INVENTORY CACHE — "FRD baseline gated at SHA" (args.gateInventoryCache) ──
+// The whole-FRD oracle re-inventories every normative contract on every gate, even when the FRD has not
+// changed since its last green gate (D2's frd-02 gate spent turns on `for id in AC-02-…` loops and `git log
+// -S` archaeology). DR-115 HONEST CACHE, stated at the field: .pandacorp/run/gate-evidence/<frd>/
+// inventory.json is a REPLICA of the last green gate's adjudicated traceability; its SINGLE writer is the
+// certifying landing (applyGate, via gate-inventory.mjs write); it is re-derived at EVERY green gate; it is
+// fingerprinted against its atomic source (the sha256 of frd.md/blueprint.md's normative body at the pin)
+// and used ONLY when both fingerprints still match at the new pin; no display surface reads it. It never
+// narrows the verdict: the gate still returns the COMPLETE traceability (7 classes, every cached REQ/AC —
+// enforceInventoryCoverage refuses a green that drops one), and still deep-reviews the cycle's contracts.
+const INVENTORY_STATUSES = ['pass', 'not-applicable', 'drift']   // a green verdict holds no open fail; `drift` = engine-proven (BL-0178)
+const INVENTORY_SAMPLE_MIN = 3   // non-cycle contracts the reviewer re-judges in full on a cache hit, beyond those its evidence run flags
+// FNV-1a 32-bit over UTF-16 code units — byte-identical to gate-inventory.mjs fnv1a(): the write refuses a
+// contracts JSON the MECH copier damaged instead of caching it.
+const inventoryDigest = (s) => { let h = 0x811c9dc5; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0 } return h.toString(16).padStart(8, '0') }
+// DR-078 fail-loud read boundary: '' when the parsed cache is a usable inventory, else the first defect.
+function inventoryError(inv, frd) {
+  if (!inv || typeof inv !== 'object' || Array.isArray(inv)) return 'not a JSON object'
+  if (inv.version !== 1) return `unknown version ${JSON.stringify(inv.version)}`
+  if (inv.frd !== frd) return `it belongs to ${JSON.stringify(inv.frd)}`
+  if (typeof inv.gatedAt !== 'string' || !/^[0-9a-f]{7,40}$/.test(inv.gatedAt)) return 'gatedAt is not a commit sha'
+  if (!inv.sources || typeof inv.sources.frd !== 'string' || !(inv.sources.blueprint === null || typeof inv.sources.blueprint === 'string')) return 'sources (the frd.md/blueprint.md fingerprints) are missing'
+  if (!Array.isArray(inv.contracts) || !inv.contracts.length) return 'it lists no contracts'
+  for (const [i, e] of inv.contracts.entries()) {
+    if (!e || typeof e.contract !== 'string' || !e.contract.trim()) return `contract ${i} has no text`
+    if (!REQUIRED_TRACE_CLASSES.includes(e.contractClass)) return `contract ${i} has an unknown class`
+    if (!INVENTORY_STATUSES.includes(e.status)) return `contract ${i} has status ${JSON.stringify(e.status)}`
+    if (!Array.isArray(e.tests) || e.tests.some((x) => typeof x !== 'string')) return `contract ${i} has no tests array`
+  }
+  const missing = REQUIRED_TRACE_CLASSES.filter((k) => !inv.contracts.some((e) => e.contractClass === k))
+  return missing.length ? `missing contractClass: ${missing.join(', ')}` : ''
+}
+// MECH check (a read: git objects + one gitignored file) → { hit, inventory } | { hit:false, reason[, malformed] }.
+// The script only reports facts; the ENGINE parses the cache and compares the fingerprints.
+async function resolveInventoryCache(frd, pinSha) {
+  if (!GATE_INVENTORY_CACHE) return null
+  const cmd = `${INVENTORY_CLI_COMMAND} check --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --pin ${shellQuote(pinSha || 'HEAD')}`
+  agentSpawned++
+  let raw = null
+  try {
+    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0189 inventory-cache check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It only READS (git objects and one gitignored file) and prints ONE JSON line. Do not inspect, edit, fix, summarize or reformat anything.`,
+      { label: `gate-inventory:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+  } catch (e) { log(`⚠ ${frd}: the inventory-cache check threw (${(e && e.message) || e}) — full whole-FRD inventory this gate`); return { hit: false, reason: 'check threw' } }
+  const line = (raw && typeof raw.output === 'string') ? raw.output.trim().split('\n').pop() : ''
+  let j = null
+  try { j = JSON.parse(line) } catch { j = null }
+  if (!j || j.ok !== true || !j.sources || typeof j.sources.frd !== 'string') {
+    log(`⚠ ${frd}: the inventory-cache check returned no usable facts (${(j && j.error) || 'unparseable output'}) — full whole-FRD inventory this gate`)
+    return { hit: false, reason: 'check failed' }
+  }
+  if (j.inventory === null || j.inventory === undefined) { log(`◦ ${frd}: no cached contract inventory yet — full whole-FRD inventory this gate (a green gate seeds it)`); return { hit: false, reason: 'absent' } }
+  let inv = null
+  let defect = ''
+  try { inv = JSON.parse(j.inventory) } catch { defect = 'not valid JSON' }
+  if (!defect) defect = inventoryError(inv, frd)
+  if (defect) {
+    log(`⊘ ${frd}: MALFORMED cached contract inventory (${j.inventoryPath || 'inventory.json'}: ${defect}) — IGNORED, never read as an empty or partial inventory (DR-078); this gate re-derives the whole-FRD inventory and its green landing rewrites the cache`)
+    return { hit: false, reason: 'malformed', malformed: true }
+  }
+  const changed = [inv.sources.frd !== j.sources.frd ? 'frd.md' : '', (inv.sources.blueprint || null) !== (j.sources.blueprint || null) ? 'blueprint.md' : ''].filter(Boolean)
+  if (changed.length) { log(`↻ ${frd}: cached contract inventory is STALE — ${changed.join(' + ')} changed normatively since ${inv.gatedAt} — full whole-FRD inventory this gate`); return { hit: false, reason: 'stale' } }
+  log(`⚡ ${frd}: cached contract inventory HIT (gated at ${inv.gatedAt}, ${inv.contracts.length} contracts, frd.md/blueprint.md unchanged) — the reviewer deep-reviews this cycle's contracts and re-runs the rest's evidence`)
+  return { hit: true, inventory: inv }
+}
+// The cached inventory, injected into the gate prompt on a HIT only. Compact rows, not JSON: it rides in
+// every turn of the gate's context.
+const inventoryBlock = (frd, reviewIds) => {
+  const st = frdState.get(frd)
+  const c = st && st.inventoryCache
+  if (!c || !c.hit) return ''
+  const inv = c.inventory
+  const rows = inv.contracts.map((e) => `${e.contractClass} | ${e.status} | ${e.contract} | ${e.tests.length ? e.tests.join(', ') : '—'}`).join('\n  ')
+  return `
+  **CACHED WHOLE-FRD INVENTORY — FRD baseline gated at ${inv.gatedAt} (BL-0189).** The engine verified that the normative body of \`docs/frds/${frd}/frd.md\`${inv.sources.blueprint ? ' and of its blueprint.md' : ''} (sha256, frontmatter excluded) is UNCHANGED since the last GREEN gate of this FRD inventoried it at ${inv.gatedAt}. The oracle above is NOT relaxed — your verdict still returns the COMPLETE traceability (every contract below, all 7 classes) and any contradiction is still RED — but do NOT re-derive the inventory from scratch:
+  (1) DEEP-REVIEW every contract this cycle's work orders (${reviewIds.join(', ')}) own or cite, exactly as without a cache;
+  (2) for EVERY other contract below, re-run its recorded evidence tests BY PATH in ONE batched run (\`pnpm vitest run <paths…>\`; Playwright specs \`pnpm playwright test <paths…>\`) — a contract whose evidence is missing or fails, or whose code this cycle's diff touched, gets the full deep review;
+  (3) deep-review a further SAMPLE of at least ${INVENTORY_SAMPLE_MIN} of the remaining contracts (or 20% of them, whichever is larger), spread across classes;
+  (4) return EVERY contract below in \`traceability\` (its status re-confirmed now) plus any the cache missed — the engine REFUSES a green verdict that drops a cached REQ/AC contract.
+  CACHED INVENTORY (class | status at ${inv.gatedAt} | contract | evidence tests):
+  ${rows}
+`
+}
+// On a HIT, a green verdict must still carry every cached REQ/AC contract — the cache can shorten the
+// reviewer's WORK, never the verdict's COVERAGE (DR-115/BL-0078). A drop is a traceability deficiency:
+// gateConverge's B2 re-ask runs the gate again WITHOUT the cache (a full whole-FRD inventory).
+function enforceInventoryCoverage(frd, result) {
+  const st = frdState.get(frd)
+  const c = st && st.inventoryCache
+  if (!c || !c.hit || !result || result.green !== true) return result
+  const seen = new Set((Array.isArray(result.traceability) ? result.traceability : []).map((e) => contractIdOf(e && e.contract)).filter(Boolean))
+  const dropped = [...new Set(c.inventory.contracts.map((e) => contractIdOf(e.contract)).filter((id) => id && !seen.has(id)))]
+  if (!dropped.length) return result
+  log(`⚠ ${frd}: the green verdict DROPPED ${dropped.length} cached contract(s) from its traceability (${dropped.join(', ')}) — refused (BL-0189: a cache never shrinks the oracle); re-asking with the full whole-FRD inventory`)
+  if (st) st.inventoryCandidate = null
+  return { ...result, green: false, traceabilityDeficient: true, missingClasses: dropped.map((id) => `cached contract ${id}`), failure: `whole-FRD traceability dropped cached contract(s): ${dropped.join(', ')}` }
+}
+// What a GREEN verdict leaves for the certifying landing to persist: its adjudicated traceability mapped to
+// cache entries (an engine-refuted `discarded` claim is a contract that holds → pass). null when any entry
+// cannot be cached — a partial cache is never written.
+function inventoryCandidateOf(result, pinSha) {
+  if (!GATE_INVENTORY_CACHE || !result || result.green !== true || !Array.isArray(result.traceability)) return null
+  const contracts = result.traceability.map((e) => ({ contract: String((e && e.contract) || ''), contractClass: e && e.contractClass, status: e && e.status === 'discarded' ? 'pass' : e && e.status, tests: Array.isArray(e && e.tests) ? e.tests.filter((x) => typeof x === 'string') : [] }))
+  if (!contracts.length || contracts.some((e) => !e.contract.trim() || !INVENTORY_STATUSES.includes(e.status) || !REQUIRED_TRACE_CLASSES.includes(e.contractClass))) return null
+  return { pin: pinSha || null, contracts }
+}
+// The applyGate prompt's LAST step (only when a candidate exists): the single writer of the cache.
+function inventoryPersistStep(frd) {
+  const st = frdState.get(frd)
+  const cand = st && st.inventoryCandidate
+  if (!GATE_INVENTORY_CACHE || !cand) return ''
+  const json = JSON.stringify(cand.contracts)
+  const cmd = `${INVENTORY_CLI_COMMAND} write --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --pin ${shellQuote(cand.pin || 'HEAD')} --digest ${inventoryDigest(json)} --contracts ${shellQuote(json)}`
+  return `
+    **LAST STEP (BL-0189 — only after the commit above succeeded):** refresh this FRD's contract-inventory cache from the gate you just applied. Run the command in the fenced block below EXACTLY ONCE, byte-for-byte (it writes the gitignored run-state file .pandacorp/run/gate-evidence/${frd}/inventory.json — NEVER stage or commit it), and return its stdout VERBATIM as \`inventory_output\` together with \`done\`. It refuses (ok:false) rather than write a damaged cache, and its outcome never changes \`done\`.
+    \`\`\`sh
+    ${cmd}
+    \`\`\``
+}
+// Read the landing's cache-write receipt. Never fatal: a failed write only means the next gate misses.
+function recordInventoryWrite(frd, r) {
+  const st = frdState.get(frd)
+  if (!GATE_INVENTORY_CACHE || !st || !st.inventoryCandidate) return
+  if (!r || r.done !== true) return   // the stamp itself did not land — keep the candidate for the re-apply (BL-0185a path)
+  st.inventoryCandidate = null
+  let j = null
+  try { j = JSON.parse(String((r && r.inventory_output) || '').trim().split('\n').pop()) } catch { j = null }
+  if (j && j.ok === true) log(`▣ ${frd}: contract inventory cached (${j.entries} contracts, gated at ${j.gatedAt}) — the next gate of this FRD reuses it while frd.md/blueprint.md stay unchanged`)
+  else log(`⚠ ${frd}: the contract-inventory cache was NOT written (${(j && j.error) || 'no receipt'}) — the next gate runs the full whole-FRD inventory`)
+}
+
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
 async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack, directive = '') {
   const ev = evidenceOf(evidencePack)   // WP-06: null ⇒ this gate runs in EXPLORE mode (the historical contract)
@@ -1842,7 +2046,7 @@ ${directive ? `\n  ${directive}\n` : ''}
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
 
   ${WHOLE_FRD_ORACLE}
-  ${DRIFT_CLAIM_DIRECTIVE}
+  ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -1892,7 +2096,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   agentSpawned += 4 * COST('sonnet')   // weight every spawn (DR-070/DR-073) — the finders are the FIND stage's cost
   const finderResults = await parallel(FINDER_LENSES.map((L) => () =>
     agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find' })}FRD split-gate FIND stage — the ${L.key} lens for ${frd} (proposal 31 T1.2). You are ONE of four parallel read-only finders. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW), exercising them together with the rest of the feature. This FRD MAY have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation; do NOT re-review or change them.
-    Your lens: ${L.lens}${evidenceBlock(frd, ev)}
+    Your lens: ${L.lens}${evidenceBlock(frd, ev)}${gateContextScope(frd, reviewIds)}
     **READ-ONLY — findings ONLY:** do NOT write or modify tests, do NOT fix anything, do NOT run \`verify.sh\`, do NOT change any file or frontmatter. Just report. For each defect return { file (with a line if you can), claim (one sentence), severity ('correction' for a blocking defect in your lens; 'nit' for advisory polish), evidence (the concrete code/behavior you observed, so a skeptic can try to refute it) }. If your lens finds nothing, return { findings: [] }.`,
       { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA, workFrom }),
   ))
@@ -1962,7 +2166,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
 
   ${WHOLE_FRD_ORACLE}
-  ${DRIFT_CLAIM_DIRECTIVE}
+  ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -2201,11 +2405,12 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
     Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${driftFrontmatter(frd)}${LAST_GREEN_ORDERING}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
-    **BEFORE you stamp anything (WP-08 cage):** read \`${gateReportPath}\` — the report the gate you are applying left behind (in the gate worktree, NOT your own main-tree copy of that filename, when this apply followed a concurrent gate) — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.`,
+    **BEFORE you stamp anything (WP-08 cage):** read \`${gateReportPath}\` — the report the gate you are applying left behind (in the gate worktree, NOT your own main-tree copy of that filename, when this apply followed a concurrent gate) — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.${inventoryPersistStep(frd)}`,
     { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
   return link.then((r) => {
     if (isPartialReport(r)) { refusePartial(frd, 'apply-gate'); return false }   // WP-08 cage, belt to the gate's own braces
+    recordInventoryWrite(frd, r)   // BL-0189: the landing's cache-write receipt (never fatal)
     return Boolean(r && r.done === true)
   }, (e) => { log(`apply-gate failed for ${frd}: ${(e && e.message) || e}`); return false })
 }

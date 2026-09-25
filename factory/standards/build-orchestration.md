@@ -22,6 +22,8 @@ already implemented and tested, folded into this standard below (§2, §5, §5a,
 | `repairBudgetFactor` | `3` | cap on scoped-repair spend, as a multiple of the build's own weighted cost, before the engine gives up honestly to `needs-owner` (WP-08) |
 | `scopedRepair` | `false` | allow a purely mechanical sub-gate red to patch via `--only`/`--files` instead of a whole-project patch cycle, gated until canaried (WP-08) |
 | `gateEvidence` | `'explore'` | `'explore'` (byte-identical to the pre-sprint gate) or `'digested'` (mech-collected evidence under a bounded exploration budget, WP-06, mandatory A/B canary before the default changes) |
+| `gateContextScope` | `false` | add the gate CONTEXT-SCOPE directive: frd.md + this cycle's WOs read in full, other WOs header-only, blueprint by section, rules/memory as pointers, never the factory/engine source, heavy output to a file + tail (BL-0188; proposal 38 addendum lever (g), measured by canary E before the default changes) |
+| `gateInventoryCache` | `false` | the FRD contract-inventory cache, "FRD baseline gated at SHA": the green landing persists the adjudicated traceability to `.pandacorp/run/gate-evidence/<frd>/inventory.json`; the next gate of that FRD reuses it only while frd.md/blueprint.md's normative body is unchanged (BL-0189; lever (d), repeat-gate canary before the default changes) |
 | `drainOnEmptyPlan` | `true` | on a BARE run with an empty plan, drain the ready change queue before declaring "nothing to build" (E2, BL-0129); still prohibited on a TARGETED run |
 
 ## 1. State lives in the frontmatter (two axes)
@@ -407,6 +409,26 @@ The build engine reviews and tests **per FRD**, not per work order:
   (`GateEvidenceFallback` event, never a silent degrade); the split gate above applies either way; a
   re-gate over `main` always runs `explore` (a digest is only trustworthy against the pinned worktree it
   was built from). Ships behind a mandatory A/B canary with a seeded corpus before the default may change.
+  **Nested projects (BL-0187):** every gate-worktree agent first `cd`s into the PROJECT directory inside
+  the worktree (`<gate-worktree>/$(git rev-parse --show-prefix)`) — the worktree holds the whole repo, so
+  for Mission Control its root is the factory. The collector's diffs are `--relative` (project-scoped),
+  its artifact pathspecs are quoted (git expands them, not the shell), its bootstrap probe is a Node
+  `existsSync` (never shell `test`/`[`, which an owner alias can hijack), and the digest carries the cycle's
+  added/changed test files and the WO-labelled acceptance criteria (the cycle's WO → contract map).
+- **Gate context scope (BL-0188, `args.gateContextScope`, default off).** The gate's cost is turns × context
+  per turn, and the spawn prompt is only ~3-4% of a turn; what the reviewer READS is the lever. The
+  directive scopes reads (frd.md and this cycle's WOs in full; VERIFIED WOs header-only; blueprint by
+  section; rules/standards/memory as pointers; never the factory/engine source; heavy output to
+  `.pandacorp/run/gate-logs/` + tail) and relaxes no obligation.
+- **FRD contract-inventory cache (BL-0189, `args.gateInventoryCache`, default off).** A DR-115 honest cache:
+  single writer (the certifying `apply-gate` landing, through `gate-inventory.mjs write`), re-derived from
+  every green gate's adjudicated traceability, fingerprinted by the sha256 of frd.md/blueprint.md's BODY
+  at the pin (frontmatter excluded — rollups rewrite it every landing), never read by a display surface.
+  A MECH `gate-inventory:<frd>` check precedes the gate; only when both fingerprints match does the prompt
+  carry the cached rows — the reviewer deep-reviews the cycle's contracts, re-runs every other contract's
+  evidence tests by path and samples the rest, and must return EVERY cached REQ/AC contract (a green that
+  drops one is refused and re-asked without the cache). Absent/stale → the full whole-FRD inventory;
+  malformed → logged loud (DR-078), full inventory, rewritten by the next green landing.
 - **Three test layers** at the FRD gate: (1) unit/component (per WO during build); (2) integration +
   adversarial review across the feature; (3) **functional/browser — the Preview Smoke Gate (DR-055)**.
   This layer is **mandatory and fail-closed for any FRD that has UI routes** (default ON for web

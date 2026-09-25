@@ -159,8 +159,12 @@ function prove(o) {
   }
 
   const evidenceDir = path.join(project, '.pandacorp', 'run', 'gate-evidence', o.frd, 'drift')
+  // BL-0187: `--source` is the gate worktree ROOT, which for a project nested in a larger repo is NOT the
+  // project root — a reviewer working from the project directory inside it (the engine's cd preamble) wrote
+  // its project-relative probe under <source>/<prefix>. Look there first; the bare <source>/<path> stays as
+  // the fallback (a flat project, --source = the project itself, or a reviewer that wrote at the root).
   const probes = o.probe.map((p) => {
-    const abs = path.join(source, p)
+    const abs = [path.join(source, prefix, p), path.join(source, p)].find((c) => existsSync(c)) || path.join(source, p)
     const name = path.basename(p)
     if (!existsSync(abs)) return { path: p, missing: true, head: [], base: [] }
     mkdirSync(evidenceDir, { recursive: true })

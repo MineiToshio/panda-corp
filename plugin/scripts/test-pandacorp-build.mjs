@@ -2511,9 +2511,11 @@ SCENARIOS.push({
     // all zero-judgment cp/git/shasum runners, the same shape as the gate-worktree probe itself.
     // + 2 (BL-0178): 'drift-proof:<frd>' and 'drift-record:<frd>' — each runs ONE drift-proof.mjs command and
     // returns its stdout verbatim (zero judgment; the ENGINE applies the pre-existing-drift predicate).
-    // Integrated total (BL-0182..0184 + BL-0178 merge): 16 + 3 + 2 = 21, recounted from the source below.
-    t.ok(mechAgentCount === 21, `exactly 21 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 21, `exactly 21 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // Integrated total (BL-0182..0184 + BL-0178 merge): 16 + 3 + 2 = 21.
+    // + 1 (BL-0189): 'gate-inventory:<frd>' — runs ONE gate-inventory.mjs check and returns its stdout verbatim
+    // (zero judgment; the ENGINE parses the cache and compares fingerprints). 22, recounted from the source below.
+    t.ok(mechAgentCount === 22, `exactly 22 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 22, `exactly 22 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -5511,6 +5513,370 @@ SCENARIOS.push({
       t.ok(vp && /drift: \[AC-85-070\.1\]/.test(vp.prompt), 'the certifying verifier stamps drift: [AC-85-070.1] in the FRD frontmatter')
       t.ok(byLabel(run, /^(revert|persist-block):/).length === 0, 'no revert, no block')
       t.ok(run.result && run.result.builtFrds.includes('frd-185c'), 'the FRD lands VERIFIED')
+    },
+  })
+}
+
+// ---- GATE-COST ----
+// Proposal 38 "Red-team addendum (2026-09-25)": the gate is ~77% of a multi-FRD run's cost (D2: reviews 24.61 $
+// of 36.24 $ dedup) and parallel gates do not move it. The three cost levers of this block:
+//   BL-0187 · `gateEvidence:'digested'` made measurable on the REAL (nested) topology — exercised here against a
+//             real git repository whose project is nested like Mission Control, by EXECUTING the collector's own
+//             shell commands as the engine wrote them (not string-matching them).
+//   BL-0188 · the gate context scope (args.gateContextScope) + a lossless compaction of the digested report.
+//   BL-0189 · the FRD contract-inventory cache (args.gateInventoryCache), incl. a round trip through the REAL
+//             gate-inventory.mjs (write by the landing → check by the next gate → HIT / STALE).
+const { execFileSync: gcExecFile } = await import('node:child_process')
+const gcFs = await import('node:fs')
+const gcOs = await import('node:os')
+const { fnv1a: gcFnv1a } = await import('./gate-inventory.mjs')
+const gcRealStateCli = path.join(__dirname, 'pandacorp-build-state.mjs')
+const gcGit = (cwd, ...a) => gcExecFile('git', a, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+const gcWrite = (file, text) => { gcFs.mkdirSync(path.dirname(file), { recursive: true }); gcFs.writeFileSync(file, text) }
+const gcBash = (cmd, cwd) => { try { return { ok: true, out: gcExecFile('bash', ['-c', cmd], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) } } catch (e) { return { ok: false, out: String(e.stdout || ''), err: String(e.stderr || e.message) } } }
+const gcCleanups = []
+
+// A factory-shaped repo with a NESTED project (repo/mission-control), one cycle commit touching BOTH the project
+// and factory files, and the C2 gate worktree created where the engine creates it (inside the project's
+// gitignored .pandacorp/run/) and bootstrapped the way BL-0155 left it (node_modules under the PROJECT dir).
+function gcNestedFixture(frd) {
+  const root = gcFs.mkdtempSync(path.join(gcOs.tmpdir(), 'gate-cost-'))
+  gcCleanups.push(root)
+  const repo = path.join(root, 'repo')
+  const app = path.join(repo, 'mission-control')
+  gcFs.mkdirSync(app, { recursive: true })
+  gcGit(repo, 'init', '-q'); gcGit(repo, 'config', 'user.email', 't@example.com'); gcGit(repo, 'config', 'user.name', 't')
+  gcWrite(path.join(app, '.gitignore'), '.pandacorp/run/\nnode_modules/\n')
+  gcWrite(path.join(app, 'package.json'), '{ "name": "mission-control" }\n')
+  gcWrite(path.join(app, '.pandacorp/status.yaml'), 'phase: implementation\nlast_green_sha: none\n')
+  gcWrite(path.join(app, `docs/frds/${frd}/frd.md`), '---\nimplementation_status: IN_REVIEW\n---\n# FRD\n\nREQ-90-001 The board SHALL mark an empty column.\n')
+  gcWrite(path.join(app, 'src/app/board/view.tsx'), 'export const v = 1\n')
+  gcWrite(path.join(repo, 'plugin/engine.js'), 'factory v1\n')
+  gcGit(repo, 'add', '-A'); gcGit(repo, 'commit', '-qm', 'base')
+  const base = gcGit(repo, 'rev-parse', 'HEAD')
+  gcWrite(path.join(app, 'src/app/board/view.tsx'), 'export const v = 2\n')
+  gcWrite(path.join(app, 'src/app/board/_tests/view.test.tsx'), 'test("v", () => {})\n')
+  gcWrite(path.join(repo, 'plugin/engine.js'), 'factory v2\n')
+  gcWrite(path.join(repo, 'factory/memory/lesson.md'), 'factory noise\n')
+  gcWrite(path.join(app, '.pandacorp/status.yaml'), `phase: implementation\nlast_green_sha: ${base}\n`)
+  gcGit(repo, 'add', '-A'); gcGit(repo, 'commit', '-qm', 'cycle')
+  const pin = gcGit(repo, 'rev-parse', 'HEAD')
+  const wt = path.join(app, '.pandacorp/run/gate-worktree')
+  gcGit(app, 'worktree', 'add', '--detach', '-q', wt, pin)
+  gcWrite(path.join(wt, 'mission-control/node_modules/.bin/vitest'), '#!/bin/sh\n')
+  return { root, repo, app, base, pin, wt }
+}
+// The real Mission Control gate-report.json as verify.sh writes it (2-space pretty print; content as read from
+// mission-control/.pandacorp/run/gate-report.json on 2026-09-25) — 1,291 chars pretty (+1 trailing newline in the file), 805 compact.
+const GC_REAL_REPORT = JSON.stringify({ at: '2026-09-25T20:23:01Z', scope: 'full', green: true, sha: '4a15f4cce1fda92ed274e5517b45143bb821f3ec', subgates: [
+  ['structure-guard', 21], ['data-layer', 5], ['api-error-contract', 8], ['doc-lint', 2444], ['residual-ambiguity', 52], ['biome', 674],
+  ['tsc', 2548], ['knip', 925], ['madge', 1662], ['vitest', 36283], ['playwright', 56140]].map(([name, ms]) => ({ name, exit: 0, duration_ms: ms, failures: [] })) }, null, 2)
+
+// ── BL-0187 · the digested collector on a NESTED project: its own commands, executed ──
+{
+  const frd = 'frd-90-board'
+  const fx = gcNestedFixture(frd)
+  SCENARIOS.push({
+    name: 'GC-L1a. BL-0187 — nested project: the collector cds into the PROJECT dir inside the gate worktree; its step 0 says BOOTSTRAPPED (the worktree root would say NOT), its --relative stat drops the enclosing repo\'s files, its quoted pathspec yields the real patch, and 3b lists the cycle\'s tests',
+    args: { mode: 'pro', gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    plan: mkPlan([{ frd, deps: [], workOrders: [wp06Wo('wo-90-001', frd, { artifacts: ['src/app/board/**'], acText: 'AC-90-001.1 WHEN a column is empty THE SYSTEM SHALL announce it' })] }]),
+    responses: [
+      { prefix: 'commit:', response: { committed: 1, sha: fx.pin } },
+      { prefix: 'evidence:', response: { report: GC_REAL_REPORT, diffStat: ' src/app/board/view.tsx | 2 +-', diff: '-export const v = 1\n+export const v = 2', truncated: false, tests: ['src/app/board/_tests/view.test.tsx'], ac: '[wo-90-001] AC-90-001.1 WHEN a column is empty THE SYSTEM SHALL announce it' } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const ev = byLabel(run, `evidence:${frd}`)[0]
+      t.ok(Boolean(ev), 'the digested collector ran')
+      if (!ev) return
+      const cd = (ev.prompt.match(/FIRST cd into the PROJECT directory inside it, exactly: `([^`]+)`/) || [])[1]
+      t.ok(Boolean(cd), 'the collector prompt carries ONE exact cd command into the project dir inside the worktree')
+      const here = cd ? gcBash(`${cd} && pwd -P`, gcOs.tmpdir()) : { ok: false }
+      t.ok(here.ok && here.out.trim() === gcFs.realpathSync(path.join(fx.wt, 'mission-control')), `executed, that cd lands in <gate-worktree>/mission-control — the nested PROJECT dir (got ${here.out && here.out.trim()} ${here.err || ''})`)
+      const step0 = (ev.prompt.match(/[Rr]un exactly `(node -e "[^`]+")`/) || [])[1]
+      t.ok(Boolean(step0) && !/`test -e/.test(ev.prompt), 'step 0 is an alias-proof Node probe, never shell `test` (an owner alias test=\'npm test\' hijacked it)')
+      const inProject = step0 && cd ? gcBash(`${cd} && ${step0}`, gcOs.tmpdir()) : { ok: false, out: '' }
+      const atRoot = step0 ? gcBash(step0, fx.wt) : { ok: false, out: '' }
+      t.ok(inProject.out === 'BOOTSTRAPPED', `executed from the project dir, step 0 answers BOOTSTRAPPED (got ${JSON.stringify(inProject.out)})`)
+      t.ok(atRoot.out === 'NOT-BOOTSTRAPPED', `the pre-fix cwd (the worktree ROOT) answers NOT-BOOTSTRAPPED — the reason the nested collector always fell back (got ${JSON.stringify(atRoot.out)})`)
+      const sub = (cmd) => cmd.replaceAll('<PIN_BASE>', fx.base)
+      const statCmd = (ev.prompt.match(/2\) `(git diff --relative [^`]+--stat)`/) || [])[1]
+      const stat = statCmd && cd ? gcBash(`${cd} && ${sub(statCmd)}`, gcOs.tmpdir()) : { ok: false, out: '' }
+      t.ok(stat.ok && /src\/app\/board\/view\.tsx/.test(stat.out) && !/plugin\/engine\.js|factory\/memory/.test(stat.out), `the --relative stat lists the project's files only (got: ${stat.out.trim().split('\n').pop()})`)
+      const oldStat = gcBash(`git diff ${fx.base}..${fx.pin} --stat`, fx.wt)
+      t.ok(/plugin\/engine\.js/.test(oldStat.out), 'fixture check: the pre-fix stat (no --relative, worktree root) DID carry the enclosing repo\'s files')
+      const patchCmd = (ev.prompt.match(/3\) `(git diff --relative [^`]+)`/) || [])[1]
+      const patch = patchCmd && cd ? gcBash(`${cd} && ${sub(patchCmd)}`, gcOs.tmpdir()) : { ok: false, out: '' }
+      t.ok(patch.ok && /\+export const v = 2/.test(patch.out) && !/factory v2/.test(patch.out), 'the artifact-scoped patch (quoted pathspec, project-relative) returns the WO\'s real hunk')
+      const oldPatch = gcBash(`git diff ${fx.base}..${fx.pin} -- src/app/board/**`, fx.wt)
+      t.ok(oldPatch.ok && oldPatch.out === '', 'fixture check: the pre-fix patch (worktree-root cwd, unquoted pathspec) came back EMPTY on a nested project')
+      const testsCmd = (ev.prompt.match(/the output lines of `([^`]+)`/) || [])[1]
+      const tests = testsCmd && cd ? gcBash(`${cd} && ${sub(testsCmd)}`, gcOs.tmpdir()) : { ok: false, out: '' }
+      t.ok(tests.ok && tests.out.trim() === 'src/app/board/_tests/view.test.tsx', `3b lists exactly the test file the cycle added (got ${JSON.stringify(tests.out.trim())})`)
+      t.ok(/\[wo-90-001\] AC-90-001\.1/.test(ev.prompt), 'the collector\'s AC seed is labelled with its owning work order (the WO → contract traceability map)')
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'the gate ran DIGESTED (no fallback) on the nested project')
+      t.ok(gate && gate.prompt.includes(cd || '§'), 'the reviewer starts in the same project dir inside the worktree')
+      t.ok(gate && gate.prompt.includes('src/app/board/_tests/view.test.tsx') && /TEST FILES THIS CYCLE ADDED OR CHANGED/.test(gate.prompt), 'the digest hands the reviewer the cycle\'s test-file list')
+      t.ok(gate && /You MUST run verify\.sh exactly once/.test(gate.prompt) && /RUN YOUR OWN ADVERSARIAL TESTS EXPLICITLY, BY PATH/.test(gate.prompt), 'digested still obliges the verify.sh re-run AND the by-path run of its own tests (REV2-1, BL-0183)')
+      t.ok(!hasLog(run, /GateEvidenceFallback/), 'no GateEvidenceFallback')
+      t.ok(run.result && run.result.builtFrds.includes(frd), 'the FRD verified through the digested gate')
+    },
+  })
+}
+
+// ── BL-0188 · the digested report is compacted losslessly (real MC report) ──
+SCENARIOS.push({
+  name: 'GC-L2a. BL-0188 — the digested gate carries the real gate-report.json compacted (≥30% smaller, lossless: the same parsed value)',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([{ frd: 'frd-91-report', deps: [], workOrders: [wp06Wo('wo-91-001', 'frd-91-report')] }]),
+  responses: [{ prefix: 'evidence:', response: { report: GC_REAL_REPORT, diffStat: 's', diff: 'd', truncated: false, ac: 'a' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-91-report')[0]
+    const compact = JSON.stringify(JSON.parse(GC_REAL_REPORT))
+    t.ok(gate && gate.prompt.includes(compact) && !gate.prompt.includes(GC_REAL_REPORT), 'the attachment is the compact serialization, not the pretty one')
+    const saved = 1 - compact.length / GC_REAL_REPORT.length
+    t.ok(GC_REAL_REPORT.length === 1291 && compact.length === 805 && saved >= 0.30, `measured on the real report: ${GC_REAL_REPORT.length} → ${compact.length} chars (−${(saved * 100).toFixed(1)}%)`)
+    t.ok(JSON.stringify(JSON.parse(compact)) === JSON.stringify(JSON.parse(GC_REAL_REPORT)), 'lossless: both forms parse to the identical value (every sub-gate, exit and failures[] row)')
+  },
+})
+
+// ── BL-0188 · the context-scope directive: off by default, and what it scopes when on ──
+const gcScopePlan = (frd) => mkPlan([{ frd, deps: [], workOrders: [
+  wp06Wo('wo-92-014', frd, { artifacts: ['src/app/board/IdeaBoardView/**'] }),
+  ...Array.from({ length: 9 }, (_, i) => mkWo(`wo-92-00${i + 1}`, 'VERIFIED', { frd })),
+] }])
+const gcScopePrompts = {}
+for (const on of [false, true]) {
+  const frd = on ? 'frd-92-scope-on' : 'frd-92-scope-off'
+  SCENARIOS.push({
+    name: `GC-L2b${on ? '2' : '1'}. BL-0188 — gateContextScope ${on ? 'ON: the gate reads frd.md + the cycle WO in full, other WOs header-only, the blueprint by section, rules as pointers, never the engine source, heavy output to file+tail' : 'OFF (default): the gate prompt carries no scope directive'}`,
+    args: { mode: 'pro', ...(on ? { gateContextScope: true } : {}) },
+    plan: gcScopePlan(frd),
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(Boolean(gate), 'the gate ran')
+      if (!gate) return
+      gcScopePrompts[on ? 'on' : 'off'] = gate.prompt.replaceAll(frd, 'FRD')
+      if (!on) { t.ok(!/CONTEXT SCOPE \(gate cost, BL-0188\)/.test(gate.prompt), 'default: no scope directive (flag off until canary E)'); return }
+      t.ok(/CONTEXT SCOPE \(gate cost, BL-0188\)/.test(gate.prompt), 'the directive is present')
+      t.ok(gate.prompt.includes(`READ IN FULL: \`docs/frds/${frd}/frd.md\``), 'frd.md is still read IN FULL — the oracle\'s source is never trimmed without a verified cache')
+      t.ok(gate.prompt.includes(`docs/frds/${frd}/work-orders/wo-92-014.md`), 'the cycle\'s work order is named for a full read')
+      t.ok(/HEADER ONLY: the FRD's OTHER work orders/.test(gate.prompt) && /SECTIONS ONLY: `docs\/frds\/[^`]+\/blueprint\.md`/.test(gate.prompt), 'VERIFIED work orders header-only; blueprint by section')
+      t.ok(/POINTERS ONLY/.test(gate.prompt) && /NEVER: the factory, plugin or build-engine source/.test(gate.prompt) && /\.pandacorp\/run\/gate-logs\//.test(gate.prompt), 'rules as pointers, engine source forbidden, heavy output to a gitignored log + tail')
+      t.ok(/Whole-FRD source oracle/.test(gate.prompt) && /there are no reviewer waivers for approved spec text/.test(gate.prompt) && /RUN YOUR OWN ADVERSARIAL TESTS EXPLICITLY, BY PATH/.test(gate.prompt), 'the oracle, the no-waiver rule and the by-path adversarial tests are untouched')
+      const off = gcScopePrompts.off || ''
+      const on2 = gcScopePrompts.on || ''
+      const delta = on2.length - off.length
+      t.ok(off.length > 0 && delta > 0 && delta <= 2500, `prompt size measured on the same 10-WO FRD: ${off.length} → ${on2.length} chars (+${delta}, +${off.length ? ((delta / off.length) * 100).toFixed(1) : '?'}%) — the directive costs ≤ 2.5k chars; its saving is in what the reviewer reads, not in the prompt`)
+    },
+  })
+}
+
+SCENARIOS.push({
+  name: 'GC-L2c. BL-0188 — gateContextScope reaches the SPLIT gate too: all four finder lenses and the closer carry the scope directive',
+  args: { mode: 'powerful', gateContextScope: true },
+  plan: mkPlan([{ frd: 'frd-92-split', deps: [], workOrders: [{ ...mkWo('wo-92-101', 'PLANNED', { frd: 'frd-92-split', artifacts: ['src/split/**'], reopen_count: 1 }) }] }]),
+  responses: [{ label: /^find:/, response: { findings: [] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const finders = byLabel(run, /^find:/)
+    const closer = byLabel(run, 'gate:frd-92-split')[0]
+    t.ok(finders.length === 4 && finders.every((c) => /CONTEXT SCOPE \(gate cost, BL-0188\)/.test(c.prompt)), 'every finder lens carries the directive')
+    t.ok(closer && /CONTEXT SCOPE \(gate cost, BL-0188\)/.test(closer.prompt) && closer.opts.model === 'opus', 'the split closer carries it too, still on the opus judge')
+  },
+})
+
+// ── BL-0189 · the contract-inventory cache, mocked MECH facts (the engine's decisions) ──
+const gcTrace = (extra = []) => [
+  { contract: 'REQ-93-001 — the board SHALL mark an empty column', contractClass: 'requirement', status: 'pass', tests: ['src/b/_tests/a.test.ts'] },
+  { contract: 'AC-93-001.1 — an empty column is announced', contractClass: 'acceptance-criterion', status: 'pass', tests: ['src/b/_tests/a.test.ts'] },
+  { contract: 'AC-93-002.1 — the owner\'s `ACTIVE_PHASES` filter costs $0', contractClass: 'acceptance-criterion', status: 'pass', tests: ['src/b/_tests/b.test.ts'] },
+  { contract: 'invariant: columns are fixed', contractClass: 'invariant', status: 'not-applicable', tests: [] },
+  { contract: 'edge: zero cards', contractClass: 'edge-case', status: 'pass', tests: ['src/b/_tests/edge.test.ts'] },
+  { contract: 'limit: 500 cards', contractClass: 'limit', status: 'pass', tests: ['src/b/_tests/limit.test.ts'] },
+  { contract: 'error: unreadable card', contractClass: 'error', status: 'not-applicable', tests: [] },
+  { contract: 'exclusion: no drag and drop', contractClass: 'exclusion', status: 'not-applicable', tests: [] },
+  ...extra,
+]
+const GC_SOURCES = { frd: 'a'.repeat(64), blueprint: 'b'.repeat(64) }
+const gcInv = (frd, over = {}) => JSON.stringify({ version: 1, frd, gatedAt: 'abc1234', sources: GC_SOURCES, writtenAt: '2026-09-25T00:00:00Z', contracts: gcTrace(), ...over })
+const gcCheck = (frd, inventory, sources = GC_SOURCES) => ({ prefix: 'gate-inventory:', response: { output: JSON.stringify({ ok: true, frd, pin: 'abc1234', sources, inventoryPath: `.pandacorp/run/gate-evidence/${frd}/inventory.json`, inventory }) } })
+const gcHasBlock = (p) => /CACHED WHOLE-FRD INVENTORY — FRD baseline gated at/.test(p)
+
+SCENARIOS.push({
+  name: 'GC-L3a. BL-0189 — flag OFF (default): zero inventory spawns, no cache block, no LAST STEP in the apply (the historical path)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-93-off', 'wo-93-001'),
+  responses: [{ prefix: 'gate:', response: { green: true, traceability: gcTrace() } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^gate-inventory:/).length === 0, 'no gate-inventory spawn')
+    const apply = byLabel(run, 'apply-gate:frd-93-off')[0]
+    t.ok(apply && !/BL-0189/.test(apply.prompt), 'the apply prompt carries no cache write')
+    t.ok(byLabel(run, 'gate:frd-93-off').every((g) => !gcHasBlock(g.prompt)), 'no cached inventory in the gate prompt')
+  },
+})
+SCENARIOS.push({
+  name: 'GC-L3b. BL-0189 — MISS (absent): the full inventory runs; the GREEN landing is asked to write the cache with a digest the script\'s own FNV-1a reproduces',
+  args: { mode: 'pro', gateInventoryCache: true },
+  plan: b178Plan('frd-93-miss', 'wo-93-001'),
+  responses: [
+    gcCheck('frd-93-miss', null),
+    { prefix: 'gate:', response: { green: true, traceability: gcTrace() } },
+    { prefix: 'apply-gate:', response: { done: true, inventory_output: JSON.stringify({ ok: true, path: '.pandacorp/run/gate-evidence/frd-93-miss/inventory.json', entries: 8, gatedAt: 'abc1234' }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const chk = byLabel(run, 'gate-inventory:frd-93-miss')[0]
+    const gate = byLabel(run, 'gate:frd-93-miss')[0]
+    t.ok(chk && gate && chk.index < gate.index && chk.opts.model === 'haiku' && chk.opts.effort === 'low', 'the MECH check runs BEFORE the gate, on the cheap tier')
+    t.ok(chk && /gate-inventory\.mjs' check --project/.test(chk.prompt), 'the check runs the installed gate-inventory.mjs next to the state CLI')
+    t.ok(gate && !gcHasBlock(gate.prompt) && /Whole-FRD source oracle/.test(gate.prompt), 'a miss is the full whole-FRD inventory (no cache block)')
+    t.ok(hasLog(run, /no cached contract inventory yet/), 'the miss is logged as ABSENT, never as an empty inventory')
+    const apply = byLabel(run, 'apply-gate:frd-93-miss')[0]
+    const cmd = apply && (apply.prompt.match(/```sh\n\s*([\s\S]*?)\n\s*```/) || [])[1]
+    t.ok(Boolean(cmd) && /gate-inventory\.mjs' write --project/.test(cmd), 'the certifying landing (the single writer) carries the write as its LAST STEP')
+    const digest = cmd && (cmd.match(/--digest ([0-9a-f]{8})/) || [])[1]
+    const quoted = cmd && (cmd.match(/--contracts '([\s\S]*)'$/) || [])[1]
+    const json = quoted && quoted.replaceAll(`'"'"'`, "'")
+    t.ok(Boolean(json) && gcFnv1a(json) === digest, 'the engine\'s digest equals gate-inventory.mjs\'s FNV-1a of the exact JSON (the two implementations agree)')
+    const parsed = json ? JSON.parse(json) : []
+    t.ok(parsed.length === gcTrace().length && parsed.some((e) => /ACTIVE_PHASES/.test(e.contract)), 'the payload is the green verdict\'s full adjudicated traceability')
+    t.ok(hasLog(run, /contract inventory cached \(8 contracts/), 'the landing\'s receipt is read back and logged')
+  },
+})
+SCENARIOS.push({
+  name: 'GC-L3c. BL-0189 — HIT: the gate gets the cached inventory (deep-review the cycle, re-run the rest\'s evidence, sample), frd.md is read by section, and the oracle text is intact',
+  args: { mode: 'pro', gateInventoryCache: true, gateContextScope: true },
+  plan: b178Plan('frd-93-hit', 'wo-93-001'),
+  responses: [gcCheck('frd-93-hit', gcInv('frd-93-hit')), { prefix: 'gate:', response: { green: true, traceability: gcTrace() } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-93-hit')[0]
+    t.ok(gate && gcHasBlock(gate.prompt) && gate.prompt.includes('abc1234'), 'the cached inventory (gated at abc1234) is injected')
+    t.ok(gate && gate.prompt.includes('acceptance-criterion | pass | AC-93-001.1 — an empty column is announced | src/b/_tests/a.test.ts'), 'as compact rows: class | status | contract | evidence tests')
+    t.ok(gate && /DEEP-REVIEW every contract this cycle's work orders \(wo-93-001\)/.test(gate.prompt) && /re-run its recorded evidence tests BY PATH/.test(gate.prompt) && /SAMPLE of at least 3/.test(gate.prompt), 'deep review of the cycle, by-path evidence re-run of the rest, plus a sample')
+    t.ok(gate && /return EVERY contract below in `traceability`/.test(gate.prompt) && /Whole-FRD source oracle/.test(gate.prompt), 'the verdict must still be the COMPLETE traceability; the oracle text is still there')
+    t.ok(gate && /engine-verified CACHED INVENTORY above stands in for a whole-file re-read/.test(gate.prompt) && !/READ IN FULL: `docs\/frds\/frd-93-hit\/frd\.md`/.test(gate.prompt), 'with the scope directive, frd.md is read by section on a verified hit')
+    t.ok(hasLog(run, /cached contract inventory HIT/), 'the hit is logged')
+    t.ok(run.result && run.result.builtFrds.includes('frd-93-hit'), 'a verdict covering every cached contract verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'GC-L3d. BL-0189 — HIT, but the green verdict DROPS a cached AC: refused, re-asked WITHOUT the cache, and only the complete verdict lands',
+  args: { mode: 'pro', gateInventoryCache: true },
+  plan: b178Plan('frd-93-drop', 'wo-93-001'),
+  responses: [
+    gcCheck('frd-93-drop', gcInv('frd-93-drop')),
+    { label: 'gate:frd-93-drop', times: 1, response: { green: true, traceability: gcTrace().filter((e) => !/AC-93-002\.1/.test(e.contract)) } },
+    { prefix: 'gate:', response: { green: true, traceability: gcTrace() } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-93-drop')
+    t.ok(gates.length === 2, `the dropped-contract verdict was re-asked exactly once (got ${gates.length} gates)`)
+    t.ok(gates[0] && gcHasBlock(gates[0].prompt) && gates[1] && !gcHasBlock(gates[1].prompt), 'the re-ask runs WITHOUT the cache (a full whole-FRD inventory)')
+    t.ok(gates[1] && /AC-93-002\.1/.test(gates[1].prompt), 'the re-ask names the dropped contract')
+    t.ok(hasLog(run, /DROPPED 1 cached contract\(s\).*AC-93-002\.1/), 'the drop is logged by id')
+    t.ok(byLabel(run, 'apply-gate:frd-93-drop').length === 1 && run.result.builtFrds.includes('frd-93-drop'), 'only the complete re-asked verdict is applied')
+  },
+})
+SCENARIOS.push({
+  name: 'GC-L3e. BL-0189 — STALE (frd.md body changed since gatedAt) and MALFORMED (bad JSON / a missing class) caches are never used; malformed is logged LOUD',
+  args: { mode: 'pro', gateInventoryCache: true },
+  plan: mkPlan(['frd-93-stale', 'frd-93-badjson', 'frd-93-noclass'].map((frd, i) => ({ frd, deps: [], workOrders: [mkWo(`wo-93-10${i}`, 'PLANNED', { frd, artifacts: [`src/${frd}/**`] })] }))),
+  responses: [
+    { label: 'gate-inventory:frd-93-stale', response: gcCheck('frd-93-stale', gcInv('frd-93-stale'), { frd: 'c'.repeat(64), blueprint: GC_SOURCES.blueprint }).response },
+    { label: 'gate-inventory:frd-93-badjson', response: gcCheck('frd-93-badjson', '{"version":1,"frd":"frd-93-badjson",').response },
+    { label: 'gate-inventory:frd-93-noclass', response: gcCheck('frd-93-noclass', gcInv('frd-93-noclass', { contracts: gcTrace().filter((e) => e.contractClass !== 'exclusion') })).response },
+    { prefix: 'gate:', response: { green: true, traceability: gcTrace() } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    for (const frd of ['frd-93-stale', 'frd-93-badjson', 'frd-93-noclass']) {
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(gate && !gcHasBlock(gate.prompt), `${frd}: no cached inventory reaches the gate`)
+      t.ok(run.result && run.result.builtFrds.includes(frd), `${frd}: the full-oracle gate still verifies it`)
+    }
+    t.ok(hasLog(run, /frd-93-stale: cached contract inventory is STALE — frd\.md changed normatively since abc1234/), 'stale: logged with WHICH doc changed')
+    t.ok(hasLog(run, /⊘ frd-93-badjson: MALFORMED cached contract inventory .*not valid JSON/), 'malformed JSON: logged LOUD (⊘), never read as empty')
+    t.ok(hasLog(run, /⊘ frd-93-noclass: MALFORMED cached contract inventory .*missing contractClass: exclusion/), 'malformed shape: logged LOUD with the defect')
+  },
+})
+
+SCENARIOS.push({
+  name: 'GC-L3g. BL-0189 — an apply that does NOT land keeps the cache candidate: the re-apply (BL-0185a path) still carries the write, and it is written once',
+  args: { mode: 'pro', gateInventoryCache: true },
+  plan: b178Plan('frd-93-reapply', 'wo-93-001'),
+  responses: [
+    gcCheck('frd-93-reapply', null),
+    { prefix: 'gate:', response: { green: true, traceability: gcTrace() } },
+    { label: 'apply-gate:frd-93-reapply', times: 1, response: { done: false, failure: 'index.lock' } },
+    { prefix: 'apply-gate:', response: { done: true, inventory_output: JSON.stringify({ ok: true, entries: 8, gatedAt: 'abc1234' }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const applies = byLabel(run, 'apply-gate:frd-93-reapply')
+    t.ok(applies.length === 2 && applies.every((a) => /LAST STEP \(BL-0189/.test(a.prompt)), `both apply attempts carry the cache write (got ${applies.length})`)
+    t.ok(run.logs.filter((l) => /contract inventory cached/.test(l)).length === 1 && !hasLog(run, /cache was NOT written/), 'the failed apply is not misreported as a failed cache write; the landed one is recorded once')
+    t.ok(run.result && run.result.builtFrds.includes('frd-93-reapply'), 'the FRD verifies on the re-apply')
+  },
+})
+
+// ── BL-0189 · the REAL round trip: the landing writes through gate-inventory.mjs, the next gate checks it ──
+{
+  const frd = 'frd-94-real'
+  const fx = gcNestedFixture(frd)
+  const runReal = (call, re) => { const cmd = (call.prompt.match(re) || [])[1]; return cmd ? gcBash(cmd, fx.app) : { ok: false, out: '' } }
+  const realArgs = { mode: 'pro', gateInventoryCache: true, projectDir: fx.app, project: 'mission-control', stateCli: gcRealStateCli }
+  const checkReal = { prefix: 'gate-inventory:', response: (call) => ({ output: runReal(call, /return its stdout VERBATIM as `output`: `([^`]+)`/).out }) }
+  const applyReal = { prefix: 'apply-gate:', response: (call) => ({ done: true, inventory_output: runReal(call, /```sh\n\s*([\s\S]*?)\n\s*```/).out }) }
+  const greenGate = { prefix: 'gate:', response: { green: true, traceability: gcTrace() } }
+  SCENARIOS.push({
+    name: 'GC-L3f1. BL-0189 real round trip — 1st gate: real check → absent (miss); the landing\'s real write (shell-quoted JSON with quotes, backticks and $) is accepted and lands on disk',
+    args: realArgs,
+    plan: mkPlan([{ frd, deps: [], workOrders: [mkWo('wo-94-001', 'PLANNED', { frd, artifacts: ['src/app/board/**'] })] }]),
+    responses: [{ prefix: 'commit:', response: { committed: 1, sha: fx.pin } }, checkReal, greenGate, applyReal],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /no cached contract inventory yet/), 'the real check reported the cache absent')
+      const file = path.join(fx.app, `.pandacorp/run/gate-evidence/${frd}/inventory.json`)
+      const inv = gcFs.existsSync(file) ? JSON.parse(gcFs.readFileSync(file, 'utf8')) : null
+      t.ok(inv && inv.gatedAt === fx.pin && inv.contracts.length === gcTrace().length, 'the real write persisted the inventory, gatedAt = the gate\'s pin')
+      t.ok(inv && inv.contracts.some((e) => e.contract === gcTrace()[2].contract), 'the quote/backtick/$ contract text survived the shell round trip byte-for-byte')
+      t.ok(hasLog(run, /contract inventory cached \(8 contracts, gated at /), 'the engine read the real receipt')
+      t.ok(gcGit(fx.repo, 'status', '--porcelain') === '', 'the cache is gitignored run-state: the main tree stays clean')
+    },
+  })
+  SCENARIOS.push({
+    name: 'GC-L3f2. BL-0189 real round trip — next gate of the SAME FRD, unchanged docs: the real check yields a HIT and the prompt carries the cached rows',
+    args: realArgs,
+    plan: mkPlan([{ frd, deps: [], workOrders: [mkWo('wo-94-001', 'IN_REVIEW', { frd, artifacts: ['src/app/board/**'] })] }]),
+    responses: [{ prefix: 'pin:', response: { sha: fx.pin } }, checkReal, greenGate, applyReal],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(hasLog(run, /cached contract inventory HIT/) && gate && gcHasBlock(gate.prompt), 'HIT: the cached inventory reaches the gate')
+      t.ok(gate && gate.prompt.includes('AC-93-002.1 — the owner\'s `ACTIVE_PHASES` filter costs $0'), 'the cached rows are the persisted contracts, verbatim')
+    },
+  })
+  SCENARIOS.push({
+    name: 'GC-L3f3. BL-0189 real round trip — after a normative frd.md edit (committed), the real check makes it STALE (the frontmatter-only case is proven in test-gate-inventory.mjs)',
+    args: realArgs,
+    plan: mkPlan([{ frd, deps: [], workOrders: [mkWo('wo-94-001', 'IN_REVIEW', { frd, artifacts: ['src/app/board/**'] })] }]),
+    responses: [{ prefix: 'pin:', response: () => {
+      gcWrite(path.join(fx.app, `docs/frds/${frd}/frd.md`), '---\nimplementation_status: VERIFIED\n---\n# FRD\n\nREQ-90-001 The board SHALL mark AND announce an empty column.\n')
+      gcGit(fx.repo, 'add', '-A'); gcGit(fx.repo, 'commit', '-qm', 'spec change')
+      return { sha: gcGit(fx.repo, 'rev-parse', 'HEAD') }
+    } }, checkReal, greenGate, applyReal],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      t.ok(hasLog(run, /cached contract inventory is STALE — frd\.md changed normatively/) && gate && !gcHasBlock(gate.prompt), 'STALE: the gate runs the full whole-FRD inventory')
+      for (const r of gcCleanups.splice(0)) gcFs.rmSync(r, { recursive: true, force: true })
     },
   })
 }
