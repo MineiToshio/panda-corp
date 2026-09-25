@@ -4,10 +4,10 @@ type: frd
 title: FRD-02 — Ideas board
 parent: product/prd.md
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: IN_REVIEW
 ui: true
 visual_source: docs/frds/frd-02-ideas-board/mocks/la-campana.html
-last_updated: '2026-09-24'
+last_updated: '2026-09-25'
 ---
 # FRD-02 — Ideas board
 

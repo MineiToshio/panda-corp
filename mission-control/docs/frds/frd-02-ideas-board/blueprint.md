@@ -3,11 +3,11 @@ id: FRD-02-blueprint
 type: blueprint
 parent: FRD-02
 status: ACTIVE
-implementation_status: BLOCKED
+implementation_status: IN_REVIEW
 readiness_gate: passed 2026-09-24
 grounding_gate: passed 2026-09-24
 consistency_gate: passed 2026-09-24
-last_updated: '2026-07-02'
+last_updated: '2026-09-25'
 ---
 # FRD-02 — Ideas board — Feature blueprint
 

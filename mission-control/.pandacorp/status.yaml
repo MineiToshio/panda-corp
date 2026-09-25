@@ -17,12 +17,12 @@ updated_at: "2026-09-25T02:52:06.332Z"
 last_event_at: "2026-09-25T02:52:06.332Z"
 work_orders_total: 110
 work_orders_verified: 109
-work_orders_in_review: 0
+work_orders_in_review: 1
 work_orders_planned: 0
 work_orders_in_progress: 0
-work_orders_blocked: 1
+work_orders_blocked: 0
 work_orders_done: 109
-pending_decisions: 1
+pending_decisions: 0
 pending_bugs: 0
 rethink_pending: false
 advance_pending: false

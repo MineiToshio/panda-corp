@@ -5,15 +5,14 @@ slug: empty-column-a11y
 title: 'WO-02-014 — Accessible empty-column marker on the ideas board'
 status: ACTIVE
 parent: FRD-02
-implementation_status: BLOCKED
-blocked_reason: needs-owner
+implementation_status: IN_REVIEW
 difficulty: low
 reopen_count: 0
 artifacts:
   - 'src/app/board/IdeaBoardView/**'
 source_requirements: [REQ-02-014, REQ-02-002]
 dependsOn: [WO-02-005]
-last_updated: '2026-09-24'
+last_updated: '2026-09-25'
 change_ref: canario-d-paralelismo-portfolio-board-changes-wo.md
 ---
 # WO-02-014 — Accessible empty-column marker on the ideas board
@@ -100,3 +99,19 @@ not edited per DR-080).
 
 **Verification:** `pnpm biome check .` clean; `pnpm tsc --noEmit` clean; `pnpm vitest run
 src/app/board` — 362/362 passing.
+
+
+## Status Note — gate re-run pending (integration, 2026-09-25)
+
+The gate that ran on this WO (`wf_faf48b18-881`) blocked FRD-02 `needs-owner`: WO-02-014 itself
+passed clean (REQ-02-014 green, 9/9 mutants killed — see `.pandacorp/build-journal.jsonl`), but the
+whole-FRD oracle went RED on two **pre-existing** contradictions it surfaced in already-VERIFIED
+WO-02-007 territory (AC-02-010.4 team roster drift, AC-02-010.8 never-built ficha content) —
+unrelated to this WO's own scope (`docs/frds/frd-02-ideas-board/frd.md:84-96`, `docs/decision-log.md`
+"2026-09-25 — FRD-02/FRD-03 doc↔code drift reconciled").
+
+The owner reconciliation landed on `main` (`c34ba57caea4f3dcb2b5daebf7487519189dd7d4`) before this branch
+was integrated: AC-02-010.4 was rewritten reconciled-from-code (DR-085 roster); AC-02-010.8 was left
+as-is (the FRD already states the owner's decision, a gitignored change-queue card carries the code
+fix). Set to `IN_REVIEW` rather than `VERIFIED` here — nobody has re-run the gate against the
+reconciled FRD text yet; the next FRD-02 build/gate pass re-verifies this WO for real.

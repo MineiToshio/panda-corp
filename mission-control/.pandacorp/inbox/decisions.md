@@ -1,5 +1,17 @@
 # Decisiones pendientes
 
+## RESUELTO (2026-09-25) — FRD-02 — Contradiciones FRD-vs-construcción
+
+**Resolución:** el propietario reconcilió esto en `main` (`c34ba57caea4f3dcb2b5daebf7487519189dd7d4`,
+ver `docs/decision-log.md` "2026-09-25 — FRD-02/FRD-03 doc↔code drift reconciled") antes de integrar
+esta rama: (2) AC-02-010.4 se reescribió reconciled-from-code (roster DR-085); (1) AC-02-010.8 se
+dejó igual — la FRD ya refleja la decisión vigente, el código es lo que quedó atrás (tarjeta de cambio
+`campaign-pipeline-ac02-010-8-rebuild.md` en la cola para el fix de código). WO-02-014 queda
+`IN_REVIEW` (no `VERIFIED`): nadie ha vuelto a correr el gate de FRD-02 contra el texto reconciliado.
+
+<details>
+<summary>Contexto original del bloqueo (referencia)</summary>
+
 ## FRD-02 — Contradiciones FRD-vs-construcción (necesita propietario)
 
 **Contexto:** El gate de FRD-02 clasificó un BLOQUEO (needs-owner). WO-02-014 está CORRECTO y ha pasado todas las pruebas. Sin embargo, existen dos contradicciones entre el texto de la FRD y lo que ya fue construido e VERIFICADO en WO-02-007 territorio:
@@ -32,3 +44,5 @@ El AC texto FRD dice: build = implementer+reviewer+analytics; release = security
 **Archivos de prueba guardados en worktree del gate:** Las pruebas adversariales del reviewer están salvaguardadas (listadas en testFiles del gate).
 
 **Advisory (no bloquea):** `IdeaBoardView.tsx` encabezado docstring aún dice '7 columnas ... descartadas', pero renderiza 6. De review-only, persiste en main.
+
+</details>
