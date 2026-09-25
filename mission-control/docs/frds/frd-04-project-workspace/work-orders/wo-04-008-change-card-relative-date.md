@@ -5,7 +5,7 @@ slug: change-card-relative-date
 title: 'WO-04-008 — Changes tab: relative date on the change card'
 status: ACTIVE
 parent: FRD-04
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
