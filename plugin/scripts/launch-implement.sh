@@ -7,7 +7,7 @@
 # Usage:  launch-implement.sh <project-dir> [mode] [maxAgents] [auto|new|continue-run-id]
 #           [--frds <comma-separated-frds> | --change <change>]
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
-#           [--parallel-gates [--gate-slots <1-8>]]
+#           [--parallel-gates [--gate-slots <1-8>]] [--gate-evidence explore|digested]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
 #   --ttl:     atomic lease TTL in seconds (default 3600 — BL-0153: a build phase dominated by
@@ -17,6 +17,8 @@
 #   --parallel-gates: OPT-IN (engine args.parallelGates, default off — D1/BL-0186): up to --gate-slots FRD
 #              gates review at once, each in its own gate worktree, landing on main one at a time. Size the
 #              pool to the machine (default 2 = the 16 GB machine the red-team measured). --gate-slots alone is an error.
+#   --gate-evidence: engine args.gateEvidence (WP-06/BL-0187): `explore` (the engine default) or `digested` (a MECH
+#              collector pre-gathers the gate's evidence in the pinned gate worktree). Omitted → the key is not set.
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -24,7 +26,7 @@ set -uo pipefail
 
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
-FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""
+FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -39,6 +41,7 @@ while [ "$#" -gt 0 ]; do
     --ttl) [ "$#" -ge 2 ] || { echo "ERROR: --ttl requires a value." >&2; exit 3; }; TTL="$2"; shift 2 ;;
     --parallel-gates) PARALLEL_GATES="1"; shift ;;
     --gate-slots) [ "$#" -ge 2 ] || { echo "ERROR: --gate-slots requires a value." >&2; exit 3; }; GATE_SLOTS="$2"; shift 2 ;;
+    --gate-evidence) [ "$#" -ge 2 ] || { echo "ERROR: --gate-evidence requires a value." >&2; exit 3; }; GATE_EVIDENCE="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -53,6 +56,7 @@ if [ -n "$GATE_SLOTS" ]; then
   [ -n "$PARALLEL_GATES" ] || { echo "ERROR: --gate-slots only applies with --parallel-gates." >&2; exit 3; }
   [[ "$GATE_SLOTS" =~ ^[1-8]$ ]] || { echo "ERROR: --gate-slots must be an integer 1-8." >&2; exit 3; }
 fi
+case "$GATE_EVIDENCE" in ""|explore|digested) ;; *) echo "ERROR: --gate-evidence must be explore or digested." >&2; exit 3 ;; esac
 if [ -n "$FRDS" ]; then
   IFS=',' read -r -a FRD_ITEMS <<< "$FRDS"
   for item in "${FRD_ITEMS[@]}"; do
@@ -133,8 +137,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents) args.maxAgents = Number(maxAgents);
 args.projectDir = projectDir;
@@ -148,6 +152,7 @@ if (maxFrds) args.maxFrds = Number(maxFrds);
 if (maxSpend) args.maxSpend = Number(maxSpend);
 if (parallelGates) args.parallelGates = true;
 if (gateSlots) args.gateSlots = Number(gateSlots);
+if (gateEvidence) args.gateEvidence = gateEvidence;
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?

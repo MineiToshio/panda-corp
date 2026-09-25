@@ -103,13 +103,21 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
+  // WP-06/BL-0187: gateEvidence reaches the engine through the launcher too (canary E: parallel gates + digested)
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--parallel-gates", "--gate-slots", "2", "--gate-evidence", "digested"]);
+  const args = workflowArgs(launched.stdout);
+  ok(args.parallelGates === true && args.gateSlots === 2 && args.gateEvidence === "digested", "launcher passes --gate-evidence digested as args.gateEvidence:'digested' alongside the parallel-gates args");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "pro", "8", "new"]);
   const args = workflowArgs(launched.stdout);
-  ok(!("parallelGates" in args) && !("gateSlots" in args), "without --parallel-gates the launcher adds neither key (the engine default stays off)");
+  ok(!("parallelGates" in args) && !("gateSlots" in args) && !("gateEvidence" in args), "without --parallel-gates/--gate-evidence the launcher adds none of those keys (the engine defaults stay)");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
-for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"]]) {
+for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"], ["--gate-evidence", "digest"], ["--gate-evidence"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }
