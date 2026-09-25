@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0219, LESSON-0235, LESSON-0092]
+links: [LESSON-0219, LESSON-0235, LESSON-0092, LESSON-0267]
 ---
 
 **Situation:** a temp script was written with the Write tool directly into a project's repo working tree

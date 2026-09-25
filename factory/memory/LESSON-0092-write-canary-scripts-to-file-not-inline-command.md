@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0109]
+links: [LESSON-0109, LESSON-0267]
 ---
 
 **Situation:** `block-dangerous.sh` (a `PreToolUse` hook) pattern-matches the WHOLE Bash command string

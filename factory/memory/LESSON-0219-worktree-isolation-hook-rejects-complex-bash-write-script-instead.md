@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0105, DR-096]
+links: [LESSON-0105, DR-096, LESSON-0267]
 ---
 
 **Situation:** inside a git-worktree-isolated session, several ordinary but syntactically complex Bash

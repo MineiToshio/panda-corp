@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [BL-0128]
+links: [BL-0128, LESSON-0267]
 ---
 
 **Situation:** an earlier session created a `scratchpad/` directory directly at a Pandacorp project's repo
