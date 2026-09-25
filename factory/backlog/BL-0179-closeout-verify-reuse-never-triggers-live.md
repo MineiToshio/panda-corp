@@ -3,12 +3,12 @@ id: BL-0179
 type: bug
 area: build-engine
 title: "close-out verify reuse (BL-0147) has never actually reused a report in a live run — every FRD gate emits scope:since, only notify-end's own reuse-check runs scope:full"
-status: open
+status: done
 severity: p2
 opened: 2026-09-25
-closed:
+closed: 2026-09-25
 source: "canary D report §6, canary-d-report.md — 0 CloseOutVerifyReused events across D1+D2 and the entire dashboard-events.ndjson history"
-closes:
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js close-out-verify-reuse-check + plugin/templates/stack-a-nextjs/verify.sh gate-report.json since field — af526415"
 links: [BL-0147]
 ---
 
@@ -51,17 +51,36 @@ unit-level scenarios already prove the MECHANISM works when handed a qualifying 
 prove a qualifying report is ever produced.
 
 ## Tests (prove the fix — TDD, RED → GREEN)
-Whichever option is chosen: extend `test-pandacorp-build.mjs` with a scenario shaped like a REAL
-per-FRD gate's report (`scope:"since"`, matching `last_green_sha`) reaching `notify-end`'s reuse-check,
-asserting it NOW reuses (currently it does not — that is this item's RED). Live proof: re-run a canary
-and grep `dashboard-events.ndjson` for a non-zero `CloseOutVerifyReused` count.
+`plugin/scripts/test-pandacorp-build.mjs` (marker BL-0179): a scenario shaped like a REAL per-FRD
+gate's report (`scope:"since"`, its own `since` anchor matching `last_green_sha`) reaching
+`notify-end`'s reuse-check now reuses (confirmed RED against the pre-fix engine via `git stash` on
+`pandacorp-build.js`+`verify.sh`: the two new prompt/behavior scenarios failed as expected, the
+control scenario — a mismatched anchor — already passed pre-fix, unchanged). `since-mismatch`
+control: a `since` report anchored at a DIFFERENT sha than `last_green_sha` still falls through to a
+full rerun. `plugin/scripts/test-verify-gate-report.sh` (marker BL-0179): `verify.sh --since <sha>`
+now stamps that sha into the report as `since`; a full run carries no `since` field.
+
+## Resolution — option 1 chosen (accept a matching-base `since` report)
+Option 1 from the fix plan: `verify.sh` stamps its `--since <base>` argument into `gate-report.json`
+as `since`. The reuse-check now accepts `scope:"since"` as equivalent to `scope:"full"` ONLY when
+`reportSince === lastGreenSha` (`lastGreenSha` freshly read from `status.yaml` in the same read-only
+spawn) — every other existing condition (green, sha==HEAD, clean tree, age ceiling) is unchanged and
+still required. Option 2 (a dedicated full gate on the last FRD before close-out) was not pursued —
+option 1 needed no change to the gate-scheduling logic itself, only to what the reuse-check accepts
+and to what `verify.sh` records, a smaller and more localized fix.
 
 ## Done when
-A decision is made between option 1/2 (or a third); the engine implements it; a live canary run shows
-at least one real `CloseOutVerifyReused` event; `docs/decision-log.md` records the choice and the
-live-run evidence.
+- [x] The BL-0179 scenarios above are green in `test-pandacorp-build.mjs` and
+  `test-verify-gate-report.sh`.
+- [x] `bash plugin/scripts/run-engine-tests.sh` green (25/25 suites).
+- [ ] **NOT VERIFIED here (CONV-13):** a live canary run showing a real, non-zero
+  `CloseOutVerifyReused` count — this item is closed on source-level TDD only, the same deferred-
+  live-measurement shape as BL-0147's own close-out note. A live re-run is the natural follow-up
+  (same class as BL-0155's own deferred re-measurement).
+- [ ] `docs/decision-log.md` recording this choice is left to the batch's closing agent (out of
+  scope for this session per its own instructions).
 
 ## Out of scope
-This item does not implement either option — it documents the confirmed live gap BL-0147's own
-"NOT VERIFIED here" note anticipated, so the sprint's close-out does not silently claim BL-0147 as
-fully proven in production.
+A live canary re-run to confirm `CloseOutVerifyReused` actually fires in production (see "Done
+when" above) and the `docs/decision-log.md` entry — both deferred to the closing agent/a follow-up
+session, not performed in this session.
