@@ -468,3 +468,50 @@ describe("PortfolioTable — zero hardcoded color values in inline styles", () =
     expect(hasHardcodedColor(screen.getByTestId("portfolio-snapshot") as HTMLElement)).toBe(false);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 11. Last-sync chip (REQ-03-007, WO-03-006, AC-03-007.3)
+// ---------------------------------------------------------------------------
+
+describe("PortfolioTable — last-sync chip", () => {
+  it("renders the last-sync chip when entry.lastSync is present", () => {
+    render(<PortfolioTable entries={[FULL_ENTRY]} />);
+    expect(screen.getByTestId("portfolio-row-last-sync")).toBeDefined();
+  });
+
+  it("does NOT render the last-sync chip when entry.lastSync is absent", () => {
+    render(<PortfolioTable entries={[makeEntry({ lastSync: undefined })]} />);
+    expect(screen.queryByTestId("portfolio-row-last-sync")).toBeNull();
+  });
+
+  it("shows a relative label derived from lastSync", () => {
+    const recent: PortfolioTableEntry = {
+      ...FULL_ENTRY,
+      lastSync: new Date().toISOString(),
+    };
+    render(<PortfolioTable entries={[recent]} />);
+    expect(screen.getByTestId("portfolio-row-last-sync").textContent).toContain("hoy");
+  });
+
+  it("carries the raw date as a title attribute", () => {
+    render(<PortfolioTable entries={[FULL_ENTRY]} />);
+    expect(screen.getByTestId("portfolio-row-last-sync").getAttribute("title")).toBe(
+      FULL_ENTRY.lastSync,
+    );
+  });
+
+  it("shows an explicit invalid-date chip when lastSync cannot be parsed, never hidden", () => {
+    const invalid: PortfolioTableEntry = { ...FULL_ENTRY, lastSync: "not-a-real-date" };
+    render(<PortfolioTable entries={[invalid]} />);
+    expect(screen.getByTestId("portfolio-row-last-sync").textContent).toContain("fecha inválida");
+  });
+
+  it("reuses the shared CHIP_STYLE — no hardcoded color values", () => {
+    render(<PortfolioTable entries={[FULL_ENTRY]} />);
+    const chip = screen.getByTestId("portfolio-row-last-sync") as HTMLElement;
+    const style = chip.getAttribute("style") ?? "";
+    expect(/(?:#[0-9a-fA-F]{3,8}|rgb\(|hsl\(|oklch\()/.test(style)).toBe(false);
+    // A chip, not a plain span with no visual treatment — padding is part of CHIP_STYLE.
+    expect(style).toContain("padding");
+  });
+});

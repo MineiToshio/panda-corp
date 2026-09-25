@@ -25,6 +25,7 @@
  */
 
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
+import { formatLastSync } from "@/lib/portfolio/formatLastSync";
 import type { PortfolioEntry } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -333,10 +334,27 @@ function BusinessSnapshot({
 }
 
 /**
+ * Relative "last sync" chip (REQ-03-007 / WO-03-006). Reuses the row's shared `CHIP_STYLE` —
+ * no new visual treatment. An unparseable date shows an explicit invalid-date chip rather than
+ * being hidden (DR-078: fail loud, never a silent omission).
+ */
+function LastSyncChip({ lastSync }: { lastSync: string }): React.JSX.Element {
+  const result = formatLastSync(lastSync);
+  const label = result.ok ? `sync: ${result.label}` : "sync: fecha inválida";
+
+  return (
+    <span data-testid="portfolio-row-last-sync" style={CHIP_STYLE} title={lastSync}>
+      {label}
+    </span>
+  );
+}
+
+/**
  * Single project row (CMP-03-row): name, phase, running indicator, snapshot, not-found badge.
  */
 function ProjectRow({ entry }: { entry: PortfolioTableEntry }): React.JSX.Element {
-  const { name, path, repo, phase, users, returnMetric, verdict, exists, isRunning } = entry;
+  const { name, path, repo, phase, users, returnMetric, verdict, exists, isRunning, lastSync } =
+    entry;
   const isShipped = phase === "release" || phase === "shipped";
 
   return (
@@ -365,6 +383,9 @@ function ProjectRow({ entry }: { entry: PortfolioTableEntry }): React.JSX.Elemen
             {phase}
           </span>
         )}
+
+        {/* Last-sync chip (REQ-03-007) */}
+        {lastSync !== undefined && <LastSyncChip lastSync={lastSync} />}
 
         {/* Running indicator (REQ-03-002): building / stopped */}
         {exists && (
