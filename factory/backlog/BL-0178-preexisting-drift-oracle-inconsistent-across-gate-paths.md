@@ -3,12 +3,12 @@ id: BL-0178
 type: change
 area: build-engine
 title: "Pre-existing drift the whole-FRD oracle finds is handled inconsistently: it BLOCKS on a direct gate (frd-02) but is silently waved through on a patched gate (frd-03) — needs an owner policy decision"
-status: open
+status: done
 severity: p1
 opened: 2026-09-25
-closed:
+closed: 2026-09-25
 source: "canary D2 (wf_faf48b18-881), canary-d-frd02-forensics.md §5/§7 finding H1, proposal F3 (deliberately NOT implemented per owner instruction)"
-closes:
+closes: "e75152ca — plugin/templates/shared/.claude/engines/pandacorp-build.js (adjudicateDrift/finalizeGate/verifyPatched), plugin/scripts/drift-proof.mjs"
 links: [BL-0157, BL-0174, BL-0175, BL-0176, BL-0177]
 ---
 
@@ -72,3 +72,39 @@ forensics estimates most FRDs never passed a gate after the oracle existed, 2026
 own audit, not this design item. Also out of scope: reconciling FRD-02's own AC-02-010.4/.8 or FRD-03's
 REQ-03-001 (product-level fixes for the owner to queue via `/pandacorp:sync`/`/pandacorp:change` on
 Mission Control itself, tracked in the memo's "acción de producto" note, not in this factory item).
+
+## Resolution (2026-09-25, e75152ca) — policy (a*), proposal 38 red-team addendum §A4
+The owner question is answered by the addendum: option (a) — pre-existing drift never blocks nor reopens
+the cycle — with the pre-existence PROVEN by the engine, never asserted by the reviewer.
+
+**Final predicate** (engine: `classifyDriftClaim`, applied in `adjudicateDrift` to every `fail` entry
+carrying `claim: "preexisting"` + `evidence_test`):
+- `owned(C)` := the contract's `NN-MMM` core ∈ the reviewed WOs' `source_requirements` read at the pin
+  (fallback: every REQ/AC id in the WO file; unreadable → unprovable) → **cycle fault**.
+- `state(probe, sha)` ∈ {passed, assertion-failed, load-error, flaky}: two runs per sha of the reviewer's
+  probe in a throwaway detached worktree (`drift-proof.mjs prove`, MECH spawn; the engine parses the
+  facts fail-closed). `base` = `last_green_sha` AS RECORDED AT THE PIN, valid only if it is an ancestor
+  of the pin and no reviewed WO is already IN_REVIEW/VERIFIED there.
+- **preexisting** ⇔ ¬owned ∧ state(pin) = assertion-failed ∧ base valid ∧ state(base) = assertion-failed
+  → draft card `.pandacorp/inbox/changes/<frd>-drift-<id>.md` (idempotent, `origin: gate-drift`), probe
+  kept in `.pandacorp/run/gate-evidence/<frd>/drift/`, `drift: [ids]` on the FRD frontmatter at the
+  certifying landing, `GateDriftRecorded` event; excluded from `waivedFailure`; a needs-owner block that
+  rested ONLY on proven drift is lifted.
+- **regression** ⇔ state(pin) = assertion-failed ∧ state(base) = passed → cycle fault, reopen patch-first.
+- **refuted** ⇔ state(pin) = passed → the entry is discarded with a log.
+- anything else (no id, missing/invalid probe, load-error, flaky, invalid base, dead runner) → cycle fault.
+
+Uniform on every path: one choke point (`finalizeGate`) wraps the concurrent gate, the legacy gate, both
+B2 re-asks, the in-run retry and the post-repair re-gate; `verifyPatched` inherits the gate's open fails
+and is refused green unless each is proven closed by a passing test (the FRD-03 hole). The route
+quarantine question disappears: no synthetic BLOCKED WO is ever created. Rollback: `args.driftPolicy:'block'`.
+
+Deliberate simplifications vs the addendum: no madge import-closure (a regression reopens THIS FRD's
+reviewed WOs, the patcher is pointed at the whole base..pin diff; sibling-FRD attribution not done), and an
+unproven claim is a cycle fault instead of a `proof: static` fallback card.
+
+Tests: `test-pandacorp-build.mjs` T1–T8 + R1–R6 (all RED against the pre-fix engine, GREEN now);
+`test-drift-proof.mjs` (33 checks over a real nested git repo). Live: the real REQ-03-001 probe on Mission
+Control failed on an assertion with real vitest at f0cd3670 AND at last green 5c594bde (the pre-existing
+shape), temp worktrees cleaned up. Pending for the maintainer: DR entry + `plugin/docs/decision-log.md`
+note + version bump (not touched by this change).
