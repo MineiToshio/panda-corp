@@ -5,7 +5,8 @@ slug: empty-column-a11y
 title: 'WO-02-014 — Accessible empty-column marker on the ideas board'
 status: ACTIVE
 parent: FRD-02
-implementation_status: IN_REVIEW
+implementation_status: BLOCKED
+blocked_reason: needs-owner
 difficulty: low
 reopen_count: 0
 artifacts:

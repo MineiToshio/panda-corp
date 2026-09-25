@@ -3,7 +3,7 @@ id: FRD-05-blueprint
 type: blueprint
 parent: FRD-05
 status: ACTIVE
-implementation_status: PLANNED
+implementation_status: IN_REVIEW
 readiness_gate: passed 2026-09-24
 grounding_gate: passed 2026-09-24
 consistency_gate: passed 2026-09-24
@@ -95,6 +95,7 @@ route; `CMP-04-workspace` mounts `CMP-05-board`.
 | `CMP-05-column` | Server | One equal-width, wide column with wrapping cards + horizontal-scroll container. | REQ-05-001 |
 | `CMP-05-card` | Server | One work order card: title (wrapping) + FRD chip + fail treatment. | REQ-05-002 |
 | `CMP-05-frd-filter` | Client | Group/filter the kanban by FRD. | REQ-05-002 |
+| `CMP-05-state-filter` | Client | Secondary filter by `WorkOrderState` (pills, AND-combined with `CMP-05-frd-filter`). | REQ-05-007 |
 | `CMP-05-detail` | Server | Work order detail with Summary / Full document tabs. | REQ-05-003 |
 | `CMP-05-progress` | Server | Aggregated done/total/% (shares the prototype `woProgress` shape; the workspace header bar reuses these numbers). | REQ-05-004 |
 | `CMP-05-empty` | Server | "Work orders are generated in `/pandacorp:architecture`" empty state. | REQ-05-006 |
@@ -109,7 +110,8 @@ route; `CMP-04-workspace` mounts `CMP-05-board`.
 - **Partial tolerance**: missing/malformed work orders never break the board (architecture §7).
 - **Tokens & a11y** (FRD-13): equal-width wide columns, `tabular-nums` on counts, fail state shown
   with icon + label (not color alone), tabs are `role=tablist` in the detail.
-- **Server-first**: only the FRD filter (`CMP-05-frd-filter`) and the detail tab bar are `"use client"`.
+- **Server-first**: only the FRD filter (`CMP-05-frd-filter`), the state filter (`CMP-05-state-filter`)
+  and the detail tab bar are `"use client"`.
 
 ## 5. Traceability matrix & flags
 
@@ -121,6 +123,7 @@ route; `CMP-04-workspace` mounts `CMP-05-board`.
 | REQ-05-004 | AC-05-004.1 | CMP-05-progress | IF-05-work-orders (`aggregateProgress`) |
 | REQ-05-005 | AC-05-005.1 | CMP-05-board (no write path) | IF-05-work-orders |
 | REQ-05-006 | AC-05-006.1 | CMP-05-empty | IF-05-work-orders |
+| REQ-05-007 | AC-05-007.1/.2/.3 | CMP-05-state-filter, CMP-05-board (host: `WoFrdFilteredBoard`) | IF-05-work-orders (`WorkOrderState`) |
 
 **Flag (producer contract):** the exact on-disk **state marker** of each work order (how
 `/pandacorp:implement` records `todo/in_progress/review/done/fail`) is owned by the factory plugin
