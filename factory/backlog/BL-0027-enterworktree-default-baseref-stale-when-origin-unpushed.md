@@ -12,6 +12,15 @@ closes:
 links: []
 ---
 
+## Corroborating occurrence (2026-09-24, personal-page-v2, harvested via /pandacorp:memory)
+A SECOND occurrence on the same project (`.pandacorp/run/lessons.md`, agent-inferred): a repo whose
+commits never get pushed had a fresh worktree start several local commits behind main again, and an edit
+written against a doc's current text either failed its anchor assertion or silently landed on a stale
+version. New detail: `block-dangerous.sh` refuses a hard realignment named by branch (`git reset --hard
+main`) and permits only the explicit-commit-id form — the workaround used was `git rev-parse main` first,
+then `git reset --hard <that-sha>`. See `factory/memory/LESSON-0125` (facet 8, updated) for the
+generalized checklist entry.
+
 ## Problem
 `EnterWorktree`'s default `baseRef` behavior ("fresh") branches the new worktree from
 `origin/<default-branch>`. In a project whose `origin` remote was never pushed/updated recently (a real

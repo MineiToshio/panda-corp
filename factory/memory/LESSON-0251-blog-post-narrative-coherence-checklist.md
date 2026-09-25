@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0206, LESSON-0214, LESSON-0221]
+links: [LESSON-0206, LESSON-0214, LESSON-0221, LESSON-0263]
 ---
 
 **Situation:** a blog post drafted by an AI writer can pass every prose/voice/AI-tell check (LESSON-0206)
@@ -39,3 +39,16 @@ restating P unchanged, which reads as an admission that S didn't work.
 checklist alongside (not instead of) the AI-tell red-team (LESSON-0206): every example is
 zero-context-answerable, every "how/what-for" heading follows a section that already named its subject, and
 any safeguard introduced after a solution is justified by the residual risk, not the original problem.
+
+**Fourth facet, corroborated 2026-09-24 (owner-stated, same post, a later review pass) — anecdote
+placement:** an anecdote about the method FAILING must sit where the post has already predicted its
+failure class, and must be explicitly labelled as an instance of that class. The AI-direction draft named 2
+residual causes of error, then told an "the AI built the opposite of the plan" failure story AFTER the
+human-gates paragraph, tied to neither named cause — so it read as the very "error from not knowing" the
+post had just claimed to eliminate, undermining 3 sections of argument. Moving the anecdote directly under
+the bullet it illustrates, and opening it with a phrase that ties it explicitly to that bullet, turned a
+self-contradiction into supporting evidence. **Principle: a PREDICTED exception strengthens an argument, an
+unpredicted one undermines it — never cut the counter-example, place it immediately after its own
+prediction, labelled as that prediction's instance.** Add this as a 4th checklist item: (4) **anecdote
+placement** — any failure-mode anecdote must appear directly after the passage that predicted that failure
+class, explicitly tied to it, not floating loose or placed after an unrelated later section.

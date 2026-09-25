@@ -18,7 +18,12 @@ deployment (`/Users/Shared/local-deployments/panda-corp`, DR-089, not under `Pro
 DR-096 'clean up disposable worktrees' cleanup instinct has no reason to distinguish a scoped-change
 worktree from an operator-pinned, actively-served one unless the cleanup step explicitly excludes
 detached-HEAD/locked worktrees and paths outside the project tree. The launchd process kept running with
-a ghost cwd (200 on `/`, 500 on `/board`) until manually restored. Librarian, 2026-09-25."
+a ghost cwd (200 on `/`, 500 on `/board`) until manually restored. Librarian, 2026-09-25. Facet 8
+re-corroborated (personal-page-v2, 2026-09-24, `.pandacorp/run/lessons.md`, agent-inferred): a SECOND
+occurrence of the same origin-vs-local-main staleness on the same project, with a new operational detail —
+`block-dangerous.sh` refuses a hard realignment onto local main when named by BRANCH (e.g. a `git reset
+--hard main`-shaped command, DR-067's own guard), and permits only the explicit-commit-id form; the
+concrete workaround is `git rev-parse main` first, then realign the stale worktree onto that literal SHA."
 provenance: agent-inferred
 created: 2026-07-09
 status: active
@@ -62,10 +67,13 @@ working tree) does not automatically provide any of them:
    `merge-queue.sh` preflight fails fast on ANY uncommitted change in the one shared main checkout, not
    just the branch being landed, so an unrelated abandoned session's stray WIP silently freezes every
    OTHER worktree session's landings until someone clears it.
-8. **Branch freshness** (personal-page-v2, 2026-09-09) — `EnterWorktree` branches from `origin/main`, not
-   local main; if local main holds unpushed commits (e.g. UI/content already removed), the new worktree
-   silently resurrects that already-cut state, and it reads exactly like a regression to whoever reviews
-   the worktree.
+8. **Branch freshness** (personal-page-v2, 2026-09-09, re-corroborated 2026-09-24) — `EnterWorktree`
+   branches from `origin/main`, not local main; if local main holds unpushed commits (e.g. UI/content
+   already removed, or a doc edited since the last push), the new worktree silently resurrects that
+   already-cut state, or an edit against the doc's current text fails its anchor assertion / silently
+   lands on a stale version. It reads exactly like a regression to whoever reviews the worktree. When
+   realigning the stale worktree onto local main, `block-dangerous.sh` only permits the explicit-commit-id
+   form of a hard reset (not a branch name) — resolve `git rev-parse main` first, then reset onto that SHA.
 9. **Cleanup must not remove a pinned/deployed worktree** (mission-control, 2026-09-22, BL-0151) — a
    generic "clean up worktrees" pass has no innate way to tell a disposable scoped-change worktree apart
    from an operator-pinned, actively-served one (a launchd deploy, DR-089) unless it explicitly checks for
@@ -86,7 +94,10 @@ ran without error; (7) before starting a batch of parallel sessions, verify the 
 clean, and if a landing fails at the preflight, check whether the dirt belongs to a DIFFERENT session
 before assuming it's your own branch's fault; (8) if local main is ahead of `origin/main` (unpushed
 commits), push or rebase before opening a new worktree — otherwise the worktree can silently resurrect
-already-removed content that a reviewer will read as a regression; (9) before ANY worktree-cleanup pass
+already-removed content that a reviewer will read as a regression, or an edit against a doc's current text
+can fail its anchor assertion or silently land on a stale version; if you must realign an already-entered
+stale worktree onto local main, resolve `git rev-parse main` to a literal SHA first — `block-dangerous.sh`
+blocks a hard reset named by branch and only permits the explicit-commit-id form; (9) before ANY worktree-cleanup pass
 (by hand or by an agent), confirm the target is not `git worktree lock`ed and does not resolve under a
 known deploy-root path (check `git worktree list --porcelain` and the project's own infra docs) — a
 disposable-looking `git worktree remove` reads as an ordinary safe operation right up until it deletes the

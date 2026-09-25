@@ -63,6 +63,19 @@ workaround; consider adding `_last-sweep`-style single-line overwrite-intended s
 known-false-positive allowlist alongside the fix below, since these are legitimately meant to be truncated
 on every write (unlike the append-only files the guard is protecting).
 
+## Corroborating occurrence (2026-09-24, personal-page-v2, harvested via /pandacorp:memory) — scope broader than the redirect scanner
+A live reproduction confirming the heredoc-body gap extends PAST the redirect-truncation scanner this item
+tracks: writing a lessons.md entry whose prose merely described a destructive command form (not a redirect)
+was refused as if it were that command, because the prose sat inside a quoted heredoc body. Re-reading
+`plugin/scripts/block-dangerous.sh`: every OTHER whole-command-string matcher (`rm -r`, hard-reset,
+force-push, `git clean -x`, `gh repo delete`, etc., lines ~188-211) is a bare `echo "$cmd" | grep -Eq
+'<pattern>'` with NO quote-stripping pre-pass at all — only the redirect-truncation guard (the scanner this
+item's fix plan targets) has the sed-based quote-stripping step, and even that one doesn't span an embedded
+newline inside a heredoc body (see BL-0167, which patched one narrow artifact of that same gap for the
+redirect scanner specifically). A general fix (strip heredoc/multi-line quoted bodies from `$cmd` before
+ANY of the matchers run, not just the redirect one) would close this class for every matcher at once; see
+`factory/memory/LESSON-0105` (10th corroboration) for the generalized workaround in the meantime.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument

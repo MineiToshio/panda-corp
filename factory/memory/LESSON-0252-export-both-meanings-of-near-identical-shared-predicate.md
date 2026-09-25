@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0266]
 ---
 
 **Situation:** two features needed a classification of the same input (an href) that looked like the same
@@ -30,3 +30,9 @@ source of truth is meant to prevent (DR-115).
 **Apply next time:** when a second call site needs "almost the same" boolean as an existing predicate,
 resist inlining a slightly-different check at the new call site — instead, name the new meaning, export it
 alongside the original from the same module, and have both call sites import from that one source.
+
+**Lifecycle counterpart (LESSON-0266):** this module is justified only WHILE ≥2 genuinely distinct
+consumers exist. If a later change removes one of the two branches that justified the split, the module
+drops back to a single consumer and must be deleted and inlined in that same change — see LESSON-0266,
+which fired on this exact module (`hrefKind.ts`) 4 days after this lesson was captured, when a content-rule
+change removed the branch at `BlogProseLink`.
