@@ -200,3 +200,170 @@ Pre-condition for canary E, independent of both items: clean the dirty gate work
 - The healthy-C2 counterfactual in §1.2: **simulated by reading the loop**, not run.
 - Whether `sync-rollups` marks its blocks inside `frd.md` (affects how precise the spec-drift check can be) and whether MC's queue reader tolerates new card frontmatter keys.
 - The drift **verdicts** on AC-02-010.4/.8 (I confirmed the ACs exist, not that the code contradicts them); REQ-03-001's contradiction I did confirm live.
+
+---
+
+## Red-team addendum (2026-09-25)
+
+**Reviewer:** independent red-team (not the author). **Repo state:** `main` at `083894de` (3 memory-chore commits on top of `48f07b09`; `git diff --stat 48f07b09 HEAD -- plugin/` is empty), plugin **9.110.0**, clean tree; the MC engine copy is byte-identical to the template (`cmp`). Everything below is code reading plus re-analysis of primary artifacts; nothing was run live. Line numbers are 9.110.0 (≈ +5 vs the memo's 9.109.0 citations).
+
+### Verdicts
+
+| Decision | Verdict | One-line reason |
+|---|---|---|
+| **D1 · parallel FRD gates** | **GO-with-changes, but NOT next** (position 5 of 7 below) | It is a pure time lever on multi-FRD runs (0 on single-FRD changes, 0 on cost), and as designed it inherits **three live C2 defects** (X1-X3) that make the pool decay to legacy after the first verdict and break DR-080 on the reject path. Fix those first (they are bugs today, flag off), then ship D1 behind the flag with the changes in §A3. |
+| **D2 · BL-0178 policy** | **GO-with-changes: option (a) with a *differential* pre-existence proof (a\*)** | The memo's static predicate (not owned + cited evidence untouched) is defeated by two realistic cases (§A4, T1/T2). Replace it with "the reviewer's probe fails at `last_green_sha` too" — a mechanical, engine-run proof. |
+| **Measurement baseline** | **Must be corrected before any criterion is set** | `usage-rollup.mjs` overcounts every run's cost by **1.60-1.72×** (§A1). All $ figures in memos 37/38 are inflated; ratios roughly survive. |
+
+### A0 · Own evidence (CONV-13)
+
+| # | Claim | How verified |
+|---|---|---|
+| e1 | First gates in `powerful` are **serial opus/xhigh**; the split (4 sonnet finders + sonnet verifiers + opus closer @high) only runs on re-gates (C1a) | `frdGate` `:1394` `useSplit = P.reviewSplit && (priorAttempts >= 1 \|\| anyReopened)`; `frdGateSerial` `:1585`; `frdGateSplit` `:1627,1662,1704` |
+| e2 | The D2 dirty probe was the **chained** `ensureGateWorktree` for frd-03, fired the instant frd-02's review returned — *before* `persist-block` could salvage | wf json: second `gate-worktree` spawn (13.5 s) at 01:46:19 = frd-02 gate start 01:28:43 + 1055.9 s; `persist-block:frd-02` starts 01:46:32. Code: `launchGate` chains on `gateWorktreeChain` (`:2938`); salvage lives only in `persistGateBlock` (`:1821`), reached after `settleGates(true)` (`:3030`) |
+| e3 | A **PASS** leaves the gate worktree dirty too | `applyGate` *copies* `${sourceDir}/<path>` → `<path>` (`:1776`); no clean step anywhere (`grep 'clean -f'` → only `persistGateBlock`) |
+| e4 | A **REJECT** on the C2 path strands the reviewer's RED-proven tests in the worktree | reject schema carries `findings[].failingTest` (text), no `testFiles` (`:744` is PASS-only); `attemptPatch` runs on main (`:2022`); `verifyPatched` runs "the FULL FRD test files" on main (`:2064`) |
+| e5 | `vitest --changed <sha>` runs **untracked** files | installed vitest **4.1.9**, `dist/chunks/cli-api.*.js:12768`: `getUnstagedFiles()` = `git ls-files --other --modified --exclude-standard`; `verify.sh:549` passes `--changed "$SINCE"` |
+| e6 | Machine: **16 GB RAM, Apple M5, 10 cores (4P+6E)**; per-slot footprint 700 MB on disk | `sysctl hw.memsize hw.ncpu …`; `du -sh …/gate-worktree` |
+| e7 | Each gate's browser layer starts its own `next dev` (180 s webServer timeout) | `mission-control/playwright.config.ts:63-68` |
+| e8 | Derived e2e ports for MC's slot paths: slot0 3957, slot1 3988, slot2 3902, **slot3 3900 (= main's reserved port)**; the free-port probe only sees servers already listening at bootstrap time | `worktree-bootstrap.sh:88-113` recomputed with `shasum -a 256` |
+| e9 | The owner's account has a **session usage limit** that already killed a canary mid-run and left the lease `running:true` | `BL-0135` progress note 2026-09-22 (Canary C `wf_71f78bae-dbd`) |
+| e10 | The canary-D worktree/branch is gone; `canary-d-parallelism` was fast-forwarded into `main` (`9b7bde44`), and **AC-02-010.4 was already reconciled** (`c34ba57c`); AC-02-010.8 and REQ-03-001 became queue cards | `git reflog`, `git show --stat c34ba57c`, the two cards' bodies |
+| e11 | `c575adfc` is a perfect replay base for the gate segment: WO-02-014/03-006/04-008/05-007 all `IN_REVIEW`, `last_green_sha: d9addc89` (the base D2's gates used) | `git show c575adfc:…` on the four WO files and `status.yaml` |
+| e12 | MC's real gate worktree is dirty right now (`?? …/decision-id.reviewer.test.ts`) | `git -C mission-control/.pandacorp/run/gate-worktree status --porcelain` |
+
+### A1 · The cost baseline is overstated by ~1.6× (new finding, blocks every $ criterion)
+
+Claude Code subagent transcripts write **one line per content block** of the same API message; every line repeats the message's full `usage` (same `cache_read_input_tokens`, a partial then final `output_tokens`). `usage-rollup.mjs` (`:215-230`, `addUsage` `:195`) sums **per line**. Re-pricing the same transcripts with the rollup's own price table, deduplicated by `message.id` (last line wins):
+
+| Run | Rollup (per line) | Deduplicated (per message) | Ratio |
+|---|---:|---:|---:|
+| FRD-24 baseline `wf_ddcc95c6-1d7` | 20.86 $ | **13.05 $** | 1.60 |
+| Canary A `wf_4cef213a-463` | 13.42 $ | **7.97 $** | 1.68 |
+| Canary D1 `wf_6e88dd68-8e4` | 6.28 $ | **3.64 $** | 1.72 |
+| Canary D2 `wf_faf48b18-881` | 58.58 $ | **36.24 $** | 1.62 |
+| D2 "unmetered cache-write" (1.25× input) | 19.50 $ | **9.14 $** | 2.13 |
+
+My per-line recomputation reproduces the rollup's 58.58 $ to the cent, so the method is the rollup's own. Consequences: (i) D2's true cost is ≈ **36 $ metered + ≈ 9 $ cache-write ≈ 45 $**, not 58.58 + 19.5 ≈ 78 $; (ii) relative comparisons in memo 37 survive within ±7 % (ratios 1.60-1.72), so its *conclusions* stand; (iii) **absolute targets** ("≤ 12 $/WO", "≈ 60 $ canary") must be restated in deduplicated dollars; (iv) memo 38 R3's "≈ 1.1 M cache-read tokens/min per opus reviewer" is really **≈ 0.64 M/min** (11.25 M over 17.6 min for frd-02). Per verified WO, deduplicated: D (D1+D2) **13.29 $** vs baseline **6.53 $** — still **2.04×**, time unchanged (34.4 vs 32.4 min). Fix: dedupe by `message.id` in `usage-rollup.mjs`, with a D2-transcript fixture asserting 36.24 $. File it as its own BL (tooling defect, DR-103), not inside D1/D2.
+
+D2 gate ladder, deduplicated: reviews **24.61 $** + patches 1.65 + verify-patch 1.35 + apply/persist 0.34 = **27.95 $ of 36.24 $ (77 %)**.
+
+### A2 · Q1 — Does D1 attack the right bottleneck? Alternatives, compared honestly
+
+Where a gate's money goes (deduplicated turn classification of the four D2 gate transcripts, input-side tokens): **avg context per turn 125-143 k**, 59-80 turns per gate; tree/code exploration via bash (`grep`/`sed`/`cat`) **25-54 %**, `git` archaeology 6-15 %, browser/server 6-17 %, writing adversarial tests 6-17 %, vitest+verify.sh+static 15-25 %. Cache reads are ~80 % of a gate's cost, so **cost ≈ turns × context**. The frd-02 gate also spent turns on the whole-FRD inventory (`for id in AC-02-…` loops, `git log -S` archaeology) and even read the engine source (`plugin/templates/…` — the nested MC topology puts the factory in the worktree).
+
+Base = D2 as measured: 87.5 min, **36.24 $ dedup** (58.58 rollup); post-wave gate segment 57.6 min; the four reviews 52.5 agent-min / 24.61 $.
+
+| Option | Δ time on D2 | Δ cost on D2 (dedup $) | Risk | Effort | DRs touched | Verdict |
+|---|---|---|---|---|---|---|
+| **(f) Fix the rollup (A1)** | 0 | 0 real; reported −38 % | very low | 0.25 d | none (BL-0096 tool) | **do first** — every criterion depends on it |
+| **(P) C2 hygiene X1-X3 (§A3)** | 0 on D2 as run (it went legacy); enables C2 to stay concurrent | ≈ 0; removes false-red/contamination retries | low-medium | 0.5-1 d | DR-118 amendment, DR-080 | **do second** — bugs today, flag off |
+| **(b) `gateEvidence:'digested'`, measured clean** | −5 to −13 min (−10..−25 % per gate, serial) | **−4.9 to −8.6** on reviews (−20..−35 %) | medium (oracle input narrowed; B tie + B2 superset, n=2, both contaminated) | ≈ 0 code (flag exists) | none new (WP-06) | **flip after E** |
+| **(g) Gate context hygiene** (heavy output to files + tails, forbid reading factory/engine source, cap context) | −1 to −3 min | −1.2 to −3.7 (−5..−15 %) | low | 0.5 d prompt | none | bundle with (b) |
+| **(D1) Parallel gates (2 slots, fixed)** | **−24 to −33 min** (c = 1.0-1.6) | **+0.3 to +1.5** (slot bootstraps, stale-pin re-verifies, contention-induced false reds) | medium-high | 2-3 d after P | DR-118 amendment | GO-with-changes, behind flag |
+| **(d) Delta-scoped whole-FRD oracle + cached inventory** ("FRD baseline gated at SHA": contract → test paths, written by `applyGate` only, reused when `frd.md` is unchanged and the contract's evidence import-closure ∩ diff = ∅) | 0 on D2 (first gates since the oracle); −20..−30 % per **repeat** gate | 0 on D2; **−1.2 to −2 $ per repeat gate** | medium-high (touches BL-0078's oracle; must be a DR-115 honest cache: single writer, re-derived at each full gate, never read by a display surface) | 1.5-2 d + canary F | new DR; oracle text; DR-115 | later — pays from the 2nd touch of an FRD, which is the owner's daily `/change` pattern |
+| **(a) "sonnet reviewer, opus only for the verdict"** | literal form: n/a | literal: ≈ −60 % | **violates DR-015** (the builders are sonnet; `reviewer.md`: "DR-015 is never traded for cost") | — | DR-015 | **NO-GO** |
+| **(a′) split-first** (the DR-015-legal form: sonnet finders + opus closer on first gates) | +0 to +3 min (a serial finder stage before the closer) | 0 to −3.7, **unmeasured** — the closer still writes tests, runs verify, inventories the FRD and smokes routes | low-medium | flag flip | reverses C1a | **NO-GO** (no evidence of saving; C1a's reason — first gates mostly pass — still holds) |
+| **(c) One gate per wave** (one reviewer, N FRDs) | ≈ −14 min vs serial (worse than D1) | −15..−25 % (one verify/server/prefix instead of N; larger context per turn) | **high**: breaks DR-050's per-FRD verdict isolation, attention dilution (DR-072's research), one crash/needs-owner kills N verdicts, N whole-FRD inventories in one context | 3-4 d | DR-050, DR-072, DR-118 | **NO-GO** |
+| **(e) Do nothing** | 0 | 0 | — | 0 | — | rejected: D2 is 2.04× baseline cost per WO |
+
+**Answer to Q1.** D1 attacks the right *time* bottleneck for multi-FRD runs and nothing else: 0 on single-FRD `/change` (canaries A/B/B2/C shape), 0 on cost, and on this owner's account (session usage limit, e9) the binding constraint is **volume per window** — parallelism does not raise how many runs fit in a window, cost levers do. Optimal order by saving/effort: **(f) → (P) → a\* (D2) → (b)+(g) → D1 → (d)**; (a)/(a′)/(c) rejected. **D1 stays in the list at position 5.**
+
+Combined projection on the D2 shape (PROJECTION: P + a\* + (b) + (g) + D1 with 2 slots): **≈ 50-60 min, ≈ 28-33 $ dedup**, and **4 verified WOs instead of 3** (under a\*, WO-02-014 lands VERIFIED + drift cards instead of BLOCKED). Per verified WO including D1's 3.64 $/15.8 min: **≈ 16.5-19 min and ≈ 8.1-9.2 $ dedup** (≈ 13-15 $ rollup-equivalent): time ≈ 0.55× baseline, cost still ≈ 1.3× baseline. Closing the cost gap needs (d) and the serial tail (visual-qa: 12 min / 3.0 $ dedup on D2).
+
+### A3 · Q2 — Red-team of D1 as designed
+
+| # | Failure | Severity | Blocking? | Mitigation (concrete) |
+|---|---|---|---|---|
+| **X1** | **Every verdict dirties its slot** (PASS: `applyGate` copies without cleaning, e3; REJECT: stranded tests, e4; BLOCK: salvaged only in `persistGateBlock`). The clean-check in `ensureGateWorktree` then refuses reuse. With the memo's "a failed slot shrinks the pool", **N slots decay to legacy after N verdicts**. It is also why D2 went legacy (e2), and why the memo's "healthy C2 on 9.109.0" counterfactual (§1.2) does not happen: BL-0175's salvage runs *after* the chained probe. | critical | **yes** | Slot-release protocol: a verdict's landing ends with salvage-then-clean of **exactly** the slot's `git status --porcelain` paths into `.pandacorp/run/gate-evidence/<frd>/` (the BL-0175 procedure, BL-0067-safe), for PASS, REJECT and BLOCK alike; a slot returns to the pool only after it. Also fix the flag-off C2 path (it has the same bug). |
+| **X2** | **Same-pin contamination.** All FRDs gate-ready at one wave barrier share one pin (`capturePin([...frds])`), so a chained gate at the same sha skips the checkout **and the clean-check** (`lastWorktreeSha === sha` → no spawn) and runs in a tree holding the previous reviewer's untracked tests. vitest 4.1.9 `--changed` runs untracked files (e5) and tsc/biome are global → a sibling's RED-proven failing test reds this FRD's gate (a false reject, a paid patch cycle). | high | yes (for C2 flag-off too) | X1 removes it with one-FRD-per-slot; for the single-worktree path, run the clean-check on **every** acquisition, not only on sha change. |
+| **X3** | **Reject path breaks DR-080.** The patcher on main never has the reviewer's test file; it is told to "make the RED-proven failing test PASS" from a text description, so it may re-type the test that judges it; `verifyPatched` runs "the FULL FRD test files" on main, which do not include the reviewer's tests. | high | yes | On a REJECT landing, port the reviewer's test files to main **before** `attemptPatch`; `findings[].failingTest` must be a repo path; `verifyPatched` must run exactly those files and fail if any is missing or modified (compare the ported blob hash). |
+| X4 | **Stale-pin guard ordering.** If `verify.sh --since <pin>` runs before the PASS's reviewer tests are ported, those adversarial tests never execute against the landing tree. `--since` = vitest `--changed` (import-affected tests), so non-import couplings (fixtures, JSON, CSS, e2e) are missed. | high | no | Port first, then guard, then stamp, in one lane item. Residual covered by the close-out full suite (already DR-118's stated limit). |
+| X5 | **`last_green_sha` over an open ladder + head-of-line blocking.** A PASS may never land while another FRD's convergence ladder has an unverified patch/revert commit in `HEAD` (commit A of `LAST_GREEN_ORDERING` would certify it). So the lane must be exclusive for the **whole** ladder, including revert + in-run retry rebuild + re-gate on main (≈ 25-40 min in the worst DR-073/107 case) → every PASS waits behind it. | high | no (design constraint) | Keep the lane exclusive (the memo is right), but make it a **priority queue**: PASS and BLOCK items first, then patch ladders; a ladder that escalates past patch-2 is re-queued behind pending PASSes. Add a post-run audit: every `last_green_sha` publish commit has only verified-FRD commits since the previous one. |
+| X6 | **Machine contention** (e6, e7): per gate `next dev` + Chromium + vitest jsdom with default workers + tsc, ×N, on 16 GB, possibly while a build wave runs on main. Swap pushes `c` above 1.4 and risks webServer timeouts (180 s) that a reviewer reads as a finding → spurious reopens that cost money. | medium-high | no | `maxParallelGates` default **derived from `hw.memsize`** (16 GB → **2**, ≥ 32 GB → 3); a machine-wide `flock` around the Playwright sub-gate; cap vitest `--maxWorkers` per slot (e.g. 3); log `vm_stat` pageouts per gate so E measures `c` instead of assuming it. |
+| X7 | **Port collisions** (e8): hash-derived ports are probed only against servers already listening; concurrent bootstraps before any server starts cannot see each other (≈ 3 % pairwise for 3 slots), and slot 3 hashes to 3900 on MC. | medium | no | The engine passes `PANDACORP_E2E_PORT=<base + 10·slot>` explicitly to `worktree-bootstrap.sh` (the override already exists). |
+| X8 | **Usage-window kill** (e9): same total volume but compressed; a limit hit with N reviewers in flight leaves N dirty slots and a held lease (the Canary C failure mode). | medium | no | Crash path (`ensure-stopped-crash`) must salvage every slot; default 2 slots; document that D1 does not change volume. |
+| X9 | **Repair-token brake.** The memo says a polluted `budget.spent()` delta could "trip a false needs-owner". It cannot: the token check in `canAffordRepair` is an OR-**rescue** over the floored agent-weight brake, so an inflated delta only removes rescues and degrades to the pre-BL-0138 agent-weight behaviour. | low | no | Keep §1.3-6 (mark unreliable while gates are in flight): cheap and honest, but the severity is low. |
+| X10 | **`maxAgents` accounting race.** N gates charge on spawn; the split-affordability check (`remaining >= splitGateEstimatedCost()`) can pass for two gates at once, overshooting by up to 2 × 15 units. | low | no | Reserve the estimated units at launch and reconcile at settle. |
+| X11 | Concurrent appends: the punch-list via `Edit` (read-modify-write) loses lines (the memo already says use `>>`); `track.jsonl`/`build-journal.jsonl` are appended by slot agents to main's absolute path while lane commits stage them, leaving main "dirty" at a crash → next run's baseline escalates to the judge. | low | no | `>>` everywhere; the lane's commit re-stages both files last. |
+| X12 | `needs-owner` in one FRD while others land; lease/`stateCli` | low | no | Unchanged: gates are review-only and never call `stateCli`; all state writes stay on `commitChain`. Lease cadence is BL-0153's issue, not made worse. |
+| X13 | Digested collectors: `launchEvidence` chains on the single mutex; with slots, N collectors run N `verify.sh` concurrently at wave close → X6 again | medium | no | Per-slot chains, and the collector counts against the same machine semaphore. |
+
+### A4 · Q3 — Red-team of D2 (a) and the final predicate
+
+**How the memo's rule falls.** "Contract owned by no reviewed WO **and** cited evidence files untouched by this cycle's diff" trusts the reviewer's choice of evidence and uses file identity as a proxy for causality. Two realistic shapes break it in opposite directions:
+- **T1 · shared-helper regression.** WO-A edits a shared `src/lib/date.ts` (its own artifact); an old AC owned by a VERIFIED WO, implemented in untouched `Card.tsx`, now fails. The cited evidence is `Card.tsx` (untouched) → memo rule: *pre-existing* → **a cycle fault ships as a draft card.** (d) has the same hole: no intersection → VERIFIED.
+- **T2 · genuine legacy drift inside a touched file.** WO-A edits `portfolio.ts` for its own feature; `ACTIVE_PHASES` has contradicted REQ-03-001 since June. Memo rule: evidence touched → cycle fault → the patcher is asked to fix a direction question it cannot own → give-up → revert of a **correct** WO → needs-owner. (d) blocks WO-A; (c) blocks. (In D2 itself WO-03-006 did not touch `portfolio.ts`, verified by `git show --stat 6086d0b8`, so the memo's rule would have got D2 right; the next card will not be so lucky.)
+
+**Final predicate (a\*) — a differential proof, computed by the engine, never asserted by the reviewer.** For each traceability entry `C` with `status:"fail"`, let `base = last_green_sha` (captured at pin time), `Owned` = the `REQ-/AC-` ids **grepped deterministically from the reviewed WO files at the pin** (not the planner's LLM-extracted `acText`), and `probe(C)` = a reviewer-authored test file, named after `C`'s id, returned in the verdict's `preexistingDrift[].probe`:
+
+```
+run(p, sha)  := MECH, in the slot: checkout --detach sha; `vitest run p --reporter=json`;
+                returns the raw JSON VERBATIM; the ENGINE parses it (fail-closed, like validateEvidence)
+state(p,sha) ∈ { passed, assertion-failed, load-error, flaky }   // flaky = two runs disagree
+
+cycleFault(C)  := C.id ∈ Owned
+preexisting(C) := C.id ∉ Owned ∧ state(probe,pin) = assertion-failed
+                  ∧ state(probe,base) = assertion-failed          // it was already broken before this cycle
+regression(C)  := C.id ∉ Owned ∧ state(probe,base) = passed ∧ state(probe,pin) = assertion-failed
+unproven(C)    := C.id ∉ Owned ∧ ¬preexisting ∧ ¬regression      // no probe, load-error at base, or flaky
+```
+
+Routing: `cycleFault` → today's reopen/patch-first. `regression` → cycle fault, reopening the unverified WOs (of **any** FRD in `base..pin`) whose diff intersects the probe's import closure (madge); if none intersects, all reviewed WOs (fail-closed); if the culprit belongs to another FRD, this FRD cannot pass until that one is patched. `preexisting` → a `draft` drift card with the probe embedded (it becomes the card's ready-made RED test); it never blocks and is excluded from `waivedFailure`. `unproven` → static fallback: a card with `proof: static` only if the cited paths **and their import closure** ∩ `git diff --name-only base..pin` = ∅; otherwise a cycle fault. The probe is **never committed as a failing test** (it would red `verify.sh`); it lives in the card and in `gate-evidence/<frd>/drift/`.
+
+Why the implementer cannot hide its own fault here (DR-015/DR-080): it never touches the probe (reviewer-owned, DR-080), never runs the classification (MECH + engine parse), and a probe only fails at `base` if the contract was really broken before the cycle. The residual is the judge's own honesty (a probe that tests something else), which is the trust already placed in the judge for every other verdict.
+
+**Tests that would topple a wrong rule** (engine harness, mocked MECH JSON):
+1. **T1 shared-helper regression** → must reopen WO-A, **no card** (memo rule and (d) fail this).
+2. **T2 touched-file legacy drift** → WO-A VERIFIED + 1 card, **no reopen** (memo rule, (c) and (d) fail this).
+3. **T3 probe not loadable at base** (it imports a symbol the cycle introduced) → `unproven` → static fallback; a naive "red at base ⇒ pre-existing" check fails this.
+Plus: T4 owned contract labelled drift → cycle fault; T5 cross-FRD regression (the culprit WO is in a sibling FRD of the same pin) → neither FRD lands VERIFIED over it; T6 the FRD-02 shape (direct path) and the FRD-03 shape (patch path) produce **byte-identical** cards; T7 a flaky probe → `unproven`; T8 re-gate dedupes the card (idempotency key `frd` + contract id).
+
+| Case | memo (a) static | (c) code-blocks / doc-cards | (d) block intersecting WOs | **(a\*) differential** |
+|---|---|---|---|---|
+| D2 FRD-02 (direct, untouched legacy) | ✔ | ✘ blocks (code drift) | ✔ | ✔ |
+| D2 FRD-03 (patch path) | ✔ | ✘ | ✔ | ✔ |
+| T1 shared-helper regression | ✘ ships | ~ blocks, wrong reason | ✘ ships | ✔ |
+| T2 legacy inside a touched file | ✘ reverts a correct WO | ✘ | ✘ blocks WO-A | ✔ |
+| T3 probe unloadable at base | n/a | n/a | n/a | ✔ (static fallback) |
+| Needs direction judgment in the gate | no | **yes** (unknowable) | no | no |
+
+**Best on the evidence: a\*.** It keeps the memo's §2.3 items 2-7 (one `recordPreexistingDrift` at the landing of every path, `verifyPatched` inheriting unresolved non-pre-existing `fail`s, the `waivedFailure` change, `draft` cards, the oracle-text amendment) and replaces only item 1's predicate. Cost: one MECH probe run at pin and at base per drift claim (≈ 1-2 min haiku, ≈ 0.1 $), rare. Add a rollback switch `args.driftPolicy: 'record' | 'block'` (sprint rule: everything behind an `args.*`). Residual (low): drift cards live in the gitignored inbox, so a clone sees "VERIFIED" without them; the committed `build-journal.jsonl` line is the only portable trace.
+
+### A5 · Q4 — Canary E
+
+**The real queue as workload.** Of the six cards: `campaign-pipeline-ac02-010-8-rebuild` (FRD-02), `portfolio-rail-architecture-phase-leak` (FRD-03), `fragua-snapshot-multi-frd-ambiguity` (FRD-06) and `informe-phase-transitions-duplicate-key` (FRD-10) are usable: 4 FRDs, disjoint single-file artifacts, rigor normal. Not usable: `decision-id-shared-emitter` (FRD-24 is fully VERIFIED, since it was the baseline build itself; the card is stale and its remaining item is a factory edit) and `portada-seal-coverage-commits-funnel-ideas` (FRD-23; it asks the PM to choose between options a/b/c, a likely needs-owner, and its WO-23-007 lives on the unmerged `canary-c-portada-seal` branch). Caveats: the informe card says `frd: frd-10-achievements` but the folder is `frd-10-achievements-hall` (fix before draining), and two cards *fix* the known drift (they own AC-02-010.8 and REQ-03-001; AC-02-010.4 was reconciled in `c34ba57c`), so **a real-card run cannot exercise D2 deterministically**, and it reviews different FRDs than D2, so it cannot isolate (b).
+
+**E = a replay of D2's gate segment** (measurement run), then **E2 = the four real cards** (validation run that also delivers product work).
+
+- **Setup.** A throwaway worktree at **`c575adfc`** (e11: the exact code D2's gates reviewed, all 4 WOs `IN_REVIEW`, `last_green_sha d9addc89`, AC-02-010.4/.8 and REQ-03-001 drift intact). Install the candidate engine (f + P + a\* + D1 flag + (g)), quiesce the D2 lease left in that tree's `status.yaml`. Pre-flight: MC's real gate worktree is dirty today (e12), so salvage it; `run-engine-tests.sh` green.
+- **Args.** `mode: powerful`, `maxAgents: 40`, `frds: [02,03,04,05]`, `parallelGates: true`, `maxParallelGates: 2` (16 GB, X6), `gateEvidence: 'digested'`, a `maxSpend` cap. No build or plan phase happens: all four FRDs are resume gates.
+- **What E isolates in one run.** **D1** through the overlap ratio (Σ of E's own ladder spans ÷ E's gate-segment wall-clock) and against D2's serial-equivalent gate work (frd-02 17.6 + 1.4, frd-03 17.3, frd-04 18.6, frd-05 12.0 = **66.9 min**); this cancels digested out of the D1 measure. **(b)** through per-FRD deduplicated review cost against D2's gates **on byte-identical code** (24.61 $ total; cost is contention-insensitive), plus findings parity. **D2 (a\*)** deterministically on FRD-02 (direct path) and FRD-03 (whichever path the gate takes). **`c`** through per-gate `vm_stat` pageouts and span inflation.
+- **Pass criteria.** D1: gate segment **≤ 40 min** (≤ 60 % of 66.9) with 2 slots, **0** legacy fallbacks, all slots clean at the end, 0 `last_green_sha` audit violations, 0 environment-noise reds (webServer timeout, `Cannot find module`). (b): Σ review cost **≤ 18.5 $ dedup** (−25 %) **and** re-finding both date-validation CORRECTIONs (frd-03, frd-04) and frd-05's pass, 0 lost findings (else roll back to explore). D2: FRD-02 **VERIFIED + draft cards for AC-02-010.4/.8** with base-red probes; FRD-03 **VERIFIED + 1 card** for REQ-03-001; 0 cards on owned contracts. Safety: close-out full `verify.sh` green.
+- **Budget.** ≈ **22-30 $ dedup** (≈ 36-48 $ in rollup units): the gate ladder (27.95 $ dedup in D2) minus (b) plus close-out, with no build or plan.
+- **Known noise.** n = 1 per FRD, and reviewers are stochastic; the replay removes builder noise, not judge noise. Say so in the report.
+- **E2** (after the flips): the 4 real cards from MC `main`, defaults flipped. Pass: per verified WO **≤ 20 min and ≤ 7.5 $ dedup (≈ 12 $ rollup-equivalent)**, 0 VERIFIED red at close-out, and any drift in FRD-06/FRD-10 (first gates since the oracle there) filed as cards rather than blocks.
+
+### A6 · Q5 — Implementation order, flags and success criteria
+
+| # | Item | Ships as | Measured before flip | Success criterion |
+|---|---|---|---|---|
+| 1 | **Rollup dedupe** (A1) | fix, default | fixture | D2 transcripts → 36.24 $ ± 0.01; all later criteria in dedup $ |
+| 2 | **C2 hygiene X1-X3** (+ X2 flag-off) | fix, default (bug) | harness + E | scenarios: PASS/REJECT/BLOCK each leave the slot clean with evidence salvaged; same-pin chained gate never sees a sibling's file; reject tests ported and run by `verifyPatched`. E: 0 legacy fallbacks |
+| 3 | **BL-0178 a\*** | default on, `args.driftPolicy` rollback | harness T1-T8 | T1-T8 green; E: the FRD-02/FRD-03 outcomes in A5 |
+| 4 | **(b) digested + (g) context hygiene** | flag → default after E | E | ≥ 25 % review cost reduction (dedup) on identical code, 0 lost CORRECTION findings (n = 3 with B/B2); avg context per gate turn ≤ 100 k (from 125-143 k) |
+| 5 | **D1 parallel gates** with the §A3 changes (priority lane, port-first guard, explicit ports, RAM-derived default, browser `flock`, vitest worker cap, unit reservation) | `parallelGates` flag, default off | E | gate segment ≤ 60 % of serial-equivalent; 0 invariant violations; 0 environment-noise reds; then default on with `maxParallelGates` from RAM |
+| 6 | **(d) cached inventory** | new DR, flag | canary F (second touch of one FRD) | repeat-gate cost ≤ 70 % of that FRD's first gate, with an identical pass/fail traceability set |
+| — | (a), (a′), (c) | rejected | — | — |
+
+**Sprint-level success bar (E2, real work):** per verified WO **≤ 20 min and ≤ 7.5 $ dedup** (≈ 12 $ in the old rollup units), against today's 34.4 min / 13.29 $ dedup (21.62 $ rollup) and the baseline 32.4 min / 6.53 $ dedup. Honest expectation: the time bar is reachable with items 1-5; the cost bar probably needs item 6 and a cheaper serial tail (visual-qa).
+
+### A7 · Could not verify
+
+- The **opus-5-5 price** in `usage-rollup.mjs` is an assumption (its own comment says so); every dedup $ figure inherits it. The per-line duplication was checked on 4 runs only (ratios 1.60-1.72).
+- `vitest --changed` "affected-by-import" expansion in 4.1.9: I verified that untracked files are included, not the related-graph semantics.
+- `c` (contention), per-gate RAM, the account's opus concurrency/rate limits, and whether 2 slots fit comfortably in 16 GB: **not measured**.
+- X3 (stranded reject tests) was **never exercised live**: every D2 reject ran on the legacy path. It follows from the code, not from a run.
+- All (b), (d), (g) and (a′) savings are **estimates** (digested has no clean run; the inventory's share of gate turns comes from reading two transcripts' command lists, not a systematic classification; the split closer's cost was never measured).
+- Whether a replay from `c575adfc` reproduces D2's reviewer findings (judge stochasticity); whether `git checkout --detach` in a slot stays safe across shas given the `skip-worktree` `server-env.json`.
+- The memo's own unverifieds stand (forensics H2; MC's queue reader tolerating new card keys; `sync-rollups` markers in `frd.md`).
