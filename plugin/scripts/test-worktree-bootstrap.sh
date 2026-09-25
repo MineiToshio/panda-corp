@@ -206,5 +206,71 @@ ok "$([ "$FACTORY_ROOT_FIELD" = "./e2e/fixtures/factory-root" ] && echo 1 || ech
 git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT1"
 git_q -C "$PORT_MAIN" worktree remove --force "$PORT_WT3"
 
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+# (e) PANDACORP_FACTORY_ROOT derivation (BL-0160) — canary-c-forensics.md §7: the gate-worktree
+# bootstrap left PANDACORP_FACTORY_ROOT pointing at the factory's real MAIN checkout instead of the
+# canary's own worktree, so a gate's Preview Smoke run could read (and race against) ideas/portfolio/
+# status data a DIFFERENT, concurrently-running session was actively mutating. Root cause: step 3 used
+# to derive from $MAIN_WT (`git rev-parse --git-common-dir`'s parent), which resolves to the SAME
+# ultimate original repo no matter how many `worktree add`-of-a-worktree hops deep the caller is — a
+# canary's OWN nested gate-worktree (`git -C <canary>/mission-control worktree add ... GATE_WORKTREE`,
+# the exact command ensureGateWorktree runs) landed on the real panda-corp main this way, never on the
+# canary. Fixed: derive from $WORKTREE (`git rev-parse --show-toplevel`, THIS worktree's own root —
+# always its own isolated, pinned copy, no matter the nesting depth).
+# ═══════════════════════════════════════════════════════════════════════════════════════════════
+FR_MAIN="$TMPROOT/fr-main"
+mkdir -p "$FR_MAIN"
+( cd "$FR_MAIN" && git init -q -b main \
+  && mkdir -p factory mission-control/.pandacorp \
+  && echo '{"name":"mission-control","version":"0.0.0"}' > mission-control/package.json \
+  && echo 'lockfileVersion: 9' > mission-control/pnpm-lock.yaml \
+  && cp "$SCRIPT_SRC" mission-control/.pandacorp/worktree-bootstrap.sh \
+  && chmod +x mission-control/.pandacorp/worktree-bootstrap.sh \
+  && echo seed > factory/seed.txt \
+  && git add -A && git_q commit -qm seed )
+FR_SHA="$(git -C "$FR_MAIN" rev-parse main)"
+
+# (e1) a PLAIN single-level worktree (an ordinary session's `EnterWorktree`, or a canary): its OWN
+# top-level, never the main checkout, even though this is exactly the case step 3's OLD behavior got
+# right by accident (a single hop away from main happens to differ from $MAIN_WT already — the real
+# bug only shows at TWO hops, case (e2) below — but the fix must not regress this simpler case either).
+FR_WT1="$TMPROOT/fr-wt1"
+git_q -C "$FR_MAIN" worktree add --detach "$FR_WT1" main
+( cd "$FR_WT1" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-e1.log 2>&1 )
+E1_ROOT="$(grep '^PANDACORP_FACTORY_ROOT=' "$FR_WT1/mission-control/.env.local" 2>/dev/null | cut -d= -f2-)"
+ok "$([ "$E1_ROOT" = "$FR_WT1" ] && echo 1 || echo 0)" "(e1) a single-level nested worktree's PANDACORP_FACTORY_ROOT is ITS OWN root (got: ${E1_ROOT:-<empty>}, want: $FR_WT1)"
+ok "$([ "$E1_ROOT" != "$FR_MAIN" ] && echo 1 || echo 0)" "(e1) ...and is NEVER the main checkout ($FR_MAIN)"
+
+# (e2) THE BUG'S EXACT SHAPE — a worktree-of-a-worktree, mirroring ensureGateWorktree's literal
+# `git -C <project-dir-inside-a-worktree> worktree add --detach GATE_WORKTREE <sha>`. Every worktree
+# shares ONE common .git (git-common-dir), so a naive $MAIN_WT derivation collapses BOTH hops onto the
+# same ultimate main checkout — this is the case (e1) alone cannot catch.
+FR_GATE="$TMPROOT/fr-gate-worktree"
+git_q -C "$FR_WT1/mission-control" worktree add --detach "$FR_GATE" "$FR_SHA"
+( cd "$FR_GATE" && bash mission-control/.pandacorp/worktree-bootstrap.sh >/tmp/wtb-e2.log 2>&1 )
+E2_ROOT="$(grep '^PANDACORP_FACTORY_ROOT=' "$FR_GATE/mission-control/.env.local" 2>/dev/null | cut -d= -f2-)"
+ok "$([ "$E2_ROOT" = "$FR_GATE" ] && echo 1 || echo 0)" "(e2) a gate-worktree NESTED INSIDE another worktree resolves PANDACORP_FACTORY_ROOT to ITS OWN root (got: ${E2_ROOT:-<empty>}, want: $FR_GATE)"
+ok "$([ "$E2_ROOT" != "$FR_MAIN" ] && echo 1 || echo 0)" "(e2) ...NEVER the factory's real main checkout ($FR_MAIN) — the BL-0160 contamination bug"
+ok "$([ "$E2_ROOT" != "$FR_WT1" ] && echo 1 || echo 0)" "(e2) ...and NEVER the intermediate canary worktree either ($FR_WT1) — the gate gets its OWN pinned copy"
+
+git_q -C "$FR_WT1/mission-control" worktree remove --force "$FR_GATE"
+git_q -C "$FR_MAIN" worktree remove --force "$FR_WT1"
+
+# (e3) a normal SIBLING product project (its own repo, no nested/adjacent factory/) is UNCHANGED —
+# the whole PANDACORP_FACTORY_ROOT block never fires, so no .env.local is written at all (nothing to
+# "conserve" — the pre-existing absence IS the preserved behavior).
+FR_FLAT_MAIN="$TMPROOT/fr-flat-main"
+mkdir -p "$FR_FLAT_MAIN/.pandacorp"
+( cd "$FR_FLAT_MAIN" && git init -q -b main \
+  && echo '{"name":"some-product","version":"0.0.0"}' > package.json \
+  && echo 'lockfileVersion: 9' > pnpm-lock.yaml \
+  && cp "$SCRIPT_SRC" .pandacorp/worktree-bootstrap.sh && chmod +x .pandacorp/worktree-bootstrap.sh \
+  && git add -A && git_q commit -qm seed )
+FR_FLAT_WT="$TMPROOT/fr-flat-wt"
+git_q -C "$FR_FLAT_MAIN" worktree add --detach "$FR_FLAT_WT" main
+( cd "$FR_FLAT_WT" && bash .pandacorp/worktree-bootstrap.sh >/tmp/wtb-e3.log 2>&1 )
+ok "$([ ! -f "$FR_FLAT_WT/.env.local" ] && echo 1 || echo 0)" "(e3) a sibling (non-nested-factory) project gets NO .env.local at all — untouched, as before BL-0160"
+git_q -C "$FR_FLAT_MAIN" worktree remove --force "$FR_FLAT_WT"
+
 echo "RESULT: $pass passed, $fail failed"
 [ "$fail" = "0" ]

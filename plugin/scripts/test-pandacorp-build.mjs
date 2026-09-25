@@ -4264,6 +4264,62 @@ SCENARIOS.push({
   },
 })
 
+// ---- BL-0160 ----
+// Canary C (wf_1cf782d6-2ed, canary-c-forensics.md §2/§7) reproduced the EXACT BL-0124 symptom on
+// plugin 9.104.2 — a full opus judge-baseline spawned solely because the run's OWN lease-owned
+// status.yaml write looked dirty — even though BL-0124's engine-side exclusion (leasedStatusOnly,
+// this file's WP04 block above) has been live, unmodified, since e52bdfc1/9.103.0. Direct simulation
+// of the decision branches (see this item's investigation) proves the engine-side match is correct
+// for the REAL production-shaped payload; none of WP04a/b/c actually exercises that exact shape —
+// WP04a sets `green: true` (which short-circuits through the FIRST branch, precheck.green===true,
+// never reaching the leasedStatusOnly branch at all), so the real trigger path had NO regression
+// coverage. These scenarios close that gap and lock in the STEP 3 prompt/schema clarification (the
+// dirtyPaths entries must be BARE paths, with git-porcelain's leading XY status code + space
+// stripped) that makes a cheap MECH/haiku pre-check agent far less likely to emit the one shape
+// (a raw porcelain line) that silently fails the engine's strict-equality match and forces the
+// exact avoidable escalation this item traces.
+SCENARIOS.push({
+  name: 'BL-0160a. Recurrence regression — the REAL production-shaped precheck response (no `green` field, matching STEP 3\'s actual dirty-branch instructions) takes the BL-0124 fast path, no judge-baseline spawn',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no judge-baseline/verify.sh cycle for a lone leased status.yaml diff — even without a `green` field in the response (WP04a never actually proved this: it set green:true, which fires a DIFFERENT branch)')
+    t.ok(byLabel(run, 'plan').length === 1, 'the run still proceeds into planning (green fast path taken)')
+    t.ok(hasLog(run, /BL-0124/), 'the BL-0124 fast-path log line fires for the real-shaped payload')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0160b. Canary C\'s LITERAL reported shape (`green: false` explicitly set alongside dirty/dirtyPaths/leaseValid, per canary-c-forensics.md §2\'s "green:false") still takes the fast path — green:false alone (no `failure`) never routes into the BL-0022 root-guard branch',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true, green: false } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'an explicit green:false with no failure string still takes the BL-0124 fast path, not the judge-baseline')
+    t.ok(run.result && run.result.note !== 'baseline red (needs manual fix)', 'the run never reads this as a root-guard failure')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0160c. Control — a dirty path OTHER than the leased status.yaml (real-shaped payload, no `green` field) still escalates to the full judge baseline exactly as today',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml', 'src/lib/x.ts'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 1, 'genuine WIP alongside the leased status.yaml still forces the full judge-baseline/verify.sh cycle — the exclusion never widens')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0160d. DOC LOCK-IN — the baseline-precheck prompt explicitly instructs stripping git-porcelain\'s XY status code before reporting a dirtyPaths entry (BL-0160 fix: prevents a cheap MECH agent from echoing the raw porcelain line, which would silently fail the engine\'s strict dirtyPaths[0]===".pandacorp/status.yaml" match)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const precheck = byLabel(run, 'baseline-precheck')[0]
+    t.ok(Boolean(precheck), 'the pre-check spawned')
+    t.ok(/BARE path/.test(precheck.prompt) && /XY status code/.test(precheck.prompt) && /STRIPPED/.test(precheck.prompt), 'the STEP 3 prompt spells out the bare-path requirement with the XY-status-code example, not just "exactly as printed"')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

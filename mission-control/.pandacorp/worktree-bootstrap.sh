@@ -128,13 +128,26 @@ fi
 # Mission Control (stateless): config.ts::resolveFactoryRoot() falls back to cwd/.. when
 #   PANDACORP_FACTORY_ROOT is unset, which in a fresh worktree resolves to this worktree's own
 #   near-empty factory/ (gitignored files like profile.md/portfolio.md aren't checked out) and trips
-#   the onboarding gate. Write a worktree-local .env.local pointing at the main checkout instead.
+#   the onboarding gate. Write a worktree-local .env.local pointing at a factory checkout instead.
 # BL-0155: reuses the SAME $APP_DIR resolved in step 0 (was its own duplicate search loop) — one
 # resolution, two consumers.
+# BL-0160: point at $WORKTREE (THIS worktree's own top-level — a full nested factory/ checkout, since
+#   `git worktree add` checks out ALL tracked files, not just the app subtree), never $MAIN_WT. Every
+#   linked worktree shares ONE common .git (`git rev-parse --git-common-dir`), so $MAIN_WT resolves to
+#   the SAME ultimate original checkout NO MATTER HOW MANY WORKTREE-OF-A-WORKTREE HOPS deep this one
+#   is — a canary's OWN gate-worktree (`git -C <canary>/mission-control worktree add ... GATE_WORKTREE`)
+#   used to land on panda-corp's real main checkout this way, so the gate's Preview Smoke run read (and
+#   risked reading mid-write) `factory/ideas/`/`portfolio.md`/another project's `status.yaml` that a
+#   DIFFERENT, concurrently-running session was actively mutating — cross-session contamination, not
+#   isolation (canary-c-forensics.md §7). $WORKTREE is this run's OWN pinned, quiet copy: no other
+#   session can mutate it. Tradeoff accepted deliberately: an ordinary attended worktree previewing the
+#   live dashboard now sees ITS OWN gitignored-data-free factory/ (the pre-existing onboarding-gate
+#   caveat above) instead of main's real portfolio, unless the owner overrides PANDACORP_FACTORY_ROOT by
+#   hand — never reading another session's in-flight state is worth that inconvenience.
 if [ -n "$APP_DIR" ] && { grep -q '"name": *"pandacorp"' "$WORKTREE/package.json" 2>/dev/null \
    || [ -d "$WORKTREE/../factory" ] || [ -d "$WORKTREE/factory" ]; }; then
-  echo "  • PANDACORP_FACTORY_ROOT → $MAIN_WT ($APP_DIR/.env.local, gitignored)"
-  echo "PANDACORP_FACTORY_ROOT=$MAIN_WT" > "$APP_DIR/.env.local"
+  echo "  • PANDACORP_FACTORY_ROOT → $WORKTREE ($APP_DIR/.env.local, gitignored, BL-0160: this worktree's own nested factory)"
+  echo "PANDACORP_FACTORY_ROOT=$WORKTREE" > "$APP_DIR/.env.local"
 fi
 
 # ── 4. Per-project hook — stateful projects clone their DB here (CREATE DATABASE ... TEMPLATE, §4) ───
