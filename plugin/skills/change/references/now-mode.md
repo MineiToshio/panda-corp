@@ -8,6 +8,15 @@ DR-096, DR-097, DR-099, DR-015, DR-080, CONV-12, CONV-13, PROMPT-8.
 **The one sentence that governs everything below:** the rigor level decides how much EVIDENCE a
 change collects, never whether a red gate blocks. A red blocks at every level.
 
+**Is this file itself current? (BL-0168, harness constraint.)** This text was served from
+`${CLAUDE_PLUGIN_ROOT}`, the plugin cache copy THIS session loaded at its own start — an
+already-open session keeps serving that copy even after `claude plugin update` moves the installed
+version ahead of it. Before running any of the delegated steps below, compare
+`${CLAUDE_PLUGIN_ROOT}/runtime/plugin-metadata.json`'s version against the `pandacorp@panda-corp`
+entry in `~/.claude/plugins/installed_plugins.json`. Behind → read the INSTALLED cache path's copy
+of this file (and of `change/SKILL.md`) directly and follow that text instead, and tell the owner
+the session is stale.
+
 ---
 
 ## 0. Existing-card entry point — `--now <slug>` (BL-0163)

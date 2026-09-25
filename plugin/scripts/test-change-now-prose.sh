@@ -78,6 +78,10 @@ must "now-mode.md carries its own §0 for the --now <slug> entry point" "$NOW" '
 must_doc "now-mode.md states no new file is written and the body is left untouched" "$NOW" 'No new file is written and the +existing body is left untouched'
 must_doc "now-mode.md requires clearing building on any non-landing outcome" "$NOW" 'must never be left at .building. with nothing actually in flight'
 
+echo "-- BL-0168: a stale session-loaded copy tells itself to defer to the installed cache"
+must "change/SKILL.md checks the session version against installed_plugins.json" "$CHANGE" 'installed_plugins\.json'
+must "now-mode.md checks it too, at its own opening" "$NOW" 'installed_plugins\.json'
+
 echo "-- F4: a draft card never enters the fast path (DR-069)"
 must "change/SKILL.md excludes status: draft from the fast path" "$CHANGE" 'status: draft.? card never enters the fast path'
 must "now-mode.md repeats the draft exclusion before any valve" "$NOW" 'draft.? card never enters the fast path'
