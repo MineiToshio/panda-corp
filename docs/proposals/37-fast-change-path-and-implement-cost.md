@@ -1125,6 +1125,8 @@ Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEv
 
 ## Cierre del sprint 2026-09-22/23
 
+**Veredicto final del sprint (2026-09-25, tras canario D — actualiza el veredicto de la tanda 2 de abajo, que solo cubría A/B/B2/C):** el objetivo 4× **no se alcanza con paralelismo de build**, porque el cuello real no es el build en paralelo — es la **revisión por FRD en serie**. Canario D2 midió el único run de esta tanda con paralelismo genuino de WOs (3 construidas a la vez) y aun así terminó **peor que el baseline en coste** (2,07×) y prácticamente empatado en tiempo (6% peor): el 66% del wall-clock y el 85% del coste de D2 son gates de FRD corriendo uno detrás de otro. **La única mejora sólida de todo el sprint sigue siendo el Canario A** (−32,8% tiempo / −35,7% coste, ≈1,49×) — todo lo demás (B/B2/C/D) o no midió limpio o midió un techo estructural, nunca el objetivo. Lo que el sprint SÍ logró, en cambio, es real: los canarios destaparon y cerraron **más de 20 bugs del motor** (BL-0149, BL-0150, BL-0155, BL-0156, BL-0157, BL-0158, BL-0159, BL-0160, BL-0153, BL-0154, BL-0161, BL-0162, BL-0164, BL-0165, BL-0166, BL-0167, BL-0168, BL-0169, BL-0171, BL-0172, BL-0173, BL-0174, BL-0175, BL-0176, BL-0177 — 25 ids, la mayoría cerrados en `main`). La palanca que queda para acercarse al 4× es **estructural, no incremental, y requiere una decisión del owner**: (a) **gates de FRD en paralelo** (el motor los serializa a propósito hoy, DR-050/BL-0021 — la proyección marcada, no medida, de D2 es **−31 min** si los 3 gates de frd-03/04/05 corrieran a la vez) y/o (b) **`gateEvidence: 'digested'` re-medido limpio** (ningún run de todo el sprint, incluyendo D, lo ejercitó sin contaminación — sigue sin certificar) más **F3** (la política del oráculo de deriva pre-existente, BL-0178, abierta). **Fixes de tandas anteriores ejercitados EN VIVO por el canario D:** BL-0159 (telemetría de gate sin `apply-gate`) sí — confirmado en D2's frd-02; BL-0154 (puerto e2e fijo a 3900) sí — los 4 gates/builds de D2 usaron puertos distintos, ninguno 3900. **BL-0147 (reuse de verify.sh en el cierre) NO se ejercitó** — ambos `notify-end` de D1 y D2 corrieron el `verify.sh` completo sin reusar nada; causa raíz y decisión pendiente en **BL-0179**, filed nuevo en este cierre.
+
 **En `main`:** plugin 9.103.0 → 9.104.4 (overlay 8.82.2). Segundo y tercer lote (F2-F5, quick wins, fix1/BL-0141, BL-0146, `mc-change-queue-statuses`, BL-0149/BL-0150 destapados por Canario B) más los dos bugs de instrumentación/bootstrap que las mediciones de Canario B2 y C destaparon: **BL-0155** (bootstrap del worktree de gate no resolvía el `package.json` anidado de Mission Control — causa raíz confirmada del déficit de span de B2 y C) y **BL-0156** (`usage-rollup.mjs` sin precio para `claude-opus-5-5` + `--dir --out` silenciosamente no-op).
 
 **Veredicto honesto del objetivo 4×: NO alcanzado ni medido limpiamente.** Canario A sigue siendo la única cifra sólida (−32,8 % tiempo / −35,7 % coste, ≈1,49×, por debajo del disparador de rollback 2×). B2 confirma el mismo techo estructural (≈1,6× estimado combinando partidas reales) y C, el único intento de medir paralelismo real, midió 0 WOs construidas y terminó bloqueado por un bug del motor ajeno a `digested`/`mechLean`. Distancia proyectada al objetivo (16 min / 5 $): **≈2,9× tiempo / ≈5,2× coste** desde C. Medir el paralelismo real exige un `change` con ≥3 WOs independientes sobre el motor 9.104.5 — decisión del owner, ~40 $ estimados.
@@ -1153,6 +1155,8 @@ Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEv
 | Canario B (`digested`) | n/d *(solo gate+evidence medido)* | n/d | n/d | n/d | 1 WO reabierta | 14,1 / 4,45 | 1 (empate exacto con A) |
 | Canario B2 (`digested` + `mechLean`) | 25,4 | 8,76 *(4 partidas est.)* | 11 | 1 | 0 nuevas (2 reabiertas) | 12,1 / 5,38 *(est.)* | 2 (superset, +1 nuevo) |
 | Canario C (powerful, `/change` real) | 59,5 | 38,60 | 17 | 4 *(solo en finders, no WOs)* | 0 nuevas (1 ya `IN_REVIEW`) | 20,2 / 17,64 *(gate#1, explore por fallback)* | 1 real (bug FRD-10) + bloqueo por bug del motor (BL-0157) |
+| Canario D1 (powerful, `maxAgents:8`, paralelismo) | 15,8 | 6,28 | 10 | 1 *(colapsó a 1 WO por presupuesto de agentes, BL-0173)* | 1 (WO-02-014, quedó `IN_REVIEW`) | n/d *(no llegó a gatear)* | n/d |
+| Canario D2 (powerful, `maxAgents:40`, paralelismo real) | 87,5 | 58,58 | 27 | 4 *(3 WOs a la vez ~4 min de 87,5; el resto es gate serial)* | 3 nuevas + 1 ya `IN_REVIEW` (bloqueada) | 20,2 / 11,67 *(gate#1 frd-02, explore, el más caro de los 4 gates)* | 1 real (bloqueo legítimo frd-02, ver BL-0178) |
 
 **Pendiente para acercarse al objetivo real:** un canario de paralelismo con ≥3 WOs independientes, corrido sobre el motor 9.104.5 (una vez BL-0157 aterrice) — decisión del owner, ~40 $ estimados (ver BL-0135).
 
@@ -1205,3 +1209,75 @@ como decisión pendiente del owner, no implementación.
 **Veredicto sobre `--now`: sigue en opt-in, no pasa a default.** El propio criterio del dry-run
 (§5 del informe) es que hace falta repetir este mismo canario, de punta a punta, con las dos
 correcciones en vigor, antes de considerar el flip — ese re-run todavía no ha ocurrido.
+
+### Canario D (paralelismo, 2026-09-25)
+
+Ejecutado en vivo sobre `mission-control`, motor 9.108.0, `mode: powerful`, dos corridas sobre la
+misma change (`canary-d-parallelism`, 4 FRDs candidatas). Informes completos en el scratchpad de la
+sesión de medición: `canary-d-report.md` (medición D1+D2), `canary-d-frd02-forensics.md` (forense del
+bloqueo de frd-02) y `canary-d-wave-investigation.md` (por qué D1 colapsó a 1 WO).
+
+**D1** (`wf_6e88dd68-8e4`, `maxAgents:8`): **15,8 min / 6,28 $**, 10 agentes, `concurrency_max:1`.
+Construyó solo **WO-02-014** (1 de 4 FRDs candidatas) — **cortado por `maxAgents 8`, que es un
+presupuesto TOTAL de agentes de la corrida (cost-weighted), no un ancho de oleada**: el overhead fijo
+pre-oleada (`baseline-precheck`+`process-change`+`plan`+`safe-point`+`foundation-gate`, forzado por
+`FORCE_UI_PASSES` default) ya sumaba 11 unidades antes de que existiera la primera oleada, agotando el
+presupuesto de 8 y colapsando `pickDisjointWave` a exactamente 1 WO por su piso anti-deadlock
+(`Math.max(1, …)`). Confirmado por lectura directa del motor, no es un bug de conteo — es el overshoot
+que el propio `SKILL.md` documenta como esperable (`~11 units` de overshoot). El hallazgo real,
+cerrado como **BL-0173**, es que ese colapso era indistinguible en el log de un recorte por
+dependencias/artefactos reales — ahora `pickDisjointWave` reporta `cutBy: 'count-cap' | 'agent-budget'`.
+
+**D2** (`wf_faf48b18-881`, `maxAgents:40`): **87,5 min / 58,58 $**, 27 agentes, `concurrency_max:4`.
+**El paralelismo real de build SÍ ocurrió**: 3 WOs (WO-03-006, WO-04-008, WO-05-007) se construyeron
+a la vez durante ~4 minutos, con el gate de frd-02 corriendo en simultáneo — la oleada de build tardó
+**509,2 s frente a 846,0 s** de suma de los 3 builds individuales (**ahorro ≈5,6 min**, 39,8%). Pero
+ese es el ÚNICO tramo de paralelismo real en toda la corrida: **el 65,8% del wall-clock (3457 de
+5250 s) y el 84,9% del coste ($49,75 de $58,58) de D2 son gates de FRD SERIALIZADOS** (gate→patch→
+verify-patch, uno tras otro para frd-03, frd-04 y frd-05, más el gate de frd-02 corriendo en
+solitario 487 s tras terminar el build). **3 FRDs verificadas** (frd-03-portfolio,
+frd-04-project-workspace, frd-05-work-orders) + **1 bloqueada** (frd-02-ideas-board, `needs-owner`,
+WO-02-014 construida en D1 pero nunca verificada) — el bloqueo es **legítimo**: dos contradicciones
+FRD-vs-build reales y pre-existentes (AC-02-010.4/.8), no un bug del código construido; ver BL-0178
+para la política inconsistente del oráculo (bloquea aquí, pero la misma clase de deriva pasó sin
+avisar en frd-03).
+
+**El número del sprint:** coste por WO verificada (D1+D2 combinado, 3 WOs) = **$21,62** vs **$10,43**
+del baseline FRD-24 (**2,07× PEOR**). Tiempo por WO verificada = **34,4 min** vs **32,4 min** del
+baseline (**prácticamente igual, 6% peor**). El paralelismo de build que este canario existía para
+medir NO compensó el coste de los gates seriales ni el trabajo perdido en D1/frd-02.
+
+**Proyección honesta (marcada, NO medida):** si los 3 gates de frd-03/04/05 corrieran en paralelo en
+vez de en serie (el motor no lo permite hoy por diseño, DR-050/BL-0021), el tramo de gates seriales
+bajaría de 3457 s al máximo individual (~1117 s) + el gate de frd-02 en solitario (487 s) ≈ 1604 s —
+**ahorro proyectado ≈31 min**, llevando D2 a ~56,6 min. El coste NO bajaría (mismo trabajo de agente,
+solo reordenado).
+
+**Fixes de tandas anteriores, ¿ejercitados en vivo por D?** BL-0159 (telemetría de gate sin
+`apply-gate`) **sí** — `review_end`/`GateVerdict` se emitieron para frd-02 pese a nunca pasar por
+`apply-gate`. BL-0154 (puerto e2e fijo a 3900) **sí** — los 4 gates/builds de D2 usaron 6 puertos
+distintos, ninguno 3900. BL-0147 (reuse de `verify.sh` en el cierre) **NO** — ambos `notify-end` (D1
+y D2) corrieron el `verify.sh` completo sin `--since`, cero eventos `CloseOutVerifyReused` en todo el
+histórico de `dashboard-events.ndjson` — ver **BL-0179**, filed nuevo en este cierre.
+
+**Bugs nuevos que destapó D** (todos cerrados en `main`, plugin 9.109.0): **BL-0171** (WOs de `change`
+nacen `DRAFT`, sin pasar el gate DR-100 de `/architecture`, pero la misma corrida las construye
+igual), **BL-0172** (`notify-end` reescribe `frd.md`/`blueprint.md` vía `sync-rollups` pero
+`RELEASE_LEASE` nunca los commitea), **BL-0173** (colapso de oleada por presupuesto de agentes
+indistinguible de un tope real), **BL-0174** (`blockFrd` trunca `failure` a 200 chars, enterrando la
+causa real bajo elogios), **BL-0175** (un gate bloqueado deja el gate-worktree sucio, degradando C2 al
+camino legacy), **BL-0176** (el exit genérico del gate emite `verdict:"fail"` fijo en vez del
+`blocked_reason` real), **BL-0177** (`stopReason:'agents'` se reporta aunque no quedara trabajo
+real). Dos hallazgos quedan **abiertos, pendientes de decisión del owner**: **BL-0178** (el oráculo de
+deriva pre-existente bloquea en un camino y pasa por alto en otro) y **BL-0179** (BL-0147 nunca se
+ejercita en vivo — todo gate real emite `scope:since`, solo `notify-end` emite `scope:full`).
+
+**Acción de producto pendiente en MC real (no es trabajo de la fábrica, es del owner sobre su
+proyecto):** la forense de frd-02 pide reconciliar **AC-02-010.4** (roster de campaña, desfasado
+contra DR-085) y **AC-02-010.8** (contenido nunca construido en `phases.ts`, revertido en `76054e96`
+y nunca vuelto a añadir) — vía `/pandacorp:sync` y `/pandacorp:change` respectivamente sobre
+`mission-control`. La misma clase de deriva (**REQ-03-001** vs `ACTIVE_PHASES` en `portfolio.ts`) pasó
+sin avisar en frd-03 y también queda pendiente de reconciliar. La rama `canary-d-parallelism` (worktree
+`/Users/Shared/Proyectos/panda-corp-canary-d`) contiene **3 work orders verificadas de mejora real de
+Mission Control** (WO-03-006, WO-04-008, WO-05-007) más 1 bloqueada (WO-02-014) — pendientes de que el
+owner decida si aterrizarlas en el `main` de `mission-control`.

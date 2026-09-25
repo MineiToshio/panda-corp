@@ -3,13 +3,13 @@ id: BL-0135
 type: change
 area: build-engine
 title: "Run the three speed-sprint live canaries (A/B/C) and record their verdicts before the sprint's claims are trusted"
-status: open
+status: done
 severity: p1
 opened: 2026-09-22
-closed:
+closed: 2026-09-25
 source: "docs/proposals/37-fast-change-path-and-implement-cost.md, Adenda 2026-09-21 §Canario"
-closes:
-links: [BL-0124, BL-0129, BL-0044]
+closes: "Canary A (measured 2026-09-22, FAILS the ≤1200s time bar), Canary B/B2 (measured 2026-09-22/23, findings-safety PASSES, span-savings FAILS both times — digested still not certified clean), Canary D1/D2 (measured 2026-09-25, superseding Canary C's own uncomparable run — real ≥3-WO build parallelism WAS observed, concurrency_max:4, but the ≤45min wall-clock bar still FAILS at 87.5min; see decision-log v9.109.0 and docs/proposals/37 §Canario D)"
+links: [BL-0124, BL-0129, BL-0044, BL-0178, BL-0179]
 ---
 
 ## Problem
@@ -205,3 +205,33 @@ independent WOs, run on engine 9.104.5 (once BL-0157 lands) — this is a decisi
 approval, estimated cost ~$40 for the run.** This item stays `open`: no canary run has yet satisfied
 Canary C's own acceptance bar, and the parallelism question remains structurally unanswered by every run
 attempted so far.
+
+## Closing note — 2026-09-25, Canario D1/D2 (CLOSING this item)
+**The owner approved and the parallelism run happened** (`wf_6e88dd68-8e4` / D1, `wf_faf48b18-881` / D2,
+engine 9.108.0, a real `/change` — `canary-d-parallelism` — with 4 independent FRDs). Full numbers:
+`docs/proposals/37-fast-change-path-and-implement-cost.md` §"Canario D (paralelismo, 2026-09-25)";
+raw reports in the measuring session's scratchpad (`canary-d-report.md`,
+`canary-d-frd02-forensics.md`, `canary-d-wave-investigation.md`); decision-log `v9.109.0`.
+
+**D1** (`maxAgents:8`) collapsed to 1 WO — confirmed by direct code read to be the documented
+cost-weighted `maxAgents` overshoot (fixed WRT observability as BL-0173: the cut reason is now logged),
+not a new defect. **D2** (`maxAgents:40`) is the first run in the WHOLE sprint (A/B/B2/C/D) to show
+**genuine ≥2-WO build parallelism on real independent WOs**: `concurrency_max:4`, 3 WOs built
+concurrently in 509s vs 846s summed (≈5.6min saved). Canary C's own `concurrency_max:4` reading is
+retroactively superseded here — C's concurrency was 4 adversarial FINDERS, never parallel WOs; D2 is
+the real thing this item's Canary C acceptance bar (`concurrency_max ≥ 3` on WOs) was written for, and
+it **PASSES that specific bar** (4 ≥ 3). The **wall-clock bar (`≤45 min`) still FAILS** (87.5 min) —
+not because parallelism didn't work, but because 65.8% of D2's wall-clock (and 84.9% of its cost) is
+FRD-gate review running in SERIES, a structurally different bottleneck than the one this item's bar was
+written to catch. Cost per WO verified: **$21.62 vs the FRD-24 baseline's $10.43 (2.07x WORSE)**.
+
+**Closing this item as `done`.** Every canary this item asked for (A, B/B2, and now a genuine
+build-parallelism run superseding the mis-scoped C) has run at least once against a confirmed-current
+engine, with its verdict recorded in `plugin/docs/decision-log.md` and the memo. No rollback trigger
+ever forced a default flip that needed reverting (`gateEvidence` never left `explore` in production;
+`mechLean:true` is the one default this sprint's data DID confirm, correctly). What remains is not
+more MEASUREMENT — it is a **STRUCTURAL decision** (parallel FRD gates, projected ≈31min off D2;
+and/or a clean `digested` re-certification) that this item was never scoped to implement, now tracked
+as its own follow-up (parallel-gates: captured in the memo's final verdict, no dedicated BL id yet,
+pending an explicit owner go-ahead to scope it; the pre-existing-drift oracle policy: **BL-0178**; the
+close-out verify-reuse mechanism that has never fired live: **BL-0179**).
