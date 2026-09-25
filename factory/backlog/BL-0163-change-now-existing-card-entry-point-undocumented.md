@@ -101,3 +101,5 @@ freshly-captured card):
 assertions) checking that both `SKILL.md` and `now-mode.md` document the `--now <slug>` entry
 point, the no-duplication guarantee, the `building` stamp, and the draft/clearing rules. Full suite
 green: 69 passed, 0 failed.
+
+Fixed in commit `f178471e` on branch `bl-0163-0166-misc` (not yet merged to `main`).
