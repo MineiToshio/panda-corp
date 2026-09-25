@@ -5,7 +5,7 @@ slug: last-sync-chip
 title: 'WO-03-006 — Portfolio row: relative "last sync" chip'
 status: ACTIVE
 parent: FRD-03
-implementation_status: IN_REVIEW
+implementation_status: VERIFIED
 difficulty: low
 reopen_count: 0
 artifacts:
