@@ -128,6 +128,10 @@
       "display": "GateEvidenceFallback",
       "aliases": ["GateEvidenceFallback", "gate_evidence_fallback", "gate-evidence-fallback"]
     },
+    "gate.drift-recorded": {
+      "display": "GateDriftRecorded",
+      "aliases": ["GateDriftRecorded", "gate_drift_recorded", "gate-drift-recorded"]
+    },
     "gate.close-out-verify-reused": {
       "display": "CloseOutVerifyReused",
       "aliases": ["CloseOutVerifyReused", "close_out_verify_reused", "close-out-verify-reused"]

@@ -29,6 +29,9 @@ if (!STATE_CLI.startsWith('/') || /[\0\r\n]/.test(STATE_CLI)) {
 }
 const shellQuote = (value) => `'${String(value).replaceAll("'", `'"'"'`)}'`
 const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
+// BL-0178: the pre-existing-drift fact gatherer ships next to the state CLI in the SAME installed plugin
+// scripts dir — derived from the already-validated capability path, never from CLAUDE_PLUGIN_ROOT (BL-0071).
+const DRIFT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'drift-proof.mjs'))}`
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
@@ -142,6 +145,15 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 //     concurrently (see the module description above), so a per-FRD real-token BUILD cost is provably
 //     unmeasurable there without either serializing builds (an unacceptable regression) or an SDK change
 //     exposing per-agent token usage (agent() returns none today).
+//   args.driftPolicy: 'record' (DEFAULT) | 'block' — BL-0178 policy (a*). The whole-FRD oracle still reports
+//     EVERY contradiction as a `fail` entry; the reviewer may only PROPOSE one as pre-existing drift
+//     (`claim: "preexisting"` + a probe test, `evidence_test`). Under 'record' the ENGINE proves it with a
+//     differential run (MECH: drift-proof.mjs runs the probe at the pin AND at the pin's last_green_sha):
+//     fails at both → recorded as a draft change card + the FRD's `drift:` frontmatter, and it never blocks
+//     or reopens the cycle's work orders; passes at last green → a regression this cycle caused → reopened
+//     patch-first; passes at the pin → the claim is discarded (logged); unloadable/flaky/owned/unprovable →
+//     a cycle fault (fail-closed). 'block' is the rollback switch: claims are ignored and every `fail` is a
+//     cycle fault exactly as before BL-0178. Any other value falls back to 'record' with a loud log.
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
 //     nor advance last_green_sha, whatever scopedRepair/repairBrake say. See the cage section below.
@@ -216,6 +228,10 @@ const VISUAL_QA_MODEL = (args && args.visualQaModel === 'opus') ? 'opus' : 'sonn
 if (args && args.visualQaModel !== undefined && args.visualQaModel !== 'sonnet' && args.visualQaModel !== 'opus') {
   log(`⚠ args.visualQaModel='${args.visualQaModel}' no es 'sonnet' ni 'opus' — usando 'sonnet' (E-3 fail-closed)`)
 }
+const DRIFT_POLICY = (args && args.driftPolicy === 'block') ? 'block' : 'record'
+if (args && args.driftPolicy !== undefined && args.driftPolicy !== 'record' && args.driftPolicy !== 'block') {
+  log(`⚠ args.driftPolicy='${args.driftPolicy}' no es 'record' ni 'block' — usando 'record' (BL-0178)`)
+}
 const LEAN_CLOSE_OUT = !argBool(args, 'leanCloseOut', false)   // WP-02 escape hatch: default true — visual-qa fired as a promise + archive-changes/release-lease folded into the closing agent; `false` reverts to the pre-WP-02 fully-serial three-spawn close-out
 const SCOPED_REPAIR = argBool(args, 'scopedRepair', true)   // WP-08 opt-in: deterministic sub-gate classification + sonnet mechanical fixer + scoped inner re-gates ONLY. Default OFF — see the arg doc above.
 const REPAIR_BRAKE = !argBool(args, 'repairBrake', false)   // D4/REV2-3: the repair-cost BRAKE, independent of SCOPED_REPAIR. Default ON — explicit {"repairBrake": false} restores the pre-D4 unbounded ladder.
@@ -259,7 +275,10 @@ const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE
 // broader commit sentence already covers it.
 const SYNC_ROLLUPS_COMMIT = ' If that command changed any docs/frds/*/frd.md or blueprint.md on disk, stage ONLY those rollup documents and commit them right now, as their OWN commit (Conventional Commits, scope) — BEFORE anything else below.'
 // GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
-const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. **The inventory needs at least one entry for EACH of the 7 contract classes** (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion): a numbered REQ-NN-MMM requirement is its OWN `requirement` entry, distinct from the acceptance-criterion entries that verify it — do not cover a requirement only through its ACs and skip the `requirement` entry. If a class genuinely does not apply to this FRD, add a `not-applicable` entry for it with `tests: []` instead of omitting the class — an omitted class is itself RED even when every other class is complete. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text."
+const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. **The inventory needs at least one entry for EACH of the 7 contract classes** (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion): a numbered REQ-NN-MMM requirement is its OWN `requirement` entry, distinct from the acceptance-criterion entries that verify it — do not cover a requirement only through its ACs and skip the `requirement` entry. If a class genuinely does not apply to this FRD, add a `not-applicable` entry for it with `tests: []` instead of omitting the class — an omitted class is itself RED even when every other class is complete. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text. A contradiction you believe pre-dates this cycle is still a `fail` entry — never dropped, never waived — at most PROPOSED as pre-existing drift for the engine to prove or reject."
+// BL-0178: GENERATED from plugin/agents/reviewer.md's DRIFT_CLAIM block (generate-build-prompt-fragments.mjs) — do not hand-edit.
+// The reviewer PROPOSES pre-existing drift (claim + a probe test); the engine proves or rejects it (adjudicateDrift below).
+const DRIFT_CLAIM_DIRECTIVE = "**Pre-existing drift (BL-0178) — you PROPOSE, the engine DECIDES:** when a `fail` contract is contradicted by code you believe this cycle did NOT cause (legacy code, a contract no reviewed work order owns through its `source_requirements`), keep it a `status: \"fail\"` traceability entry and ADD `claim: \"preexisting\"`, `evidence_test` and `direction`. `evidence_test` is the repo-relative path of a probe you write at `.pandacorp/run/drift-probes/<frd>/<contract-id>.drift-probe.ts` (one file per claim, named after the contract id, e.g. `ac-02-010-4.drift-probe.ts`): a vitest file that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds, importing production code ONLY through the `@/` alias (never a relative import — the engine runs it from a copy placed elsewhere). The path is deliberately outside the collected test tree: never list it in `testFiles` and never copy it into `src/`. `direction` is `code` (the code is wrong), `spec` (the spec is stale) or `unknown`. The engine runs your probe at this pin AND at the pin's `last_green_sha`: only a probe that fails on an assertion at BOTH is recorded as pre-existing drift (a draft change card for the owner plus a `drift:` list in the FRD frontmatter) — it then never blocks and never reopens this cycle's work orders; a probe that passes at `last_green_sha` is a regression this cycle caused and is reopened patch-first; a probe that passes at this pin is discarded; an unloadable or flaky probe proves nothing and is treated as a cycle fault. So when your ONLY reds are pre-existing drift claims, return the verdict you would give without them — `green: true` with your `testFiles` — and never take the blocked/needs-owner exit for a drift claim. Never claim a contract a reviewed work order owns."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -750,7 +769,11 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green', 'traceability'],
   properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
-    traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory: AT LEAST ONE entry per contractClass (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) — an omitted class is RED. A REQ-NN-MMM requirement is its OWN requirement entry, never covered only via its acceptance-criterion entries. A class that genuinely does not apply gets a not-applicable entry with tests: [] instead of being omitted.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } } } } },
+    traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory: AT LEAST ONE entry per contractClass (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) — an omitted class is RED. A REQ-NN-MMM requirement is its OWN requirement entry, never covered only via its acceptance-criterion entries. A class that genuinely does not apply gets a not-applicable entry with tests: [] instead of being omitted.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } },
+      // BL-0178: a PROPOSAL only — the engine proves or rejects it (adjudicateDrift). Meaningful on a `fail` entry.
+      claim: { type: 'string', enum: ['preexisting'], description: 'BL-0178: set ONLY on a status:"fail" entry you believe this cycle did NOT cause. A proposal — the engine proves it with a differential run of evidence_test before it counts.' },
+      evidence_test: { type: 'string', description: 'BL-0178: the probe you wrote to demonstrate the contradiction, at .pandacorp/run/drift-probes/<frd>/<contract-id>.drift-probe.ts (imports via @/ only; never in testFiles).' },
+      direction: { type: 'string', enum: ['code', 'spec', 'unknown'], description: 'BL-0178: your read of which side is wrong — the owner decides on the resulting card.' } } } },
     // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
     // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
     testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
@@ -804,12 +827,19 @@ const REQUIRED_TRACE_CLASSES = ['requirement', 'acceptance-criterion', 'invarian
 // `traceabilityDeficient` (never a fabricated hard failure), so gateConverge (B2) can re-ask the gate
 // once instead of repairing production code or blocking 'error'. The WP06f invariant is unchanged: a
 // traceability-deficient result is NEVER `{ green: true }` — it can't reach applyGate/VERIFIED.
+// BL-0178: `drift` / `discarded` are ENGINE-WRITTEN statuses (adjudicateDrift stamps __driftAdjudicated
+// on them after the differential proof). A reviewer can never produce one that counts: the same status
+// WITHOUT the engine's stamp is still an open fail, so the waiver hole BL-0078 closed stays closed.
+const DRIFT_STATUSES = ['drift', 'discarded']
+const isOpenFail = (entry) => Boolean(entry) && (entry.status === 'fail' || (DRIFT_STATUSES.includes(entry.status) && entry.__driftAdjudicated !== true))
 function enforceWholeFrdTraceability(result) {
   const trace = result && result.traceability
   const missingClasses = Array.isArray(trace) ? REQUIRED_TRACE_CLASSES.filter((kind) => !trace.some((entry) => entry && entry.contractClass === kind)) : REQUIRED_TRACE_CLASSES.slice()
   const missing = missingClasses.length > 0
   const invalidBoundary = Array.isArray(trace) && trace.some((entry) => entry && ['edge-case', 'limit'].includes(entry.contractClass) && entry.status === 'pass' && (!Array.isArray(entry.tests) || entry.tests.length === 0))
-  const waivedFailure = result && result.green === true && Array.isArray(trace) && trace.some((entry) => entry && entry.status === 'fail')
+  // BL-0178: only an OPEN fail waives nothing — an engine-proven pre-existing drift entry (status 'drift')
+  // or an engine-refuted claim ('discarded') no longer contradicts a green verdict; an unproven claim does.
+  const waivedFailure = result && result.green === true && Array.isArray(trace) && trace.some(isOpenFail)
   if (!(missing || invalidBoundary || waivedFailure)) return result
   // Keep the original phrase verbatim (older log/test assertions match on it, e.g. WP06f) and APPEND the
   // specifics B1/B2 need to act on — which classes are missing, named, never just "incomplete".
@@ -832,6 +862,221 @@ function enforceWholeFrdTraceability(result) {
   }
   // Was green: downgrade to a DEFICIENT (not a hard) failure — never stamp VERIFIED on it.
   return { green: false, traceability: safeTrace, ...deficientFields, failure: note }
+}
+// ── BL-0178 PRE-EXISTING DRIFT — policy (a*): the reviewer PROPOSES, a DIFFERENTIAL PROOF decides ─────
+// The whole-FRD oracle finds contradictions the cycle never caused (canary D2: frd-02 BLOCKED a correct
+// WO over legacy drift on the direct path, while frd-03 shipped the same class of drift silently through
+// patch → verifyPatched). The outcome depended on WHICH rung the gate landed on. The uniform rule, applied
+// to EVERY gate verdict before any routing (finalizeGate — used by the concurrent gate, the legacy gate,
+// the B2 re-asks, the in-run retry and the post-repair re-gate alike):
+//   • A `fail` entry is pre-existing drift IF AND ONLY IF the reviewer's own probe (`evidence_test`) fails
+//     on an ASSERTION at the gate's pin AND at the pin's `last_green_sha` (run by a MECH agent through
+//     drift-proof.mjs, twice per sha; the ENGINE parses the facts and applies the predicate below), the
+//     base provably precedes the cycle, and no reviewed WO owns the contract (source_requirements).
+//   • fails only at the pin → a REGRESSION this cycle caused → cycle fault → reopen patch-first.
+//   • passes at the pin → the reviewer was wrong → the entry is DISCARDED (logged loudly).
+//   • unloadable / flaky / missing probe / invalid base / no contract id / owned → cycle fault (fail-closed:
+//     an unproven claim is never recorded as drift and never waives a green).
+// Proven drift NEVER blocks and NEVER reopens the cycle's WOs: it becomes a `draft` change card (the owner
+// decides direction — `/pandacorp:sync` rule: never degrade the spec) with the probe preserved under
+// .pandacorp/run/gate-evidence/<frd>/drift/, plus the FRD's `drift:` frontmatter at the certifying landing.
+// Honest limits: no madge import-closure attribution — a regression is reopened on THIS FRD's reviewed WOs
+// (the patcher is told to look at the whole base..pin diff), never attributed to a sibling FRD's WO; and an
+// unproven claim is a cycle fault instead of the proposal's static fallback card.
+const DRIFT_PROBE_RE = /^\.pandacorp\/run\/drift-probes\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.drift-probe\.tsx?$/
+const DRIFT_WO_PATH_RE = /^docs\/frds\/[A-Za-z0-9][A-Za-z0-9._-]*\/work-orders\/wo-[A-Za-z0-9._-]+\.md$/
+const DRIFT_OUTPUT_SCHEMA = { type: 'object', required: ['output'], properties: { output: { type: 'string', description: 'the command stdout, VERBATIM — a single JSON line; never summarized, never re-formatted' } } }
+const contractIdOf = (contract) => { const m = String(contract || '').match(/\b(?:REQ|AC)-\d+-\d+(?:\.\d+)?\b/); return m ? m[0] : null }
+// REQ-02-010, AC-02-010.4 and AC-02-010.8 share the core "02-010": owning the requirement owns its ACs and
+// vice-versa (fail-closed — the broad match can only turn a claim INTO a cycle fault, never out of one).
+const contractCore = (id) => String(id).replace(/^(?:REQ|AC)-/, '').replace(/\.\d+$/, '')
+// One probe's state at one sha, from drift-proof.mjs's per-run vitest summaries. Two runs that disagree
+// are 'flaky' — evidence of nothing.
+function probeRunState(runs) {
+  if (!Array.isArray(runs) || runs.length === 0) return 'load-error'
+  const one = (r) => ((!r || r.parsed !== true || Number(r.suiteErrors) > 0 || !(Number(r.total) > 0)) ? 'load-error' : (Number(r.failed) > 0 ? 'assertion-failed' : 'passed'))
+  const states = [...new Set(runs.map(one))]
+  return states.length === 1 ? states[0] : 'flaky'
+}
+// Fail-closed parse of the MECH's verbatim stdout (same discipline as validateEvidence): anything that is
+// not the script's ok:true shape proves nothing.
+function parseDriftProof(raw) {
+  const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
+  if (!text) return { proof: null, error: 'the drift-proof runner returned no output' }
+  let j
+  try { j = JSON.parse(text) } catch { return { proof: null, error: 'the drift-proof output is not valid JSON' } }
+  if (!j || j.ok !== true) return { proof: null, error: `the drift-proof script refused: ${(j && j.error) || 'no ok:true'}` }
+  if (!Array.isArray(j.probes) || !j.owned || typeof j.owned !== 'object') return { proof: null, error: 'the drift-proof output lacks probes/owned' }
+  return { proof: j, error: '' }
+}
+// Owned contract cores from the reviewed WOs at the pin: `source_requirements` when declared, else every
+// id the file mentions (fail-closed). null = ownership unprovable → every claim is a cycle fault.
+function ownedDriftCores(proof, woPaths) {
+  if (!proof || !woPaths.length) return null
+  const cores = new Set()
+  for (const p of woPaths) {
+    const o = proof.owned[p]
+    if (!o || o.error || !Array.isArray(o.ids)) return null
+    const ids = Array.isArray(o.sourceRequirements) && o.sourceRequirements.length ? o.sourceRequirements : o.ids
+    for (const id of ids) cores.add(contractCore(id))
+  }
+  return cores
+}
+/**
+ * The BL-0178 predicate for ONE claimed `fail` entry. Pure: every input is a fact the MECH run reported.
+ * @returns {{ verdict: 'preexisting'|'regression'|'refuted'|'cycle-fault', why: string, stored?: string }}
+ */
+function classifyDriftClaim(entry, proof, owned, proofError) {
+  const id = contractIdOf(entry.contract)
+  if (!id) return { verdict: 'cycle-fault', why: 'the contract carries no REQ/AC id, so non-ownership cannot be proven' }
+  if (!DRIFT_PROBE_RE.test(String(entry.evidence_test || ''))) return { verdict: 'cycle-fault', why: 'no valid evidence_test probe (.pandacorp/run/drift-probes/<frd>/<id>.drift-probe.ts)' }
+  if (!proof) return { verdict: 'cycle-fault', why: proofError || 'the differential proof did not run' }
+  if (!owned) return { verdict: 'cycle-fault', why: 'reviewed work-order ownership could not be read at the pin' }
+  if (owned.has(contractCore(id))) return { verdict: 'cycle-fault', why: `${id} is owned by a reviewed work order (source_requirements) — never pre-existing` }
+  const probe = proof.probes.find((p) => p && p.path === entry.evidence_test)
+  if (!probe || probe.missing) return { verdict: 'cycle-fault', why: 'the probe file was not found where the reviewer said it wrote it' }
+  const stored = probe.stored
+  const head = probeRunState(probe.head)
+  if (head === 'passed') return { verdict: 'refuted', why: 'the probe PASSES at the gate pin — the claimed contradiction is not demonstrated', stored }
+  if (head !== 'assertion-failed') return { verdict: 'cycle-fault', why: `the probe is ${head} at the gate pin — it proves nothing`, stored }
+  if (proof.baseValid !== true) return { verdict: 'cycle-fault', why: `no valid pre-cycle base (${proof.baseReason || 'unknown'})`, stored }
+  const base = probeRunState(probe.base)
+  if (base === 'assertion-failed') return { verdict: 'preexisting', why: `fails on an assertion at the pin AND at last_green_sha ${String(proof.base || '').slice(0, 8)}`, stored }
+  if (base === 'passed') return { verdict: 'regression', why: `held at last_green_sha ${String(proof.base || '').slice(0, 8)} and fails at the pin — this cycle broke it`, stored }
+  return { verdict: 'cycle-fault', why: `the probe is ${base} at last_green_sha — unproven`, stored }
+}
+async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
+  const st = frdState.get(frd)
+  const reviewed = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
+  const woPaths = reviewed.map((w) => w.path).filter((p) => DRIFT_WO_PATH_RE.test(String(p || '')))
+  const provable = claims.filter((e) => DRIFT_PROBE_RE.test(String(e.evidence_test || '')) && String(e.evidence_test).includes(`/drift-probes/${frd}/`))
+  if (!provable.length) return { proof: null, owned: null, error: 'no claim carries a valid evidence_test for this FRD' }
+  if (!reviewed.length || woPaths.length !== reviewed.length) return { proof: null, owned: null, error: 'a reviewed work order has no valid path — ownership cannot be read' }
+  const cmd = `${DRIFT_CLI_COMMAND} prove --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --source ${shellQuote(sourceDir)} --pin ${shellQuote(pinSha || 'HEAD')} ${woPaths.map((p) => `--wo ${shellQuote(p)}`).join(' ')} ${[...new Set(provable.map((e) => e.evidence_test))].map((p) => `--probe ${shellQuote(p)}`).join(' ')}`
+  agentSpawned++
+  let raw = null
+  try {
+    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 differential drift proof for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize or reformat the output.`,
+      { label: `drift-proof:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+  } catch (e) {
+    log(`⚠ ${frd}: the drift-proof runner threw (${(e && e.message) || e}) — every drift claim stays a cycle fault (BL-0178 fail-closed)`)
+    return { proof: null, owned: null, error: 'the drift-proof runner threw' }
+  }
+  const { proof, error } = parseDriftProof(raw)
+  if (!proof) { log(`⚠ ${frd}: ${error} — every drift claim stays a cycle fault (BL-0178 fail-closed)`); return { proof: null, owned: null, error } }
+  if (proof.cleanup && proof.cleanup.ok === false) log(`⚠ ${frd}: drift-proof left temporary worktree(s) behind: ${(proof.cleanup.leftover || []).join(', ')}`)
+  return { proof, owned: ownedDriftCores(proof, woPaths), error: '' }
+}
+// Files the confirmed drift as draft change cards (MECH, idempotent twice over: once per FRD per run here,
+// and on disk by drift-key in drift-proof.mjs — a re-gate never files the same drift twice).
+async function recordDrift(frd, confirmed) {
+  const st = frdState.get(frd)
+  if (st && !st.recordedDrift) st.recordedDrift = new Set()
+  const fresh = confirmed.filter((d) => !(st && st.recordedDrift.has(d.id)))
+  if (!fresh.length) { log(`◦ ${frd}: drift ${confirmed.map((d) => d.id).join(', ')} already recorded this run — not filing it again (BL-0178 idempotent)`); return }
+  const items = fresh.map((d) => ({ id: d.id, contract: d.contract, contractClass: d.contractClass, direction: d.direction, probe: d.stored, pin: d.pin, base: d.base }))
+  const cmd = `${DRIFT_CLI_COMMAND} record --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --project-name "${PROJECT}" --items ${shellQuote(JSON.stringify(items))}`
+  agentSpawned++
+  let raw = null
+  try {
+    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
+      { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+  } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
+  let res = null
+  try { res = raw && typeof raw.output === 'string' ? JSON.parse(raw.output.trim().split('\n').pop()) : null } catch { res = null }
+  if (!res || res.ok !== true) {
+    log(`⚠⚠ ${frd}: drift ${fresh.map((d) => d.id).join(', ')} is PROVEN but its draft card could NOT be written (${(res && res.error) || 'no ok:true output'}) — it still lands in the FRD's committed \`drift:\` frontmatter; file the card by hand (BL-0178)`)
+    return
+  }
+  if (st) for (const d of fresh) st.recordedDrift.add(d.id)
+  log(`✎ ${frd}: pre-existing drift recorded as draft card(s) — written ${(res.written || []).join(', ') || 'none'}; already present ${(res.skipped || []).join(', ') || 'none'} (BL-0178)`)
+}
+/**
+ * BL-0178: adjudicate every `claim: "preexisting"` fail entry of ONE gate verdict and reshape the verdict
+ * so the ordinary routing below applies the policy uniformly. Never touches a verdict without claims.
+ * @returns the verdict with claims resolved; `__drift` = the engine-proven drift list (possibly empty).
+ */
+async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
+  if (!gate || typeof gate !== 'object' || !Array.isArray(gate.traceability)) return gate
+  const claimIdx = gate.traceability.map((e, i) => (e && e.status === 'fail' && e.claim === 'preexisting' ? i : -1)).filter((i) => i >= 0)
+  if (!claimIdx.length) return gate
+  if (DRIFT_POLICY === 'block') {
+    log(`◦ ${frd}: ${claimIdx.length} pre-existing-drift claim(s) IGNORED — args.driftPolicy:'block' treats every fail as a cycle fault (BL-0178 rollback)`)
+    return { ...gate, traceability: gate.traceability.map((e, i) => { if (!claimIdx.includes(i)) return e; const { claim, ...rest } = e; return rest }) }
+  }
+  const claims = claimIdx.map((i) => gate.traceability[i])
+  const { proof, owned, error } = await runDriftProof(frd, reviewIds, claims, pinSha, sourceDir)
+  const confirmed = []
+  const faults = []
+  const trace = gate.traceability.map((e, i) => {
+    if (!claimIdx.includes(i)) return e
+    const c = classifyDriftClaim(e, proof, owned, error)
+    const id = contractIdOf(e.contract)
+    if (c.verdict === 'preexisting') {
+      confirmed.push({ id, contract: e.contract, contractClass: e.contractClass, direction: e.direction || 'unknown', stored: c.stored, pin: proof.pin, base: proof.base })
+      log(`⚖ ${frd}: ${id} is PROVEN pre-existing drift (${c.why}) — recorded, it never blocks nor reopens this cycle (BL-0178)`)
+      return { ...e, status: 'drift', __driftAdjudicated: true, driftWhy: c.why }
+    }
+    if (c.verdict === 'refuted') {
+      log(`⚖ ${frd}: drift claim on ${id} DISCARDED — ${c.why} (BL-0178: the reviewer was wrong)`)
+      return { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
+    }
+    log(`⚖ ${frd}: drift claim on ${id || e.contract} is a CYCLE FAULT (${c.verdict}: ${c.why}) — routed patch-first like any other fail (BL-0178)`)
+    const { claim, ...rest } = e
+    faults.push({ entry: rest, c })
+    return { ...rest, driftVerdict: c.verdict, driftWhy: c.why }
+  })
+  let next = { ...gate, traceability: trace, __drift: confirmed }
+  if (confirmed.length) await recordDrift(frd, confirmed)
+  const st = frdState.get(frd)
+  const atCap = Boolean(st) && st.f.workOrders.some((w) => reviewIds.includes(w.id) && (w.reopen_count || 0) >= MAX_REOPENS)
+  const otherOpen = trace.some((e, i) => !claimIdx.includes(i) && isOpenFail(e))
+  const reportRed = Boolean(gate.gateReport && gate.gateReport.green === false)
+  const onlyDriftRed = !otherOpen && !reportRed && !(gate.missingFoundation && gate.missingFoundation.length) && !(gate.findings && gate.findings.length) && !atCap
+  if (faults.length) {
+    const findingsAdd = faults.map(({ entry, c }) => ({
+      wo: reviewIds[0],
+      finding: `${entry.contract} — contradicted, and the BL-0178 differential proof makes it a CYCLE FAULT (${c.verdict}: ${c.why})${c.verdict === 'regression' ? '. It held at last_green_sha: find the change in `git diff <last_green_sha>..HEAD` that broke it — a shared helper outside this FRD may be the culprit' : ''}`,
+      failingTest: c.stored ? `${c.stored} — the reviewer's probe; install it VERBATIM as a collected test (renamed *.test.ts under src/**/_tests/, it imports via @/ only) to reproduce` : String(entry.evidence_test || ''),
+      files: [],
+    }))
+    if (next.green === true && !atCap) next = { ...next, green: false, reopen: [...reviewIds], findings: findingsAdd, failure: `BL-0178: ${faults.length} pre-existing-drift claim(s) were NOT proven pre-existing — reopened patch-first` }
+    else if (next.green !== true && next.reopen && next.reopen.length) next = { ...next, findings: [...(next.findings || []), ...findingsAdd] }
+    else if (next.green !== true && onlyDriftRed && next.blocked_reason !== 'external') next = { ...next, blocked_reason: undefined, reopen: [...reviewIds], findings: findingsAdd, failure: `BL-0178: the block rested only on drift claims, and ${faults.length} of them are cycle faults — reopened patch-first` }
+  } else if (next.green !== true && onlyDriftRed && !(next.reopen && next.reopen.length) && next.blocked_reason === 'needs-owner') {
+    // The canary-D2 frd-02 shape: the reviewer blocked needs-owner ONLY because of drift it could not pin on a
+    // reviewed WO. Every one of its reds is now proven drift (or refuted) → policy (a): the cycle is not blocked.
+    log(`✓ ${frd}: the gate blocked needs-owner ONLY over drift the engine proved pre-existing — policy (a): the block is lifted, the cycle's work orders are certified (BL-0178)`)
+    next = { ...next, green: true, blocked_reason: undefined, failure: undefined, __driftBlockLifted: true }
+  }
+  return next
+}
+/**
+ * The single choke point every gate verdict passes through before routing (BL-0178): adjudicate drift
+ * claims, THEN the whole-FRD oracle (so an unproven claim still reds a green), then remember what the
+ * landing steps need — the proven drift (FRD `drift:` frontmatter) and the still-open fails that
+ * verifyPatched inherits.
+ */
+async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJECT_DIR) {
+  const adjudicated = await adjudicateDrift(frd, reviewIds, raw, pinSha, sourceDir)
+  const result = enforceWholeFrdTraceability(adjudicated)
+  const st = frdState.get(frd)
+  if (st) {
+    st.landingDrift = (adjudicated && Array.isArray(adjudicated.__drift)) ? adjudicated.__drift : []
+    st.inheritedFails = (result && Array.isArray(result.traceability)) ? result.traceability.filter(isOpenFail) : []
+  }
+  return result
+}
+// The certifying landings' (applyGate / verifyPatched) half of the drift policy: the FRD frontmatter
+// `drift:` list is a REPLICA of the proven drift — single writer (these two landings), re-derived at every
+// certifying landing from the latest adjudicated gate of that FRD (DR-115 honest cache; the cards in the
+// gitignored inbox are the owner's channel, this committed key is the portable trace).
+const driftFrontmatter = (frd) => {
+  const st = frdState.get(frd)
+  const ids = ((st && st.landingDrift) || []).map((d) => d.id)
+  return ids.length
+    ? ` **BL-0178 DRIFT (engine-proven pre-existing drift — it does NOT block):** in docs/frds/${frd}/frd.md frontmatter set exactly \`drift: [${ids.join(', ')}]\` (add the key if absent, replace it if present — a replica of the draft change card(s) already filed, written only by this certifying step) and include frd.md in the snapshot commit.`
+    : ` **BL-0178 DRIFT:** if docs/frds/${frd}/frd.md frontmatter has a \`drift:\` line, delete that line (this gate proved no pre-existing drift; the replica is re-derived at every certifying landing) and include frd.md in the snapshot commit; otherwise change nothing.`
 }
 // ── WP-06 evidence-pack schema (args.gateEvidence: 'digested') ───────────────
 // What the cheap `evidence:<frd>` collector returns to the ENGINE (never to the reviewer directly — the
@@ -891,6 +1136,8 @@ const REPAIR_SCHEMA = {
     // internally inconsistent / unsatisfiable; the engine repairs the TEST, it does NOT discard a
     // correct build). One fallback for two causes was rebuilding correct work in unwinnable loops.
     cause: { type: 'string', enum: ['code', 'gate-test-defective'], description: "why the patch could not green: 'code' = the build genuinely fails → revert+retry; 'gate-test-defective' = a reviewer test is internally inconsistent/unsatisfiable by ANY correct implementation → the engine routes to gate-test repair (BL-0001), never a rebuild" },
+    // BL-0178: verifyPatched inherits the gate's still-open `fail` contracts and must prove EACH one closed.
+    inheritedResolved: { type: 'array', description: 'BL-0178 (verify-patch only): one entry per inherited open contract you were given — the test file(s) you ran that prove it now holds, and whether they passed', items: { type: 'object', required: ['contract', 'pass', 'tests'], properties: { contract: { type: 'string', description: 'the inherited contract text, VERBATIM as given' }, pass: { type: 'boolean' }, tests: { type: 'array', items: { type: 'string' } } } } },
     defectiveTests: { type: 'array', description: 'BL-0001: the reviewer test(s) judged defective, with evidence — only when cause is gate-test-defective', items: { type: 'object', required: ['path', 'why'], properties: { path: { type: 'string' }, why: { type: 'string', description: 'the internal inconsistency, e.g. "asserts desktop-only nav visibility but the Playwright config runs desktop+mobile and no viewport is forced"' } } } },
     report_scope: REPORT_SCOPE,
   },
@@ -1397,6 +1644,9 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
   // by the concurrent path (launchGate), which is the only caller with a frozen pin to collect from. Absent
   // (re-gates on main, the legacy synchronous path) → the gate runs in EXPLORE mode, unchanged.
   const st = frdState.get(frd)
+  // BL-0178: where THIS gate's reviewer worked (its probe files live there) and the sha it judged.
+  const concurrent = typeof workFrom === 'string' && workFrom.length > 0
+  const drift = concurrent ? { pin: (st && st.pinSha) || null, source: GATE_WORKTREE } : { pin: null, source: PROJECT_DIR }
   const priorAttempts = (st && st.gateAttempts) || 0   // gate attempts ALREADY made for this FRD this run
   const attemptNo = priorAttempts + 1                  // 1-based attempt number for THIS gate (B8)
   if (st) st.gateAttempts = attemptNo
@@ -1408,14 +1658,14 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
     const remaining = MAX_AGENTS ? MAX_AGENTS - agentSpawned : Infinity
     if (remaining >= splitGateEstimatedCost()) {
       const split = await frdGateSplit(frd, reviewIds, attemptNo, workFrom, evidencePack)
-      if (!split || !split.__splitFailed) return enforceWholeFrdTraceability(split)   // sentinel __splitFailed → all finders died → fall to serial
+      if (!split || !split.__splitFailed) return await finalizeGate(frd, reviewIds, split, drift.pin, drift.source)   // sentinel __splitFailed → all finders died → fall to serial
     } else {
       log(`↩ ${frd}: reviewSplit on but the split's estimated cost (${splitGateEstimatedCost()}) exceeds the remaining agent budget (${remaining}) — using the serial gate instead (contract 5)`)
     }
   } else if (P.reviewSplit) {
     log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
   }
-  return enforceWholeFrdTraceability(await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack))
+  return await finalizeGate(frd, reviewIds, await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack), drift.pin, drift.source)
 }
 
 // ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
@@ -1585,6 +1835,7 @@ ${directive ? `\n  ${directive}\n` : ''}
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
 
   ${WHOLE_FRD_ORACLE}
+  ${DRIFT_CLAIM_DIRECTIVE}
 ${evidenceBlock(frd, ev)}
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -1704,6 +1955,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
 
   ${WHOLE_FRD_ORACLE}
+  ${DRIFT_CLAIM_DIRECTIVE}
 ${evidenceBlock(frd, ev)}
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -1941,7 +2193,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
-    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${LAST_GREEN_ORDERING}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${driftFrontmatter(frd)}${LAST_GREEN_ORDERING}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
     **BEFORE you stamp anything (WP-08 cage):** read \`${gateReportPath}\` — the report the gate you are applying left behind (in the gate worktree, NOT your own main-tree copy of that filename, when this apply followed a concurrent gate) — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.`,
     { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
@@ -1972,8 +2224,13 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
 // clearing the exact same paths, so the worktree goes back to clean without losing anything.
 async function persistGateBlock(frd, reviewIds, reason, failure, alreadyTracked = false) {
   agentSpawned++
+  // BL-0178: a block that ALSO carried proven pre-existing drift still files that drift (adjudicateDrift
+  // already wrote the draft card) — but the drift is never the block's reason, and a block never stamps
+  // the FRD's `drift:` frontmatter (only a certifying landing writes that replica).
+  const blockDrift = ((frdState.get(frd) || {}).landingDrift || []).map((d) => d.id)
+  const driftNote = blockDrift.length ? ` BL-0178: the pre-existing drift the engine proved for this gate (${blockDrift.join(', ')}) is ALREADY filed as draft change card(s) and is NOT a reason for this block — do not list it as a blocker in decisions.md.` : ''
   const link = commitChain.then(() => agent(
-    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition. Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)}
+    `You are the SOLE main-tree git writer at this instant (serialized). The FRD gate for ${frd} classified a BLOCK (${reason})${failure ? ` — ${failure}` : ''} but is review-only, so persist it on the MAIN tree now. For EACH reviewed work order (${(reviewIds || []).join(', ')}) whose frontmatter fault warrants it (a DR-072 non-progress WO has \`reopen_count\` ≥ ${MAX_REOPENS}; for a generic gate block, all of them): set \`implementation_status: BLOCKED\` + \`blocked_reason: ${reason}\`. Append an owner-facing record (SPANISH) to .pandacorp/inbox/decisions.md — what the gate keeps rejecting, the diagnosis, what the owner must decide. ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.${driftNote} Commit (Conventional Commits, scope).${alreadyTracked ? '' : emitGateOutcome(frd, 'blocked', `,"blocked_reason":"${reason}"`)}
     **Gate-worktree salvage (F2/BL-0175) — run this BEFORE you finish, it is a SEPARATE tree from the one you just committed to:** if ${GATE_WORKTREE} exists and \`git -C ${PROJECT_DIR} worktree list --porcelain\` registers it, run \`git -C ${GATE_WORKTREE} status --porcelain=v1 --untracked-files=all\` (BL-0182: without \`--untracked-files=all\` a new directory collapses to one \`?? dir/\` line and its files are never salvaged; paths are worktree-ROOT-relative). For EACH path it reports, copy that file to \`.pandacorp/run/gate-evidence/${frd}/<the same relative path>\` (mkdir -p the parent; this is a gitignored MAIN-tree append, not a git write), then run \`git -C ${GATE_WORKTREE} clean -f -- <that exact path>\` for an untracked file or \`git -C ${GATE_WORKTREE} checkout -- <that exact path>\` for a modified tracked one — copy-then-clean EXACTLY the reported paths, one at a time, NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\` (BL-0067: this worktree may hold other crash evidence you must not touch). If \`git status --porcelain\` is already empty, or the worktree does not exist, skip this step entirely — do not create or touch anything. This keeps the gate worktree clean for C2 reuse by the NEXT FRD gate this run, instead of silently degrading the rest of the run (and every future one) to the legacy synchronous gate path. Return { done: true }.`,
     { label: `persist-block:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
   commitChain = link.then(() => {}, () => {})
@@ -2217,12 +2474,21 @@ async function verifyPatched(frd, reviewIds) {
   const breach = await checkReviewerTestIntegrity(frd)   // BL-0184: never spawn the certifier over tampered/missing reviewer tests
   if (breach) return breach
   agentSpawned++
+  // BL-0178: the FRD-03 hole — a verifier that only re-ran vitest/tsc/biome certified VERIFIED while the
+  // first gate's still-open `fail` contracts (and, before, its drift) vanished. It now INHERITS every open
+  // fail of the gate it is certifying (finalizeGate stashed them; proven drift is excluded — that has its
+  // own record) and may not return green until each one is shown closed by a passing test.
+  const inherited = ((frdState.get(frd) || {}).inheritedFails) || []
+  const inheritedBlock = inherited.length
+    ? `\n  **INHERITED OPEN CONTRACTS (BL-0178 — the gate recorded these as \`fail\`; you may NOT certify while any one stays open):**\n  ${inherited.map((e) => `• [${e.contractClass}] ${e.contract}${Array.isArray(e.tests) && e.tests.length ? ` — the gate's tests: ${e.tests.join(', ')}` : ''}`).join('\n  ')}\n  For EACH one, run the test file(s) that prove it now holds on the patched build (the gate's tests above when they exist in this tree, else the patch's RED-proven test for it) and report it in \`inheritedResolved\` as { contract: <its text VERBATIM as listed>, pass, tests }. "Everything is clean" REQUIRES every inherited contract pass:true with at least one test — otherwise take the red exit.`
+    : ''
   const resolutionJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
   const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. ${reviewerTestsVerifyDirective(frd)}
   **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
-  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
+${inheritedBlock}
+  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${driftFrontmatter(frd)}${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
   **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.
   **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. You are THE certification: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
@@ -2232,6 +2498,19 @@ async function verifyPatched(frd, reviewIds) {
   if (verdict && verdict.green === true && isPartialReport(verdict)) {
     refusePartial(frd, 'the independent post-patch verification')
     return { ...verdict, green: false, failure: 'verification ran a SCOPED gate (gate-report scope:"partial") — it certifies nothing (WP-08 cage)' }
+  }
+  // BL-0178: a green that does not prove EVERY inherited open contract closed is a red — the same
+  // downgrade-to-red contract as the cage above (every caller then takes the genuine-red path).
+  if (verdict && verdict.green === true && inherited.length) {
+    const norm = (x) => String(x || '').replace(/\s+/g, ' ').trim()
+    const resolved = Array.isArray(verdict.inheritedResolved) ? verdict.inheritedResolved : []
+    const open = inherited.filter((e) => !resolved.some((r) => r && r.pass === true && Array.isArray(r.tests) && r.tests.length > 0
+      && (norm(r.contract) === norm(e.contract) || (contractIdOf(e.contract) && contractIdOf(r.contract) === contractIdOf(e.contract)))))
+    if (open.length) {
+      const names = open.map((e) => contractIdOf(e.contract) || e.contract).join(', ')
+      log(`⛔ ${frd}: the post-patch verifier claims GREEN but ${open.length} inherited fail contract(s) are not proven closed (${names}) — REFUSING to certify (BL-0178)`)
+      return { ...verdict, green: false, failure: `BL-0178: inherited fail contract(s) not proven closed by a passing test: ${names}` }
+    }
   }
   return verdict
 }
@@ -2681,7 +2960,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
     const attemptNo = ((st && st.gateAttempts) || 0) + 1
     if (st) st.gateAttempts = attemptNo
     const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict with a COMPLETE traceability inventory this time.`
-    const reregate = enforceWholeFrdTraceability(await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
+    const reregate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
     if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); reopenedFrds.push(f.frd); return 'reopened' }
     if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry, traceability re-ask)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
     if (reregate && reregate.reopen && reregate.reopen.length) { await revertAndReopen(f.frd, reregate.reopen); reopenedFrds.push(f.frd); return 'reopened' }
@@ -2887,7 +3166,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     const attemptNo = ((st && st.gateAttempts) || 0) + 1
     if (st) st.gateAttempts = attemptNo
     const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict (green/reopen/findings unchanged unless your judgment of the code itself has changed) with a COMPLETE traceability inventory this time.`
-    const regate = enforceWholeFrdTraceability(await frdGateSerial(f.frd, reviewIds, attemptNo, null, null, directive))
+    const regate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, null, null, directive))
     if (regate && regate.traceabilityDeficient && (!regate.reopen || !regate.reopen.length)) {
       const stillMissing = regate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)

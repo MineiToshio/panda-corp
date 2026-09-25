@@ -2508,9 +2508,12 @@ SCENARIOS.push({
     // shape as the other mech sites, defined ONCE and called from all 4 close-out/notify-end branches).
     // + 3 (BL-0182/0184): the C2 gate-worktree release (`gate-release:<frd>`), the reject-path port of the
     // reviewer's tests (`port-reviewer-tests:<frd>`) and the DR-080 hash check (`reviewer-test-hash:<frd>`) —
-    // all zero-judgment cp/git/shasum runners, the same shape as the gate-worktree probe itself = 19.
-    t.ok(mechAgentCount === 19, `exactly 19 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 19, `exactly 19 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // all zero-judgment cp/git/shasum runners, the same shape as the gate-worktree probe itself.
+    // + 2 (BL-0178): 'drift-proof:<frd>' and 'drift-record:<frd>' — each runs ONE drift-proof.mjs command and
+    // returns its stdout verbatim (zero judgment; the ENGINE applies the pre-existing-drift predicate).
+    // Integrated total (BL-0182..0184 + BL-0178 merge): 16 + 3 + 2 = 21, recounted from the source below.
+    t.ok(mechAgentCount === 21, `exactly 21 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 21, `exactly 21 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -5044,6 +5047,321 @@ SCENARIOS.push({
     t.ok(hash && /Record only/.test(hash.prompt), 'after the owner\'s repair the check records (re-pins) instead of restoring')
     t.ok(!hasLog(run, /DR-080 BREACH/), 'no false DR-080 breach for the owner\'s own repair')
     t.ok(byLabel(run, 'verify-patch:frd-184d').length === 1 && run.result && run.result.builtFrds.includes('frd-184d'), 'the independent verifier ran and the FRD verified')
+  },
+})
+
+// ---- BL-0178 ----
+// Pre-existing drift policy (a*) with a DIFFERENTIAL proof (proposal 38, red-team addendum §A4). The reviewer
+// may only PROPOSE drift (`claim: "preexisting"` + `evidence_test` probe); a MECH spawn runs drift-proof.mjs
+// (its real git/worktree/vitest mechanics are proven in test-drift-proof.mjs against a real repo) and the
+// ENGINE applies the predicate to the facts it reports — mocked here as the script's JSON line. T1–T8 are the
+// addendum's tests; the rest pin the rollback switch, the FRD-03 verifyPatched hole and the oracle stamp.
+const b178Slug = (id) => id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+const b178Probe = (frd, id) => `.pandacorp/run/drift-probes/${frd}/${b178Slug(id)}.drift-probe.ts`
+const b178Run = (s) => (s === 'fail'
+  ? { parsed: true, exit: 1, total: 1, failed: 1, passed: 0, suiteErrors: 0 }
+  : s === 'pass'
+    ? { parsed: true, exit: 0, total: 1, failed: 0, passed: 1, suiteErrors: 0 }
+    : { parsed: true, exit: 1, total: 0, failed: 0, passed: 0, suiteErrors: 1 })   // 'load' — the module never loaded
+// The drift-proof.mjs stdout the MECH hands back verbatim. `probes`: [[contractId, headStates, baseStates]].
+const b178Proof = ({ frd, wos, owned, probes, baseValid = true }) => ({ output: JSON.stringify({
+  ok: true, version: 1, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'wo is already IN_REVIEW at last_green_sha',
+  owned: Object.fromEntries(wos.map((w) => [`docs/frds/${frd}/work-orders/${w}.md`, { sourceRequirements: owned, ids: owned }])),
+  probes: probes.map(([id, head, base]) => ({ path: b178Probe(frd, id), stored: `.pandacorp/run/gate-evidence/${frd}/drift/${b178Slug(id)}.drift-probe.ts`, head: head.map(b178Run), base: base.map(b178Run) })),
+  cleanup: { ok: true, leftover: [] },
+}) })
+const b178Claim = (frd, id, text, direction = 'code') => ({ contract: `${id} — ${text}`, contractClass: 'acceptance-criterion', status: 'fail', claim: 'preexisting', evidence_test: b178Probe(frd, id), direction, tests: [] })
+const b178Trace = (...extra) => [...validTraceability, ...extra]
+const b178Record = { prefix: 'drift-record:', response: (call) => ({ output: JSON.stringify({ ok: true, written: [(call.prompt.match(/drift record for (\S+)\./) || [])[1] + '-drift.md'], skipped: [] }) }) }
+const b178Plan = (frd, wo, extra = {}) => mkPlan([{ frd, deps: [], workOrders: [mkWo(wo, 'PLANNED', { frd, artifacts: [`src/${frd}/**`], ...extra })] }])
+
+// T1 — shared-helper regression: WO-A breaks an OLD contract through a shared helper; the reviewer mislabels it
+// drift. Probe green at last_green, red at the pin → a REGRESSION → reopened patch-first, never a card.
+SCENARIOS.push({
+  name: 'BL-0178 T1. shared-helper regression labelled "pre-existing" → probe passes at last_green → cycle fault, reopen patch-first, NO card',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t1', 'wo-b178t1-001'),
+  responses: [
+    { label: 'gate:frd-b178-t1', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t1', 'AC-91-003.1', 'old AC owned by a VERIFIED WO')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t1', wos: ['wo-b178t1-001'], owned: ['REQ-91-001'], probes: [['AC-91-003.1', ['fail', 'fail'], ['pass', 'pass']]] }) },
+    b178Record,
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-91-003.1 — old AC owned by a VERIFIED WO', pass: true, tests: ['src/frd-b178-t1/_tests/ac-91-003-1.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof:frd-b178-t1').length === 1, 'the differential proof ran once')
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'NO drift card for a regression the cycle caused')
+    const patch = byLabel(run, 'patch:frd-b178-t1')[0]
+    t.ok(patch && /AC-91-003\.1/.test(patch.prompt) && /regression/.test(patch.prompt), 'the patcher gets the contract as a regression finding')
+    t.ok(patch && /git diff <last_green_sha>\.\.HEAD/.test(patch.prompt) && /shared helper/.test(patch.prompt), 'the patcher is pointed at the whole base..pin diff (the culprit may be a shared helper)')
+    t.ok(patch && /gate-evidence\/frd-b178-t1\/drift\/ac-91-003-1\.drift-probe\.ts/.test(patch.prompt), 'the reviewer\'s probe is handed over as the RED-proven failing test')
+    const vp = byLabel(run, 'verify-patch:frd-b178-t1')[0]
+    t.ok(vp && /INHERITED OPEN CONTRACTS/.test(vp.prompt) && /AC-91-003\.1/.test(vp.prompt), 'verifyPatched inherits the unproven claim as an open contract')
+    t.ok(hasLog(run, /AC-91-003\.1 is a CYCLE FAULT \(regression/), 'logged as a regression cycle fault')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-t1'), 'VERIFIED only after the patch proves the contract closed')
+  },
+})
+
+// T2 — genuine legacy drift inside a file the cycle touched: the predicate is FILE-AGNOSTIC by construction
+// (no diff/path input exists anywhere in it), so touching the file can't turn legacy drift into a revert.
+SCENARIOS.push({
+  name: 'BL-0178 T2. legacy drift (probe red at pin AND last_green, contract not owned) → WO VERIFIED + 1 draft card + FRD drift frontmatter, NO reopen',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t2', 'wo-b178t2-001'),
+  responses: [
+    { label: 'gate:frd-b178-t2', response: { green: true, testFiles: ['src/frd-b178-t2/_tests/x.reviewer.test.ts'], traceability: b178Trace(b178Claim('frd-b178-t2', 'REQ-92-001', 'ACTIVE_PHASES must exclude architecture')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t2', wos: ['wo-b178t2-001'], owned: ['REQ-92-007'], probes: [['REQ-92-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const proof = byLabel(run, 'drift-proof:frd-b178-t2')[0]
+    t.ok(proof && proof.opts.agentType === 'pandacorp:mech' && proof.opts.model === 'haiku', 'the proof runs on the cheap mechanical agent (MECH) — it never judges')
+    t.ok(proof && /drift-proof\.mjs' prove/.test(proof.prompt) && /--source '[^']*gate-worktree'/.test(proof.prompt), 'the proof reads the probe where the concurrent gate wrote it (the gate worktree)')
+    t.ok(proof && !/--diff|--changed|name-only/.test(proof.prompt), 'T2: nothing in the decision is keyed on which files the cycle touched')
+    const rec = byLabel(run, 'drift-record:frd-b178-t2')
+    t.ok(rec.length === 1 && /REQ-92-001/.test(rec[0].prompt) && /gate-evidence\/frd-b178-t2\/drift\//.test(rec[0].prompt), 'exactly one draft card, carrying the preserved probe')
+    t.ok(byLabel(run, /^(patch|revert|repair):/).length === 0, 'NO patch, NO revert, NO repair — the correct WO is not touched')
+    const apply = byLabel(run, 'apply-gate:frd-b178-t2')[0]
+    t.ok(apply && /drift: \[REQ-92-001\]/.test(apply.prompt), 'the certifying landing writes drift: [REQ-92-001] into the FRD frontmatter')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-t2') && !run.result.blockedFrds.includes('frd-b178-t2'), 'the FRD lands VERIFIED')
+  },
+})
+
+// T3 — a probe that imports a symbol the cycle introduced is a LOAD error at base: not proof of anything. The
+// addendum's static fallback card (madge import-closure) is NOT implemented — an unproven claim is a cycle
+// fault (fail-closed). The load-bearing half of T3 (never classified pre-existing) is what this asserts.
+SCENARIOS.push({
+  name: 'BL-0178 T3. probe unloadable at last_green → unproven → cycle fault (never "red at base ⇒ pre-existing"), NO card',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t3', 'wo-b178t3-001'),
+  responses: [
+    { label: 'gate:frd-b178-t3', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t3', 'AC-93-002.1', 'uses a symbol this cycle added')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t3', wos: ['wo-b178t3-001'], owned: ['REQ-93-009'], probes: [['AC-93-002.1', ['fail', 'fail'], ['load', 'load']]] }) },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-93-002.1 — uses a symbol this cycle added', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'NO card — a load error at base proves nothing')
+    t.ok(hasLog(run, /AC-93-002\.1 is a CYCLE FAULT \(cycle-fault: the probe is load-error at last_green_sha/), 'the reason names the load error at last green')
+    t.ok(byLabel(run, 'patch:frd-b178-t3').length === 1, 'routed patch-first like any cycle fault')
+  },
+})
+
+// T4 — a contract a reviewed WO OWNS is never pre-existing, even if its probe is red at both shas.
+SCENARIOS.push({
+  name: 'BL-0178 T4. owned contract (source_requirements) labelled drift → cycle fault even with a probe red at both shas',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t4', 'wo-b178t4-001'),
+  responses: [
+    { label: 'gate:frd-b178-t4', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t4', 'AC-94-002.3', 'the WO was supposed to build this')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t4', wos: ['wo-b178t4-001'], owned: ['REQ-94-002'], probes: [['AC-94-002.3', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-94-002.3 — the WO was supposed to build this', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'NO card for an owned contract')
+    t.ok(hasLog(run, /AC-94-002\.3 is owned by a reviewed work order/), 'the reason names ownership (REQ-94-002 owns AC-94-002.3)')
+    t.ok(byLabel(run, 'patch:frd-b178-t4').length === 1, 'reopened patch-first')
+  },
+})
+
+// T5 — cross-FRD regression. The culprit WO sits in a SIBLING FRD of the same wave. Madge attribution to the
+// sibling is NOT implemented (stated in the engine); what holds: the FRD whose contract regressed can never
+// land VERIFIED over it — its verifier must prove the inherited contract closed, and a verifier that doesn't is
+// refused.
+SCENARIOS.push({
+  name: 'BL-0178 T5. cross-FRD regression → the regressed FRD cannot certify over it (verifier without proof refused); sibling attribution out of scope',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b178-t5a', deps: [], workOrders: [mkWo('wo-b178t5a-001', 'PLANNED', { frd: 'frd-b178-t5a', artifacts: ['src/t5a/**'] })] },
+    { frd: 'frd-b178-t5b', deps: [], workOrders: [mkWo('wo-b178t5b-001', 'PLANNED', { frd: 'frd-b178-t5b', artifacts: ['src/lib/shared/**'] })] },
+  ]),
+  responses: [
+    { label: 'gate:frd-b178-t5a', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t5a', 'AC-95-001.1', 'broken by a sibling\'s shared-lib change')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t5a', wos: ['wo-b178t5a-001'], owned: ['REQ-95-004'], probes: [['AC-95-001.1', ['fail', 'fail'], ['pass', 'pass']]] }) },
+    { label: 'verify-patch:frd-b178-t5a', times: 1, response: { green: true } },   // claims green, proves nothing
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card for a regression')
+    t.ok(hasLog(run, /⛔ frd-b178-t5a: the post-patch verifier claims GREEN but 1 inherited fail contract\(s\) are not proven closed \(AC-95-001\.1\)/), 'the unproven certification is REFUSED')
+    t.ok(byLabel(run, 'revert:frd-b178-t5a').length === 1, 'the refused verification takes the genuine-red path (revert + reopen)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-t5b'), 'the sibling FRD is not blocked by this FRD\'s regression')
+  },
+})
+
+// T6 — the FRD-02 shape (direct: green / legacy needs-owner block) and the FRD-03 shape (a patchable cycle
+// fault AND drift → patch → verifyPatched) produce BYTE-IDENTICAL drift cards. Two extra runs, awaited here.
+const b178T6Proof = { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t6', wos: ['wo-b178t6-001'], owned: ['REQ-96-014'], probes: [['AC-96-010.4', ['fail', 'fail'], ['fail', 'fail']]] }) }
+const b178T6Claim = b178Claim('frd-b178-t6', 'AC-96-010.4', 'team roster drift', 'unknown')
+const b178T6Patched = await runEngine({
+  args: { mode: 'pro' }, plan: b178Plan('frd-b178-t6', 'wo-b178t6-001'),
+  responses: [
+    { label: 'gate:frd-b178-t6', times: 1, response: { green: false, reopen: ['wo-b178t6-001'], findings: [{ wo: 'wo-b178t6-001', finding: 'date validation accepts 2026-02-30 (src/x.ts:12)', failingTest: 'src/x/_tests/date.reviewer.test.ts', files: ['src/x.ts'] }], failure: 'date validation', traceability: b178Trace(b178T6Claim) } },
+    b178T6Proof, b178Record,
+  ],
+})
+const b178T6Blocked = await runEngine({
+  args: { mode: 'pro' }, plan: b178Plan('frd-b178-t6', 'wo-b178t6-001'),
+  responses: [
+    { label: 'gate:frd-b178-t6', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'AC-96-010.4 contradicted by code no reviewed WO touched — needs the owner', testFiles: ['src/x/_tests/a.reviewer.test.ts'], traceability: b178Trace(b178T6Claim) } },
+    b178T6Proof, b178Record,
+  ],
+})
+SCENARIOS.push({
+  name: 'BL-0178 T6. FRD-02 shape (direct green), FRD-02 legacy shape (needs-owner block lifted) and FRD-03 shape (patch path) file BYTE-IDENTICAL cards and all land VERIFIED + drift',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t6', 'wo-b178t6-001'),
+  responses: [{ label: 'gate:frd-b178-t6', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178T6Claim) } }, b178T6Proof, b178Record],
+  assert(t, run) {
+    for (const [name, r] of [['direct', run], ['patched', b178T6Patched], ['blocked-lifted', b178T6Blocked]]) {
+      t.ok(!r.error, `${name}: engine threw: ${r.error}`)
+      t.ok(!r.unmatched.length, `${name}: unmatched labels ${r.unmatched.join(', ')}`)
+      t.ok(r.result && r.result.builtFrds.includes('frd-b178-t6') && !r.result.blockedFrds.includes('frd-b178-t6'), `${name}: the FRD lands VERIFIED`)
+      t.ok(byLabel(r, 'drift-record:frd-b178-t6').length === 1, `${name}: exactly one drift record`)
+    }
+    const card = (r) => (byLabel(r, 'drift-record:frd-b178-t6')[0] || {}).prompt
+    t.ok(card(run) && card(run) === card(b178T6Patched) && card(run) === card(b178T6Blocked), 'the three paths file the BYTE-IDENTICAL drift record')
+    t.ok(/drift: \[AC-96-010\.4\]/.test((byLabel(run, 'apply-gate:frd-b178-t6')[0] || {}).prompt || ''), 'direct: apply-gate stamps drift: [AC-96-010.4]')
+    const vp = byLabel(b178T6Patched, 'verify-patch:frd-b178-t6')[0]
+    t.ok(vp && /drift: \[AC-96-010\.4\]/.test(vp.prompt), 'patch path: the INDEPENDENT verifier stamps the same drift frontmatter (the FRD-03 hole: drift no longer vanishes)')
+    t.ok(vp && !/INHERITED OPEN CONTRACTS/.test(vp.prompt), 'patch path: proven drift is NOT inherited as an open contract (it has its own record)')
+    t.ok(byLabel(b178T6Patched, 'patch:frd-b178-t6').length === 1 && !/AC-96-010\.4/.test(byLabel(b178T6Patched, 'patch:frd-b178-t6')[0].prompt), 'patch path: the patcher fixes only the real cycle fault, never the drift')
+    t.ok(byLabel(b178T6Blocked, /^persist-block:/).length === 0 && hasLog(b178T6Blocked, /block is lifted/), 'legacy shape: a needs-owner block resting ONLY on proven drift is lifted, never persisted')
+  },
+})
+
+// T7 — a flaky probe (two runs disagree) proves nothing.
+SCENARIOS.push({
+  name: 'BL-0178 T7. flaky probe (runs disagree at the pin) → unproven → cycle fault, NO card',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-t7', 'wo-b178t7-001'),
+  responses: [
+    { label: 'gate:frd-b178-t7', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t7', 'AC-97-005.1', 'timing-dependent')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t7', wos: ['wo-b178t7-001'], owned: ['REQ-97-001'], probes: [['AC-97-005.1', ['fail', 'pass'], ['fail', 'fail']]] }) },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-97-005.1 — timing-dependent', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'NO card for a flaky probe')
+    t.ok(hasLog(run, /the probe is flaky at the gate pin/), 'the reason names the flakiness')
+  },
+})
+
+// T8 — a re-gate of the same FRD in the same run re-proves the same drift: it is filed ONCE (engine-level;
+// the on-disk idempotency by drift_key is proven in test-drift-proof.mjs).
+SCENARIOS.push({
+  name: 'BL-0178 T8. re-gate after revert + in-run retry re-proves the same drift → drift-record runs ONCE, final landing still stamps drift',
+  args: { mode: 'pro', repairBrake: false },   // the ladder must reach the in-run retry's re-gate (the cost brake is not under test)
+  plan: b178Plan('frd-b178-t8', 'wo-b178t8-001'),
+  responses: [
+    { label: 'gate:frd-b178-t8', times: 1, response: { green: false, reopen: ['wo-b178t8-001'], findings: [{ wo: 'wo-b178t8-001', finding: 'bug at src/y.ts:3', failingTest: 'src/y/_tests/y.reviewer.test.ts', files: ['src/y.ts'] }], failure: 'bug', traceability: b178Trace(b178Claim('frd-b178-t8', 'AC-98-010.8', 'never-built ficha content', 'spec')) } },
+    { label: 'gate:frd-b178-t8', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-t8', 'AC-98-010.8', 'never-built ficha content', 'spec')) } },
+    { prefix: 'patch:', times: 2, response: { green: false, cause: 'code', failure: 'still red' } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-t8', wos: ['wo-b178t8-001'], owned: ['REQ-98-014'], probes: [['AC-98-010.8', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof:frd-b178-t8').length === 2, 'both gates proved the claim')
+    t.ok(byLabel(run, 'drift-record:frd-b178-t8').length === 1, 'the drift was filed exactly once')
+    t.ok(hasLog(run, /AC-98-010\.8 already recorded this run/), 'the second filing was skipped, loudly')
+    t.ok(/drift: \[AC-98-010\.8\]/.test((byLabel(run, 'apply-gate:frd-b178-t8')[0] || {}).prompt || ''), 'the final certifying landing still stamps the drift')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-t8'), 'the FRD lands VERIFIED after the retry')
+  },
+})
+
+// Reviewer wrong: the probe PASSES at the pin → the claim is discarded, logged, nothing filed.
+SCENARIOS.push({
+  name: 'BL-0178 R1. reviewer wrong — probe passes at the pin → claim DISCARDED with a log, gate green lands VERIFIED with no drift and no card',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-r1', 'wo-b178r1-001'),
+  responses: [
+    { label: 'gate:frd-b178-r1', response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-r1', 'AC-99-001.1', 'the reviewer misread it')) } },
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b178-r1', wos: ['wo-b178r1-001'], owned: ['REQ-99-002'], probes: [['AC-99-001.1', ['pass', 'pass'], []]] }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /drift claim on AC-99-001\.1 DISCARDED — the probe PASSES at the gate pin/), 'the discard is logged, never silent')
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'nothing filed')
+    const apply = byLabel(run, 'apply-gate:frd-b178-r1')[0]
+    t.ok(apply && /delete that line/.test(apply.prompt) && !/drift: \[/.test(apply.prompt), 'the landing re-derives the replica to EMPTY (a stale drift: key is removed)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-r1'), 'VERIFIED')
+  },
+})
+
+// Rollback switch: args.driftPolicy:'block' — claims are ignored, no proof spawn, a green over a fail stays RED.
+SCENARIOS.push({
+  name: 'BL-0178 R2. args.driftPolicy:"block" (rollback) → no proof spawn; a claimed fail under green still reds (pre-BL-0178 contract)',
+  args: { mode: 'pro', driftPolicy: 'block' },
+  plan: b178Plan('frd-b178-r2', 'wo-b178r2-001'),
+  responses: [{ label: 'gate:frd-b178-r2', response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-r2', 'AC-99-002.1', 'legacy')) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-(proof|record):/).length === 0, 'no drift spawn at all')
+    t.ok(hasLog(run, /IGNORED — args\.driftPolicy:'block'/), 'the rollback is logged')
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-b178-r2')), 'never VERIFIED from a green over an open fail')
+  },
+})
+
+// The FRD-03 hole itself (BL-0178 "Tests" section): a patched gate carrying a still-open, UNCLAIMED `fail`
+// entry used to ship VERIFIED through verifyPatched, which never looked at traceability. RED before, GREEN now.
+SCENARIOS.push({
+  name: 'BL-0178 R3. FRD-03 hole — verifyPatched inherits an unclaimed open fail; a green that does not prove it closed is refused (no silent VERIFIED)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-r3', 'wo-b178r3-001'),
+  responses: [
+    { label: 'gate:frd-b178-r3', times: 1, response: { green: false, reopen: ['wo-b178r3-001'], findings: [{ wo: 'wo-b178r3-001', finding: 'bug at src/z.ts:9', failingTest: 'src/z/_tests/z.reviewer.test.ts', files: ['src/z.ts'] }], failure: 'bug', traceability: b178Trace({ contract: 'REQ-99-003 — the rail lists only building/shipped', contractClass: 'requirement', status: 'fail', tests: ['src/z/_tests/rail.reviewer.test.ts'] }) } },
+    { label: 'verify-patch:frd-b178-r3', times: 1, response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vp = byLabel(run, 'verify-patch:frd-b178-r3')[0]
+    t.ok(vp && /REQ-99-003 — the rail lists only building\/shipped/.test(vp.prompt) && /rail\.reviewer\.test\.ts/.test(vp.prompt), 'the verifier is handed the open contract and the gate\'s own test for it')
+    t.ok(hasLog(run, /⛔ frd-b178-r3: the post-patch verifier claims GREEN but 1 inherited fail contract/), 'the unproven green is refused')
+    t.ok(byLabel(run, 'revert:frd-b178-r3').length === 1, 'it takes the genuine-red path instead of shipping')
+  },
+})
+
+// Fail-closed: a dead proof runner proves nothing; a reviewer-typed 'drift' status is not an engine stamp.
+SCENARIOS.push({
+  name: 'BL-0178 R4. dead drift-proof runner → every claim is a cycle fault (reopen), never drift',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-r4', 'wo-b178r4-001'),
+  responses: [
+    { label: 'gate:frd-b178-r4', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-r4', 'AC-99-004.1', 'x')) } },
+    { prefix: 'drift-proof:', response: null },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-99-004.1 — x', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /drift-proof runner returned no output — every drift claim stays a cycle fault/), 'the dead runner is logged')
+    t.ok(byLabel(run, /^drift-record:/).length === 0 && byLabel(run, 'patch:frd-b178-r4').length === 1, 'no card; reopened patch-first')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0178 R5. a reviewer returning status:"drift" itself (no engine stamp) under green is still an open fail → never VERIFIED',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-r5', 'wo-b178r5-001'),
+  responses: [{ label: 'gate:frd-b178-r5', response: { green: true, testFiles: [], traceability: b178Trace({ contract: 'AC-99-005.1 — sneaky', contractClass: 'acceptance-criterion', status: 'drift', tests: [] }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!(run.result && run.result.builtFrds.includes('frd-b178-r5')), 'a self-declared drift status waives nothing')
+  },
+})
+// Prompt contract: the gate carries the generated DRIFT_CLAIM directive (source: reviewer.md) and the oracle
+// amendment; the "no reviewer waivers" sentence is untouched.
+SCENARIOS.push({
+  name: 'BL-0178 R6. the gate prompt carries the drift-claim directive + the oracle amendment; "no reviewer waivers" stays verbatim',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b178-r6', 'wo-b178r6-001'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-b178-r6')[0]
+    t.ok(gate && /you PROPOSE, the engine DECIDES/.test(gate.prompt) && /claim: "preexisting"/.test(gate.prompt) && /drift-probes\/<frd>\/<contract-id>\.drift-probe\.ts/.test(gate.prompt), 'the directive tells the reviewer exactly how to propose')
+    t.ok(gate && /never take the blocked\/needs-owner exit for a drift claim/.test(gate.prompt), 'drift alone never takes the blocked exit')
+    t.ok(gate && /there are no reviewer waivers for approved spec text/.test(gate.prompt) && /never dropped, never waived/.test(gate.prompt), 'the oracle keeps "no reviewer waivers" and adds "never dropped, never waived"')
   },
 })
 

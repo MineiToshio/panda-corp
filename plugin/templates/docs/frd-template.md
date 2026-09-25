@@ -8,6 +8,7 @@ parent: PRD               # the product/PRD this feature belongs to
 ui: false                 # true | false — does this feature have a user interface? (DR-054)
 visual_source:            # ui: true ONLY — path to the approved prototype/screen or to docs/frds/frd-NN-<slug>/mocks/
 implementation_status: PLANNED   # PLANNED | IN_PROGRESS | IN_REVIEW | VERIFIED | BLOCKED (rolls up from work orders)
+# drift: [AC-NN-MMM.K]          # ENGINE-WRITTEN ONLY (BL-0178) — never hand-edit. Contracts the FRD gate PROVED pre-existing (the reviewer's probe fails at the gate pin AND at last_green_sha): they did not block VERIFIED; each has a draft card in .pandacorp/inbox/changes/<frd>-drift-<id>.md. A replica re-derived at every certifying gate landing (absent = none proven).
 source_requirements: []
 last_updated: YYYY-MM-DD
 ---
