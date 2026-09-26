@@ -9,7 +9,7 @@ opened: 2026-09-24
 closed:
 source: "canary 1 (change-now-dryrun-report.md) and canary 2 (change-now-canary-2-report.md §4.4) of /pandacorp:change --now on Mission Control, 2026-09-23 — both observed a running session serving an older plugin version than `installed_plugins.json` reported"
 closes:
-links: [BL-0152, BL-0163, BL-0166]
+links: [BL-0152, BL-0163, BL-0166, BL-0201, BL-0203]
 ---
 
 ## Class
@@ -93,3 +93,30 @@ not bundled here to keep this item's diff reviewable.
   once the wording here is validated in practice).
 - Automatically restarting or invalidating a stale session (no such control exists from inside a
   skill).
+
+## Evidence update (2026-09-26, canary F2, BL-0201)
+The same root cause hit a THIRD, independent surface: `Workflow` agent-type resolution inside a running
+`/pandacorp:implement` build, not a `Skill` tool text-serving path. Canary F2 (`docs/reviews/canary-f2-report.md`
+§4.1) launched all 4 `find:drift:<frd>` (BL-0203) agent spawns against `agentType: 'pandacorp:drift-finder'`
+and every one errored `agent type 'pandacorp:drift-finder' not found` — the installed plugin was 9.115.1
+(`plugin/agents/drift-finder.md` exists, and so does the installed cache
+`…/pandacorp/9.115.1/agents/drift-finder.md`, installed 04:20Z per `installed_plugins.json`), but the
+LAUNCHING session's own transcripts reference `…/pandacorp/9.109.0/…` 52 times (e.g. a
+`PreToolUse:Bash hook error: [bash ".../pandacorp/9.109.0/scripts/block-dangerous.sh"]`) — a session
+started before `drift-finder` existed in the registry (drift-finder shipped after 9.109.0). This is the
+exact mechanism this item already names generically ("plugin changes apply on session restart... agent
+types added after the session started do not exist in it"), now confirmed against the `agent()`/Workflow
+agent-type registry specifically, not only the `Skill` tool's served text.
+
+**No harm done here:** the engine's `fallbackAgentType` fired 4/4 within 13 ms of each error (engine log
+"usando pandacorp:reviewer como fallback"), so 0 s and 0 $ were lost and no finding was lost directly — the
+finders ran with the reviewer agent's Write/Edit-capable tool definition instead of drift-finder's
+read-only `Read, Grep, Glob, Bash` one (the task prompt carried the whole method regardless), which is a
+narrower, separate concern (a read-only agent silently running with write tools) worth noting but not
+itself this item's mechanism.
+
+This strengthens rather than changes the mitigation direction already chosen here (item stays `open`, not
+`done` — same reasoning: the session-resident registry is Claude Code's own harness behavior). Consider
+whether `preflight-implement.sh`'s existing session-vs-installed version WARN (BL-0152) should also name
+this specific agent-type-resolution failure mode explicitly, since it is now observed to actually fire in
+a real build, not only hypothesized.

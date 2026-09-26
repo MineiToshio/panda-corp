@@ -1,0 +1,102 @@
+{
+  "at": "2026-09-26T04:44:08Z",
+  "scope": "since",
+  "green": false,
+  "sha": "7740eb95912a78c1c6561b9d409d70e0db7b0a72",
+  "subgates": [
+    {
+      "name": "structure-guard",
+      "exit": 0,
+      "duration_ms": 27,
+      "failures": []
+    },
+    {
+      "name": "data-layer",
+      "exit": 0,
+      "duration_ms": 5,
+      "failures": []
+    },
+    {
+      "name": "api-error-contract",
+      "exit": 0,
+      "duration_ms": 8,
+      "failures": []
+    },
+    {
+      "name": "doc-lint",
+      "exit": 0,
+      "duration_ms": 2757,
+      "failures": []
+    },
+    {
+      "name": "residual-ambiguity",
+      "exit": 0,
+      "duration_ms": 58,
+      "failures": []
+    },
+    {
+      "name": "biome",
+      "exit": 0,
+      "duration_ms": 693,
+      "failures": []
+    },
+    {
+      "name": "tsc",
+      "exit": 0,
+      "duration_ms": 1506,
+      "failures": []
+    },
+    {
+      "name": "knip",
+      "exit": 0,
+      "duration_ms": 966,
+      "failures": []
+    },
+    {
+      "name": "madge",
+      "exit": 0,
+      "duration_ms": 2286,
+      "failures": []
+    },
+    {
+      "name": "vitest",
+      "exit": 1,
+      "duration_ms": 25699,
+      "failures": [
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 calendar day is the owner's local day (REQ-04-011) > a change dated today still reads 'hoy' late in the owner's evening"
+        },
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 calendar day is the owner's local day (REQ-04-011) > the label for a given date is the same at every hour of the owner's day"
+        },
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 a non-date is unparseable, never a fabricated age (AC-04-011.2, DR-078) > \"pendiente 1\" yields an explicit error result, not a relative label"
+        },
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 a non-date is unparseable, never a fabricated age (AC-04-011.2, DR-078) > \"TBD 2\" yields an explicit error result, not a relative label"
+        },
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 a non-date is unparseable, never a fabricated age (AC-04-011.2, DR-078) > \"1\" yields an explicit error result, not a relative label"
+        },
+        {
+          "file": "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts",
+          "msg": "> formatChangeDate \u2014 a non-date is unparseable, never a fabricated age (AC-04-011.2, DR-078) > \"2026-02-30\" yields an explicit error result, not a relative label"
+        },
+        {
+          "file": "src/app/projects/[slug]/_components/tab-changes/_tests/frd-04-changes.gate.reviewer.test.tsx",
+          "msg": "> FRD-04 gate \u2014 Changes card relative date through the real reader (REQ-04-011) > an unquoted YAML date filed today reads 'hoy' on the card late in the owner's evening"
+        },
+        {
+          "file": "src/app/projects/[slug]/_components/tab-changes/_tests/frd-04-changes.gate.reviewer.test.tsx",
+          "msg": "> FRD-04 gate \u2014 Changes card relative date through the real reader (REQ-04-011) > a quoted non-date the owner typed is shown RAW on the card, never turned into a fabricated age"
+        }
+      ]
+    }
+  ],
+  "since": "d9addc89"
+}

@@ -1,0 +1,102 @@
+{
+  "at": "2026-09-26T04:30:52Z",
+  "scope": "since",
+  "green": false,
+  "sha": "7740eb95912a78c1c6561b9d409d70e0db7b0a72",
+  "subgates": [
+    {
+      "name": "structure-guard",
+      "exit": 0,
+      "duration_ms": 22,
+      "failures": []
+    },
+    {
+      "name": "data-layer",
+      "exit": 0,
+      "duration_ms": 4,
+      "failures": []
+    },
+    {
+      "name": "api-error-contract",
+      "exit": 0,
+      "duration_ms": 7,
+      "failures": []
+    },
+    {
+      "name": "doc-lint",
+      "exit": 0,
+      "duration_ms": 2473,
+      "failures": []
+    },
+    {
+      "name": "residual-ambiguity",
+      "exit": 0,
+      "duration_ms": 49,
+      "failures": []
+    },
+    {
+      "name": "biome",
+      "exit": 0,
+      "duration_ms": 559,
+      "failures": []
+    },
+    {
+      "name": "tsc",
+      "exit": 0,
+      "duration_ms": 1194,
+      "failures": []
+    },
+    {
+      "name": "knip",
+      "exit": 0,
+      "duration_ms": 904,
+      "failures": []
+    },
+    {
+      "name": "madge",
+      "exit": 0,
+      "duration_ms": 1804,
+      "failures": []
+    },
+    {
+      "name": "vitest",
+      "exit": 1,
+      "duration_ms": 17844,
+      "failures": [
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.1 \u2014 'hoy'/'ayer' follow the owner's calendar day for the production date-only cell > a sync stamped today reads 'hoy' at 23:26 local (UTC date already rolled over)"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.1 \u2014 'hoy'/'ayer' follow the owner's calendar day for the production date-only cell > a sync stamped yesterday reads 'ayer' at 21:00 local, not 'hace 2 d\u00edas'"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.1 \u2014 'hoy'/'ayer' follow the owner's calendar day for the production date-only cell > a sync stamped today still reads 'hoy' at 23:59 local"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.1 \u2014 'hoy'/'ayer' follow the owner's calendar day for the production date-only cell > a full timestamp is judged by the owner's calendar day: 22:00 last night reads 'ayer' next morning"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.1 \u2014 'hoy'/'ayer' follow the owner's calendar day for the production date-only cell > the day buckets stay stable across the evening window (2 days reads 'hace 2 d\u00edas' at 22:00)"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.2 / REQ-03-007 \u2014 unparseable or calendar-invalid dates fail loud, never hidden > '2026-02-30' \u2192 explicit { ok: false, reason } with a non-empty reason"
+        },
+        {
+          "file": "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts",
+          "msg": "> AC-03-007.2 / REQ-03-007 \u2014 unparseable or calendar-invalid dates fail loud, never hidden > '2026-04-31' \u2192 explicit { ok: false, reason } with a non-empty reason"
+        },
+        {
+          "file": "src/components/modules/PortfolioTable/_tests/PortfolioTable.lastSync.gate.reviewer.test.tsx",
+          "msg": "> REQ-03-007 integration \u2014 readPortfolio \u2192 PortfolioTable last-sync chip > at 23:26 in the owner's evening, a row synced today still reads 'sync: hoy' (AC-03-007.1)"
+        }
+      ]
+    }
+  ],
+  "since": "d9addc89"
+}
