@@ -5,6 +5,7 @@
 # The portability layer has exactly two derived copies (agent-portability.md §Maintenance):
 #   1. plugin/.codex-plugin/plugin.json — must carry the SAME version as .claude-plugin
 #   2. .codex/agents/*.toml — generated from plugin/agents/*.md by generate-codex-agents.mjs
+# (Check 8 adds the deployable build engine, generated from its readable source — BL-0204.)
 # Plus one link: .agents/skills -> plugin/skills (the open-standard discovery path).
 # Any of them drifting silently breaks the non-Claude runtimes (DR-113) with no gate noticing.
 #
@@ -196,13 +197,14 @@ node "$ROOT/plugin/scripts/check-skill-capabilities.mjs" "$ROOT" >/dev/null 2>&1
   || red "skill capability coverage/evidence is invalid"
 
 # --- Check 5: generated fenced rollup prompt + writer boundary --------------------------------
-mkdir -p "$tmp/plugin/templates/shared/.claude/engines" "$tmp/plugin/runtime/prompts"
+# The fragments are generated INTO the engine SOURCE (BL-0204); Check 8 derives the artifact from it.
+mkdir -p "$tmp/plugin/runtime/engine" "$tmp/plugin/runtime/prompts"
 cp "$ROOT/plugin/scripts/generate-build-prompt-fragments.mjs" "$tmp/plugin/scripts/"
 cp "$ROOT/plugin/runtime/prompts/sync-rollups.md" "$tmp/plugin/runtime/prompts/"
-cp "$ROOT/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$tmp/plugin/templates/shared/.claude/engines/"
+cp "$ROOT/plugin/runtime/engine/pandacorp-build.src.js" "$tmp/plugin/runtime/engine/" || red "engine source missing: plugin/runtime/engine/pandacorp-build.src.js"
 node "$tmp/plugin/scripts/generate-build-prompt-fragments.mjs" >/dev/null 2>&1 || red "build prompt generator failed"
-cmp -s "$tmp/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$ROOT/plugin/templates/shared/.claude/engines/pandacorp-build.js" \
-  || red "generated build prompt fragment is stale"
+cmp -s "$tmp/plugin/runtime/engine/pandacorp-build.src.js" "$ROOT/plugin/runtime/engine/pandacorp-build.src.js" \
+  || red "generated build prompt fragment is stale; run node plugin/scripts/generate-build-prompt-fragments.mjs && node plugin/scripts/generate-engine.mjs"
 node "$ROOT/plugin/scripts/check-rollup-writer-boundary.mjs" "$ROOT" >/dev/null 2>&1 \
   || red "rollup writer boundary is invalid or retired prose returned"
 
@@ -228,6 +230,13 @@ cp "$ROOT/plugin/scripts/generate-event-vocabulary.mjs" "$tmp/plugin/scripts/" |
 node "$tmp/plugin/scripts/generate-event-vocabulary.mjs" >/dev/null 2>&1 || red "event vocabulary generator failed"
 cmp -s "$tmp/mission-control/src/lib/events/event-vocabulary.json" "$ROOT/mission-control/src/lib/events/event-vocabulary.json" \
   || red "Mission Control event vocabulary is stale; run node plugin/scripts/generate-event-vocabulary.mjs"
+
+# --- Check 8: deployable build engine artifact == generate-engine(source) (BL-0204) -----------
+# The Workflow tool refuses a script over 512 KB, so the shipped engine is a comment-stripped
+# projection of plugin/runtime/engine/pandacorp-build.src.js. A hand-edited or stale artifact would
+# ship behavior no test ever ran against the source.
+node "$ROOT/plugin/scripts/generate-engine.mjs" --check >/dev/null 2>&1 \
+  || red "plugin/templates/shared/.claude/engines/pandacorp-build.js is stale vs plugin/runtime/engine/pandacorp-build.src.js (or over the Workflow size limit); run node plugin/scripts/generate-engine.mjs"
 
 # CLEAN: record the commit every check above just verified so a later Stop on an unchanged tree
 # (nothing under plugin/ touched or dirty) can fast-path above (BL-0044). Best-effort — a write

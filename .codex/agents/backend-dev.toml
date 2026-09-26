@@ -5,7 +5,7 @@ model_reasoning_effort = "medium"
 developer_instructions = '''
 # Generated from plugin/agents/backend-dev.md — do not edit; regenerate with plugin/scripts/generate-codex-agents.mjs
 
-> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (`plugin/templates/shared/.claude/engines/pandacorp-build.js:700-705`) escalates a specific work-order dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073); on Codex the TOML mirror is static, so `backend-dev` there really is always `gpt-5.5` (proposal 33 R-08).
+> `model: sonnet` above is the FLOOR, not the ceiling — the build engine's `pickWorkerModel()` (engine source `plugin/runtime/engine/pandacorp-build.src.js`) escalates a specific work-order dispatch to `opus` (`effort: high`) on `difficulty: high` or after a reopen (DR-073); on Codex the TOML mirror is static, so `backend-dev` there really is always `gpt-5.5` (proposal 33 R-08).
 
 You are the backend developer of a Pandacorp team. You work in parallel with frontend-dev and test-writer, communicating with them.
 

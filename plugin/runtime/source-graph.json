@@ -106,13 +106,19 @@
       "source": "plugin/runtime/event-transport.mjs",
       "consumers": ["plugin/runtime/codex/executor.mjs"]
     },
+    "build_engine": {
+      "source": "plugin/runtime/engine/pandacorp-build.src.js",
+      "outputs": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"],
+      "generator": "plugin/scripts/generate-engine.mjs",
+      "contract": "The readable source is the only file anyone edits; the deployable artifact is the same token stream with comments dropped and whitespace collapsed, generated to stay under the Workflow tool's 524288-byte script limit (BL-0204). test-engine-artifact.mjs proves AST identity and runs every engine scenario against the artifact."
+    },
     "sync_rollup_prompt": {
       "source": "plugin/runtime/prompts/sync-rollups.md",
-      "consumers": ["plugin/templates/shared/.claude/engines/pandacorp-build.js"]
+      "consumers": ["plugin/runtime/engine/pandacorp-build.src.js"]
     },
     "whole_frd_gate_oracle": {
       "source": "plugin/agents/reviewer.md",
-      "consumers": ["plugin/scripts/generate-build-prompt-fragments.mjs", "plugin/templates/shared/.claude/engines/pandacorp-build.js", "plugin/runtime/codex/executor.mjs"],
+      "consumers": ["plugin/scripts/generate-build-prompt-fragments.mjs", "plugin/runtime/engine/pandacorp-build.src.js", "plugin/runtime/codex/executor.mjs"],
       "contract": "The marked canonical block is generated into Claude's engine prompt, read directly by Codex and included in the generated reviewer TOML; runtime gates never maintain an independent policy copy."
     },
     "durable_gamification_accounting": {

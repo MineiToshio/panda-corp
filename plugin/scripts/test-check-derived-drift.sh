@@ -82,6 +82,7 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   cp "$HERE/plugin/scripts/generate-skill-capabilities.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/check-skill-capabilities.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-build-prompt-fragments.mjs" "$d/plugin/scripts/"
+  cp "$HERE/plugin/scripts/generate-engine.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/check-rollup-writer-boundary.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-codex-enforcement.mjs" "$d/plugin/scripts/"
   cp "$HERE/plugin/scripts/generate-event-vocabulary.mjs" "$d/plugin/scripts/"
@@ -97,8 +98,9 @@ make_fixture() { # builds a minimal factory-shaped tree from the real repo
   cp "$HERE/plugin/runtime/codex/"{attended-permit.mjs,certification-permit.mjs,executor.mjs,failure-diagnostics.mjs,schema-contract.mjs,supervisor.mjs,change-result.schema.json,result.schema.json,review-result.schema.json} "$d/plugin/runtime/codex/"
   cp "$HERE/plugin/runtime/codex/"{R10-CERTIFICATION.md,R11-CERTIFICATION.md} "$d/plugin/runtime/codex/"
   cp "$HERE/factory/standards/agent-portability.md" "$d/factory/standards/"
-  mkdir -p "$d/plugin/runtime/prompts" "$d/plugin/templates/shared/.claude/engines"
+  mkdir -p "$d/plugin/runtime/prompts" "$d/plugin/runtime/engine" "$d/plugin/templates/shared/.claude/engines"
   cp "$HERE/plugin/runtime/prompts/sync-rollups.md" "$d/plugin/runtime/prompts/"
+  cp "$HERE/plugin/runtime/engine/pandacorp-build.src.js" "$d/plugin/runtime/engine/"
   cp "$HERE/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$d/plugin/templates/shared/.claude/engines/"
   cp "$HERE"/plugin/agents/*.md "$d/plugin/agents/"
   cp "$HERE/plugin/.claude-plugin/plugin.json" "$d/plugin/.claude-plugin/"
@@ -196,6 +198,17 @@ cp "$HERE/.agents/plugins/marketplace.json" "$fx/.agents/plugins/"
 rm "$fx/plugins/pandacorp"; ln -s ../plugin-copy "$fx/plugins/pandacorp"
 check "repo-local marketplace bridge drift goes RED" 2 "$fx"
 rm "$fx/plugins/pandacorp"; ln -s ../plugin "$fx/plugins/pandacorp"
+
+# 4j. BL-0204: a hand-edited deployable engine artifact (not regenerated from its source) → RED
+printf '\n// hand edit\n' >> "$fx/plugin/templates/shared/.claude/engines/pandacorp-build.js"
+check "hand-edited engine artifact goes RED" 2 "$fx"
+cp "$HERE/plugin/templates/shared/.claude/engines/pandacorp-build.js" "$fx/plugin/templates/shared/.claude/engines/"
+
+# 4k. BL-0204: an engine SOURCE edit without regenerating the artifact → RED
+printf '\nconst __driftCanary = 1\n' >> "$fx/plugin/runtime/engine/pandacorp-build.src.js"
+check "engine source edited without regenerating the artifact goes RED" 2 "$fx"
+cp "$HERE/plugin/runtime/engine/pandacorp-build.src.js" "$fx/plugin/runtime/engine/"
+check "restored engine source + artifact pass again" 0 "$fx"
 
 # 5. Broken .agents/skills symlink → RED
 rm "$fx/.agents/skills"; ln -s ../nowhere "$fx/.agents/skills"

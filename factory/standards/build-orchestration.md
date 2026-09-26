@@ -1387,6 +1387,12 @@ The engine is a **Dynamic Workflows** script. Two mechanics matter and were prev
   it lives in `.claude/engines/pandacorp-build.js` (off the menu) and is launched by **`scriptPath`** — `implement`
   calls `Workflow({ scriptPath: '<projectDir>/.claude/engines/pandacorp-build.js', args })` rather than by
   workflow `name`.
+- **The shipped file is GENERATED; edit the source (BL-0204).** The Workflow tool refuses a script file over
+  524288 bytes. The readable engine lives at `plugin/runtime/engine/pandacorp-build.src.js`;
+  `node plugin/scripts/generate-engine.mjs` derives the deployable `plugin/templates/shared/.claude/engines/pandacorp-build.js`
+  (comments dropped, whitespace collapsed, every token byte-identical). `check-derived-drift.sh` Check 8 REDs a
+  stale or hand-edited artifact; `test-engine-artifact.mjs` proves AST identity, a ≤ 450 KB budget, and runs every
+  engine scenario against the artifact.
 - **A `scriptPath` launch delivers `args` as a JSON STRING** (a `name` launch delivered an object). So the engine's
   **top-of-file shim** `JSON.parse`s it **fail-loud** before any read: `if (typeof args === 'string') { try {
   args = JSON.parse(args) } catch (e) { log('FATAL: …'); throw e } }`. Without it every `args.*` would silently

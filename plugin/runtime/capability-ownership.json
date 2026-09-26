@@ -10,7 +10,7 @@
       "codex_projection": ".codex/agents"
     },
     "product_build_orchestration": {
-      "canonical": "plugin/templates/shared/.claude/engines/pandacorp-build.js",
+      "canonical": "plugin/runtime/engine/pandacorp-build.src.js",
       "runtime_owner": "claude"
     },
     "factory_backlog_orchestration": {
