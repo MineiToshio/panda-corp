@@ -9,7 +9,7 @@ opened: 2026-09-26
 closed:
 source: "docs/reviews/canary-e2-report.md §3, §5, §6 — docs/proposals/38 'Canary E2 result and adopted defaults'"
 closes:
-links: [BL-0186, BL-0187, BL-0188, BL-0178, BL-0194]
+links: [BL-0186, BL-0187, BL-0188, BL-0178, BL-0194, BL-0203]
 ---
 
 ## Problem
@@ -55,4 +55,5 @@ evidence, not proof; the flip should wait for two consistent runs if budget allo
 
 ## Done when
 - [ ] F1 run and scored against the ground truth (report in `docs/reviews/`), defaults decided on it.
-- [ ] F2's finder built behind a flag with tests, run and scored, default decided on it.
+- [ ] F2's finder built behind a flag with tests, run and scored, default decided on it. (Built: BL-0203,
+  `args.driftFinder`, default on under `digested`; run + score pending.)
