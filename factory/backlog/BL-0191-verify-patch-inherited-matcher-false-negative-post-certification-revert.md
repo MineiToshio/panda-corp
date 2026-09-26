@@ -3,12 +3,12 @@ id: BL-0191
 type: bug
 area: build-engine
 title: "verifyPatched's BL-0178 inherited-contract matcher refuses a proven id-less contract, and the refusal lands AFTER the verifier already certified — a correct patch is 'reverted' onto itself"
-status: open
+status: done
 severity: p1
 opened: 2026-09-25
-closed:
+closed: 2026-09-25
 source: "canary E partial run 2026-09-25 (docs/reviews/canary-e-partial-report.md §2), wf_7a12ea20-7f1, frd-03-portfolio"
-closes:
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js — verifyPatched split into verify (writes nothing) → engine checks (WP-08 cage + unresolvedInherited) → certifyPatched (serialized certify-patch stamp); inherited contracts keyed INH-n — shipped in c76299d0"
 links: [BL-0178, BL-0190, DR-122, DR-073, DR-107]
 ---
 
@@ -73,8 +73,28 @@ Add scenarios to `plugin/scripts/test-pandacorp-build.mjs`, modeled on the BL-01
   `review_end reopen`.
 
 ## Done when
-- [ ] Both scenarios are RED → GREEN, and the full engine harness is green.
-- [ ] A canary E relaunch shows FRD-03 landing VERIFIED on its first verify-patch.
+- [x] Both scenarios are RED → GREEN, and the full engine harness is green (`test-pandacorp-build.mjs` 274/274,
+  `run-engine-tests.sh` 27/27 suites, c76299d0).
+- [ ] A canary E relaunch shows FRD-03 landing VERIFIED on its first verify-patch. **Not verified** — needs the relaunch.
+
+## Resolution
+Shipped in c76299d0 (both halves of the fix plan, the full split — not the "minimum alternative"):
+- **Matcher.** Each inherited contract is listed as `• [<class>] <contract> — the gate's tests: … · key INH-<n>`; the
+  schema gained an optional `key`. `unresolvedInherited()` matches by that key, by REQ/AC id, or by the contract text
+  with the prompt's own decoration stripped from both sides (bullet, key, `[class]`/`class:` tag, tests suffix,
+  dash/quote variants, whitespace, case). An entry still proves a contract only with `pass:true` and ≥1 test.
+- **Order.** The `verify-patch` agent writes nothing and returns `{ green, inheritedResolved, report_scope, resolved }`.
+  The engine runs the WP-08 partial cage and the BL-0178 check; only an accepted verdict spawns `certify-patch:<frd>`
+  (MECH, serialized on commitChain like `applyGate`), which stamps VERIFIED + reopen_count 0, rollups, drift replica,
+  reviewer-test staging, the last-green ordering, the resolution journal line, review_end/GateVerdict pass, PatchResult
+  green and achievements. Every `verifyPatched` caller (patch-1, gate-test repair, diagnosed repair, deadlock re-bless,
+  patch-2) inherits the order. A certify step that does not confirm returns `unstamped` → the FRD is deferred
+  (re-gates next pass) and the verified code is never reverted.
+- **Tests** (`test-pandacorp-build.mjs`, `// ---- BL-0191..0193 ----`): BL-0191a (the canary echo), b (`[class]` +
+  en-dash + key suffix next to an id-keyed REQ), c (key only), d/e/f (genuine refusals — different contract,
+  `pass:false`, no test — with no stamping spawn between the gate and the revert), g (certify step after the verifier,
+  carrying the full stamp), h (partial report refused before any certify), i (certify failure → no revert, deferred).
+  BL-0178 T6 and BL-0185c now assert the drift replica on the certify step.
 
 ## Out of scope
 Changing what counts as "proven closed" (still ≥1 passing test per inherited contract). BL-0190's post-run audit

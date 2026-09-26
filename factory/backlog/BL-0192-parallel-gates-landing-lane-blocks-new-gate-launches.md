@@ -3,12 +3,12 @@ id: BL-0192
 type: bug
 area: build-engine
 title: "parallelGates: a landing (the whole convergeOne ladder) is awaited inline at the loop top, so no new gate launches into free slots while a verdict lands"
-status: open
+status: done
 severity: p1
 opened: 2026-09-25
-closed:
+closed: 2026-09-25
 source: "canary E partial run 2026-09-25 (docs/reviews/canary-e-partial-report.md §3), wf_7a12ea20-7f1"
-closes:
+closes: "plugin/templates/shared/.claude/engines/pandacorp-build.js — topUpBeforeLanding + laneTopUp (agent boundaries and gate settles during a landing), landingInFlight reserve (GATE_LADDER_COST) + factory/standards/build-orchestration.md §5c — shipped in c76299d0"
 links: [BL-0186, BL-0190, BL-0191, DR-118]
 ---
 
@@ -61,8 +61,26 @@ Add engine harness scenarios in `plugin/scripts/test-pandacorp-build.mjs`:
 - **Main quiet**: no `build:`/wave dispatch while a landing is in flight.
 
 ## Done when
-- [ ] The scenarios are RED → GREEN, and the full engine harness is green.
-- [ ] A canary E relaunch shows gates for FRD-04/05 starting while FRD-03 converges.
+- [x] The scenarios are RED → GREEN, and the full engine harness is green (`test-pandacorp-build.mjs` 274/274,
+  `run-engine-tests.sh` 27/27 suites, c76299d0).
+- [ ] A canary E relaunch shows gates for FRD-04/05 starting while FRD-03 converges. **Not verified** — needs the relaunch.
+
+## Resolution
+Shipped in c76299d0 — fix-plan items 1, 3 and 4, plus a cheap version of item 2 without making the lane a background
+promise:
+- **Before each landing** (`topUpBeforeLanding`): unpinned queued FRDs are pinned at the pre-landing HEAD, the
+  landing's cost is reserved, then `launchParallelGates()` fills the slots the previous settle freed.
+- **During a landing** (`laneTopUp`): at every agent boundary of the landing (the `agent` wrapper) and at every gate
+  settle, free slots are refilled — **pinned FRDs only** (a mid-ladder HEAD may hold an uncertified patch commit).
+  Never during the post-loop drain (`final`).
+- **Budget:** while a landing runs, `launchParallelGates` counts it as pipeline activity and subtracts its unspent
+  reserve (`GATE_LADDER_COST` = port + opus patch + hash + verify + certify for a reopen, `GATE_LANDING_COST` for a
+  PASS).
+- The lane stays exclusive and awaited: no build wave or WO commit is dispatched until the landing returns.
+- **Tests:** BL-0192a (2 slots, 4 FRDs: frd-3 starts before frd-1's ladder, frd-4 takes the slot freed mid-ladder
+  before frd-1's verify-patch returns, both at the pre-landing pin, no `pin:` mid-landing, no build/commit dispatch
+  during the landing, one main-tree writer); BL-0192b (flag off: no D1 line, no slot probe). The D1a-q suite is
+  unchanged and green.
 
 ## Out of scope
 Parallel landings (the lane stays exclusive). The evidence-collector Bash-timeout stall (canary E report §4.3) is a
