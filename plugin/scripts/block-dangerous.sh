@@ -27,6 +27,106 @@ block() {
   exit 2
 }
 
+# ── BL-0202: git invocations, normalized, and whole-tree writes in a SHARED repository ──────────────
+# Every git check below used to match the literal `git <verb>` text, so a global option in between
+# (`git -C "$TOP" reset --hard …`, `git --literal-pathspecs clean -fdx`) slipped past all of them. Each
+# git invocation is re-emitted as a normalized `git <verb> <args>` line (global options dropped) and the
+# checks read the original command PLUS those lines.
+#
+# Then the BL-0202 rule itself (defense in depth under the build engine's own scoped commands): a
+# repository that HOSTS a nested Pandacorp project (Mission Control inside the factory) is shared — the
+# owner's parallel sessions keep uncommitted work all over it. A whole-tree git write there overwrites
+# that work: `git reset --hard` (always whole-repository, whatever the cwd), and `git checkout`/`git
+# restore`/`git clean` with no pathspec or a whole-tree one (`.`, `*`) run at the repository ROOT, or with
+# a top-anchored pathspec (`:/`, `:(top)`) from anywhere. Run inside the project directory, `.` means
+# the project, so that form stays allowed; an explicit path is always allowed.
+_hosts_nested_project() { # $1 = repository toplevel → 0 if some <top>/<dir>/.pandacorp/status.yaml exists
+  local f
+  for f in "$1"/*/.pandacorp/status.yaml; do [ -f "$f" ] && return 0; done
+  return 1
+}
+_unquote() { local t="$1"; t="${t%\"}"; t="${t#\"}"; t="${t%\'}"; t="${t#\'}"; printf '%s' "$t"; }
+git_norm=""
+while IFS= read -r seg; do
+  read -ra toks <<< "$seg"
+  n=${#toks[@]}; gi=-1
+  # Only a git invocation in COMMAND position (after env assignments / a shell keyword or wrapper) — never
+  # the word "git" inside prose (a commit message body line, an echo'd sentence).
+  for ((k = 0; k < n; k++)); do
+    tk="${toks[$k]#[({]}"
+    case "$tk" in
+      git|*/git) gi=$k; break ;;
+      then|do|else|'!'|time|command|exec|xargs|sudo|nohup|env|'') continue ;;
+      [A-Za-z_]*=*) continue ;;
+      *) break ;;
+    esac
+  done
+  [ "$gi" -ge 0 ] || continue
+  i=$((gi + 1)); cdir=""; cunknown=0
+  while [ "$i" -lt "$n" ]; do
+    case "${toks[$i]}" in
+      -C) cdir=$(_unquote "${toks[$((i + 1))]:-}"); i=$((i + 2)) ;;
+      -c|--git-dir|--work-tree|--namespace) i=$((i + 2)) ;;
+      --git-dir=*|--work-tree=*|--namespace=*|--literal-pathspecs|--glob-pathspecs|--noglob-pathspecs|--icase-pathspecs|--no-pager|--no-optional-locks|--no-replace-objects|--bare|-p|-P|--paginate) i=$((i + 1)) ;;
+      *) break ;;
+    esac
+  done
+  [ "$i" -lt "$n" ] || continue
+  verb="${toks[$i]}"; args=("${toks[@]:$((i + 1))}")
+  git_norm="$git_norm"$'\n'"git $verb ${args[*]}"
+  case "$cdir" in *'$'*|*'`'*) cunknown=1 ;; esac
+
+  kind=""; top_magic=0
+  case "$verb" in
+    reset)
+      for a in "${args[@]}"; do [ "$a" = "--hard" ] && kind="reset"; done ;;
+    checkout|restore|clean)
+      specs=(); after_dd=0; skip_next=0; dry=0
+      for a in "${args[@]}"; do
+        a=$(_unquote "$a")
+        if [ "$skip_next" = 1 ]; then skip_next=0; continue; fi
+        if [ "$after_dd" = 1 ]; then specs+=("$a"); continue; fi
+        case "$a" in
+          --) after_dd=1 ;;
+          -n|--dry-run) dry=1 ;;
+          -e|--exclude|-s|--source|--pathspec-from-file|-b|-B|--orphan) skip_next=1 ;;
+          --*) ;;
+          -*n*) [ "$verb" = "clean" ] && dry=1 ;;   # combined short flags, e.g. clean -nd
+          -*) ;;
+          *) specs+=("$a") ;;
+        esac
+      done
+      [ "$dry" = 1 ] && continue
+      whole=0
+      [ "$verb" = "clean" ] && [ "${#specs[@]}" -eq 0 ] && whole=1
+      for a in "${specs[@]}"; do
+        case "$a" in
+          :/*|':(top)'*) whole=1; top_magic=1 ;;
+          .|./|'*') whole=1 ;;
+        esac
+      done
+      [ "$whole" = 1 ] && kind="whole" ;;
+  esac
+  [ -n "$kind" ] || continue
+
+  if [ "$cunknown" = 1 ]; then effdir=""
+  elif [ -n "$cdir" ]; then case "$cdir" in /*) effdir="$cdir" ;; *) effdir="$cwd/$cdir" ;; esac
+  else effdir="$cwd"; fi
+  top=$(git -C "${effdir:-$cwd}" rev-parse --show-toplevel 2>/dev/null) || continue
+  _hosts_nested_project "$top" || continue
+  nested=$(for f in "$top"/*/.pandacorp/status.yaml; do [ -f "$f" ] && basename "$(dirname "$(dirname "$f")")"; done | tr '\n' ' ')
+  if [ "$kind" = "reset" ]; then
+    block "git reset --hard rewinds the WHOLE repository, and this one hosts a nested Pandacorp project (${nested% }): it would discard other sessions' commits and uncommitted work outside your project. Restore only your project's files with an explicit pathspec (git checkout <sha> -- <project>/<path>), or ask the owner (BL-0202)"
+  fi
+  at_root=0
+  if [ "$top_magic" = 1 ] || [ -z "$effdir" ]; then at_root=1
+  elif [ -d "$effdir" ] && [ "$(cd "$effdir" && pwd -P)" = "$(cd "$top" && pwd -P)" ]; then at_root=1; fi
+  if [ "$at_root" = 1 ]; then
+    block "whole-tree 'git $verb' at the root of a repository that hosts a nested Pandacorp project (${nested% }): it would overwrite other sessions' uncommitted work outside your project. Name explicit paths under your project (git $verb … -- <project>/<path>), or ask the owner (BL-0202)"
+  fi
+done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;|&]/, "\n"); print }')
+git_cmd="$cmd$git_norm"
+
 # Broad recursive delete of a filesystem-root-ish target (/, ~, ..), ANY flag order/casing.
 # BSD/macOS `rm` treats -R as the canonical recursive flag, so the match must be case-insensitive
 # on the flag (WS-A F1 — `rm -Rf /` used to sail past the lowercase-only literal).
@@ -136,7 +236,7 @@ if echo "$cmd" | grep -Eq '(^|[[:space:];&|])find[[:space:]]' && echo "$cmd" | g
 fi
 # git clean with an ignored-files flag, either case: -x (ignored + untracked) OR -X (ignored ONLY,
 # which targets PRECISELY the gitignored .pandacorp layer). Case-insensitive per WS-A F2.
-if echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*[xX]'; then
+if echo "$git_cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+clean[[:space:]][^;&|]*-[a-zA-Z]*[xX]'; then
   block "git clean -x/-X removes gitignored files — the .pandacorp state layer (inbox/comms) would be lost with no git history; use plain 'git clean -fd' (keeps ignored) or ask the owner (BL-0035)"
 fi
 
@@ -185,10 +285,10 @@ for tok in $redirs; do
 done
 
 # git stash drop/clear is unrecoverable (dropped stashes have no reflog entry).
-echo "$cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+stash[[:space:]]+(drop|clear)' && block "git stash drop/clear is unrecoverable — confirm with the owner before discarding a stash"
+echo "$git_cmd" | grep -Eq '(^|[[:space:];&|])git[[:space:]]+stash[[:space:]]+(drop|clear)' && block "git stash drop/clear is unrecoverable — confirm with the owner before discarding a stash"
 
-echo "$cmd" | grep -Eq 'git push.*(--force|-f)([^-]|$)' && block "force push (constitution §11)"
-echo "$cmd" | grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)' && block "deleting main branch"
+echo "$git_cmd" | grep -Eq 'git push.*(--force|-f)([^-]|$)' && block "force push (constitution §11)"
+echo "$git_cmd" | grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)' && block "deleting main branch"
 echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh repo delete' && block "repo deletion requires the owner (DR-007)"
 
 # Hard reset: allow ONLY the engine's sanctioned recovery form — an explicit hex SHA target
@@ -196,8 +296,8 @@ echo "$cmd" | grep -Eq '(^|[[:space:];&|])gh repo delete' && block "repo deletio
 # precedes with a merge-base ancestry check). Everything else (bare, HEAD~N, a branch/remote ref)
 # stays blocked: those are the destructive human-mistake forms. (audit-20 owner decision 1 — the old
 # blanket block made the engine's own overnight recovery un-executable.)
-if echo "$cmd" | grep -Eq 'git reset --hard'; then
-  echo "$cmd" | grep -Eq 'git reset --hard[[:space:]]+[0-9a-f]{7,40}([[:space:]]|$)' \
+if echo "$git_cmd" | grep -Eq 'git reset --hard'; then
+  echo "$git_cmd" | grep -Eq 'git reset --hard[[:space:]]+[0-9a-f]{7,40}([[:space:]]|$)' \
     || block "hard reset discards work — only 'git reset --hard <explicit-sha>' (the last_green_sha recovery, DR-067) is allowed; anything else: justify and ask"
 fi
 

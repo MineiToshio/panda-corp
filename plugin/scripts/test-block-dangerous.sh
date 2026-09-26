@@ -159,6 +159,50 @@ check "allow: lookalike dir name is not the real deploy root"  0 "$fx" "rm -rf /
 git -C "$fx" worktree remove -f -f "$lockedwt" >/dev/null 2>&1
 rm -rf "$(dirname "$lockedwt")" "$(dirname "$unlockedwt")"
 
+echo "== BL-0202: whole-tree git writes in a repository that HOSTS a nested Pandacorp project =="
+# Fixture: a factory-shaped repo (CLAUDE.md says Pandacorp) hosting a nested project with its own
+# .pandacorp/status.yaml — Mission Control inside the factory. Other sessions' WIP lives under plugin/.
+nfx=$(mktemp -d)
+( cd "$nfx" && git init -q )
+mkdir -p "$nfx/mission-control/.pandacorp" "$nfx/mission-control/src" "$nfx/plugin"
+echo "# Pandacorp" > "$nfx/CLAUDE.md"
+echo "phase: implementation" > "$nfx/mission-control/.pandacorp/status.yaml"
+check "block: git checkout -- . at the factory root"              2 "$nfx" "git checkout -- ."
+check "block: git checkout <sha> -- . at the factory root"        2 "$nfx" "git checkout 515c5ff -- ."
+check "block: git checkout . at the factory root"                 2 "$nfx" "git checkout ."
+check "block: git restore . at the factory root"                  2 "$nfx" "git restore ."
+check "block: git clean -fd (no pathspec) at the factory root"    2 "$nfx" "git clean -fd"
+check "block: git clean -fd -- . at the factory root"             2 "$nfx" "git clean -fd -- ."
+check "block: git -C <root> clean -fd from the project dir"       2 "$nfx/mission-control" "git -C $nfx clean -fd"
+check "block: git -C \"\$TOP\" checkout -- . (unresolvable -C)"   2 "$nfx/mission-control" 'git -C "$TOP" checkout -- .'
+check "block: top-anchored :/ pathspec from the project dir"      2 "$nfx/mission-control" "git checkout -- :/"
+check "block: top-anchored :(top) clean from the project dir"     2 "$nfx/mission-control" "git clean -fd -- ':(top)'"
+check "block: reset --hard <sha> (whole repo) at the root"        2 "$nfx" "git reset --hard 515c5ff"
+check "block: reset --hard <sha> even from the project dir"       2 "$nfx/mission-control" "git reset --hard 515c5ff"
+check "block: chained after cd"                                   2 "$nfx" "cd $nfx && git checkout -- ."
+check "block: --literal-pathspecs before the verb"                2 "$nfx" "git --literal-pathspecs clean -fd"
+check "allow: git checkout -- . INSIDE the project dir"           0 "$nfx/mission-control" "git checkout -- ."
+check "allow: git clean -fd INSIDE the project dir"               0 "$nfx/mission-control" "git clean -fd"
+check "allow: git -C mission-control clean -fd from the root"     0 "$nfx" "git -C mission-control clean -fd"
+check "allow: explicit project path at the root"                  0 "$nfx" "git checkout 515c5ff -- mission-control/src/y.ts"
+check "allow: explicit clean path at the root"                    0 "$nfx" "git clean -fd -- mission-control/src/app/preview-wo1/"
+check "allow: dry-run clean at the root"                          0 "$nfx" "git clean -nd"
+check "allow: switching branches at the root"                     0 "$nfx" "git checkout main"
+check "allow: creating a branch at the root"                      0 "$nfx" "git checkout -b bl-0202-x"
+check "allow: git status at the root"                             0 "$nfx" "git status --porcelain"
+# The build engine's own guarded forms (BL-0202 RESTORE/CLEAN commands) must pass: explicit "$@" pathspec.
+check "allow: engine's guarded RESTORE command"                   0 "$nfx/mission-control" 'TOP="$(git -C . rev-parse --show-toplevel)" && set -- '"'"'mission-control/src/y.ts'"'"' && git -C "$TOP" --literal-pathspecs checkout 515c5ff -- "$@"'
+check "allow: engine's guarded CLEAN command"                     0 "$nfx/mission-control" 'TOP="$(git -C . rev-parse --show-toplevel)" && set -- '"'"'mission-control/src/tmp/'"'"' && git -C "$TOP" --literal-pathspecs clean -fd -- "$@"'
+rm -rf "$nfx"
+
+echo "== BL-0202: git global options no longer slip past the existing checks (flat repo) =="
+check "block: git -C x reset --hard HEAD~1"                       2 "$fx" "git -C sub reset --hard HEAD~1"
+check "block: git -C x stash drop"                                2 "$fx" "git -C sub stash drop"
+check "block: git --literal-pathspecs clean -fdx"                 2 "$fx" "git --literal-pathspecs clean -fdx"
+check "block: git -C x push --force"                              2 "$fx" "git -C sub push --force origin main"
+check "allow: git -C x reset --hard <explicit-sha> (flat repo)"   0 "$fx" "git -C sub reset --hard 515c5ff"
+check "allow: flat repo git clean -fd still allowed"              0 "$fx" "git -C sub clean -fd"
+
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
