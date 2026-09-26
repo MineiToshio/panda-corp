@@ -26,6 +26,11 @@ already implemented and tested, folded into this standard below (§2, §5, §5a,
 | `gateInventoryCache` | `false` | the FRD contract-inventory cache, "FRD baseline gated at SHA": the green landing persists the adjudicated traceability to `.pandacorp/run/gate-evidence/<frd>/inventory.json`; the next gate of that FRD reuses it only while frd.md/blueprint.md's normative body is unchanged (BL-0189; lever (d), repeat-gate canary before the default changes) |
 | `drainOnEmptyPlan` | `true` | on a BARE run with an empty plan, drain the ready change queue before declaring "nothing to build" (E2, BL-0129); still prohibited on a TARGETED run |
 
+Canary E2 (2026-09-26, `docs/reviews/canary-e2-report.md`) kept every gate lever at its default: `parallelGates`
+off (segment 82 % of the serial equivalent, bar ≤ 60 %), `gateEvidence` `'explore'` (`digested` lost 3 of 5 known
+defects), `driftPolicy` `'record'`, `gateContextScope` and `gateInventoryCache` off (unmeasured). The flip
+conditions and the canaries that measure them (F1/F2, BL-0201) are in `plugin/skills/implement/SKILL.md`.
+
 ## 1. State lives in the frontmatter (two axes)
 
 Every FRD, blueprint and work order carries two state fields in its YAML frontmatter. The PRD carries
@@ -648,13 +653,18 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
 - **One explicit e2e port per slot.** Each slot is bootstrapped with `PANDACORP_E2E_PORT=3800+10·k`. The BL-0154
   hash of the worktree path is not a separator: its free-port probe only sees servers already listening, and
   the hash is not injective (Mission Control's `gate-worktree-3` hashes to 3900, main's reserved port).
-- **Eligibility.** A gate launches only if its FRD neither depends on nor is depended on by (cross-FRD WO
-  `dependsOn`, transitive, plus FRD-level deps) any FRD whose verdict has **not landed**, and its reviewed
-  artifacts are disjoint from theirs (DR-060's own `artifactsOverlap`, fail-safe on undeclared). A dependent FRD
-  also waits while its upstream is still building or queued for its gate, so the upstream **lands first** —
-  otherwise the dependent could land `VERIFIED` on a WO the upstream's ladder later reverts. Two FRDs whose
-  WOs depend on each other across FRDs (no WO cycle) would wait forever on that rule, so the idle path waives
-  it for the head of the queue (logged); they still never gate together. One FRD never has two gates: a WO a
+- **Eligibility.** A gate launches only if its reviewed artifacts are disjoint from those of every FRD whose
+  verdict has **not landed** (DR-060's own `artifactsOverlap`, fail-safe on undeclared). A **dependency orders the
+  landing, not the gate** (BL-0194, canary E2 §4.2: FRD-05 waited 23.2 min with a free slot for FRD-04's
+  landing, then gated at its old pin anyway): a dependent FRD (cross-FRD WO `dependsOn`, transitive, plus
+  FRD-level deps) gates in parallel with its upstream, on its own pin, and its verdict waits in the lane until
+  the upstream's verdict has landed; it then lands through the stale-pin guard, which re-verifies it
+  `--since <pin>` on the tree the upstream left — so it can never land `VERIFIED` on a WO the upstream's ladder
+  reverted without that re-run. A dependent still does not gate while its upstream is **building** or **queued**
+  for its own gate (its pin could not hold that code). Two FRDs whose WOs depend on each other across FRDs (no WO
+  cycle) would wait forever on that rule, so the idle path waives it for the head of the queue (logged); their
+  landings cannot be ordered, so they land in arrival order. With nothing in flight a held verdict lands anyway
+  (logged) — a hold only ever waits on a gate that will settle. One FRD never has two gates: a WO a
   safe point unblocks while its FRD's gate is in flight waits for that verdict to land, then the FRD is
   re-queued and re-pinned at HEAD. A verdict carries **snapshots** of the reviewed WO ids and the pin taken at
   launch, so a landing stamps exactly what its gate reviewed and the guard compares against exactly that pin.
@@ -666,7 +676,8 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
   ran out after 2 gates; `launch-implement.sh --parallel-gates` warns below it). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.
-- **One landing lane on main.** Verdicts land **one at a time, in arrival order**: PASS → stale-pin guard →
+- **One landing lane on main.** Verdicts land **one at a time, in arrival order** among those no upstream verdict
+  holds (Eligibility): PASS → stale-pin guard →
   `applyGate`; REJECT, BLOCK or crash → the unchanged DR-072/073/117 ladder (BL-0184 port included). The
   quiesce is gone — reviews in other slots never touch main — but no build wave overlaps a landing, so main
   keeps **one writer at a time**, and every shared document (decision records, work-order frontmatter and
