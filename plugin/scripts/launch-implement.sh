@@ -194,4 +194,25 @@ if [ "$MODE" = "powerful" ] && [ -n "$MAX_AGENTS" ] && [ "$MAX_AGENTS" -lt 15 ];
   echo "  (BL-0173) — raise maxAgents, or expect and read the engine's own 'oleada reducida a 1 WO por"
   echo "  presupuesto de agentes agotado' log line rather than mis-reading it as a dependency stall."
 fi
+# Canary E (docs/reviews/canary-e-partial-report.md §4.4, 2026-09-25): with --parallel-gates the per-FRD gate
+# machinery is priced in maxAgents' cost-weighted units, and E (maxAgents 40, 4 FRDs) ran out after 2 gates and one
+# reopen ladder. Per FRD, from the engine's own weights (opus = 3, every MECH step = 1): the gate link ~6 (slot probe
+# + digested collector + opus review + release; a powerful-mode re-gate splits into more), a PASS landing ~2-3
+# (stale-pin check + apply, + a re-verify when main moved), and a REOPEN adds its ladder ~7 (port reviewer tests +
+# opus patch + hash check + verifier + certify stamp) plus drift proof/record/unport ~1-3. A PASS FRD is ~8-9 units,
+# a reopened one ~15-17; at the canaries' ~50 % first-gate reopen rate, plus the fixed pre-wave overhead above,
+# 15 x the FRDs to gate is the floor (E's 4 FRDs -> 60). Advisory only: nothing here changes what the engine does.
+if [ -n "$PARALLEL_GATES" ]; then
+  GATE_FRDS=""
+  [ -n "$FRDS" ] && GATE_FRDS=$(printf '%s\n' "$FRDS" | tr ',' '\n' | grep -c .)
+  if [ -n "$MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$MAX_AGENTS" -lt $((15 * GATE_FRDS)) ]; then
+    echo "  WARNING: --parallel-gates with maxAgents=$MAX_AGENTS for $GATE_FRDS FRD(s): the recommended floor is 15 x FRDs"
+    echo "  = $((15 * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder)."
+    echo "  Below it the run will likely stop at the agent ceiling before every FRD has gated (canary E: 40 for"
+    echo "  4 FRDs ran out after 2 gates) — raise maxAgents, or gate fewer FRDs this run."
+  elif [ -z "$GATE_FRDS" ]; then
+    echo "  NOTE: --parallel-gates: size maxAgents to at least 15 x the FRDs this run will gate (gate ~6 + landing"
+    echo "  ~2-3 per FRD, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
+  fi
+fi
 exit 0

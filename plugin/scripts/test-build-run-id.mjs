@@ -181,6 +181,31 @@ for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "
   ok(!/TOTAL run budget, NOT concurrency/.test(launched.stdout), "BL-0173 control: a non-powerful mode never prints the powerful-specific warning, even below 15");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
+{
+  // Canary E budget: with --parallel-gates, maxAgents below 15 x the FRDs to gate warns before the run starts.
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05", "--parallel-gates"]);
+  ok(/--parallel-gates with maxAgents=40 for 4 FRD\(s\): the recommended floor is 15 x FRDs\s+= 60/.test(launched.stdout), "canary E: --parallel-gates with maxAgents 40 for 4 FRDs warns the floor is 60");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "60", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05", "--parallel-gates"]);
+  ok(!/recommended floor is 15 x FRDs/.test(launched.stdout) && !/NOTE: --parallel-gates/.test(launched.stdout), "canary E control: maxAgents 60 for 4 FRDs prints no parallel-gates budget warning");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--parallel-gates"]);
+  ok(/NOTE: --parallel-gates: size maxAgents to at least 15 x the FRDs this run will gate/.test(launched.stdout), "canary E: an untargeted --parallel-gates run gets the 15-per-FRD sizing note");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "20", "auto", "--frds", "frd-a"]);
+  ok(!/15 x (the )?FRDs/.test(launched.stdout), "canary E control: without --parallel-gates no parallel-gates budget line is printed");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
 const repo = path.resolve(path.dirname(resolver), "../..");
 const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
 ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");
