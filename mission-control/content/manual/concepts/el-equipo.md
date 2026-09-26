@@ -30,6 +30,10 @@ Escribe los tests de aceptación (RED) antes de que el implementer escriba códi
 
 Valida el trabajo de otros agentes al nivel del FRD. Vuelve a correr toda la evidencia, escribe tests adversariales que el implementer no vio, y ejecuta mutation testing. Solo él puede marcar un FRD como VERIFIED.
 
+### Drift Finder
+
+Buscador de deriva de FRD completa, sobre sonnet (esfuerzo medio, hasta 60 llamadas). Corre dentro de cada gate de FRD fijado a su worktree, en paralelo con el colector de evidencia: por defecto cuando el gate usa evidencia `digested`, y en modo `explore` solo si se activa con `driftFinder` (launcher `--drift-finder on|off`). Recibe todo el catálogo de contratos del FRD, nunca el diff, y señala dónde el código ya verificado se aleja del FRD, con una prueba por cada deriva. Solo propone: el Reviewer sigue siendo el juez, y cada deriva que el Reviewer no resuelve pasa por la prueba diferencial (DR-122) antes de convertirse en tarjeta o reapertura.
+
 ### Researcher
 
 Investiga el mercado, la competencia y las tendencias tecnológicas. Informa el PRD con datos reales. Busca demanda verificable antes de construir.
