@@ -659,11 +659,15 @@ reviews a frozen checkout, the main loop keeps dispatching build waves.
 
 §5a overlaps a gate with the **build**, but gates still serialize with **each other**, and any reject quiesces
 every in-flight gate before its ladder runs — canary D2 spent 57.6 of 87.5 min in that post-wave gate segment
-(`docs/proposals/38-parallel-frd-gates-and-drift-policy.md`, Decision 1, and its red-team addendum). The
-opt-in **`args.parallelGates`** (default **off**; `args.gateSlots`, default **2** — the 16 GB machine the red-team measured, X6 — 1..8, alias
-`args.maxParallelGates`; launcher `--parallel-gates [--gate-slots N]`) lets several FRD gates **review** at
-once. Off, the engine is the §5a topology byte-for-byte. On, these conditions hold — each is a tested engine
-behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not a guideline:
+(`docs/proposals/38-parallel-frd-gates-and-drift-policy.md`, Decision 1, and its red-team addendum). **`args.parallelGates`** (**default ON since v9.116.0** — the canary F1/F2 sprint verdict, `docs/reviews/canary-f2-report.md`
+§6: the gates stopped being the cost/time bottleneck, 0 drops to the legacy path, 0 idle slot-minutes,
+unchanged recall parity across both canaries, ~0.3-0.4 $/run overhead, adopted despite neither canary meeting
+the pre-registered ≤60 %-of-serial time bar — see BL-0201; `args.gateSlots`, default **2** — the 16 GB machine
+the red-team measured, X6 — 1..8, alias `args.maxParallelGates`; launcher `--parallel-gates` /
+`--no-parallel-gates` (mutually exclusive), `--gate-slots N`) lets several FRD gates **review** at once. Off
+(explicit `--no-parallel-gates`, or `args.parallelGates:false`), the engine is the §5a topology byte-for-byte.
+On (the default), these conditions hold — each is a tested engine behaviour (`test-pandacorp-build.mjs`,
+section `D1 parallelGates`, BL-0186), not a guideline:
 
 - **A pool of N gate worktrees.** Slot *k* is `.pandacorp/run/gate-worktree-<k>` (never the single C2 path, so
   a dirty legacy worktree cannot poison the pool). A gate owns its slot for its whole link — probe (BL-0183
@@ -698,7 +702,9 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
   conservative in between; the wave picker subtracts the same reservation). A landing in progress reserves its own
   remaining cost too (a reopen ladder ~7 units), so a gate launched during it cannot starve it. Otherwise the engine logs
   `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
-  ran out after 2 gates; `launch-implement.sh --parallel-gates` warns below it). With nothing in flight the first eligible gate always starts (progress
+  ran out after 2 gates; canary F2 at 60 for 4 FRDs saturated the ceiling exactly as the run finished — the
+  15×FRDs floor does not yet add the drift finder's own reserved unit, BL-0207; `launch-implement.sh` warns
+  below it whenever parallel gates is not explicitly off — the default, since v9.116.0). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.
 - **One landing lane on main.** Verdicts land **one at a time, in arrival order** among those no upstream verdict
   holds (Eligibility): PASS → stale-pin guard →

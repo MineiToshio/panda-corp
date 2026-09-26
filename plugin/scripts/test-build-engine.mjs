@@ -79,7 +79,7 @@ function defaultResponse(label) {
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
-  if (label === 'gate-worktree') return { ok: true, created: true }
+  if (/^gate-worktree(:\d+)?$/.test(label)) return { ok: true, created: true }   // D1: bare (serial) or pooled 'gate-worktree:<slot>' (parallelGates, now the v9.116.0 default)
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }
   if (label.startsWith('apply-gate:')) return { done: true }
   if (label.startsWith('persist-block:')) return { done: true }
@@ -142,8 +142,12 @@ async function runEngine(scenario) {
   const noop = () => {}
 
   let result, error
+  // v9.116.0: the engine's OWN default for args.parallelGates flipped to true (F1/F2 verdict). These 3
+  // reviewSplit scenarios predate D1 and are about a different feature entirely (the split FRD gate) — pin
+  // them to the pre-D1 legacy topology (no scenario here sets parallelGates itself) so their agent-label
+  // assertions stay unrelated to gate-pool mechanics.
   const engineArgs = scenario.args && typeof scenario.args === 'object'
-    ? { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...scenario.args }
+    ? { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, parallelGates: false, ...scenario.args }
     : scenario.args
   try {
     result = await engine(

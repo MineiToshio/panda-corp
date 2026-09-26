@@ -114,7 +114,15 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "pro", "8", "new"]);
   const args = workflowArgs(launched.stdout);
-  ok(!("parallelGates" in args) && !("gateSlots" in args) && !("gateEvidence" in args) && !("gateContextScope" in args) && !("driftFinder" in args) && !("gateInventoryCache" in args), "without --parallel-gates/--gate-evidence/--gate-context-scope/--drift-finder/--gate-inventory-cache the launcher adds none of those keys (the engine defaults stay)");
+  ok(!("parallelGates" in args) && !("gateSlots" in args) && !("gateEvidence" in args) && !("gateContextScope" in args) && !("driftFinder" in args) && !("gateInventoryCache" in args), "without --parallel-gates/--no-parallel-gates/--gate-evidence/--gate-context-scope/--drift-finder/--gate-inventory-cache the launcher adds none of those keys — the engine's own default (parallelGates now true, v9.116.0) governs, never a launcher-forced value");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  // --no-parallel-gates is the v9.116.0 opt-out: the launcher must be able to turn the new default OFF explicitly.
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--no-parallel-gates"]);
+  const args = workflowArgs(launched.stdout);
+  ok(args.parallelGates === false, "launcher passes --no-parallel-gates as args.parallelGates:false");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
@@ -132,7 +140,7 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   ok(args.gateEvidence === "digested" && args.driftFinder === true && !("gateContextScope" in args) && !("gateInventoryCache" in args), "launcher passes --drift-finder on as driftFinder:true (a boolean, never the string) and sets no other lever key");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
-for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"], ["--gate-evidence", "digest"], ["--gate-evidence"], ["--drift-finder"], ["--drift-finder", "yes"], ["--drift-finder", "true"], ["--gate-context-scope", "true"], ["--gate-inventory-cache", "on"]]) {
+for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-gates", "--no-parallel-gates"], ["--no-parallel-gates", "--parallel-gates"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"], ["--gate-evidence", "digest"], ["--gate-evidence"], ["--drift-finder"], ["--drift-finder", "yes"], ["--drift-finder", "true"], ["--gate-context-scope", "true"], ["--gate-inventory-cache", "on"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }
@@ -197,28 +205,36 @@ for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
-  // Canary E budget: with --parallel-gates, maxAgents below 15 x the FRDs to gate warns before the run starts.
+  // v9.116.0 (F1/F2 verdict): parallelGates now defaults ON, so the sizing warning fires on a plain
+  // `powerful` targeted run with NO --parallel-gates flag at all — the engine default does the work.
   const root = await fixture({ phase: "architecture", running: "false" });
-  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05", "--parallel-gates"]);
-  ok(/--parallel-gates with maxAgents=40 for 4 FRD\(s\): the recommended floor is 15 x FRDs\s+= 60/.test(launched.stdout), "canary E: --parallel-gates with maxAgents 40 for 4 FRDs warns the floor is 60");
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05"]);
+  ok(/parallel FRD gates \(default on\) with maxAgents=40 for 4 FRD\(s\): the recommended\s+floor is 15 x FRDs\s+= 60/.test(launched.stdout), "v9.116.0: a plain targeted powerful run (parallel gates on by default) with maxAgents 40 for 4 FRDs warns the floor is 60");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  // --no-parallel-gates opts back into the legacy single-gate-worktree topology and silences the sizing warning.
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05", "--no-parallel-gates"]);
+  ok(!/15 x (the )?FRDs/.test(launched.stdout), "--no-parallel-gates suppresses the parallel-gates sizing warning even below the (now moot) floor");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "60", "auto", "--frds", "frd-02,frd-03,frd-04,frd-05", "--parallel-gates"]);
-  ok(!/recommended floor is 15 x FRDs/.test(launched.stdout) && !/NOTE: --parallel-gates/.test(launched.stdout), "canary E control: maxAgents 60 for 4 FRDs prints no parallel-gates budget warning");
+  ok(!/recommended floor is 15 x FRDs/.test(launched.stdout) && !/NOTE: parallel FRD gates/.test(launched.stdout), "canary E control: maxAgents 60 for 4 FRDs prints no parallel-gates budget warning");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
   const root = await fixture({ phase: "architecture", running: "false" });
-  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--parallel-gates"]);
-  ok(/NOTE: --parallel-gates: size maxAgents to at least 15 x the FRDs this run will gate/.test(launched.stdout), "canary E: an untargeted --parallel-gates run gets the 15-per-FRD sizing note");
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto"]);
+  ok(/NOTE: parallel FRD gates \(default on\): size maxAgents to at least 15 x the FRDs this run will gate/.test(launched.stdout), "v9.116.0: an untargeted plain powerful run (no --parallel-gates flag needed) gets the 15-per-FRD sizing note");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 {
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "20", "auto", "--frds", "frd-a"]);
-  ok(!/15 x (the )?FRDs/.test(launched.stdout), "canary E control: without --parallel-gates no parallel-gates budget line is printed");
+  ok(!/15 x (the )?FRDs/.test(launched.stdout), "canary E control: at/above the per-FRD floor no parallel-gates budget line is printed");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 const repo = path.resolve(path.dirname(resolver), "../..");

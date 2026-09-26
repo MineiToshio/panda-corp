@@ -7,7 +7,7 @@
 # Usage:  launch-implement.sh <project-dir> [mode] [maxAgents] [auto|new|continue-run-id]
 #           [--frds <comma-separated-frds> | --change <change>]
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
-#           [--parallel-gates [--gate-slots <1-8>]] [--gate-evidence explore|digested]
+#           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
@@ -15,9 +15,14 @@
 #              back-to-back gate/repair attempts with no intervening safe-point can go silently
 #              unrenewed well past the historical 600s default; raise further for a targeted
 #              single-FRD/change run expected to spend most of its time inside one long gate).
-#   --parallel-gates: OPT-IN (engine args.parallelGates, default off — D1/BL-0186): up to --gate-slots FRD
+#   --parallel-gates / --no-parallel-gates: engine args.parallelGates. **Default ON since v9.116.0** (D1/BL-0186;
+#              canary F1/F2 verdict — the gates are no longer the cost/time bottleneck): up to --gate-slots FRD
 #              gates review at once, each in its own gate worktree, landing on main one at a time. Size the
-#              pool to the machine (default 2 = the 16 GB machine the red-team measured). --gate-slots alone is an error.
+#              pool to the machine (default 2 = the 16 GB machine the red-team measured). Pass bare
+#              `--parallel-gates` to make the (now-default) choice explicit in a launch's own argv, or
+#              `--no-parallel-gates` to opt back into the single-gate-worktree legacy topology. The two are
+#              mutually exclusive. --gate-slots needs no flag alongside it now that parallel gates default on;
+#              it errors only when paired with --no-parallel-gates.
 #   --gate-evidence: engine args.gateEvidence (WP-06/BL-0187): `explore` (the engine default) or `digested` (a MECH
 #              collector pre-gathers the gate's evidence in the pinned gate worktree). Omitted → the key is not set.
 #   --gate-context-scope: OPT-IN → engine args.gateContextScope:true (BL-0188, engine default off): every FRD gate
@@ -47,7 +52,8 @@ while [ "$#" -gt 0 ]; do
     --max-frds) [ "$#" -ge 2 ] || { echo "ERROR: --max-frds requires a value." >&2; exit 3; }; MAX_FRDS="$2"; shift 2 ;;
     --max-spend) [ "$#" -ge 2 ] || { echo "ERROR: --max-spend requires a value." >&2; exit 3; }; MAX_SPEND="$2"; shift 2 ;;
     --ttl) [ "$#" -ge 2 ] || { echo "ERROR: --ttl requires a value." >&2; exit 3; }; TTL="$2"; shift 2 ;;
-    --parallel-gates) PARALLEL_GATES="1"; shift ;;
+    --parallel-gates) [ -z "$PARALLEL_GATES" ] || [ "$PARALLEL_GATES" = "1" ] || { echo "ERROR: --parallel-gates and --no-parallel-gates are mutually exclusive." >&2; exit 3; }; PARALLEL_GATES="1"; shift ;;
+    --no-parallel-gates) [ -z "$PARALLEL_GATES" ] || [ "$PARALLEL_GATES" = "0" ] || { echo "ERROR: --parallel-gates and --no-parallel-gates are mutually exclusive." >&2; exit 3; }; PARALLEL_GATES="0"; shift ;;
     --gate-slots) [ "$#" -ge 2 ] || { echo "ERROR: --gate-slots requires a value." >&2; exit 3; }; GATE_SLOTS="$2"; shift 2 ;;
     --gate-evidence) [ "$#" -ge 2 ] || { echo "ERROR: --gate-evidence requires a value." >&2; exit 3; }; GATE_EVIDENCE="$2"; shift 2 ;;
     --gate-context-scope) GATE_CONTEXT_SCOPE="1"; shift ;;
@@ -64,7 +70,7 @@ for pair in "maxAgents:$MAX_AGENTS" "maxFrds:$MAX_FRDS" "maxSpend:$MAX_SPEND" "t
 done
 [ -z "$FRDS" ] || [ -z "$CHANGE" ] || { echo "ERROR: --frds and --change are mutually exclusive." >&2; exit 3; }
 if [ -n "$GATE_SLOTS" ]; then
-  [ -n "$PARALLEL_GATES" ] || { echo "ERROR: --gate-slots only applies with --parallel-gates." >&2; exit 3; }
+  [ "$PARALLEL_GATES" != "0" ] || { echo "ERROR: --gate-slots contradicts --no-parallel-gates." >&2; exit 3; }
   [[ "$GATE_SLOTS" =~ ^[1-8]$ ]] || { echo "ERROR: --gate-slots must be an integer 1-8." >&2; exit 3; }
 fi
 case "$GATE_EVIDENCE" in ""|explore|digested) ;; *) echo "ERROR: --gate-evidence must be explore or digested." >&2; exit 3 ;; esac
@@ -162,7 +168,8 @@ if (frds) args.frds = frds.split(",");
 if (change) args.change = change;
 if (maxFrds) args.maxFrds = Number(maxFrds);
 if (maxSpend) args.maxSpend = Number(maxSpend);
-if (parallelGates) args.parallelGates = true;
+if (parallelGates === "1") args.parallelGates = true;
+else if (parallelGates === "0") args.parallelGates = false;
 if (gateSlots) args.gateSlots = Number(gateSlots);
 if (gateEvidence) args.gateEvidence = gateEvidence;
 if (gateContextScope) args.gateContextScope = true;
@@ -209,7 +216,7 @@ if [ "$MODE" = "powerful" ] && [ -n "$MAX_AGENTS" ] && [ "$MAX_AGENTS" -lt 15 ];
   echo "  (BL-0173) — raise maxAgents, or expect and read the engine's own 'oleada reducida a 1 WO por"
   echo "  presupuesto de agentes agotado' log line rather than mis-reading it as a dependency stall."
 fi
-# Canary E (docs/reviews/canary-e-partial-report.md §4.4, 2026-09-25): with --parallel-gates the per-FRD gate
+# Canary E (docs/reviews/canary-e-partial-report.md §4.4, 2026-09-25): with parallel gates the per-FRD gate
 # machinery is priced in maxAgents' cost-weighted units, and E (maxAgents 40, 4 FRDs) ran out after 2 gates and one
 # reopen ladder. Per FRD, from the engine's own weights (opus = 3, every MECH step = 1): the gate link ~6 (slot probe
 # + digested collector + opus review + release; a powerful-mode re-gate splits into more), a PASS landing ~2-3
@@ -217,17 +224,19 @@ fi
 # opus patch + hash check + verifier + certify stamp) plus drift proof/record/unport ~1-3. A PASS FRD is ~8-9 units,
 # a reopened one ~15-17; at the canaries' ~50 % first-gate reopen rate, plus the fixed pre-wave overhead above,
 # 15 x the FRDs to gate is the floor (E's 4 FRDs -> 60). Advisory only: nothing here changes what the engine does.
-if [ -n "$PARALLEL_GATES" ]; then
+# parallelGates now defaults ON (v9.116.0, F1/F2 verdict) — this warning fires whenever PARALLEL_GATES is not
+# explicitly "0" (--no-parallel-gates), not only when --parallel-gates was typed.
+if [ "$PARALLEL_GATES" != "0" ]; then
   GATE_FRDS=""
   [ -n "$FRDS" ] && GATE_FRDS=$(printf '%s\n' "$FRDS" | tr ',' '\n' | grep -c .)
   if [ -n "$MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$MAX_AGENTS" -lt $((15 * GATE_FRDS)) ]; then
-    echo "  WARNING: --parallel-gates with maxAgents=$MAX_AGENTS for $GATE_FRDS FRD(s): the recommended floor is 15 x FRDs"
-    echo "  = $((15 * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder)."
+    echo "  WARNING: parallel FRD gates (default on) with maxAgents=$MAX_AGENTS for $GATE_FRDS FRD(s): the recommended"
+    echo "  floor is 15 x FRDs = $((15 * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder)."
     echo "  Below it the run will likely stop at the agent ceiling before every FRD has gated (canary E: 40 for"
-    echo "  4 FRDs ran out after 2 gates) — raise maxAgents, or gate fewer FRDs this run."
+    echo "  4 FRDs ran out after 2 gates) — raise maxAgents, gate fewer FRDs this run, or pass --no-parallel-gates."
   elif [ -z "$GATE_FRDS" ]; then
-    echo "  NOTE: --parallel-gates: size maxAgents to at least 15 x the FRDs this run will gate (gate ~6 + landing"
-    echo "  ~2-3 per FRD, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
+    echo "  NOTE: parallel FRD gates (default on): size maxAgents to at least 15 x the FRDs this run will gate (gate"
+    echo "  ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
   fi
 fi
 exit 0

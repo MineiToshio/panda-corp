@@ -155,7 +155,8 @@ function defaultResponse(label) {
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
   if (label.startsWith('dispatch:')) return {}
-  if (label === 'gate-worktree') return { ok: true, created: true }         // C2: worktree prepared OK (happy path)
+  if (/^gate-worktree(:\d+)?$/.test(label)) return { ok: true, created: true }   // D1: bare (serial) or pooled 'gate-worktree:<slot>' (parallelGates, now the v9.116.0 default)         // C2: worktree prepared OK (happy path)
+  if (label.startsWith('stale-pin:')) return { count: 0 }      // D1 landing lane happy path (v9.116.0 default parallelGates:true): main hasn't moved since the pin — lands clean, no reverify spawn
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
   if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
   if (label.startsWith('certify-patch:')) return { done: true }             // BL-0191: serialized stamp of an ACCEPTED post-patch verification
@@ -239,9 +240,20 @@ async function runEngine(scenario) {
   const parallelStub = (fns) => Promise.all(fns.map((f) => f()))
   let result, error
   let engineArgs = scenario.args
+  // v9.116.0: the engine's OWN default for args.parallelGates flipped to true (F1/F2 verdict). This whole
+  // suite's ~300 scenarios predate D1 and pin the pre-D1 (legacy, single-worktree) topology as their fixed
+  // baseline to keep OTHER features' assertions (WP-01, WP-02, DR-060, DR-086, …) stable and unrelated to
+  // gate topology — so the harness itself now supplies `parallelGates: false` whenever a scenario's own
+  // args do not mention the key at all, exactly mirroring the pre-flip engine default. A scenario that
+  // cares about parallel gates keeps full control: setting `parallelGates: true` (the D1* scenarios) or
+  // even explicit `parallelGates: undefined` (to observe the ENGINE'S OWN true default when genuinely
+  // omitted, see D1h-omitted below) is respected — this default applies ONLY when the key is entirely
+  // absent from the scenario's own args object/string.
+  const scenarioSetParallelGates = (o) => { try { return typeof o === 'string' ? /"parallelGates"\s*:/.test(o) : Boolean(o) && typeof o === 'object' && 'parallelGates' in o } catch { return false } }
+  const parallelGatesHarnessDefault = scenarioSetParallelGates(engineArgs) ? {} : { parallelGates: false }
   if (typeof engineArgs === 'string') {
-    try { engineArgs = JSON.stringify({ stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...JSON.parse(engineArgs) }) } catch {}
-  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...engineArgs }
+    try { engineArgs = JSON.stringify({ stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...JSON.parse(engineArgs) }) } catch {}
+  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...engineArgs }
   try {
     result = await engine(agentStub, (l) => logs.push(String(l)), budget, engineArgs, (t) => phases.push(t), parallelStub)
   } catch (e) {
@@ -6109,12 +6121,14 @@ const d1Slot = (call) => ((call && call.prompt.match(/GATE WORKTREE (\S+gate-wor
     },
   })
 }
-// (h) flag OFF → the C2 topology, untouched (the byte-level proof is the differential run in BL-0186).
-for (const [label, flag] of [['absent', undefined], ['false', false], ['"false" string', 'false']]) {
+// (h) flag explicitly OFF → the C2 topology (the byte-level proof is the differential run in BL-0186).
+// v9.116.0 (F1/F2 verdict) flipped the ENGINE'S OWN default to true, so "absent" no longer belongs in this
+// loop — it is covered by D1h-omitted right below, which asserts the OPPOSITE topology.
+for (const [label, flag] of [['false', false], ['"false" string', 'false']]) {
   const tag = `d1i${label.length}`
   SCENARIOS.push({
     name: `D1h-${label}. parallelGates ${label} → single C2 worktree, one mutex chain, no D1 spawn (gate-worktree, never gate-worktree-<k>; no stale-pin/reverify)`,
-    args: { mode: 'pro', ...(flag === undefined ? {} : { parallelGates: flag }), ...(label === 'false' ? { gateSlots: 2 } : {}) },
+    args: { mode: 'pro', parallelGates: flag, ...(label === 'false' ? { gateSlots: 2 } : {}) },
     plan: twoPinPlan(tag),
     responses: [distinctCommitShas],
     assert(t, run) {
@@ -6127,6 +6141,26 @@ for (const [label, flag] of [['absent', undefined], ['false', false], ['"false" 
     },
   })
 }
+// (h2) v9.116.0: the flag key is TRULY absent (never set to any value, including undefined) → the ENGINE'S
+// OWN default now applies, which is ON — the pool topology, indistinguishable from an explicit
+// `parallelGates: true` (F1/F2 verdict: the gates stopped being the cost/time bottleneck). `parallelGates:
+// undefined` here still counts as "the scenario set the key" for this suite's own harness-level legacy
+// default (see runEngine's scenarioSetParallelGates) — it is the one way, inside this shared harness, to
+// let a scenario observe the real engine default instead of the harness's own pinned-legacy convenience.
+SCENARIOS.push({
+  name: 'D1h-omitted. parallelGates key truly absent → the v9.116.0 engine default is ON: pool topology, same as explicit true',
+  args: { mode: 'pro', parallelGates: undefined, gateSlots: 2 },
+  plan: twoPinPlan('d1homitted'),
+  responses: [distinctCommitShas],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, /^gate:/)
+    t.ok(gates.length === 2 && gates.some((g) => /gate-worktree-\d/.test(g.prompt)), 'gates ran in POOL slot(s) (gate-worktree-<k>), never the single C2 worktree')
+    t.ok(byLabel(run, /^stale-pin:/).length === 2, 'the D1 landing lane ran (stale-pin guard) for both FRDs — proof this is the pool path, not the legacy one')
+    t.ok(hasLog(run, /D1: /), 'the D1 log line fires exactly as it does under an explicit parallelGates:true')
+    t.ok(run.result && run.result.builtFrds.length === 2, 'both FRDs verify')
+  },
+})
 // (i) one EXPLICIT e2e port per slot (the path hash can collide — even with main's 3900); pool size args.
 SCENARIOS.push({
   name: 'D1i. parallelGates (gateSlots 3) — each slot is bootstrapped with its OWN explicit PANDACORP_E2E_PORT (3810/3820/3830), distinct paths, label gate-worktree:<k>',
