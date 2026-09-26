@@ -367,3 +367,62 @@ Plus: T4 owned contract labelled drift → cycle fault; T5 cross-FRD regression 
 - All (b), (d), (g) and (a′) savings are **estimates** (digested has no clean run; the inventory's share of gate turns comes from reading two transcripts' command lists, not a systematic classification; the split closer's cost was never measured).
 - Whether a replay from `c575adfc` reproduces D2's reviewer findings (judge stochasticity); whether `git checkout --detach` in a slot stays safe across shas given the `skip-worktree` `server-env.json`.
 - The memo's own unverifieds stand (forensics H2; MC's queue reader tolerating new card keys; `sync-rollups` markers in `frd.md`).
+
+## Canary E2 result and adopted defaults (2026-09-26)
+
+The E2 run: workflow `wf_405eeb21-f9e`, engine 9.113.0, a replay of D2's four gates from `c575adfc`,
+`parallelGates:true, gateSlots:2, gateEvidence:'digested'`, `maxAgents:60`. Evidence:
+`docs/reviews/canary-e2-report.md`. All $ are BL-0181-deduped.
+
+**Criteria from §A5/§A6, scored:**
+
+| Item | Pre-registered criterion | E2 measured | Verdict |
+|---|---|---|---|
+| D1 `parallelGates` | gate segment ≤ 60 % of D2's 66.9-min serial equivalent | 55.0 min = **82 %** (D2's segment was 67.1 min, so −18 %) | **not met** |
+| D1 | 0 legacy fallbacks · slots clean · 0 env-noise reds · 0 `last_green_sha` violations | 0 · both clean · 0 · 0 (manual audit; BL-0190 still open) | met |
+| (b) `digested` | ≥ 25 % review-cost cut on identical code | Σ evidence + gate 9.26 $ vs 24.61 $ = **−62 %** | met |
+| (b) | re-find both date CORRECTIONs (frd-03, frd-04) and frd-05's pass, 0 lost findings | frd-04 ✓, frd-05 ✓, **frd-03 date CORRECTION lost**. Also lost: AC-02-010.8 drift and REQ-03-001 drift | **failed → roll back to explore** |
+| (g) context | ≤ 100 k average context per gate turn | 96 k (92-105 k) vs D2 125-143 k | met (digested only; `gateContextScope` itself not run) |
+| D2 (a\*) | FRD-02 VERIFIED + draft cards for the drift; FRD-03 VERIFIED + REQ-03-001 card | both VERIFIED, **0 cards**: no drift was claimed, because the digested gates never looked (0 touches of `phases.ts` / `ACTIVE_PHASES`) | not exercised (E1 exercised it: 0.02 $) |
+| Safety | close-out full `verify.sh` green | green | met |
+| Sprint bar | ≤ 20 min and ≤ 7.5 $ per verified WO | raw 16.3 min / 3.80 $ (no build, visual-qa no-op); composite ≈ 21.5 min / ≈ 5.77 $ (PROJECTION); ≈ 9.6 $ with explore gates | raw met; composite time missed; cost met only with digested |
+
+**Correction to §A5 (e11).** At `c575adfc`, AC-02-010.4 was already reconciled: `c34ba57c` is an ancestor. Only
+AC-02-010.8 and REQ-03-001 were live drift in E. Both are still live at E2's HEAD.
+
+**Parity, on the five real defects of the replay code:**
+
+- D2 `explore` found 4/5.
+- E1 `digested` found 3/4.
+- E2 `digested` found 2/5.
+
+The out-of-diff drift loss is structural. `EVIDENCE_READ_BUDGET = 8` and the diff scoped to the reviewed WOs keep
+the judge out of VERIFIED code, where drift lives. E2's gates made 21-32 calls vs D2's 59-80. The in-diff misses
+were one per mode, and at n ≤ 2 they are not attributable.
+
+**Adopted defaults** (the plugin change is a separate follow-up; this memo records the decision):
+
+| Flag | Default | Reason |
+|---|---|---|
+| `parallelGates` | **off** (opt-in; `gateSlots: 2` when on) | Below the time bar. Parity cannot be isolated from `digested`. A dependent can be judged at a pin without its upstream's patch. Flip after (1) gating dependents early and ordering only their landing, (2) fixing the reverify → apply doubled-prefix test commit, and (3) one confirm replay in `explore` with segment ≤ 60 % and unchanged recall |
+| `gateEvidence` | **`explore`** | The pre-registered rollback fired: a CORRECTION was lost, and AC-02-010.8 drift was lost in 2/2 digested runs |
+| `driftPolicy` | **`record`** | Validated end to end in E1; no counter-evidence |
+| `gateContextScope` | **off** | Unmeasured. Next: **canary F1**, the same `c575adfc` replay in `explore` + `gateContextScope`, scored against the 5-defect ground truth and D2's 24.61 $ |
+| `gateInventoryCache` | **off** | Unmeasured. Next: the §A6 #6 repeat-gate canary |
+
+**Open levers, by measured leverage:**
+
+1. **Gate-launch dependency** (`gateConflict` rule 1): FRD-05 waited 23.2 min with two idle slots (39.9
+   slot-minutes). It was then gated at the old pin anyway. Launching early and ordering only the landing projects
+   to ≈ −12 min on E2 (PROJECTION). This makes "BL-0192 phase 2 (pin in the top-up)" moot on this evidence: FRD-05
+   was already pinned.
+2. **A recall-preserving cost lever:** F1 as above, or F2, `digested` + a sonnet whole-FRD drift finder whose claims
+   go through the a\* proof. A "drift oracle only for never-gated FRDs" would not have caught either live drift:
+   both FRDs had been gated before the drift appeared.
+3. **Close-out:** visual-qa returned `done:false` with 0 tool calls (cause unconfirmed). BL-0179 cannot fire in a
+   multi-FRD run: bookkeeping commits sit past `last_green_sha`, and the last report is a `since`-old-pin reverify.
+4. **Hygiene:**
+   - the nested-project status.yaml exclusion (the baseline escalated, 2.5 min);
+   - the collector's `mkdir` in a fresh slot;
+   - the final rollup flip left uncommitted;
+   - BL-0190.

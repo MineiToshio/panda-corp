@@ -1134,7 +1134,41 @@ Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEv
 > lado como **"$ real (BL-0181)"**. Las comparaciones RELATIVAS (deltas %, factores ×) se mantienen
 > dentro de ±7 % — ningún veredicto de este cierre cambia de signo por la corrección.
 
-**Veredicto final del sprint (2026-09-25, tras canario D — actualiza el veredicto de la tanda 2 de abajo, que solo cubría A/B/B2/C):** el objetivo 4× **no se alcanza con paralelismo de build**, porque el cuello real no es el build en paralelo — es la **revisión por FRD en serie**. Canario D2 midió el único run de esta tanda con paralelismo genuino de WOs (3 construidas a la vez) y aun así terminó **peor que el baseline en coste** (2,07× *medido con rollup 1,6×*; **2,04× real, BL-0181**) y prácticamente empatado en tiempo (6% peor): el 66% del wall-clock y el 85% del coste de D2 son gates de FRD corriendo uno detrás de otro. **La única mejora sólida de todo el sprint sigue siendo el Canario A** (−32,8% tiempo / −35,7% coste, ≈1,49× *medido con rollup 1,6×*; **−38,9% coste, ≈1,64× real (BL-0181)** — la corrección MEJORA la cifra de A, no la empeora) — todo lo demás (B/B2/C/D) o no midió limpio o midió un techo estructural, nunca el objetivo. Lo que el sprint SÍ logró, en cambio, es real: los canarios destaparon y cerraron **más de 20 bugs del motor** (BL-0149, BL-0150, BL-0155, BL-0156, BL-0157, BL-0158, BL-0159, BL-0160, BL-0153, BL-0154, BL-0161, BL-0162, BL-0164, BL-0165, BL-0166, BL-0167, BL-0168, BL-0169, BL-0171, BL-0172, BL-0173, BL-0174, BL-0175, BL-0176, BL-0177 — 25 ids, la mayoría cerrados en `main`). La palanca que queda para acercarse al 4× es **estructural, no incremental, y requiere una decisión del owner**: (a) **gates de FRD en paralelo** (el motor los serializa a propósito hoy, DR-050/BL-0021 — la proyección marcada, no medida, de D2 es **−31 min** si los 3 gates de frd-03/04/05 corrieran a la vez) y/o (b) **`gateEvidence: 'digested'` re-medido limpio** (ningún run de todo el sprint, incluyendo D, lo ejercitó sin contaminación — sigue sin certificar) más **F3** (la política del oráculo de deriva pre-existente, BL-0178, abierta). **Fixes de tandas anteriores ejercitados EN VIVO por el canario D:** BL-0159 (telemetría de gate sin `apply-gate`) sí — confirmado en D2's frd-02; BL-0154 (puerto e2e fijo a 3900) sí — los 4 gates/builds de D2 usaron puertos distintos, ninguno 3900. **BL-0147 (reuse de verify.sh en el cierre) NO se ejercitó** — ambos `notify-end` de D1 y D2 corrieron el `verify.sh` completo sin reusar nada; causa raíz y decisión pendiente en **BL-0179**, filed nuevo en este cierre.
+**Final sprint verdict (2026-09-26, after canary E2; supersedes the canary-D verdict below; full evidence in `docs/reviews/canary-e2-report.md`).**
+
+- **The 4× goal was NOT reached, in time or in cost.**
+  - Canary E2 (a replay of D2's four gates from `c575adfc` with `parallelGates` + `gateEvidence:'digested'`)
+    verified 4/4 WOs in **65.1 min / 15.20 $ real**. Per verified WO that is **16.3 min / 3.80 $**, i.e. **1.99× /
+    1.72× vs the FRD-24 baseline** (32.4 min / 6.53 $) and 2.11× / 3.50× vs D1+D2. It is the best measured number of
+    the sprint.
+  - It excludes the build (the WOs were already built) and a visual-qa pass (the agent returned `done:false` with 0
+    tool calls). A full-run composite adds D2's measured build wave, foundation-gate and visual-qa spans. That lands
+    at **≈ 21.5 min / ≈ 5.77 $ per WO, ≈ 1.5× / ≈ 1.1× vs the baseline** (PROJECTION over measured spans).
+- **The cost side depends on `digested`, and `digested` failed finding parity.**
+  - On the 5 real defects known in the replay code, E2 found 2/5 (E1 3/4) vs D2's `explore` 4/5.
+  - FRD-02's AC-02-010.8 drift was missed in 2 of 2 digested runs. The cause is structural: the 8-read budget; E2's
+    gates never opened `phases.ts` / `ACTIVE_PHASES`.
+  - FRD-03's date-validation CORRECTION was missed, so `formatLastSync` was certified with V8's lenient-parse bug
+    still in it.
+  - With the parity-preserving `explore` default, the composite cost is ≈ 9.6 $/WO, above the baseline.
+- **The 38-addendum bar (≤ 20 min and ≤ 7.5 $ per WO)** is met raw, missed on composite time by ≈ 1.5 min, and met
+  on composite cost only with `digested`.
+- **`parallelGates` cut the gate segment 18 %** (55.0 vs 67.1 min), short of the pre-registered ≤ 60 % of
+  serial-equivalent (82 %). The largest measured loss is FRD-05 waiting 23.2 min on a gate-*launch* dependency rule.
+  It was then judged at the old pin anyway.
+- **Defaults decided:**
+  - `parallelGates` **off** (opt-in, `gateSlots:2`).
+  - `gateEvidence` **`explore`** (digested opt-in; the pre-registered rollback fires).
+  - `driftPolicy` **`record`**.
+  - `gateContextScope` / `gateInventoryCache` **off**, unmeasured; canary F1 / repeat-gate canary F.
+- **What remains**, by measured leverage:
+  1. Gate dependents early, order only the landing (≈ −12 min PROJECTION).
+  2. A recall-preserving cost lever, scored against the §3.2 ground truth of the E2 report (`explore` +
+     `gateContextScope`, or `digested` + a sonnet whole-FRD drift finder).
+  3. Close-out: visual-qa no-op, BL-0179 still unreachable.
+  4. Hygiene residues, BL-0190.
+
+**Superseded verdict (2026-09-25, after canary D — updated the tanda-2 verdict below, which only covered A/B/B2/C):** el objetivo 4× **no se alcanza con paralelismo de build**, porque el cuello real no es el build en paralelo — es la **revisión por FRD en serie**. Canario D2 midió el único run de esta tanda con paralelismo genuino de WOs (3 construidas a la vez) y aun así terminó **peor que el baseline en coste** (2,07× *medido con rollup 1,6×*; **2,04× real, BL-0181**) y prácticamente empatado en tiempo (6% peor): el 66% del wall-clock y el 85% del coste de D2 son gates de FRD corriendo uno detrás de otro. **La única mejora sólida de todo el sprint sigue siendo el Canario A** (−32,8% tiempo / −35,7% coste, ≈1,49× *medido con rollup 1,6×*; **−38,9% coste, ≈1,64× real (BL-0181)** — la corrección MEJORA la cifra de A, no la empeora) — todo lo demás (B/B2/C/D) o no midió limpio o midió un techo estructural, nunca el objetivo. Lo que el sprint SÍ logró, en cambio, es real: los canarios destaparon y cerraron **más de 20 bugs del motor** (BL-0149, BL-0150, BL-0155, BL-0156, BL-0157, BL-0158, BL-0159, BL-0160, BL-0153, BL-0154, BL-0161, BL-0162, BL-0164, BL-0165, BL-0166, BL-0167, BL-0168, BL-0169, BL-0171, BL-0172, BL-0173, BL-0174, BL-0175, BL-0176, BL-0177 — 25 ids, la mayoría cerrados en `main`). La palanca que queda para acercarse al 4× es **estructural, no incremental, y requiere una decisión del owner**: (a) **gates de FRD en paralelo** (el motor los serializa a propósito hoy, DR-050/BL-0021 — la proyección marcada, no medida, de D2 es **−31 min** si los 3 gates de frd-03/04/05 corrieran a la vez) y/o (b) **`gateEvidence: 'digested'` re-medido limpio** (ningún run de todo el sprint, incluyendo D, lo ejercitó sin contaminación — sigue sin certificar) más **F3** (la política del oráculo de deriva pre-existente, BL-0178, abierta). **Fixes de tandas anteriores ejercitados EN VIVO por el canario D:** BL-0159 (telemetría de gate sin `apply-gate`) sí — confirmado en D2's frd-02; BL-0154 (puerto e2e fijo a 3900) sí — los 4 gates/builds de D2 usaron puertos distintos, ninguno 3900. **BL-0147 (reuse de verify.sh en el cierre) NO se ejercitó** — ambos `notify-end` de D1 y D2 corrieron el `verify.sh` completo sin reusar nada; causa raíz y decisión pendiente en **BL-0179**, filed nuevo en este cierre.
 
 **En `main`:** plugin 9.103.0 → 9.104.4 (overlay 8.82.2). Segundo y tercer lote (F2-F5, quick wins, fix1/BL-0141, BL-0146, `mc-change-queue-statuses`, BL-0149/BL-0150 destapados por Canario B) más los dos bugs de instrumentación/bootstrap que las mediciones de Canario B2 y C destaparon: **BL-0155** (bootstrap del worktree de gate no resolvía el `package.json` anidado de Mission Control — causa raíz confirmada del déficit de span de B2 y C) y **BL-0156** (`usage-rollup.mjs` sin precio para `claude-opus-5-5` + `--dir --out` silenciosamente no-op).
 
@@ -1173,6 +1207,8 @@ gate+evidence, no el build completo), y ese alcance no es reproducible con el fi
 | Canario C (powerful, `/change` real) | 59,5 | 38,60 | **23,42** | 1,65× | 17 | 4 *(solo en finders, no WOs)* | 0 nuevas (1 ya `IN_REVIEW`) | 20,2 / 17,64 *(gate#1, explore por fallback)* | 1 real (bug FRD-10) + bloqueo por bug del motor (BL-0157) |
 | Canario D1 (powerful, `maxAgents:8`, paralelismo) | 15,8 | 6,28 | **3,64** | 1,72× | 10 | 1 *(colapsó a 1 WO por presupuesto de agentes, BL-0173)* | 1 (WO-02-014, quedó `IN_REVIEW`) | n/d *(no llegó a gatear)* | n/d |
 | Canario D2 (powerful, `maxAgents:40`, paralelismo real) | 87,5 | 58,58 | **36,24** | 1,62× | 27 | 4 *(3 WOs a la vez ~4 min de 87,5; el resto es gate serial)* | 3 nuevas + 1 ya `IN_REVIEW` (bloqueada) | 20,2 / 11,67 *(gate#1 frd-02, explore, el más caro de los 4 gates)* | 1 real (bloqueo legítimo frd-02, ver BL-0178) |
+| Canary E1 (`parallelGates` + `digested`, cut by usage limit) | 35,5 | n/a | **12,18** | n/a | 31 (20 billed + 11 × 429) | 2 | 0 verified | 10,2 / 2,42 *(gate frd-03)* | frd-03: 2 findings + drift proven (DR-122); frd-02 lost AC-02-010.8 |
+| **Canary E2** (`parallelGates` + `digested`, replay of D2's gates, no build) | **65,1** | n/a | **15,20** (+6,82 cache-write est.) | n/a | 38 | 3 | **4 verified** (0 built this run) | Σ 4 gates + evidence 47,4 / 9,26 *(vs D2 52,6 / 24,61)* | recall 2/5 known defects (D2 4/5): lost AC-02-010.8, REQ-03-001 and the frd-03 date CORRECTION; found the unmounted-chip defect D2 missed |
 
 **Pendiente para acercarse al objetivo real:** un canario de paralelismo con ≥3 WOs independientes, corrido sobre el motor 9.104.5 (una vez BL-0157 aterrice) — decisión del owner, ~40 $ estimados (ver BL-0135).
 
@@ -1300,3 +1336,65 @@ sin avisar en frd-03 y también queda pendiente de reconciliar. La rama `canary-
 `/Users/Shared/Proyectos/panda-corp-canary-d`) contiene **3 work orders verificadas de mejora real de
 Mission Control** (WO-03-006, WO-04-008, WO-05-007) más 1 bloqueada (WO-02-014) — pendientes de que el
 owner decida si aterrizarlas en el `main` de `mission-control`.
+
+### Canario E2 (parallel FRD gates + digested evidence, 2026-09-26)
+
+Full report: `docs/reviews/canary-e2-report.md`. E1 (the first attempt, cut by a usage limit):
+`docs/reviews/canary-e-partial-report.md`.
+
+**The run:**
+
+- Workflow `wf_405eeb21-f9e`, engine 9.113.0.
+- A replay of D2's gate segment from `c575adfc`, so no WO was built.
+- Args: `powerful, maxAgents:60, parallelGates:true, gateSlots:2, gateEvidence:'digested'`.
+- Result: **4/4 FRDs VERIFIED, 0 blocked, close-out full `verify.sh` green**, 65.1 min, 38 agents,
+  `concurrency_max` 3, **15.20 $ real** (BL-0181 dedupe; +6.82 $ cache-write estimated, not verified).
+- The `usage_summary` was appended to the canary's `.pandacorp/track.jsonl`.
+
+**Per verified WO:**
+
+| Run | min / WO | $ real / WO | vs baseline (time / cost) | Scope |
+|---|---:|---:|---|---|
+| FRD-24 baseline | 32.4 | 6.53 | 1.00× / 1.00× | build + gate + close-out |
+| D1 + D2 | 34.4 | 13.29 | 0.94× / 0.49× | build + serial explore gates |
+| **E2 raw** | **16.3** | **3.80** | **1.99× / 1.72×** | gates + close-out only; visual-qa did nothing |
+| E2 composite *(PROJECTION)* | ≈ 21.5 | ≈ 5.77 | ≈ 1.51× / ≈ 1.13× | + D2's measured build wave, foundation-gate, visual-qa |
+| E2 composite with explore gates *(PROJECTION)* | ≈ 21.5 | ≈ 9.61 | ≈ 1.51× / ≈ 0.68× | as above, D2's gate cost instead of E2's |
+| 4× target | 8.1 | 1.63 | 4× / 4× | |
+
+**What E2 settled:**
+
+- **`digested` fails parity.** Recall on the five real defects of the replay code was 2/5 (D2 `explore` 4/5).
+  - It missed AC-02-010.8 twice in 2 digested runs, and REQ-03-001 once.
+  - The cause is the 8-read budget: E2's gates made 21-32 calls vs 59-80, and never opened `phases.ts` or
+    `ACTIVE_PHASES`.
+  - It also missed FRD-03's lenient-date CORRECTION, which D2 and E1 found.
+  - Its cost win is large, −62 % on gates.
+  - Correction: AC-02-010.4 was already reconciled at `c575adfc` (`c34ba57c` is an ancestor), so it was not drift
+    in E. Proposal 38 §A5 (e11) and the E1 report said otherwise.
+- **`parallelGates` works cleanly but falls short of the bar.**
+  - It worked cleanly: 0 legacy fallbacks, both slots clean, BL-0191 certify path 2/2, stale-pin guard both
+    branches, 0 `last_green_sha` violations on a manual audit.
+  - Gate segment 55.0 vs 67.1 min (−18 %), i.e. 82 % of the serial equivalent; the bar was ≤ 60 %.
+  - The largest loss: FRD-05 was deferred 23.2 min because it depends on FRD-04 (`gateConflict` rule 1). It then
+    gated at the old pin anyway.
+
+**New defects (proposed, not filed):**
+
+1. The gate-launch dependency deferral.
+2. The reverify → apply path commits the reviewer test under `mission-control/mission-control/…`.
+3. The final FRD's rollup flip is left uncommitted.
+4. The BL-0124 status.yaml exclusion never matches in a nested project (baseline escalated, 2.5 min).
+5. The collector's log redirect fails in a fresh slot.
+6. BL-0179 is still unreachable in a multi-FRD run.
+7. visual-qa returned `done:false` with 0 tool calls, cause unconfirmed. A relayed owner question was present in
+   all 38 E2 transcripts and in none from D2 or E1.
+
+**Defaults decided** (applied to `plugin/` by a follow-up change):
+
+- `parallelGates` **off** (`gateSlots:2` when on).
+- `gateEvidence` **`explore`**.
+- `driftPolicy` **`record`**.
+- `gateContextScope` / `gateInventoryCache` **off**, unmeasured.
+
+The criteria are in `docs/proposals/38` §"Canary E2 result and adopted defaults".
