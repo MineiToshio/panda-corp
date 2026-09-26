@@ -8,6 +8,7 @@
 #           [--frds <comma-separated-frds> | --change <change>]
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
 #           [--parallel-gates [--gate-slots <1-8>]] [--gate-evidence explore|digested]
+#           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
 #   --ttl:     atomic lease TTL in seconds (default 3600 — BL-0153: a build phase dominated by
@@ -19,6 +20,12 @@
 #              pool to the machine (default 2 = the 16 GB machine the red-team measured). --gate-slots alone is an error.
 #   --gate-evidence: engine args.gateEvidence (WP-06/BL-0187): `explore` (the engine default) or `digested` (a MECH
 #              collector pre-gathers the gate's evidence in the pinned gate worktree). Omitted → the key is not set.
+#   --gate-context-scope: OPT-IN → engine args.gateContextScope:true (BL-0188, engine default off): every FRD gate
+#              reads frd.md + this cycle's WOs in full and everything else header-only/by section/as pointers.
+#   --drift-finder on|off: engine args.driftFinder true|false (BL-0203). Omitted → the key is not set and the engine
+#              default applies (on under --gate-evidence digested, off under explore).
+#   --gate-inventory-cache: OPT-IN → engine args.gateInventoryCache:true (BL-0189, engine default off): a repeat
+#              gate of an FRD whose frd.md/blueprint.md body is unchanged reuses the cached contract inventory.
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -27,6 +34,7 @@ set -uo pipefail
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
 FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
+GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -42,6 +50,9 @@ while [ "$#" -gt 0 ]; do
     --parallel-gates) PARALLEL_GATES="1"; shift ;;
     --gate-slots) [ "$#" -ge 2 ] || { echo "ERROR: --gate-slots requires a value." >&2; exit 3; }; GATE_SLOTS="$2"; shift 2 ;;
     --gate-evidence) [ "$#" -ge 2 ] || { echo "ERROR: --gate-evidence requires a value." >&2; exit 3; }; GATE_EVIDENCE="$2"; shift 2 ;;
+    --gate-context-scope) GATE_CONTEXT_SCOPE="1"; shift ;;
+    --drift-finder) [ "$#" -ge 2 ] || { echo "ERROR: --drift-finder requires a value (on|off)." >&2; exit 3; }; DRIFT_FINDER="$2"; shift 2 ;;
+    --gate-inventory-cache) GATE_INVENTORY_CACHE="1"; shift ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -57,6 +68,7 @@ if [ -n "$GATE_SLOTS" ]; then
   [[ "$GATE_SLOTS" =~ ^[1-8]$ ]] || { echo "ERROR: --gate-slots must be an integer 1-8." >&2; exit 3; }
 fi
 case "$GATE_EVIDENCE" in ""|explore|digested) ;; *) echo "ERROR: --gate-evidence must be explore or digested." >&2; exit 3 ;; esac
+case "$DRIFT_FINDER" in ""|on|off) ;; *) echo "ERROR: --drift-finder must be on or off." >&2; exit 3 ;; esac
 if [ -n "$FRDS" ]; then
   IFS=',' read -r -a FRD_ITEMS <<< "$FRDS"
   for item in "${FRD_ITEMS[@]}"; do
@@ -137,8 +149,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents) args.maxAgents = Number(maxAgents);
 args.projectDir = projectDir;
@@ -153,6 +165,9 @@ if (maxSpend) args.maxSpend = Number(maxSpend);
 if (parallelGates) args.parallelGates = true;
 if (gateSlots) args.gateSlots = Number(gateSlots);
 if (gateEvidence) args.gateEvidence = gateEvidence;
+if (gateContextScope) args.gateContextScope = true;
+if (driftFinder) args.driftFinder = driftFinder === "on";
+if (gateInventoryCache) args.gateInventoryCache = true;
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?

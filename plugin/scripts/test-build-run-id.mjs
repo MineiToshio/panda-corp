@@ -114,10 +114,25 @@ ok(claudeLauncher.stderr === "" && codexLauncher.stderr === "", "both runtime la
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "pro", "8", "new"]);
   const args = workflowArgs(launched.stdout);
-  ok(!("parallelGates" in args) && !("gateSlots" in args) && !("gateEvidence" in args), "without --parallel-gates/--gate-evidence the launcher adds none of those keys (the engine defaults stay)");
+  ok(!("parallelGates" in args) && !("gateSlots" in args) && !("gateEvidence" in args) && !("gateContextScope" in args) && !("driftFinder" in args) && !("gateInventoryCache" in args), "without --parallel-gates/--gate-evidence/--gate-context-scope/--drift-finder/--gate-inventory-cache the launcher adds none of those keys (the engine defaults stay)");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
-for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"], ["--gate-evidence", "digest"], ["--gate-evidence"]]) {
+{
+  // BL-0188/0203/0189 (canary F1/F2): the gate-cost levers reach the engine through the launcher, never a hand edit
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "60", "auto", "--parallel-gates", "--gate-slots", "2", "--gate-evidence", "explore", "--gate-context-scope", "--drift-finder", "off", "--gate-inventory-cache"]);
+  const args = workflowArgs(launched.stdout);
+  ok(args.gateEvidence === "explore" && args.gateContextScope === true && args.driftFinder === false && args.gateInventoryCache === true && args.parallelGates === true && args.gateSlots === 2, "launcher passes --gate-context-scope/--drift-finder off/--gate-inventory-cache as gateContextScope:true, driftFinder:false, gateInventoryCache:true");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+{
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "60", "auto", "--gate-evidence", "digested", "--drift-finder", "on"]);
+  const args = workflowArgs(launched.stdout);
+  ok(args.gateEvidence === "digested" && args.driftFinder === true && !("gateContextScope" in args) && !("gateInventoryCache" in args), "launcher passes --drift-finder on as driftFinder:true (a boolean, never the string) and sets no other lever key");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
+for (const bad of [["--gate-slots", "2"], ["--parallel-gates", "--gate-slots", "9"], ["--parallel-gates", "--gate-slots", "x"], ["--gate-evidence", "digest"], ["--gate-evidence"], ["--drift-finder"], ["--drift-finder", "yes"], ["--drift-finder", "true"], ["--gate-context-scope", "true"], ["--gate-inventory-cache", "on"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }
