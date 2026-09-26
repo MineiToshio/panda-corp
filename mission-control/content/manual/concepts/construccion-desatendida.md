@@ -54,14 +54,15 @@ Oleada 1:  WO-01-001 (fundación, sola)
 Oleada 2:  WO-02-001 ─┐
            WO-03-001 ─┼── FRDs independientes, todos a la vez
            WO-05-001 ─┘
-Gates:     frd-02 → frd-03 → frd-05  (serializados, árbol quieto)
+Gates:     frd-02 ─┬─ frd-03   (hasta gateSlots a la vez, cada uno en su worktree)
+                    └─ frd-05  (aterrizaje a main: uno en uno, por orden de llegada)
 ```
 
-Los **gates de review siguen siendo uno por FRD** y corren **serializados en las fronteras de oleada** — nunca mientras hay builders en vuelo, así su suite whole-project siempre ve un árbol quieto. La frontera de confianza no cambió; solo el scheduling.
+Los **gates de review siguen siendo uno por FRD**, pero desde 9.116.0 corren **en paralelo por defecto** (hasta `gateSlots`, 2 de fábrica), cada uno en su propio worktree fijado al commit exacto que quedó verde. Nunca corren mientras hay builders en vuelo sobre ese mismo FRD, así cada suite whole-project sigue viendo un árbol quieto para su FRD. Lo que sí cambió es que el motor ya no espera a que un gate termine para arrancar el siguiente: el aterrizaje a main sigue siendo de uno en uno, en orden de llegada. Se apaga por completo con `launch-implement.sh --no-parallel-gates` para volver al camino de un solo worktree.
 
 ## Los args del motor (sprint de velocidad)
 
-El sprint de velocidad de 2026-09-22 (plugin 9.103.0) añadió una serie de flags al motor de `implement`. Todos tienen un valor por defecto elegido por el motor — el propietario normalmente no los toca, pero es útil saber qué hace cada uno si algo se comporta distinto a lo esperado:
+El sprint de velocidad de 2026-09-22 (plugin 9.103.0) añadió una serie de flags al motor de `implement`; el sprint de canarios F1/F2 (2026-09-26, plugin 9.116.0) sumó los de paralelismo de gates y política de deriva. Todos tienen un valor por defecto elegido por el motor: el propietario normalmente no los toca, pero es útil saber qué hace cada uno si algo se comporta distinto a lo esperado:
 
 | `args.*` | Por defecto | Qué hace | Cuándo cambiarlo |
 |---|---|---|---|
@@ -72,8 +73,11 @@ El sprint de velocidad de 2026-09-22 (plugin 9.103.0) añadió una serie de flag
 | `mechLean` | `true` | Enruta los pasos mecánicos del motor (commits, dispatch stamps, sync de rollups) a través del agente `pandacorp:mech`, más barato. | Rara vez — desactivarlo vuelve a los pasos mecánicos previos al sprint. |
 | `repairBudgetFactor` | `3` | Tope de gasto en reparación acotada (scoped repair), como múltiplo del coste ponderado del build, antes de que el motor se rinda honestamente a `needs-owner`. | Si quieres que el motor insista más (o menos) antes de escalar un bloqueo. |
 | `scopedRepair` | `false` | Permite que un rojo puramente mecánico en un sub-gate se repare con `--only`/`--files` en vez de un ciclo de parche a todo el proyecto. | Se activa solo tras pasar su canario de validación — no es un flag para tocar a mano todavía. |
-| `gateEvidence` | `'explore'` | Modo de evidencia del gate: `'explore'` (idéntico byte a byte al gate anterior al sprint) o `'digested'` (evidencia recolectada por el agente mech, con presupuesto de exploración acotado). | `'digested'` solo tras su canario A/B obligatorio — no cambia el default sin eso. |
+| `gateEvidence` | `'explore'` | Modo de evidencia del gate: `'explore'` (idéntico byte a byte al gate anterior al sprint) o `'digested'` (evidencia recolectada por el agente mech, con presupuesto de exploración acotado). | Se queda en `'explore'`: los canarios F1/F2 midieron que `'digested'` pierde hallazgos reales incluso con el Drift Finder ayudando, así que no se recomienda todavía. |
 | `drainOnEmptyPlan` | `true` | En un run sin objetivo (bare) con el plan vacío, drena la cola de changes listas antes de declarar "nada que construir". | Ponlo en `false` si quieres que un run bare con plan vacío no toque la cola de changes. |
+| `parallelGates` | `true` (desde 9.116.0) | Deja que hasta `gateSlots` FRDs se revisen a la vez, cada uno fijado a su propio worktree, con el aterrizaje a main siempre serializado. | Se apaga con `--no-parallel-gates` (launcher) si prefieres el camino de un solo worktree de antes del sprint. |
+| `gateSlots` | `2` | Cuántos gates pueden correr a la vez cuando `parallelGates` está activo. | Súbelo solo en una máquina con más memoria que la de referencia (16 GB); si subes `gateSlots`, sube también `maxAgents` (regla práctica: al menos 15 por FRD a revisar). |
+| `driftPolicy` | `'record'` | Qué hacer con una deriva encontrada en un FRD ya verificado: `'record'` nunca bloquea el gate actual, anota `drift:` en el FRD y abre una tarjeta en la cola de cambios para que decidas; solo un ciclo real (el contrato ya verificado ahora se rompe de verdad) reabre la work order. | `'block'` es el interruptor de reversa si alguna vez quieres que una deriva detenga el gate. |
 
 Estos flags viven en el código del motor (`factory/standards/build-orchestration.md` es su fuente canónica) — no son algo que el propietario configure normalmente desde Mission Control.
 

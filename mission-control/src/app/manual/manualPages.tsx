@@ -2996,10 +2996,10 @@ function WorkflowBuild(): React.JSX.Element {
         <Code>wo_reopen</Code>).
       </Body>
       <NotePanel>
-        Si un corte deja <Code>.pandacorp/run/gate-worktree</Code>, el motor no lo borra: puede ser
-        la única evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente
-        ese worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el
-        gate síncrono sobre el árbol principal.
+        Si un corte deja el worktree de un gate a medias, el motor no lo borra: puede ser la única
+        evidencia del gate interrumpido. Solo lo reutiliza cuando Git reconoce exactamente ese
+        worktree y está limpio; si está sucio, huérfano o ambiguo, conserva todo y ejecuta el gate
+        síncrono sobre el árbol principal.
       </NotePanel>
       <NotePanel icon="ti-shield-lock" iconColor="var(--color-accent)">
         La lease también es la fuente de la proyección activa. Acquire, renovación,{" "}
@@ -3008,6 +3008,39 @@ function WorkflowBuild(): React.JSX.Element {
         <Code>running: false</Code>. El reparador de baseline puede restaurar otros residuos
         tracked, pero nunca ese estado controlado mientras el writer siga cercado.
       </NotePanel>
+
+      <DocH title="Varios FRDs en revisión a la vez (desde 9.116.0)" />
+      <Body>
+        Desde la versión 9.116.0 el motor revisa por defecto hasta <Code>gateSlots</Code> FRDs a la
+        vez (2 de fábrica), cada uno fijado a su propio worktree (<Code>gate-worktree-1</Code>,{" "}
+        <Code>gate-worktree-2</Code>, etc.) en vez de compartir uno solo. Solo se juntan FRDs con
+        artefactos que no se pisan; uno que depende de otro espera a revisarse junto a su FRD base
+        pero aterriza después. El aterrizaje a main sigue siendo de <B weight={500}>uno en uno</B>,
+        por orden de llegada, con una revalidación si main se movió mientras tanto: paraleliza el
+        tiempo de revisión, nunca el punto de escritura. Se apaga con{" "}
+        <Code>--no-parallel-gates</Code> si quieres volver al camino de un solo worktree.
+      </Body>
+      <NotePanel icon="ti-scale" iconColor="var(--color-warn)">
+        Este paralelismo cuesta agentes, no tiempo extra por gate: si vas a revisar varios FRDs a la
+        vez, dale presupuesto de sobra. Regla práctica: <Code>maxAgents</Code> al menos 15 veces el
+        número de FRDs que el run va a revisar (el conteo pesa por costo, no por cuántos agentes
+        corren en simultáneo; un agente opus pesa unas 3 unidades). Con poco margen, el segundo gate
+        simplemente espera turno en vez de fallar.
+      </NotePanel>
+
+      <DocH title="Cuando el código ya se movió (deriva, DR-122)" />
+      <Body margin="0 0 10px">
+        El gate no solo mira el diff de esta feature: también puede notar que el código de un FRD ya{" "}
+        <B weight={500}>verificado antes</B> se alejó de su propio contrato, por un cambio hecho en
+        otra parte del proyecto. Eso nunca bloquea el gate actual: se anota como <Code>drift:</Code>{" "}
+        en el FRD afectado y queda una tarjeta en la cola de cambios para que decidas qué hacer.
+        Solo si esa deriva rompe de verdad el contrato ya verificado (un ciclo real, no ruido de
+        lectura) el motor reabre la work order. Quien la busca es un agente dedicado (
+        <B weight={500}>Drift Finder</B>), y por defecto solo participa cuando el gate usa evidencia{" "}
+        <Code>digested</Code>; el modo por defecto sigue siendo <Code>explore</Code> (los canarios
+        F1/F2 midieron que <Code>digested</Code> pierde hallazgos reales), así que en la mayoría de
+        gates el Drift Finder no corre a menos que lo enciendas a mano.
+      </Body>
 
       <DocH title="Si algo falla: repara antes de bloquear (la escalera)" />
       <Body>
