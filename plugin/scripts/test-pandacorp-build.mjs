@@ -7066,6 +7066,259 @@ SCENARIOS.push({
   },
 })
 
+// ---- BL-0202 ----
+// For a project NESTED in a larger repository (Mission Control inside the factory, whose main checkout the owner
+// shares with parallel sessions) `git status` lists the WHOLE repository, and the judge baseline's restore step
+// (`git checkout <last_green_sha> -- <files>`) was built from that list: a parallel session's WIP under plugin/ or
+// factory/ escalated the baseline and fell under its restore. Every tree read/write is now scoped to the project
+// prefix; dirt outside it is informational; every restore/clean goes through a guard that refuses (exit 3,
+// touching nothing) a path outside the prefix. EXECUTED against real nested and flat git repositories.
+const b2Marker = (prompt, name) => e2Cmd(prompt, `the BL-0202 ${name} COMMAND`)
+const b2Parse = (out) => {
+  const lines = (out || '').split('\n').filter(Boolean)
+  return {
+    prefix: ((lines.find((l) => l.startsWith('PREFIX=')) || 'PREFIX=?').slice('PREFIX='.length)),
+    in: lines.filter((l) => l.startsWith('IN ')).map((l) => l.slice(3)),
+    out: lines.filter((l) => l.startsWith('OUT ')).map((l) => l.slice(4)),
+  }
+}
+const b2Paths = (paths) => paths.map((p) => `'${p}'`).join(' ')
+const b2Fill = (cmd, { sha = '', paths = [] } = {}) => cmd.replace('<LAST_GREEN_SHA>', sha).replace('<PATHS>', b2Paths(paths))
+const b2Read = (file) => gcFs.readFileSync(file, 'utf8')
+// Each BL-0202 fixture is removed by its own scenario (never via gcCleanups: a GC scenario empties that list
+// when it runs, which is BEFORE these). A factory-shaped repo: repo/plugin/x.js (factory code) + repo/mission-control (the nested project).
+function b2Nested() {
+  const root = gcFs.mkdtempSync(path.join(gcOs.tmpdir(), 'bl0202-nested-'))
+  const repo = path.join(root, 'repo')
+  const app = path.join(repo, 'mission-control')
+  gcFs.mkdirSync(app, { recursive: true })
+  gcGit(repo, 'init', '-q'); gcGit(repo, 'config', 'user.email', 't@example.com'); gcGit(repo, 'config', 'user.name', 't')
+  gcWrite(path.join(app, '.gitignore'), '.pandacorp/run/\n')
+  gcWrite(path.join(app, '.pandacorp/status.yaml'), 'phase: implementation\n')
+  gcWrite(path.join(app, 'src/y.ts'), 'export const y = 1\n')
+  gcWrite(path.join(repo, 'plugin/x.js'), 'factory v1\n')
+  gcGit(repo, 'add', '-A'); gcGit(repo, 'commit', '-qm', 'base')
+  return { root, repo, app, base: gcGit(repo, 'rev-parse', 'HEAD'), branch: gcGit(repo, 'rev-parse', '--abbrev-ref', 'HEAD') }
+}
+function b2Flat() {
+  const root = gcFs.mkdtempSync(path.join(gcOs.tmpdir(), 'bl0202-flat-'))
+  const repo = path.join(root, 'app')
+  gcFs.mkdirSync(repo, { recursive: true })
+  gcGit(repo, 'init', '-q'); gcGit(repo, 'config', 'user.email', 't@example.com'); gcGit(repo, 'config', 'user.name', 't')
+  gcWrite(path.join(repo, '.gitignore'), '.pandacorp/run/\n')
+  gcWrite(path.join(repo, '.pandacorp/status.yaml'), 'phase: implementation\n')
+  gcWrite(path.join(repo, 'src/y.ts'), 'export const y = 1\n')
+  gcGit(repo, 'add', '-A'); gcGit(repo, 'commit', '-qm', 'base')
+  return { root, repo, app: repo, base: gcGit(repo, 'rev-parse', 'HEAD') }
+}
+// The pre-check agent, played honestly: it runs the engine's own STATUS command and reports what it printed.
+const b2HonestPrecheck = (cwd) => (call) => {
+  const cmd = b2Marker(call.prompt, 'STATUS')
+  const r = cmd ? gcBash(cmd, cwd) : { ok: false, out: '' }
+  const s = b2Parse(r.out)
+  if (!r.ok || !s.in.length) return { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: s.out }
+  return { escalate: true, dirty: true, dirtyPaths: s.in, outsideDirtyPaths: s.out, leaseValid: true, projectPrefix: s.prefix }
+}
+
+{
+  // (a) the pre-check's listing, executed: plugin/x.js is OUT, mission-control/src/y.ts is IN.
+  const fx = b2Nested()
+  gcWrite(path.join(fx.repo, 'plugin/x.js'), 'factory WIP of another session\n')
+  gcWrite(path.join(fx.app, 'src/y.ts'), 'export const y = 2\n')
+  SCENARIOS.push({
+    name: 'BL-0202a. nested project — the pre-check lists the tree with a LITERAL project-scoped status command (executed): mission-control/src/y.ts is IN, the factory WIP plugin/x.js is OUT (informational), the prefix is reported',
+    args: { mode: 'pro', projectDir: fx.app, project: 'mission-control' },
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const p = byLabel(run, 'baseline-precheck')[0]
+      const cmd = b2Marker(p && p.prompt, 'STATUS')
+      t.ok(Boolean(cmd), 'the pre-check prompt carries the BL-0202 STATUS COMMAND')
+      const r = cmd ? gcBash(cmd, fx.repo) : { ok: false, out: '', err: 'no command' }   // from the REPO ROOT: the command is anchored with -C, cwd does not matter
+      const s = b2Parse(r.out)
+      t.ok(r.ok, `the command runs (${r.err || ''})`)
+      t.ok(s.prefix === 'mission-control/', `PREFIX is the project's show-prefix (got ${JSON.stringify(s.prefix)})`)
+      t.ok(JSON.stringify(s.in) === '["mission-control/src/y.ts"]', `IN = the project's dirt only, bare and repo-root-relative (got ${JSON.stringify(s.in)})`)
+      t.ok(JSON.stringify(s.out) === '["plugin/x.js"]', `OUT = the factory WIP (got ${JSON.stringify(s.out)})`)
+      t.ok(/OUT paths are INFORMATIONAL ONLY/.test(p.prompt) && /never escalate/.test(p.prompt) && /outsideDirtyPaths/.test(p.prompt), 'the prompt says OUT paths never escalate and are reported as outsideDirtyPaths')
+      t.ok(/diff --name-only --relative/.test(p.prompt), 'the pointer-commit check (BL-0066 b) reads the project\'s own paths (--relative), so a nested pointer commit can match')
+      t.ok(!/run `git -C [^`]* status --porcelain` and read/.test(p.prompt), 'the old unscoped whole-repo status read is gone')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+{
+  // (b) RED→GREEN: only the factory WIP and the lease's own status.yaml are dirty. The honest agent (real command
+  // output) reports status.yaml IN and plugin/x.js OUT → BL-0124 fast path, no judge baseline, OUT logged.
+  const fx = b2Nested()
+  gcWrite(path.join(fx.repo, 'plugin/x.js'), 'factory WIP of another session\n')
+  gcFs.appendFileSync(path.join(fx.app, '.pandacorp/status.yaml'), 'running: true\n')
+  SCENARIOS.push({
+    name: 'BL-0202b. nested project, factory WIP outside the project + the leased status.yaml (REAL command output) → the pre-check does NOT escalate; the outside path is logged as informational',
+    args: { mode: 'pro', projectDir: fx.app, project: 'mission-control' },
+    responses: [{ label: 'baseline-precheck', response: b2HonestPrecheck(fx.repo) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, 'baseline').length === 0, 'no judge baseline: the dirt outside the project does not escalate')
+      t.ok(hasLog(run, /BL-0124/), 'the BL-0124 fast path fires on the in-project status.yaml alone')
+      t.ok(hasLog(run, /BL-0202: 1 ruta\(s\) sucia\(s\) FUERA del proyecto \(mission-control\/\).*informativo.*plugin\/x\.js/), 'the outside path is logged as informational')
+      t.ok(b2Read(path.join(fx.repo, 'plugin/x.js')) === 'factory WIP of another session\n', 'plugin/x.js untouched')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'BL-0202c. an agent that still lists the whole repository (plugin/x.js in dirtyPaths) is re-partitioned by the ENGINE on the project prefix → fast path, outside path informational',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['mission-control/.pandacorp/status.yaml', 'plugin/x.js'], leaseValid: true, projectPrefix: 'mission-control/' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no judge baseline for dirt outside the project')
+    t.ok(hasLog(run, /BL-0202: .*informativo.*plugin\/x\.js/), 'logged as informational')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0202c2. controls — real in-project WIP next to outside dirt still escalates; with no prefix (flat project / unverifiable claim) every path stays in-project, exactly as before',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['mission-control/.pandacorp/status.yaml', 'mission-control/src/y.ts', 'plugin/x.js'], leaseValid: true, projectPrefix: 'mission-control/' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const b = byLabel(run, 'baseline')[0]
+    t.ok(Boolean(b), 'the judge baseline runs for mission-control/src/y.ts')
+    t.ok(b && /leave every one exactly as it is: `plugin\/x\.js`/.test(b.prompt), 'and it is told plugin/x.js is an OUT path it must leave exactly as it is')
+  },
+})
+for (const [tag, dirtyPaths, projectPrefix] of [['d', ['.pandacorp/status.yaml', 'plugin/x.js'], ''], ['e', ['.pandacorp/status.yaml', 'src/x.ts'], '']]) {
+  SCENARIOS.push({
+    name: `BL-0202c${tag}. flat project (prefix '') — ${JSON.stringify(dirtyPaths)} is all in-project: escalates exactly as before BL-0202, nothing logged as outside`,
+    args: { mode: 'pro' },
+    responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths, leaseValid: true, projectPrefix } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, 'baseline').length === 1, 'the judge baseline runs')
+      t.ok(!hasLog(run, /BL-0202: .*FUERA/), 'no outside-path log for a flat project')
+    },
+  })
+}
+{
+  // (d) the judge baseline's restore, executed: only mission-control/ is restored; plugin/x.js stays dirty. Then the
+  // guard's refusals, executed against the same repository.
+  const fx = b2Nested()
+  gcWrite(path.join(fx.repo, 'plugin/x.js'), 'factory WIP of another session\n')
+  gcWrite(path.join(fx.app, 'src/y.ts'), 'export const y = 2 // half-written by a killed run\n')
+  SCENARIOS.push({
+    name: 'BL-0202d. nested project, judge baseline (executed): its STATUS + RESTORE commands restore mission-control/src/y.ts to last green and leave the factory WIP plugin/x.js dirty; no stash is dropped, no whole-tree form is offered',
+    args: { mode: 'pro', projectDir: fx.app, project: 'mission-control' },
+    responses: [{ label: 'baseline-precheck', response: b2HonestPrecheck(fx.repo) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const b = byLabel(run, 'baseline')[0]
+      t.ok(Boolean(b), 'the in-project dirt escalates to the judge baseline')
+      const status = b2Marker(b && b.prompt, 'STATUS')
+      const restore = b2Marker(b && b.prompt, 'RESTORE')
+      t.ok(status && restore, `the baseline prompt carries the literal STATUS (${Boolean(status)}) and RESTORE (${Boolean(restore)}) commands`)
+      const s = b2Parse(gcBash(status || 'false', fx.app).out)
+      t.ok(JSON.stringify(s.in) === '["mission-control/src/y.ts"]' && JSON.stringify(s.out) === '["plugin/x.js"]', `the baseline sees src/y.ts IN and plugin/x.js OUT (got ${JSON.stringify(s)})`)
+      const r = gcBash(b2Fill(restore || 'false', { sha: fx.base, paths: s.in }), fx.app)
+      t.ok(r.ok, `the restore ran (${r.err || ''})`)
+      t.ok(b2Read(path.join(fx.app, 'src/y.ts')) === 'export const y = 1\n', 'mission-control/src/y.ts is back at last green')
+      t.ok(b2Read(path.join(fx.repo, 'plugin/x.js')) === 'factory WIP of another session\n', 'plugin/x.js is STILL dirty with the other session\'s WIP')
+      t.ok(gcGit(fx.repo, 'rev-parse', 'HEAD') === fx.base && gcGit(fx.repo, 'rev-parse', '--abbrev-ref', 'HEAD') === fx.branch, 'HEAD and the branch did not move')
+      t.ok(b && /leave EVERY stash as it is — never drop or pop one/.test(b.prompt) && !/drop entries that are leftover build stashes/.test(b.prompt), 'no stash is dropped (the stash list is repository-wide)')
+      t.ok(b && /NEVER a whole-tree form/.test(b.prompt) && /never `git add -A`\/`git add \.`\/`git commit -a`/.test(b.prompt), 'whole-tree resets/checkouts/cleans and whole-repo staging are forbidden')
+      t.ok(b && !/`git checkout <last_green_sha> -- <those modified tracked files/.test(b.prompt), 'the old unguarded restore form is gone')
+
+      // Guard refusals: nothing is touched, exit 3, a BL-0202 REFUSED message.
+      gcWrite(path.join(fx.app, 'src/y.ts'), 'export const y = 3\n')
+      const refuse = (label, paths) => {
+        const before = [b2Read(path.join(fx.repo, 'plugin/x.js')), b2Read(path.join(fx.app, 'src/y.ts')), gcGit(fx.repo, 'rev-parse', 'HEAD')]
+        const x = gcBash(b2Fill(restore || 'true', { sha: fx.base, paths }), fx.app)
+        const after = [b2Read(path.join(fx.repo, 'plugin/x.js')), b2Read(path.join(fx.app, 'src/y.ts')), gcGit(fx.repo, 'rev-parse', 'HEAD')]
+        t.ok(!x.ok && /BL-0202 REFUSED/.test(x.err || ''), `${label}: fail-loud refusal (ok=${x.ok}, err=${(x.err || '').trim()})`)
+        t.ok(JSON.stringify(before) === JSON.stringify(after), `${label}: nothing was touched`)
+        return x
+      }
+      t.ok(/OUTSIDE this project/.test(refuse('a factory path', ['plugin/x.js']).err), 'the refusal names the outside path')
+      refuse('all-or-nothing: an in-project path next to an outside one', ['mission-control/src/y.ts', 'plugin/x.js'])
+      refuse('a `..` escape from the prefix', ['mission-control/../plugin/x.js'])
+      refuse('an absolute path', [path.join(fx.repo, 'plugin/x.js')])
+      refuse('a project-relative path (the doubled-prefix convention, fails loud instead)', ['src/y.ts'])
+      refuse('the controller-owned status.yaml', ['mission-control/.pandacorp/status.yaml'])
+      refuse('an empty list (would move HEAD)', [])
+      const z = gcExecFile('zsh', ['-c', b2Fill(restore || 'false', { sha: fx.base, paths: ['plugin/x.js'] }) + ' ; echo "exit=$?"'], { cwd: fx.app, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      t.ok(/exit=3/.test(z) && b2Read(path.join(fx.repo, 'plugin/x.js')) === 'factory WIP of another session\n', 'the guard also refuses under zsh (the agent\'s login shell on the owner\'s Mac)')
+      const zr = gcExecFile('zsh', ['-c', b2Fill(restore || 'false', { sha: fx.base, paths: ['mission-control/src/y.ts'] }) + ' ; echo "exit=$?"'], { cwd: fx.app, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+      t.ok(/exit=0/.test(zr) && b2Read(path.join(fx.app, 'src/y.ts')) === 'export const y = 1\n', 'and restores an in-project path under zsh')
+
+      // The CLEAN command: removes an untracked in-project preview page, refuses an outside path.
+      const clean = b2Marker(b && b.prompt, 'CLEAN')
+      t.ok(Boolean(clean), 'the baseline prompt carries the literal CLEAN command')
+      gcWrite(path.join(fx.app, 'src/app/preview-wo1/page.tsx'), 'scratch\n')
+      gcWrite(path.join(fx.repo, 'plugin/scratch.txt'), 'another session\'s untracked file\n')
+      const c1 = gcBash(b2Fill(clean || 'false', { paths: ['mission-control/src/app/preview-wo1/'] }), fx.app)
+      t.ok(c1.ok && !gcFs.existsSync(path.join(fx.app, 'src/app/preview-wo1')), `the in-project preview page is cleaned (${c1.err || ''})`)
+      const c2 = gcBash(b2Fill(clean || 'true', { paths: ['plugin/scratch.txt'] }), fx.app)
+      t.ok(!c2.ok && /OUTSIDE this project/.test(c2.err || '') && gcFs.existsSync(path.join(fx.repo, 'plugin/scratch.txt')), 'an outside untracked file is refused and survives')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+{
+  // (e) a flat project: identical behavior — PREFIX is empty, everything is IN, the same restore works on
+  // project paths; the guard still refuses status.yaml and a `..` escape.
+  const fx = b2Flat()
+  gcWrite(path.join(fx.repo, 'src/y.ts'), 'export const y = 2\n')
+  SCENARIOS.push({
+    name: 'BL-0202e. flat project (prefix empty, executed) — everything is IN, nothing is OUT, and the same RESTORE command restores src/y.ts exactly as the pre-BL-0202 restore did',
+    args: { mode: 'pro', projectDir: fx.app, project: 'flat' },
+    responses: [{ label: 'baseline-precheck', response: b2HonestPrecheck(fx.repo) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const b = byLabel(run, 'baseline')[0]
+      const status = b2Marker(b && b.prompt, 'STATUS')
+      const restore = b2Marker(b && b.prompt, 'RESTORE')
+      const s = b2Parse(gcBash(status || 'false', fx.repo).out)
+      t.ok(s.prefix === '' && JSON.stringify(s.in) === '["src/y.ts"]' && s.out.length === 0, `flat: PREFIX empty, src/y.ts IN, no OUT (got ${JSON.stringify(s)})`)
+      t.ok(!hasLog(run, /BL-0202: .*FUERA/), 'no outside-path log')
+      const r = gcBash(b2Fill(restore || 'false', { sha: fx.base, paths: ['src/y.ts'] }), fx.repo)
+      t.ok(r.ok && b2Read(path.join(fx.repo, 'src/y.ts')) === 'export const y = 1\n', `restored (${r.err || ''})`)
+      const x = gcBash(b2Fill(restore || 'true', { sha: fx.base, paths: ['.pandacorp/status.yaml'] }), fx.repo)
+      const y = gcBash(b2Fill(restore || 'true', { sha: fx.base, paths: ['../elsewhere'] }), fx.repo)
+      t.ok(!x.ok && !y.ok && /REFUSED/.test(x.err) && /REFUSED/.test(y.err), 'the guard still refuses status.yaml and a `..` escape on a flat project')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+{
+  // (f) the foundation auto-repair's reset: a nested project never hard-resets (it would rewind the whole
+  // repository — other sessions' commits and WIP included); a flat one keeps the ANCESTOR reset unchanged.
+  const plan = mkPlan([{ frd: 'frd-b2f', deps: [], workOrders: [mkWo('wo-b2f-surf', 'PLANNED', { frd: 'frd-b2f', artifacts: ['src/app/surface/**'] })] }], { hasFrontend: true })
+  SCENARIOS.push({
+    name: 'BL-0202f. foundation auto-repair — hard reset only when PREFIX is empty; a nested project takes the guarded scoped restore/clean path even when last green is an ancestor',
+    args: { mode: 'pro' },
+    plan,
+    responses: [{ label: 'foundation-gate', times: 1, response: { complete: false, missing: [{ name: 'Room', referencedBy: ['frd-b2f'], suggestedPath: 'src/components/core/Room.tsx' }] } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const fr = byLabel(run, 'foundation-repair:1')[0]
+      const p = (fr && fr.prompt) || ''
+      t.ok(/If ANCESTOR AND PREFIX is empty\*\* \(a project at its repository root\): `git reset --hard <last_green_sha>`/.test(p), 'flat project: the ANCESTOR hard reset is unchanged')
+      t.ok(/If PREFIX is NOT empty\*\*[^\n]*NEVER `git reset --hard`[^\n]*take the surgical path below even when ANCESTOR/.test(p), 'nested project: never a hard reset')
+      t.ok(Boolean(b2Marker(p, 'RESTORE')) && Boolean(b2Marker(p, 'CLEAN')), 'the surgical path uses the guarded RESTORE and CLEAN commands')
+      t.ok(!/`git checkout HEAD -- <those surface files>` and `git clean -fd <their new dirs>`/.test(p), 'the old unguarded checkout/clean is gone')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'BL-0202g. the per-WO commit reads THIS project\'s status only (`git status -- .`)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-b2g', deps: [], workOrders: [mkWo('wo-b2g-001', 'PLANNED', { frd: 'frd-b2g' })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const c = byLabel(run, /^commit:/)[0]
+    t.ok(c && /use `git status -- \.` \(THIS project only, BL-0202\)/.test(c.prompt) && !/use `git status` to identify/.test(c.prompt), `scoped status read in the commit step (labels: ${run.calls.map((x) => x.label).join(' ')})`)
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

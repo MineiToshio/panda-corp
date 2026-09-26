@@ -12,16 +12,22 @@ const existsRegular = async (file) => {
   catch (error) { if (error.code === "ENOENT") return false; throw error; }
 };
 const git = (root, argv) => execFileSync("git", argv, { cwd: root, encoding: "utf8" }).trim();
+// BL-0202: THIS project only. `git status`/`git diff` list the WHOLE repository with repo-root-relative paths, so
+// for a project nested in a larger repository (Mission Control inside the factory) they report other sessions'
+// work plus the lease's own write under a prefixed path. `-- .` scopes to the project dir and the prefix is
+// stripped, so every path is project-relative (a flat project has an empty prefix: unchanged).
 const dirtyPaths = (root) => {
-  const raw = execFileSync("git", ["status", "--porcelain=v1", "-z"], { cwd: root, encoding: "utf8" });
-  return raw.split("\0").filter(Boolean).map((entry) => entry.slice(3));
+  const prefix = git(root, ["rev-parse", "--show-prefix"]);
+  const raw = execFileSync("git", ["status", "--porcelain=v1", "-z", "--", "."], { cwd: root, encoding: "utf8" });
+  return raw.split("\0").filter(Boolean).map((entry) => entry.slice(3)).map((file) => (prefix && file.startsWith(prefix) ? file.slice(prefix.length) : file));
 };
+const stagedPaths = (root, ...pathspec) => git(root, ["diff", "--cached", "--name-only", "--relative", "--", ...(pathspec.length ? pathspec : ["."])]).split("\n").filter(Boolean);
 const assertOnlyStatus = (root, stage) => {
   const allowed = ".pandacorp/status.yaml";
   const dirty = dirtyPaths(root);
   const forbidden = dirty.filter((file) => file !== allowed && file !== ".pandacorp/run/" && !file.startsWith(".pandacorp/run/"));
   if (forbidden.length) throw Object.assign(new Error(`${stage}: pre-loop close refuses non-status drift: ${forbidden.join(", ")}`), { code: "SCOPE" });
-  const staged = git(root, ["diff", "--cached", "--name-only"]).split("\n").filter(Boolean);
+  const staged = stagedPaths(root);
   const forbiddenStaged = staged.filter((file) => file !== allowed);
   if (forbiddenStaged.length) throw Object.assign(new Error(`${stage}: pre-loop close refuses staged non-status paths: ${forbiddenStaged.join(", ")}`), { code: "SCOPE" });
   return dirty.filter((file) => file !== ".pandacorp/run/" && !file.startsWith(".pandacorp/run/"));
@@ -51,7 +57,7 @@ try {
     execFileSync("git", ["add", "--", allowed_paths[0]], { cwd: root, stdio: "pipe" });
     assertOnlyStatus(root, "after-stage");
     let commit = null;
-    if (git(root, ["diff", "--cached", "--name-only"])) {
+    if (stagedPaths(root, allowed_paths[0]).length) {
       execFileSync("git", ["commit", "-m", "chore: quiesce Claude build lease", "--", allowed_paths[0]], { cwd: root, stdio: "pipe" });
       commit = git(root, ["rev-parse", "HEAD"]);
     }

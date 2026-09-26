@@ -227,4 +227,31 @@ await test("last green rejects nonexistent and orphan commits without claiming s
   const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(!/safe_to_test: true/.test(status) && !/^last_green_sha:/m.test(status), "rejected evidence published a safe snapshot"); await rm(p, { recursive: true });
 });
 
+// BL-0202: a project NESTED in a larger repository (Mission Control inside the factory). `git status` from the
+// project dir lists the WHOLE repository with repo-root-relative paths, so the pre-loop close read the lease's
+// own write as `mission-control/.pandacorp/status.yaml` (never equal to the allowed path → it refused every close)
+// and treated another session's factory WIP as rogue drift. It now reads THIS project only.
+await test("BL-0202: pre-loop close on a NESTED project commits only its status.yaml, ignores factory WIP outside it, still rejects in-project drift", async () => {
+  const repo = await mkdtemp(path.join(os.tmpdir(), "pc-nested-")); const p = path.join(repo, "mission-control");
+  await mkdir(path.join(p, ".pandacorp", "run"), { recursive: true }); await mkdir(path.join(repo, "plugin"), { recursive: true }); await mkdir(path.join(repo, "factory"), { recursive: true });
+  await writeFile(path.join(p, ".pandacorp", "status.yaml"), "phase: architecture\nrunning: false\nsupervisor_heartbeat: \"\"\n");
+  await writeFile(path.join(p, ".gitignore"), ".pandacorp/run/\n"); await writeFile(path.join(repo, "plugin/x.js"), "factory v1\n"); await writeFile(path.join(repo, "factory/staged.md"), "v1\n");
+  git(repo, "init", "-q"); git(repo, "config", "user.email", "test@example.com"); git(repo, "config", "user.name", "Test"); git(repo, "add", "-A"); git(repo, "commit", "-qm", "fixture");
+  const l = await acquire(p, { runtime: "claude", runId: "nested-close", ttlSeconds: 30 }); const base = git(repo, "rev-parse", "HEAD");
+  await writeFile(path.join(repo, "plugin/x.js"), "another session's WIP\n");
+  await writeFile(path.join(repo, "factory/staged.md"), "another session's staged work\n"); git(repo, "add", "factory/staged.md");
+  const close = () => execFileSync(process.execPath, [buildStateCli, "close-preloop", "--project", p, "--token", l.token, "--epoch", String(l.epoch), "--reason", "test"], { encoding: "utf8", stdio: "pipe" });
+  await writeFile(path.join(p, "rogue-product.txt"), "must not commit\n");
+  let rejected = ""; try { close(); } catch (e) { rejected = String(e.stderr || e.message); }
+  ok(/rogue-product\.txt/.test(rejected), `in-project rogue drift was not rejected (${rejected})`); ok(!/plugin\/x\.js|factory\/staged\.md/.test(rejected), `the refusal named a path OUTSIDE the project (${rejected})`);
+  ok(git(repo, "rev-parse", "HEAD") === base, "rejected close created a commit");
+  await rm(path.join(p, "rogue-product.txt"));
+  const receipt = JSON.parse(close());
+  ok(receipt.done && receipt.lease_released && receipt.allowed_paths.join() === ".pandacorp/status.yaml", `nested close refused or incomplete: ${JSON.stringify(receipt)}`);
+  ok(git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD") === "mission-control/.pandacorp/status.yaml", "the close commit escaped the project's status.yaml");
+  ok(await readFile(path.join(repo, "plugin/x.js"), "utf8") === "another session's WIP\n", "factory WIP outside the project was touched");
+  ok(git(repo, "diff", "--cached", "--name-only") === "factory/staged.md", "another session's staged work was committed or unstaged");
+  await rm(repo, { recursive: true });
+});
+
 console.log(`RESULT: ${passed} passed, ${failed} failed`); process.exit(failed ? 1 : 0);
