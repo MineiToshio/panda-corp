@@ -1011,13 +1011,26 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   killed run's `frd02-lacampana` work, then applied it onto an already-`VERIFIED` FRD-02 → `<<<<<<<` markers
   in `Button.tsx`, 130 gate errors, build wedged). The **only** safe recovery from a dirty/conflicted tree
   is to **restore it to `last_green_sha`** (a clean reset to the green commit); never hand-resolve a
-  stash-pop. On startup the engine **drops stale build stashes and clears leftover temp `preview-wo*`
-  pages** (baseline self-heal) — they're stale, the work is resumable. **The baseline is a TWO-STEP
+  stash-pop. On startup the engine **clears leftover temp `preview-wo*` pages** (baseline self-heal) — they're
+  stale, the work is resumable — and **leaves every stash untouched** (BL-0202: the stash list is
+  repository-wide, so a nested project's holds other sessions' stashes, and a drop is unrecoverable).
+  **Every read and write of the tree is scoped to the project (BL-0202).** For a project nested in a larger
+  repository (Mission Control inside the factory, whose main checkout the owner shares with parallel
+  sessions) `git status` lists the whole repository. The engine therefore hands its agents LITERAL commands:
+  a status listing that splits `IN` (this project, pathspec `.` from the project dir) from `OUT` (anything
+  else — informational only: it never escalates the baseline and is never touched), and a RESTORE/CLEAN
+  guard that refuses (exit 3, touching nothing) any path outside `git rev-parse --show-prefix`, the
+  controller-owned `status.yaml`, or an empty list. A nested project never `git reset --hard`s (it rewinds
+  the whole repository); the pre-loop close reads only its own paths. A flat project has an empty prefix,
+  so every command acts exactly as before. `block-dangerous.sh` backs this up: in a repository that hosts a
+  nested Pandacorp project it blocks `git reset --hard` and a whole-tree `git checkout`/`restore`/`clean`
+  at the repository root (or with a `:/` pathspec), and every git check now sees through global options
+  (`git -C <dir> …`). **The baseline is a TWO-STEP
   (WS-D/D10): a cheap MECH pre-check** does the BL-0022 project-root guard, preserves any gate-worktree crash evidence, the
   `rethink_pending` consume, and a **deterministic Node `lstat` receipt** for `.pandacorp/run/stop` (BL-0068;
-  never ambient shell `test`, `[` or aliases), followed by a **clean-tree fast path** (tree
-  clean AND HEAD is `last_green_sha` **or its direct metadata-only pointer child whose sole diff is
-  `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
+  never ambient shell `test`, `[` or aliases), followed by a **clean-tree fast path** (the project's
+  tree clean AND HEAD is `last_green_sha` **or its direct metadata-only pointer child whose sole diff
+  inside the project is `.pandacorp/status.yaml`** → known-green, skip `verify.sh` entirely); **only if it escalates** (dirty
   tree or HEAD off green) does the expensive **judge baseline** run the DR-067 reconciliation + `verify.sh`. So
   a warm resume pays nothing, while a dirty/off-green tree still gets the full reconcile-then-verify.
   **The pre-check's dirty-path tolerance is scoped (WP-04, BL-0124, `args.strictBaseline` default
