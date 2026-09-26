@@ -1134,6 +1134,44 @@ Ejecutado en vivo (`wf_1cf782d6-2ed`, `mode: powerful`, `maxAgents: 40`, `gateEv
 > lado como **"$ real (BL-0181)"**. Las comparaciones RELATIVAS (deltas %, factores ×) se mantienen
 > dentro de ±7 % — ningún veredicto de este cierre cambia de signo por la corrección.
 
+**Final sprint verdict after canaries F1/F2 (2026-09-26; supersedes the E2 verdict below for the defaults and the
+closing numbers; evidence in `docs/reviews/canary-f1-report.md` and `docs/reviews/canary-f2-report.md`).**
+
+All five runs below are measured with `usage-rollup.mjs` and the BL-0181 dedupe. F1, F2 and E2 are replays of D2's
+four gates from `c575adfc`, so they include no build.
+
+| Run | Config | min / WO | $ real / WO | vs baseline (time / cost) | Parity (5 known defects) |
+|---|---|---:|---:|---|---|
+| FRD-24 baseline | serial, with build | 32.4 | 6.53 | 1.00× / 1.00× | n/a |
+| D2 | `explore`, serial gates, with build | 21.9 | 9.06 | 1.48× / 0.72× | 4/5 |
+| E2 | `digested` + parallel (visual-qa no-op) | 16.3 | 3.80 | 1.99× / 1.72× | **2/5** |
+| F1 | `explore` + `gateContextScope` + parallel | 20.9 | 11.01 | 1.55× / 0.59× | 4/5 + 1 partial |
+| **F2** | `digested` + drift finder + parallel | **19.1** | **7.66** | **1.70× / 0.85×** | **4/5, lost #1** |
+| 4× target | | 8.1 | 1.63 | 4× / 4× | |
+
+- **The 4× goal is not reached, and it is not reachable with this pipeline shape.**
+  - On F2's measured spans, three stages together take ≈ 15 min per verified WO before any gate runs: the serial
+    landing lane (40.1 min), visual-qa (15.2) and close-out (4.9). The 4× time target is 8.1 min.
+  - The opus judges alone cost ≈ 2.9 $ per WO, against a 4× cost target of 1.63 $.
+- **The best parity-preserving config is F2:** 1.70× time, but still 1.17× the baseline's cost per WO. vs D2 it is
+  1.15× / 1.18×.
+  - F2 loses #1 (AC-02-010.8), a defect `explore` finds, and it is now lost in 3/3 digested runs.
+  - Its finder is not validated. Its prompt names the canary's answer key, 2/4 finders read the factory `main`
+    tree instead of the pin (Bash cwd reset), and all 4 ran under a fallback agent type (stale session registry:
+    the 4 `error` agents).
+  - A mech relay fault (a dropped `]` in `drift-proof` JSON) turned a proven pre-existing drift into a spurious
+    reopen: 12.3 min and 4.01 $.
+- **The adopted default runs ≈ 1.55× / 0.59× raw.** That default is `explore` + `parallelGates`, and F1 measures it.
+  With the build wave added, it is ≈ 1.39× / ≈ 0.53× (PROJECTION).
+- **Defaults (final, decided in 38 §"Canary F1/F2 result and adopted defaults"):**
+  - `gateEvidence: explore`;
+  - `driftFinder` coupled to `digested`, not validated;
+  - **`parallelGates` on with `gateSlots: 2`.** This deviates from the ≤ 60 % bar: the landing lane, not the gates,
+    is now 74 % of the segment. F1/F2 had 0 idle slots and no parity or cost regression;
+  - `gateContextScope` off (−7 % context, no cost gain; propose retiring it);
+  - `gateInventoryCache` off;
+  - `driftPolicy: record`.
+
 **Final sprint verdict (2026-09-26, after canary E2; supersedes the canary-D verdict below; full evidence in `docs/reviews/canary-e2-report.md`).**
 
 - **The 4× goal was NOT reached, in time or in cost.**
@@ -1398,3 +1436,29 @@ Full report: `docs/reviews/canary-e2-report.md`. E1 (the first attempt, cut by a
 - `gateContextScope` / `gateInventoryCache` **off**, unmeasured.
 
 The criteria are in `docs/proposals/38` §"Canary E2 result and adopted defaults".
+
+### Canarios F1/F2 (recall-preserving cost levers, 2026-09-26)
+
+Full reports: `docs/reviews/canary-f1-report.md` (F1) and `docs/reviews/canary-f2-report.md` (F2, which also holds
+the combined verdict). Both replay D2's gates from `c575adfc` against the same 5-defect ground truth
+(`docs/reviews/canary-f-plan.md` §1).
+
+| | F1 (`explore` + `gateContextScope`) | F2 (`digested` + drift finder) |
+|---|---|---|
+| Workflow | `wf_d8545504-d0a` | `wf_8bab7752-702` |
+| Wall / $ real | 83.5 min / 44.04 $ | 76.3 min / 30.63 $ |
+| Σ review $ (gates; F2 + evidence + finder) | 23.38 (+6.54 BL-0001 repair loop) | 14.80 |
+| Recall | 4/5 + #4 partial (#1, #2 proven by DR-122) | 4/5, **#1 lost** (#2 via the finder, proven) |
+| Gate segment vs D2 serial (bar ≤ 60 %) | 95 % | 81 % |
+| Idle slot-minutes | ≈ 0 | 0 |
+| Pre-registered bars | recall met; cost, segment and total failed | recall (needs #1) failed; Σ review ≤ 18.5 $ met; total ≤ E2 + 25 % failed |
+
+**New defects from F2 (proposed, not filed):**
+
+1. Slot agents lose their `cd` between Bash calls and read the launching session's tree.
+2. The `drift-proof` JSON is relayed by a model and got corrupted.
+3. The stale session agent registry is not caught by preflight.
+4. The finder directive embeds the ground truth.
+5. `maxAgents` weight is saturated (60/60) by the finder.
+6. The reopen line is missing in `track.jsonl` for engine-routed reopens.
+7. The REQ-04-003 drift is still uncarded.

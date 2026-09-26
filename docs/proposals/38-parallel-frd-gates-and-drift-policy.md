@@ -426,3 +426,52 @@ were one per mode, and at n ≤ 2 they are not attributable.
    - the collector's `mkdir` in a fresh slot;
    - the final rollup flip left uncommitted;
    - BL-0190.
+
+## Canary F1/F2 result and adopted defaults (2026-09-26)
+
+(Resultado F1/F2 y defaults adoptados. The runs are F1 `wf_d8545504-d0a` and F2 `wf_8bab7752-702`, both on the
+plugin 9.115.1 engine, both replaying D2's four gates from `c575adfc`. Evidence: `docs/reviews/canary-f1-report.md`
+and `docs/reviews/canary-f2-report.md`. All $ are BL-0181-deduped.)
+
+**Criteria (`docs/reviews/canary-f-plan.md` §2), scored:**
+
+| Item | Criterion | F1 measured | F2 measured |
+|---|---|---|---|
+| Recall | ≥ 4/5 including #1 AC-02-010.8 and #2 REQ-03-001 | 4/5 + #4 partial; #1 and #2 found and DR-122-proven → **met** | 4/5; **#1 lost** (the finder never inventoried it; the judge passed AC-02-010.1..10 in one row) → **failed** |
+| Review cost | Σ ≤ 18.5 $ | 23.38 $ core (29.92 $ with the BL-0001 repair) → **failed** | 14.80 $ (evidence + finder + gate) → **met** |
+| Total cost | F2: ≤ E2 + 25 % (≈ 19 $) | — | 30.63 $; 22.84 $ like-for-like (no visual-qa, no spurious ladder), i.e. +51 % → **failed** |
+| Gate segment | ≤ 60 % of D2's 66.9-min serial equivalent | 63.8 min = 95 % → **failed** | 54.3 min = 81 % → **failed** |
+| BL-0194 | dependent gated in parallel, landing ordered, idle ≈ 0 | met (0 idle) | met (0 idle; 4 gates launched by min 21.4 vs 46.5 in E2) |
+| DR-122 | sound differential proofs | 5/5 sound (1 proven drift not carded: REQ-04-003) | 2/2 parsed proofs sound; the 3rd was lost to a mech relay fault → spurious FRD-05 reopen (4.01 $, 12.3 min) |
+
+**The drift finder is not a clean measurement:**
+
+- Its directive (engine line 102) names all five ground-truth defects.
+- The FRD-03 and FRD-04 finders ran their Bash calls without a `cd` and read the factory `main` checkout instead of
+  the pinned slot. That produced 2 false "implemented" verdicts, on #3 and #5.
+- All four ran under the fallback `pandacorp:reviewer` agent type: the launching session's registry predates
+  `drift-finder`. Those are the 4 `error` records.
+
+**Adopted defaults (final; the plugin change is a separate follow-up):**
+
+| Flag | Default | Reason |
+|---|---|---|
+| `gateEvidence` | **`explore`** | `digested` + finder saves ≈ 2.1 $ per FRD gate at equal recall *count*. But it loses #1, the out-of-diff content drift, in 3/3 digested runs, and `explore` finds it in 2/2. A lost finding blocks the flip. The "`explore` on an FRD's first-ever gate" hybrid would not recover #1 (FRD-02 had been gated before the drift appeared). Re-open only after a blind finder re-measure: cwd fixed, relay removed, directive free of the test's defects, recall ≥ `explore`'s set |
+| `driftFinder` | **coupled to `digested`** (on only with it) | `digested` alone is strictly worse (2/5). The finder recovered #2 for 0.76 $ per FRD. Not validated |
+| `parallelGates` | **on, `gateSlots: 2`** | **Deviates from the pre-registered ≤ 60 % bar,** which no run met (82 / 95 / 81 %). The reason: the serial landing lane, not the gates, is now 74 % of the segment (40.1 of 54.3 min in F2). There is no measured downside: 0 legacy fallbacks and clean slots in E2/F1/F2, 0 idle slots after BL-0194, recall unchanged (F1 = D2 serial 4/5), overhead ≈ 0.3-0.4 $ per run. Not measured: RAM with 2 dev servers, and the agent-weight cap. The owner may veto on the pre-registration |
+| `gateContextScope` | **off; propose retiring it** | F1: context per call −7.3 %, calls unchanged, cost flat. Turns drive cost, and this flag does not cut them |
+| `gateInventoryCache` | **off** | Unmeasured (repeat-gate canary §A6 #6) |
+| `driftPolicy` | **`record`** | Proofs sound in F1 and F2; the relay fault is an engine defect |
+
+**The next levers, by measured leverage:**
+
+1. **The serial landing lane** (40 min in F2). Overlap the verify/certify of independent FRDs, or batch several PASSes
+   behind one verify.
+2. **Visual-qa scoped to the touched routes** (13-15 min, 3-4 $ per run).
+3. **BL-0179 close-out reuse** (never fired in a multi-FRD run).
+4. **The F2 defects:**
+   - per-call `cd` for slot agents;
+   - file-based `drift-proof` results, with no model relay of machine JSON;
+   - a preflight check for a stale session plugin version;
+   - agent-weight headroom for the finder.
+
