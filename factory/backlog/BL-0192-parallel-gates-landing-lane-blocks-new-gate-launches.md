@@ -85,3 +85,8 @@ promise:
 ## Out of scope
 Parallel landings (the lane stays exclusive). The evidence-collector Bash-timeout stall (canary E report §4.3) is a
 separate item.
+
+## Phase 2 = E2 finding 1 (2026-09-26)
+Canary E2 showed that "pin in the top-up" (a phase 2 floated after canary E) is not a lever: FRD-05 was already pinned.
+Its 23.2-min wait came from `gateConflict` deferring a dependent's LAUNCH until its upstream landed. That is the real
+phase 2 of this item, shipped as BL-0194 (a dependency orders only the landing).
