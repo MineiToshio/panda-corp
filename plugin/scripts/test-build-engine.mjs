@@ -2,7 +2,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // test-build-engine.mjs — offline harness for the SPLIT FRD review gate
 // (proposal 31 T1.2) added to
-// plugin/templates/shared/.claude/engines/pandacorp-build.js.
+// plugin/runtime/engine/pandacorp-build.src.js (the source of the generated deployable engine).
 //
 // WHY A SECOND HARNESS
 // ────────────────────
@@ -47,7 +47,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ENGINE_PATH = path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
+// BL-0204: the readable SOURCE (the deployable artifact is generated from it; PANDACORP_ENGINE_RUN=artifact
+// executes the generated file instead — see test-engine-artifact.mjs).
+const ENGINE_PATH = process.env.PANDACORP_ENGINE_RUN === 'artifact'
+  ? path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
+  : path.resolve(__dirname, '../runtime/engine/pandacorp-build.src.js')
 
 let source = readFileSync(ENGINE_PATH, 'utf8')
 // The only ESM syntax in the file is the meta export; neutralize it so the

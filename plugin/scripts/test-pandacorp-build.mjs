@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ─────────────────────────────────────────────────────────────────────────────
 // test-pandacorp-build.mjs — the FIRST automated test harness for the Pandacorp
-// build engine (plugin/templates/shared/.claude/engines/pandacorp-build.js).
+// build engine (source: plugin/runtime/engine/pandacorp-build.src.js).
 //
 // HOW THE SIMULATION WORKS
 // ────────────────────────
@@ -62,9 +62,16 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const ENGINE_PATH = path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
+const ENGINE_PATH = path.resolve(__dirname, '../runtime/engine/pandacorp-build.src.js')
+// BL-0204: the deployable engine is GENERATED from the source (generate-engine.mjs strips comments to fit
+// the Workflow tool's 512 KB script limit). Static source guards and text assertions always read the
+// SOURCE; PANDACORP_ENGINE_RUN=artifact makes every scenario EXECUTE the generated artifact instead, so
+// test-engine-artifact.mjs can prove the shipped file behaves exactly like the source it came from.
+const ARTIFACT_PATH = process.env.PANDACORP_ENGINE_ARTIFACT || path.resolve(__dirname, '../templates/shared/.claude/engines/pandacorp-build.js')
+const RUN_ARTIFACT = process.env.PANDACORP_ENGINE_RUN === 'artifact'
 
 let source = readFileSync(ENGINE_PATH, 'utf8')
+let runnable = readFileSync(RUN_ARTIFACT ? ARTIFACT_PATH : ENGINE_PATH, 'utf8')
 // BL-0067 source guard: the protected gate-worktree may contain the only crash evidence.
 // The engine must never prescribe a destructive cleanup of that path.
 if (/worktree remove\s+--force[^\n]*gate-worktree|rm\s+-rf[^\n]*gate-worktree/.test(source)) {
@@ -112,17 +119,25 @@ for (const command of ['sync-rollups', 'renew', 'inspect-stop', 'close-preloop',
 // source is a valid function body. (We transform our in-memory copy — the
 // engine file on disk is never touched.)
 source = source.replace(/^export\s+const\s+meta/m, 'const meta')
+runnable = runnable.replace(/^export\s+const\s+meta/m, 'const meta')
 // The args-guard scenario deliberately passes undefined. Neutralize only the lease receipt guard in
 // this in-memory harness; production keeps it fail-closed and every behavioral fixture otherwise gets
 // a fake receipt below.
-source = source.replace("if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')", '')
-if (/^\s*(export|import)\b/m.test(source)) {
+const LEASE_RECEIPT_GUARD = "if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')"
+if (!runnable.includes(LEASE_RECEIPT_GUARD)) {
+  console.error(`FATAL: the lease receipt guard the harness neutralizes is absent from the ${RUN_ARTIFACT ? 'artifact' : 'source'} — update the harness loader.`)
+  process.exit(1)
+}
+source = source.replace(LEASE_RECEIPT_GUARD, '')
+runnable = runnable.replace(LEASE_RECEIPT_GUARD, '')
+if (/^\s*(export|import)\b/m.test(source) || /^\s*(export|import)\b/m.test(runnable)) {
   console.error('FATAL: engine still contains ESM syntax after the meta transform — update the harness loader.')
   process.exit(1)
 }
+if (RUN_ARTIFACT) console.log(`ENGINE UNDER TEST: generated artifact ${ARTIFACT_PATH}`)
 
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor
-const engine = new AsyncFunction('agent', 'log', 'budget', 'args', 'phase', 'parallel', source)
+const engine = new AsyncFunction('agent', 'log', 'budget', 'args', 'phase', 'parallel', runnable)
 
 // ── Default (schema-conformant) responses by label — the happy path ─────────
 const validTraceability = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'].map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))

@@ -13,7 +13,7 @@ const read = (file) => readFile(path.join(root, file), "utf8");
 const [reviewer, engine, codex, implementSkill, quality, manual] =
 	await Promise.all([
 		read("plugin/agents/reviewer.md"),
-		read("plugin/templates/shared/.claude/engines/pandacorp-build.js"),
+		read("plugin/runtime/engine/pandacorp-build.src.js"),
 		read("plugin/runtime/codex/executor.mjs"),
 		read("plugin/skills/implement/SKILL.md"),
 		read("factory/standards/quality.md"),

@@ -15,7 +15,8 @@ const driftFinder = readFileSync(path.join(root, "plugin/agents/drift-finder.md"
 const driftFinderMatch = driftFinder.match(/<!-- DRIFT_FINDER_START -->([\s\S]*?)<!-- DRIFT_FINDER_END -->/);
 if (!driftFinderMatch) throw new Error("canonical DRIFT_FINDER block not found in drift-finder.md");
 const driftFinderSource = driftFinderMatch[1].trim().replace(/\s+/g, " ");
-const file = path.join(root, "plugin/templates/shared/.claude/engines/pandacorp-build.js");
+// Writes into the engine SOURCE; the deployable artifact is derived from it by generate-engine.mjs (BL-0204).
+const file = path.join(root, "plugin/runtime/engine/pandacorp-build.src.js");
 const body = readFileSync(file, "utf8");
 const generated = `const SYNC_ROLLUPS = ${JSON.stringify(source)}.replaceAll('{{STATE_CLI_COMMAND}}', STATE_CLI_COMMAND).replaceAll('{{PROJECT_DIR}}', PROJECT_DIR).replaceAll('{{LEASE_TOKEN}}', LEASE_TOKEN).replaceAll('{{LEASE_EPOCH}}', String(LEASE_EPOCH))`;
 const generatedWholeFrd = `const WHOLE_FRD_ORACLE = ${JSON.stringify(wholeFrdSource)}`;

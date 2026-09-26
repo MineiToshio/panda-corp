@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { readFileSync } from "node:fs";
-const body = readFileSync(new URL("../templates/shared/.claude/engines/pandacorp-build.js", import.meta.url), "utf8");
+const body = readFileSync(new URL("../runtime/engine/pandacorp-build.src.js", import.meta.url), "utf8");
 const checks = [
   [body.includes("const RENEW_LEASE"), "renew fragment exists"],
   [/async function safePoint\(\)[\s\S]*?RENEW_LEASE/.test(body), "every safe-point carries renewal"],

@@ -139,7 +139,7 @@ try {
   ok(claudeLauncher.includes("resolve-build-run-id.mjs") && codexLauncher.includes("resolve-build-run-id.mjs"), "both runtime launchers consume the single automatic logical-run resolver", "source");
   const codexSuite = await readFile(path.join(root, "plugin/scripts/test-codex-executor.mjs"), "utf8");
   ok(/orphan IN_PROGRESS/.test(codexSuite) && /preserved RED baseline/.test(codexSuite) && /refuses release when hardening evidence is absent/.test(codexSuite), "Codex certification suite binds IN_PROGRESS reconciliation, preserved RED evidence and hardening", "source");
-  const claudeEngine = await readFile(path.join(root, "plugin/templates/shared/.claude/engines/pandacorp-build.js"), "utf8");
+  const claudeEngine = await readFile(path.join(root, "plugin/runtime/engine/pandacorp-build.src.js"), "utf8");
   const claudeSuite = await readFile(path.join(root, "plugin/scripts/test-pandacorp-build.mjs"), "utf8");
   ok(/preserve gate-worktree crash evidence/.test(claudeEngine) && /dirty, orphaned, unregistered, or ambiguous/.test(claudeEngine) && !/worktree remove\s+--force[^\n]*gate-worktree|rm\s+-rf[^\n]*gate-worktree/.test(claudeEngine) && /worktree creation fails/.test(claudeSuite) && /hardening-failure close/.test(claudeSuite), "Claude source/harness preserves unsafe gate-worktree evidence, falls back synchronously and binds hardening failure", "source");
 
