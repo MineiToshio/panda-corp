@@ -177,9 +177,9 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     BL-0186). Off = the DR-118/C2 topology byte-for-byte (one gate worktree, gates serialized on one
 //     mutex chain, a reject quiesces every in-flight gate). On = a POOL of `gateSlots` gate worktrees
 //     (`.pandacorp/run/gate-worktree-<k>`, k = 1..N, each bootstrapped with its OWN explicit e2e port), so
-//     up to N FRD gates REVIEW at once — but only FRDs that do not depend on each other (cross-FRD
-//     `dependsOn`, transitive, plus FRD-level deps) and whose artifacts are disjoint (DR-060's own
-//     artifactsOverlap); every verdict then LANDS on main through ONE serialized lane in arrival order
+//     up to N FRD gates REVIEW at once — only FRDs whose artifacts are disjoint (DR-060's own
+//     artifactsOverlap); a dependency (cross-FRD `dependsOn`, transitive, plus FRD-level deps) orders only the
+//     LANDING (E2 finding 1, BL-0194); every verdict then LANDS on main through ONE serialized lane in arrival order
 //     (apply / patch ladder / persist-block, never two at once), with a stale-pin guard (main advanced in
 //     code since the pin → `verify.sh --since <pin>` before stamping; red → the PASS becomes a reopen).
 //     See the "D1 PARALLEL FRD GATES" section below and factory/standards/build-orchestration.md §5c.
@@ -328,7 +328,10 @@ const SYNC_ROLLUPS = "Run the sole governed rollup writer exactly once: `{{STATE
 // in_review already reflected the new rollup in status.yaml, but the tracked frd.md/blueprint.md that
 // same command rewrote never made it into a commit). Appended right after ${SYNC_ROLLUPS} wherever no
 // broader commit sentence already covers it.
-const SYNC_ROLLUPS_COMMIT = ' If that command changed any docs/frds/*/frd.md or blueprint.md on disk, stage ONLY those rollup documents and commit them right now, as their OWN commit (Conventional Commits, scope) — BEFORE anything else below.'
+// E2 finding 4: canary E2's FRD-05 landing left its frd.md/blueprint.md flip uncommitted, and notify-end's own
+// sync-rollups then changed nothing (the disk was already right), so this conditional never fired. It also commits
+// a rollup document an earlier step left modified.
+const SYNC_ROLLUPS_COMMIT = ' If that command changed any docs/frds/*/frd.md or blueprint.md on disk — or `git status --porcelain -- docs/frds` still lists one of those rollup documents as modified (an earlier step left it uncommitted) — stage ONLY those rollup documents and commit them right now, as their OWN commit (Conventional Commits, scope) — BEFORE anything else below.'
 // GENERATED from the canonical marked block in plugin/agents/reviewer.md — do not hand-edit.
 const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** before judging code or writing tests, inventory every normative contract in the entire `frd.md` — requirements, numbered acceptance criteria, invariants, edge cases, limits, errors and exclusions — including normative material outside numbered ACs. Record a traceability checklist in the verdict with each contract, its class, `pass | fail | not-applicable`, and the test path(s) that prove it. **The inventory needs at least one entry for EACH of the 7 contract classes** (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion): a numbered REQ-NN-MMM requirement is its OWN `requirement` entry, distinct from the acceptance-criterion entries that verify it — do not cover a requirement only through its ACs and skip the `requirement` entry. If a class genuinely does not apply to this FRD, add a `not-applicable` entry for it with `tests: []` instead of omitting the class — an omitted class is itself RED even when every other class is complete. Every applicable edge-case or limit class requires at least one adversarial boundary test. Missing inventory, missing applicable boundary coverage, or any contradiction is RED. Passing numbered ACs can never waive, override or dismiss another normative FRD clause; there are no reviewer waivers for approved spec text. A contradiction you believe pre-dates this cycle is still a `fail` entry — never dropped, never waived — at most PROPOSED as pre-existing drift for the engine to prove or reject."
 // BL-0178: GENERATED from plugin/agents/reviewer.md's DRIFT_CLAIM block (generate-build-prompt-fragments.mjs) — do not hand-edit.
@@ -604,6 +607,19 @@ const PARALLEL_PERSIST_NO_SALVAGE = `    **No gate-worktree salvage here (D1, ar
 // port (applyGate) and the reject port (portReviewerTests) read a copy no later gate can overwrite.
 const GATE_EVIDENCE_ROOT = PROJECT_DIR === '.' ? '.pandacorp/run/gate-evidence' : `${PROJECT_DIR}/.pandacorp/run/gate-evidence`
 const gateEvidenceDir = (frd) => `${GATE_EVIDENCE_ROOT}/${frd}`
+// E2 finding 3: ONE path convention for the reviewer's salvaged test files. The release lists them the way git
+// does — REPO-ROOT-relative (`mission-control/src/…` for a nested project) — so every copy, hash, stage and clean
+// of them is anchored at the repository root, inside a LITERAL command the agent runs verbatim. Prose ("let TOP =
+// …") is not enough: canary E2's apply-gate (haiku) re-derived the destination from its project cwd and committed
+// `mission-control/mission-control/src/…` (4ceac8e0), leaving reverify's correct copy untracked on main. Each path is
+// single-quoted and every git pathspec is literal — `[slug]` is a glob class otherwise and stages (or cleans) the
+// sibling files it matches.
+const REPO_TOP_ASSIGN = `TOP="$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-toplevel)"`
+const repoParentOf = (p) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '.')
+const repoRootPortCommand = (srcDir, paths) => [REPO_TOP_ASSIGN, ...paths.map((p) => `mkdir -p "$TOP"/${shellQuote(repoParentOf(p))} && cp ${shellQuote(`${srcDir}/${p}`)} "$TOP"/${shellQuote(p)}`)].join(' && ')
+const repoRootHashCommand = (paths) => [REPO_TOP_ASSIGN, ...paths.map((p) => `{ shasum -a 256 "$TOP"/${shellQuote(p)} || echo "MISSING ${p}"; }`)].join(' && ')
+const repoRootStageCommand = (paths) => `${REPO_TOP_ASSIGN} && git -C "$TOP" --literal-pathspecs add -- ${paths.map(shellQuote).join(' ')}`
+const REPO_ROOT_PATHS_NOTE = 'These paths are REPO-ROOT-relative (git listed them from the repository root): NEVER copy, hash, stage or clean one relative to the project directory — for a nested project the path already starts with the project folder, so a project-relative copy DOUBLES it (`mission-control/mission-control/…`, canary E2).'
 // Which salvaged paths are the reviewer's TEST evidence (ported to main) vs anything else it left behind
 // (kept in the evidence dir only). Snapshot PNGs under e2e/ and __tests__/ ride with their specs.
 const REVIEWER_TEST_PATH = /(^|\/)(__tests__|_tests|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
@@ -824,7 +840,8 @@ const PRECHECK_SCHEMA = {
     green: { type: 'boolean', description: 'true = clean tree AND HEAD is last_green_sha OR its direct metadata-only pointer child (known-green fast path); false ONLY paired with a BL-0022 failure' },
     escalate: { type: 'boolean', description: 'true = dirty tree or HEAD is beyond the certified snapshot/pointer pair → run the judge baseline' },
     dirty: { type: 'boolean', description: 'true iff `git status --porcelain` showed changes (informs the judge baseline whether reconciliation is needed)' },
-    dirtyPaths: { type: 'array', items: { type: 'string' }, description: "BL-0124: every BARE path `git status --porcelain` reported dirty — project-relative, WITHOUT the leading 2-character XY status code + separating space that command prints before each path ('git status --porcelain' prints ' M .pandacorp/status.yaml'; report '.pandacorp/status.yaml', never the raw porcelain line with its status code still attached); [] when clean. The engine — not this step — decides whether the narrow leased-status.yaml exclusion applies by comparing this EXACT string, so a path still carrying its status code silently fails that comparison and forces an unnecessary judge-baseline (BL-0160) — report the bare path honestly even when escalating." },
+    dirtyPaths: { type: 'array', items: { type: 'string' }, description: "BL-0124: every BARE path `git status --porcelain` reported dirty — EXACTLY as that command prints it (repo-root-relative: git prints paths from the REPOSITORY root even for a nested project, e.g. 'mission-control/.pandacorp/status.yaml'), WITHOUT the leading 2-character XY status code + separating space it prints before each path (' M mission-control/.pandacorp/status.yaml' → 'mission-control/.pandacorp/status.yaml'; never the raw porcelain line with its status code still attached); [] when clean. The engine — not this step — strips projectPrefix and decides whether the narrow leased-status.yaml exclusion applies, so a path still carrying its status code silently fails that comparison and forces an unnecessary judge-baseline (BL-0160) — report the bare path honestly even when escalating." },
+    projectPrefix: { type: 'string', description: "E2 finding 2: the VERBATIM output of `git -C <project> rev-parse --show-prefix` (trimmed) — '' for a project at its repository root, e.g. 'mission-control/' for a nested one. The engine strips it from dirtyPaths before comparing, because porcelain paths are repo-root-relative." },
     leaseValid: { type: 'boolean', description: "BL-0124: true iff THIS run already holds the current valid lease fence — already PROVEN by STEP 0's inspect-stop succeeding under this run's own token/epoch (the same fence BL-0079 relies on for the repair step), not a fresh check. Only meaningful together with dirtyPaths." },
     failure: { type: 'string' },
   },
@@ -1395,7 +1412,7 @@ const precheck = await preLoopGuarded(() => agent(
   **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.${PARALLEL_GATES ? ` The SAME protection covers every parallel gate slot ${gateSlotPath('<k>')} (D1, args.parallelGates): never delete, recreate, prune, reset, clean or force-remove any of them — a dirty slot is dropped from the pool by its own probe, never cleaned.` : ''}
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
-  **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed>, leaseValid: true }. **dirtyPaths entries are BARE paths, project-relative, with the 2-character XY status code AND its separating space STRIPPED** (\`git status --porcelain\` prints \` M .pandacorp/status.yaml\` — status code, space, path; report \`.pandacorp/status.yaml\` only, never the raw porcelain line). This is not cosmetic: the engine matches dirtyPaths[0] against the literal string \`.pandacorp/status.yaml\` with strict equality to decide the exclusion (BL-0160 — a path still carrying its status code silently fails that match and forces an avoidable judge-baseline every time). (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
+  **STEP 3 — clean-tree fast path (BL-0066):** run \`git -C ${PROJECT_DIR} status --porcelain\` and read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git diff --name-only <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit). Then return { green: true }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [] }. **A dirty tree always escalates from here — do NOT decide any exclusion yourself, even if the only dirty path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every path \`git status --porcelain\` listed>, leaseValid: true, projectPrefix: <the trimmed output of \`git -C ${PROJECT_DIR} rev-parse --show-prefix\`> }. **dirtyPaths entries are BARE paths, EXACTLY as git prints them — repo-root-relative (git prints paths from the REPOSITORY root even for a nested project) — with the 2-character XY status code AND its separating space STRIPPED** (\`git status --porcelain\` prints \` M mission-control/.pandacorp/status.yaml\` for a nested project — status code, space, path; report \`mission-control/.pandacorp/status.yaml\`, never the raw porcelain line, and never rewrite the path yourself). **projectPrefix** is that show-prefix output VERBATIM ('' for a project at its repository root, e.g. \`mission-control/\` for a nested one). This is not cosmetic: the engine strips projectPrefix from dirtyPaths[0] and matches the rest against the literal string \`.pandacorp/status.yaml\` with strict equality to decide the exclusion (BL-0160 — a path still carrying its status code silently fails that match and forces an avoidable judge-baseline every time; E2 finding 2 — without the prefix a nested project could never match). (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: PRECHECK_SCHEMA },
 ))
 if (precheck && precheck.stop === true) {
@@ -1411,7 +1428,15 @@ let baseline
 // exactly one dirty path, exactly that path, and a lease this run already proved valid by reaching STEP 3
 // at all (STEP 0's inspect-stop fences token+epoch against the CURRENT lease — the identical check
 // BL-0079 relies on). args.strictBaseline (escape hatch) restores the pre-WP-04 behavior unconditionally.
-const leasedStatusOnly = Array.isArray(precheck && precheck.dirtyPaths) && precheck.dirtyPaths.length === 1 && precheck.dirtyPaths[0] === '.pandacorp/status.yaml'
+// E2 finding 2: `git status --porcelain` prints REPO-ROOT-relative paths, so in a nested project (Mission Control
+// inside the factory repo) the lease's own write reads `mission-control/.pandacorp/status.yaml` and the strict match
+// below could never succeed (canary E2: an avoidable opus judge-baseline, 2.47 min). The pre-check also reports the
+// project's `git rev-parse --show-prefix`; the engine strips it here. Only a well-formed prefix is stripped (no
+// leading '/', no '..', ends in '/'), and only from a path that starts with it — anything else stays unmatched
+// and escalates, so the exclusion can never widen.
+const PRECHECK_PREFIX = (precheck && typeof precheck.projectPrefix === 'string' && /^(?:[^/.][^/]*\/)*$/.test(precheck.projectPrefix) && !precheck.projectPrefix.split('/').includes('..')) ? precheck.projectPrefix : ''
+const projectRelativeDirtyPath = (p) => (typeof p === 'string' && PRECHECK_PREFIX && p.startsWith(PRECHECK_PREFIX)) ? p.slice(PRECHECK_PREFIX.length) : p
+const leasedStatusOnly = Array.isArray(precheck && precheck.dirtyPaths) && precheck.dirtyPaths.length === 1 && projectRelativeDirtyPath(precheck.dirtyPaths[0]) === '.pandacorp/status.yaml'
 if (precheck && precheck.green === true) {
   baseline = { green: true }
   log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
@@ -1913,13 +1938,15 @@ async function collectGateEvidence(frd, reviewIds, pinSha) {
   // was in the SLOT all along (10 min lost on the critical path). Now: ONE foreground Bash call with the tool's
   // timeout raised AND a shell-level alarm under it (portable: perl, not GNU `timeout`, which macOS lacks), console
   // output to a log file, the stale report removed first (a slot is reused; .pandacorp/run/ survives it), and every
-  // path absolute INSIDE this gate's own worktree — the same show-prefix rule as gateProjectCd.
+  // path absolute INSIDE this gate's own worktree — the same show-prefix rule as gateProjectCd. E2 finding 6: a FRESH
+  // slot has no `.pandacorp/run/` (gitignored, so a new worktree never carries it) and the `> "$LOG"` redirect failed
+  // on the first attempt in 2/2 fresh slots of canary E2 — the command creates the directory first.
   const wt = gateWorktreePathOf(frd)
   const slotRun = `${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix).pandacorp/run`
   agentSpawned++
   return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
   0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** From the project directory (the cd above), run exactly \`node -e "process.stdout.write(require('node:fs').existsSync('node_modules/.bin/vitest') ? 'BOOTSTRAPPED' : 'NOT-BOOTSTRAPPED')"\` — NEVER shell \`test\`/\`[\`, which an owner alias can hijack (BL-0187). If it prints NOT-BOOTSTRAPPED, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
-  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once (that argument ORDER is required — \`--since\` is positional). **Run it as ONE Bash call, in the FOREGROUND, with the Bash tool's \`timeout: 600000\` (the run takes minutes; the 120 s default would push it to the background) — NEVER \`run_in_background\`, never \`&\`, NEVER a polling/\`until\`/\`sleep\` loop. The command, verbatim except PIN_BASE:** \`${gateProjectCd(wt)} && { REPORT="${slotRun}/gate-report.json"; LOG="${slotRun}/evidence-verify.log"; rm -f "$REPORT"; perl -e 'alarm shift; exec @ARGV' 540 bash .pandacorp/verify.sh --since <PIN_BASE> --report-all > "$LOG" 2>&1; echo "verify exit=$?"; cat "$REPORT" || echo "REPORT MISSING: $REPORT"; }\` — REPORT is THIS gate worktree's own report, an absolute path inside it (for a nested project such as Mission Control it resolves to \`<this worktree>/mission-control/.pandacorp/run/gate-report.json\`); NEVER read the main project tree's copy of that file, it belongs to a different run. The perl alarm is the hard bound (540 s): exit 142 means it timed out, and the report is then missing. A non-zero exit is FINE and expected otherwise — it is data, not a problem for you to fix. Return the report that command printed — its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
+  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once (that argument ORDER is required — \`--since\` is positional). **Run it as ONE Bash call, in the FOREGROUND, with the Bash tool's \`timeout: 600000\` (the run takes minutes; the 120 s default would push it to the background) — NEVER \`run_in_background\`, never \`&\`, NEVER a polling/\`until\`/\`sleep\` loop. The command, verbatim except PIN_BASE:** \`${gateProjectCd(wt)} && { mkdir -p "${slotRun}"; REPORT="${slotRun}/gate-report.json"; LOG="${slotRun}/evidence-verify.log"; rm -f "$REPORT"; perl -e 'alarm shift; exec @ARGV' 540 bash .pandacorp/verify.sh --since <PIN_BASE> --report-all > "$LOG" 2>&1; echo "verify exit=$?"; cat "$REPORT" || echo "REPORT MISSING: $REPORT"; }\` — REPORT is THIS gate worktree's own report, an absolute path inside it (for a nested project such as Mission Control it resolves to \`<this worktree>/mission-control/.pandacorp/run/gate-report.json\`); NEVER read the main project tree's copy of that file, it belongs to a different run. The perl alarm is the hard bound (540 s): exit 142 means it timed out, and the report is then missing. A non-zero exit is FINE and expected otherwise — it is data, not a problem for you to fix. Return the report that command printed — its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
   1b) **SANITY CHECK (BL-0149) on what step 1 just produced.** Look at the sub-gates in that report. If **3 or more** of the cheap sub-gates (biome/tsc/knip/madge and similar) are RED with an ENVIRONMENT-only message (\`command not found\`, \`Cannot find module\`, \`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\`, or equivalent "the tool itself could not run" text — never an actual lint/type finding), set \`report_suspect: true\`: this is a broken worktree, not a real verdict, and a reviewer must never mistake environment noise for a finding. Otherwise set \`report_suspect: false\`.
   2) \`git diff --relative <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`. \`--relative\` is REQUIRED (BL-0187): it keeps the stat to THIS project — without it a nested project's stat lists every file the enclosing repo changed.
   3) \`git diff --relative <PIN_BASE>..${pinSha}${scope}\` → return it in \`diff\` (${scopeNote}). **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
@@ -2393,7 +2420,7 @@ async function releaseGateWorktree(frd, gate, slot = LEGACY_SLOT) {
       1) LIST: \`git -C ${wt} status --porcelain=v1 --untracked-files=all\`. \`--untracked-files=all\` is REQUIRED — plain \`--porcelain\` collapses a new directory to one \`?? dir/\` line and its files would never be salvaged. Each line is \`XY <path>\`; the path is relative to the worktree ROOT (git prints repo-root paths even for a nested project) — keep it EXACTLY as printed (unquote it if git double-quoted it).
       2) SALVAGE each listed path: \`??\` → untracked; a \`D\` in either status column → deleted; anything else → modified. Untracked/modified: \`mkdir -p\` the parent and \`cp ${wt}/<path> ${dir}/<path>\` (overwrite), then \`shasum -a 256 ${dir}/<path>\` and record { path, status, sha256 }. Deleted: record { path, status: "deleted", sha256: null } (nothing to copy).
       3) REPORT: the gate's report is gitignored, so step 1 does not list it. Let P = \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` (empty for a flat project, e.g. \`mission-control/\` for a nested one). If ${wt}/<P>.pandacorp/run/gate-report.json exists, copy it to ${dir}/gate-report.json (overwrite).
-      4) CLEAN exactly the listed paths, one at a time, and ONLY a path whose step-2 copy SUCCEEDED (or a deleted one): untracked → \`git -C ${wt} clean -f -- <path>\`; modified or deleted → \`git -C ${wt} checkout -- <path>\`. NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\`, and never remove, prune or recreate the worktree (BL-0067).
+      4) CLEAN exactly the listed paths, one at a time, and ONLY a path whose step-2 copy SUCCEEDED (or a deleted one): untracked → \`git -C ${wt} --literal-pathspecs clean -f -- <path>\`; modified or deleted → \`git -C ${wt} --literal-pathspecs checkout -- <path>\` (\`--literal-pathspecs\`: a \`[slug]\` segment is a glob class otherwise and would clean sibling files). NEVER a blanket \`clean -fd\`/\`reset --hard\`/\`checkout .\`, and never remove, prune or recreate the worktree (BL-0067).
       5) POSTCONDITION: re-run the step-1 command and return every line it prints as \`remaining\` ([] when clean).
       The gate declared these test files (JSON): ${JSON.stringify(declared)} — informational only; salvage what git lists, not this list.
       Return { salvaged: [...], remaining: [...] }. If a command fails, stop there and return what you have plus \`failure: "<what failed>"\` — never clean a path you could not copy.`,
@@ -2443,7 +2470,7 @@ async function portReviewerTests(frd, gate) {
   if (!gate || !Array.isArray(gate.reopen) || !gate.reopen.length || !ev || !ev.tests.length) return null   // nothing stranded → the ladder runs exactly as before
   agentSpawned++
   const r = await agent(
-    `BL-0184 — PORT the reviewer's adversarial test files for ${frd} onto the MAIN tree BEFORE the patch (DR-080: the patch is judged by the reviewer's OWN files, never a re-typed copy). The review-only gate rejected in the gate worktree; the engine salvaged its test files into ${ev.dir}. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\` (the MAIN repo root — the paths below are REPO-ROOT-relative, exactly as git listed them). For EACH entry of EXPECTED: \`mkdir -p\` the parent and \`cp ${ev.dir}/<path> "$TOP/<path>"\` (overwrite), then \`shasum -a 256 "$TOP/<path>"\` and record { path, sha256 } (sha256 null when the source is missing or the copy failed). Stage nothing, commit nothing, touch nothing else. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { hashes: [{ path, sha256 }] }.`,
+    `BL-0184 — PORT the reviewer's adversarial test files for ${frd} onto the MAIN tree BEFORE the patch (DR-080: the patch is judged by the reviewer's OWN files, never a re-typed copy). The review-only gate rejected in the gate worktree; the engine salvaged its test files into ${ev.dir}. ${REPO_ROOT_PATHS_NOTE} (1) run this port command VERBATIM, as ONE Bash call: \`${repoRootPortCommand(ev.dir, ev.tests.map((t) => t.path))}\`. (2) run this hash command VERBATIM, as ONE Bash call: \`${repoRootHashCommand(ev.tests.map((t) => t.path))}\` — and record { path, sha256 } for EACH entry of EXPECTED from its output (sha256 null for a MISSING line, or when step 1 failed). Stage nothing, commit nothing, touch nothing else. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { hashes: [{ path, sha256 }] }.`,
     { label: `port-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVIEWER_TEST_HASH_SCHEMA })
   const problems = compareReviewerHashes(ev.tests, r && r.hashes)
   if (problems.length) {
@@ -2464,7 +2491,7 @@ async function checkReviewerTestIntegrity(frd) {
   if (!rt || !rt.tests.length) return null
   agentSpawned++
   const r = await agent(
-    `BL-0184 — DR-080 integrity check of the reviewer's test files for ${frd}, BEFORE the independent verifier runs. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`. For EACH entry of EXPECTED run \`shasum -a 256 "$TOP/<path>"\` and record { path, sha256 } (sha256 null when the file is missing).${rt.rebless ? ' Record only — change nothing.' : ` THEN, for every file whose hash differs from EXPECTED or that is missing, RESTORE the reviewer's original: \`mkdir -p\` the parent and \`cp ${rt.dir}/<path> "$TOP/<path>"\` — record the hash you OBSERVED before restoring, never the restored one.`} Edit nothing else, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(rt.tests)}. Return { hashes: [{ path, sha256 }] }.`,
+    `BL-0184 — DR-080 integrity check of the reviewer's test files for ${frd}, BEFORE the independent verifier runs. ${REPO_ROOT_PATHS_NOTE} Run this hash command VERBATIM, as ONE Bash call: \`${repoRootHashCommand(rt.tests.map((t) => t.path))}\` — and record { path, sha256 } for EACH entry of EXPECTED from its output (sha256 null for a MISSING line).${rt.rebless ? ' Record only — change nothing.' : ` THEN, for every file whose hash differs from EXPECTED or that is missing, RESTORE the reviewer's original by running ITS OWN restore command VERBATIM (and no other): ${rt.tests.map((t) => `${t.path} → \`${repoRootPortCommand(rt.dir, [t.path])}\``).join('; ')} — record the hash you OBSERVED before restoring, never the restored one.`} Edit nothing else, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(rt.tests)}. Return { hashes: [{ path, sha256 }] }.`,
     { label: `reviewer-test-hash:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVIEWER_TEST_HASH_SCHEMA })
   if (rt.rebless) {
     const observed = (r && Array.isArray(r.hashes)) ? r.hashes : []
@@ -2492,12 +2519,24 @@ const reviewerTestsVerifyDirective = (frd) => {
   if (!rt || !rt.tests.length) return ''
   return `\n  **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080) — run them EXPLICITLY, by path:** the review-only gate rejected on these reviewer-authored files, ported onto this tree and sha256-checked by the engine just before you: ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: run \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>" …\` for each (a Playwright spec: \`pnpm playwright test\` with the same absolute path), IN ADDITION to the FRD test files above — never trust \`--changed\`/affected selection to have picked them up. Every one must PASS; a missing one is RED. Do NOT edit them, and do NOT stage them — you write nothing (BL-0191); the certify step commits them.`
 }
-// BL-0191: the certify step (not the verifier) commits the reviewer's ported test files with the stamp.
+// BL-0191: the certify step (not the verifier) commits the reviewer's ported test files with the stamp — staged by the
+// literal command of the commit protocol (E2 finding 3); this directive only names them.
 const reviewerTestsStageDirective = (frd) => {
   const rt = reviewerTestsByFrd.get(frd)
   if (!rt || !rt.tests.length) return ''
-  return ` **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080):** the verifier ran these reviewer-authored files (ported onto this tree and sha256-checked by the engine): ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: \`git add -- "$(git rev-parse --show-toplevel)/<path>"\` each of them into the snapshot commit (A) below. Do NOT edit them.`
+  return ` **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080):** the verifier ran these reviewer-authored files (ported onto this tree and sha256-checked by the engine): ${reviewerTestPaths(rt)}. They go into the snapshot commit (A) through the commit protocol's staging command below. Do NOT edit them.`
 }
+/**
+ * E2 findings 3, 4 and 7 — the END of every certifying landing (applyGate, certifyPatched). Canary E2's apply-gate
+ * staged the WO file but not the frd.md/blueprint.md rollups sync-rollups had rewritten (left dirty after the run),
+ * and — following the prompt's own order, where the last-green ordering came BEFORE the timeline/journal appends —
+ * committed those appends AFTER the pointer commit, leaving HEAD two bookkeeping commits past last_green_sha. So the
+ * protocol is literal, comes LAST, and nothing is committed after the pointer. `testPaths` = the reviewer's
+ * repo-root-relative test files to stage into (A) ([] = none to stage by this step).
+ * @param {readonly string[]} testPaths
+ * @returns {string} the prompt fragment
+ */
+const landingCommitProtocol = (testPaths) => ` **COMMIT PROTOCOL — do this LAST, after every edit and append above, and make NO commit after it:** stage snapshot (A) with exactly this command: \`git -C ${shellQuote(PROJECT_DIR)} add -u -- docs/frds .pandacorp\`${testPaths.length ? `, then stage the reviewer's test files with exactly this command: \`${repoRootStageCommand(testPaths)}\`` : ''} (if \`.pandacorp/track.jsonl\` or \`.pandacorp/build-journal.jsonl\` exists but git does not track it yet, \`git -C ${shellQuote(PROJECT_DIR)} add -f -- <that file>\`). Commit (A), then run \`git -C ${shellQuote(PROJECT_DIR)} status --porcelain -- docs/frds\`: it must print NOTHING — a line there is a VERIFIED flip, a rollup or a drift replica left out of the snapshot; stage and commit it before (B). Then make the pointer commit (B) exactly as the ordering below says. Every timeline/journal line belongs in (A): a bookkeeping commit after (B) leaves HEAD past last_green_sha.${testPaths.length ? ` ${REPO_ROOT_PATHS_NOTE}` : ''}`
 
 // ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
 // WP-03 fusion (ii): `preSha` is the sha commitWOGreen's LAST landed commit already returned THIS wave
@@ -2532,7 +2571,7 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
   // the worktree there and cleaned it before the next gate could start), holding repo-root-relative paths.
   const fromEvidence = Boolean(sourceDir && sourceDir.startsWith(GATE_EVIDENCE_ROOT))
   const port = fromEvidence && files.length
-    ? ` FIRST port the reviewer's adversarial test files — salvaged out of the gate worktree ${gateWorktreePathOf(frd)} into ${sourceDir} by the release step — onto the main tree. The paths are REPO-ROOT-relative (as git listed them): let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`, and for EACH path copy \`${sourceDir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
+    ? ` FIRST port the reviewer's adversarial test files — salvaged out of the gate worktree ${gateWorktreePathOf(frd)} into ${sourceDir} by the release step — onto the main tree: each \`${sourceDir}/<path>\` goes to \`<repo root>/<path>\` (the repo root is \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`) for ${files.join(', ')} — run this port command VERBATIM, as ONE Bash call: \`${repoRootPortCommand(sourceDir, files)}\`. ${REPO_ROOT_PATHS_NOTE}`
     : sourceDir && files.length
       ? ` FIRST port the reviewer's adversarial test files from the gate worktree onto the main tree — for EACH of these repo-relative paths copy \`${sourceDir}/<path>\` → \`<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.`
       : (files.length ? ` The reviewer's adversarial test files are already on the main tree (${files.join(', ')}) — just make sure they are staged in the commit below.` : '')
@@ -2548,8 +2587,8 @@ async function applyGate(frd, reviewIds, testFiles, sourceDir) {
     ` "<the primary work order this gate verified, else ${(reviewIds || [])[0] || frd}>" "<one line: what the gate confirmed>"`)
   const link = commitChain.then(() => agent(
     `You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race). Apply the PASSED FRD gate for ${frd} onto the MAIN tree (the review already happened; you only PERSIST it — do NOT re-review, do NOT re-run the suite).${port}
-    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS} Set safe_to_test:true through its owning transition until that field migrates.${driftFrontmatter(frd)}${LAST_GREEN_ORDERING}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal} Stage the ported test files, \`.pandacorp/track.jsonl\` AND \`.pandacorp/build-journal.jsonl\` too, and commit (Conventional Commits, scope). Return { done: true }.
-    **BEFORE you stamp anything (WP-08 cage):** read \`${gateReportPath}\` — the report the gate you are applying left behind (in the gate worktree, NOT your own main-tree copy of that filename, when this apply followed a concurrent gate) — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.${inventoryPersistStep(frd)}`,
+    **BEFORE you stamp anything (WP-08 cage):** read \`${gateReportPath}\` — the report the gate you are applying left behind (in the gate worktree, NOT your own main-tree copy of that filename, when this apply followed a concurrent gate) — and return its \`scope\` field VERBATIM as \`report_scope\`. If it reads \`partial\`, that gate ran \`--only\`/\`--files\` and certified NOTHING: stamp nothing, advance nothing, commit nothing, and return { done: false, report_scope: 'partial' }.
+    Set the reviewed work orders (${(reviewIds || []).join(', ')}) frontmatter \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`** (DR-072 C2), then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} Set safe_to_test:true through its owning transition until that field migrates.${driftFrontmatter(frd)}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length}`)}${ACHIEVEMENT(frd)} BUILD-JOURNAL (A1): record the gate's green resolution (the trust boundary was the gate; you are its main-tree applier):${applyJournal}${landingCommitProtocol(fromEvidence ? files : [])}${fromEvidence || !files.length ? '' : ` Also stage the reviewer's test files (${files.join(', ')}) into (A).`}${LAST_GREEN_ORDERING} Return { done: true }.${inventoryPersistStep(frd)}`,
     { label: `apply-gate:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // share ONE serialized git-writer chain on main (WO commits + gate applies) — no interleaved writers
   return link.then((r) => {
@@ -2903,7 +2942,7 @@ async function certifyPatched(frd, reviewIds, verdict) {
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
     ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
   const link = commitChain.then(() => agent(`You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently). An INDEPENDENT verifier just re-ran the objective gate over the in-place patch of ${frd} and the ENGINE accepted its verdict (WP-08 scope cage + every inherited open contract proven closed — BL-0178/BL-0191). You only PERSIST that certification: do NOT re-review, do NOT re-run the suite, do NOT edit code or tests.${resolved ? ` The verifier's summary of what the patch resolved: ${resolved}.` : ''}
-  Set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${driftFrontmatter(frd)}${reviewerTestsStageDirective(frd)}${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — record the independent verifier's kind:"resolution" (green) line (you persist ITS verdict; the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { done: true }. If you cannot complete the stamp, return { done: false, failure: <why> }.`,
+  Set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} Set last_green_sha and safe_to_test through their current owning transition.${driftFrontmatter(frd)}${reviewerTestsStageDirective(frd)} BUILD-JOURNAL (A1) — record the independent verifier's kind:"resolution" (green) line (you persist ITS verdict; the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)}${landingCommitProtocol(((reviewerTestsByFrd.get(frd) || {}).tests || []).map((t) => t.path))}${LAST_GREEN_ORDERING} Commits use Conventional Commits with a scope. Return { done: true }. If you cannot complete the stamp, return { done: false, failure: <why> }.`,
     { label: `certify-patch:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
   commitChain = link.then(() => {}, () => {})   // the ONE serialized main-tree writer chain (WO commits + gate applies + this)
   return link.then((r) => Boolean(r && r.done === true), (e) => { log(`certify-patch failed for ${frd}: ${(e && e.message) || e}`); return false })
@@ -3881,11 +3920,15 @@ async function convergeOne(item) {
 //     evidence (collected inline in the slot), review, drift proof, and the BL-0182 release in a `finally` —
 //     so a crash still salvages and frees its slot. A slot that fails its probe (dirty, orphaned) leaves the
 //     pool, loudly; only when EVERY slot has failed does the run fall to the legacy synchronous gate on main.
-//  2. ELIGIBILITY. A gate launches only if its FRD neither depends on nor is depended on by (cross-FRD WO
-//     `deps`, transitive, plus FRD-level deps) any FRD whose verdict has not LANDED yet, and its reviewed
-//     artifacts are disjoint from theirs (DR-060's own artifactsOverlap, fail-safe on undeclared). Otherwise
-//     it waits in gateQueue. Why the dependency rule (red-team R6): B could PASS on its pin while A's ladder
-//     REVERTS the WO B built on, and land VERIFIED over a broken tree.
+//  2. ELIGIBILITY. A gate launches only if its reviewed artifacts are disjoint from those of every FRD whose
+//     verdict has not LANDED yet (DR-060's own artifactsOverlap, fail-safe on undeclared), and — outside the
+//     idle path — none of its upstream FRDs (cross-FRD WO `deps`, transitive, plus FRD-level deps) is still
+//     building or still queued for its own gate. A DEPENDENCY ORDERS ONLY THE LANDING (canary E2 §4.2: FRD-05
+//     waited 23.2 min with a free slot for FRD-04's landing, then gated at its old pin anyway): a dependent's
+//     gate runs in parallel with its upstream's, on its own pin, and its verdict waits in the lane until the
+//     upstream's verdict has landed (landingHeldBy). Red-team R6 (B PASSES on its pin while A's ladder reverts
+//     the WO B built on) is then caught where it always was: B lands after A, so the stale-pin guard sees A's
+//     landed commits and re-verifies B `--since <pin>` on the tree A left.
 //     BUDGET: maxAgents is cost-weighted — N opus reviewers launched together commit ~3N units at once. A gate
 //     is launched alongside others only if the budget still covers its estimated cost + one landing after
 //     reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
@@ -3941,18 +3984,16 @@ function frdGateArtifacts(frd) {
   return [...new Set(wos.flatMap((w) => w.artifacts))]
 }
 /**
- * Why `frd`'s gate may NOT run now, or null when it is eligible. (1) The spec'd pairing rule: no dependency
- * either way and disjoint artifacts with every FRD whose verdict has not LANDED. (2) Landing order: an
- * upstream FRD still queued for its gate or still building this run lands FIRST — otherwise the dependent
- * could land VERIFIED on a WO its upstream's ladder later reverts (the stale-pin guard only sees a revert
- * that lands BEFORE it). `force` (the idle path, nothing left to build or in flight) waives (2) only.
+ * Why `frd`'s gate may NOT run now, or null when it is eligible. (1) Disjoint artifacts with every FRD whose
+ * verdict has not LANDED (DR-060). A dependency on such an FRD is NOT a reason: it orders the landing only
+ * (landingHeldBy, E2 finding 1). (2) An upstream FRD still building, or still queued for its gate, gates
+ * first — the dependent's pin could not contain code that does not exist yet, and a queued upstream would
+ * otherwise land after it. `force` (the idle path, nothing left to build or in flight) waives (2) only.
  */
 function gateConflict(frd, force = false) {
   const up = frdUpstream(frd)
   for (const [other, x] of frdState) {
     if (other === frd || !x.gateUnlanded) continue
-    if (up.has(other)) return `depends on ${other} (verdict not landed yet)`
-    if (frdUpstream(other).has(frd)) return `${other} depends on it (verdict not landed yet)`
     if (artifactsOverlap({ artifacts: frdGateArtifacts(frd) }, { artifacts: frdGateArtifacts(other) })) return `artifacts overlap ${other} (DR-060)`
   }
   if (!force) {
@@ -3970,6 +4011,38 @@ function gateCostEstimate(frd) {
   const reviewed = st ? st.f.workOrders.filter((w) => st.reviewIds.includes(w.id)) : []
   const split = P.reviewSplit && (((st && st.gateAttempts) || 0) >= 1 || reviewed.some((w) => (w.reopen_count || 0) >= 1))
   return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
+}
+/**
+ * E2 finding 1: the upstream FRD whose verdict must land BEFORE `frd`'s may (its gate is in flight or its verdict
+ * waits in the lane), or null. A mutual pair (each upstream of the other through cross-FRD WO deps) cannot order
+ * its landings, so it never holds — both land in arrival order and the second one's stale-pin guard re-verifies.
+ */
+function landingHeldBy(frd) {
+  for (const u of frdUpstream(frd)) {
+    const x = frdState.get(u)
+    if (x && x.gateUnlanded && !frdUpstream(u).has(frd)) return u
+  }
+  return null
+}
+/**
+ * Index in gateResults of the verdict the lane lands next: the oldest one no upstream verdict holds. -1 = every
+ * settled verdict waits on a gate still in flight (the caller awaits one). With nothing in flight the head lands
+ * anyway (a hold can only wait on a gate that will settle; landParallelVerdict logs the waiver).
+ */
+function nextLandingIndex() {
+  if (!gateResults.length) return -1
+  const i = gateResults.findIndex((r) => !landingHeldBy(r.f.frd))
+  if (i >= 0) return i
+  return gatesInFlight.size ? -1 : 0
+}
+const landingHoldLog = new Map()   // frd -> the upstream its held verdict was last logged waiting for
+function logLandingHolds() {
+  for (const r of gateResults) {
+    const u = landingHeldBy(r.f.frd)
+    if (!u || landingHoldLog.get(r.f.frd) === u) continue
+    landingHoldLog.set(r.f.frd, u)
+    log(`⏸ D1: ${r.f.frd}'s verdict waits to land: it depends on ${u}, whose verdict has not landed yet (a dependency orders the landing, not the gate — E2 finding 1)`)
+  }
 }
 function logGateDeferral(frd, why) {
   if (deferredGateLog.get(frd) === why) return
@@ -4054,7 +4127,7 @@ async function reverifyAtLanding(frd, gate, pin, count) {
   agentSpawned++
   try {
     return await agent(`MECHANICAL GATE RE-RUN — D1 stale-pin guard for ${frd} (BL-0186; BL-0179 stamps the report's scope). The review-only gate for ${frd} PASSED at pin ${pin || '(unknown)'}, but the MAIN tree gained ${count >= 0 ? count : 'an unknown number of'} code commit(s) since then, so the verdict may not describe the tree it would certify. Re-run the objective gate on the MAIN tree at HEAD before anything is stamped. You judge nothing, fix nothing, stage nothing, commit nothing. Do EXACTLY, in order:
-  1) PORT FIRST (the reviewer's adversarial tests must run against the landing tree):${files.length && ev ? ` let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`; for EACH path copy \`${ev.dir}/<path>\` → \`$TOP/<path>\` (mkdir -p the parent; overwrite): ${files.join(', ')}.` : files.length ? ` the reviewer's test files (${files.join(', ')}) must be present on this tree; if one is missing, say so in \`failure\` and return green:false.` : ' (the gate left no test files — skip this step).'}
+  1) PORT FIRST (the reviewer's adversarial tests must run against the landing tree):${files.length && ev ? ` each \`${ev.dir}/<path>\` goes to \`<repo root>/<path>\` (${files.join(', ')}) — run this port command VERBATIM, as ONE Bash call: \`${repoRootPortCommand(ev.dir, files)}\`. ${REPO_ROOT_PATHS_NOTE}` : files.length ? ` the reviewer's test files (${files.join(', ')}) must be present on this tree; if one is missing, say so in \`failure\` and return green:false.` : ' (the gate left no test files — skip this step).'}
   2) Run \`bash .pandacorp/verify.sh ${since}\` — NEVER with \`--only\`/\`--files\` (a scoped run stamps scope:"partial" and certifies nothing). It may exit non-zero; that is data.
   3) ${files.length ? `Run EACH of the reviewer's test files explicitly by path — \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>"\` (a Playwright spec: \`pnpm playwright test "$(git rev-parse --show-toplevel)/<path>"\`): ${files.join(', ')}.` : 'No reviewer test files to run.'}
   4) Read \`.pandacorp/run/gate-report.json\` and return { green: <true ONLY if that report is green AND every step-3 run passed>, report_scope: <its \`scope\` VERBATIM>, failure: <one sentence naming the first red sub-gate or test>, gateReport: <the report verbatim when it is red> }.`,
@@ -4109,18 +4182,22 @@ function laneTopUp() {
   if (!landingInFlight || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
   try { launchParallelGates(false, true) } catch (e) { log(`⚠ D1: mid-landing slot refill failed (${(e && e.message) || e}) — the loop refills after the landing`) }
 }
-async function topUpBeforeLanding() {
+async function topUpBeforeLanding(idx = 0) {
   if (concurrentGates !== true || !gateQueue.length || !freeSlot()) return
   const unpinned = gateQueue.filter((x) => { const st = frdState.get(x); return st && !st.pinSha })
   if (unpinned.length) await capturePin(unpinned)   // the pre-landing HEAD: nothing of the coming ladder is on main yet
-  landingInFlight = { frd: gateResults[0].f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gateResults[0].gate) }   // reserve the landing's cost BEFORE the refill spends the budget
+  landingInFlight = { frd: gateResults[idx].f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gateResults[idx].gate) }   // reserve the landing's cost BEFORE the refill spends the budget
   try { launchParallelGates() } finally { landingInFlight = null }
 }
-// Land ONE settled verdict on main (the lane). `final` (post-loop): a verdict whose slot failed is gated on
-// main right away instead of being re-queued for another slot — and no slot is refilled (the run is stopping).
-async function landParallelVerdict(final = false) {
-  const { f, reviewIds, pin, gate } = gateResults.shift()
+// Land ONE settled verdict on main (the lane) — gateResults[idx], picked by nextLandingIndex (arrival order among
+// the verdicts no upstream holds). `final` (post-loop): a verdict whose slot failed is gated on main right away
+// instead of being re-queued for another slot — and no slot is refilled (the run is stopping).
+async function landParallelVerdict(final = false, idx = 0) {
+  const [{ f, reviewIds, pin, gate }] = gateResults.splice(idx, 1)
   const st = frdState.get(f.frd)
+  const heldBy = landingHeldBy(f.frd)
+  if (heldBy) log(`⚠ D1: ${f.frd} lands before ${heldBy}'s verdict — nothing else can land and no gate is in flight (a dependency cycle through WO deps; the hold is waived)`)
+  landingHoldLog.delete(f.frd)
   gateSettledSinceSafePoint = true
   if (!final) landingInFlight = { frd: f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gate) }
   const builtBefore = builtFrds.length
@@ -4180,7 +4257,7 @@ async function unportReviewerTests(frd, ev) {
   agentSpawned++
   let r = null
   try {
-    r = await agent(`MECHANICAL COMMAND RUNNER — D1 lane cleanup for ${frd} (BL-0186). This landing did NOT certify ${frd}, so the reviewer's test copies ported onto the MAIN tree must not stay behind as untracked files (the next landing's \`verify.sh --since\` would run them). The originals stay in ${ev.dir}. Let TOP = \`git -C ${PROJECT_DIR} rev-parse --show-toplevel\`. For EACH entry of EXPECTED: if \`$TOP/<path>\` exists AND \`git -C "$TOP" ls-files --error-unmatch -- <path>\` FAILS (it is untracked) AND \`shasum -a 256 "$TOP/<path>"\` equals its sha256, run \`git -C "$TOP" clean -f -- <path>\` and add the path to \`removed\`; otherwise touch nothing and add it to \`kept\` (tracked, edited, or already gone). Never a blanket clean, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { removed, kept }.`,
+    r = await agent(`MECHANICAL COMMAND RUNNER — D1 lane cleanup for ${frd} (BL-0186). This landing did NOT certify ${frd}, so the reviewer's test copies ported onto the MAIN tree must not stay behind as untracked files (the next landing's \`verify.sh --since\` would run them). The originals stay in ${ev.dir}. First run \`${REPO_TOP_ASSIGN}\` (the repository root) in the same Bash call as the checks below. ${REPO_ROOT_PATHS_NOTE} For EACH entry of EXPECTED: if \`"$TOP"/'<path>'\` exists AND \`git -C "$TOP" --literal-pathspecs ls-files --error-unmatch -- '<path>'\` FAILS (it is untracked) AND \`shasum -a 256 "$TOP"/'<path>'\` equals its sha256, run \`git -C "$TOP" --literal-pathspecs clean -f -- '<path>'\` and add the path to \`removed\`; otherwise touch nothing and add it to \`kept\` (tracked, edited, or already gone). Never a blanket clean, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { removed, kept }.`,
       { label: `unport-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: UNPORT_SCHEMA })
   } catch (e) { log(`⚠ D1: the lane cleanup for ${frd} threw (${(e && e.message) || e}) — untracked reviewer test copies may remain on main`) }
   const removed = (r && Array.isArray(r.removed)) ? r.removed : []
@@ -4190,8 +4267,9 @@ async function unportReviewerTests(frd, ev) {
 // Run-end invariant (C2-v, kept): every gate already spawned is waited for and its verdict landed.
 async function drainParallelGates() {
   while (gatesInFlight.size || gateResults.length) {
-    if (!gateResults.length) await Promise.race([...gatesInFlight.values()])
-    else await landParallelVerdict(true)
+    const idx = nextLandingIndex()
+    if (idx < 0) { logLandingHolds(); await Promise.race([...gatesInFlight.values()]) }
+    else await landParallelVerdict(true, idx)
   }
 }
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
@@ -4225,7 +4303,11 @@ while (true) {
   if (PARALLEL_GATES) {
     // ── D1 landing lane: land ONE settled verdict (arrival order) on main, then re-check the brakes and the
     // pool — no quiesce: the other slots keep reviewing; no wave dispatch overlaps a landing. ──
-    if (gateResults.length) { await topUpBeforeLanding(); await landParallelVerdict(); continue }   // BL-0192: refill free slots FIRST
+    if (gateResults.length) {
+      const idx = nextLandingIndex()   // E2 finding 1: a verdict whose upstream has not landed waits; the loop goes on
+      if (idx >= 0) { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx); continue }   // BL-0192: refill free slots FIRST
+      logLandingHolds()
+    }
   } else {
   // ── C2 harvest: apply settled PASS gates on main (serialized); queue rejects for convergence ──
   await harvestGateResults()
@@ -4315,7 +4397,7 @@ while (true) {
   // one and loop); else the run is done. ──
   if (globalQueue.size === 0) {
     if (PARALLEL_GATES && (gatesInFlight.size || gateResults.length)) {
-      if (!gateResults.length) await Promise.race([...gatesInFlight.values()])   // D1: wait for ONE verdict; it lands at the loop top
+      if (nextLandingIndex() < 0) await Promise.race([...gatesInFlight.values()])   // D1: wait for ONE verdict (or the upstream a held one waits on); it lands at the loop top
       continue
     }
     if (gatesInFlight.size || gateResults.length || convergeQueue.length) { await settleGates(false); continue }
@@ -4527,8 +4609,15 @@ else {
 // ── Close-out shared prompt fragments (WP-02) — defined ONCE, reused byte-identically by both the
 // lean (default) and legacy (args.leanCloseOut:false) shapes below, so the ACTUAL agent instructions
 // never fork between the two — only the ORCHESTRATION around them (when they fire, how many spawns) does.
+// E2 finding 5: canary E2's visual-qa answered {done:false} in its first turn with 0 tool calls. Its prompt was
+// byte-identical to D2's (12 min of real work there); the one new input was a harness relay, present in all 38 E2
+// transcripts and in none of D2's/E1's, of an unrelated owner question to the orchestrating session, framed as "the
+// user request … this request wins". The step now says how to read such a relay, and a done:false must carry its
+// reason (VISUAL_QA_SCHEMA), which the engine logs — a no-op is never silent again. BL-0198 tracks the harness side.
+const VISUAL_QA_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, reason: { type: 'string', description: 'REQUIRED when done is false: the step that could not complete and why (e.g. "step 1: the dev server does not start: <error>")' } } }
+const VISUAL_QA_SCOPE = 'THIS STEP\'S SCOPE: your task is the engine-computed END-OF-BUILD VISUAL QA below. The harness may ALSO relay a message the owner sent to the ORCHESTRATING session (for example a question about how the run delegates its work); when that relayed message does not mention this visual QA pass or these FRDs, it is not addressed to this step: do not answer it, do not stop because of it, do the steps below. Only a relayed message that explicitly asks to skip or change THIS visual QA pass changes it — then return done:false with a reason that quotes it. Return done:false ONLY after attempting the steps, always with `reason` naming the step that could not complete.\n'
 const visualQaPromptBody = (frds) =>
-  `${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${frds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
+  `${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}${VISUAL_QA_SCOPE}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${frds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
     For EACH of those FRDs, for each key route:
     1) Render the route (start the dev server if needed) and screenshot it; open the BINDING mock (docs/frds/<frd>/mocks/ — screenshot AND source), fdd.md, docs/design/design-tokens.json, DESIGN.md.
     2) Compare SEMANTICALLY (does the build look like the design?): layout, structure, spacing, sizing, colors/tokens, component reuse, density. Write every divergence to \`.pandacorp/comms/visual-punch-list.md\` (merge + dedupe with what the per-FRD gates already appended), one line each: \`- [ ] <frd> · <route> · <gap> · <file:line if known>\`.
@@ -4569,14 +4658,17 @@ const runHardeningChain = async () => {
 // GREEN gate-report.json for this EXACT commit was already produced minutes earlier (measured on
 // canary A/B2/C: ~8-10 min and several $ burned re-proving an already-proven fact). The engine has no
 // fs/shell of its own, so the decision is a single cheap MECH read-only spawn — never the engine
-// trusting a stale in-memory belief. Reuse is opt-in and narrow: scope:"full" + green:true +
-// sha==HEAD + a clean tree + a report no older than REUSE_MAX_AGE_SECONDS counts — and so does
-// BL-0179's one addition: scope:"since" whose OWN `since` anchor equals the CURRENT last_green_sha
-// (status.yaml), because that report already certifies exactly the delta a full run would also cover,
-// given its base was itself already full-certified. A "since" report anchored anywhere ELSE, and a
-// "partial" report under any circumstance, NEVER count (the WP-08 certification cage stays intact —
-// this never relaxes it), and any doubt (missing report, sha mismatch, dirty tree, stale) keeps
-// today's full rerun exactly as before.
+// trusting a stale in-memory belief. Reuse is opt-in and narrow: ONLY scope:"full" + green:true +
+// sha==HEAD + a clean tree + a report no older than REUSE_MAX_AGE_SECONDS counts; any doubt keeps the full
+// rerun. The engine re-checks those fields itself on the agent's answer (checkFullVerifyReuse), so a check
+// agent that says canReuse:true on anything less is overruled.
+// E2 finding 7 — BL-0179's "since" arm (a since-scoped report anchored at the current last_green_sha) is
+// RETIRED. It never fired live (0 CloseOutVerifyReused events in the whole history, canaries D and E2), and its
+// premise is false: every landing publishes last_green_sha from a `since`-scoped report (E2's apply-gate:frd-05
+// read `"scope": "since"` and published 4ceac8e0), so last_green_sha is never itself full-certified and a report
+// "since last_green_sha" stacks since on since. The close-out FULL suite is the declared backstop for
+// `--since`'s blind spots (vitest --changed; build-orchestration §5c honest limits) — it is not reusable from a
+// since report. A "partial" report never counts either (the WP-08 cage).
 const REUSE_MAX_AGE_SECONDS = 900   // 15 min — generous over the canary's "a few minutes" gap, never long enough to plausibly hide drift within the same run
 const REUSE_CHECK_SCHEMA = { type: 'object', required: ['canReuse', 'reason'], properties: {
   canReuse: { type: 'boolean' },
@@ -4594,26 +4686,30 @@ const REUSE_CHECK_SCHEMA = { type: 'object', required: ['canReuse', 'reason'], p
 // whole suite. Fire-and-forget, same contract as the other dashboard events (engine has no shell/fs).
 const CLOSE_OUT_VERIFY_REUSED_EVENT = (sha, ageSeconds) =>
   ` Also append the CloseOutVerifyReused event (fire-and-forget — BL-0147: this step reused a recent full green gate-report instead of re-running the whole-project suite): printf '{"event":"CloseOutVerifyReused","at":"%s","project":"%s","sha":"${sha}","ageSeconds":${Math.max(0, Math.round(ageSeconds || 0))}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
-// BL-0179: the reused report is either scope:"full" (BL-0147's original case) or scope:"since"
-// anchored exactly at this run's last_green_sha — describe honestly which one it was, never claim
-// "FULL" for a since-scoped reuse.
-const REUSE_REPORT_CLAUSE = (reuse) =>
-  reuse.reportScope === 'since'
-    ? `a GREEN gate-report of this EXACT commit SCOPED \`--since ${reuse.reportSince}\` (sha ${reuse.headSha}, ~${Math.max(0, Math.round(reuse.ageSeconds || 0))}s ago, clean tree) — that since-anchor matches this run's own last_green_sha, so it already certifies exactly the delta a full run would also cover`
-    : `a FULL, GREEN run of this EXACT commit (sha ${reuse.headSha}, ~${Math.max(0, Math.round(reuse.ageSeconds || 0))}s ago, clean tree)`
+// The reused report is always scope:"full" (checkFullVerifyReuse refuses anything else).
+const REUSE_REPORT_CLAUSE = (reuse) => `a FULL, GREEN run of this EXACT commit (sha ${reuse.headSha}, ~${Math.max(0, Math.round(reuse.ageSeconds || 0))}s ago, clean tree)`
 async function checkFullVerifyReuse() {
   agentSpawned++
   const r = await agent(
-    `BL-0147/BL-0179 READ-ONLY CHECK — before the next step runs the WHOLE-PROJECT \`bash .pandacorp/verify.sh\`, decide whether it actually needs to: a recent green gate-report for this EXACT commit may already certify it — EITHER a \`scope:"full"\` report (BL-0147), OR a \`scope:"since"\` report whose OWN \`since\` anchor equals the CURRENT \`last_green_sha\` (BL-0179: that report already certifies exactly the delta this run would otherwise re-verify, on top of a base last_green_sha itself already certifies as full — nothing skipped). Change NOTHING; this is a pure read, not a gate. Do these steps IN ORDER:
+    `BL-0147 READ-ONLY CHECK — before the next step runs the WHOLE-PROJECT \`bash .pandacorp/verify.sh\`, decide whether it actually needs to: a recent \`scope:"full"\` green gate-report for this EXACT commit may already certify it. A \`scope:"since"\` or \`scope:"partial"\` report NEVER does — the full suite is the backstop for what a since-scoped run cannot see. Change NOTHING; this is a pure read, not a gate. Do these steps IN ORDER:
   1) \`git -C ${PROJECT_DIR} rev-parse HEAD\` → headSha (the full sha).
   2) \`git -C ${PROJECT_DIR} status --porcelain\` → dirty = true if it prints ANY line, else false.
   3) Read \`last_green_sha\` from \`${PROJECT_DIR}/.pandacorp/status.yaml\` → lastGreenSha.
   4) If \`${PROJECT_DIR}/.pandacorp/run/gate-report.json\` does not exist or fails to parse as JSON, stop and return { canReuse: false, reason: "no-report", headSha, dirty, lastGreenSha }.
   5) Read it. Copy its \`scope\`, \`green\`, \`sha\` fields VERBATIM as reportScope/reportGreen/reportSha, and its \`since\` field (empty string "" if the report has none) VERBATIM as reportSince — never guess or normalize any of them — and read its \`at\` timestamp.
   6) ageSeconds = (now, UTC) minus the report's \`at\`, in whole seconds (e.g. \`date -u +%s\` minus the parsed \`at\`'s epoch).
-  \`canReuse\` is true ONLY IF: reportGreen === true; reportSha is non-empty AND reportSha === headSha; dirty === false; ageSeconds <= ${REUSE_MAX_AGE_SECONDS}; AND EITHER reportScope === "full" OR (reportScope === "since" AND reportSince is non-empty AND reportSince === lastGreenSha) — that second arm is the ONLY way a "since" scope may ever count (BL-0179), and only when its own anchor matches this run's CURRENT last_green_sha exactly (not an older or newer one). A "partial" scope NEVER counts, whatever else matches. green:false, a missing/mismatched sha, a "since" scope whose anchor does not match lastGreenSha, a dirty tree, or ageSeconds over the ceiling ALL make canReuse false — on ANY doubt return false, the full rerun is the safe default and this check never relaxes the WP-08 partial-report cage. Return { canReuse, reason: one of "reused"|"no-report"|"scope-not-eligible"|"not-green"|"sha-missing"|"sha-mismatch"|"since-mismatch"|"dirty-tree"|"stale-report", reportScope, reportGreen, reportSha, reportSince, lastGreenSha, headSha, dirty, ageSeconds }.`,
+  \`canReuse\` is true ONLY IF: reportScope === "full"; reportGreen === true; reportSha is non-empty AND reportSha === headSha; dirty === false; AND ageSeconds <= ${REUSE_MAX_AGE_SECONDS}. A "since" or "partial" scope NEVER counts, whatever else matches. green:false, a missing/mismatched sha, a dirty tree, or ageSeconds over the ceiling ALL make canReuse false — on ANY doubt return false, the full rerun is the safe default and this check never relaxes the WP-08 partial-report cage. Return { canReuse, reason: one of "reused"|"no-report"|"scope-not-eligible"|"not-green"|"sha-missing"|"sha-mismatch"|"dirty-tree"|"stale-report", reportScope, reportGreen, reportSha, reportSince, lastGreenSha, headSha, dirty, ageSeconds }.`,
     { label: 'close-out-verify-reuse-check', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REUSE_CHECK_SCHEMA })
   if (!r || typeof r !== 'object' || r.canReuse !== true) return { ...(r || {}), canReuse: false, reason: (r && r.reason) || 'agent-no-result' }
+  // E2 finding 7: the engine re-checks the agent's own fields — a canReuse:true on anything but a fresh, full,
+  // green report of exactly HEAD over a clean tree is overruled (the close-out full suite then runs).
+  const why = r.reportScope !== 'full' ? `scope ${JSON.stringify(r.reportScope)} is not "full"`
+    : r.reportGreen !== true ? 'the report is not green'
+      : (typeof r.reportSha !== 'string' || !r.reportSha || r.reportSha !== r.headSha) ? `report sha ${r.reportSha || '(none)'} ≠ HEAD ${r.headSha || '(none)'}`
+        : r.dirty !== false ? 'the tree is not proven clean'
+          : !(typeof r.ageSeconds === 'number' && r.ageSeconds >= 0 && r.ageSeconds <= REUSE_MAX_AGE_SECONDS) ? `age ${r.ageSeconds} is outside 0..${REUSE_MAX_AGE_SECONDS}s`
+            : null
+  if (why) { log(`⊘ close-out verify reuse refused by the engine (${why}) — the full verify.sh runs (E2 finding 7)`); return { ...r, canReuse: false, reason: 'engine-refused' } }
   return r
 }
 
@@ -4651,7 +4747,7 @@ if (LEAN_CLOSE_OUT) {
       // caught HERE, at dispatch, so the bare `await visualQaPromise` below can never throw and strand
       // the close-out region before it reaches the terminal lease release.
       visualQaPromise = agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
+        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: VISUAL_QA_SCHEMA })
         .catch(() => null)
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
@@ -4676,7 +4772,7 @@ if (LEAN_CLOSE_OUT) {
     if (vq && vq.done === true) {
       log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
     } else {
-      log('⚠ visual-qa agent returned no confirmed result — degrading honestly (punch-list may be incomplete this run)')
+      log(`⚠ visual-qa agent returned no confirmed result${vq && vq.done === false ? ` (done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'})` : ''} — degrading honestly (punch-list may be incomplete this run)`)
       visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'agent-no-result') + ' VISUAL QA DEGRADED: the end-of-build visual QA pass did NOT return a confirmed result (agent failure/no-response) — its punch-list may be incomplete or missing this run. Note this explicitly in the progress/decisions write-up below so the owner knows to double-check fidelity by hand; the deterministic visual regression check inside the full verify.sh below is the remaining safety net.'
     }
   }
@@ -4692,7 +4788,7 @@ if (LEAN_CLOSE_OUT) {
     if (hardened) {
       agentSpawned += COST(P.judge)
       const reuseLeanCloseOut = await checkFullVerifyReuse()
-      closed = await agent(`${archiveStep}All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP}${reuseLeanCloseOut.canReuse ? ` THEN — BL-0147 REUSE (BL-0179 extends it to a matching since-scope), do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLeanCloseOut)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanCloseOut.headSha, reuseLeanCloseOut.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
+      closed = await agent(`${archiveStep}All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP}${reuseLeanCloseOut.canReuse ? ` THEN — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLeanCloseOut)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanCloseOut.headSha, reuseLeanCloseOut.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
     (i) **every** docs/frds/*/frd.md rollup \`implementation_status\` is VERIFIED (WS-D/D4b — do a FRESH read of each frd.md on disk right now; if any is NOT VERIFIED, return { done: false } listing the offending FRD folders — the in-memory built-count is NOT enough, the disk is the oracle);
     (ii) assert the hardening evidence EXISTS **and is FRESH**: the security report docs/reviews/security-<TODAY>.md exists (TODAY = \`date -u +%F\`) AND its mtime is NEWER than status.yaml's \`run_started_at\` (WS-D/D4c — compare epochs, e.g. \`date -r docs/reviews/security-<TODAY>.md +%s\` vs the epoch of run_started_at; a STALE same-day report left by a PREVIOUS run FAILS this assert), AND the "## Verification" section is present in docs/analytics/events.md.
   If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND all of (i)+(ii) hold: set .pandacorp/status.yaml phase: release (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${JOURNAL_GOLD}${HARDENING_EVENT('integration')} (status ok iff you declared release, else fail.) If (and ONLY if) you set phase: release above, ALSO record the run's terminal verdict:${BUILD_COMPLETE('released', `${builtFrds.length}/${plan.frds.length}`)}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')}`,
@@ -4724,7 +4820,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++   // WS-A/D4: honest counter — every spawn site increments (DR-070); notify-end was the one omission
     const reuseLeanNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE (BL-0179 extends it to a matching since-scope), do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLeanNotifyEnd)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — the WO count you are about to report MUST be this freshly-recomputed one, never a figure remembered from earlier in the run: a gate/repair/block resolved AFTER the last sync would otherwise under- or over-count against the real \`wo-*.md\` files on disk). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict (a later gate/repair attempt supersedes an earlier one automatically — blockedReasons/blockedFailures are never stale). Never narrate an earlier reject/findings you might recall from this run's own transcript as if it were still the open issue once a later attempt changed the outcome — if a fix commit landed and a later gate re-blocked for a DIFFERENT reason (or none), report THAT reason, not the first one you saw. Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
+    closed = await agent(`${archiveStep}The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLeanNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLeanNotifyEnd)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLeanNotifyEnd.headSha, reuseLeanNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — the WO count you are about to report MUST be this freshly-recomputed one, never a figure remembered from earlier in the run: a gate/repair/block resolved AFTER the last sync would otherwise under- or over-count against the real \`wo-*.md\` files on disk). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict (a later gate/repair attempt supersedes an earlier one automatically — blockedReasons/blockedFailures are never stale). Never narrate an earlier reject/findings you might recall from this run's own transcript as if it were still the open issue once a later attempt changed the outcome — if a fix commit landed and a later gate re-blocked for a DIFFERENT reason (or none), report THAT reason, not the first one you saw. Do NOT touch \`phase\` (leave it as-is) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${RELEASE_LEASE} Return done:true ONLY once status.yaml/progress.md reflect the above AND this terminal lease release succeeded.${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }
@@ -4738,9 +4834,10 @@ if (LEAN_CLOSE_OUT) {
     if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
       agentSpawned += COST(VISUAL_QA_MODEL)   // DR-073: weighted by the model actually spawned (E-3: sonnet by default, not P.judge)
-      await agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' } } } })
-      log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+      const vq = await agent(visualQaPromptBody(builtFrds),
+        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: VISUAL_QA_SCHEMA })
+      if (vq && vq.done === false) log(`⚠ visual-qa returned done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'} (E2 finding 5)`)
+      else log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
       visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
@@ -4766,7 +4863,7 @@ if (LEAN_CLOSE_OUT) {
     if (hardened) {
       agentSpawned += COST(P.judge)
       const reuseLegacyCloseOut = await checkFullVerifyReuse()
-      closed = await agent(`All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP}${reuseLegacyCloseOut.canReuse ? ` THEN — BL-0147 REUSE (BL-0179 extends it to a matching since-scope), do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLegacyCloseOut)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyCloseOut.headSha, reuseLegacyCloseOut.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
+      closed = await agent(`All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): the seam check the per-FRD gates CANNOT do (each only sees its own feature). The dominant failure of parallel builds is at the seams BETWEEN features — every component correct in isolation, broken together. Trace the data flow ACROSS feature boundaries and verify every producer/consumer pair actually AGREES: each consumer's expectations vs its provider's \`docs/api/<wo-id>.md\` contract (field names, data shapes, formats, units, status codes, routes), shared types/enums used consistently across features, and NO two features that shipped duplicate or divergent versions of the same component/util (cross-check \`docs/design/components.md\`).${GATE_SKIP}${reuseLegacyCloseOut.canReuse ? ` THEN — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLegacyCloseOut)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyCloseOut.headSha, reuseLegacyCloseOut.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
     (i) **every** docs/frds/*/frd.md rollup \`implementation_status\` is VERIFIED (WS-D/D4b — do a FRESH read of each frd.md on disk right now; if any is NOT VERIFIED, return { done: false } listing the offending FRD folders — the in-memory built-count is NOT enough, the disk is the oracle);
     (ii) assert the hardening evidence EXISTS **and is FRESH**: the security report docs/reviews/security-<TODAY>.md exists (TODAY = \`date -u +%F\`) AND its mtime is NEWER than status.yaml's \`run_started_at\` (WS-D/D4c — compare epochs, e.g. \`date -r docs/reviews/security-<TODAY>.md +%s\` vs the epoch of run_started_at; a STALE same-day report left by a PREVIOUS run FAILS this assert), AND the "## Verification" section is present in docs/analytics/events.md.
   If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND all of (i)+(ii) hold: set .pandacorp/status.yaml phase: release and running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${HARDENING_EVENT('integration')} (status ok iff you declared release, else fail.) If (and ONLY if) you set phase: release above, ALSO record the run's terminal verdict:${BUILD_COMPLETE('released', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')}`,
@@ -4793,7 +4890,7 @@ if (LEAN_CLOSE_OUT) {
       : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
     agentSpawned++
     const reuseLegacyNotifyEnd = await checkFullVerifyReuse()
-    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE (BL-0179 extends it to a matching since-scope), do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLegacyNotifyEnd)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — report THIS freshly-recomputed WO count, never a figure remembered from earlier in the run). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict; never narrate an earlier reject/findings from this run's own transcript once a later attempt superseded it. Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
+    closed = await agent(`The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuseLegacyNotifyEnd.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuseLegacyNotifyEnd)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuseLegacyNotifyEnd.headSha, reuseLegacyNotifyEnd.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — report THIS freshly-recomputed WO count, never a figure remembered from earlier in the run). Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict; never narrate an earlier reject/findings from this run's own transcript once a later attempt superseded it. Set .pandacorp/status.yaml running: false. Return done:true once status.yaml is written.${JOURNAL_GOLD}${BUILD_COMPLETE('partial', `${builtFrds.length}/${plan.frds.length}`)}${NOTIFY(ownerMsg)}`,
       { label: 'notify-end', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
     log(`Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
   }

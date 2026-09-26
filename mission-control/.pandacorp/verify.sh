@@ -289,10 +289,10 @@ run_gate() {
 write_gate_report() {
   local green_exit="$1" green="false"
   [ "$green_exit" -eq 0 ] && green="true"
-  # BL-0179: stamp the `--since` base sha (the anchor this scoped run certified FROM) as `since` so a
-  # later reader (the build engine's close-out reuse check) can prove a `scope:"since"` report covers
-  # exactly the delta onto an already-certified base, not just that SOME earlier commit was scoped.
-  # Empty (never written) on a `full`/`partial` run, where there is no such anchor.
+  # BL-0179: stamp the `--since` base sha (the anchor this scoped run certified FROM) as `since` —
+  # provenance for a reader of the report. The engine's close-out reuse no longer accepts a since-scoped
+  # report (canary E2 finding 7: last_green_sha is itself published from since-scoped runs, so a since
+  # report never adds up to a full one). Empty (never written) on a `full`/`partial` run.
   python3 - "$GATE_RUN_AT" "$GATE_SCOPE" "$green" "$GATE_SHA" "$SINCE" "$GATE_FRAGMENTS_DIR/fragments.jsonl" "$REPORT_FILE" <<'PY'
 import json
 import sys

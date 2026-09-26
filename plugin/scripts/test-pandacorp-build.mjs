@@ -4002,61 +4002,11 @@ SCENARIOS.push({
 })
 
 // ---- BL-0179 ----
-// canary D's live measurement found BL-0147's reuse-check NEVER fires in a real run: every per-FRD
-// gate stamps scope:"since" (the fast focused path), and the reuse-check only ever licensed
-// scope:"full" — so its own target condition was practically unreachable. Fix: a "since"-scoped
-// report counts too, but ONLY when its OWN `since` anchor equals the run's CURRENT last_green_sha
-// (status.yaml) — that anchor is the proof the since-scoped run certifies exactly the delta onto an
-// already-certified base, nothing skipped. The WP-08 partial-report cage is untouched: "partial"
-// still never counts, and a "since" report anchored anywhere else still falls through to a full rerun.
-
-// (a) static safeguard check: the reuse-check prompt now encodes the since+matching-base arm — this
-// is the item's RED before the fix (the pre-fix prompt has no such text at all).
-SCENARIOS.push({
-  name: 'BL-0179a. the reuse-check prompt now encodes a "since"-scope arm anchored at the CURRENT last_green_sha',
-  args: { mode: 'balanced', maxAgents: 7 },
-  plan: mkPlan([{
-    frd: 'frd-bl0179a',
-    deps: [],
-    workOrders: [mkWo('wo-bl0179a-001', 'PLANNED', { frd: 'frd-bl0179a', artifacts: ['src/a/**'] })],
-  }]),
-  assert(t, run) {
-    t.ok(!run.error, `engine threw: ${run.error}`)
-    const check = byLabel(run, 'close-out-verify-reuse-check')[0]
-    t.ok(check, 'the reuse-check spawns')
-    t.ok(/reportScope === "since"/.test(check.prompt), 'the prompt now names a "since" arm')
-    t.ok(/reportSince === lastGreenSha/.test(check.prompt), 'the "since" arm requires the anchor to match the CURRENT last_green_sha')
-    t.ok(/last_green_sha.*from.*status\.yaml|Read.*last_green_sha/.test(check.prompt), 'the prompt instructs reading last_green_sha from status.yaml (the comparison needs a live value, not a guess)')
-    t.ok(/reportScope === "full"/.test(check.prompt), 'the original scope:"full" arm (BL-0147) is preserved, not replaced')
-  },
-})
-
-// (b) the canonical NEW-green path: a "since" report whose anchor matches last_green_sha ⇒ notify-end
-// REUSES it, and the closing prompt describes it HONESTLY as a since-scoped reuse (never mislabeled
-// "FULL") — this is the live gap canary D found: this scenario is the one that was ALWAYS unreachable
-// before the fix (no "since" report could ever satisfy the old scope==="full"-only check).
-SCENARIOS.push({
-  name: 'BL-0179b. notify-end REUSES a "since"-scoped report whose anchor matches last_green_sha — described honestly, not as "FULL"',
-  args: { mode: 'balanced', maxAgents: 7 },
-  plan: mkPlan([{
-    frd: 'frd-bl0179b',
-    deps: [],
-    workOrders: [mkWo('wo-bl0179b-001', 'PLANNED', { frd: 'frd-bl0179b', artifacts: ['src/a/**'] })],
-  }]),
-  responses: [
-    { label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'since', reportSince: 'aaaa111', lastGreenSha: 'aaaa111', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 30 } },
-  ],
-  assert(t, run) {
-    t.ok(!run.error, `engine threw: ${run.error}`)
-    const end = byLabel(run, 'notify-end')[0]
-    t.ok(end, 'notify-end ran')
-    t.ok(/BL-0147 REUSE/.test(end.prompt) && /do NOT re-run/.test(end.prompt), 'the closing prompt still reuses (same mechanism, since-anchored case)')
-    t.ok(!/FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt), 'the "run the FULL verify.sh" instruction is REPLACED, not merely supplemented')
-    t.ok(/SCOPED `--since aaaa111`/.test(end.prompt), 'the reused report is described as a since-scoped reuse, carrying its own anchor')
-    t.ok(!/a FULL, GREEN run of this EXACT commit/.test(end.prompt), 'a since-scoped reuse is never mislabeled as a FULL run')
-    t.ok(/"event":"CloseOutVerifyReused"/.test(end.prompt) && /"sha":"deadbeef"/.test(end.prompt) && /"ageSeconds":30/.test(end.prompt), 'the CloseOutVerifyReused event still fires on a since-anchored reuse')
-  },
-})
+// canary D's live measurement found BL-0147's reuse-check NEVER fires in a real run. BL-0179 then added a "since"
+// arm (a since-scoped report anchored at the current last_green_sha). Canary E2 (finding 7) retired that arm: it
+// never fired either, and its premise was false — every landing publishes last_green_sha from a since-scoped
+// report, so last_green_sha is never itself full-certified (see the E2-7 scenarios under "E2 findings"). What
+// stays from BL-0179: a since report still never licenses reuse, whatever its anchor.
 
 // (c) control: a "since" report whose anchor does NOT match the current last_green_sha (an older
 // focused gate, superseded by a later commit) must NEVER license reuse — sibling of BL-0147b, proving
@@ -5991,11 +5941,12 @@ const d1Slot = (call) => ((call && call.prompt.match(/GATE WORKTREE (\S+gate-wor
     },
   })
 }
-// (b) an FRD that DEPENDS on one whose verdict has not landed waits for that landing.
+// (b) an FRD that DEPENDS on one whose verdict has not landed may GATE, but it LANDS after that verdict (E2 finding 1
+// replaced the launch deferral: red-team R6 is caught at the landing, where the stale-pin guard sees the upstream).
 {
   const h = d1Harness()
   SCENARIOS.push({
-    name: 'D1b. parallelGates — frd-b depends on frd-a (cross-FRD dependsOn): its gate WAITS until frd-a\'s verdict has landed (red-team R6)',
+    name: 'D1b. parallelGates — frd-b depends on frd-a (cross-FRD dependsOn): its gate is NOT deferred for frd-a\'s verdict, but it LANDS only after frd-a (E2 finding 1; red-team R6 moves to the landing)',
     args: { mode: 'pro', parallelGates: true },
     plan: mkPlan([
       { frd: 'frd-d1b-a', deps: [], workOrders: [mkWo('wo-d1b-a1', 'PLANNED', { frd: 'frd-d1b-a', artifacts: ['src/d1ba/**'] })] },
@@ -6004,9 +5955,9 @@ const d1Slot = (call) => ((call && call.prompt.match(/GATE WORKTREE (\S+gate-wor
     responses: [distinctCommitShas, ...h.responses],
     assert(t, run) {
       t.ok(!run.error, `engine threw: ${run.error}`)
-      t.ok(hasLog(run, /gate for frd-d1b-b deferred: depends on frd-d1b-a/), 'the deferral is logged with its reason')
+      t.ok(!hasLog(run, /gate for frd-d1b-b deferred: depends on frd-d1b-a \(verdict not landed yet\)/), 'no launch deferral for an upstream whose gate is already running')
       t.ok(hasLog(run, /frd-d1b-b: repair brake on agent-weight, usage unreliable — 1 parallel gate\(s\) were reviewing during its build wave/), 'BL-0138: the wave that built frd-b ran alongside frd-a\'s gate → its build-token total is never trusted (loud agent-weight fallback)')
-      t.ok(h.at('start:frd-d1b-b') > h.at('end:apply-gate:frd-d1b-a') && h.at('end:apply-gate:frd-d1b-a') > 0, `frd-b's gate started only AFTER frd-a landed (timeline: ${h.tl.join(' ')})`)
+      t.ok(h.at('start:stale-pin:frd-d1b-b') > h.at('end:apply-gate:frd-d1b-a') && h.at('end:apply-gate:frd-d1b-a') > 0, `frd-b LANDED only after frd-a landed (timeline: ${h.tl.join(' ')})`)
       t.ok(run.result && run.result.builtFrds.includes('frd-d1b-a') && run.result.builtFrds.includes('frd-d1b-b'), 'both verify')
     },
   })
@@ -6266,12 +6217,12 @@ for (const [label, extra, want, logRe] of [
   })
 }
 
-// (m) landing ORDER: a dependent FRD that is gate-ready while its upstream is still BUILDING waits for the
-// upstream's gate to land first (else it could land VERIFIED on a WO the upstream's ladder later reverts).
+// (m) landing ORDER: a dependent FRD that is gate-ready while its upstream is still BUILDING does not gate yet (its pin
+// could not hold the upstream's code); once the upstream gates, the dependent may gate too, and it lands after it.
 {
   const h = d1Harness()
   SCENARIOS.push({
-    name: 'D1m. parallelGates — frd-d (dep on frd-u\'s first WO) is gate-ready while frd-u still builds: its gate waits until frd-u has gated AND landed',
+    name: 'D1m. parallelGates — frd-d (dep on frd-u\'s first WO) is gate-ready while frd-u still builds: its gate waits until frd-u has stopped building, and it LANDS after frd-u',
     args: { mode: 'pro', parallelGates: true },
     plan: mkPlan([
       { frd: 'frd-d1o-u', deps: [], workOrders: [
@@ -6288,17 +6239,18 @@ for (const [label, extra, want, logRe] of [
       const buildU3 = byLabel(run, 'build:wo-d1o-u3')[0]
       const gateD = byLabel(run, 'gate:frd-d1o-d')[0]
       t.ok(buildU3 && gateD && gateD.index > buildU3.index, 'frd-d did not gate while frd-u was still building')
-      t.ok(h.at('start:frd-d1o-d') > h.at('end:apply-gate:frd-d1o-u'), 'frd-d gated only after frd-u landed')
+      t.ok(h.at('start:stale-pin:frd-d1o-d') > h.at('end:apply-gate:frd-d1o-u'), 'frd-d landed only after frd-u landed')
       t.ok(run.result && run.result.builtFrds.includes('frd-d1o-u') && run.result.builtFrds.includes('frd-d1o-d'), 'both verify')
     },
   })
 }
-// (n) two FRDs whose WOs depend on EACH OTHER across FRDs (no WO cycle, so no cycle block): the landing-order
-// rule would wait forever — the idle path waives it for the head of the queue; they still never gate together.
+// (n) two FRDs whose WOs depend on EACH OTHER across FRDs (no WO cycle, so no cycle block): the queued-upstream rule
+// would wait forever — the idle path waives it. A mutual pair cannot order its landings, so it never holds either:
+// both land in arrival order, one writer at a time (E2 finding 1).
 {
   const h = d1Harness()
   SCENARIOS.push({
-    name: 'D1n. parallelGates — mutually dependent FRDs (x2→y1, y2→x1) never deadlock: the idle path waives the landing-order rule, and they still gate one at a time',
+    name: 'D1n. parallelGates — mutually dependent FRDs (x2→y1, y2→x1) never deadlock: the idle path waives the landing-order rule; their landings (which cannot be ordered) run one at a time',
     args: { mode: 'pro', parallelGates: true },
     plan: mkPlan([
       { frd: 'frd-d1p-x', deps: [], workOrders: [mkWo('wo-d1p-x1', 'PLANNED', { frd: 'frd-d1p-x', artifacts: ['src/d1px1/**'] }), mkWo('wo-d1p-x2', 'PLANNED', { frd: 'frd-d1p-x', artifacts: ['src/d1px2/**'], deps: ['wo-d1p-y1'] })] },
@@ -6308,9 +6260,8 @@ for (const [label, extra, want, logRe] of [
     assert(t, run) {
       t.ok(!run.error, `engine threw: ${run.error}`)
       t.ok(hasLog(run, /waiving the landing-order rule/), 'the waiver is logged')
-      const [first, second] = ['frd-d1p-x', 'frd-d1p-y'].map((f) => h.at(`start:${f}`)).sort((a, b) => a - b)
-      const firstFrd = h.tl[first].slice('start:'.length)
-      t.ok(second > h.at(`end:apply-gate:${firstFrd}`), 'the second gate started only after the first landed (never together)')
+      t.ok(h.lane.max === 1 && h.at('end:apply-gate:frd-d1p-x') > 0 && h.at('end:apply-gate:frd-d1p-y') > 0, 'both land, one main-tree writer at a time')
+      t.ok(!hasLog(run, /lands before .*nothing else can land/), 'a mutual pair never needs the hold waiver (it is not held)')
       t.ok(!hasLog(run, /gating it on main \(legacy\)/), 'no legacy fallback was needed')
       t.ok(run.result && run.result.builtFrds.length === 2, 'both verify')
     },
@@ -6397,7 +6348,7 @@ for (const [label, extra, want, logRe] of [
       const up = byLabel(run, 'unport-reviewer-tests:frd-d1s-1')[0]
       const port = byLabel(run, 'port-reviewer-tests:frd-d1s-1')[0]
       t.ok(up && port && up.index > port.index && up.index > byLabel(run, 'revert:frd-d1s-1')[0].index, 'the cleanup ran after the ladder ended')
-      t.ok(up && up.prompt.includes('src/d1s1/_tests/r.reviewer.test.ts') && /ls-files --error-unmatch/.test(up.prompt) && /shasum -a 256/.test(up.prompt) && /clean -f -- <path>/.test(up.prompt) && /Never a blanket clean/.test(up.prompt), 'it removes only untracked, byte-identical copies, path by path')
+      t.ok(up && up.prompt.includes('src/d1s1/_tests/r.reviewer.test.ts') && /ls-files --error-unmatch/.test(up.prompt) && /shasum -a 256/.test(up.prompt) && /--literal-pathspecs clean -f -- '<path>'/.test(up.prompt) && /Never a blanket clean/.test(up.prompt), 'it removes only untracked, byte-identical copies, path by path (literal pathspec, E2 finding 3)')
       t.ok(up && up.opts.agentType === 'pandacorp:mech' && !/^Work from the GATE WORKTREE/.test(up.prompt), 'a MECH on the main tree')
       t.ok(hasLog(run, /frd-d1s-1 did not land VERIFIED — removed 1 untracked reviewer test copy/), 'logged')
     },
@@ -6668,7 +6619,7 @@ SCENARIOS.push({
     const p = (cp[0] || {}).prompt || ''
     t.ok(/implementation_status: VERIFIED/.test(p) && /reopen_count: 0/.test(p) && /publish last green snapshot/.test(p) && p.includes('"kind":"review_end","frd":"frd-191g","verdict":"pass"'), 'the certify step carries the full stamp (VERIFIED, reopen_count 0, last-green ordering, review_end pass)')
     t.ok(/"kind":"resolution"/.test(p) && /"outcome":"green"/.test(p) && /"event":"achievement"/.test(p) && /BL-0178 DRIFT/.test(p), 'journal resolution, PatchResult green, achievement and the drift replica ride in the certify step')
-    t.ok(p.includes('mission-control/src/191g/_tests/sum.reviewer.test.ts') && /git add --/.test(p), 'the certify step stages the reviewer\'s ported test file (BL-0184)')
+    t.ok(p.includes("--literal-pathspecs add -- 'mission-control/src/191g/_tests/sum.reviewer.test.ts'"), 'the certify step stages the reviewer\'s ported test file with a literal, repo-root-anchored command (BL-0184, E2 finding 3)')
     t.ok(cp[0] && cp[0].opts.model === 'haiku', 'the certify step is mechanical (it persists a verdict, it judges nothing)')
     t.ok(run.result && run.result.builtFrds.includes('frd-191g'), 'VERIFIED')
   },
@@ -6809,6 +6760,311 @@ SCENARIOS.push({
     },
   })
 }
+
+// ---- E2 findings ----
+// Canary E2 (docs/reviews/canary-e2-report.md, wf_405eeb21-f9e): seven defects the live run surfaced. Each block
+// below is anchored in the transcript evidence of that run; the nested-project ones EXECUTE the engine's own
+// commands against a real git repository whose project is nested like Mission Control.
+const { createHash: e2Hash } = await import('node:crypto')
+const e2Sha = (file) => e2Hash('sha256').update(gcFs.readFileSync(file)).digest('hex')
+const e2Cmd = (prompt, marker) => ((prompt || '').match(new RegExp(`${marker}: \`([^\`]+)\``)) || [])[1] || null
+
+// (1) E2 §4.2: FRD-05 waited 23.2 min with a free slot because its upstream's verdict had not landed. A dependency
+// now orders only the LANDING: both gates run at once, the dependent lands after its upstream, and re-verifies
+// `--since <pin>` when the upstream's landing moved code.
+{
+  const h = d1Harness({ order: ['frd-e21a-b'], autoFlushAt: 2, fallbackMs: 30, staleCounts: [0, 1] })
+  SCENARIOS.push({
+    name: 'E2-1a. parallelGates — frd-b depends on frd-a (cross-FRD WO dep): BOTH gates start before any verdict; frd-b\'s verdict arrives FIRST but waits; frd-a lands, then frd-b re-verifies --since its pin and lands',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2 },
+    plan: mkPlan([
+      { frd: 'frd-e21a-a', deps: [], workOrders: [mkWo('wo-e21a-a1', 'IN_REVIEW', { frd: 'frd-e21a-a', artifacts: ['src/e21aa/**'] })] },
+      { frd: 'frd-e21a-b', deps: [], workOrders: [mkWo('wo-e21a-b1', 'IN_REVIEW', { frd: 'frd-e21a-b', artifacts: ['src/e21ab/**'], deps: ['wo-e21a-a1'] })] },
+    ]),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const firstResult = h.tl.findIndex((x) => x.startsWith('result:'))
+      t.ok(h.at('start:frd-e21a-a') >= 0 && h.at('start:frd-e21a-b') >= 0 && h.at('start:frd-e21a-a') < firstResult && h.at('start:frd-e21a-b') < firstResult, `both gates started before the first verdict — the dependency no longer defers the LAUNCH (timeline: ${h.tl.join(' ')})`)
+      t.ok(!hasLog(run, /gate for frd-e21a-b deferred: depends on/), 'no launch deferral for the dependency')
+      t.ok(h.at('result:frd-e21a-b') < h.at('result:frd-e21a-a'), 'frd-b\'s verdict arrived first (the case the hold exists for)')
+      t.ok(hasLog(run, /frd-e21a-b's verdict waits to land: it depends on frd-e21a-a/), 'the landing hold is logged with its reason')
+      t.ok(h.at('end:apply-gate:frd-e21a-a') >= 0 && h.at('start:stale-pin:frd-e21a-b') > h.at('end:apply-gate:frd-e21a-a'), 'frd-b\'s landing starts only after frd-a has landed')
+      const rv = byLabel(run, 'reverify:frd-e21a-b')[0]
+      t.ok(rv && /verify\.sh --since pinsha0/.test(rv.prompt) && h.at('start:reverify:frd-e21a-b') > h.at('end:apply-gate:frd-e21a-a'), 'main moved (frd-a landed) → frd-b re-verifies with verify.sh --since <its pin> before it is stamped')
+      t.ok(h.at('start:apply-gate:frd-e21a-b') > h.at('end:reverify:frd-e21a-b'), 'frd-b is stamped only after the re-verify')
+      t.ok(h.lane.max === 1, 'one main-tree writer at a time')
+      t.ok(run.result && run.result.builtFrds.includes('frd-e21a-a') && run.result.builtFrds.includes('frd-e21a-b'), 'both VERIFIED')
+    },
+  })
+}
+{
+  const reopenA = { green: false, reopen: ['wo-e21b-a1'], findings: [{ wo: 'wo-e21b-a1', finding: 'lenient parse (src/e21ba/x.ts:3)', failingTest: 'src/e21ba/_tests/x.test.ts', files: ['src/e21ba/x.ts'] }], failure: 'lenient parse' }
+  const h = d1Harness({ order: ['frd-e21b-b'], autoFlushAt: 2, fallbackMs: 30, staleCounts: [1], verdicts: { 'frd-e21b-a': reopenA } })
+  SCENARIOS.push({
+    name: 'E2-1b. parallelGates — the upstream REOPENS: its patch ladder lands first (port, patch, verify, certify); the dependent\'s PASS then re-verifies --since its pin on the patched tree before it is stamped',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2 },
+    plan: mkPlan([
+      { frd: 'frd-e21b-a', deps: [], workOrders: [mkWo('wo-e21b-a1', 'IN_REVIEW', { frd: 'frd-e21b-a', artifacts: ['src/e21ba/**'] })] },
+      { frd: 'frd-e21b-b', deps: ['frd-e21b-a'], workOrders: [mkWo('wo-e21b-b1', 'IN_REVIEW', { frd: 'frd-e21b-b', artifacts: ['src/e21bb/**'] })] },
+    ]),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const firstResult = h.tl.findIndex((x) => x.startsWith('result:'))
+      t.ok(h.at('start:frd-e21b-b') >= 0 && h.at('start:frd-e21b-b') < firstResult, 'an FRD-level dependency does not defer the dependent\'s gate either')
+      t.ok(h.at('end:certify-patch:frd-e21b-a') >= 0 && h.at('start:stale-pin:frd-e21b-b') > h.at('end:certify-patch:frd-e21b-a'), `the dependent lands only after the upstream's whole ladder (timeline: ${h.tl.join(' ')})`)
+      const rv = byLabel(run, 'reverify:frd-e21b-b')[0]
+      t.ok(rv && /verify\.sh --since pinsha0/.test(rv.prompt), 'the upstream\'s patch moved code → the dependent re-verifies --since its pin')
+      t.ok(run.result && ['frd-e21b-a', 'frd-e21b-b'].every((f) => run.result.builtFrds.includes(f)), 'both VERIFIED')
+    },
+  })
+}
+
+// (2) E2 §4.6: the pre-check's `git status --porcelain` prints REPO-ROOT-relative paths, so for a nested project
+// the lease's own status.yaml read `mission-control/.pandacorp/status.yaml` and the BL-0124 exclusion (strict
+// equality with `.pandacorp/status.yaml`) never matched → an opus judge-baseline (2.47 min) every nested run.
+SCENARIOS.push({
+  name: 'E2-2a. nested project — the pre-check\'s repo-root-relative `mission-control/.pandacorp/status.yaml` + its projectPrefix take the BL-0124 fast path (no judge baseline)',
+  args: { mode: 'pro' },
+  responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: ['mission-control/.pandacorp/status.yaml'], leaseValid: true, projectPrefix: 'mission-control/' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no judge-baseline for the lease\'s own status.yaml in a nested project')
+    t.ok(hasLog(run, /BL-0124/), 'the BL-0124 fast-path log fires')
+    const p = byLabel(run, 'baseline-precheck')[0]
+    t.ok(p && /rev-parse --show-prefix/.test(p.prompt) && /projectPrefix/.test(p.prompt), 'the pre-check is asked for the project prefix (git rev-parse --show-prefix)')
+    t.ok(p && /repo-root-relative/i.test(p.prompt) && /BARE path/.test(p.prompt) && /XY status code/.test(p.prompt) && /STRIPPED/.test(p.prompt), 'the prompt says the paths are repo-root-relative, still bare (XY status code stripped)')
+  },
+})
+for (const [tag, dirtyPaths, projectPrefix, why] of [
+  ['b', ['mission-control/.pandacorp/status.yaml', 'mission-control/src/x.ts'], 'mission-control/', 'real WIP next to the leased status.yaml'],
+  ['c', ['plugin/engine.js'], 'mission-control/', 'a dirty path OUTSIDE the project'],
+  ['d', ['mission-control/.pandacorp/status.yaml'], '', 'a nested path with no prefix to strip (an unverifiable claim)'],
+  ['e', ['mission-control/.pandacorp/status.yaml'], '../', 'a malformed prefix'],
+]) {
+  SCENARIOS.push({
+    name: `E2-2${tag}. control — ${why} still escalates to the judge baseline (the exclusion never widens)`,
+    args: { mode: 'pro' },
+    responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths, leaseValid: true, projectPrefix } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, 'baseline').length === 1, 'the judge baseline runs')
+    },
+  })
+}
+{
+  // Ground the payload in REAL git output: a nested repo whose only dirt is the project's status.yaml.
+  const fx = gcNestedFixture('frd-e22f')
+  gcFs.appendFileSync(path.join(fx.app, '.pandacorp/status.yaml'), 'running: true\n')
+  const porcelain = gcExecFile('git', ['status', '--porcelain'], { cwd: fx.app, encoding: 'utf8' }).split('\n').filter(Boolean).map((l) => l.slice(3))   // untrimmed: the XY code's leading space matters
+  const prefix = gcGit(fx.app, 'rev-parse', '--show-prefix')
+  SCENARIOS.push({
+    name: 'E2-2f. nested project, REAL git output (porcelain + show-prefix from a nested repo) → fast path',
+    args: { mode: 'pro' },
+    responses: [{ label: 'baseline-precheck', response: { escalate: true, dirty: true, dirtyPaths: porcelain, leaseValid: true, projectPrefix: prefix } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(JSON.stringify(porcelain) === '["mission-control/.pandacorp/status.yaml"]' && prefix === 'mission-control/', `the fixture reproduces E2's exact signal (porcelain ${JSON.stringify(porcelain)}, prefix ${JSON.stringify(prefix)})`)
+      t.ok(byLabel(run, 'baseline').length === 0, 'no judge baseline')
+    },
+  })
+}
+
+// (3)+(4) E2 §4.3/§4.4 — executed on a nested repo. apply-gate:frd-05 (haiku) ignored the prose "let TOP = …",
+// copied the repo-root-relative test path relative to its PROJECT cwd and committed
+// `mission-control/mission-control/src/…` (4ceac8e0), leaving reverify's correct copy untracked; and it staged the
+// WO file but not the frd.md/blueprint.md rollups sync-rollups rewrote (left dirty), then committed the timelines
+// AFTER the last-green pointer. The engine now hands literal commands anchored at the repo root.
+function e2NestedLanding(tag) {
+  const frd = `frd-${tag}`
+  const fx = gcNestedFixture(frd)
+  gcCleanups.splice(gcCleanups.indexOf(fx.root), 1)
+  const test = 'mission-control/src/app/projects/[slug]/_tests/wo.gate.reviewer.test.tsx'
+  const decoy = path.join(fx.app, 'src/app/projects/s/_tests/wo.gate.reviewer.test.tsx')   // `[slug]` as a glob class would match it
+  const evDir = path.join(fx.app, `.pandacorp/run/gate-evidence/${frd}`)
+  gcWrite(path.join(evDir, test), 'test("reviewer", () => {})\n')
+  gcWrite(decoy, 'untracked owner scratch\n')
+  const sha = e2Sha(path.join(evDir, test))
+  const release = { prefix: 'gate-release:', times: 1, response: { salvaged: [{ path: test, status: 'untracked', sha256: sha }], remaining: [] } }
+  const plan = mkPlan([{ frd, deps: [], workOrders: [mkWo(`wo-${tag}-1`, 'IN_REVIEW', { frd, artifacts: ['src/app/projects/**'] })] }])
+  const staged = () => gcGit(fx.repo, 'diff', '--cached', '--name-only').split('\n').filter(Boolean)
+  const untracked = () => gcGit(fx.repo, 'ls-files', '--others', '--exclude-standard').split('\n').filter(Boolean)
+  return { frd, fx, test, decoy, sha, release, plan, staged, untracked }
+}
+{
+  const L = e2NestedLanding('e23a')
+  const h = d1Harness({ staleCounts: [1] })
+  SCENARIOS.push({
+    name: 'E2-3a. nested project, stale PASS → reverify → apply-gate (executed): the reviewer test lands ONCE at mission-control/src/…, staged, no doubled prefix, no untracked copy, no sibling swept in; the rollups are in the snapshot and nothing is committed after the pointer',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, projectDir: L.fx.app, project: 'mission-control' },
+    plan: L.plan,
+    responses: [L.release, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const rv = byLabel(run, `reverify:${L.frd}`)[0]
+      const ap = byLabel(run, `apply-gate:${L.frd}`)[0]
+      const rvPort = e2Cmd(rv && rv.prompt, 'port command VERBATIM, as ONE Bash call')
+      const apPort = e2Cmd(ap && ap.prompt, 'port command VERBATIM, as ONE Bash call')
+      const apStage = e2Cmd(ap && ap.prompt, "stage the reviewer's test files with exactly this command")
+      const snap = e2Cmd(ap && ap.prompt, 'stage snapshot \\(A\\) with exactly this command')
+      t.ok(rvPort && apPort && apStage && snap, `the landing prompts carry literal commands (reverify port ${Boolean(rvPort)}, apply port ${Boolean(apPort)}, stage ${Boolean(apStage)}, snapshot ${Boolean(snap)})`)
+      // Run them the way the E2 agent did: from the PROJECT directory.
+      const r1 = gcBash(rvPort || 'false', L.fx.app)
+      const r2 = gcBash(apPort || 'false', L.fx.app)
+      gcWrite(path.join(L.fx.app, `docs/frds/${L.frd}/frd.md`), '---\nimplementation_status: VERIFIED\n---\n# FRD\n')   // what sync-rollups rewrites
+      gcFs.appendFileSync(path.join(L.fx.app, '.pandacorp/status.yaml'), 'updated_at: now\n')
+      const r3 = gcBash(apStage || 'false', L.fx.app)
+      const r4 = gcBash(snap || 'false', L.fx.app)
+      t.ok(r1.ok && r2.ok && r3.ok && r4.ok, `every command ran (${[r1, r2, r3, r4].map((r) => r.ok ? 'ok' : r.err).join(' | ')})`)
+      t.ok(gcFs.existsSync(path.join(L.fx.app, 'src/app/projects/[slug]/_tests/wo.gate.reviewer.test.tsx')) && e2Sha(path.join(L.fx.app, 'src/app/projects/[slug]/_tests/wo.gate.reviewer.test.tsx')) === L.sha, 'the test is at <repo>/mission-control/src/…, byte-identical to the reviewer\'s')
+      t.ok(!gcFs.existsSync(path.join(L.fx.app, 'mission-control')), 'NO doubled mission-control/mission-control/ directory')
+      const st = L.staged()
+      t.ok(st.includes(L.test) && !st.some((p) => p.includes('mission-control/mission-control')), `the test is staged at its single repo-root-relative path (staged: ${st.join(', ')})`)
+      t.ok(!st.includes('mission-control/src/app/projects/s/_tests/wo.gate.reviewer.test.tsx'), 'the literal pathspec did not sweep a sibling that `[slug]` matches as a glob')
+      t.ok(st.includes(`mission-control/docs/frds/${L.frd}/frd.md`) && st.includes('mission-control/.pandacorp/status.yaml'), 'the snapshot stages the rollup doc and status.yaml')
+      t.ok(!L.untracked().includes(L.test), 'no untracked copy of the reviewer test is left behind')
+      const p = (ap && ap.prompt) || ''
+      t.ok(/If that command changed any docs\/frds\/\*\/frd\.md or blueprint\.md on disk/.test(p) && /stage ONLY those rollup documents and commit them right now/.test(p), 'apply-gate commits the sync-rollups documents (BL-0172 SYNC_ROLLUPS_COMMIT)')
+      t.ok(p.indexOf('publish last green snapshot') > p.indexOf('"kind":"resolution"') && p.indexOf('publish last green snapshot') > p.indexOf('stage snapshot (A)'), 'the last-green ordering is the LAST step, after the journal/timeline appends and the snapshot staging')
+      t.ok(/NO commit after/.test(p) && /status --porcelain -- docs\/frds/.test(p), 'no commit after the pointer; the snapshot is checked to leave docs/frds clean')
+      t.ok(p.indexOf('WP-08 cage') >= 0 && p.indexOf('WP-08 cage') < p.indexOf('implementation_status: VERIFIED'), 'the WP-08 partial-report check comes BEFORE any stamp')
+      gcFs.rmSync(L.fx.root, { recursive: true, force: true })
+    },
+  })
+}
+{
+  const L = e2NestedLanding('e23b')
+  const reopen = { green: false, reopen: ['wo-e23b-1'], findings: [{ wo: 'wo-e23b-1', finding: 'lenient parse (src/app/projects/x.ts:3)', failingTest: L.test, files: ['src/app/projects/x.ts'] }], failure: 'lenient parse' }
+  SCENARIOS.push({
+    name: 'E2-3b. nested project, REOPEN ladder (executed): port-reviewer-tests, the integrity hash and certify-patch\'s staging all address mission-control/src/… once — never a project-relative copy',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, projectDir: L.fx.app, project: 'mission-control' },
+    plan: L.plan,
+    responses: [L.release, { label: `gate:${L.frd}`, times: 1, response: reopen }, { prefix: 'gate-worktree:', response: { ok: true, created: true } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const port = byLabel(run, `port-reviewer-tests:${L.frd}`)[0]
+      const hash = byLabel(run, `reviewer-test-hash:${L.frd}`)[0]
+      const cert = byLabel(run, `certify-patch:${L.frd}`)[0]
+      const cPort = e2Cmd(port && port.prompt, 'port command VERBATIM, as ONE Bash call')
+      const cHash = e2Cmd(hash && hash.prompt, 'hash command VERBATIM, as ONE Bash call')
+      const cStage = e2Cmd(cert && cert.prompt, "stage the reviewer's test files with exactly this command")
+      t.ok(cPort && cHash && cStage, `literal commands present (port ${Boolean(cPort)}, hash ${Boolean(cHash)}, stage ${Boolean(cStage)})`)
+      const r1 = gcBash(cPort || 'false', L.fx.app)
+      const r2 = gcBash(cHash || 'false', L.fx.app)
+      const r3 = gcBash(cStage || 'false', L.fx.app)
+      t.ok(r1.ok && r2.ok && r3.ok, `every command ran (${[r1, r2, r3].map((r) => r.ok ? 'ok' : r.err).join(' | ')})`)
+      t.ok(r2.out.includes(L.sha), 'the integrity hash reads the ported copy (same sha256 as the reviewer\'s)')
+      t.ok(!gcFs.existsSync(path.join(L.fx.app, 'mission-control')), 'NO doubled prefix directory')
+      const st = L.staged()
+      t.ok(st.length === 1 && st[0] === L.test, `certify stages exactly the one repo-root-relative test (staged: ${st.join(', ')})`)
+      t.ok(cert && /If that command changed any docs\/frds\/\*\/frd\.md or blueprint\.md on disk/.test(cert.prompt) && cert.prompt.indexOf('publish last green snapshot') > cert.prompt.indexOf('stage snapshot (A)'), 'certify-patch commits the rollups and ends with the last-green ordering')
+      t.ok(run.result && run.result.builtFrds.includes(L.frd), 'VERIFIED')
+      gcFs.rmSync(L.fx.root, { recursive: true, force: true })
+    },
+  })
+}
+
+// (4) backstop: canary E2's notify-end ran sync-rollups, which changed nothing (FRD-05's flip was already on disk,
+// just uncommitted), so the BL-0172 conditional commit never fired and the run ended dirty. The rollup commit now
+// also covers a rollup document an earlier step left modified.
+SCENARIOS.push({
+  name: 'E2-4a. notify-end\'s rollup commit also covers an frd.md/blueprint.md an earlier landing left modified (not only what its own sync-rollups changed)',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{ frd: 'frd-e24a', deps: [], workOrders: [mkWo('wo-e24a-001', 'PLANNED', { frd: 'frd-e24a', artifacts: ['src/a/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    const i = end ? end.prompt.indexOf('stage ONLY those rollup documents') : -1
+    t.ok(end && i > 0 && /git status --porcelain -- docs\/frds` still lists one of those rollup documents as modified/.test(end.prompt.slice(0, i)), 'the commit condition includes rollup documents already modified before this step')
+  },
+})
+
+// (5) E2 §4.5: visual-qa (sonnet) answered {done:false} in its first turn with 0 tool calls. The prompt was
+// byte-identical to D2's (12 min of real work); the only new input was a harness relay of an unrelated owner
+// question, framed as "this request wins", present in all 38 E2 transcripts. The prompt now scopes that relay,
+// and a done:false must carry its reason, which the engine logs.
+SCENARIOS.push({
+  name: 'E2-5a. visual-qa — its prompt says an unrelated relayed message does not change this step, and a done:false carries a `reason` the engine logs (never a silent no-op)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-e25', deps: [], workOrders: [mkWo('wo-e25-1', 'PLANNED', { frd: 'frd-e25', artifacts: ['src/app/e25/page.tsx'] })] }], { hasFrontend: true }),
+  responses: [{ label: 'visual-qa', response: { done: false, reason: 'no mocks folder for frd-e25' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vq = byLabel(run, 'visual-qa')[0]
+    t.ok(vq && /relayed/i.test(vq.prompt) && /not addressed to this step/i.test(vq.prompt), 'the prompt scopes a relayed message that does not address this step')
+    t.ok(vq && vq.opts.schema && vq.opts.schema.properties && vq.opts.schema.properties.reason, 'the schema carries a reason field')
+    t.ok(hasLog(run, /visual-qa .*done:false.*no mocks folder for frd-e25/), 'the engine logs the reason of a done:false')
+  },
+})
+
+// (6) E2 §4 (BL-0193 residue): in a FRESH slot `.pandacorp/run/` does not exist (gitignored), so the collector's
+// `> "$LOG"` redirect failed on its first attempt in 2/2 fresh slots. Executed on a slot with no run dir.
+{
+  const fx = gcNestedFixture('frd-e26-1')
+  gcCleanups.splice(gcCleanups.indexOf(fx.root), 1)
+  const slot = path.join(fx.app, '.pandacorp/run/gate-worktree-1')
+  gcGit(fx.app, 'worktree', 'add', '--detach', '-q', slot, fx.pin)
+  gcWrite(path.join(slot, 'mission-control/node_modules/.bin/vitest'), '#!/bin/sh\n')
+  gcWrite(path.join(slot, 'mission-control/.pandacorp/verify.sh'), `mkdir -p .pandacorp/run && printf '{"green":true,"fresh":"slot-1"}' > .pandacorp/run/gate-report.json\n`)
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'E2-6a. digested collector in a FRESH slot with no .pandacorp/run/ (executed) — the command creates it, logs to the file and prints the report on its FIRST attempt',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 1, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    plan: d1Resume('e26', 1),
+    responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, tests: [], ac: '' } }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(!gcFs.existsSync(path.join(slot, 'mission-control/.pandacorp/run')), 'precondition: the slot has no .pandacorp/run/ (as in a fresh worktree)')
+      const ev = byLabel(run, 'evidence:frd-e26-1')[0]
+      const cmd = ev && (ev.prompt.match(/verbatim except PIN_BASE:\*\* `([^`]+)`/) || [])[1]
+      const r = cmd ? gcBash(cmd.replace('<PIN_BASE>', 'base0'), gcOs.tmpdir()) : { ok: false, out: '', err: 'no command' }
+      t.ok(r.ok && /verify exit=0/.test(r.out) && r.out.includes('"fresh":"slot-1"'), `first attempt succeeds (got ${(r.out || r.err || '').slice(0, 200)})`)
+      t.ok(gcFs.existsSync(path.join(slot, 'mission-control/.pandacorp/run/evidence-verify.log')), 'the console log file was written')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+
+// (7) E2 §4 BL-0179: the since-arm never fired, and it cannot be sound: every landing publishes last_green_sha
+// from a `since`-scoped report (E2 apply-gate:frd-05 read `"scope": "since"` and published 4ceac8e0), so a report
+// "since last_green_sha" stacks since on since — it never adds up to a full run. The close-out FULL suite is the
+// declared backstop for `--since`'s blind spots (build-orchestration §5c). BL-0179's arm is retired; only
+// BL-0147's exact full-green-at-HEAD reuse remains, now also checked by the engine itself.
+SCENARIOS.push({
+  name: 'E2-7a. the reuse-check prompt no longer offers a "since" arm (BL-0179 retired); BL-0147\'s full arm stays',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{ frd: 'frd-e27a', deps: [], workOrders: [mkWo('wo-e27a-001', 'PLANNED', { frd: 'frd-e27a', artifacts: ['src/a/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const check = byLabel(run, 'close-out-verify-reuse-check')[0]
+    t.ok(check && !/reportScope === "since"/.test(check.prompt) && !/reportSince === lastGreenSha/.test(check.prompt), 'no since arm')
+    t.ok(check && /reportScope === "full"/.test(check.prompt) && /reportSha === headSha/.test(check.prompt), 'the full arm is intact')
+  },
+})
+SCENARIOS.push({
+  name: 'E2-7b. an agent that still answers canReuse:true for a "since" report is overruled by the ENGINE → full rerun, no reuse event',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{ frd: 'frd-e27b', deps: [], workOrders: [mkWo('wo-e27b-001', 'PLANNED', { frd: 'frd-e27b', artifacts: ['src/a/**'] })] }]),
+  responses: [{ label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'since', reportSince: 'aaaa111', lastGreenSha: 'aaaa111', reportGreen: true, reportSha: 'deadbeef', headSha: 'deadbeef', dirty: false, ageSeconds: 30 } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end && /FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt) && !/CloseOutVerifyReused/.test(end.prompt), 'the full suite runs; nothing is reused')
+    t.ok(hasLog(run, /reuse refused by the engine/), 'the engine logs why it overruled the check')
+  },
+})
+SCENARIOS.push({
+  name: 'E2-7c. the engine also refuses a "full" canReuse:true whose sha does not match HEAD or whose tree is dirty (defense in depth over the agent)',
+  args: { mode: 'balanced', maxAgents: 7 },
+  plan: mkPlan([{ frd: 'frd-e27c', deps: [], workOrders: [mkWo('wo-e27c-001', 'PLANNED', { frd: 'frd-e27c', artifacts: ['src/a/**'] })] }]),
+  responses: [{ label: 'close-out-verify-reuse-check', response: { canReuse: true, reason: 'reused', reportScope: 'full', reportGreen: true, reportSha: 'aaaa', headSha: 'bbbb', dirty: false, ageSeconds: 30 } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const end = byLabel(run, 'notify-end')[0]
+    t.ok(end && /FIRST run the FULL `bash \.pandacorp\/verify\.sh`/.test(end.prompt) && !/CloseOutVerifyReused/.test(end.prompt), 'no reuse on a sha mismatch even when the agent says canReuse')
+  },
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
