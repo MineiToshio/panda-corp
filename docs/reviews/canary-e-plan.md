@@ -165,3 +165,36 @@ bash "$HOME/.claude/plugins/cache/panda-corp/pandacorp/<VER>/scripts/launch-impl
 - Worktree: `/Users/Shared/Proyectos/panda-corp-canary-e` (rama `canary-e-parallel-gates`).
 - Motor candidato: **NO instalado** por este agente (overlay sigue en `8.86.0`); pendiente de otro agente.
 - `status.yaml` del canario: quiesciado a mano (`running:false`, `supervisor_heartbeat:""`) porque no hay lease vivo que quiesciar vía CLI; cambio sin commitear, solo en el worktree del canario.
+
+## 12. Run 2 (E2) — preparación tras el corte por límite de uso
+
+Preparado 2026-09-25 al reencolar el canario tras la corrida parcial (`f4824d69`, cortada por límite de uso). Evidencia de esta sección: lectura en vivo del worktree y de `factory/backlog/` en ese momento, no de memoria.
+
+**Punto de partida:** el worktree se reinició al commit `e045b293` (mismo commit reportado en §10: overlay `8.89.0`, motor/`verify.sh`/`worktree-bootstrap.sh` byte-idénticos a las plantillas de 9.112.0, padre `c575adfc`). Run 2 arranca exactamente desde ahí, no desde `f4824d69` (ese commit y su predecesor `5909f454` quedan solo en la rama de archivo `canary-e-run1-partial`, fuera de `canary-e-parallel-gates`). El cierre 9.113.0, cuando se corte, es lo que copiará al worktree cualquier fix nuevo del motor/`verify.sh`/bootstrap — este agente no instaló nada adicional sobre `8.89.0`.
+
+**Args (subidos respecto a run 1, por el hallazgo de presupuesto del informe parcial — `docs/reviews/canary-e-partial-report.md`):**
+
+```json
+{
+  "mode": "powerful",
+  "maxAgents": 60,
+  "frds": ["frd-02-ideas-board", "frd-03-portfolio", "frd-04-project-workspace", "frd-05-work-orders"],
+  "parallelGates": true,
+  "gateSlots": 2,
+  "gateEvidence": "digested"
+}
+```
+
+`maxAgents` sube de 40 (§9) a 60. `gateSlots` se mantiene en 2 (16 GB, X6 del addendum — la máquina no fue re-verificada en esta preparación, igual que en §9).
+
+**Qué cambia respecto a Run 1 — estado real de los hallazgos, verificado en `factory/backlog/` al momento de esta preparación (no dar por arreglados sin releer):**
+
+| Backlog | Título | `status` verificado |
+|---|---|---|
+| BL-0190 | last_green_sha post-run audit bajo parallel gates | `open` |
+| BL-0191 | refusal tras certificación en verify-patch (matcher de contrato sin id) | `open` |
+| BL-0192 | landing lane serializa lanzamientos de gate (0 solape medido en run 1) | `open` |
+
+**No existe BL-0193** (búsqueda del literal en `factory/backlog/` y `docs/` sin resultados). El worktree hermano `/Users/Shared/Proyectos/panda-corp-fix-e` (rama `fix-canary-e-findings`) está al mismo HEAD que `main` (`fbf1a8bc`) y sin cambios sin commitear — ningún fix de BL-0191/0192 ha aterrizado todavía. NO PUDE VERIFICAR que BL-0191/0192/0193 estén arreglados: BL-0193 no existe y BL-0191/0192 siguen `open`. Quien lance Run 2 debe releer `factory/backlog/BL-0190*.md`, `BL-0191*.md`, `BL-0192*.md` inmediatamente antes de lanzar, no confiar en esta nota si pasa el tiempo.
+
+Si BL-0192 sigue sin arreglar al lanzar, Run 2 heredará el mismo defecto que impidió medir D1 en run 1 (landing síncrono bloquea el lanzamiento de nuevos gates en slots libres, ver "Root cause" de BL-0192) — el canario mediría de nuevo el mismo artefacto, no D1 real. Si BL-0191 sigue sin arreglar, un mismatch de contrato sin id en un gate reabierto puede volver a gastar un revert+build+re-gate completo sobre un patch ya certificado (≈1.28 $ + 4.1 min de desperdicio medido en run 1, más el re-gate ≈2.5 $/10 min, ver §Problem de BL-0191).
