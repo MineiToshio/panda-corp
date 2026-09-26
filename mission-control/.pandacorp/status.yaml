@@ -4,7 +4,7 @@ project: "Pandacorp"
 phase: implementation
 last_harvest: "2026-09-25T14:11:43Z"
 version: v1
-overlay_version: "8.92.1"
+overlay_version: "8.93.0"
 created_with: "6.0.0"
 target_platforms: desktop
 deploy_target: internal  # internal tool (runs on 127.0.0.1) — no external host (DR-085)
