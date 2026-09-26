@@ -415,7 +415,10 @@ The build engine reviews and tests **per FRD**, not per work order:
   for Mission Control its root is the factory. The same cd fronts the worktree's own bootstrap
   (`(cd <gate-worktree>/<prefix> && bash .pandacorp/worktree-bootstrap.sh)` — a nested project's
   `.pandacorp/` is not at the worktree root) and applies per slot under `args.parallelGates`
-  (`gate-worktree-<k>/<prefix>`, §5c). The collector's diffs are `--relative` (project-scoped),
+  (`gate-worktree-<k>/<prefix>`, §5c). The collector runs `verify.sh` in ONE foreground Bash call (the tool's
+  `timeout: 600000` plus a shell-level `perl` alarm at 540 s, output to a log file, the slot's stale report removed
+  first) and reads the report at an absolute path inside its own worktree — never the main tree's (BL-0193: canary E's
+  collector backgrounded a 150 s run and polled the main tree's report for 10 min). The collector's diffs are `--relative` (project-scoped),
   its artifact pathspecs are quoted (git expands them, not the shell), its bootstrap probe is a Node
   `existsSync` (never shell `test`/`[`, which an owner alias can hijack), and the digest carries the cycle's
   added/changed test files and the WO-labelled acceptance criteria (the cycle's WO → contract map).
@@ -534,7 +537,13 @@ change card (idempotent) plus the FRD's `drift:` frontmatter, which only the cer
 FRD lands `VERIFIED`. One choke point (`finalizeGate`) serves every gate path, so the outcome no longer depends
 on the ladder rung (canary D2: FRD-02 blocked a correct WO over drift that FRD-03 shipped silently).
 `verifyPatched` inherits the gate's still-open fails and certifies only when a passing test proves each one
-closed. A reviewer that blocks `needs-owner` while carrying a claim defers its terminal telemetry to the
+closed — matched by the `INH-<n>` key the prompt numbers it with, its REQ/AC id, or its text with the prompt's own
+`[class]` tag and tests suffix stripped (BL-0191: an id-less contract echoed back decorated used to be refused). The
+verifier **writes nothing**: the engine runs the WP-08 scope cage and this check on its verdict FIRST, and only an
+accepted verdict reaches the serialized `certify-patch` step that stamps `VERIFIED`, `last_green_sha`, `review_end`
+and the drift replica — so a refusal never has certification side effects to undo (canary E: a refused patch had
+already been published as last green, and the revert rebuilt the same code). A certify step that does not confirm
+leaves the verified code in place and re-gates it next pass; it is never reverted. A reviewer that blocks `needs-owner` while carrying a claim defers its terminal telemetry to the
 engine, so a block lifted by the proof is never reported as both blocked and passed (BL-0185). Rollback:
 `args.driftPolicy: 'block'`.
 
@@ -652,14 +661,20 @@ behaviour (`test-pandacorp-build.mjs`, section `D1 parallelGates`, BL-0186), not
 - **Budget.** `maxAgents` is cost-weighted: N opus reviewers launched together commit ~3N units at once. A gate
   is launched **alongside others** only if the budget still covers its estimated cost plus one landing after
   reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
-  conservative in between; the wave picker subtracts the same reservation). Otherwise the engine logs
-  `gate deferred: agent budget`. With nothing in flight the first eligible gate always starts (progress
+  conservative in between; the wave picker subtracts the same reservation). A landing in progress reserves its own
+  remaining cost too (a reopen ladder ~7 units), so a gate launched during it cannot starve it. Otherwise the engine logs
+  `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
+  ran out after 2 gates; `launch-implement.sh --parallel-gates` warns below it). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.
 - **One landing lane on main.** Verdicts land **one at a time, in arrival order**: PASS → stale-pin guard →
   `applyGate`; REJECT, BLOCK or crash → the unchanged DR-072/073/117 ladder (BL-0184 port included). The
   quiesce is gone — reviews in other slots never touch main — but no build wave overlaps a landing, so main
   keeps **one writer at a time**, and every shared document (decision records, work-order frontmatter and
-  README rollups, `status.yaml`, `last_green_sha`) is written only there, never from a gate. The BL-0175
+  README rollups, `status.yaml`, `last_green_sha`) is written only there, never from a gate. The lane never
+  starves the slots (BL-0192): free slots are refilled right **before** each landing (an unpinned queued FRD is
+  pinned at that quiet pre-landing HEAD first) and again at every agent boundary of the landing and every gate
+  settle while it runs — pinned FRDs only, since a mid-ladder HEAD may hold an uncertified patch. Only gates start
+  early; the stale-pin guard re-verifies whatever main landed past their pin. The BL-0175
   backstop salvage is **not** run from `persistGateBlock` under the flag: another gate may occupy that slot.
 - **Stale-pin guard.** Before a PASS is stamped, a MECH counts the main-tree commits since its pin that touched
   code (`git rev-list --count <pin>..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'` — another landing's

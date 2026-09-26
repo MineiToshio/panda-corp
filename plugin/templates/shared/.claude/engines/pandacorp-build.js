@@ -652,6 +652,9 @@ const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
 // re-throws instead of retrying — a missing judge FAILS the gate, it is never impersonated.
 const ORACLE_TYPES = new Set(['pandacorp:reviewer', 'pandacorp:security-auditor', 'pandacorp:test-writer'])
 let oracleNoFallbackLogged = false   // the explanatory log fires ONCE this run, not once per call site
+// BL-0192: { frd, spawnedAt, reserve } while a (non-final) D1 landing runs, else null. Declared HERE, before the wrapper
+// below reads it through laneTopUp() at every agent boundary (the lane logic lives with landParallelVerdict).
+let landingInFlight = null
 agent = async (prompt, opts = {}) => {
   // C2: a per-call `workFrom` override lets the CONCURRENT gate run from the pinned gate worktree instead
   // of the project root (default). undefined → the legacy WORK_FROM (cd PROJECT_DIR). '' → no preamble.
@@ -665,7 +668,9 @@ agent = async (prompt, opts = {}) => {
     rest = { ...rest, agentType: rest.fallbackAgentType || DEFAULT_AGENT_FALLBACK }
   }
   try {
-    return await __rawAgent(finalPrompt, rest)
+    const answer = await __rawAgent(finalPrompt, rest)
+    laneTopUp()   // BL-0192: every agent boundary of a D1 landing ladder refills slots freed meanwhile (no-op otherwise)
+    return answer
   } catch (e) {
     const requestedType = rest && rest.agentType
     const match = requestedType && typeof requestedType === 'string' && requestedType.startsWith('pandacorp:') && e && typeof e.message === 'string'
@@ -973,6 +978,47 @@ const DRIFT_PROBE_RE = /^\.pandacorp\/run\/drift-probes\/[A-Za-z0-9][A-Za-z0-9._
 const DRIFT_WO_PATH_RE = /^docs\/frds\/[A-Za-z0-9][A-Za-z0-9._-]*\/work-orders\/wo-[A-Za-z0-9._-]+\.md$/
 const DRIFT_OUTPUT_SCHEMA = { type: 'object', required: ['output'], properties: { output: { type: 'string', description: 'the command stdout, VERBATIM — a single JSON line; never summarized, never re-formatted' } } }
 const contractIdOf = (contract) => { const m = String(contract || '').match(/\b(?:REQ|AC)-\d+-\d+(?:\.\d+)?\b/); return m ? m[0] : null }
+// ── BL-0191: matching the verifier's inheritedResolved against the inherited open contracts ──────────
+// verifyPatched lists each inherited contract as `• [<class>] <contract> — the gate's tests: <files> · key INH-<n>`.
+// A verifier asked to echo it "verbatim" echoes some of that decoration back (canary E: `error: Error — … — the
+// gate's tests: …`), so the old exact-or-REQ/AC-id match could NEVER close an id-less contract (error/edge-case/
+// limit/invariant/exclusion rows are routinely id-less): a proven contract was refused. Match, in order: the INH key
+// the prompt assigned; the REQ/AC id; the contract text with the decoration the PROMPT adds stripped from both sides
+// (bullet, key, `[class]`/`class:` tag, tests suffix; dash/quote variants and whitespace folded, case-insensitive).
+// Still fail-loud: an entry proves a contract only with pass:true AND ≥1 test, and nothing looser than equality of
+// the stripped text is accepted — a contract nobody resolved stays open.
+const INHERITED_KEY = (i) => `INH-${i + 1}`
+const INHERITED_CLASS_TAG_RE = new RegExp(`^(?:\\[\\s*(?:${REQUIRED_TRACE_CLASSES.join('|')})\\s*\\]|(?:${REQUIRED_TRACE_CLASSES.join('|')})\\s*:)\\s*`, 'i')
+function stripInheritedContract(x) {
+  let s = String(x || '').replace(/[\u2018\u2019\u02bc]/g, "'").replace(/[\u2010-\u2015\u2212]/g, '-').replace(/\s+/g, ' ').trim()
+  s = s.replace(/^[•*]\s*/, '')
+  s = s.replace(/\s*(?:[·|]\s*)?\bkey:?\s*INH-\d+\s*$/i, '')
+  s = s.replace(/\s+-{1,2}\s+the gate's tests:[\s\S]*$/i, '')
+  for (let k = 0; k < 3; k++) {
+    const t = s.replace(/^INH-\d+\s*[:.)·-]?\s*/i, '').replace(INHERITED_CLASS_TAG_RE, '')
+    if (t === s) break
+    s = t
+  }
+  return s.trim()
+}
+/**
+ * The inherited open contracts NOT proven closed by the verifier's `inheritedResolved` (BL-0178, matched per BL-0191).
+ * @param {ReadonlyArray<{contract: string}>} inherited the gate's stashed open fails, in prompt order (INH-1…INH-n)
+ * @param {unknown} resolved the verifier's inheritedResolved (untrusted agent output)
+ * @returns the still-open inherited entries (empty = every one proven closed)
+ */
+function unresolvedInherited(inherited, resolved) {
+  const proofs = (Array.isArray(resolved) ? resolved : []).filter((r) => r && r.pass === true && Array.isArray(r.tests) && r.tests.length > 0)
+  const norm = (x) => stripInheritedContract(x).toLowerCase()
+  return (inherited || []).filter((e, i) => {
+    const key = INHERITED_KEY(i).toLowerCase()
+    const id = contractIdOf(stripInheritedContract(e.contract))
+    const text = norm(e.contract)
+    return !proofs.some((r) => String(r.key || '').trim().toLowerCase() === key
+      || (id && contractIdOf(stripInheritedContract(r.contract)) === id)
+      || (text && norm(r.contract) === text))
+  })
+}
 // REQ-02-010, AC-02-010.4 and AC-02-010.8 share the core "02-010": owning the requirement owns its ACs and
 // vice-versa (fail-closed — the broad match can only turn a claim INTO a cycle fault, never out of one).
 const contractCore = (id) => String(id).replace(/^(?:REQ|AC)-/, '').replace(/\.\d+$/, '')
@@ -1232,7 +1278,8 @@ const REPAIR_SCHEMA = {
     // correct build). One fallback for two causes was rebuilding correct work in unwinnable loops.
     cause: { type: 'string', enum: ['code', 'gate-test-defective'], description: "why the patch could not green: 'code' = the build genuinely fails → revert+retry; 'gate-test-defective' = a reviewer test is internally inconsistent/unsatisfiable by ANY correct implementation → the engine routes to gate-test repair (BL-0001), never a rebuild" },
     // BL-0178: verifyPatched inherits the gate's still-open `fail` contracts and must prove EACH one closed.
-    inheritedResolved: { type: 'array', description: 'BL-0178 (verify-patch only): one entry per inherited open contract you were given — the test file(s) you ran that prove it now holds, and whether they passed', items: { type: 'object', required: ['contract', 'pass', 'tests'], properties: { contract: { type: 'string', description: 'the inherited contract text, VERBATIM as given' }, pass: { type: 'boolean' }, tests: { type: 'array', items: { type: 'string' } } } } },
+    inheritedResolved: { type: 'array', description: 'BL-0178 (verify-patch only): one entry per inherited open contract you were given — the test file(s) you ran that prove it now holds, and whether they passed', items: { type: 'object', required: ['contract', 'pass', 'tests'], properties: { key: { type: 'string', description: 'BL-0191: the INH-<n> key the prompt gave this contract' }, contract: { type: 'string', description: 'the inherited contract text as given (without its [class] tag and tests suffix)' }, pass: { type: 'boolean' }, tests: { type: 'array', items: { type: 'string' } } } } },
+    resolved: { type: 'string', description: 'BL-0191 (verify-patch only, on green): one line — what the patch resolved; the certify step journals it' },
     defectiveTests: { type: 'array', description: 'BL-0001: the reviewer test(s) judged defective, with evidence — only when cause is gate-test-defective', items: { type: 'object', required: ['path', 'why'], properties: { path: { type: 'string' }, why: { type: 'string', description: 'the internal inconsistency, e.g. "asserts desktop-only nav visibility but the Playwright config runs desktop+mobile and no viewport is forced"' } } } },
     report_scope: REPORT_SCOPE,
   },
@@ -1861,10 +1908,18 @@ async function collectGateEvidence(frd, reviewIds, pinSha) {
   const scopeNote = artifacts.length
     ? "the pathspecs are the reviewed work orders' declared artifacts, relative to THIS project directory"
     : 'the reviewed work orders declare no artifacts — do NOT scope by path; take the whole project diff and let the line cap clip it'
+  // BL-0193 (canary E evidence:frd-02): the collector ran verify.sh (~150 s) with the Bash tool's 120 s default, so
+  // it went to the background, and the agent then polled the MAIN tree's gate-report.json for 600 s — the report
+  // was in the SLOT all along (10 min lost on the critical path). Now: ONE foreground Bash call with the tool's
+  // timeout raised AND a shell-level alarm under it (portable: perl, not GNU `timeout`, which macOS lacks), console
+  // output to a log file, the stale report removed first (a slot is reused; .pandacorp/run/ survives it), and every
+  // path absolute INSIDE this gate's own worktree — the same show-prefix rule as gateProjectCd.
+  const wt = gateWorktreePathOf(frd)
+  const slotRun = `${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix).pandacorp/run`
   agentSpawned++
   return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
   0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** From the project directory (the cd above), run exactly \`node -e "process.stdout.write(require('node:fs').existsSync('node_modules/.bin/vitest') ? 'BOOTSTRAPPED' : 'NOT-BOOTSTRAPPED')"\` — NEVER shell \`test\`/\`[\`, which an owner alias can hijack (BL-0187). If it prints NOT-BOOTSTRAPPED, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
-  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once: \`bash .pandacorp/verify.sh --since <PIN_BASE> --report-all\` (that argument ORDER is required — \`--since\` is positional). It may exit non-zero; that is FINE and expected — it is data, not a problem for you to fix. Then read \`.pandacorp/run/gate-report.json\`, which that run always writes, and return its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
+  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once (that argument ORDER is required — \`--since\` is positional). **Run it as ONE Bash call, in the FOREGROUND, with the Bash tool's \`timeout: 600000\` (the run takes minutes; the 120 s default would push it to the background) — NEVER \`run_in_background\`, never \`&\`, NEVER a polling/\`until\`/\`sleep\` loop. The command, verbatim except PIN_BASE:** \`${gateProjectCd(wt)} && { REPORT="${slotRun}/gate-report.json"; LOG="${slotRun}/evidence-verify.log"; rm -f "$REPORT"; perl -e 'alarm shift; exec @ARGV' 540 bash .pandacorp/verify.sh --since <PIN_BASE> --report-all > "$LOG" 2>&1; echo "verify exit=$?"; cat "$REPORT" || echo "REPORT MISSING: $REPORT"; }\` — REPORT is THIS gate worktree's own report, an absolute path inside it (for a nested project such as Mission Control it resolves to \`<this worktree>/mission-control/.pandacorp/run/gate-report.json\`); NEVER read the main project tree's copy of that file, it belongs to a different run. The perl alarm is the hard bound (540 s): exit 142 means it timed out, and the report is then missing. A non-zero exit is FINE and expected otherwise — it is data, not a problem for you to fix. Return the report that command printed — its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
   1b) **SANITY CHECK (BL-0149) on what step 1 just produced.** Look at the sub-gates in that report. If **3 or more** of the cheap sub-gates (biome/tsc/knip/madge and similar) are RED with an ENVIRONMENT-only message (\`command not found\`, \`Cannot find module\`, \`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\`, or equivalent "the tool itself could not run" text — never an actual lint/type finding), set \`report_suspect: true\`: this is a broken worktree, not a real verdict, and a reviewer must never mistake environment noise for a finding. Otherwise set \`report_suspect: false\`.
   2) \`git diff --relative <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`. \`--relative\` is REQUIRED (BL-0187): it keeps the stat to THIS project — without it a nested project's stat lists every file the enclosing repo changed.
   3) \`git diff --relative <PIN_BASE>..${pinSha}${scope}\` → return it in \`diff\` (${scopeNote}). **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
@@ -2435,7 +2490,13 @@ const reviewerTestsPatchDirective = (frd) => {
 const reviewerTestsVerifyDirective = (frd) => {
   const rt = reviewerTestsByFrd.get(frd)
   if (!rt || !rt.tests.length) return ''
-  return `\n  **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080) — run them EXPLICITLY, by path:** the review-only gate rejected on these reviewer-authored files, ported onto this tree and sha256-checked by the engine just before you: ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: run \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>" …\` for each (a Playwright spec: \`pnpm playwright test\` with the same absolute path), IN ADDITION to the FRD test files above — never trust \`--changed\`/affected selection to have picked them up. Every one must PASS; a missing one is RED. Do NOT edit them. On green, \`git add --\` each of them in your commit.`
+  return `\n  **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080) — run them EXPLICITLY, by path:** the review-only gate rejected on these reviewer-authored files, ported onto this tree and sha256-checked by the engine just before you: ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: run \`pnpm vitest run "$(git rev-parse --show-toplevel)/<path>" …\` for each (a Playwright spec: \`pnpm playwright test\` with the same absolute path), IN ADDITION to the FRD test files above — never trust \`--changed\`/affected selection to have picked them up. Every one must PASS; a missing one is RED. Do NOT edit them, and do NOT stage them — you write nothing (BL-0191); the certify step commits them.`
+}
+// BL-0191: the certify step (not the verifier) commits the reviewer's ported test files with the stamp.
+const reviewerTestsStageDirective = (frd) => {
+  const rt = reviewerTestsByFrd.get(frd)
+  if (!rt || !rt.tests.length) return ''
+  return ` **THE GATE'S OWN ADVERSARIAL TESTS (BL-0184, DR-080):** the verifier ran these reviewer-authored files (ported onto this tree and sha256-checked by the engine): ${reviewerTestPaths(rt)}. They are REPO-ROOT-relative: \`git add -- "$(git rev-parse --show-toplevel)/<path>"\` each of them into the snapshot commit (A) below. Do NOT edit them.`
 }
 
 // ── C2 pin capture (MECH) — the boundary sha the gate(s) freeze at (HEAD right after the wave's commits) ──
@@ -2781,8 +2842,15 @@ async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
 }
 
 // ── Independent post-patch verification (constitution rule 4 — the patcher never certifies itself) ──
-// A DIFFERENT agent re-runs the objective gate over the patched build and only IT may stamp VERIFIED +
-// advance last_green_sha. Mechanical re-run (the scripts are the oracle), so a worker-model agent suffices.
+// A DIFFERENT agent re-runs the objective gate over the patched build (mechanical re-run — the scripts are the
+// oracle, so a worker-model agent suffices). BL-0191 — VERIFY, THEN CHECK, THEN STAMP: the verifier used to stamp
+// VERIFIED + review_end pass + last_green_sha + the publication itself, and only AFTERWARDS did the engine run the
+// WP-08 partial-report cage and the BL-0178 inherited-contract check. A downgrade-to-red then took the revert path
+// with nothing compensating the stamps: last_green_sha already pointed at the refused patch, so the revert had
+// nothing to check out and the "clean base" retry rebuilt from the rejected code (canary E, FRD-03). Now the
+// verifier WRITES NOTHING and returns its verdict; the engine runs every oracle over it; only an accepted verdict
+// reaches certifyPatched — the same verify/apply split as the review-only gate + applyGate. Every caller keeps the
+// old contract: green:true = certified and stamped; anything else = red, nothing stamped.
 async function verifyPatched(frd, reviewIds) {
   const breach = await checkReviewerTestIntegrity(frd)   // BL-0184: never spawn the certifier over tampered/missing reviewer tests
   if (breach) return breach
@@ -2793,39 +2861,52 @@ async function verifyPatched(frd, reviewIds) {
   // own record) and may not return green until each one is shown closed by a passing test.
   const inherited = ((frdState.get(frd) || {}).inheritedFails) || []
   const inheritedBlock = inherited.length
-    ? `\n  **INHERITED OPEN CONTRACTS (BL-0178 — the gate recorded these as \`fail\`; you may NOT certify while any one stays open):**\n  ${inherited.map((e) => `• [${e.contractClass}] ${e.contract}${Array.isArray(e.tests) && e.tests.length ? ` — the gate's tests: ${e.tests.join(', ')}` : ''}`).join('\n  ')}\n  For EACH one, run the test file(s) that prove it now holds on the patched build (the gate's tests above when they exist in this tree, else the patch's RED-proven test for it) and report it in \`inheritedResolved\` as { contract: <its text VERBATIM as listed>, pass, tests }. "Everything is clean" REQUIRES every inherited contract pass:true with at least one test — otherwise take the red exit.`
+    ? `\n  **INHERITED OPEN CONTRACTS (BL-0178 — the gate recorded these as \`fail\`; you may NOT return green while any one stays open):**\n  ${inherited.map((e, i) => `• [${e.contractClass}] ${e.contract}${Array.isArray(e.tests) && e.tests.length ? ` — the gate's tests: ${e.tests.join(', ')}` : ''} · key ${INHERITED_KEY(i)}`).join('\n  ')}\n  For EACH one, run the test file(s) that prove it now holds on the patched build (the gate's tests above when they exist in this tree, else the patch's RED-proven test for it) and report it in \`inheritedResolved\` as { key: <its key, e.g. ${INHERITED_KEY(0)}>, contract: <its contract text as listed, without the [class] tag and the tests suffix>, pass, tests }. "Everything is clean" REQUIRES every inherited contract pass:true with at least one test — otherwise take the red exit.`
     : ''
-  const resolutionJournal = JOURNAL(
-    `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
-    ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
   const verdict = await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'verify-patch' })}INDEPENDENT post-patch verification for ${frd} (constitution rule 4: the patch agent may not certify its own fix). Re-run the objective gate yourself — trust nothing the patcher reported: the FULL FRD test files for ${frd} — the affected tests — (\`pnpm vitest run\` on them) AND whole-project \`pnpm tsc --noEmit\` + \`pnpm biome check .\`. ${reviewerTestsVerifyDirective(frd)}
   **Do NOT re-run \`pnpm knip\` here (C1b): attemptPatch already ran the whole-project knip immediately before this step (its dead-export gate, red-team-A) and nothing changed since it committed — re-running knip is a duplicate multi-second whole-project scan for no new signal (the close-out full suite covers it once more at the end).**
+  **YOU VERIFY — YOU DO NOT STAMP (BL-0191): write NOTHING, whatever the outcome** — no frontmatter or status.yaml edit, no journal/track/dashboard line, no \`git add\`, no commit. The engine checks your verdict (the WP-08 scope cage and every inherited contract below) BEFORE anything is certified; only an accepted verdict is then persisted by a separate serialized step.
 ${inheritedBlock}
-  **If everything is clean:** set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${driftFrontmatter(frd)}${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — you are the ONLY agent allowed to record a kind:"resolution" (green) line for this patch (the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { green: true }.
-  **If anything is red:** change NOTHING (no status edits, no commit) and return { green: false, failure: <what failed> } — the engine reverts + reopens.
-  **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. You are THE certification: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
+  **If everything is clean:** return { green: true, inheritedResolved, report_scope, resolved: <one line: what the patch resolved> }.
+  **If anything is red:** return { green: false, failure: <what failed> } — the engine reverts + reopens.
+  **WHOLE-PROJECT ONLY (WP-08 cage):** run the checks above unscoped — never \`verify.sh --only\`/\`--files\`. Yours is THE certification verdict: a scoped run stamps \`scope:"partial"\` and the engine will refuse your verdict outright.${REPORT_SCOPE_DIRECTIVE}`,
     { label: `verify-patch:${frd}`, phase: 'Review', model: P.worker, agentType: 'pandacorp:reviewer', schema: REPAIR_SCHEMA })
-  // WP-08 cage: this agent is one of the two that may stamp VERIFIED + advance last_green_sha. A green
-  // claim standing on a PARTIAL gate report is downgraded to a red here, so every caller falls through
-  // to exactly the path a genuinely-red verification takes (revert + reopen) — no special-casing.
-  if (verdict && verdict.green === true && isPartialReport(verdict)) {
+  if (!verdict || verdict.green !== true) return verdict
+  // WP-08 cage: a green claim standing on a PARTIAL gate report certifies nothing — refused here, before any stamp,
+  // as the same red every caller already routes (revert + reopen).
+  if (isPartialReport(verdict)) {
     refusePartial(frd, 'the independent post-patch verification')
     return { ...verdict, green: false, failure: 'verification ran a SCOPED gate (gate-report scope:"partial") — it certifies nothing (WP-08 cage)' }
   }
-  // BL-0178: a green that does not prove EVERY inherited open contract closed is a red — the same
-  // downgrade-to-red contract as the cage above (every caller then takes the genuine-red path).
-  if (verdict && verdict.green === true && inherited.length) {
-    const norm = (x) => String(x || '').replace(/\s+/g, ' ').trim()
-    const resolved = Array.isArray(verdict.inheritedResolved) ? verdict.inheritedResolved : []
-    const open = inherited.filter((e) => !resolved.some((r) => r && r.pass === true && Array.isArray(r.tests) && r.tests.length > 0
-      && (norm(r.contract) === norm(e.contract) || (contractIdOf(e.contract) && contractIdOf(r.contract) === contractIdOf(e.contract)))))
-    if (open.length) {
-      const names = open.map((e) => contractIdOf(e.contract) || e.contract).join(', ')
-      log(`⛔ ${frd}: the post-patch verifier claims GREEN but ${open.length} inherited fail contract(s) are not proven closed (${names}) — REFUSING to certify (BL-0178)`)
-      return { ...verdict, green: false, failure: `BL-0178: inherited fail contract(s) not proven closed by a passing test: ${names}` }
-    }
+  // BL-0178: a green that does not prove EVERY inherited open contract closed is a red (BL-0191: matched by key,
+  // REQ/AC id or de-decorated text — see unresolvedInherited).
+  const open = unresolvedInherited(inherited, verdict.inheritedResolved)
+  if (open.length) {
+    const names = open.map((e) => contractIdOf(e.contract) || e.contract).join(', ')
+    log(`⛔ ${frd}: the post-patch verifier claims GREEN but ${open.length} inherited fail contract(s) are not proven closed (${names}) — REFUSING to certify (BL-0178)`)
+    return { ...verdict, green: false, failure: `BL-0178: inherited fail contract(s) not proven closed by a passing test: ${names}` }
+  }
+  const stamped = await certifyPatched(frd, reviewIds, verdict)
+  if (!stamped) {
+    log(`⊘ ${frd}: the independent verification ACCEPTED the patch but the certify step did not confirm its stamp — NOT marking it verified and NOT reverting the verified code; it re-gates next pass (BL-0191)`)
+    return { ...verdict, green: false, unstamped: true, failure: 'BL-0191: the certify step did not confirm the stamp of an accepted post-patch verification' }
   }
   return verdict
+}
+// BL-0191: the stamp of an ACCEPTED post-patch verification — the serialized main-tree writer that persists what the
+// independent verifier proved and the engine checked (the applyGate of the patch ladder). It judges nothing and
+// re-runs nothing; it is spawned ONLY after every engine oracle accepted the verdict. Returns true iff it confirmed.
+async function certifyPatched(frd, reviewIds, verdict) {
+  agentSpawned++
+  const resolved = String((verdict && verdict.resolved) || '').replace(/[`\n\r]/g, ' ').slice(0, 300)
+  const resolutionJournal = JOURNAL(
+    `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"verify","role":"verifier","kind":"resolution","classification":"","seam":null,"findingKey":"","tried":"patched in place, independently verified","verdict":"green","why":"%s","confidence":"high"`,
+    ` "<the primary patched work order, else ${(reviewIds || [])[0] || frd}>" "<its attempt number, an integer>" "<its reopen_count BEFORE you reset it, an integer>" "<one line: what the patch resolved>"`)
+  const link = commitChain.then(() => agent(`You are the SOLE main-tree git writer at this instant (serialized — no other commit runs concurrently). An INDEPENDENT verifier just re-ran the objective gate over the in-place patch of ${frd} and the ENGINE accepted its verdict (WP-08 scope cage + every inherited open contract proven closed — BL-0178/BL-0191). You only PERSIST that certification: do NOT re-review, do NOT re-run the suite, do NOT edit code or tests.${resolved ? ` The verifier's summary of what the patch resolved: ${resolved}.` : ''}
+  Set the patched work orders (${(reviewIds || []).join(', ')}) \`implementation_status: VERIFIED\` and **reset their \`reopen_count: 0\`**; ${SYNC_ROLLUPS} Set last_green_sha and safe_to_test through their current owning transition.${driftFrontmatter(frd)}${reviewerTestsStageDirective(frd)}${LAST_GREEN_ORDERING} BUILD-JOURNAL (A1) — record the independent verifier's kind:"resolution" (green) line (you persist ITS verdict; the patcher never certifies itself):${resolutionJournal}${emitGateOutcome(frd, 'pass', `,"passed":${(reviewIds || []).length},"via":"patch"`)}${PATCH_RESULT(frd, 'green')}${ACHIEVEMENT(frd)} Stage .pandacorp/track.jsonl AND .pandacorp/build-journal.jsonl too and commit (Conventional Commits, scope). Return { done: true }. If you cannot complete the stamp, return { done: false, failure: <why> }.`,
+    { label: `certify-patch:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: APPLY_GATE_SCHEMA }))
+  commitChain = link.then(() => {}, () => {})   // the ONE serialized main-tree writer chain (WO commits + gate applies + this)
+  return link.then((r) => Boolean(r && r.done === true), (e) => { log(`certify-patch failed for ${frd}: ${(e && e.message) || e}`); return false })
 }
 
 // ── DR-073 fallback: revert + reopen for a clean rebuild (the old DR-070 revert logic) ──
@@ -3304,6 +3385,10 @@ async function gateAndConverge(f, reviewIds) {
 // or from an inline re-gate on the quiesced main tree). On green it APPLIES inline (sourceDir null — the gate
 // ran on main). On a reject it runs the DR-072/073/107 + BL-0001 recovery ladder — byte-for-byte the pre-C2
 // gateAndConverge body. The CONCURRENT PASS path never reaches here (the harvest applies from the worktree).
+// BL-0191: an ACCEPTED post-patch verification whose certify step did not confirm the stamp. The code is
+// independently verified, so it is never reverted; the FRD stays IN_REVIEW and re-gates next pass (the same
+// fallback as a PASS whose apply-gate did not confirm).
+function deferUnstamped(f) { reopenedFrds.push(f.frd); return 'reopened' }
 async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   phase('Review')
   // WP-08 cage, at the certification boundary: a gate that ran `--only`/`--files` stamped its report
@@ -3348,6 +3433,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       // gate and is the only one allowed to stamp VERIFIED + advance last_green_sha.
       const iv = await verifyPatched(f.frd, reviewIds)
       if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+      if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
       patchFailNote = `patch claimed green but the independent verification FAILED (${iv?.failure || 'red'})`
     } else if (patched && patched.cause === 'gate-test-defective' && (patched.defectiveTests || []).length) {
       // BL-0001 second fallback: the gate's own adversarial test is the defect — repair the TEST,
@@ -3357,6 +3443,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       if (tr && tr.green === true) {
         const iv2 = await verifyPatched(f.frd, reviewIds)
         if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+        if (iv2 && iv2.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
         patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
       } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
     } else if (patched && patched.cause === 'code' && !capHit() && !canAffordRepair(f.frd, P.judge)) {
@@ -3387,6 +3474,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         if (tr && tr.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
           if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (diagnosed defective gate test repaired)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
         }
         log(`↻ ${f.frd}: gate-test repair from diagnosis did not green — full revert + retry`)
         await revertAndReopen(f.frd, gate.reopen)
@@ -3410,6 +3498,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         if (tr && tr.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
           if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (deadlocked contract re-blessed by the independent reviewer, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
           log(`⊘ ${f.frd}: the re-bless greened but the independent verification failed (${iv?.failure || 'red'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
         } else log(`⊘ ${f.frd}: the blessed test was UPHELD (${tr?.failure || 'no declared derogation'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
         await blockEarlyNeedsOwner(f.frd, gate.reopen, diag)
@@ -3441,6 +3530,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         if (patched2 && patched2.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
           if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patch-2 diagnosis-guided, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
           log(`↻ ${f.frd}: patch-2 greened but the independent verification failed (${iv?.failure || 'red'}) — full revert + retry`)
         } else {
           log(`↻ ${f.frd}: patch-2 did not green (${patched2?.failure || 'no verdict'}) — full revert + retry`)
@@ -3818,6 +3908,10 @@ async function convergeOne(item) {
 const gatePool = PARALLEL_GATES ? Array.from({ length: GATE_SLOTS }, (_, i) => mkGateSlot(i + 1, gateSlotPath(i + 1), gateSlotPort(i + 1))) : []
 let gateReserved = 0                    // cost-weighted units reserved by in-flight gates (released at settle, X10)
 const GATE_LANDING_COST = 2             // one PASS landing on main: the stale-pin check + the apply (a re-verify adds 1)
+// BL-0192: a REOPEN landing runs the patch ladder's first rungs on main: port the reviewer tests (1) + the patch
+// (opus) + the hash check (1) + the verifier (1) + the certify stamp (1). Reserved for the landing in flight so the
+// gates launched during it cannot starve it (a revert/retry beyond that is what the loop-top brake is for).
+const GATE_LADDER_COST = 4 + COST('opus')
 const liveSlots = () => gatePool.filter((x) => x.state !== 'failed')
 const freeSlot = () => liveSlots().find((x) => !x.busy) || null
 const deferredGateLog = new Map()       // frd -> the last deferral reason logged (one line per change, never per spin)
@@ -3909,14 +4003,14 @@ function launchGateInSlot(frd, slot, est) {
   })()
   // ONE settle handler (ok or crash): the verdict joins the landing FIFO, and the slot + its reservation are
   // freed in the same tick, so a free slot always means "no gate in flight there".
-  const settle = (gate) => { gatesInFlight.delete(frd); slot.busy = null; gateReserved -= est; gateResults.push({ f: st.f, reviewIds, pin: pinSha, gate, slot: slot.id }) }
+  const settle = (gate) => { gatesInFlight.delete(frd); slot.busy = null; gateReserved -= est; gateResults.push({ f: st.f, reviewIds, pin: pinSha, gate, slot: slot.id }); laneTopUp() }   // BL-0192: a slot freed mid-landing is refilled now
   const tracked = work.then(settle, (e) => settle({ green: false, blocked_reason: 'error', failure: `gate crashed: ${(e && e.message) || e}` }))
   gatesInFlight.set(frd, tracked)
 }
 // Fill free slots from gateQueue (FIFO, skipping what is not eligible yet). Returns false iff the pool has
 // no live slot left — the caller then takes the legacy synchronous path for the rest of the run. `force`: see
 // gateConflict (the idle path's progress guarantee).
-function launchParallelGates(force = false) {
+function launchParallelGates(force = false, pinnedOnly = false) {
   if (!liveSlots().length) {
     if (concurrentGates !== false) log(`⚠ D1: every gate slot failed — falling back to the LEGACY synchronous gate path for the rest of the run`)
     concurrentGates = false
@@ -3930,12 +4024,16 @@ function launchParallelGates(force = false) {
     if (frdState.get(frd) && frdState.get(frd).gateUnlanded) { logGateDeferral(frd, 'its previous gate has not landed yet'); i++; continue }   // #2: never two gates of one FRD
     const why = gateConflict(frd, force)
     if (why) { logGateDeferral(frd, why); i++; continue }
+    // BL-0192: mid-landing, main's HEAD may hold the ladder's uncertified patch commit — never pin a gate there; an
+    // unpinned FRD waits for the next pre-landing top-up, which pins it at the quiet pre-landing HEAD.
+    if (pinnedOnly && !(frdState.get(frd) || {}).pinSha) { logGateDeferral(frd, 'no pin yet — a landing is in flight; it is pinned at the next pre-landing HEAD'); i++; continue }
     const est = gateCostEstimate(frd)
-    const pipelineBusy = gatesInFlight.size > 0 || gateResults.length > 0
+    const pipelineBusy = gatesInFlight.size > 0 || gateResults.length > 0 || Boolean(landingInFlight)
     if (MAX_AGENTS && pipelineBusy) {
-      const remaining = MAX_AGENTS - agentSpawned - gateReserved
+      const laneReserve = laneReserveLeft()
+      const remaining = MAX_AGENTS - agentSpawned - gateReserved - laneReserve
       if (remaining < est + GATE_LANDING_COST) {
-        logGateDeferral(frd, `agent budget — ~${est} units for the gate + ${GATE_LANDING_COST} for its landing, only ${remaining} left after reserving ${gateReserved} for ${gatesInFlight.size} gate(s) in flight (maxAgents ${MAX_AGENTS})`)
+        logGateDeferral(frd, `agent budget — ~${est} units for the gate + ${GATE_LANDING_COST} for its landing, only ${remaining} left after reserving ${gateReserved} for ${gatesInFlight.size} gate(s) in flight${laneReserve ? ` and ${laneReserve} for the landing in progress` : ''} (maxAgents ${MAX_AGENTS})`)
         i++
         continue
       }
@@ -3994,12 +4092,37 @@ async function stalePinGuard(frd, reviewIds, gate, launchPin) {
     gateReport: (rv && rv.gateReport) || (gate && gate.gateReport), report_scope: rv && rv.report_scope,
   }
 }
+// ── BL-0192: the landing lane no longer starves the gate slots ────────────────────────────────────────
+// The lane was awaited inline at the loop top and launchParallelGates() ran only AFTER it, so while one verdict
+// converged (a whole patch ladder: port, patch, verify, revert, retry, re-gate) every slot freed meanwhile stayed
+// idle (canary E: ≈28 slot-minutes idle, FRD-04/05 never gated in 36 min). Slots never touch main — each is a
+// detached worktree at its own pin, and stalePinGuard re-verifies on main any PASS whose pin main has moved past —
+// so a gate may start while a verdict lands. Two refill points: (1) topUpBeforeLanding, right before each landing
+// (pins unpinned queued FRDs at the quiet pre-landing HEAD, then fills the slots the previous settle freed);
+// (2) laneTopUp, at every agent boundary of the ladder and at every gate settle while the landing runs — PINNED
+// FRDs only (a mid-ladder HEAD may hold an uncertified patch). Only GATES start early: main keeps one writer (the
+// lane), no build wave is dispatched until the landing returns, and the lane itself stays exclusive.
+const landingCostOf = (gate) => (gate && gate.green !== true && Array.isArray(gate.reopen) && gate.reopen.length ? GATE_LADDER_COST : GATE_LANDING_COST)
+// The part of the in-flight landing's reserve it has not spent yet (conservative: any spawn counts against it).
+const laneReserveLeft = () => (landingInFlight ? Math.max(0, landingInFlight.reserve - (agentSpawned - landingInFlight.spawnedAt)) : 0)
+function laneTopUp() {
+  if (!landingInFlight || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
+  try { launchParallelGates(false, true) } catch (e) { log(`⚠ D1: mid-landing slot refill failed (${(e && e.message) || e}) — the loop refills after the landing`) }
+}
+async function topUpBeforeLanding() {
+  if (concurrentGates !== true || !gateQueue.length || !freeSlot()) return
+  const unpinned = gateQueue.filter((x) => { const st = frdState.get(x); return st && !st.pinSha })
+  if (unpinned.length) await capturePin(unpinned)   // the pre-landing HEAD: nothing of the coming ladder is on main yet
+  landingInFlight = { frd: gateResults[0].f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gateResults[0].gate) }   // reserve the landing's cost BEFORE the refill spends the budget
+  try { launchParallelGates() } finally { landingInFlight = null }
+}
 // Land ONE settled verdict on main (the lane). `final` (post-loop): a verdict whose slot failed is gated on
-// main right away instead of being re-queued for another slot.
+// main right away instead of being re-queued for another slot — and no slot is refilled (the run is stopping).
 async function landParallelVerdict(final = false) {
   const { f, reviewIds, pin, gate } = gateResults.shift()
   const st = frdState.get(f.frd)
   gateSettledSinceSafePoint = true
+  if (!final) landingInFlight = { frd: f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gate) }
   const builtBefore = builtFrds.length
   let ported = false   // did THIS landing copy the reviewer's tests onto main (re-verify or the reopen port)?
   try {
@@ -4037,6 +4160,7 @@ async function landParallelVerdict(final = false) {
     ported = Boolean(gate && Array.isArray(gate.reopen) && gate.reopen.length && gate.reviewerEvidence && gate.reviewerEvidence.tests.length)
     await convergeOne({ f, reviewIds, gate })   // reject / block / crash → the unchanged ladder, in the lane
   } finally {
+    landingInFlight = null
     if (st) st.gateUnlanded = false
     // A landing that did NOT certify the FRD may leave the reviewer's ported tests UNTRACKED on main (a block,
     // a budget stop, a deferred reopen) — and the next landing's `verify.sh --since` (vitest --changed runs
@@ -4101,7 +4225,7 @@ while (true) {
   if (PARALLEL_GATES) {
     // ── D1 landing lane: land ONE settled verdict (arrival order) on main, then re-check the brakes and the
     // pool — no quiesce: the other slots keep reviewing; no wave dispatch overlaps a landing. ──
-    if (gateResults.length) { await landParallelVerdict(); continue }
+    if (gateResults.length) { await topUpBeforeLanding(); await landParallelVerdict(); continue }   // BL-0192: refill free slots FIRST
   } else {
   // ── C2 harvest: apply settled PASS gates on main (serialized); queue rejects for convergence ──
   await harvestGateResults()

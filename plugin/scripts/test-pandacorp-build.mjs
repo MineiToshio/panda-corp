@@ -143,6 +143,7 @@ function defaultResponse(label) {
   if (label === 'gate-worktree') return { ok: true, created: true }         // C2: worktree prepared OK (happy path)
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }                    // C2: the freeze sha
   if (label.startsWith('apply-gate:')) return { done: true }                // C2: serialized main-tree apply of a PASS
+  if (label.startsWith('certify-patch:')) return { done: true }             // BL-0191: serialized stamp of an ACCEPTED post-patch verification
   if (label.startsWith('persist-block:')) return { done: true }             // C2: main-tree persist of a review-only gate block
   if (label.startsWith('gate-release:')) return null                        // BL-0182: answered by releaseDefault(call) — it needs the prompt (see runEngine)
   if (label.startsWith('port-reviewer-tests:') || label.startsWith('reviewer-test-hash:')) return null   // BL-0184: echo EXPECTED — see hashEchoDefault(call)
@@ -1701,7 +1702,7 @@ SCENARIOS.push({
     t.ok(patch, 'the DR-073 patch ladder ran after the reject (convergence)')
     t.ok(patch && !/GATE WORKTREE/.test(patch.prompt), 'the convergence patch runs on the MAIN tree — NOT the worktree (quiesced main)')
     t.ok(byLabel(run, 'verify-patch:frd-iii').length === 1, 'the independent post-patch verifier ran (constitution rule 4) — the ladder is unchanged')
-    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'no apply-gate on the reject path (the patch-then-verify path stamps VERIFIED itself, as pre-C2)')
+    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'no apply-gate on the reject path (the patch ladder stamps through its own certify step, BL-0191)')
     t.ok(run.result && run.result.builtFrds.includes('frd-iii'), 'the FRD converges to VERIFIED via the on-main ladder')
   },
 })
@@ -5235,7 +5236,8 @@ SCENARIOS.push({
     t.ok(card(run) && card(run) === card(b178T6Patched) && card(run) === card(b178T6Blocked), 'the three paths file the BYTE-IDENTICAL drift record')
     t.ok(/drift: \[AC-96-010\.4\]/.test((byLabel(run, 'apply-gate:frd-b178-t6')[0] || {}).prompt || ''), 'direct: apply-gate stamps drift: [AC-96-010.4]')
     const vp = byLabel(b178T6Patched, 'verify-patch:frd-b178-t6')[0]
-    t.ok(vp && /drift: \[AC-96-010\.4\]/.test(vp.prompt), 'patch path: the INDEPENDENT verifier stamps the same drift frontmatter (the FRD-03 hole: drift no longer vanishes)')
+    const cp = byLabel(b178T6Patched, 'certify-patch:frd-b178-t6')[0]
+    t.ok(cp && vp && cp.index > vp.index && /drift: \[AC-96-010\.4\]/.test(cp.prompt), 'patch path: the certify step of the INDEPENDENT verification stamps the same drift frontmatter (the FRD-03 hole: drift no longer vanishes; BL-0191 moved the stamp after the engine\'s check)')
     t.ok(vp && !/INHERITED OPEN CONTRACTS/.test(vp.prompt), 'patch path: proven drift is NOT inherited as an open contract (it has its own record)')
     t.ok(byLabel(b178T6Patched, 'patch:frd-b178-t6').length === 1 && !/AC-96-010\.4/.test(byLabel(b178T6Patched, 'patch:frd-b178-t6')[0].prompt), 'patch path: the patcher fixes only the real cycle fault, never the drift')
     t.ok(byLabel(b178T6Blocked, /^persist-block:/).length === 0 && hasLog(b178T6Blocked, /block is lifted/), 'legacy shape: a needs-owner block resting ONLY on proven drift is lifted, never persisted')
@@ -5518,7 +5520,8 @@ SCENARIOS.push({
       const vp = byLabel(run, 'verify-patch:frd-185c')[0]
       t.ok(vp && /INHERITED OPEN CONTRACTS/.test(vp.prompt) && vp.prompt.includes('AC-85-060.2') && !/• \[[^\]]+\] AC-85-070\.1/.test(vp.prompt), 'verifyPatched inherits the cycle fail only — never the proven drift')
       t.ok(vp && /THE GATE'S OWN ADVERSARIAL TESTS \(BL-0184, DR-080\)/.test(vp.prompt) && vp.prompt.includes(testPath), 'verifyPatched runs the ported reviewer test explicitly by path')
-      t.ok(vp && /drift: \[AC-85-070\.1\]/.test(vp.prompt), 'the certifying verifier stamps drift: [AC-85-070.1] in the FRD frontmatter')
+      const cp = byLabel(run, 'certify-patch:frd-185c')[0]
+      t.ok(cp && cp.index > vp.index && /drift: \[AC-85-070\.1\]/.test(cp.prompt), 'the certify step of the accepted verification stamps drift: [AC-85-070.1] in the FRD frontmatter (BL-0191)')
       t.ok(byLabel(run, /^(revert|persist-block):/).length === 0, 'no revert, no block')
       t.ok(run.result && run.result.builtFrds.includes('frd-185c'), 'the FRD lands VERIFIED')
     },
@@ -5956,6 +5959,7 @@ function d1Harness({ order = [], autoFlushAt = Infinity, verdicts = {}, staleCou
     { prefix: 'port-reviewer-tests:', response: writer((call) => promptAwareDefault(call)) },
     { prefix: 'patch:', response: writer({ green: true }) },
     { prefix: 'verify-patch:', response: writer({ green: true }) },
+    { prefix: 'certify-patch:', response: writer({ done: true }) },
     { prefix: 'unport-reviewer-tests:', response: writer((call) => ({ removed: JSON.parse((call.prompt.match(/EXPECTED \(JSON\): (\[.*?\])\. Return/) || [0, '[]'])[1]).map((x) => x.path), kept: [] })) },
   ]
   const at = (tag) => tl.indexOf(tag)
@@ -6542,6 +6546,265 @@ const xaApply = (h) => ({ prefix: 'apply-gate:', response: async (call) => {
       }
       const preFix = gcBash('bash .pandacorp/worktree-bootstrap.sh', slotDir(1))
       t.ok(!preFix.ok, 'fixture check: the pre-fix form (bootstrap from the worktree ROOT) finds no script on a nested project')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
+
+// ---- BL-0191..0193 ----
+// Canary E (docs/reviews/canary-e-partial-report.md). BL-0191: verifyPatched's BL-0178 matcher refused a PROVEN
+// id-less inherited contract (the prompt itself adds the `[class]` tag and the ` — the gate's tests: …` suffix, so
+// an exact echo could never match), and the refusal landed AFTER the verifier had already stamped VERIFIED, the
+// review_end pass and last_green_sha. BL-0192: the D1 landing lane (a whole patch ladder) was awaited before any
+// free slot was refilled. BL-0193: the digested collector ran verify.sh with no timeout, backgrounded it, and
+// polled the MAIN tree's gate-report.json instead of its slot's.
+const b191Err = 'Error — unparseable last sync SHALL show an explicit invalid-date chip'
+const b191Test = (frd) => `src/${frd}/_tests/rail.reviewer.test.tsx`
+const b191Gate = (frd, wo, extra = []) => ({
+  green: false, reopen: [wo], failure: 'invalid date renders blank',
+  findings: [{ wo, finding: `invalid date renders blank (src/${frd}/rail.tsx:12)`, failingTest: b191Test(frd), files: [`src/${frd}/rail.tsx`] }],
+  traceability: b178Trace({ contract: b191Err, contractClass: 'error', status: 'fail', tests: [b191Test(frd)] }, ...extra),
+})
+// What a certification writes: VERIFIED frontmatter, the last-green publication, the review_end pass line.
+const b191Stamps = (frd, prompt) => /implementation_status: VERIFIED/.test(prompt) || /publish last green snapshot/.test(prompt) || prompt.includes(`"kind":"review_end","frd":"${frd}","verdict":"pass"`)
+const b191Refused = (run, frd) => hasLog(run, new RegExp(`⛔ ${frd}: the post-patch verifier claims GREEN but`))
+
+// T-idless — the canary's exact echo: `error: <text> — the gate's tests: <file>` (class prefix + tests suffix).
+SCENARIOS.push({
+  name: 'BL-0191a. an id-less inherited contract echoed as "<class>: <text> — the gate\'s tests: …" (the canary E shape) is MATCHED → certified, no refusal, no revert',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b191a', 'wo-b191a-001'),
+  responses: [
+    { label: 'gate:frd-b191a', times: 1, response: b191Gate('frd-b191a', 'wo-b191a-001') },
+    { label: 'verify-patch:frd-b191a', response: { green: true, inheritedResolved: [{ contract: `error: ${b191Err} — the gate's tests: ${b191Test('frd-b191a')}`, pass: true, tests: [b191Test('frd-b191a')] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!b191Refused(run, 'frd-b191a'), 'the proven id-less contract is NOT refused (BL-0178 false negative)')
+    t.ok(byLabel(run, /^revert:/).length === 0, 'no revert of a correct patch')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b191a'), 'the FRD lands VERIFIED on its first verify-patch')
+  },
+})
+// The other echo shapes the prompt invites: the `[class]` bullet tag, unicode dash variants, the key suffix.
+SCENARIOS.push({
+  name: 'BL-0191b. "[class] <text> — the gate\'s tests: … · key INH-n" with an en-dash variant, next to an id-keyed REQ contract → both MATCHED',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b191b', 'wo-b191b-001'),
+  responses: [
+    { label: 'gate:frd-b191b', times: 1, response: b191Gate('frd-b191b', 'wo-b191b-001', [{ contract: 'REQ-91-007 — the rail lists only building/shipped', contractClass: 'requirement', status: 'fail', tests: ['src/b/_tests/rail.test.ts'] }]) },
+    { label: 'verify-patch:frd-b191b', response: { green: true, inheritedResolved: [
+      { contract: `[error]  ${b191Err.replace('—', '–')}   — the gate's tests: ${b191Test('frd-b191b')} · key INH-1`, pass: true, tests: [b191Test('frd-b191b')] },
+      { contract: 'REQ-91-007 (paraphrased by the verifier)', pass: true, tests: ['src/b/_tests/rail.test.ts'] },
+    ] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!b191Refused(run, 'frd-b191b') && byLabel(run, /^revert:/).length === 0, 'neither contract is refused')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b191b'), 'VERIFIED')
+  },
+})
+// Keyed: the verifier echoes only the INH-n key the prompt numbered the contract with.
+SCENARIOS.push({
+  name: 'BL-0191c. the verify prompt numbers each inherited contract (INH-n) and a resolution carrying that key is MATCHED even when its text is paraphrased',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b191c', 'wo-b191c-001'),
+  responses: [
+    { label: 'gate:frd-b191c', times: 1, response: b191Gate('frd-b191c', 'wo-b191c-001') },
+    { label: 'verify-patch:frd-b191c', response: { green: true, inheritedResolved: [{ key: 'INH-1', contract: 'the invalid-date chip contract', pass: true, tests: [b191Test('frd-b191c')] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vp = byLabel(run, 'verify-patch:frd-b191c')[0]
+    t.ok(vp && /INH-1/.test(vp.prompt) && /\bkey\b/.test(vp.prompt), 'the verifier is told each contract\'s key and asked to return it')
+    t.ok(!b191Refused(run, 'frd-b191c') && run.result && run.result.builtFrds.includes('frd-b191c'), 'matched by key → VERIFIED')
+  },
+})
+// T-genuine-refusal — a contract the verifier really did not prove. The ORDER is the point: nothing is stamped
+// before the engine's refusal (the verifier writes nothing; no certify step ever runs), and the revert follows.
+for (const [tag, resolved, why] of [
+  ['d', [{ contract: `error: Error — some OTHER contract — the gate's tests: ${b191Test('frd-b191d')}`, pass: true, tests: [b191Test('frd-b191d')] }], 'a different contract'],
+  ['e', [{ contract: `error: ${b191Err}`, pass: false, tests: [b191Test('frd-b191e')] }], 'the right contract with pass:false'],
+  ['f', [{ contract: `error: ${b191Err}`, pass: true, tests: [] }], 'the right contract with no test'],
+]) {
+  const frd = `frd-b191${tag}`
+  SCENARIOS.push({
+    name: `BL-0191${tag}. genuine refusal (${why}) → REFUSED, and NOTHING was stamped before it: the verifier writes nothing, no certify step runs, then revert`,
+    args: { mode: 'pro' },
+    plan: b178Plan(frd, `wo-b191${tag}-001`),
+    responses: [
+      { label: `gate:${frd}`, times: 1, response: b191Gate(frd, `wo-b191${tag}-001`) },
+      { label: `verify-patch:${frd}`, times: 1, response: { green: true, inheritedResolved: resolved } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(b191Refused(run, frd), 'the unproven certification is REFUSED (fail-loud stays)')
+      const gate = byLabel(run, `gate:${frd}`)[0]
+      const vp = byLabel(run, `verify-patch:${frd}`)[0]
+      const revert = byLabel(run, `revert:${frd}`)[0]
+      t.ok(gate && vp && revert && vp.index < revert.index, 'the refusal takes the genuine-red path (revert)')
+      t.ok(vp && !b191Stamps(frd, vp.prompt), 'the verifier\'s own prompt carries NO stamp (no VERIFIED, no last-green publication, no review_end pass)')
+      const between = run.calls.filter((c) => gate && revert && c.index > gate.index && c.index < revert.index)
+      t.ok(between.every((c) => !b191Stamps(frd, c.prompt)), `no spawn between the gate and the revert stamps anything (${between.filter((c) => b191Stamps(frd, c.prompt)).map((c) => c.label).join(', ') || 'none'})`)
+      t.ok(byLabel(run, `certify-patch:${frd}`).length === 0 || byLabel(run, `certify-patch:${frd}`)[0].index > revert.index, 'no certify step runs before the revert')
+    },
+  })
+}
+// Green path ordering: verify (writes nothing) → the ENGINE checks → a separate serialized certify step stamps.
+SCENARIOS.push({
+  name: 'BL-0191g. accepted patch → the verifier writes nothing; a separate certify-patch step AFTER it stamps VERIFIED + last_green_sha + review_end pass + drift + journal, staging the reviewer tests',
+  args: { mode: 'pro' },
+  plan: reopenPlan184('191g'),
+  responses: [
+    { label: 'gate:frd-191g', times: 1, response: REOPEN_184('191g') },
+    releaseWith184('191g'),
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!run.unmatched.length, `unmatched labels: ${run.unmatched.join(', ')}`)
+    const vp = byLabel(run, 'verify-patch:frd-191g')[0]
+    const cp = byLabel(run, 'certify-patch:frd-191g')
+    t.ok(vp && !b191Stamps('frd-191g', vp.prompt) && /write NOTHING/.test(vp.prompt), 'the verifier is told to write nothing and its prompt stamps nothing')
+    t.ok(cp.length === 1 && cp[0].index > vp.index, 'exactly one certify step, AFTER the verifier returned')
+    const p = (cp[0] || {}).prompt || ''
+    t.ok(/implementation_status: VERIFIED/.test(p) && /reopen_count: 0/.test(p) && /publish last green snapshot/.test(p) && p.includes('"kind":"review_end","frd":"frd-191g","verdict":"pass"'), 'the certify step carries the full stamp (VERIFIED, reopen_count 0, last-green ordering, review_end pass)')
+    t.ok(/"kind":"resolution"/.test(p) && /"outcome":"green"/.test(p) && /"event":"achievement"/.test(p) && /BL-0178 DRIFT/.test(p), 'journal resolution, PatchResult green, achievement and the drift replica ride in the certify step')
+    t.ok(p.includes('mission-control/src/191g/_tests/sum.reviewer.test.ts') && /git add --/.test(p), 'the certify step stages the reviewer\'s ported test file (BL-0184)')
+    t.ok(cp[0] && cp[0].opts.model === 'haiku', 'the certify step is mechanical (it persists a verdict, it judges nothing)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-191g'), 'VERIFIED')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0191h. a verifier green on a PARTIAL gate report (WP-08 cage) → refused BEFORE any certify step (the cage no longer runs after the stamp)',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b191h', 'wo-b191h-001'),
+  responses: [
+    { label: 'gate:frd-b191h', times: 1, response: b191Gate('frd-b191h', 'wo-b191h-001') },
+    { label: 'verify-patch:frd-b191h', times: 1, response: { green: true, report_scope: 'partial', inheritedResolved: [{ contract: b191Err, pass: true, tests: [b191Test('frd-b191h')] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const revert = byLabel(run, 'revert:frd-b191h')[0]
+    const cp = byLabel(run, 'certify-patch:frd-b191h')
+    t.ok(revert && (cp.length === 0 || cp[0].index > revert.index), 'the partial verdict is refused and never certified before the revert')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0191i. the certify step fails to confirm its stamp → the verified patch is NOT reverted (kept for a re-gate), FRD deferred, never counted VERIFIED',
+  args: { mode: 'pro' },
+  plan: b178Plan('frd-b191i', 'wo-b191i-001'),
+  responses: [
+    { label: 'gate:frd-b191i', times: 1, response: b191Gate('frd-b191i', 'wo-b191i-001') },
+    { label: 'verify-patch:frd-b191i', times: 1, response: { green: true, inheritedResolved: [{ contract: b191Err, pass: true, tests: [b191Test('frd-b191i')] }] } },
+    { label: 'certify-patch:frd-b191i', times: 1, response: { done: false, failure: 'index.lock' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^revert:/).length === 0, 'a stamping failure never discards independently verified code')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-b191i') && run.result.reopenedFrds.includes('frd-b191i'), 'deferred (re-gates next pass), never reported VERIFIED')
+    t.ok(hasLog(run, /frd-b191i: .*certif.*did not confirm/i), 'the failed certification is logged loudly')
+  },
+})
+
+// BL-0192 — 2 slots, 4 disjoint resume FRDs. frd-1's gate settles FIRST with a reopen; frd-2's gate is still in
+// flight and only settles DURING frd-1's patch rung. Expected: frd-3 takes the free slot BEFORE frd-1's landing
+// ladder runs, and frd-4 takes frd-2's slot WHILE the ladder is still running — never after it.
+{
+  const reopen1 = { green: false, reopen: ['wo-b192-1'], findings: [{ wo: 'wo-b192-1', finding: 'off by one (src/b1921/x.ts:3)', failingTest: 'src/b1921/_tests/x.test.ts', files: ['src/b1921/x.ts'] }], failure: 'off by one' }
+  const h = d1Harness({
+    order: ['frd-b192-1'], autoFlushAt: 2, fallbackMs: 400, verdicts: { 'frd-b192-1': reopen1 },
+    onStart: { 'frd-b192-3': ({ flush }) => flush(['frd-b192-3']), 'frd-b192-4': ({ flush }) => flush(['frd-b192-4']) },
+  })
+  const slowPatch = async (call) => {
+    h.tl.push(`start:${call.label}`)
+    h.release('frd-b192-2')                                  // slot 2's gate settles while the ladder is on its patch rung
+    await new Promise((r) => setTimeout(r, 25))
+    h.tl.push(`end:${call.label}`)
+    return { green: true }
+  }
+  const certifyWriter = async (call) => { h.tl.push(`start:${call.label}`); await new Promise((r) => setTimeout(r, 1)); h.tl.push(`end:${call.label}`); return { done: true } }
+  SCENARIOS.push({
+    name: 'BL-0192a. parallelGates — a landing ladder no longer blocks launches: frd-3 starts BEFORE frd-1\'s ladder, frd-4 takes the slot freed MID-ladder, both pinned at the pre-landing HEAD, main keeps one writer',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2 },
+    plan: d1Resume('b192', 4),
+    responses: [{ label: 'patch:frd-b192-1', response: slowPatch }, { prefix: 'certify-patch:', response: certifyWriter }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(!run.unmatched.length, `unmatched labels: ${run.unmatched.join(', ')}`)
+      const tl = h.tl
+      const idx = (tag) => tl.indexOf(tag)
+      t.ok(idx('start:frd-b192-3') >= 0 && idx('start:frd-b192-3') < idx('start:patch:frd-b192-1'), `frd-3's gate starts BEFORE frd-1's landing ladder (timeline: ${tl.join(' ')})`)
+      t.ok(idx('start:frd-b192-4') >= 0 && idx('start:frd-b192-4') < idx('end:verify-patch:frd-b192-1'), 'frd-4\'s gate starts in the slot freed MID-ladder, before frd-1\'s verify-patch returns')
+      const first = byLabel(run, 'patch:frd-b192-1')[0]
+      const last = byLabel(run, 'certify-patch:frd-b192-1')[0]
+      const during = run.calls.filter((c) => first && last && c.index > first.index && c.index < last.index)
+      t.ok(first && last && !during.some((c) => /^pin:/.test(c.label)), 'no pin is captured mid-landing (a mid-ladder HEAD may hold the uncertified patch)')
+      t.ok(!during.some((c) => /^(build|commit|dispatch):/.test(c.label)), 'no build wave / WO commit is dispatched while the landing runs (main keeps one writer)')
+      for (const k of [3, 4]) {
+        const g = byLabel(run, `gate:frd-b192-${k}`)[0]
+        t.ok(g && /pinned commit pinsha0/.test(g.prompt), `frd-${k}'s gate reviews the pre-landing pin (pinsha0)`)
+      }
+      t.ok(h.lane.max === 1, `landings stay serialized — one main-tree writer at a time (max ${h.lane.max})`)
+      t.ok(run.result && [1, 2, 3, 4].every((k) => run.result.builtFrds.includes(`frd-b192-${k}`)), `all four land VERIFIED (built: ${run.result && run.result.builtFrds.join(', ')})`)
+    },
+  })
+}
+// Flag off: the C2 topology is untouched (no D1 lane, no top-up).
+SCENARIOS.push({
+  name: 'BL-0192b. parallelGates OFF — same reopen shape: no D1 lane/top-up log, the C2 quiesce + convergence path is unchanged and every FRD verifies',
+  args: { mode: 'pro' },
+  plan: d1Resume('b192off', 3),
+  responses: [{ label: 'gate:frd-b192off-1', times: 1, response: { green: false, reopen: ['wo-b192off-1'], findings: [{ wo: 'wo-b192off-1', finding: 'bug (src/x.ts:1)', failingTest: 't.test.ts', files: ['src/x.ts'] }], failure: 'bug' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!hasLog(run, /D1/), 'no D1 log line at all with the flag off')
+    t.ok(byLabel(run, /^gate-worktree:\d/).length === 0, 'no gate slot is ever probed')
+    t.ok(run.result && ['frd-b192off-1', 'frd-b192off-2', 'frd-b192off-3'].every((f) => run.result.builtFrds.includes(f)), 'all verify')
+  },
+})
+
+// BL-0193 — the digested collector on a NESTED project, executed: its verify.sh runs in the FOREGROUND with an
+// explicit timeout and its output to a file, and the report path it reads resolves to ITS slot's
+// gate-worktree-<k>/mission-control/.pandacorp/run/gate-report.json — never the main tree's.
+{
+  const fx = gcNestedFixture('frd-b193-1')
+  gcCleanups.splice(gcCleanups.indexOf(fx.root), 1)
+  const slotDir = (k) => path.join(fx.app, `.pandacorp/run/gate-worktree-${k}`)
+  for (const k of [1, 2]) {
+    gcGit(fx.app, 'worktree', 'add', '--detach', '-q', slotDir(k), fx.pin)
+    gcWrite(path.join(slotDir(k), 'mission-control/node_modules/.bin/vitest'), '#!/bin/sh\n')
+    // a fake verify.sh: writes ITS slot's report where the real one does (relative to the project dir); 'hang' sleeps
+    gcWrite(path.join(slotDir(k), 'mission-control/.pandacorp/verify.sh'), `[ "$2" = hang ] && sleep 5\nmkdir -p .pandacorp/run && printf '{"green":true,"fresh":"slot-${k}"}' > .pandacorp/run/gate-report.json\necho verify-console-noise\n`)
+    gcWrite(path.join(slotDir(k), 'mission-control/.pandacorp/run/gate-report.json'), '{"green":false,"STALE":true}')
+  }
+  gcWrite(path.join(fx.app, '.pandacorp/run/gate-report.json'), '{"green":true,"MAIN-TREE":true}')
+  const h = d1Harness({ order: ['frd-b193-2', 'frd-b193-1'], autoFlushAt: 2 })
+  SCENARIOS.push({
+    name: 'BL-0193a. digested collector in slot k — verify.sh in the FOREGROUND with an explicit timeout, output to a file, and the report read from gate-worktree-<k>/mission-control/.pandacorp/run/gate-report.json (executed), never the main tree',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    plan: d1Resume('b193', 2),
+    responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, tests: [], ac: '' } }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const ev = byLabel(run, /^evidence:/)
+      t.ok(ev.length === 2, `both collectors ran (got ${ev.length})`)
+      for (const c of ev) {
+        const frd = c.label.slice('evidence:'.length)
+        const k = ((d1Slot(c) || '').match(/gate-worktree-(\d)$/) || [])[1]
+        t.ok(/timeout: 600000/.test(c.prompt) && /perl -e 'alarm/.test(c.prompt), `${frd}: verify.sh carries an explicit timeout (the Bash tool's timeout: 600000 AND a shell-level alarm)`)
+        t.ok(/run_in_background/.test(c.prompt) && /NEVER/.test(c.prompt) && /> "\$LOG" 2>&1/.test(c.prompt), `${frd}: foreground only (never run_in_background / a polling loop), console output to a file`)
+        const assign = (c.prompt.match(/(REPORT="[^\n`]*gate-report\.json")/) || [])[1]
+        const out = assign ? gcBash(`${assign}; printf %s "$REPORT"`, gcOs.tmpdir()) : { ok: false, out: '' }
+        t.ok(k && out.ok && out.out === path.join(slotDir(k), 'mission-control/.pandacorp/run/gate-report.json'), `${frd}: executed, REPORT resolves to gate-worktree-${k}/mission-control/.pandacorp/run/gate-report.json (got ${out.out || out.err})`)
+        t.ok(!c.prompt.includes(`${fx.app}/.pandacorp/run/gate-report.json`), `${frd}: the MAIN tree's report path is never named as the one to read`)
+        // Execute the collector's whole command from an UNRELATED cwd against a fake verify.sh: it must cd into the
+        // slot's project dir, drop the slot's stale report, and print the FRESH slot report — never main's.
+        const cmd = (c.prompt.match(/verbatim except PIN_BASE:\*\* `([^`]+)`/) || [])[1]
+        const run1 = cmd ? gcBash(cmd.replace('<PIN_BASE>', 'base0'), gcOs.tmpdir()) : { ok: false, out: '', err: 'no command in the prompt' }
+        t.ok(run1.ok && run1.out.includes(`"fresh":"slot-${k}"`) && !/STALE|MAIN-TREE/.test(run1.out) && /verify exit=0/.test(run1.out), `${frd}: executed from another cwd, the command prints slot ${k}'s FRESH report (got ${(run1.out || run1.err || '').slice(0, 160)})`)
+        t.ok(gcFs.existsSync(path.join(slotDir(k), 'mission-control/.pandacorp/run/evidence-verify.log')), `${frd}: the verify.sh console output went to the slot's log file`)
+        const hung = cmd ? gcBash(cmd.replace('<PIN_BASE>', 'hang').replace(' 540 bash ', ' 1 bash '), gcOs.tmpdir()) : { ok: false, out: '' }
+        t.ok(/verify exit=142/.test(hung.out) && /REPORT MISSING/.test(hung.out), `${frd}: the shell-level alarm really bounds a hung verify.sh (1 s here, 540 s in the engine) and the report is then reported missing (got ${(hung.out || hung.err || '').slice(0, 160)})`)
+      }
       gcFs.rmSync(fx.root, { recursive: true, force: true })
     },
   })
