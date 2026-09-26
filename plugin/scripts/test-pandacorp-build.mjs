@@ -149,6 +149,7 @@ function defaultResponse(label) {
   if (label.startsWith('port-reviewer-tests:') || label.startsWith('reviewer-test-hash:')) return null   // BL-0184: echo EXPECTED — see hashEchoDefault(call)
   if (label.startsWith('commit:')) return { committed: 1, sha: 'defaultcommitsha' }   // WP-03 fusion (ii): the real mech commit writer always reports its own sha
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
+  if (label.startsWith('find:drift:')) return { contracts: [{ contract: 'REQ-00-001 — fixture contract', contractClass: 'requirement', owner: 'none', status: 'implemented', claim: 'preexisting', evidence: { file: 'src/fixture.ts', line: 1, snippet: 'fixture()' } }], toolCalls: 12, budgetExhausted: false } // BL-0203 DRIFT_FINDER_SCHEMA — a clean whole-FRD pass
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
@@ -2891,7 +2892,10 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     t.ok(byLabel(run, /^evidence:/).length === 1, 'ONE collector for the whole split gate (not one per lens)')
-    const finders = byLabel(run, /^find:/)
+    // BL-0203: digested also spawns the diff-free `find:drift:<frd>` whole-FRD drift finder (default on under
+    // digested). It is deliberately NOT one of the four evidence-fed lenses — it never receives the pack — so the
+    // four-lens invariants below are asserted over the lenses only (F2a1/F2a2 cover the drift finder).
+    const finders = byLabel(run, /^find:(?!drift:)/)
     t.ok(finders.length === 4, `all 4 finder lenses spawned (got ${finders.length})`)
     t.ok(finders.every((c) => c.prompt.includes('WP06G-DIFF') && c.prompt.includes('WP06G-AC')), 'every finder lens received the same evidence pack')
     t.ok(finders.every((c) => /READ-ONLY/.test(c.prompt) && /do NOT run .verify\.sh./.test(c.prompt)), 'the finders stay read-only and still never run verify.sh')
@@ -7316,6 +7320,420 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     const c = byLabel(run, /^commit:/)[0]
     t.ok(c && /use `git status -- \.` \(THIS project only, BL-0202\)/.test(c.prompt) && !/use `git status` to identify/.test(c.prompt), `scoped status read in the commit step (labels: ${run.calls.map((x) => x.label).join(' ')})`)
+  },
+})
+
+// ---- F2 drift finder ----
+// BL-0203 (canary F2, BL-0201): `gateEvidence:'digested'` cut the gate's cost −62 % on canary E2 but its judge never
+// opened the files where the FRD's drift lived (an 8-read budget + a diff scoped to the reviewed WOs), so it lost
+// AC-02-010.8, REQ-03-001 and the lenient `Date.parse` in formatLastSync. The fix under test: a sonnet whole-FRD
+// DRIFT FINDER (`find:drift:<frd>`, agent pandacorp:drift-finder) that runs beside the gate's evidence collection
+// (and beside the split gate's four lenses), gets the FRD's whole contract roster and NOT the diff, and PROPOSES:
+// its report reaches the judge's prompt (DR-015: the reviewer judges), and every drift claim with a probe that the
+// judge neither recorded nor refuted with a test of its own goes through the DR-122 differential proof — proven
+// pre-existing → card + `drift:`; a regression or a reviewed-WO-owned contract failing at the pin → reopened
+// patch-first; anything else → discarded with a log (a finder claim never becomes an unproven cycle fault).
+const f2Slug = (id) => id.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+const f2Probe = (frd, id) => `.pandacorp/run/drift-probes/${frd}/${f2Slug(id)}.finder.drift-probe.ts`
+const f2Row = (frd, id, status, extra = {}) => ({
+  contract: `${id} — ${extra.text || 'fixture contract'}`,
+  contractClass: extra.contractClass || (id.startsWith('REQ') ? 'requirement' : 'acceptance-criterion'),
+  owner: extra.owner || 'none',
+  status,
+  claim: extra.claim || (extra.owner && extra.owner !== 'none' ? 'cycle' : 'preexisting'),
+  evidence: { file: extra.file || 'src/lib/fixture.ts', line: extra.line || 1, snippet: extra.snippet || 'fixture()' },
+  ...(status === 'drift' ? { probe_test: extra.probe || f2Probe(frd, id), direction: extra.direction || 'code' } : {}),
+  why: extra.why || 'fixture',
+})
+const f2Finding = (rows, extra = {}) => ({ contracts: rows, toolCalls: 31, budgetExhausted: false, ...extra })
+const f2Proof = ({ frd, wos, owned, probes, baseValid = true }) => ({ output: JSON.stringify({
+  ok: true, version: 1, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'no valid base',
+  owned: Object.fromEntries(wos.map((w) => [`docs/frds/${frd}/work-orders/${w}.md`, { sourceRequirements: owned, ids: owned }])),
+  probes: probes.map(([id, head, base]) => ({ path: f2Probe(frd, id), stored: `.pandacorp/run/gate-evidence/${frd}/drift/${f2Slug(id)}.finder.drift-probe.ts`, head: head.map(b178Run), base: base.map(b178Run) })),
+  cleanup: { ok: true, leftover: [] },
+}) })
+const f2Pack = (tag) => ({ report: wp06GreenReport, diffStat: ` src/${tag}/x.ts | 3 ++- F2-STAT-${tag}`, diff: `+// F2-DIFF-${tag}`, truncated: false, ac: `AC-80-001.1 WHEN F2-AC-${tag} THE SYSTEM SHALL hold` })
+const f2Plan = (frd, wo, extra = {}) => mkPlan([{ frd, deps: [], workOrders: [{ ...mkWo(wo, 'PLANNED', { frd, artifacts: [`src/${frd}/**`], reopen_count: extra.reopen_count }), acText: extra.acText }, ...(extra.verified || [])] }])
+// A rendezvous: a response that resolves only once another call has been MADE proves the two ran concurrently
+// (a sequential engine would never make the other call while this one is pending — the wait times out instead).
+function f2Rendezvous() {
+  const marks = new Set()
+  const seen = {}
+  const mark = (tag, value) => (call) => { marks.add(tag); return typeof value === 'function' ? value(call) : value }
+  const waitFor = async (tag, ms = 400) => {
+    const t0 = Date.now()
+    while (Date.now() - t0 < ms) { if (marks.has(tag)) return true; await new Promise((r) => setTimeout(r, 2)) }
+    return false
+  }
+  const finderAfter = (tag, finding) => async () => { seen[tag] = await waitFor(tag); return finding }
+  return { mark, finderAfter, seen }
+}
+
+// (a) serial first gate, digested: ONE finder, sonnet, in the pinned slot, launched concurrently with the evidence
+// collector; it gets the FRD's whole roster (a VERIFIED WO included) and the method — never the diff or the pack.
+{
+  const rv = f2Rendezvous()
+  SCENARIOS.push({
+    name: 'F2a1. digested (serial first gate) — find:drift:<frd> spawns ONCE, sonnet/medium, in the pinned slot, CONCURRENT with evidence:<frd>; gets the whole FRD roster, never the diff; its report reaches the judge',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan('frd-f2a1', 'wo-f2a1-002', { acText: 'AC-80-002.1 WHEN F2A1-CYCLE-AC THE SYSTEM SHALL hold', verified: [mkWo('wo-f2a1-001', 'VERIFIED', { frd: 'frd-f2a1', artifacts: ['src/f2a1-old/**'] })] }),
+    responses: [
+      { prefix: 'evidence:', response: rv.mark('evidence', f2Pack('f2a1')) },
+      { prefix: 'find:drift:', response: rv.finderAfter('evidence', f2Finding([
+        f2Row('frd-f2a1', 'REQ-80-001', 'implemented', { file: 'src/lib/portfolio.ts', line: 335, snippet: 'F2A1-IMPL-SNIPPET' }),
+        f2Row('frd-f2a1', 'AC-80-002.1', 'implemented', { owner: 'wo-f2a1-002' }),
+      ])) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const fd = byLabel(run, /^find:drift:/)
+      t.ok(fd.length === 1 && fd[0].label === 'find:drift:frd-f2a1', `exactly ONE finder, labelled find:drift:<frd> (got ${fd.map((c) => c.label).join(', ')})`)
+      const f = fd[0]
+      t.ok(f && f.opts.model === 'sonnet' && f.opts.effort === 'medium', `the finder runs on sonnet at effort medium (got ${f && f.opts.model}/${f && f.opts.effort})`)
+      t.ok(f && f.opts.agentType === 'pandacorp:drift-finder' && f.opts.fallbackAgentType === 'pandacorp:reviewer', 'agentType pandacorp:drift-finder, degrading honestly to the reviewer definition (still sonnet) on a stale session')
+      t.ok(f && /^Work from the GATE WORKTREE/.test(f.prompt) && /pinned commit/.test(f.prompt), 'it reads the code in the PINNED gate worktree, not the moving main tree')
+      t.ok(rv.seen.evidence === true, 'the collector was spawned WHILE the finder was still running (concurrent, not sequential)')
+      t.ok(f && /Whole-FRD drift finder method/.test(f.prompt) && /docs\/frds\/frd-f2a1\/frd\.md/.test(f.prompt), 'the finder carries the method and the FRD it inventories')
+      t.ok(f && /wo-f2a1-001 · VERIFIED/.test(f.prompt) && /wo-f2a1-002 · PLANNED|wo-f2a1-002 · IN_REVIEW/.test(f.prompt), 'it gets the WHOLE roster of the FRD, the VERIFIED foundation included (where drift lives)')
+      t.ok(f && /F2A1-CYCLE-AC/.test(f.prompt), "it gets the planner's verbatim criteria of the cycle's work orders")
+      t.ok(f && /at most 60 tool calls/.test(f.prompt), 'an explicit tool budget (60) instead of the digested 8-read cap')
+      t.ok(f && /\.pandacorp\/run\/drift-probes\/frd-f2a1\/<contract-id-slug>\.finder\.drift-probe\.ts/.test(f.prompt), 'probes go to the finder-only path the DR-122 proof accepts')
+      t.ok(f && !/F2-DIFF-f2a1/.test(f.prompt) && !/F2-STAT-f2a1/.test(f.prompt) && !/ATTACHMENT 2\/3/.test(f.prompt) && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(f.prompt), 'the finder NEVER receives the diff or the evidence pack')
+      const gate = byLabel(run, 'gate:frd-f2a1')[0]
+      t.ok(gate && f && gate.index > f.index, 'the judge spawns after the finder')
+      t.ok(gate && /WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt) && /F2A1-IMPL-SNIPPET/.test(gate.prompt) && /src\/lib\/portfolio\.ts:335/.test(gate.prompt), "the finder's report (with its file:line pointers) reaches the judge's prompt")
+      t.ok(gate && /not a verdict/i.test(gate.prompt) && /you are the judge/i.test(gate.prompt), 'framed as a proposal — the reviewer stays the judge (DR-015)')
+      t.ok(run.result && run.result.builtFrds.includes('frd-f2a1'), 'the FRD verified')
+    },
+  })
+}
+// (a) split gate, digested: the finder overlaps the four lenses; the lenses stay four (and never see the report);
+// the closer gets the report.
+// (Under parallelGates — the canary's configuration — the collector runs inline in the slot link, so the finder
+// overlaps the collector AND the lenses. On the single legacy slot it overlaps the collector only: that link must
+// hold the one worktree until the finder has read it, before the chain may check out another pin.)
+{
+  const rv = f2Rendezvous()
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'F2a2. digested SPLIT gate (parallelGates slot) — find:drift runs IN PARALLEL with the 4 finder lenses (still 4 lenses, report-free); the closer receives the finder report',
+    args: { mode: 'powerful', gateEvidence: 'digested', parallelGates: true, gateSlots: 1 },
+    plan: f2Plan('frd-f2a2', 'wo-f2a2-001', { reopen_count: 1 }),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('f2a2') },
+      { prefix: 'find:drift:', response: rv.finderAfter('lens', f2Finding([f2Row('frd-f2a2', 'REQ-80-010', 'implemented', { snippet: 'F2A2-IMPL' })])) },
+      { label: /^find:(?!drift:)/, response: rv.mark('lens', { findings: [] }) },
+      ...h.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const lenses = byLabel(run, /^find:(?!drift:)/)
+      t.ok(lenses.length === 4, `the four split lenses still spawn (got ${lenses.length})`)
+      t.ok(byLabel(run, /^find:drift:/).length === 1, 'plus exactly one drift finder')
+      t.ok(rv.seen.lens === true, 'a lens was spawned WHILE the finder was still running (the finder overlaps the lenses)')
+      t.ok(lenses.every((c) => !/WHOLE-FRD DRIFT FINDER REPORT/.test(c.prompt)), 'the lenses stay independent of the finder report')
+      const closer = byLabel(run, 'gate:frd-f2a2')[0]
+      t.ok(closer && /WHOLE-FRD DRIFT FINDER REPORT/.test(closer.prompt) && /F2A2-IMPL/.test(closer.prompt) && closer.opts.model === 'opus', 'the opus closer receives the report')
+      t.ok(run.result && run.result.builtFrds.includes('frd-f2a2'), 'the FRD verified')
+    },
+  })
+}
+// (b) a pre-existing drift the judge did not record: the engine submits the finder's claim to the DR-122 proof.
+SCENARIOS.push({
+  name: 'F2b1. a finder DRIFT with a probe that the judge ignored → merged as a claim → drift-proof runs the finder probe → proven pre-existing → card + drift: frontmatter; the cycle is not blocked',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2b1', 'wo-f2b1-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b1') },
+    { prefix: 'find:drift:', response: f2Finding([
+      f2Row('frd-f2b1', 'REQ-81-001', 'drift', { text: 'architecture projects SHALL NOT appear', file: 'src/lib/portfolio.ts', line: 335, snippet: 'ACTIVE_PHASES = ["design", "architecture"]' }),
+      f2Row('frd-f2b1', 'AC-81-009.1', 'implemented', { owner: 'wo-f2b1-001' }),
+    ]) },
+    { label: 'gate:frd-f2b1', response: { green: true, testFiles: [], traceability: validTraceability } },
+    { prefix: 'drift-proof:', response: f2Proof({ frd: 'frd-f2b1', wos: ['wo-f2b1-001'], owned: ['AC-81-009.1'], probes: [['REQ-81-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-f2b1')[0]
+    t.ok(gate && gate.prompt.includes(f2Probe('frd-f2b1', 'REQ-81-001')) && /ACTIVE_PHASES/.test(gate.prompt), 'the judge saw the drift claim, its evidence and its probe')
+    const proof = byLabel(run, 'drift-proof:frd-f2b1')
+    t.ok(proof.length === 1 && proof[0].prompt.includes(`--probe '${f2Probe('frd-f2b1', 'REQ-81-001')}'`), "the engine proved the FINDER's probe with the DR-122 differential run")
+    t.ok(proof[0] && /GATE WORKTREE|gate-worktree/.test(proof[0].prompt), 'the proof reads the probe from the slot the finder wrote it in')
+    t.ok(hasLog(run, /drift finder.*REQ-81-001.*(submitted|merged)/i), 'the merge of an un-adjudicated finder claim is logged')
+    t.ok(hasLog(run, /REQ-81-001 is PROVEN pre-existing drift/), 'proven pre-existing by the same predicate as a reviewer claim')
+    const rec = byLabel(run, /^drift-record:/)
+    t.ok(rec.length === 1 && /REQ-81-001/.test(rec[0].prompt), 'a draft card is filed for the owner')
+    const apply = byLabel(run, 'apply-gate:frd-f2b1')[0]
+    t.ok(apply && /drift: \[REQ-81-001\]/.test(apply.prompt), 'the certifying landing writes the drift: replica')
+    t.ok(byLabel(run, /^patch:/).length === 0 && run.result && run.result.builtFrds.includes('frd-f2b1'), 'never a block, never a reopen: the FRD verified')
+  },
+})
+SCENARIOS.push({
+  name: 'F2b2. a finder DRIFT on a contract a REVIEWED work order owns (the formatLastSync Date.parse case), which the judge passed without a test of its own → probe fails at the pin → cycle fault → reopened patch-first with the finder probe as the RED test',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2b2', 'wo-f2b2-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b2') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2b2', 'AC-82-007.2', 'drift', { owner: 'wo-f2b2-001', text: 'an unparseable date SHALL render "unknown"', file: 'src/lib/formatLastSync.ts', line: 12, snippet: 'if (Number.isNaN(Date.parse(date)))', why: 'V8 parses "N/A 3" as 2001-03-01' })]) },
+    { label: 'gate:frd-f2b2', times: 1, response: { green: true, testFiles: ['src/f2b2/_tests/new.reviewer.test.ts'], traceability: [...validTraceability, { contract: 'AC-82-007.2 — an unparseable date SHALL render "unknown"', contractClass: 'acceptance-criterion', status: 'pass', tests: ['src/f2b2/_tests/old-month13.test.ts'] }] } },
+    { prefix: 'drift-proof:', response: f2Proof({ frd: 'frd-f2b2', wos: ['wo-f2b2-001'], owned: ['AC-82-007.2'], probes: [['AC-82-007.2', ['fail', 'fail'], ['load', 'load']]] }) },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-82-007.2 — an unparseable date SHALL render "unknown"', pass: true, tests: ['src/f2b2/_tests/lenient.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof:frd-f2b2').length === 1, 'the claim was proven, not trusted')
+    t.ok(hasLog(run, /AC-82-007\.2.*CYCLE FAULT/), 'owned + failing on an assertion at the pin → a cycle fault')
+    const patch = byLabel(run, 'patch:frd-f2b2')[0]
+    t.ok(patch && /AC-82-007\.2/.test(patch.prompt) && patch.prompt.includes('.pandacorp/run/gate-evidence/frd-f2b2/drift/ac-82-007-2.finder.drift-probe.ts'), 'patch-first, with the finder probe handed over as the RED-proven failing test')
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card: it is this cycle\'s defect, not legacy drift')
+    const vp = byLabel(run, 'verify-patch:frd-f2b2')[0]
+    t.ok(vp && /INHERITED OPEN CONTRACTS/.test(vp.prompt) && /AC-82-007\.2/.test(vp.prompt), 'the independent verifier must prove the contract closed')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f2b2'), 'the FRD verified after the patch')
+  },
+})
+SCENARIOS.push({
+  name: 'F2b3. the judge REFUTES a finder drift with a test of its own (status pass + that test in testFiles) → the claim is dropped before any proof (DR-015: the reviewer is the judge)',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2b3', 'wo-f2b3-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b3') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2b3', 'AC-83-004.1', 'drift', { text: 'the chip SHALL be shown' })]) },
+    { label: 'gate:frd-f2b3', response: { green: true, testFiles: ['src/f2b3/_tests/chip.reviewer.test.ts'], traceability: [...validTraceability, { contract: 'AC-83-004.1 — the chip SHALL be shown', contractClass: 'acceptance-criterion', status: 'pass', tests: ['src/f2b3/_tests/chip.reviewer.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-proof:/).length === 0, 'no proof: the judge refuted the claim with its own passing test')
+    t.ok(hasLog(run, /AC-83-004\.1.*refuted by the reviewer/i), 'the refutation is logged, never silent')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f2b3'), 'the FRD verified')
+  },
+})
+SCENARIOS.push({
+  name: 'F2b4. a finder claim whose probe PASSES at the pin → discarded with a log; no card, no reopen',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2b4', 'wo-f2b4-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b4') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2b4', 'AC-84-002.1', 'drift')]) },
+    { label: 'gate:frd-f2b4', response: { green: true, testFiles: [], traceability: validTraceability } },
+    { prefix: 'drift-proof:', response: f2Proof({ frd: 'frd-f2b4', wos: ['wo-f2b4-001'], owned: ['AC-84-009.1'], probes: [['AC-84-002.1', ['pass', 'pass'], []]] }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof:frd-f2b4').length === 1, 'the claim was proven')
+    t.ok(hasLog(run, /AC-84-002\.1 DISCARDED/), 'discarded, loudly')
+    t.ok(byLabel(run, /^drift-record:/).length === 0 && byLabel(run, /^patch:/).length === 0, 'no card, no reopen')
+    const apply = byLabel(run, 'apply-gate:frd-f2b4')[0]
+    t.ok(apply && !/drift: \[/.test(apply.prompt), 'no drift: replica')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f2b4'), 'the FRD verified')
+  },
+})
+SCENARIOS.push({
+  name: 'F2b5. an UNPROVEN finder claim (not owned, unloadable at last_green) → discarded with a log — never an unproven cycle fault that reds a green judge',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2b5', 'wo-f2b5-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b5') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2b5', 'AC-85-003.1', 'drift')]) },
+    { label: 'gate:frd-f2b5', response: { green: true, testFiles: [], traceability: validTraceability } },
+    { prefix: 'drift-proof:', response: f2Proof({ frd: 'frd-f2b5', wos: ['wo-f2b5-001'], owned: ['AC-85-009.1'], probes: [['AC-85-003.1', ['fail', 'fail'], ['load', 'load']]] }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /AC-85-003\.1.*unproven.*discarded/i), 'discarded as unproven, loudly')
+    t.ok(byLabel(run, /^patch:/).length === 0 && byLabel(run, /^drift-record:/).length === 0, 'no reopen and no card')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f2b5'), 'the FRD verified')
+  },
+})
+SCENARIOS.push({
+  name: "F2b6. driftPolicy:'block' (the DR-122 rollback switch) — the finder report still reaches the judge, but the engine never merges its claims",
+  args: { mode: 'pro', gateEvidence: 'digested', driftPolicy: 'block' },
+  plan: f2Plan('frd-f2b6', 'wo-f2b6-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2b6') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2b6', 'AC-86-001.1', 'drift')]) },
+    { label: 'gate:frd-f2b6', response: { green: true, testFiles: [], traceability: validTraceability } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-f2b6')[0]
+    t.ok(gate && /WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt), 'the report still informs the judge')
+    t.ok(byLabel(run, /^drift-proof:/).length === 0, 'no merge, no proof under the rollback switch')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f2b6'), 'the FRD verified')
+  },
+})
+// (c) when the finder runs at all.
+SCENARIOS.push({
+  name: 'F2c1. explore (the default) with no driftFinder flag → no find:drift spawn, no report block',
+  args: { mode: 'pro' },
+  plan: f2Plan('frd-f2c1', 'wo-f2c1-001'),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:drift:/).length === 0, 'no finder in explore by default')
+    const gate = byLabel(run, 'gate:frd-f2c1')[0]
+    t.ok(gate && !/WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt), 'no report block')
+  },
+})
+SCENARIOS.push({
+  name: 'F2c2. explore + driftFinder:true → the finder runs in explore too (opt-in)',
+  args: { mode: 'pro', driftFinder: true },
+  plan: f2Plan('frd-f2c2', 'wo-f2c2-001'),
+  responses: [{ prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2c2', 'REQ-87-001', 'implemented', { snippet: 'F2C2-IMPL' })]) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:drift:/).length === 1 && byLabel(run, /^evidence:/).length === 0, 'the finder ran without a collector')
+    const gate = byLabel(run, 'gate:frd-f2c2')[0]
+    t.ok(gate && /F2C2-IMPL/.test(gate.prompt) && /Run the FOCUSED gate/.test(gate.prompt), 'the explore judge gets the report on top of its explore contract')
+  },
+})
+SCENARIOS.push({
+  name: 'F2c3. digested + driftFinder:false → no finder (the escape hatch); an invalid driftFinder value warns and keeps the default',
+  args: { mode: 'pro', gateEvidence: 'digested', driftFinder: false },
+  plan: f2Plan('frd-f2c3', 'wo-f2c3-001'),
+  responses: [{ prefix: 'evidence:', response: f2Pack('f2c3') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:drift:/).length === 0, 'no finder when turned off')
+    const gate = byLabel(run, 'gate:frd-f2c3')[0]
+    t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt) && !/WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt), 'plain digested gate')
+  },
+})
+SCENARIOS.push({
+  name: 'F2c4. an invalid args.driftFinder value is logged and falls back to the mode default (on under digested)',
+  args: { mode: 'pro', gateEvidence: 'digested', driftFinder: 'maybe' },
+  plan: f2Plan('frd-f2c4', 'wo-f2c4-001'),
+  responses: [{ prefix: 'evidence:', response: f2Pack('f2c4') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /args\.driftFinder='maybe'/), 'the bad value is named in the log')
+    t.ok(byLabel(run, /^find:drift:/).length === 1, 'the digested default (on) applies')
+  },
+})
+SCENARIOS.push({
+  name: 'F2c5. a dead / malformed finder (null, no contracts) is a LOUD DriftFinderFallback — the gate still runs, without a report block, never on a silent empty list (DR-078)',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan([
+    { frd: 'frd-f2c5a', deps: [], workOrders: [mkWo('wo-f2c5a-001', 'PLANNED', { frd: 'frd-f2c5a', artifacts: ['src/f2c5a/**'] })] },
+    { frd: 'frd-f2c5b', deps: [], workOrders: [mkWo('wo-f2c5b-001', 'PLANNED', { frd: 'frd-f2c5b', artifacts: ['src/f2c5b/**'] })] },
+  ]),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2c5') },
+    { label: 'find:drift:frd-f2c5a', response: null },
+    { label: 'find:drift:frd-f2c5b', response: { contracts: [] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /DriftFinderFallback frd-f2c5a/) && hasLog(run, /DriftFinderFallback frd-f2c5b.*no contracts/), 'both degradations are logged with their reason')
+    const gates = byLabel(run, /^gate:frd-f2c5/)
+    t.ok(gates.length === 2 && gates.every((g) => !/WHOLE-FRD DRIFT FINDER REPORT/.test(g.prompt)), 'both gates ran, without a report')
+    t.ok(run.result && run.result.builtFrds.length === 2, 'both FRDs verified')
+  },
+})
+// (d) an UNKNOWN on a contract the cycle's work orders own obliges the judge to deep-review it.
+SCENARIOS.push({
+  name: 'F2d1. UNKNOWN on a cycle-owned contract → the split CLOSER is told it MUST deep-review it (outside its read budget); non-cycle unknowns are listed apart',
+  args: { mode: 'powerful', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2d1', 'wo-f2d1-001', { reopen_count: 1 }),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2d1') },
+    { label: /^find:(?!drift:)/, response: { findings: [] } },
+    { prefix: 'find:drift:', response: f2Finding([
+      f2Row('frd-f2d1', 'AC-88-003.2', 'unknown', { owner: 'wo-f2d1-001', why: 'no reference to the chip found' }),
+      f2Row('frd-f2d1', 'AC-88-011.1', 'unknown', { why: 'budget exhausted' }),
+    ], { budgetExhausted: true }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const closer = byLabel(run, 'gate:frd-f2d1')[0]
+    const p = closer ? closer.prompt : ''
+    const cycleSection = (p.match(/UNKNOWN ON THIS CYCLE'S CONTRACTS[\s\S]*?(?=\n\s*\(3\))/) || [''])[0]
+    t.ok(/MUST deep-review/.test(cycleSection) && /AC-88-003\.2/.test(cycleSection) && !/AC-88-011\.1/.test(cycleSection), 'the cycle-owned unknown is singled out as a MUST deep-review item')
+    t.ok(/do NOT count against your read budget/.test(cycleSection), 'its review is outside the digested read budget')
+    t.ok(/non-empty `tests`/.test(cycleSection), 'it must come back in traceability with a test')
+    t.ok(/AC-88-011\.1/.test(p), 'the non-cycle unknown is still listed')
+    t.ok(/budget ran out/i.test(p), "the finder's exhausted budget is disclosed to the judge")
+  },
+})
+SCENARIOS.push({
+  name: 'F2d2. the same obligation on the SERIAL gate (first attempt)',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2d2', 'wo-f2d2-001', { acText: 'AC-89-001.1 WHEN F2D2 THE SYSTEM SHALL hold' }),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2d2') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2d2', 'AC-89-001.1', 'unknown', { owner: 'none' })]) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-f2d2')[0]
+    const cycleSection = gate ? ((gate.prompt.match(/UNKNOWN ON THIS CYCLE'S CONTRACTS[\s\S]*?(?=\n\s*\(3\))/) || [''])[0]) : ''
+    t.ok(/MUST deep-review/.test(cycleSection) && /AC-89-001\.1/.test(cycleSection), "a contract in the planner's criteria of a reviewed WO counts as the cycle's even when the finder named no owner")
+  },
+})
+// (f) the report is scoped to the gate that ran with it: a re-gate on main neither re-spawns the finder nor
+// re-injects a report whose probes live in a released slot.
+SCENARIOS.push({
+  name: 'F2f. a REJECT re-gate on main carries no finder report and spawns no second finder',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-f2f', 'wo-f2f-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('f2f') },
+    { prefix: 'find:drift:', response: f2Finding([f2Row('frd-f2f', 'REQ-90-001', 'implemented', { snippet: 'F2F-IMPL' })]) },
+    { label: 'gate:frd-f2f', times: 1, response: { green: false, failure: 'integration is red' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-f2f')
+    t.ok(gates.length === 2, `one reject + one re-gate (got ${gates.length})`)
+    t.ok(gates[0] && /F2F-IMPL/.test(gates[0].prompt), 'the pinned gate had the report')
+    t.ok(gates[1] && !/WHOLE-FRD DRIFT FINDER REPORT/.test(gates[1].prompt), 'the re-gate on main does not')
+    t.ok(byLabel(run, /^find:drift:/).length === 1, 'no second finder')
+  },
+})
+// (e) budget: the finder is one sonnet unit (COST('sonnet') = 1) and the parallel-gate reservation counts it.
+// pre-loop 8 (precheck 1 + baseline 3 + plan 3 + pin 1); a digested gate link with the finder is probe 1 +
+// collector 1 + finder 1 + opus judge 3 + release 1 = 7 (6 without it), so with maxAgents 20 the second gate is
+// deferred and the log names the estimate.
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'F2e1. budget — the parallel-gate reservation counts the finder: a digested gate link is ~7 units (probe + collector + finder + opus judge + release)',
+    args: { mode: 'pro', parallelGates: true, gateEvidence: 'digested', maxAgents: 20 },
+    plan: d1Resume('f2e1', 2),
+    responses: [{ prefix: 'evidence:', response: f2Pack('f2e1') }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-f2e1-2 deferred: agent budget — ~7 units for the gate/), `the reservation includes the finder (${run.logs.filter((l) => /deferred: agent budget/.test(l)).join(' | ')})`)
+    },
+  })
+}
+{
+  const h = d1Harness()
+  SCENARIOS.push({
+    name: 'F2e2. budget — with driftFinder:false the same digested gate link is ~6 units',
+    args: { mode: 'pro', parallelGates: true, gateEvidence: 'digested', maxAgents: 20, driftFinder: false },
+    plan: d1Resume('f2e2', 2),
+    responses: [{ prefix: 'evidence:', response: f2Pack('f2e2') }, ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /gate for frd-f2e2-2 deferred: agent budget — ~6 units for the gate/), `no finder, no reservation for it (${run.logs.filter((l) => /deferred: agent budget/.test(l)).join(' | ')})`)
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'F2e3. static recount — the finder is ONE new sonnet spawn site (not MECH: the 25 MECH sites are unchanged); its agent exists on sonnet; its method is the generated copy of drift-finder.md',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    // Not a MECH site: the finder reads and judges code against a spec (a STANDARD-tier task), so it is a
+    // sonnet spawn with its own agent, never MECH_AGENT(...). The WP03a count (25) therefore does not move.
+    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 25, 'the 25 MECH_AGENT sites are unchanged')
+    t.ok((source.match(/agentType: 'pandacorp:drift-finder'/g) || []).length === 1, 'exactly one pandacorp:drift-finder spawn site')
+    t.ok(/label: `find:drift:\$\{frd\}`[^\n]*model: 'sonnet'[^\n]*effort: 'medium'/.test(source), 'that site is sonnet at effort medium')
+    const agentMd = readFileSync(path.resolve(__dirname, '../agents/drift-finder.md'), 'utf8')
+    t.ok(/^model: sonnet$/m.test(agentMd) && /^tools: Read, Grep, Glob, Bash$/m.test(agentMd), 'plugin/agents/drift-finder.md: model sonnet, tools Read/Grep/Glob/Bash')
+    const block = (agentMd.match(/<!-- DRIFT_FINDER_START -->([\s\S]*?)<!-- DRIFT_FINDER_END -->/) || [])[1]
+    t.ok(block && source.includes(`const DRIFT_FINDER_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'DRIFT_FINDER_DIRECTIVE is byte-identical to the generated agent block')
   },
 })
 

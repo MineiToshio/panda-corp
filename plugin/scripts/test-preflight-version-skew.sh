@@ -37,20 +37,20 @@ write_session_metadata() { # $1 version
   printf '{"name":"pandacorp","version":"%s"}\n' "$1" > "$FAKE_PLUGIN/runtime/plugin-metadata.json"
 }
 write_full_agents() { # the complete real roster, including mech (no skew)
-  for slug in analytics architect backend-dev copywriter designer devops frontend-dev implementer \
+  for slug in analytics architect backend-dev copywriter designer devops drift-finder frontend-dev implementer \
               librarian mech product-manager researcher reviewer security-auditor test-writer; do
     printf '# %s\n' "$slug" > "$FAKE_PLUGIN/agents/$slug.md"
   done
 }
 write_agents_missing_mech() { # the pre-WP-03 roster — exactly the BL-0141 incident's session shape
-  for slug in analytics architect backend-dev copywriter designer devops frontend-dev implementer \
+  for slug in analytics architect backend-dev copywriter designer devops drift-finder frontend-dev implementer \
               librarian product-manager researcher reviewer security-auditor test-writer; do
     printf '# %s\n' "$slug" > "$FAKE_PLUGIN/agents/$slug.md"
   done
   rm -f "$FAKE_PLUGIN/agents/mech.md"
 }
 write_agents_missing_reviewer() { # an ORACLE type absent (DR-015 — no fallback judge) — must go RED
-  for slug in analytics architect backend-dev copywriter designer devops frontend-dev implementer \
+  for slug in analytics architect backend-dev copywriter designer devops drift-finder frontend-dev implementer \
               librarian mech product-manager researcher security-auditor test-writer; do
     printf '# %s\n' "$slug" > "$FAKE_PLUGIN/agents/$slug.md"
   done

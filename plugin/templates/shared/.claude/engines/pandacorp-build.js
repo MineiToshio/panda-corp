@@ -105,6 +105,20 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
 //     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
 //     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
+//   args.driftFinder: BL-0203 (canary F2) — the WHOLE-FRD DRIFT FINDER. **Default ON under gateEvidence:'digested',
+//     OFF under 'explore'**; `true` turns it on in explore too, `false` turns it off. Canary E2 measured why digested
+//     needs it: the judge's 8-read budget and a diff scoped to the reviewed WOs never reached the VERIFIED code where
+//     the FRD's drift lived (AC-02-010.8, REQ-03-001 lost; recall 2/5 vs explore's 4/5). One sonnet
+//     `find:drift:<frd>` agent (pandacorp:drift-finder, effort medium, ≤ DRIFT_FINDER_TOOL_BUDGET tool calls) runs in
+//     the gate's pinned worktree CONCURRENTLY with the evidence collector (and so beside the split gate's lenses),
+//     receives the FRD's whole contract roster — never the diff — and reports implemented | drift | unknown per
+//     contract with file:line evidence, writing a probe per drift. It PROPOSES: the report reaches the judge's
+//     prompt (DR-015), and every drift claim the judge neither recorded as a fail nor refuted with a test of its own
+//     goes through the DR-122 differential proof (finalizeGate): proven pre-existing → card + `drift:`; a regression,
+//     or a reviewed-WO-owned contract failing on an assertion at the pin → reopened patch-first; anything unproven →
+//     discarded with a log. Cost: 1 sonnet unit in maxAgents (COST('sonnet')). A dead/malformed finder is a logged
+//     DriftFinderFallback; the gate always runs. Only the pinned gate that launched it sees its report; re-gates on
+//     main do not (its probes live in the released slot).
 //   args.gateContextScope: OPT-IN (BL-0188, **default FALSE** until canary E measures it) — proposal 38
 //     addendum lever (g). Adds a CONTEXT-SCOPE directive to every FRD gate (serial, split finders and
 //     closer): read frd.md and this cycle's WOs in full, the FRD's other (VERIFIED) WOs header-only, the
@@ -252,6 +266,15 @@ const GATE_EVIDENCE = (args && args.gateEvidence === 'digested') ? 'digested' : 
 if (args && args.gateEvidence !== undefined && args.gateEvidence !== 'explore' && args.gateEvidence !== 'digested') {
   log(`⚠ args.gateEvidence='${args.gateEvidence}' no es 'explore' ni 'digested' — usando 'explore' (WP-06 fail-closed)`)
 }
+// BL-0203: see the arg doc above. Default = on iff the gate runs digested; any other value is named in the log.
+const DRIFT_FINDER = (() => {
+  const raw = args ? args.driftFinder : undefined
+  if (raw === undefined || raw === null) return GATE_EVIDENCE === 'digested'
+  if (raw === true || raw === 'true') return true
+  if (raw === false || raw === 'false') return false
+  log(`⚠ args.driftFinder='${raw}' no es booleano — usando el default (${GATE_EVIDENCE === 'digested' ? 'on' : 'off'} con gateEvidence '${GATE_EVIDENCE}') (BL-0203)`)
+  return GATE_EVIDENCE === 'digested'
+})()
 // proposal 37 / E-3: visual-qa is DR-072 ADVISORY (a punch-list, never a block) — sonnet is the
 // default judge for it instead of opus (measured ≈2.20 $ on FRD-24 vs 5.50 $ on opus). Escape hatch
 // args.visualQaModel='opus' restores the prior tier; anything else falls back to 'sonnet' with a loud
@@ -337,6 +360,8 @@ const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** 
 // BL-0178: GENERATED from plugin/agents/reviewer.md's DRIFT_CLAIM block (generate-build-prompt-fragments.mjs) — do not hand-edit.
 // The reviewer PROPOSES pre-existing drift (claim + a probe test); the engine proves or rejects it (adjudicateDrift below).
 const DRIFT_CLAIM_DIRECTIVE = "**Pre-existing drift (DR-122, BL-0178) — you PROPOSE, the engine DECIDES:** when a `fail` contract is contradicted by code you believe this cycle did NOT cause (legacy code, a contract no reviewed work order owns through its `source_requirements`), keep it a `status: \"fail\"` traceability entry and ADD `claim: \"preexisting\"`, `evidence_test` and `direction`. `evidence_test` is the repo-relative path of a probe you write at `.pandacorp/run/drift-probes/<frd>/<contract-id>.drift-probe.ts` (one file per claim, named after the contract id, e.g. `ac-02-010-4.drift-probe.ts`): a vitest file that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds, importing production code ONLY through the `@/` alias (never a relative import — the engine runs it from a copy placed elsewhere). The path is deliberately outside the collected test tree: never list it in `testFiles` and never copy it into `src/`. `direction` is `code` (the code is wrong), `spec` (the spec is stale) or `unknown`. The engine runs your probe at this pin AND at the pin's `last_green_sha`: only a probe that fails on an assertion at BOTH is recorded as pre-existing drift (a draft change card for the owner plus a `drift:` list in the FRD frontmatter) — it then never blocks and never reopens this cycle's work orders; a probe that passes at `last_green_sha` is a regression this cycle caused and is reopened patch-first; a probe that passes at this pin is discarded; an unloadable or flaky probe proves nothing and is treated as a cycle fault. So when your ONLY reds are pre-existing drift claims, return the verdict you would give without them — `green: true` with your `testFiles` — and never take the blocked/needs-owner exit for a drift claim. Never claim a contract a reviewed work order owns."
+// BL-0203: GENERATED from plugin/agents/drift-finder.md's DRIFT_FINDER block (generate-build-prompt-fragments.mjs) — do not hand-edit.
+const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text: if the spec says architecture projects SHALL NOT appear, the set that filters them must not contain `\"architecture\"` (canary E2: `ACTIVE_PHASES` still did). Check that content the spec requires is actually present in the rendered data, not just that the component exists (canary E2: the Campaign cards had lost the current-factory content in a revert). Check that a surface the spec requires is MOUNTED on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: `Number.isNaN(Date.parse(x))` accepts `\"N/A 3\"` and `\"2026-02-30\"` (V8 is lenient), a UTC calendar day is not the local day, `parseInt` accepts trailing junk. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give file, line and a short snippet), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -1179,19 +1204,28 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
   const faults = []
   const trace = gate.traceability.map((e, i) => {
     if (!claimIdx.includes(i)) return e
-    const c = classifyDriftClaim(e, proof, owned, error)
+    // BL-0203: a claim the drift finder proposed (merged by mergeDriftFinderClaims) takes the finder predicate —
+    // same facts, but an unproven finder claim is discarded instead of becoming a cycle fault.
+    const fromFinder = e.origin === 'drift-finder'
+    const c = fromFinder ? classifyFinderClaim(e, proof, owned, error) : classifyDriftClaim(e, proof, owned, error)
     const id = contractIdOf(e.contract)
+    const { __judgeEntry, ...claimEntry } = e
+    const dropFinderClaim = (why) => (__judgeEntry ? __judgeEntry : { ...claimEntry, status: 'discarded', __driftAdjudicated: true, driftWhy: why })
     if (c.verdict === 'preexisting') {
       confirmed.push({ id, contract: e.contract, contractClass: e.contractClass, direction: e.direction || 'unknown', stored: c.stored, pin: proof.pin, base: proof.base })
-      log(`⚖ ${frd}: ${id} is PROVEN pre-existing drift (${c.why}) — recorded, it never blocks nor reopens this cycle (BL-0178)`)
-      return { ...e, status: 'drift', __driftAdjudicated: true, driftWhy: c.why }
+      log(`⚖ ${frd}: ${id} is PROVEN pre-existing drift (${c.why}) — recorded, it never blocks nor reopens this cycle (BL-0178${fromFinder ? '; claimed by the drift finder, BL-0203' : ''})`)
+      return { ...claimEntry, status: 'drift', __driftAdjudicated: true, driftWhy: c.why }
     }
     if (c.verdict === 'refuted') {
-      log(`⚖ ${frd}: drift claim on ${id} DISCARDED — ${c.why} (BL-0178: the reviewer was wrong)`)
-      return { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
+      log(`⚖ ${frd}: drift claim on ${id} DISCARDED — ${c.why} (${fromFinder ? 'BL-0203: the drift finder was wrong' : 'BL-0178: the reviewer was wrong'})`)
+      return fromFinder ? dropFinderClaim(c.why) : { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
     }
-    log(`⚖ ${frd}: drift claim on ${id || e.contract} is a CYCLE FAULT (${c.verdict}: ${c.why}) — routed patch-first like any other fail (BL-0178)`)
-    const { claim, ...rest } = e
+    if (c.verdict === 'unproven') {
+      log(`⚖ ${frd}: drift finder claim on ${id || e.contract} is unproven (${c.why}) — discarded, never a cycle fault on a finder's word (BL-0203)`)
+      return dropFinderClaim(c.why)
+    }
+    log(`⚖ ${frd}: drift claim on ${id || e.contract} is a CYCLE FAULT (${c.verdict}: ${c.why}) — routed patch-first like any other fail (BL-0178${fromFinder ? '; claimed by the drift finder, BL-0203' : ''})`)
+    const { claim, ...rest } = claimEntry
     faults.push({ entry: rest, c })
     return { ...rest, driftVerdict: c.verdict, driftWhy: c.why }
   })
@@ -1230,7 +1264,7 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
 const deferredGateOutcome = (raw) => Boolean(raw) && typeof raw === 'object' && raw.green !== true && raw.blocked_reason === 'needs-owner'
   && Array.isArray(raw.traceability) && raw.traceability.some((e) => e && e.status === 'fail' && e.claim === 'preexisting')
 async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJECT_DIR) {
-  const adjudicated = await adjudicateDrift(frd, reviewIds, raw, pinSha, sourceDir)
+  const adjudicated = await adjudicateDrift(frd, reviewIds, mergeDriftFinderClaims(frd, raw), pinSha, sourceDir)   // BL-0203: finder claims join the reviewer's before the proof
   let result = enforceWholeFrdTraceability(adjudicated)
   // BL-0185: a reviewer that blocks needs-owner while carrying a drift claim DEFERS its review_end/GateVerdict
   // (its prompt says so) — the adjudication may still lift the block into a pass. When the verdict is STILL a
@@ -1843,6 +1877,9 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
   // BL-0178: where THIS gate's reviewer worked (its probe files live there) and the sha it judged.
   const concurrent = typeof workFrom === 'string' && workFrom.length > 0
   const drift = concurrent ? { pin: (st && st.pinSha) || null, source: gateWorktreePathOf(frd) } : { pin: null, source: PROJECT_DIR }   // D1: the probe lives in THIS gate's slot
+  // BL-0203: a finder report only means something to the pinned gate it ran beside (its probes live in that slot). A
+  // gate that fell to the main tree (the slot failed after the prelaunch) runs without it.
+  if (!concurrent && st && st.driftFinderPromise) { log(`◦ ${frd}: the drift-finder report was gathered in the gate worktree, but this gate runs on the main tree — running without it (BL-0203)`); st.driftFinderPromise = null; st.driftFinding = null }
   const priorAttempts = (st && st.gateAttempts) || 0   // gate attempts ALREADY made for this FRD this run
   const attemptNo = priorAttempts + 1                  // 1-based attempt number for THIS gate (B8)
   if (st) st.gateAttempts = attemptNo
@@ -1867,7 +1904,12 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
       log(`▹ ${frd}: first gate attempt this run — running SERIAL (split kicks in on a re-gate or a prior-reopened WO, C1a)`)
     }
     return enforceInventoryCoverage(frd, await finalizeGate(frd, reviewIds, await frdGateSerial(frd, reviewIds, attemptNo, workFrom, evidencePack), drift.pin, drift.source))
-  } finally { if (st) st.inventoryCache = null }
+  } finally {
+    if (st) st.inventoryCache = null
+    // BL-0203: the finder report belongs to THIS pinned gate only — its probes live in the slot the release is about
+    // to clean, so a later re-gate (on main) neither sees the report nor re-merges its claims.
+    if (st) { st.driftFinderPromise = null; st.driftFinding = null }
+  }
 }
 
 // ── C2 REVIEW-ONLY gate contract (shared by serial + split) ───────────────────────────────────────
@@ -1997,7 +2039,11 @@ function launchEvidence(frd) {
   const work = gateWorktreeChain.then(async () => {
     const ok = await ensureGateWorktree(pinSha)
     if (!ok) return null   // worktree unavailable → this run is heading for the legacy synchronous path anyway
-    return await collectGateEvidence(frd, st.reviewIds, pinSha)
+    // BL-0203: the drift finder reads the same frozen tree, concurrently; the link holds the worktree until it is
+    // done too (the next link may check the tree out at another sha).
+    const finder = startDriftFinder(frd, st.reviewIds, pinSha, worktreeWorkFrom(pinSha))
+    try { return await collectGateEvidence(frd, st.reviewIds, pinSha) }
+    finally { if (finder) await finder }
   }).then((r) => r, () => null)
   gateWorktreeChain = work.then(() => {}, () => {})   // keep the worktree mutex chain alive across errors
   st.evidencePromise = work
@@ -2014,6 +2060,177 @@ async function resolveGateEvidence(frd, reviewIds, pinSha) {
   const verdict = validateEvidence(raw)
   if (!verdict.evidence) log(`⚠ GateEvidenceFallback ${frd}: ${verdict.fallbackReason} — this gate runs in EXPLORE mode (the gate is never skipped and never runs blind)`)
   return verdict
+}
+
+// ── BL-0203 · WHOLE-FRD DRIFT FINDER (canary F2) ─────────────────────────────────────────────────
+// Canary E2 (docs/reviews/canary-e2-report.md §3.3): the digested judge's recall fell to 2/5 because the drift of
+// an FRD lives in VERIFIED code OUTSIDE the diff it is handed, and 8 reads never reach it (gate:frd-02 opened
+// phases.ts 0 times; explore's gate opened it 9 times). The fix keeps the cheap digested judge and adds ONE sonnet
+// agent per gate whose only job is to walk the WHOLE FRD against the code at the pin. Trust boundary, unchanged:
+//   • it PROPOSES — its report is a prompt block for the judge (DR-015), never a verdict;
+//   • its drift claims are proven, never trusted — the engine merges each claim the judge neither recorded nor
+//     refuted with a test of its own into the SAME DR-122 differential proof a reviewer claim takes (finalizeGate);
+//   • a finder claim can never become an UNPROVEN cycle fault: only a probe that fails on an assertion at the pin
+//     AND is either owned by a reviewed WO or held at last_green_sha reopens the cycle; everything else is
+//     discarded with a log (the judge, not a sonnet helper, owns the fail-closed side of the oracle).
+// Lifecycle: started in the gate's slot link beside the evidence collector (launchEvidence / launchGate /
+// launchGateInSlot), awaited by the serial gate before it spawns and by the split gate beside its four lenses,
+// and dropped when frdGate returns — a re-gate on main never sees a report whose probes live in a released slot.
+const DRIFT_FINDER_TOOL_BUDGET = 60   // tool calls; the digested judge's cap is 8 reads — the finder exists to read
+const FINDER_PROBE_RE = /\.finder\.drift-probe\.tsx?$/   // the finder's own probes, never the reviewer's (DR-122 path + infix)
+const DRIFT_FINDER_STATUSES = ['implemented', 'drift', 'unknown']
+const DRIFT_FINDER_SCHEMA = {
+  type: 'object', required: ['contracts'],
+  properties: {
+    contracts: { type: 'array', description: 'ONE entry per normative contract of the FRD — none dropped, none merged into a range', items: {
+      type: 'object', required: ['contract', 'status'],
+      properties: {
+        contract: { type: 'string', description: 'the contract id first, then its text, e.g. "REQ-03-001 — architecture projects SHALL NOT appear"' },
+        contractClass: { type: 'string', enum: REQUIRED_TRACE_CLASSES },
+        owner: { type: 'string', description: 'the work-order id whose source_requirements lists this contract, or "none"' },
+        status: { type: 'string', enum: DRIFT_FINDER_STATUSES },
+        evidence: { type: 'object', properties: { file: { type: 'string' }, line: { type: 'number' }, snippet: { type: 'string' } } },
+        claim: { type: 'string', enum: ['preexisting', 'cycle'] },
+        probe_test: { type: 'string', description: 'drift only: .pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts' },
+        direction: { type: 'string', enum: ['code', 'spec', 'unknown'] },
+        why: { type: 'string' },
+      },
+    } },
+    toolCalls: { type: 'number' },
+    budgetExhausted: { type: 'boolean' },
+  },
+}
+// The FRD's work orders as the finder's roster: every one, the VERIFIED foundation included (that is where drift lives).
+const frdRoster = (frd) => {
+  const st = frdState.get(frd)
+  const wos = st ? st.f.workOrders : []
+  return wos.map((w) => `${w.id} · ${w.status || 'unknown'} · ${w.path || `docs/frds/${frd}/work-orders/${w.id}.md`}`).join('\n  ')
+}
+// Start the finder for THIS gate (idempotent per FRD; a no-op unless DRIFT_FINDER). The promise never rejects.
+function startDriftFinder(frd, reviewIds, pinSha, workFrom) {
+  if (!DRIFT_FINDER) return null
+  const st = frdState.get(frd)
+  if (!st) return null
+  if (st.driftFinderPromise) return st.driftFinderPromise
+  const acText = reviewedAcText(frd, reviewIds)
+  agentSpawned += COST('sonnet')   // BL-0203: one STANDARD-tier unit, reserved in gateCostEstimate
+  st.driftFinderPromise = agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find-drift' })}FRD gate — the WHOLE-FRD DRIFT FINDER for ${frd} (BL-0203, canary F2). You run BESIDE this FRD's gate, in its pinned worktree, while another agent runs the gate script here; the opus reviewer that judges this FRD reads your report. You are NOT the judge (DR-015): everything you return is a proposal the judge weighs and the engine proves (DR-122).
+  ${DRIFT_FINDER_DIRECTIVE}
+  **THIS FRD:** \`docs/frds/${frd}/frd.md\` and \`docs/frds/${frd}/blueprint.md\` at this pin — inventory EVERY contract in them. Its work orders (id · status · path) — read each one's frontmatter \`source_requirements\` (ownership) and its \`## Status Note\` (the tests it declares as evidence):
+  ${frdRoster(frd) || '(the plan carried no work-order list — find them under docs/frds/' + frd + '/work-orders/)'}
+  **THE WORK ORDERS UNDER REVIEW THIS CYCLE:** ${reviewIds.join(', ')} — a contract one of them owns is a \`cycle\` contract; every other contract is \`preexisting\`, and those are where the judge cannot look: do them FIRST.${acText ? `\n  The planner's verbatim criteria of those work orders (a head start, not the inventory): \n  ${acText}` : ''}
+  **DECLARED EVIDENCE, if cached:** \`${PROJECT_DIR}/.pandacorp/run/gate-evidence/${frd}/inventory.json\` (MAIN tree, read-only, may be absent or stale — frd.md at this pin is the authority) lists the evidence tests of the last green gate per contract.
+  **PROBES:** write each drift probe at \`.pandacorp/run/drift-probes/${frd}/<contract-id-slug>.finder.drift-probe.ts\`, relative to this project directory inside the worktree.
+  **TOOL BUDGET: at most ${DRIFT_FINDER_TOOL_BUDGET} tool calls** — count them; report the count in \`toolCalls\`.
+  Return { contracts: [{ contract, contractClass, owner, status: implemented|drift|unknown, evidence: { file, line, snippet }, claim: preexisting|cycle, probe_test (drift only), direction (drift only: code|spec|unknown), why }], toolCalls, budgetExhausted }.`,
+    { label: `find:drift:${frd}`, phase: 'Review', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:drift-finder', fallbackAgentType: 'pandacorp:reviewer', schema: DRIFT_FINDER_SCHEMA, workFrom })
+    .then((r) => r, (e) => ({ __threw: (e && e.message) || String(e) }))
+  return st.driftFinderPromise
+}
+// DR-078 fail-loud read boundary over the finder's answer: a usable report, or an explicit reason — never a
+// silent empty list. Malformed ROWS are counted and named, never dropped silently; a drift row without a valid
+// finder probe for THIS FRD stays in the report as an unproven pointer (the judge sees it; nothing is merged).
+function validateDriftFinding(raw, frd) {
+  if (!raw || typeof raw !== 'object') return { finding: null, reason: 'the finder returned no verdict' }
+  if (raw.__threw) return { finding: null, reason: `the finder threw (${raw.__threw})` }
+  if (!Array.isArray(raw.contracts)) return { finding: null, reason: 'the finder output has no contracts array' }
+  if (!raw.contracts.length) return { finding: null, reason: 'the finder returned no contracts (an FRD always has some — it did not do the pass)' }
+  const rows = []
+  const malformed = []
+  for (const [i, r] of raw.contracts.entries()) {
+    if (!r || typeof r.contract !== 'string' || !r.contract.trim() || !DRIFT_FINDER_STATUSES.includes(r.status)) { malformed.push(i); continue }
+    const probeOk = r.status === 'drift' && typeof r.probe_test === 'string' && DRIFT_PROBE_RE.test(r.probe_test) && FINDER_PROBE_RE.test(r.probe_test) && r.probe_test.includes(`/drift-probes/${frd}/`)
+    rows.push({ ...r, provable: probeOk && Boolean(contractIdOf(r.contract)) })
+  }
+  if (!rows.length) return { finding: null, reason: `every one of the finder's ${raw.contracts.length} rows is malformed` }
+  return { finding: { rows, malformed, toolCalls: Number(raw.toolCalls) || null, budgetExhausted: raw.budgetExhausted === true }, reason: '' }
+}
+// Await + validate the finder of THIS gate (memoized on st.driftFinding for the prompt block and finalizeGate).
+async function awaitDriftFinding(frd) {
+  const st = frdState.get(frd)
+  if (!st || !st.driftFinderPromise) return null
+  if (st.driftFinding !== undefined && st.driftFinding !== null) return st.driftFinding
+  const { finding, reason } = validateDriftFinding(await st.driftFinderPromise, frd)
+  if (!finding) { log(`⚠ DriftFinderFallback ${frd}: ${reason} — this gate runs without a drift-finder report (the gate itself is never skipped)`); st.driftFinding = false; return null }
+  const n = (s) => finding.rows.filter((r) => r.status === s).length
+  log(`⌕ ${frd}: drift finder → ${finding.rows.length} contract(s): ${n('implemented')} implemented, ${n('drift')} drift (${finding.rows.filter((r) => r.provable).length} with a probe), ${n('unknown')} unknown${finding.malformed.length ? `; ${finding.malformed.length} MALFORMED row(s) ignored (#${finding.malformed.join(', #')})` : ''}${finding.budgetExhausted ? '; its tool budget ran out' : ''}`)
+  st.driftFinding = finding
+  return finding
+}
+const currentDriftFinding = (frd) => { const st = frdState.get(frd); return (st && st.driftFinding) || null }
+// Is a finder row one of THIS cycle's contracts? Its declared owner is a reviewed WO, or its id is in the planner's
+// verbatim criteria of a reviewed WO (the finder may miss the frontmatter; the engine does not rely on it alone).
+function isCycleRow(frd, reviewIds, row) {
+  if (row.owner && reviewIds.includes(row.owner)) return true
+  const id = contractIdOf(row.contract)
+  return Boolean(id) && reviewedAcText(frd, reviewIds).includes(id)
+}
+const finderRowLine = (r) => `• ${r.contract}${r.evidence && r.evidence.file ? ` — ${r.evidence.file}${r.evidence.line ? `:${r.evidence.line}` : ''}` : ''}${r.evidence && r.evidence.snippet ? ` \`${String(r.evidence.snippet).slice(0, 160)}\`` : ''}${r.owner ? ` · owner ${r.owner}` : ''}${r.why ? ` · ${String(r.why).slice(0, 240)}` : ''}${r.status === 'drift' ? (r.provable ? ` · probe ${r.probe_test}${r.direction ? ` · direction ${r.direction}` : ''}` : ' · NO valid probe (unproven pointer)') : ''}`
+// The judge's view of the report (serial gate + split closer). Empty when there is no usable report.
+function driftFinderBlock(frd, reviewIds) {
+  const f = currentDriftFinding(frd)
+  if (!f) return ''
+  const drift = f.rows.filter((r) => r.status === 'drift')
+  const unknown = f.rows.filter((r) => r.status === 'unknown')
+  const unknownCycle = unknown.filter((r) => isCycleRow(frd, reviewIds, r))
+  const unknownOther = unknown.filter((r) => !isCycleRow(frd, reviewIds, r))
+  const implemented = f.rows.filter((r) => r.status === 'implemented')
+  const list = (rows) => (rows.length ? rows.map(finderRowLine).join('\n  ') : '(none)')
+  return `
+  **WHOLE-FRD DRIFT FINDER REPORT (BL-0203).** A separate sonnet agent walked EVERY contract of \`docs/frds/${frd}/frd.md\` (and the blueprint's CMP/IF) against the code at this pin, OUTSIDE the diff you were handed${f.toolCalls ? `, in ${f.toolCalls} tool calls` : ''}${f.budgetExhausted ? ' — its tool budget ran out, so treat its UNKNOWN rows as unreviewed' : ''}. It is not a verdict and it proved nothing by itself: you are the judge (DR-015).
+  (1) DRIFT CLAIMS — open each evidence file:line and each probe. If the code contradicts the contract, record it as a \`fail\` traceability entry: with \`claim: "preexisting"\`, \`evidence_test\` = that probe path and a \`direction\` when no reviewed work order owns it (the engine proves it, DR-122), or as a finding/reopen of the reviewed work order that owns it. If you disagree, refute it ONLY with a test of your own that asserts the contract HOLDS: status \`pass\`, that test in the entry's \`tests\` AND in \`testFiles\`. **The engine submits every drift claim you neither record as a \`fail\` nor refute with a test of your own to the same differential proof:** proven pre-existing → a draft card, never a block; a regression, or a contract a reviewed work order owns failing on an assertion at this pin → reopened patch-first; anything unproven → discarded with a log.
+  ${list(drift)}
+  (2) UNKNOWN ON THIS CYCLE'S CONTRACTS (${reviewIds.join(', ')}) — the finder could NOT locate their implementation. You MUST deep-review each one yourself: open the implementing code, exercise it with at least one test, and return it in \`traceability\` with non-empty \`tests\` (or as a \`fail\`). These reads do NOT count against your read budget.
+  ${list(unknownCycle)}
+  (3) UNKNOWN ON OTHER CONTRACTS — review what you can; a contract you cannot confirm stays out of a \`pass\` without a test.
+  ${list(unknownOther)}
+  (4) IMPLEMENTED — a pointer map (file:line) to jump straight to the code instead of searching; do not re-verify every row.
+  ${list(implemented)}
+`
+}
+// finalizeGate's first step: turn every provable finder drift the judge neither recorded as a fail nor refuted with
+// its own test into a `claim: "preexisting"` fail entry tagged origin:'drift-finder', so adjudicateDrift proves it.
+// The judge's own entry for that contract is kept on the claim (restored if the proof discards the claim).
+function mergeDriftFinderClaims(frd, raw) {
+  const f = currentDriftFinding(frd)
+  if (!f || !raw || typeof raw !== 'object' || !Array.isArray(raw.traceability)) return raw
+  const claims = f.rows.filter((r) => r.status === 'drift' && r.provable)
+  if (!claims.length) return raw
+  if (DRIFT_POLICY === 'block') { log(`◦ ${frd}: ${claims.length} drift-finder claim(s) NOT merged — args.driftPolicy:'block' (the judge saw them in its prompt; BL-0203)`); return raw }
+  const own = new Set(Array.isArray(raw.testFiles) ? raw.testFiles : [])
+  const trace = [...raw.traceability]
+  for (const r of claims) {
+    const id = contractIdOf(r.contract)
+    const at = trace.findIndex((e) => e && contractIdOf(e.contract) === id)
+    const judge = at >= 0 ? trace[at] : null
+    if (judge && judge.origin === 'drift-finder') { log(`◦ ${frd}: drift finder listed ${id} twice — the first claim stands (BL-0203)`); continue }
+    if (judge && judge.status === 'fail') { log(`◦ ${frd}: drift finder claim on ${id} — the judge already recorded it as a fail; its entry governs (BL-0203)`); continue }
+    if (judge && judge.status === 'pass' && Array.isArray(judge.tests) && judge.tests.some((x) => own.has(x))) { log(`⚖ ${frd}: drift finder claim on ${id} refuted by the reviewer with its own passing test (${judge.tests.filter((x) => own.has(x)).join(', ')}) — dropped before any proof (DR-015; BL-0203)`); continue }
+    const entry = { contract: r.contract, contractClass: REQUIRED_TRACE_CLASSES.includes(r.contractClass) ? r.contractClass : (/^REQ-/.test(id) ? 'requirement' : 'acceptance-criterion'), status: 'fail', claim: 'preexisting', evidence_test: r.probe_test, direction: r.direction || 'unknown', tests: [], origin: 'drift-finder', ...(judge ? { __judgeEntry: judge } : {}) }
+    if (at >= 0) trace[at] = entry
+    else trace.push(entry)
+    log(`⌕ ${frd}: drift finder claim on ${id} ${judge ? `(the judge marked it ${judge.status} without a test of its own)` : '(absent from the judge\'s traceability)'} submitted to the DR-122 differential proof (BL-0203)`)
+  }
+  return { ...raw, traceability: trace }
+}
+/**
+ * BL-0203: the DR-122 predicate for a FINDER claim. Same facts, one asymmetry: the fail-closed side (an unproven
+ * claim is a cycle fault) belongs to the judge's own claims only — a finder claim reopens the cycle only when its
+ * probe fails on an assertion at the pin AND the contract is owned by a reviewed WO or held at last_green_sha.
+ * @returns {{ verdict: 'preexisting'|'regression'|'cycle-fault'|'refuted'|'unproven', why: string, stored?: string }}
+ */
+function classifyFinderClaim(entry, proof, owned, proofError) {
+  const id = contractIdOf(entry.contract)
+  if (!proof) return { verdict: 'unproven', why: proofError || 'the differential proof did not run' }
+  const probe = proof.probes.find((p) => p && p.path === entry.evidence_test)
+  if (!probe || probe.missing) return { verdict: 'unproven', why: 'the finder probe was not found where it said it wrote it' }
+  const head = probeRunState(probe.head)
+  if (head === 'passed') return { verdict: 'refuted', why: 'the probe PASSES at the gate pin — the claimed contradiction is not demonstrated', stored: probe.stored }
+  if (head !== 'assertion-failed') return { verdict: 'unproven', why: `the probe is ${head} at the gate pin`, stored: probe.stored }
+  if (!owned) return { verdict: 'unproven', why: 'reviewed work-order ownership could not be read at the pin', stored: probe.stored }
+  if (id && owned.has(contractCore(id))) return { verdict: 'cycle-fault', why: `${id} is owned by a reviewed work order and the finder probe fails on an assertion at the pin — a defect of this cycle the gate did not record`, stored: probe.stored }
+  const c = classifyDriftClaim(entry, proof, owned, proofError)
+  return c.verdict === 'cycle-fault' ? { ...c, verdict: 'unproven' } : c
 }
 
 const evidenceOf = (pack) => (pack && pack.evidence) || null
@@ -2206,6 +2423,7 @@ function recordInventoryWrite(frd, r) {
 // ── FRD gate (serial): ONE review + integration test over the whole feature ──
 async function frdGateSerial(frd, reviewIds, attemptNo = 1, workFrom, evidencePack, directive = '') {
   const ev = evidenceOf(evidencePack)   // WP-06: null ⇒ this gate runs in EXPLORE mode (the historical contract)
+  if (DRIFT_FINDER) await awaitDriftFinding(frd)   // BL-0203: the finder started beside the evidence collector; its report joins the prompt. Guarded, not just null-returning: with the flag off the gate's promise timing stays byte-identical (no extra await tick)
   agentSpawned += COST(P.judge)   // DR-073: the gate runs on the judge model — weight it honestly
   return await agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'gate' })}${TRACK('review_start', `,"frd":"${frd}"`)}${GATE_EVENT(frd, reviewIds.length, attemptNo)}${evidenceFallbackOf(frd, evidencePack)} FRD review + integration gate for ${frd}. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW). This FRD MAY already have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation: exercise them in integration, but do NOT re-review them and NEVER change their state.
  BUILD-JOURNAL (A1) — at WHICHEVER exit you take below (pass / reopen / blocked / fail), record this gate's verdict:${gateVerdictJournal(frd, reviewIds, attemptNo)}
@@ -2216,7 +2434,7 @@ ${directive ? `\n  ${directive}\n` : ''}
 
   ${WHOLE_FRD_ORACLE}
   ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
-${evidenceBlock(frd, ev)}
+${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
 
@@ -2263,12 +2481,15 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   const ev = evidenceOf(evidencePack)
   // ── FIND (parallel): 4 read-only finder lenses ── (C2: all run in the pinned worktree when workFrom is set)
   agentSpawned += 4 * COST('sonnet')   // weight every spawn (DR-070/DR-073) — the finders are the FIND stage's cost
-  const finderResults = await parallel(FINDER_LENSES.map((L) => () =>
+  // BL-0203: the whole-FRD drift finder (started beside the evidence collector) is awaited ALONGSIDE the four lenses —
+  // it is the fifth, diff-free lens; its report goes to the closer only (the lenses stay independent of it).
+  const lensSweep = () => parallel(FINDER_LENSES.map((L) => () =>
     agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find' })}FRD split-gate FIND stage — the ${L.key} lens for ${frd} (proposal 31 T1.2). You are ONE of four parallel read-only finders. Review the work orders built/changed THIS cycle: ${reviewIds.join(', ')} (all IN_REVIEW), exercising them together with the rest of the feature. This FRD MAY have OTHER work orders VERIFIED from a previous run — treat those as a stable foundation; do NOT re-review or change them.
     Your lens: ${L.lens}${evidenceBlock(frd, ev)}${gateContextScope(frd, reviewIds)}
     **READ-ONLY — findings ONLY:** do NOT write or modify tests, do NOT fix anything, do NOT run \`verify.sh\`, do NOT change any file or frontmatter. Just report. For each defect return { file (with a line if you can), claim (one sentence), severity ('correction' for a blocking defect in your lens; 'nit' for advisory polish), evidence (the concrete code/behavior you observed, so a skeptic can try to refute it) }. If your lens finds nothing, return { findings: [] }.`,
       { label: `find:${L.key}:${frd}`, phase: 'Review', model: 'sonnet', agentType: 'pandacorp:reviewer', schema: FINDER_SCHEMA, workFrom }),
   ))
+  const finderResults = DRIFT_FINDER ? (await Promise.all([lensSweep(), awaitDriftFinding(frd)]))[0] : await lensSweep()   // flag off: the pre-BL-0203 await shape, byte-identical timing
   const liveFinders = finderResults.filter((r) => r && Array.isArray(r.findings))
   const deadFinders = FINDER_LENSES.filter((_, i) => !finderResults[i] || !Array.isArray(finderResults[i].findings))
   if (deadFinders.length) log(`⚠ ${frd}: ${deadFinders.length}/4 finder lens(es) returned no verdict — proceeding with the other lenses (fail-safe)`)
@@ -2336,7 +2557,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
 
   ${WHOLE_FRD_ORACLE}
   ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
-${evidenceBlock(frd, ev)}
+${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
 
@@ -3868,6 +4089,7 @@ function launchGate(frd) {
     // WP-06: in digested mode, await the pack the wave close prelaunched (or collect it inline for a gate
     // that never had a prelaunch, e.g. a resume gate). Null in explore mode → frdGate behaves exactly as
     // it always has. A null/malformed pack degrades THIS gate to explore; the gate itself never skips.
+    startDriftFinder(frd, reviewIds, pinSha, worktreeWorkFrom(pinSha))   // BL-0203: idempotent — already running when launchEvidence prelaunched it
     const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)
     // BL-0182: the gate + its RELEASE are ONE link of the worktree chain — the reviewer dirties the tree,
     // and the release (salvage + exact clean, whatever the verdict, even a crash) runs before the chain
@@ -4033,13 +4255,14 @@ function gateConflict(frd, force = false) {
   }
   return null
 }
-// The cost-weighted units ONE gate link is expected to spend: probe + (digested collector) + the review
-// (the split when frdGate would pick it) + the release. The drift proof is rare and not reserved.
+// The cost-weighted units ONE gate link is expected to spend: probe + (digested collector) + (the BL-0203 drift
+// finder, one sonnet unit) + the review (the split when frdGate would pick it) + the release. The drift proof is
+// rare and not reserved.
 function gateCostEstimate(frd) {
   const st = frdState.get(frd)
   const reviewed = st ? st.f.workOrders.filter((w) => st.reviewIds.includes(w.id)) : []
   const split = P.reviewSplit && (((st && st.gateAttempts) || 0) >= 1 || reviewed.some((w) => (w.reopen_count || 0) >= 1))
-  return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
+  return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (DRIFT_FINDER ? COST('sonnet') : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
 }
 /**
  * E2 finding 1: the upstream FRD whose verdict must land BEFORE `frd`'s may (its gate is in flight or its verdict
@@ -4095,6 +4318,7 @@ function launchGateInSlot(frd, slot, est) {
   const work = (async () => {
     const ok = await ensureGateWorktree(pinSha, slot)
     if (!ok) return { __worktreeFailed: true, __slotDirty: Boolean(slot.failedOnDirt) }
+    startDriftFinder(frd, reviewIds, pinSha, worktreeWorkFrom(pinSha, slot.path))   // BL-0203: beside the collector, in this slot
     const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)   // digested: collected INLINE in this slot (launchEvidence is a no-op under D1)
     slot.clean = false
     let gate

@@ -24,6 +24,7 @@
         ".codex/agents/copywriter.toml",
         ".codex/agents/designer.toml",
         ".codex/agents/devops.toml",
+        ".codex/agents/drift-finder.toml",
         ".codex/agents/frontend-dev.toml",
         ".codex/agents/implementer.toml",
         ".codex/agents/librarian.toml",
