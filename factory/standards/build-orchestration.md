@@ -22,6 +22,7 @@ already implemented and tested, folded into this standard below (§2, §5, §5a,
 | `repairBudgetFactor` | `3` | cap on scoped-repair spend, as a multiple of the build's own weighted cost, before the engine gives up honestly to `needs-owner` (WP-08) |
 | `scopedRepair` | `false` | allow a purely mechanical sub-gate red to patch via `--only`/`--files` instead of a whole-project patch cycle, gated until canaried (WP-08) |
 | `gateEvidence` | `'explore'` | `'explore'` (byte-identical to the pre-sprint gate) or `'digested'` (mech-collected evidence under a bounded exploration budget, WP-06, mandatory A/B canary before the default changes) |
+| `driftFinder` | on under `gateEvidence: 'digested'`, off under `'explore'` | the whole-FRD drift finder (BL-0203, canary F2): one sonnet `find:drift:<frd>` agent beside each pinned gate walks every FRD contract against the code outside the diff; its drift claims go through the DR-122 differential proof; `true` also enables it under `explore`, `false` turns it off |
 | `gateContextScope` | `false` | add the gate CONTEXT-SCOPE directive: frd.md + this cycle's WOs read in full, other WOs header-only, blueprint by section, rules/memory as pointers, never the factory/engine source, heavy output to a file + tail (BL-0188; proposal 38 addendum lever (g), measured by canary E before the default changes) |
 | `gateInventoryCache` | `false` | the FRD contract-inventory cache, "FRD baseline gated at SHA": the green landing persists the adjudicated traceability to `.pandacorp/run/gate-evidence/<frd>/inventory.json`; the next gate of that FRD reuses it only while frd.md/blueprint.md's normative body is unchanged (BL-0189; lever (d), repeat-gate canary before the default changes) |
 | `drainOnEmptyPlan` | `true` | on a BARE run with an empty plan, drain the ready change queue before declaring "nothing to build" (E2, BL-0129); still prohibited on a TARGETED run |
@@ -427,6 +428,29 @@ The build engine reviews and tests **per FRD**, not per work order:
   its artifact pathspecs are quoted (git expands them, not the shell), its bootstrap probe is a Node
   `existsSync` (never shell `test`/`[`, which an owner alias can hijack), and the digest carries the cycle's
   added/changed test files and the WO-labelled acceptance criteria (the cycle's WO → contract map).
+- **Whole-FRD drift finder (BL-0203, `args.driftFinder`; default on under `digested`).** The digested judge's
+  8-read budget and a diff scoped to the reviewed WOs never reach the VERIFIED code where an FRD's drift lives
+  (canary E2: the gate opened `phases.ts` 0 times where explore opened it 9; AC-02-010.8 and REQ-03-001 lost, recall
+  2/5 vs 4/5). So each pinned gate gets one sonnet `find:drift:<frd>` agent (`pandacorp:drift-finder`, effort
+  medium, ≤ 60 tool calls; degrades to the reviewer definition on sonnet when a session lacks the agent). It starts
+  in the gate's slot link **beside the evidence collector** (the serial judge awaits it; the split gate awaits it
+  beside its four lenses; on the single legacy slot the link holds the worktree until the finder is done reading),
+  receives the FRD's whole roster — every work order with its status, the planner's cycle criteria, the cached
+  inventory's path — and **never the diff or the pack**. For every REQ/AC/CMP/IF it returns `implemented | drift |
+  unknown` with file:line evidence, and writes a probe per drift at
+  `.pandacorp/run/drift-probes/<frd>/<id>.finder.drift-probe.ts` (the `.finder` infix keeps it apart from the
+  reviewer's probes). **Trust boundary:** the report is a prompt block for the judge (DR-015), never a verdict; the
+  judge records each drift as a `fail`/finding or refutes it only with a passing test of its own (in `testFiles`);
+  every provable claim it did neither with is merged by `finalizeGate` into the SAME DR-122 differential proof —
+  proven pre-existing → draft card + `drift:`; a regression, or a contract a reviewed WO owns failing on an
+  assertion at the pin → reopened patch-first with the probe as the RED test; anything unproven (missing,
+  unloadable, flaky, no valid base) → discarded with a log. The fail-closed side of DR-122 (an unproven claim is a
+  cycle fault) stays the judge's own: a sonnet helper can reopen the cycle only on a probe that demonstrably fails.
+  An UNKNOWN row on a contract the cycle's WOs own obliges the judge to deep-review it outside its read budget. A
+  dead/malformed finder is a logged `DriftFinderFallback` and the gate runs without the report; `driftPolicy:
+  'block'` shows the report but merges nothing; a re-gate on main never sees it (its probes live in the released
+  slot). Cost: 1 sonnet unit in `maxAgents`, reserved in the parallel-gate estimate (a digested gate link is ≈ 7
+  units); ≈ 0.7-1.8 $ per gate PROJECTED (40-60 sonnet calls), scored by canary F2 against the E2 §3.2 ground truth.
 - **Gate context scope (BL-0188, `args.gateContextScope`, default off).** The gate's cost is turns × context
   per turn, and the spawn prompt is only ~3-4% of a turn; what the reviewer READS is the lever. The
   directive scopes reads (frd.md and this cycle's WOs in full; VERIFIED WOs header-only; blueprint by
