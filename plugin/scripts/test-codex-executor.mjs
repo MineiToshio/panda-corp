@@ -52,7 +52,8 @@ const waitForFile = async (file, what) => {
   throw new Error(`${what} (waited ${FILE_WAIT_MS} ms for ${file})`);
 };
 let passed = 0, failed = 0;
-const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (error) { console.error(`FAIL  ${name}: ${error.stack || error}`); failed++; } };
+const TEST_FILTER = process.env.PANDACORP_TEST_FILTER || "";   // repro aid: run only the tests whose name contains it
+const test = async (name, fn) => { if (TEST_FILTER && !name.includes(TEST_FILTER)) return; try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (error) { console.error(`FAIL  ${name}: ${error.stack || error}`); failed++; } };
 
 async function fixture({ planDeps = "—", frontmatterDeps = "[]", rethink = false } = {}) {
   const project = await mkdtemp(path.join(os.tmpdir(), "pc-codex-exec-"));
@@ -79,7 +80,7 @@ if(scenario.startsWith('rollout-')&&prompt.includes('Implement exactly')){const 
 let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
-if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){await new Promise(r=>setTimeout(r,450));const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at)appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');}
+if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){for(const t0=Date.now();Date.now()-t0<30000;await new Promise(r=>setTimeout(r,25))){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at){appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');break}}}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
 if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
@@ -145,13 +146,43 @@ await test("terminal checkpoint captures one atomic instant even when the clock 
   ok(cp.terminal_at === cp.updated_at, `terminal transition split across instants: ${JSON.stringify(cp)}`);
 });
 
-await test("fenced heartbeat during a long dispatch is controller-owned, not a worker write", async () => {
+// A failed executor run must explain itself: stderr, stdout, the durable checkpoint and the journal tail (BL-0213: the first
+// failure of this scenario arrived as an empty message, which left nothing to diagnose).
+const explain = async (project, result) => {
+  const cp = await read(path.join(project, ".pandacorp/run/codex-checkpoint.json")).catch((e) => `no checkpoint (${e.code})`);
+  const journal = (await read(path.join(project, ".pandacorp/run/codex-executor.jsonl")).catch(() => "")).trim().split("\n").slice(-6).join("\n");
+  return `exit ${result.code}\nstderr: ${result.err.trim() || "<empty>"}\nstdout: ${result.out.trim() || "<empty>"}\ncheckpoint: ${cp}\njournal tail:\n${journal}`;
+};
+// Deterministic slow disk for the executor process only (the loaded-machine condition BL-0213 could not be reproduced under
+// CPU load alone): every awaited rename / readFile of the executor takes at least the given time.
+const slowDisk = async ({ renameMs = 0, statusRenameMs = renameMs }) => {
+  const file = path.join(await mkdtemp(path.join(os.tmpdir(), "pc-slow-disk-")), "slow-disk.mjs");   // outside the fixture repo: a file inside it is a dirty baseline
+  await writeFile(file, [
+    "import { createRequire, syncBuiltinESMExports } from 'node:module';",
+    "const fsp = createRequire(import.meta.url)('node:fs/promises');",
+    "if (/executor\\.mjs$/.test(process.argv[1] || '')) {",
+    "  const rename = fsp.rename;",
+    `  fsp.rename = async (from, ...rest) => { await new Promise((r) => setTimeout(r, String(from).includes('status.yaml.tmp') ? ${statusRenameMs} : ${renameMs})); return rename(from, ...rest); };`,
+    "  syncBuiltinESMExports();",
+    "}",
+  ].join("\n"));
+  return { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${file}`.trim() };
+};
+for (const [variant, disk] of [["", null], [" on a slow disk: every rename slower than half the renewal interval", { renameMs: 50 }], [" on a slow disk: the status projection lags the lease", { statusRenameMs: 250 }]])
+await test(`fenced heartbeat during a long dispatch is controller-owned, not a worker write${variant}`, async () => {
   const fx = await fixture();
-  const result = await execute(fx, "slow-heartbeat", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100" });
-  ok(result.code === 0, `${result.err}\n${result.out}`);
+  const result = await execute(fx, "slow-heartbeat", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100", ...(disk ? await slowDisk(disk) : {}) });
+  ok(result.code === 0, await explain(fx.project, result));
   ok((await read(path.join(fx.project, ".pandacorp/run/heartbeat-observed"))).trim() === "1", "dispatch did not span a lease renewal");
   const log = await run("git", ["log", "--format=%s"], fx.project);
   ok(/feat\(WO-01\): implementation attempt/.test(log.out), log.out);
+});
+
+await test("a non-zero executor exit always says why on stderr (ownership violation and uncertain dispatch)", async () => {
+  const owned = await fixture(); const ownership = await execute(owned, "worker-status-write", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100" });
+  ok(ownership.code === 2 && /codex-executor: stopped \(error\): OWNERSHIP implementer touched governed state/.test(ownership.err), await explain(owned.project, ownership));
+  const unsure = await fixture(); const uncertain = await execute(unsure, "uncertain");
+  ok(uncertain.code === 25 && /codex-executor: stopped \(uncertain\)/.test(uncertain.err), await explain(unsure.project, uncertain));
 });
 
 await test("worker non-liveness status mutation remains an ownership violation", async () => {

@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { appendFile, chmod, copyFile, lstat, mkdir, readFile, readdir, realpath, rename, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setPendingDecisions, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder } from "../build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, pauseForOwner, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, renew, reserveDispatch, setHealth, setPendingDecisions, setProjectPhase, stampChangeIntegration, stampLastGreen, transitionWorkOrder, withFence } from "../build-state.mjs";
 import { createRuntimeEventEmitter } from "../event-transport.mjs";
 import { consumeByExecutor } from "./attended-permit.mjs";
 import { diagnoseUsageLimitFromRollouts } from "./failure-diagnostics.mjs";
@@ -83,11 +83,27 @@ let state = { version: 2, run_id: runId, budget_started_at: new Date(budgetStart
 
 const EXIT = { complete: 0, "needs-owner": 20, budget: 21, rethink: 22, duration: 23, breaker: 24, uncertain: 25, stopped: 26, error: 2 };
 const runtimePath = (file) => file === ".pandacorp/run" || file.startsWith(".pandacorp/run/");
+// The heartbeat rewrites status.yaml through `<file>.tmp-<pid>-<hex>` + rename on its own timer; a dispatch snapshot or delta that lands
+// inside that window sees the temp file appear or vanish, which is the controller's own write, never a worker's (BL-0213).
+const heartbeatTempPath = (file) => file.startsWith(".pandacorp/status.yaml.tmp-");
 const governedPath = (file) => file === ".pandacorp/status.yaml" || file === ".pandacorp/track.jsonl" || /^docs\/frds\/[^/]+\/(frd|blueprint)\.md$/.test(file) || /^docs\/frds\/[^/]+\/work-orders\/wo-[^/]+\.md$/.test(file);
 const testPath = (file) => /(^|\/)(__tests__|tests?|e2e)(\/|$)|\.(test|spec)\.[^.]+$/i.test(file);
 const atomic = async (file, value) => { const tmp = `${file}.tmp-${process.pid}-${randomUUID()}`; await writeFile(tmp, `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 }); await rename(tmp, file); };
 const checkpoint = async (patch = {}, transitionAt = new Date().toISOString()) => { state = { ...state, ...patch, version: 2, run_id: runId, updated_at: transitionAt }; await atomic(checkpointFile, state); };
 const event = createRuntimeEventEmitter({ runtime: "codex", runId, project, journalFile });
+// A non-zero exit must say why on stderr (BL-0213): the checkpoint and journal hold the reason, but a caller that only sees the
+// exit status (a supervisor, a test, a terminal) got an empty stream for an ownership or fence violation.
+const announceStop = (reason, detail = "") => process.stderr.write(`codex-executor: stopped (${reason})${detail ? `: ${detail}` : ""}\n`);
+// One renewal at a time: on a slow disk the interval otherwise stacks renewals that starve every other lease mutation of the mutex,
+// and the starved mutation's timeout ends the build as a bare CONTENDED (BL-0213).
+let renewInFlight = false;
+async function heartbeat() {
+  if (renewInFlight) return;
+  renewInFlight = true;
+  try { await renew(project, lease.token, lease.epoch); }
+  catch (error) { await event("lease_lost", { error: error.message }); process.kill(process.pid, "SIGTERM"); }
+  finally { renewInFlight = false; }
+}
 const notify = (message) => { if (process.platform !== "darwin") return; const child = spawn("osascript", ["-e", `display notification ${JSON.stringify(message)} with title "Pandacorp Codex"`], { stdio: "ignore" }); child.unref(); };
 const killTree = (child, signal = "SIGTERM") => { if (!child?.pid) return; try { if (process.platform === "win32") child.kill(signal); else process.kill(-child.pid, signal); } catch { try { child.kill(signal); } catch {} } };
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -160,28 +176,26 @@ const parseStatusProjection = (body) => {
 };
 const normalizeStatusProjection = (body) => body.split("\n").map((line) => projectionKeys.some((key) => line.startsWith(`${key}:`)) ? `${line.slice(0, line.indexOf(":"))}: <controller-projection>` : line).join("\n");
 const unquote = (value) => String(value || "").replace(/^['"]|['"]$/g, "");
+// The lease and the status file are read under the mutex `renew` writes them under, so a heartbeat can never land between the
+// two reads. The earlier lock-free re-read loop gave up after 5 lost races against a 100 ms renewal and reported the
+// controller's own projection as a worker write (BL-0213). A worker's non-liveness edit still differs from `before` outside
+// the projection lines, so it cannot normalize away here.
 async function controllerOnlyStatusDelta(beforeEncoded, afterEncoded) {
   if (beforeEncoded === null || afterEncoded === null) return false;
-  const before = Buffer.from(beforeEncoded, "base64").toString("utf8"); let candidate = Buffer.from(afterEncoded, "base64").toString("utf8");
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const ownedLease = await assertFence(project, lease.token, lease.epoch);
+  const before = Buffer.from(beforeEncoded, "base64").toString("utf8");
+  return withFence(project, lease.token, lease.epoch, async (ownedLease) => {
     if (ownedLease.runtime !== "codex" || ownedLease.run_id !== runId || ownedLease.epoch !== lease.epoch || !isFresh(ownedLease)) return false;
+    const candidate = await readFile(path.join(project, statusPath), "utf8");
     const values = parseStatusProjection(candidate);
     const expected = { phase: ownedLease.project_phase || "implementation", running: "true", run_started_at: ownedLease.acquired_at, build_run_id: ownedLease.run_id, build_runtime: ownedLease.runtime, build_lease_epoch: String(ownedLease.epoch), supervisor_heartbeat: ownedLease.renewed_at };
     const projected = projectionKeys.every((key) => values[key].length === 1 && unquote(values[key][0]) === expected[key]);
-    if (projected && normalizeStatusProjection(before) === normalizeStatusProjection(candidate)) return true;
-    // Renewal can race the initial content read. Re-read under two identical fenced lease views;
-    // a worker's non-liveness edit survives renew and therefore cannot normalize away here.
-    candidate = await readFile(path.join(project, statusPath), "utf8");
-    const stable = await assertFence(project, lease.token, lease.epoch);
-    if (stable.renewed_at !== ownedLease.renewed_at) continue;
-  }
-  return false;
+    return projected && normalizeStatusProjection(before) === normalizeStatusProjection(candidate);
+  });
 }
 const delta = async (before) => {
   const current = new Set(await changedPaths()); const candidates = new Set([...before.keys(), ...current]); const changed = [];
   for (const file of [...candidates].sort()) {
-    if (runtimePath(file)) continue;
+    if (runtimePath(file) || heartbeatTempPath(file)) continue;
     const after = await contentAt(file); const prior = before.get(file);
     if (after === prior) continue;
     if (file === statusPath && await controllerOnlyStatusDelta(prior, after)) continue;
@@ -309,7 +323,7 @@ try {
   budgetStartedAt = Date.parse(state.budget_started_at); if (!Number.isFinite(budgetStartedAt) || budgetStartedAt > Date.now()) throw Object.assign(new Error("durable duration origin is invalid"), { code: "EVIDENCE" }); await checkpoint({ budget_started_at: new Date(budgetStartedAt).toISOString() });
   const baseline = (await changedPaths()).filter((file) => !runtimePath(file)); if (baseline.length && !state.inflight && !state.uncertain && !state.change_plan_pending) throw Object.assign(new Error(`dirty baseline: ${baseline.join(",")}`), { code: "DIRTY" });
   const prior = await currentLease(project); if (prior) { if (prior.runtime !== "codex" || prior.run_id !== runId || isFresh(prior)) throw Object.assign(new Error("foreign or still-live lease"), { code: "CONTENDED" }); lease = await reclaim(project, { runtime: "codex", runId, ttlSeconds: leaseTtlSeconds }); } else lease = await acquire(project, { runtime: "codex", runId, ttlSeconds: leaseTtlSeconds });
-  await event("executor_started", { epoch: lease.epoch, targeted, lease_ttl_seconds: leaseTtlSeconds, heartbeat_interval_ms: renewIntervalMs }); renewTimer = setInterval(() => renew(project, lease.token, lease.epoch).catch(async (error) => { await event("lease_lost", { error: error.message }); process.kill(process.pid, "SIGTERM"); }), renewIntervalMs); renewTimer.unref(); await reconcileInflight(state); if (state.change_plan_pending) await applyPendingChangePlan(state.change_plan_pending); else await recoverOrphanChangeTransactions();
+  await event("executor_started", { epoch: lease.epoch, targeted, lease_ttl_seconds: leaseTtlSeconds, heartbeat_interval_ms: renewIntervalMs }); renewTimer = setInterval(heartbeat, renewIntervalMs); renewTimer.unref(); await reconcileInflight(state); if (state.change_plan_pending) await applyPendingChangePlan(state.change_plan_pending); else await recoverOrphanChangeTransactions();
 
   const scopeFrds = new Set(requestedFrds);
   if (requestedChange) { const file = normalizeChangeFile(requestedChange); const body = await readChangeCard(file); const status = cardField(body, "status"); if (status === "ready") for (const frd of await processChange({ file, body, type: cardField(body, "type"), class: cardField(body, "class") })) scopeFrds.add(frd); else if (status === "building") for (const frd of listValue(cardField(body, "affected_frds"))) scopeFrds.add(frd); else throw Object.assign(new Error(`target change is ${status}, not ready/building`), { code: "CHANGE" }); }
@@ -359,12 +373,12 @@ try {
   }
   if (finalReason === "complete" && !state.terminal_reason) await terminal("complete");
   if (!["complete", "needs-owner"].includes(finalReason) && !state.terminal_reason) await terminal(finalReason);
-  await shutdown(finalReason); process.exitCode = EXIT[finalReason] ?? 2;
+  await shutdown(finalReason); process.exitCode = EXIT[finalReason] ?? 2; if (process.exitCode) announceStop(finalReason);
 } catch (error) {
   {
     const reason = error.code === "NEEDS_OWNER" ? "needs-owner" : error.code === "UNCERTAIN" ? "uncertain" : error.code === "DURATION" ? "duration" : error.code === "SPEND" ? "budget" : error.code === "STOPPED" ? "stopped" : "error"; finalReason = reason;
     await quiesceActive(reason);
     if (["uncertain", "duration"].includes(reason) && lease) { const errorClass = error.providerClass || state.uncertain?.error_class || "unknown"; await pauseForOwner(project, lease.token, lease.epoch, { subject: state.uncertain?.id || state.inflight?.id || "uncertain-dispatch", summary: `Codex exited without a trustworthy terminal result (provider class: ${errorClass}). The executor did not retry; inspect the durable result and git delta before deciding.` }).catch(() => {}); await stateCommit("chore: persist uncertain-dispatch state", null).catch(() => {}); }
-    if (!state.terminal_reason) await terminal(reason, { error: error.message, code: error.code || "ERROR" }); await event("executor_stopped", { error: error.message, code: error.code || "ERROR" }); const providerClass = error.providerClass || state.uncertain?.error_class; notify(`Build Codex detenido: ${reason}${providerClass ? ` (${providerClass})` : ""}`); await shutdown(reason); process.exitCode = EXIT[reason] ?? 2;
+    if (!state.terminal_reason) await terminal(reason, { error: error.message, code: error.code || "ERROR" }); await event("executor_stopped", { error: error.message, code: error.code || "ERROR" }); const providerClass = error.providerClass || state.uncertain?.error_class; notify(`Build Codex detenido: ${reason}${providerClass ? ` (${providerClass})` : ""}`); await shutdown(reason); process.exitCode = EXIT[reason] ?? 2; announceStop(reason, `${error.code || "ERROR"} ${error.message}`);
   }
 }
