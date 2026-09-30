@@ -29,6 +29,26 @@ its own queue card (`portfolio-rail-architecture-phase-leak`); `modules/ProjectR
 mode of `ProjectRail` are likewise unmounted duplicates of the selectable row, left for a separate change.
 No open queue card referenced REQ-03-007 (the only match is the already-`done` canary D card).
 
+## 2026-09-30 — FRD-08 Codex acceptance criteria aligned with DR-120; Manual corrected
+
+**What:** FRD-08 still carried three ACs describing Codex as `EXPERIMENTAL/attended_foreground/
+targeted-only` (one FRD, foreground, <=7200 s) plus an `OFFLINE_ACCELERATED / LIVE_SHORT /
+LIVE_OVERNIGHT` evidence-ladder AC. Factory DR-120 (2026-09-02, `factory/decisions/registry.yaml`)
+withdrew that profile: every non-Claude runtime is read/review-only on build state, R10/R11 are suspended
+not failed. Read against the live Manual (`manualPages.tsx` multi-runtime page and the two diagrams): the
+top of the page already said "congelado" (DR-120) but three things still contradicted it and were fixed:
+the verification trail's "Codex, build atendido" step (prescribed an attended Codex build with a 7200 s
+budget), the runtime comparison's "Notificaciones" Codex cell ("avance en chat mientras el build atendido
+permanece abierto"), and the intro lead ("operar con las mismas reglas"). Also: the two-doors diagram
+labels the Codex door "solo lectura/review" and no longer hardcodes a stale "25 SKILL.md" count (the
+plugin has 26), and the enforcement note now says read-only is an instruction because `sandbox_mode` is
+still `workspace-write` until BL-0030 (PORT-6) instead of calling BL-0030 an install canary.
+ACs rewritten (spec follows the owner's DR, never the reverse): read/review-only presentation with the
+withdrawn-profile/suspended-R10-R11/reopen-trigger statements; verification steps must not prescribe a Codex
+build; enforcement-is-instruction-until-BL-0030. The three-tier evidence-ladder AC was dropped: the Manual
+never rendered it and DR-120 suspends the gates it distinguished. Guard: `manualPages.dr120.test.tsx`.
+**Docs touched:** FRD-08 `frd.md`.
+
 ## 2026-09-30 — Manual: one source of content per page (bespoke component wins, `.md` becomes an index stub) + the team page lists `drift-finder`
 
 **What:** `DocReader.AuthoredBody` renders a slug's bespoke component (`manualPages.tsx`) and never its

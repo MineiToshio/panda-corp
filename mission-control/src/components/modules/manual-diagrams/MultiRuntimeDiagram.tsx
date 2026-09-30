@@ -40,7 +40,7 @@ const DOORS: readonly Door[] = [
     key: "codex",
     icon: "ti-door-enter",
     title: "Puerta Codex",
-    subtitle: "app · CLI",
+    subtitle: "app · CLI · solo lectura/review",
     accent: "var(--color-cat-7)",
     reads: "AGENTS.md directo + plugin Codex",
     layer: ["plugin + .agents/skills (symlink)", ".codex/agents/*.toml (generados)"],
@@ -49,7 +49,7 @@ const DOORS: readonly Door[] = [
 
 const CORE_PIECES: readonly string[] = [
   "AGENTS.md + factory/",
-  "plugin/skills · 25 SKILL.md",
+  "plugin/skills · SKILL.md",
   "estado en ficheros",
 ] as const;
 

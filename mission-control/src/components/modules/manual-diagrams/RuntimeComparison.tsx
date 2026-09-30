@@ -106,7 +106,7 @@ const ROWS: readonly Row[] = [
   {
     capability: "Notificaciones",
     claude: "push al escritorio + móvil",
-    codex: "avance en chat mientras el build atendido permanece abierto",
+    codex: "sin build que notificar (solo lectura/review, DR-120); responde en chat",
     status: "degrades",
   },
   {

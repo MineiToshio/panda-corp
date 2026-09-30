@@ -2368,8 +2368,8 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <Lead>
         Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp
         —o cualquier proyecto— en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
-        operar con las mismas reglas, los mismos skills y el mismo estado. Nadie elige runtime con
-        un switch:{" "}
+        leerlo y revisarlo con las mismas reglas, los mismos skills y el mismo estado. Construir (
+        <Code>implement</Code>) es solo de Claude Code (DR-120). Nadie elige runtime con un switch:{" "}
         <B weight={600}>cada herramienta se auto-selecciona por lo que es capaz de leer</B>.
       </Lead>
 
@@ -2461,8 +2461,10 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <B weight={600}>Enforcement en Codex tiene dos estados.</B> La política, los adaptadores y
         las proyecciones de hooks/config ya están certificados en fuente. Hasta instalar el plugin,
         revisar sus definiciones y darles trust en una sesión real, AGENTS.md sigue siendo el piso
-        vinculante y no se reclama enforcement activo. BL-0030 permanece abierto hasta cerrar ese
-        canario de instalación; nunca se salta el trust.
+        vinculante y no se reclama enforcement activo; nunca se salta el trust. Hoy el solo-lectura
+        de Codex es una instrucción, no configuración: su <Code>sandbox_mode</Code> sigue en{" "}
+        <Code>workspace-write</Code>. Convertirlo en configuración es el trabajo pendiente de{" "}
+        <Code>BL-0030</Code> (prioridad p0).
       </NotePanel>
 
       <DocH title="Cómo probar que funciona" />
@@ -2478,23 +2480,21 @@ function ConceptMultiRuntime(): React.JSX.Element {
             ),
           },
           {
-            title: <>Codex, build atendido</>,
+            title: <>Codex, solo lectura</>,
             body: (
               <>
-                Pide exactamente un FRD o una change <Code>ready</Code> y mantén la tarea abierta.
-                Debe completar review JUDGE, <Code>verify.sh</Code>, mutation gate, liberar la
-                lease, dejar árbol limpio y conservar <Code>phase: implementation</Code>. Sin
-                target, varios FRDs, background o más de 7200 segundos deben rechazarse antes de
-                ownership.
+                Pídele que lea un FRD o una work order y te reporte su revisión: debe responder en
+                chat sin escribir estado de build. Si le pides <Code>implement</Code> en cualquier
+                forma, debe negarse y remitirte a Claude Code (DR-120).
               </>
             ),
           },
           {
-            title: <>Claude, intacto</>,
+            title: <>Claude, el único que construye</>,
             body: (
               <>
-                La misma prueba vía <Code>/pandacorp:implement</Code> — motor background, supervisor
-                y Fragua completa, como siempre.
+                El build corre vía <Code>/pandacorp:implement</Code>: motor background, supervisor y
+                Fragua completa, como siempre.
               </>
             ),
           },
