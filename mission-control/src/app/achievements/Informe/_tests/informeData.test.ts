@@ -11,10 +11,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import type { FunnelFlow, Phase } from "@/lib/achievements/report/types";
+import type { FunnelFlow, Phase, PhaseTransition } from "@/lib/achievements/report/types";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
 import type { StatusResult } from "@/lib/status/status";
-import { buildInformeData, type InformeInputs } from "../informeData";
+import { buildInformeData, type InformeInputs, keyTransitions } from "../informeData";
 
 function funnel(over: Partial<FunnelFlow> = {}): FunnelFlow {
   const byStatus: Record<IdeaStatus, number> = {
@@ -111,5 +111,30 @@ describe("buildInformeData", () => {
     expect(data.pulse.woPerWeek).toBe(0);
     expect(data.pulse.woPrevWeek).toBe(0);
     expect(data.weeklyFlow.ok).toBe(false);
+  });
+});
+
+describe("keyTransitions", () => {
+  const bounce: PhaseTransition = {
+    project: "alpha",
+    date: "2026-06-16",
+    from: "architecture",
+    to: "implementation",
+    isReopen: false,
+  };
+  const other: PhaseTransition = { ...bounce, date: "2026-06-17" };
+
+  it("gives identical tuples distinct keys and keeps the order", () => {
+    const keyed = keyTransitions([bounce, other, bounce]);
+
+    expect(keyed.map((k) => k.transition)).toEqual([bounce, other, bounce]);
+    expect(new Set(keyed.map((k) => k.key)).size).toBe(3);
+  });
+
+  it("does not re-key a tuple when an unrelated row is added elsewhere", () => {
+    const before = keyTransitions([bounce, bounce]).map((k) => k.key);
+    const after = keyTransitions([other, bounce, bounce]).map((k) => k.key);
+
+    expect(after.slice(1)).toEqual(before);
   });
 });

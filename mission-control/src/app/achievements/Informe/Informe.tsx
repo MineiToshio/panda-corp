@@ -30,11 +30,12 @@ import type {
   WeeklyFlow,
 } from "@/lib/achievements/report/types";
 import type { NextAction } from "@/lib/achievements/report/verdict";
-import type {
-  InformeData,
-  InformePulse as InformePulseData,
-  InformeSignals,
-  ProjectPhase,
+import {
+  type InformeData,
+  type InformePulse as InformePulseData,
+  type InformeSignals,
+  keyTransitions,
+  type ProjectPhase,
 } from "./informeData";
 
 // ── Shared card / band style (matches the Hall rpgpanel + sibling tabs, DR-062) ──
@@ -703,8 +704,8 @@ function FunnelBand({
         <PanelLabel icon="ti-arrows-transfer-up" text="TRANSICIONES DE FASE · POR PROYECTO" />
         {transitions.ok ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-            {transitions.value.map((t) => (
-              <TransitionRow key={`${t.project}-${t.date}-${t.from}-${t.to}`} t={t} />
+            {keyTransitions(transitions.value).map(({ key, transition }) => (
+              <TransitionRow key={key} t={transition} />
             ))}
           </div>
         ) : (

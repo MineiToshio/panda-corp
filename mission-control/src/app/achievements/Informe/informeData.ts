@@ -195,3 +195,25 @@ export function buildInformeData(inputs: InformeInputs): InformeData {
     actions: nextActions(metrics),
   };
 }
+
+/** A phase transition paired with a render key that is unique within its list. */
+export type KeyedTransition = { readonly key: string; readonly transition: PhaseTransition };
+
+/**
+ * Pair each transition with a unique React key. A phase that bounced back and forth inside one day
+ * yields identical (project, date, from, to) tuples, so the base key alone collides; the nth
+ * occurrence of a tuple gets `#n`. The suffix counts only identical tuples, never the row's
+ * position, so an unrelated row appearing elsewhere cannot re-key it.
+ *
+ * @param transitions - The per-project transition log, in derivation order.
+ * @returns The same transitions in the same order, each with a list-unique `key`.
+ */
+export function keyTransitions(transitions: readonly PhaseTransition[]): KeyedTransition[] {
+  const seen = new Map<string, number>();
+  return transitions.map((transition) => {
+    const base = `${transition.project}-${transition.date}-${transition.from}-${transition.to}`;
+    const occurrence = (seen.get(base) ?? 0) + 1;
+    seen.set(base, occurrence);
+    return { key: `${base}#${occurrence}`, transition };
+  });
+}

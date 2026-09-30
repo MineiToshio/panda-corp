@@ -15,7 +15,7 @@
  */
 
 import { cleanup, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
   FunnelFlow,
   PhaseTransition,
@@ -254,6 +254,29 @@ describe("Informe · funnel & flow band (AC-10-015.4)", () => {
     expect(
       reopenRow.querySelector('[aria-label*="eapertura"], [title*="eapertura"]'),
     ).not.toBeNull();
+  });
+
+  it("renders two identical same-day transitions as two rows without a duplicate-key warning", () => {
+    // A phase bounced back and forth within one day yields identical (project, date, from, to) tuples.
+    const bounce: PhaseTransition = {
+      project: "mission-control",
+      date: "2026-06-16",
+      from: "architecture",
+      to: "implementation",
+      isReopen: false,
+    };
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    render(
+      <Informe data={buildData({ transitions: { ok: true, value: [bounce, bounce, bounce] } })} />,
+    );
+
+    const band = screen.getByTestId("informe-funnel");
+    expect(within(band).getAllByTestId("transition-row")).toHaveLength(3);
+    const duplicateKeyWarnings = errorSpy.mock.calls.filter((args) =>
+      args.some((arg) => typeof arg === "string" && arg.includes("same key")),
+    );
+    expect(duplicateKeyWarnings).toHaveLength(0);
   });
 
   it("renders 'no cableado' when the transitions series is absent", () => {

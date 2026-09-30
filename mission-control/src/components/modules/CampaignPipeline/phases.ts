@@ -10,8 +10,8 @@
  *   product       → product-manager
  *   design        → designer + copywriter
  *   architecture  → architect
- *   build         → implementer + reviewer + analytics
- *   release       → security-auditor + devops
+ *   build         → implementer + reviewer + analytics + security-auditor (DR-085)
+ *   release       → devops
  *
  * Pure static data — no side effects. The command modes (spec / implement) come from
  * the shared command-modes module (DR-092: one source for both this board view and the
@@ -136,9 +136,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "design",
     name: "Diseño",
     description:
-      "Creación del sistema visual y la microcopia. Diseñador y copywriter colaboran para que el producto sea bello, accesible y coherente en lenguaje.",
+      "Creación del sistema visual y la microcopia. El designer trabaja en Claude Design y el copywriter aporta la voz, para que el producto sea bello, accesible y coherente en lenguaje.",
     reads: "PRD + FRDs",
-    writes: "Mockups, design tokens y microcopia",
+    writes:
+      "Mockups por FRD, components.md (inventario de componentes), design tokens y microcopia",
     commands: [
       { label: "Define la arquitectura y los work orders", command: "/pandacorp:architecture" },
       { label: "Itera el diseño", command: "/pandacorp:design" },
@@ -147,7 +148,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         role: "designer",
         label: "Designer",
-        what: "Crea los mockups, define los tokens de diseño y asegura la consistencia visual.",
+        what: "Crea los mockups en Claude Design, define los tokens de diseño y el inventario components.md, y asegura la consistencia visual.",
       },
       {
         role: "copywriter",
@@ -160,9 +161,10 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "architecture",
     name: "Arquitectura",
     description:
-      "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo para el equipo de build.",
-    reads: "Mockups, design tokens y microcopia",
-    writes: "Blueprint + ADRs + Build Plan + work orders",
+      "Diseño técnico de la solución. El arquitecto traduce los requisitos en ADRs, plano de implementación y órdenes de trabajo; planifica la fundación (primitivas compartidas) y los artefactos de archivo de cada work order para que el build pueda paralelizar sin colisiones.",
+    reads: "Mockups por FRD, components.md (inventario de componentes), design tokens y microcopia",
+    writes:
+      "Blueprint + ADRs + Build Plan + fundación (primitivas compartidas) + work orders con sus artefactos de archivo",
     commands: [
       {
         label: "Construye con TDD",
@@ -177,7 +179,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         role: "architect",
         label: "Architect",
-        what: "Diseña la arquitectura, escribe los ADRs, define el build plan y genera los work orders.",
+        what: "Diseña la arquitectura, escribe los ADRs, define la fundación y el build plan, y genera los work orders con sus artefactos de archivo.",
       },
     ],
   },
@@ -185,8 +187,9 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
     key: "build",
     name: "Construcción",
     description:
-      "Implementación con TDD (RED → GREEN → refactor) y, como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas. El implementer construye cada work order.",
-    reads: "Blueprint + ADRs + Build Plan + work orders",
+      "Implementación con TDD (RED → GREEN → refactor) en el flujo v2: fundación primero, luego oleadas disjuntas serializadas por artefacto de archivo, con un bucle de fidelidad por work order contra el mock. Cada FRD pasa un gate de 4 lentes más juez visual, y las oleadas se commitean con un único escritor (Option-B). Como último paso, el endurecimiento: el security-auditor revisa la seguridad, el reviewer cierra la calidad y analytics instrumenta las métricas.",
+    reads:
+      "Blueprint + ADRs + Build Plan + fundación (primitivas compartidas) + work orders con sus artefactos de archivo",
     writes: "Código verificado y endurecido (GREEN) — la app lista para lanzar",
     commands: [
       { label: "Lanza (interno o externo)", command: "/pandacorp:release" },
@@ -209,7 +212,7 @@ export const PHASES: ReadonlyArray<PhaseDefinition> = [
       {
         role: "reviewer",
         label: "Reviewer",
-        what: "Ejecuta el gate de cada FRD: tests adversariales, 3 lentes (corrección/seguridad/calidad).",
+        what: "Ejecuta el gate de cada FRD: tests adversariales, 4 lentes (corrección, seguridad, calidad, runtime/visual) y el juez visual.",
       },
       {
         role: "analytics",

@@ -1,5 +1,29 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Campaña fichas restored to the current factory (AC-02-010.8) and unique keys for the Informe transitions band
+
+**AC-02-010.8 (card `campaign-pipeline-ac02-010-8-rebuild`).** The FRD requires the Design ficha to name
+Claude Design + `components.md` + mocks + tokens, the Architecture ficha to plan the foundation and each
+work order's file artifacts, and the Build ficha to reflect the v2 flow (foundation-first, disjoint waves
+serialized by file artifact, per-WO fidelity loop, 4-lens gate + visual judge, Option-B commit). Commit
+`cc2a7e65` built exactly that, then `76054e96` (a revert of the unrelated WO-02-005 repaint, applied over
+HEAD) silently took it back out together with its 21 tests and the WO-02-007 Status Note. Fix: the copy in
+`CampaignPipeline/phases.ts` (design/architecture/build `description`/`reads`/`writes`, the designer,
+architect and reviewer `what`) was rewritten against the FRD text, and the stale header comment listing the
+teams (pre-DR-085) corrected. The DR-085 teams (build = implementer + reviewer + analytics +
+security-auditor, release = devops) are untouched and now asserted. The lost 21 tests were NOT restored
+verbatim (loose regexes, some vacuous); `CampaignPipeline.ac010-8.test.tsx` was rewritten with strict phrase
+assertions (RED first: 9 of 13 failed on the old copy). The lost WO-02-007 Status Note is not reconstructed
+(no backup of the body); the FRD text was never wrong, so no FRD/blueprint edit.
+
+**Informe `TransitionRow` key (card `informe-phase-transitions-duplicate-key`).** The transitions band keyed
+rows by `project-date-from-to`; a phase that bounced back and forth inside one day yields identical tuples
+(legitimate rows, not duplicates to drop), so React warned and could merge rows. `keyTransitions()` in
+`Informe/informeData.ts` appends `#n` to the nth occurrence of an identical tuple (an occurrence counter,
+not the row index: adding an unrelated row elsewhere never re-keys it, `react.md`). Tests: a component test
+(RED: React emitted the "same key" error for three identical transitions) and two pure tests in
+`informeData.test.ts`. No FRD change: AC-10-023.2 already requires every transition to be shown.
+
 ## 2026-09-30 — Portfolio rail no longer lists `architecture` projects (REQ-03-001, canary defect #2)
 
 **What:** FRD-03 REQ-03-001 (owner-approved at the whole-app re-anchor, commit `4cce1dc9`) says the rail
