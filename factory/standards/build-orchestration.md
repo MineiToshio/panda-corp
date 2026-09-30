@@ -589,6 +589,42 @@ leaves the verified code in place and re-gates it next pass; it is never reverte
 engine, so a block lifted by the proof is never reported as both blocked and passed (BL-0185). Rollback:
 `args.driftPolicy: 'block'`.
 
+**A model never transcribes machine JSON into a verdict (BL-0206, BL-0209).** The engine has no filesystem, so
+every read of a script's result goes through a MECH agent — a model, not a lossless copy channel. Canary F2 lost a
+`]` from the drift proof's line (invalid JSON read as "a cycle fault": a spurious 12.3 min / 4.01 $ patch); canary F1
+lost the `],"base":[` seam (STILL VALID JSON, so `base` vanished and the engine read "probe unloadable at
+`last_green_sha`" — the confirmed pre-existing drift that BL-0209 found without a `drift-record`/`drift:` was never
+confirmed by the engine at all: the drift-record dispatch was never skipped, it was never owed). Both share one root
+cause, fixed at the hand-off, not by retrying the model: `drift-proof.mjs prove` **seals** its single line (ASCII
+only, `"sum"` = a cyrb53 checksum of the rest as the last key, `drift-seal.mjs`) and stores the sealed line at
+`.pandacorp/run/drift-proofs/<frd>/<pin>-<n>.json` (`--out`); the engine recomputes the seal over the exact text it
+received. A mismatch, unparseable or empty relay is a **transport fault, never a verdict**: the engine re-reads the
+stored copy through `drift-proof.mjs replay` (no probe re-runs; ≤ 2 times), and if every read fails the gate's claims
+stay **UNPROVEN** — no reopen, no card, no `drift:` entry, a loud `DriftProofUnreadable`, and a reviewer's own
+`needs-owner` block is kept rather than lifted (the lift needs proven drift). What stays a fail-closed cycle fault: an
+intact script refusal (`ok:false`), a probe result that is genuinely unloadable/flaky/owned, a claim with no probe.
+A pre-seal script (`version` 1, version skew with an older installed plugin) is still read, with a warning. The same
+rule covers the other relay on this route: `drift-record`'s result is re-run once when unreadable (its command is
+idempotent on disk) and a script refusal is final. **Invariant (BL-0209):** every confirmed pre-existing drift
+reaches either a `drift-record` dispatch or a logged reason (`already recorded this run`, or the loud "card could NOT
+be written") — `recordDrift` has no cap and no ordering dependence between FRDs; `BL-0209 b` proves three FRDs each
+confirming one drift in the same run get three dispatches and three `drift:` lines.
+
+**The drift finder audits the pinned tree, by construction (BL-0205).** A subagent's Bash tool starts every call in
+the launching session's directory (the factory's `main` checkout), so a `cd` into the pinned gate worktree does not
+carry: canary F2's finders carried the slot path on only 2/42 and 1/13 of their Bash calls and reported defects that
+`main` had already fixed as `implemented`. Defense in three layers: (1) the shared gate-worktree preamble
+(`worktreeWorkFrom`, every gate-worktree agent) says the shell forgets the `cd` and that every command starts with it
+or uses absolute paths / `git -C`; (2) the finder's prompt names the pin's absolute worktree and commit, makes its
+FIRST call print the absolute project dir and `git rev-parse HEAD` inside it, requires that literal dir on every
+later command and absolute paths for Read/Grep/Glob, and a last-call HEAD check; (3) the engine checks what the
+finder REPORTS (`pinDir`, `headSha`, `headShaEnd`) and discards the whole report — a logged `DriftFinderFallback …
+WRONG TREE` — when a HEAD is not the pin or the dir is not inside the gate's own slot, so a claim proven against the
+wrong commit is never merged. Honest limit: layer 3 verifies what the finder says it looked at, not each read in
+between; layers 1-2 are the defense for those. The opus gate judges already carried the worktree path on 79-95% of
+their Bash calls in both canaries (F1's remainder, inspected, were main-tree absolute paths by design: events,
+memory, the change queue), so they get layer 1 only.
+
 **`gate-report.json` and scoped repair: a red gate's cause is read, not guessed (WP-05, WP-08, proposal
 37).** `verify.sh` now ALWAYS writes `.pandacorp/run/gate-report.json`, deleted at the start of every run
 (`LESSON-0155`, so a stale report can never be read as this run's verdict), shaped

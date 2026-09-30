@@ -3,12 +3,12 @@ id: BL-0209
 type: bug
 area: build-engine
 title: "drift-record dispatch is asymmetric: FRD-02 and FRD-03 each got a drift-record agent after their drift-proof confirmed a preexisting claim, but FRD-04's equally-confirmed claim (REQ-04-003) never got one — no card, no frd.md drift: line"
-status: open
+status: done
 severity: p2
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f1-report.md §4 and §5.2 (canary F1, explore mode + gateContextScope)"
-closes:
+closes: "same root cause and fix as BL-0206; tests BL-0209 root cause and BL-0209 b in test-pandacorp-build.mjs"
 links: [BL-0201, BL-0178]
 ---
 
@@ -75,3 +75,9 @@ silently drops the Nth+1 confirmed claim instead of queuing or logging it.
 ## Out of scope
 - The separate BL-0206 mech-relay JSON truncation defect (a different failure mode: a genuinely proven
   claim turned into a spurious reopen by a transcription error, not a dispatch that never happened).
+
+## Root cause (found 2026-09-30 from the canary F1 run's own artifacts, not hypothesized)
+Neither hypothesis (a) nor (b) held: **there was no asymmetric dispatch**. The engine's own run log for `wf_d8545504-d0a` says it: `frd-04-project-workspace: drift claim on REQ-04-003 is a CYCLE FAULT (cycle-fault: the probe is load-error at last_green_sha — unproven)`. `adjudicateDrift` only calls `recordDrift` for claims the engine classified `preexisting`; FRD-04's was classified a cycle fault, so `confirmed` was empty and no `drift-record` was owed (FRD-02/03 were classified `preexisting` — their log lines say so). The canary report's "confirmed preexisting" came from reading `drift-proof.mjs`'s raw stdout in the agent's tool result, which IS correct — but the engine never saw that text. Comparing the `drift-proof:frd-04` agent's Bash tool result with the `output` field it returned (agent `a413442d041689509`): the relay is 9 characters shorter (2212 vs 2221) and differs at exactly one place — `…"},{"parsed":true…` where the real line has `…"}],"base":[{"parsed":true…`. The mech dropped the `],"base":[` seam: **still valid JSON**, so it parsed, `probe.base` became `undefined`, `probeRunState(undefined)` = `load-error`, and the claim became a cycle fault (FRD-04 was reopening anyway for AC-04-011, so it cost no extra cycle; it lost the owner card). **This is the SAME root cause as BL-0206** (a model re-typing machine JSON), in its silent valid-JSON variant that BL-0206's own plan (a parse-error retry) could not have caught — which is why the fix is a seal, not a retry.
+
+## Resolution (2026-09-30)
+Fixed by BL-0206's seal + stored-copy re-read (see that item): the altered relay now fails the seal, the stored line is re-read, the claim is classified from the real facts (`preexisting`) and the `drift-record` is dispatched. **Invariant (Fix plan §4):** every confirmed pre-existing drift reaches a `drift-record` dispatch or a logged reason — `recordDrift` has no cap and no cross-FRD ordering dependence (`already recorded this run`, or the loud ⚠⚠ "card could NOT be written"); documented in `factory/standards/build-orchestration.md`. **Tests** (`test-pandacorp-build.mjs`): `BL-0209 root cause` (the exact F1 corruption — asserted to PARSE as valid JSON with `base` gone — is caught by the seal, re-read, and the drift-record IS dispatched; no "load-error at last_green_sha" verdict), `BL-0209 b` (three FRDs, one confirmed pre-existing drift each under `parallelGates`, the last one's relay altered exactly as F1: 3 `drift-record` dispatches and 3 `drift:` lines, never "two of three"). Both RED on the pre-change artifact.

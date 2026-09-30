@@ -3,12 +3,12 @@ id: BL-0206
 type: bug
 area: build-engine
 title: "a haiku mech agent hand-transcribing drift-proof.mjs's JSON stdout dropped a closing bracket, and the engine's fail-closed JSON parse turned a proven pre-existing drift into a spurious reopen"
-status: open
+status: done
 severity: p1
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f2-report.md §4.3 (canary F2, wf_8bab7752-702, FRD-05)"
-closes:
+closes: "plugin/scripts/drift-seal.mjs, plugin/scripts/drift-proof.mjs (seal, --out, replay), plugin/runtime/engine/pandacorp-build.src.js (parseDriftProof, runDriftProof); tests BL-0206 a-j in test-pandacorp-build.mjs, test-drift-proof.mjs"
 links: [BL-0201, BL-0178]
 ---
 
@@ -71,3 +71,9 @@ produced by a transcription error in a step that should never need to transcribe
   changes.
 - The separate, already-tracked asymmetric `drift-record` dispatch gap for FRD-04 (canary F1) — that is a
   different defect (see the F1 backlog items filed alongside this one).
+
+## Resolution (2026-09-30)
+**Design choice and why.** The engine is a Dynamic Workflow with NO filesystem, so any read of a script's result passes through a MECH agent — "write to a file and read the file" alone still ends with a model re-typing the file's content. So the model is not removed from the path; what changes is that **its copy can no longer be mistaken for the truth**: (a) `drift-proof.mjs prove` SEALS its single line (new `plugin/scripts/drift-seal.mjs`: ASCII-only body, `"sum"` = a cyrb53 checksum of the body as the LAST key, `version: 2`) and stores the sealed line at `.pandacorp/run/drift-proofs/<frd>/<pin>-<n>.json` (`--out`); (b) the engine (`parseDriftProof`, with its own copy of the checksum — a Workflow script has no imports) recomputes the seal over the exact text it received; (c) any mismatch / unparseable / empty relay is a **transport fault, never a verdict**: `drift-proof.mjs replay` re-prints the stored line (seconds, no probe re-runs, ≤ 2 re-reads through the same single MECH spawn site); (d) if every read fails, the gate's claims are UNPROVEN: no reopen, no card, no `drift:` entry, loud `DriftProofUnreadable`, and a reviewer's own `needs-owner` block is kept (the lift needs proven drift). Chosen over "retry the command" (minutes of probe re-runs, same correlated model error) and over "return only a file path" (the engine still has to read the content). A checksum detects ANY alteration — including the silently valid-JSON kind canary F1 actually produced (see BL-0209), which no JSON-parse-error retry could catch.
+**What stays fail-closed (negative controls):** an intact script refusal (`{ok:false,error}`), genuine probe results (unloadable/flaky/owned/no base), a claim with no probe. A pre-seal script (`version` 1, skew with an older installed plugin) is still read with a warning. `drift-record`'s result (the other relay) is re-run once when unreadable (idempotent on disk); a refusal is final. BL-0178's R4 ("dead runner ⇒ cycle fault") is amended on purpose: a proof that never arrived is UNPROVEN (DR-122 `nota` clarified; `factory/standards/build-orchestration.md` documents "a model never transcribes machine JSON into a verdict").
+**Tests** (`test-pandacorp-build.mjs`, RED on the pre-change artifact): `BL-0206 a` (the exact F2 corruption: a dropped `]` → re-read → proven, NO patch), `b` (two altered reads then an intact third), `c` (every read unreadable → UNPROVEN, bounded at 2 re-reads), `d` (unreadable under needs-owner keeps the block), `e`/`f` (negative controls: intact refusal and a genuine load-error stay cycle faults), `g` (version skew), `h`/`h2` (the REAL script's line is accepted; a one-character edit is rejected and recovered), `i`/`j` (drift-record retry / refusal), amended `BL-0178 R4`; `test-drift-proof.mjs` (+16: seal, ASCII, stored copy byte-identical, replay refusals for tampered/missing/escaping paths, `--out` validation).
+**Not verified:** no live engine run (the suite drives scripted agents); the real-world rate at which a haiku mech alters the line is unmeasured.

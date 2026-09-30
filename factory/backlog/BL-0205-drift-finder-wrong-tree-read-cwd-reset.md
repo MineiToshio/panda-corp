@@ -3,12 +3,12 @@ id: BL-0205
 type: bug
 area: build-engine
 title: "the whole-FRD drift finder audits the factory main checkout instead of its pinned gate worktree because Bash cwd resets between subagent tool calls"
-status: open
+status: done
 severity: p1
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f2-report.md §4.2 (canary F2, wf_8bab7752-702)"
-closes:
+closes: "plugin/runtime/engine/pandacorp-build.src.js (finderWrongTree, worktreeWorkFrom), plugin/agents/drift-finder.md; tests BL-0205 a-e in test-pandacorp-build.mjs"
 links: [BL-0201, BL-0203, LESSON-0125]
 ---
 
@@ -84,3 +84,15 @@ to whatever tree the harness defaults to.
 - Fixing the harness's own Bash-cwd-reset behavior (Claude Code's own tool contract, not this repo's to
   change) — the fix is making the finder's own prompt/engine robust to it, not asking the harness to
   persist cwd.
+
+## Resolution (2026-09-30)
+**What.** Three layers, none of which asks the harness to persist cwd (out of scope):
+1. **Shared preamble** (`worktreeWorkFrom`, `plugin/runtime/engine/pandacorp-build.src.js`): every gate-worktree agent (evidence collector, gate judge, split lenses, finder) is told its shell does NOT remember the `cd`, and must start every Bash command with it (or use absolute paths / `git -C`) and give Read/Grep/Glob absolute paths.
+2. **Finder prompt** (`plugin/agents/drift-finder.md` step 0, generated into `DRIFT_FINDER_DIRECTIVE`; plus the engine's `THE PIN (BL-0205)` block in `startDriftFinder`): the pin's absolute worktree and commit, a mandatory first call `PIN_DIR=…; cd "$PIN_DIR" && pwd -P && git rev-parse HEAD`, the literal printed dir on EVERY later command (probe-writing heredocs included), a last-call HEAD check, and `pinDir`/`headSha`/`headShaEnd` in the return shape (`DRIFT_FINDER_SCHEMA` requires `pinDir` and `headSha`).
+3. **Engine backstop** (`finderWrongTree` ← `validateDriftFinding` ← `awaitDriftFinding`): the whole report is discarded (logged `DriftFinderFallback … WRONG TREE`; the gate runs without it, nothing merged, never `implemented`/`drift`) when the first or last reported HEAD is not the pin, `headSha`/`pinDir` is missing, or `pinDir` is not inside THIS gate's own slot (or is the main project dir).
+
+**Where else the `cd` pattern exists (audited on the real F1/F2 transcripts, Bash calls carrying the gate-worktree path):** opus `gate:` judges 76/82, 53/58, 78/82, 49/55 (F1) and 35/40, 22/24, 30/38, 25/27 (F2) = 79-95 %; the ones without it inspected in F1 are main-tree absolute paths by design (events, memory, change queue). `evidence:` collectors 5/5..7/7, `gate-release:` mechs 5/7..8/8 (single-command prompts). `drift-proof:` mechs run `cd … && node …` in ONE call. `patch:`/`verify-patch:`/`certify-patch:`/`drift-record:` run on the MAIN tree by design (their cwd default IS the project). So the reviewer/lenses get layer 1 only (cheap, shared); drift-record/certify-patch need nothing.
+
+**Tests that prove it** (`plugin/scripts/test-pandacorp-build.mjs`, RED on the pre-change artifact, GREEN now): `BL-0205 a` (prompt carries the pin block, first/last HEAD check, absolute-path rule, schema required fields, generated directive step 0), `b` (first HEAD ≠ pin → discarded, judge never sees the claim), `c` (last HEAD ≠ pin; no HEAD reported; pinDir outside the worktree), `d` (per-slot pin under `parallelGates`; another slot's path is a wrong tree), `e` (every gate-worktree agent carries the shared cwd-reset sentence).
+
+**Not closed / limits.** Layer 3 verifies what the finder SAYS it looked at, not each read between its two HEAD checks; a finder that reports the pin and then reads main is caught only by layers 1-2 (prompt discipline). A deterministic verifier (a MECH checking each row's `snippet` against `git show <pin>:<file>`) would close it — left as a follow-up. The "re-measured in a future canary with 0 wrong-tree reads" box stays for a live run (none possible here).
