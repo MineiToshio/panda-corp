@@ -42,6 +42,15 @@ const runWithSecret = (cmd,args,cwd,secret,env={}) => new Promise((resolve)=>{co
 const ok = (condition, message) => { if (!condition) throw new Error(message); };
 const isNearFutureReset = (value) => { const nowSeconds = Math.floor(Date.now() / 1000); return Number.isSafeInteger(value) && value > nowSeconds && value <= nowSeconds + 3700; };
 const read = (file) => readFile(file, "utf8");
+// Readiness is awaited explicitly and asserted (BL-0166): a fixed poll budget that gives up silently lets the
+// test signal a child that is still loading modules on a busy machine (Node reports "signal exit null").
+const FILE_WAIT_MS = 60_000;
+const waitForFile = async (file, what) => {
+  for (const deadline = Date.now() + FILE_WAIT_MS; Date.now() < deadline; await new Promise((resolve) => setTimeout(resolve, 10))) {
+    if (await read(file).then((text) => text.length > 0, () => false)) return;
+  }
+  throw new Error(`${what} (waited ${FILE_WAIT_MS} ms for ${file})`);
+};
 let passed = 0, failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (error) { console.error(`FAIL  ${name}: ${error.stack || error}`); failed++; } };
 
@@ -63,7 +72,7 @@ const a=process.argv.slice(2),o=a[a.indexOf('--output-last-message')+1],s=a[a.in
 const label=prompt.includes('Integrate queued change')?'process-change':prompt.includes('Implement exactly')?'implement':prompt.includes('Independently review')?'review':prompt.includes('Repair only')?'repair':prompt.includes('READ-ONLY independent final audit')?'hardening-audit':prompt.includes('separate hardening implementer')?'hardening-fix':'other';appendFileSync('.pandacorp/run/fake-calls.log',label+'\\n');
 appendFileSync('.pandacorp/run/fake-schemas.log',label+':'+s.split('/').pop()+'\\n');
 if(prompt.includes('preserved RED baseline'))appendFileSync('.pandacorp/run/preserved-consumed','1\\n');
-if(scenario==='hang-tree'&&prompt.includes('Implement exactly')){spawn('sh',['-c','sleep 2; echo late > late-write'],{stdio:'ignore'});await new Promise(()=>{})}
+if(scenario==='hang-tree'&&prompt.includes('Implement exactly')){spawn('sh',['-c','sleep 2; echo late > late-write'],{stdio:'ignore'});writeFileSync('.pandacorp/run/hang-tree-ready','1\\n');await new Promise(()=>{})}
 if(scenario==='uncertain'&&prompt.includes('Implement exactly')){writeFileSync('feature.txt','uncertain\\n');process.exit(7)}
 if(scenario==='stdout-rate-limit'&&prompt.includes('Implement exactly')){process.stderr.write('429 Too Many Requests: rate limit reached '+JSON.stringify(prompt)+' PASSWORD phrase top-secret ghp_supersecret123 -----BEGIN PRIVATE KEY-----\\n');process.exit(1)}
 if(scenario.startsWith('rollout-')&&prompt.includes('Implement exactly')){const root=join(process.env.CODEX_HOME,'sessions','2026','07','15');mkdirSync(root,{recursive:true});const now=new Date(),stamp=scenario==='rollout-stale'?new Date(now.getTime()-60000).toISOString():now.toISOString(),foreign=scenario==='rollout-foreign'?join(process.cwd(),'foreign'):process.cwd(),used=['rollout-one-percent','rollout-reached'].includes(scenario)?1:100,reached=scenario==='rollout-reached'?'primary':null,reset=scenario==='rollout-reset-implausible'?9999999999:(Math.floor(Date.now()/1000)+3600),successful=scenario==='rollout-successful',events=[{timestamp:stamp,type:'session_meta',payload:{source:'exec',cwd:foreign}},{timestamp:stamp,type:'response_item',payload:{type:'message',role:'user',content:[{type:'input_text',text:prompt}]}},{timestamp:stamp,type:'event_msg',payload:{type:'token_count',rate_limits:{primary:{used_percent:used,resets_at:reset},rate_limit_reached_type:reached}}},...(successful?[{timestamp:stamp,type:'response_item',payload:{type:'message',role:'assistant',content:[{type:'output_text',text:'done'}]}}]:[]),{timestamp:stamp,type:'event_msg',payload:{type:'task_complete',...(successful?{last_agent_message:'done'}:{last_agent_message:null})}}],lines=events.map(JSON.stringify).join('\\n')+'\\n';writeFileSync(join(root,'rollout-a.jsonl'),scenario==='rollout-malformed'?'{broken\\n':lines);if(scenario==='rollout-ambiguous')writeFileSync(join(root,'rollout-b.jsonl'),lines);process.exit(1)}
@@ -239,15 +248,19 @@ await test("read-only hardening auditor is independent; any write is rolled back
   const fx = await fixture(); const result = await execute(fx, "audit-writes"); ok(result.code === 20, `exit ${result.code}`); ok(!await read(path.join(fx.project, "audit-write.txt")).then(()=>true).catch(()=>false), "auditor write survived"); const calls = await read(path.join(fx.project, ".pandacorp/run/fake-calls.log")); ok(/hardening-audit/.test(calls) && !/hardening-fix/.test(calls), calls);
 });
 
-await test("signal quiesces the entire active Codex process group before releasing the lease", async () => {
-  const fx = await fixture(); const auth = await authorizedArgs(fx.project, [], "signal-run", { maxSpend: 12, maxDuration: 120, maxRetries: 2, maxBlocks: 3 }); const child = trackedSpawn("node", [executor, "--project", fx.project, "--run-id", "signal-run", "--max-spend", "12", "--max-duration", "120", ...auth], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.fake, PANDACORP_CODEX_EVENTS_FILE: path.join(fx.project, ".pandacorp/run/test-events.ndjson"), FAKE_SCENARIO: "hang-tree" }, stdio: ["ignore", "pipe", "pipe"] });
-  for (let i=0;i<100;i++){const calls=await read(path.join(fx.project,".pandacorp/run/fake-calls.log")).catch(()=>"");if(/implement/.test(calls))break;await new Promise(r=>setTimeout(r,20));}
+// The second variant holds the executor's module load for longer than the old 2 s readiness poll (BL-0166:
+// forced repro of a loaded machine — the pre-fix test signalled the still-booting executor, exit null).
+const SLOW_EXECUTOR_PRELOAD = "data:text/javascript,if(/executor\\.mjs$/.test(process.argv[1]||''))Atomics.wait(new%20Int32Array(new%20SharedArrayBuffer(4)),0,0,2600)";   // %20: NODE_OPTIONS is split on spaces
+for (const [variant, slowEnv] of [["", {}], [" (executor start slower than 2 s)", { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${SLOW_EXECUTOR_PRELOAD}`.trim() }]])
+await test(`signal quiesces the entire active Codex process group before releasing the lease${variant}`, async () => {
+  const fx = await fixture(); const auth = await authorizedArgs(fx.project, [], "signal-run", { maxSpend: 12, maxDuration: 120, maxRetries: 2, maxBlocks: 3 }); const child = trackedSpawn("node", [executor, "--project", fx.project, "--run-id", "signal-run", "--max-spend", "12", "--max-duration", "120", ...auth], { cwd: fx.project, env: { ...process.env, PANDACORP_CODEX_BIN: fx.fake, PANDACORP_CODEX_EVENTS_FILE: path.join(fx.project, ".pandacorp/run/test-events.ndjson"), FAKE_SCENARIO: "hang-tree", ...slowEnv }, stdio: ["ignore", "pipe", "pipe"] });
+  await waitForFile(path.join(fx.project,".pandacorp/run/hang-tree-ready"),"the fake dispatch never spawned its grandchild");
   child.kill("SIGTERM"); const closed = await new Promise((resolve)=>child.on("close",(code)=>resolve(code))); ok(closed === 26, `signal exit ${closed}`); ok(!childIsAlive(child), `executor pid ${child.pid} remained alive`); await new Promise(r=>setTimeout(r,2300)); const journal=await read(path.join(fx.project,".pandacorp/run/codex-executor.jsonl")).catch(()=>"");ok(!await read(path.join(fx.project,"late-write")).then(()=>true).catch(()=>false), `grandchild wrote after lease release\n${journal}`); const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");
 });
 
 await test("signal after dispatch_finished never races staging against terminal lease finalization", async () => {
   const fx=await fixture();const auth=await authorizedArgs(fx.project,[],"signal-race",{maxSpend:12,maxDuration:120,maxRetries:2,maxBlocks:3});const child=trackedSpawn("node",[executor,"--project",fx.project,"--run-id","signal-race","--max-spend","12","--max-duration","120",...auth],{cwd:fx.project,env:{...process.env,PANDACORP_CODEX_BIN:fx.fake,PANDACORP_CODEX_EVENTS_FILE:path.join(fx.project,".pandacorp/run/test-events.ndjson"),FAKE_SCENARIO:"success",PANDACORP_TEST_AFTER_DISPATCH_BARRIER:"1"},stdio:["ignore","pipe","pipe"]});
-  let reached=false;for(let i=0;i<500;i++){reached=await read(path.join(fx.project,".pandacorp/run/after-dispatch.barrier")).then(Boolean).catch(()=>false);if(reached){ok(child.kill("SIGTERM"),"signal delivery failed");break}await new Promise(r=>setTimeout(r,10));}ok(reached,"dispatch barrier was never reached");
+  await waitForFile(path.join(fx.project,".pandacorp/run/after-dispatch.barrier"),"dispatch barrier was never reached");ok(child.kill("SIGTERM"),"signal delivery failed");
   const closed=await new Promise(resolve=>child.on("close",code=>resolve(code)));ok(closed===26,`race exit ${closed}`);ok(!childIsAlive(child),`executor pid ${child.pid} remained alive`);const cp=await checkpoint(fx.project);ok(cp.terminal_reason==="stopped",JSON.stringify(cp));const status=await read(path.join(fx.project,".pandacorp/status.yaml"));ok(/running: false/.test(status),status);ok(!await read(path.join(fx.project,".pandacorp/run/build.lease/lease.json")).then(()=>true).catch(()=>false),"lease remained held");const staged=await run("git",["diff","--cached","--name-only"],fx.project);ok(!staged.out.trim(),`staged residue: ${staged.out}`);
 });
 

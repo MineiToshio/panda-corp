@@ -3,9 +3,10 @@ id: BL-0166
 type: bug
 area: build-engine
 title: "test-codex-executor.mjs fails intermittently when run-engine-tests.sh's suites execute under concurrent/parallel runners, passes reliably in isolation"
-status: open
+status: done
 severity: p2
 opened: 2026-09-23
+closed: 2026-09-30
 source: "bl-0140-0134-classifier + bl-0044-warn-adhoc integration session, 2026-09-23 — observed two failures of this suite during the day's parallel test runs, both green when re-run alone"
 closes: "plugin/scripts/test-codex-executor.mjs (suite), possibly run-engine-tests.sh's runner-concurrency model"
 links: []
@@ -94,3 +95,15 @@ observed once, not diagnosed or fixed (would be further unbounded scope creep on
 two full-battery runs both failed `test-codex-unattended.mjs`'s "foreground launcher owns the process
 lifetime and forwards termination" simultaneously — flagged separately as a background suggestion
 rather than a third backlog item bundled into this investigation.
+
+## Resolution (2026-09-30): not organically reproduced; the coupling was found, forced and fixed
+
+**Organic reproduction (negative, again).** 16 isolated runs of `test-codex-executor.mjs` (2 concurrent loops of 8, `</dev/null`, on a machine whose load average sat between 9 and 29 on 10 cores because four other sessions were running) all passed, and the complete `run-engine-tests.sh` battery passed in every run that was not disturbed by this session's own edits (two earlier complete runs failed for unrelated, self-inflicted reasons: a worktree without `mission-control/node_modules` for `test-engine-artifact.mjs`, and an engine source edit racing `test-check-derived-drift.sh`). The final complete runs on the landed tree are listed in the decision-log entry of 2026-09-30.
+
+**Suspects, discarded with evidence (debugging.md).** Ports: none (no `listen`, the fake Codex is a script). Shared paths: every fixture is `mkdtemp`-unique and the events file is per-test. Shared home: `CODEX_HOME` is per-test where it matters. Heartbeat test: lease timestamps are millisecond ISO strings and the dispatch waits 450 ms against a 100 ms renew. What is left is **timing**.
+
+**Confirmed coupling, reproduced by force.** The signal test ("signal quiesces the entire active Codex process group…") waited for the fake Codex's first call with `for (i<100) … setTimeout(20)`, a 2 s budget that gave up SILENTLY, then sent `SIGTERM`. If the executor has not finished loading its modules by then (a busy machine), the signal lands before its handler exists and the child dies by signal: `signal exit null` instead of 26. Forced with a preload that delays only `executor.mjs` by 2.5 s (`slow-start.mjs` in this session's scratch), the unfixed suite fails at exactly that test with `signal exit null` and nothing else; the isolated passes are explained because an idle machine boots the executor well inside 2 s, and the failures appear only under contention. The sibling barrier test (5 s budget, asserted) survived the same 2.5 s delay, so it was hardened only by sharing the new helper. This is a confirmed mechanism that predicts the symptom and explains the non-failures; it is NOT proven to be the cause of the two organic failures of 2026-09-23 (no log of them survives), only the one timing assumption in this suite that a loaded machine demonstrably violates.
+
+**Fix.** `plugin/scripts/test-codex-executor.mjs`: the fake Codex now writes `.pandacorp/run/hang-tree-ready` right after it spawns the grandchild, and both signal tests wait for their readiness marker through one `waitForFile` helper (10 ms poll, 60 s budget, THROWS a named error on timeout instead of proceeding). Regression: the signal test now runs twice, the second time with the executor's start held for 2.6 s through a `NODE_OPTIONS` data-URL preload; it fails on the old poll and passes on the new wait.
+
+**Not changed.** The 2.3 s wait before asserting the grandchild never wrote `late-write` can only produce a false pass (never a flake), so it is left as is. Auditing other suites for the same class stays out of scope, as the item said.
