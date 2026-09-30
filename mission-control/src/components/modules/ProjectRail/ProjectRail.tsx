@@ -38,6 +38,7 @@ import Link from "next/link";
 import { RecoveryHint } from "@/app/portfolio/_components/RecoveryHint/RecoveryHint";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { CountBadge } from "@/components/core/CountBadge/CountBadge";
+import { LastSyncChip } from "@/components/modules/ProjectRail/LastSyncChip";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 
 // ---------------------------------------------------------------------------
@@ -670,6 +671,9 @@ function SelectableRow({
             {PHASE_LABELS[item.stage] ?? item.stage}
           </div>
         )}
+
+        {/* Last-sync chip — relative time since the portfolio row's last sync (REQ-03-007) */}
+        {item.lastSync !== undefined && <LastSyncChip lastSync={item.lastSync} />}
 
         {/* Rethink indicator — indented chip line below the stage (prototype rethink row) */}
         {rethinkPending === true && (

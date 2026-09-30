@@ -301,6 +301,8 @@ export type ProjectListItem = {
     returnMetric?: string;
     verdict?: string;
   };
+  /** Raw "last sync" cell of the portfolio row (REQ-03-007); the rail formats it. Undefined for a placeholder. */
+  lastSync?: string;
 };
 
 /**
@@ -416,6 +418,7 @@ function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
     stage,
     running: resolveRunning(statusResult),
     snapshot: resolveSnapshot(entry, stage),
+    lastSync: entry.lastSync,
   };
 }
 

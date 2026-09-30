@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-09-24'
+last_updated: '2026-09-30'
 ---
 # FRD-03 — Portfolio and project navigation
 
@@ -22,7 +22,7 @@ The Portfolio rail shows ONLY projects that **have started development** — tho
 - **REQ-03-004** — EACH project row SHALL show a **pending-decisions count badge** when it has unresolved decisions (count > 0) and a **bugs count badge** when it has bugs awaiting processing (count > 0), so the owner sees what needs attention without opening the workspace.
 - **REQ-03-005** — WHEN the owner selects a project in the list, the system SHALL show its workspace (FRD-04) in the right-hand panel.
 - **REQ-03-006** — WHEN no project is selected, the system SHALL select the first one by default.
-- **REQ-03-007** — WHEN a portfolio entry carries a `last sync` date, its project row SHALL show a chip with the relative time since that sync in Spanish ("hoy", "ayer", "hace N días", "hace N meses"), using the row's existing chip style; an unparseable date SHALL be shown as an explicit invalid-date chip, never hidden silently (WO-03-006).
+- **REQ-03-007** — WHEN a portfolio entry carries a `last sync` date, its project row **on the portfolio rail (the surface `/portfolio` mounts)** SHALL show a chip with the relative time since that sync in Spanish ("hoy", "ayer", "hace N días", "hace N meses"), using the row's existing chip style; an unparseable date SHALL be shown as an explicit invalid-date chip, never hidden silently (WO-03-006; mounted on the rail by the 2026-09-30 follow-up, because the first build put it on a component no route mounted).
 - IF there are no active projects, THEN the system SHALL show an empty state gracefully.
 - IF a project's local path does not exist on disk (folder deleted or moved), the system SHALL show a `⚠️ path not found` badge on the project row.
   - IF the project has a `repo:` URL in the portfolio, the system SHALL show the recovery command: `git clone <repo> <path>` then re-run `/pandacorp:sync-portfolio` (copyable text, same shape as FRD-15/16 banners).

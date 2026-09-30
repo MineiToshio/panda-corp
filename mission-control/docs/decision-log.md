@@ -1,5 +1,34 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — REQ-03-007 last-sync chip mounted on the portfolio rail; unmounted `PortfolioTable` removed (canary F1/F2 defect #4, BL-0211)
+
+**What:** REQ-03-007 requires a portfolio row to show a relative "last sync" chip, but WO-03-006
+built it on `PortfolioTable`, a component with no production importer (verified this session with
+`grep -rn PortfolioTable src`: only its own tests). `/portfolio` renders `ProjectRail`, so the chip was
+visible nowhere in the running app. WO-03-006's "Out of scope: mounting `PortfolioTable`" could not
+exempt a clause of the FRD (source-of-truth hierarchy `FRD > ... > work order`), so the dismissal the F1
+gate accepted ("matches the WO scope") was wrong: the F2 gate's `fail REQ-03-007` was right. Fix, chosen
+over mounting `PortfolioTable` because `ProjectRail` is the ONE portfolio list per DR-057 and FDD-03 §2
+(`RailItem`), and mounting a second, differently shaped list (path, repo link, snapshot chips) would
+contradict the FDD:
+- `ProjectListItem.lastSync` carries the portfolio row's cell out of `activeProjects()` (one derivation,
+  DR-115; `formatLastSync` is unchanged and still the only formatter).
+- `ProjectRail/LastSyncChip.tsx` renders the chip on the selectable row (shared `Chip`, text "sync: hace N
+  días" or "sync: fecha inválida", raw date in `title`), inside the row's link under the stage line.
+- `PortfolioTable` and its two test files were deleted (DR-115: retire the stale copy, not leave a
+  duplicate). Its behavioral coverage moved to `ProjectRail.lastSync.test.tsx` (incl. a real Spanish
+  "Última sync" table through `activeProjects()`), `activeProjects.lastSync.test.ts` and
+  `src/app/portfolio/_tests/portfolio-last-sync.test.tsx`, which renders the real async `PortfolioPage`
+  (the mount-reachability oracle this defect lacked).
+
+**Docs touched:** FRD-03 `frd.md` REQ-03-007 (states the chip is on the rail), `blueprint.md` (new
+`CMP-03-last-sync`, REQ-03-007 traceability row), WO-03-006 (frontmatter artifacts + Resolution note),
+WO-03-002 and the WO README (stale `PortfolioTable` artifacts), `docs/design/components.md`.
+**Not resolved here:** REQ-03-001 (`ACTIVE_PHASES` still lists `architecture`, defect #2) stays open in
+its own queue card (`portfolio-rail-architecture-phase-leak`); `modules/ProjectRow` and the non-selectable
+mode of `ProjectRail` are likewise unmounted duplicates of the selectable row, left for a separate change.
+No open queue card referenced REQ-03-007 (the only match is the already-`done` canary D card).
+
 ## 2026-09-30 — Manual: one source of content per page (bespoke component wins, `.md` becomes an index stub) + the team page lists `drift-finder`
 
 **What:** `DocReader.AuthoredBody` renders a slug's bespoke component (`manualPages.tsx`) and never its

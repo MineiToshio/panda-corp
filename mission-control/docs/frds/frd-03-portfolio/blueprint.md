@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-09-24
 grounding_gate: passed 2026-09-24
 consistency_gate: passed 2026-09-24
-last_updated: '2026-06-21'
+last_updated: '2026-09-30'
 ---
 # FRD-03 — Portfolio & project navigation — Feature blueprint
 
@@ -41,6 +41,7 @@ states and the slot that hosts the workspace.
 | `CMP-03-active-projects` | module (compose) | `lib/portfolio.ts` helper `activeProjects()` (or in the page) | Filter portfolio entries to phases `architecture`/`implementation`(building)/`release`(shipped) using `readStatus`. | REQ-03-001 |
 | `CMP-03-rail` | UI (Server) | `app/portfolio/page.tsx` + `components/ProjectRail.tsx` | Vertical list of active projects: title, stage, indicator, snapshot, not-found badge. | REQ-03-001, REQ-03-002, REQ-03-003 |
 | `CMP-03-row` | UI | `components/ProjectRow.tsx` | One project row: building/stopped indicator + ⚠️ not-found badge + recovery. | REQ-03-002, REQ-03-006 |
+| `CMP-03-last-sync` | UI | `components/modules/ProjectRail/LastSyncChip.tsx` (rendered by the selectable rail row) + `lib/portfolio/formatLastSync.ts` | Relative "sync: hace N días" chip from `ProjectListItem.lastSync` (the portfolio row's `last sync` cell, carried by `activeProjects()`); an unparseable date is an explicit "fecha inválida" chip. | REQ-03-007 |
 | `CMP-03-snapshot` | UI | `components/BusinessSnapshot.tsx` | Shipped project's users / return / verdict chips from the portfolio row. | REQ-03-003 |
 | `CMP-03-workspace-slot` | UI (Server) | `app/portfolio/page.tsx` right panel | Host the selected project's workspace (FRD-04); default-select the first. | REQ-03-004, REQ-03-005 |
 | `CMP-03-empty` | UI | `components/PortfolioEmpty.tsx` | Graceful empty state when no active projects. | REQ-03-006 |
@@ -108,6 +109,7 @@ Detection uses FRD-01 `pathExists(entry.path)`:
 | REQ-03-004 | Selecting a project shows its workspace (FRD-04) in the right panel. | `CMP-03-workspace-slot` |
 | REQ-03-005 | No selection → select the first by default. | `CMP-03-workspace-slot` |
 | REQ-03-006 | No active projects → graceful empty state; path-not-found → ⚠️ badge + recovery (repo → clone+sync; no repo → warning); read-only; badge clears on re-detect. | `CMP-03-empty`, `CMP-03-row`, `CMP-03-recovery` |
+| REQ-03-007 | A row with a `last sync` date shows a relative-time chip on the rail; unparseable date → explicit invalid-date chip. | `CMP-03-last-sync`, `IF-03-activeProjects` |
 
 > REQ numbering maps the FRD's EARS bullets in document order; the empty-state and the path-not-found
 > sub-bullets are grouped under REQ-03-006.
@@ -144,7 +146,7 @@ frd-13 (foundation, VERIFIED)
         │
         └─ WO-03-002  Portfolio surface      artifacts: app/portfolio/**,
                       (rail + table + rows +             components/modules/{ProjectRail,
-                       empty + recovery +                ProjectRow,PortfolioTable}/**
+                       empty + recovery +                ProjectRow}/**
                        status chips)
 ```
 

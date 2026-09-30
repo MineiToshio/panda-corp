@@ -11,7 +11,6 @@ artifacts:
   - 'src/app/portfolio/**'
   - 'src/components/modules/ProjectRail/**'
   - 'src/components/modules/ProjectRow/**'
-  - 'src/components/modules/PortfolioTable/**'
 source_requirements: [REQ-03-001, REQ-03-002, REQ-03-004, REQ-03-005, REQ-03-006]
 dependsOn: [WO-03-001, WO-01-004, WO-01-005, WO-01-001, WO-02-003, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003, WO-04-004]
 last_updated: '2026-06-21'
@@ -31,8 +30,8 @@ VERIFIED and consumed as-is; this WO is presentational.
 - **`ProjectRail` / `RailItem`** (`src/components/modules/ProjectRail/ProjectRail.tsx`) — the
   selectable rail nav primitive (`.rail` / `.rail.on`): status icon + title + count badges + stage
   line. Distinct from `Tabs` and the docs `.navitem` — reuse the rail primitive, do not fork a tab.
-- **`ProjectRow` / `PortfolioTable`** (`src/components/modules/{ProjectRow,PortfolioTable}/*.tsx`) —
-  the project rows / table: title, stage, building/stopped indicator (icon + label, not color-only).
+- **`ProjectRow`** (`src/components/modules/ProjectRow/ProjectRow.tsx`; its former sibling `PortfolioTable`
+  was removed 2026-09-30, see WO-03-006) — the project row: title, stage, building/stopped indicator (icon + label, not color-only).
 - **`StatusChips`** (`src/app/portfolio/_components/status-chips/status-chips.tsx`) — per-row
   pending-decisions / bugs / rethink count badges; built as **`CountBadge` presets** (`tabular-nums`),
   not new pills.

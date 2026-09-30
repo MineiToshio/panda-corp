@@ -11,10 +11,12 @@ reopen_count: 0
 artifacts:
   - 'src/lib/portfolio/formatLastSync.ts'
   - 'src/lib/portfolio/_tests/formatLastSync.test.ts'
-  - 'src/components/modules/PortfolioTable/**'
+  - 'src/components/modules/ProjectRail/LastSyncChip.tsx'
+  - 'src/components/modules/ProjectRail/_tests/ProjectRail.lastSync.test.tsx'
+  - 'src/app/portfolio/_tests/portfolio-last-sync.test.tsx'
 source_requirements: [REQ-03-007]
 dependsOn: [WO-03-001, WO-03-002]
-last_updated: '2026-09-24'
+last_updated: '2026-09-30'
 change_ref: canario-d-paralelismo-portfolio-board-changes-wo.md
 ---
 # WO-03-006 — Portfolio row: relative "last sync" chip
@@ -43,7 +45,7 @@ table (`last sync` / `última sync` / `ultima sync` headers) but is never render
   and a `title` with the raw date. When the helper reports an invalid date, the row shows an explicit
   "sync: fecha inválida" chip (text, not color alone) rather than hiding it.
 
-**Out of scope:** mounting `PortfolioTable` somewhere new. Verified 2026-09-24: `PortfolioTable` has no
+**Out of scope (SUPERSEDED 2026-09-30, see the Resolution note at the end):** mounting `PortfolioTable` somewhere new. Verified 2026-09-24: `PortfolioTable` has no
 production importer today (only its own test) — this WO changes the component and its tests only; the
 chip becomes visible wherever the table is (or later gets) mounted. Do not touch `src/app/portfolio/**`
 or `ProjectRail`.
@@ -106,3 +108,21 @@ row's existing chip style, same size and tokens as the phase chip.
 - Self-test green: `pnpm biome check .` (0 errors; 1 pre-existing warning in `ChangeCard.tsx` belongs
   to the parallel WO-04-008, not touched here), `pnpm tsc --noEmit` (clean), `pnpm vitest run` on both
   new/changed test files (73/73 passed, including the 54 pre-existing `PortfolioTable` cases untouched).
+
+## Resolution (2026-09-30): the "out of scope" clause above was invalid
+
+A work order cannot exempt a clause of the FRD. REQ-03-007 requires the row to show the chip, and the
+only row a route mounts is the `ProjectRail` row (`/portfolio` renders `ProjectRail`; `PortfolioTable`
+had no production importer, the original MVP list superseded by the rail under DR-057). The chip was
+therefore visible nowhere in the running app (canary F1/F2 defect #4, BL-0211). Fixed:
+
+- `ProjectListItem.lastSync` (`src/lib/portfolio/portfolio.ts`) carries the portfolio row's cell from
+  `activeProjects()`; one derivation, the rail formats it (DR-115).
+- `src/components/modules/ProjectRail/LastSyncChip.tsx` renders the chip (shared `Chip`, text
+  "sync: hace N días" / "sync: fecha inválida", `data-testid="portfolio-row-last-sync"`, `title` = raw
+  date) on the selectable row, inside the row's link, under the stage line.
+- `PortfolioTable` (component + its two test files) was deleted as the abandoned duplicate; its
+  behavioral cases live on in `ProjectRail.lastSync.test.tsx` (incl. the real-reader chain with prose
+  and impossible dates), `activeProjects.lastSync.test.ts` and, for mount reachability,
+  `src/app/portfolio/_tests/portfolio-last-sync.test.tsx` (renders the real async `PortfolioPage`).
+- The Status Note's "Integration seam" bullet above describes the pre-fix state and is historical.
