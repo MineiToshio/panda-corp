@@ -567,7 +567,7 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
  }
  const { proof, error } = parsed
  if (!proof && parsed.transport) {
-  log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry (DR-122: what is not proven never reopens; BL-0206). Re-running the gate proves it`)
+  log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry — and an open fail, so nothing is certified on it (DR-122: what is not proven never reopens and never waives; BL-0206). Re-running the gate proves it`)
   return { proof: null, owned: null, error, unreadable: true }
  }
  if (!proof) { log(`⚠ ${frd}: ${error} — every drift claim stays a cycle fault (BL-0178 fail-closed)`); return { proof: null, owned: null, error } }
@@ -632,8 +632,9 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
   if (c.verdict === 'unproven') {
    if (unreadable === true) unreadableIds.push(id || e.contract)
    if (!fromFinder) {
-    log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: no reopen, no card (DR-122, BL-0206)`)
-    return { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
+    log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: it stays an OPEN fail, no reopen, no card (DR-122, BL-0206)`)
+    const { claim, ...open } = claimEntry
+    return { ...open, driftVerdict: 'unproven', driftWhy: c.why }
    }
    log(`⚖ ${frd}: drift finder claim on ${id || e.contract} is unproven (${c.why}) — discarded, never a cycle fault on a finder's word (BL-0203)`)
    return dropFinderClaim(c.why)
@@ -665,6 +666,13 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
  } else if (next.green !== true && onlyDriftRed && !(next.reopen && next.reopen.length) && next.blocked_reason === 'needs-owner') {
   log(`✓ ${frd}: the gate blocked needs-owner ONLY over drift the engine proved pre-existing — policy (a): the block is lifted, the cycle's work orders are certified (BL-0178)`)
   next = { ...next, green: true, blocked_reason: undefined, failure: undefined, __driftBlockLifted: true }
+ }
+ const unproven = trace.filter((e) => e && e.driftVerdict === 'unproven')
+ if (unproven.length && next.green === true && !faults.length) {
+  log(`⛔ DriftProofUnproven ${frd}: ${unproven.map((e) => contractIdOf(e.contract) || e.contract).join(', ')} stay OPEN fails — the FRD is NOT certified this run and NOT reopened; it re-gates next pass (DR-122, BL-0206)`)
+  next = { ...next, green: false, __driftUnproven: true, failure: `BL-0206: ${unproven.length} pre-existing-drift claim(s) could not be proven (the differential proof was unreadable) — not certified, re-gated next pass` }
+ } else if (unproven.length && next.reopen && next.reopen.length) {
+  next = { ...next, findings: [...(next.findings || []), ...unproven.map((e) => ({ wo: reviewIds[0], finding: `${e.contract} — contradicted, and its pre-existing-drift claim could NOT be proven (BL-0206: the differential proof was unreadable) — an open fail like any other`, failingTest: String(e.evidence_test || ''), files: [] }))] }
  }
  return next
 }
@@ -1385,6 +1393,11 @@ async function resolveInventoryCache(frd, pinSha) {
  const line = (raw && typeof raw.output === 'string') ? raw.output.trim().split('\n').pop() : ''
  let j = null
  try { j = JSON.parse(line) } catch { j = null }
+ if (j && j.ok === true && (j.sum !== undefined || Number(j.version) >= 2) && !driftSealHolds(line)) {
+  log(`⚠ ${frd}: the inventory-cache check line failed its integrity seal (the relay altered it) — full whole-FRD inventory this gate`)
+  return { hit: false, reason: 'check altered' }
+ }
+ if (j && j.ok === true && j.sum === undefined && !(Number(j.version) >= 2)) log(`⚠ ${frd}: the inventory-cache check predates the sealed output — its relay integrity could not be verified (update the installed plugin)`)
  if (!j || j.ok !== true || !j.sources || typeof j.sources.frd !== 'string') {
   log(`⚠ ${frd}: the inventory-cache check returned no usable facts (${(j && j.error) || 'unparseable output'}) — full whole-FRD inventory this gate`)
   return { hit: false, reason: 'check failed' }
@@ -2252,12 +2265,15 @@ async function gateAndConverge(f, reviewIds) {
  return await gateConverge(f, reviewIds, gate)
 }
 function deferUnstamped(f) { reopenedFrds.push(f.frd); return 'reopened' }
+const driftUnprovenDefer = (gate) => Boolean(gate && gate.__driftUnproven && !(gate.reopen && gate.reopen.length))
+function deferDriftUnproven(f) { log(`↩ ${f.frd}: deferred to the next pass — an unproven drift claim keeps it from certification, and nothing warrants a code change (BL-0206)`); reopenedFrds.push(f.frd); return 'reopened' }
 async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
  phase('Review')
  if (gate && gate.green === true && isPartialReport(gate)) {
   refusePartial(f.frd, 'the FRD gate')
   reopenedFrds.push(f.frd); return 'reopened'
  }
+ if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
  if (gate && gate.green === true) {
   const ev = gate.reviewerEvidence
   const applied = ev
@@ -2410,6 +2426,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   gate = await frdGate(f.frd, reviewIds)
   if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }
   if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+  if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
  }
  if (gate && gate.traceabilityDeficient) {
   const missing = (gate.missingClasses || []).join(', ') || 'see failure'

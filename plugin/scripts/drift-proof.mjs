@@ -122,10 +122,14 @@ function runProbe(projectDir, probeAbs, name, tmpRoot, tag) {
 function prove(o) {
   if (!o.project || !path.isAbsolute(o.project) && o.project !== '.') refuse('--project must be an absolute path (or .)')
   if (!FRD_RE.test(o.frd || '')) refuse('--frd is malformed')
+  if (o.out !== undefined && !isProofFileOf(o.frd, o.out)) refuse(`--out must be .pandacorp/run/drift-proofs/${o.frd}/<name>.json`)
+  // A copy left at this path by an EARLIER prove (a previous run at the same pin and sequence number) must never
+  // answer a `replay` for THIS one: when this run refuses or dies before writing, the replay finds nothing (a
+  // refusal, fail-closed) instead of an older proof about other probes.
+  if (o.out !== undefined) rmSync(path.join(path.resolve(o.project), o.out), { force: true })
   if (!SHA_RE.test(o.pin || 'HEAD')) refuse('--pin must be a hex sha or HEAD')
   for (const p of o.probe) if (!PROBE_RE.test(p) || !p.includes(`/drift-probes/${o.frd}/`)) refuse(`probe path ${JSON.stringify(p)} must be .pandacorp/run/drift-probes/${o.frd}/<name>.drift-probe.ts(x)`)
   for (const w of o.wo) if (!WO_RE.test(w)) refuse(`work-order path ${JSON.stringify(w)} is malformed`)
-  if (o.out !== undefined && !isProofFileOf(o.frd, o.out)) refuse(`--out must be .pandacorp/run/drift-proofs/${o.frd}/<name>.json`)
   const project = path.resolve(o.project)
   const source = path.resolve(o.source || project)
   const top = git(project, ['rev-parse', '--show-toplevel'])

@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifySealedLine } from './drift-seal.mjs'
 import { docBody, fnv1a } from './gate-inventory.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -76,6 +77,9 @@ check(docBody('---\na: 1\r\n---\r\n# T\r\n') === '# T\n', 'docBody: CRLF-normali
   const c2 = run('check', '--project', r.app, '--frd', FRD, '--pin', 'HEAD')
   check(c2.sources.frd === onDisk.sources.frd && c2.sources.blueprint === onDisk.sources.blueprint, 'check: a frontmatter-only edit (rollup status, drift list) does NOT change the fingerprint')
   check(typeof c2.inventory === 'string' && c2.inventory === readFileSync(file, 'utf8'), 'check: the cache is returned VERBATIM (the engine parses it, fail-loud)')
+  const rawLine = execFileSync('node', [SCRIPT, 'check', '--project', r.app, '--frd', FRD, '--pin', 'HEAD'], { encoding: 'utf8' }).trim().split('\n').pop()
+  check(c2.version === 2 && verifySealedLine(rawLine).ok && !/[^\x20-\x7e]/.test(rawLine), 'check: the line is SEALED (version 2, ASCII-only) — the engine never takes a HIT from an altered relay')
+  check(!verifySealedLine(rawLine.replace(/\\"contract\\":/, '\\"contrakt\\":')).ok, 'check: an edit INSIDE the embedded inventory breaks the seal')
 
   // ── a body edit (a normative change drained at a safe point) changes it ──
   write(path.join(r.app, `docs/frds/${FRD}/frd.md`), frdDoc('VERIFIED', '# FRD-01\n\nREQ-01-001 The system SHALL demo twice.\n'))

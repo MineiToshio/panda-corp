@@ -270,6 +270,11 @@ const run = (args, env = {}) => {
   }
   const badOut = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.app, '--pin', 'HEAD', '--out', '../escape.json'], { PANDACORP_DRIFT_VITEST: `node ${r.fake}` }).json
   check(badOut.ok === false && /--out/.test(badOut.error), 'out: a path outside .pandacorp/run/drift-proofs/<frd>/ is refused before anything runs')
+  // Red-team of BL-0206: the stored path is <pin8>-<seq>.json, so a LATER run at the same pin reuses it. A prove that
+  // refuses (or dies) before writing must not leave the EARLIER run's sealed line there for `replay` to serve as its own.
+  const stale = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.app, '--pin', 'not-a-sha', '--probe', probe, '--out', stored], { PANDACORP_DRIFT_VITEST: `node ${r.fake}` }).json
+  check(stale.ok === false && !existsSync(path.join(r.app, stored)), 'out: a prove that refuses deletes the previous stored copy at its --out first (no stale proof)')
+  check(run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', stored]).json.ok === false, 'replay: after that refusal the replay refuses too (fail-closed) instead of serving the older proof')
   rmSync(r.root, { recursive: true, force: true })
 }
 

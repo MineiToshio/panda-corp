@@ -186,8 +186,9 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     or reopens the cycle's work orders; passes at last green → a regression this cycle caused → reopened
 //     patch-first; passes at the pin → the claim is discarded (logged); unloadable/flaky/owned/unprovable →
 //     a cycle fault (fail-closed). BL-0206: the ONE exception is a proof that never ARRIVED intact (the line is
-//     sealed, the engine re-reads the stored copy twice): every claim of that gate stays UNPROVEN — no reopen, no
-//     card, loud DriftProofUnreadable — because a transcription fault is not evidence about the code.
+//     sealed, the engine re-reads the stored copy twice): every claim of that gate stays UNPROVEN — an OPEN fail that
+//     is neither reopened nor carded (a transcription fault is not evidence about the code, either way): a green
+//     resting on it is NOT certified, the FRD is deferred IN_REVIEW and re-gates next pass; loud DriftProofUnreadable.
 //     'block' is the rollback switch: claims are ignored and every `fail` is a
 //     cycle fault exactly as before BL-0178. Any other value falls back to 'record' with a loud log.
 //   args.parallelGates: OPT-OUT (**default TRUE** since v9.116.0 — canary F1/F2 verdict, proposal 38
@@ -1102,7 +1103,8 @@ function enforceWholeFrdTraceability(result) {
 //   • unloadable / flaky / missing probe / invalid base / no contract id / owned → cycle fault (fail-closed:
 //     an unproven claim is never recorded as drift and never waives a green).
 //   • BL-0206: the proof line itself never arrived intact (seal mismatch after two re-reads of the stored copy) →
-//     UNPROVEN: neither drift nor a cycle fault — a model's transcription error says nothing about the code.
+//     UNPROVEN: neither drift nor a cycle fault — a model's transcription error says nothing about the code — so
+//     the entry stays an OPEN fail: no reopen, no card, and a green resting on it is deferred, never certified.
 // Proven drift NEVER blocks and NEVER reopens the cycle's WOs: it becomes a `draft` change card (the owner
 // decides direction — `/pandacorp:sync` rule: never degrade the spec) with the probe preserved under
 // .pandacorp/run/gate-evidence/<frd>/drift/, plus the FRD's `drift:` frontmatter at the certifying landing.
@@ -1277,7 +1279,7 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
   }
   const { proof, error } = parsed
   if (!proof && parsed.transport) {
-    log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry (DR-122: what is not proven never reopens; BL-0206). Re-running the gate proves it`)
+    log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry — and an open fail, so nothing is certified on it (DR-122: what is not proven never reopens and never waives; BL-0206). Re-running the gate proves it`)
     return { proof: null, owned: null, error, unreadable: true }
   }
   if (!proof) { log(`⚠ ${frd}: ${error} — every drift claim stays a cycle fault (BL-0178 fail-closed)`); return { proof: null, owned: null, error } }
@@ -1353,8 +1355,11 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
     if (c.verdict === 'unproven') {
       if (unreadable === true) unreadableIds.push(id || e.contract)
       if (!fromFinder) {
-        log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: no reopen, no card (DR-122, BL-0206)`)
-        return { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
+        // Red-team of BL-0206: an unread proof is not evidence FOR the claim either, so the reviewer's `fail` stays an
+        // OPEN fail (it never waives a green, DR-015/DR-122) — only its routing changes: no reopen, no card (below).
+        log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: it stays an OPEN fail, no reopen, no card (DR-122, BL-0206)`)
+        const { claim, ...open } = claimEntry
+        return { ...open, driftVerdict: 'unproven', driftWhy: c.why }
       }
       log(`⚖ ${frd}: drift finder claim on ${id || e.contract} is unproven (${c.why}) — discarded, never a cycle fault on a finder's word (BL-0203)`)
       return dropFinderClaim(c.why)
@@ -1390,6 +1395,17 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
     // reviewed WO. Every one of its reds is now proven drift (or refuted) → policy (a): the cycle is not blocked.
     log(`✓ ${frd}: the gate blocked needs-owner ONLY over drift the engine proved pre-existing — policy (a): the block is lifted, the cycle's work orders are certified (BL-0178)`)
     next = { ...next, green: true, blocked_reason: undefined, failure: undefined, __driftBlockLifted: true }
+  }
+  // BL-0206 (red-team): an UNPROVEN claim is an open fail that is not the cycle's fault either. A green verdict resting on
+  // it is NOT certified (the waiver hole BL-0078 closed stays closed) and NOT reopened (no code change is warranted by an
+  // unread proof): the FRD is deferred — kept IN_REVIEW, nothing reverted — and re-gates next pass with a fresh proof.
+  // Under a reopen it rides along as a finding, exactly as before BL-0206 (the verifier inherits it as an open fail).
+  const unproven = trace.filter((e) => e && e.driftVerdict === 'unproven')
+  if (unproven.length && next.green === true && !faults.length) {
+    log(`⛔ DriftProofUnproven ${frd}: ${unproven.map((e) => contractIdOf(e.contract) || e.contract).join(', ')} stay OPEN fails — the FRD is NOT certified this run and NOT reopened; it re-gates next pass (DR-122, BL-0206)`)
+    next = { ...next, green: false, __driftUnproven: true, failure: `BL-0206: ${unproven.length} pre-existing-drift claim(s) could not be proven (the differential proof was unreadable) — not certified, re-gated next pass` }
+  } else if (unproven.length && next.reopen && next.reopen.length) {
+    next = { ...next, findings: [...(next.findings || []), ...unproven.map((e) => ({ wo: reviewIds[0], finding: `${e.contract} — contradicted, and its pre-existing-drift claim could NOT be proven (BL-0206: the differential proof was unreadable) — an open fail like any other`, failingTest: String(e.evidence_test || ''), files: [] }))] }
   }
   return next
 }
@@ -2528,6 +2544,14 @@ async function resolveInventoryCache(frd, pinSha) {
   const line = (raw && typeof raw.output === 'string') ? raw.output.trim().split('\n').pop() : ''
   let j = null
   try { j = JSON.parse(line) } catch { j = null }
+  // Red-team of BL-0206: the same model relay carries the whole cached inventory; a copy that lost a contract row is
+  // still valid JSON and would be a HIT that skips that contract. A sealed line must verify; a pre-seal script
+  // (version skew) is read as before, loudly. An altered line is never a HIT — this gate re-derives the inventory.
+  if (j && j.ok === true && (j.sum !== undefined || Number(j.version) >= 2) && !driftSealHolds(line)) {
+    log(`⚠ ${frd}: the inventory-cache check line failed its integrity seal (the relay altered it) — full whole-FRD inventory this gate`)
+    return { hit: false, reason: 'check altered' }
+  }
+  if (j && j.ok === true && j.sum === undefined && !(Number(j.version) >= 2)) log(`⚠ ${frd}: the inventory-cache check predates the sealed output — its relay integrity could not be verified (update the installed plugin)`)
   if (!j || j.ok !== true || !j.sources || typeof j.sources.frd !== 'string') {
     log(`⚠ ${frd}: the inventory-cache check returned no usable facts (${(j && j.error) || 'unparseable output'}) — full whole-FRD inventory this gate`)
     return { hit: false, reason: 'check failed' }
@@ -3872,6 +3896,10 @@ async function gateAndConverge(f, reviewIds) {
 // independently verified, so it is never reverted; the FRD stays IN_REVIEW and re-gates next pass (the same
 // fallback as a PASS whose apply-gate did not confirm).
 function deferUnstamped(f) { reopenedFrds.push(f.frd); return 'reopened' }
+// BL-0206 (red-team): a green whose only red is an UNPROVEN drift claim (adjudicateDrift) — never certified, never
+// reopened, never reverted, never blocked: deferred IN_REVIEW for a fresh gate (and a fresh proof) next pass.
+const driftUnprovenDefer = (gate) => Boolean(gate && gate.__driftUnproven && !(gate.reopen && gate.reopen.length))
+function deferDriftUnproven(f) { log(`↩ ${f.frd}: deferred to the next pass — an unproven drift claim keeps it from certification, and nothing warrants a code change (BL-0206)`); reopenedFrds.push(f.frd); return 'reopened' }
 async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   phase('Review')
   // WP-08 cage, at the certification boundary: a gate that ran `--only`/`--files` stamped its report
@@ -3881,6 +3909,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     refusePartial(f.frd, 'the FRD gate')
     reopenedFrds.push(f.frd); return 'reopened'
   }
+  if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
   if (gate && gate.green === true) {
     // BL-0185: a CONCURRENT pass whose first apply failed lands here from the harvest — its reviewer's tests
     // and gate-report live in the gate-EVIDENCE dir (the release already cleaned the worktree), never on
@@ -4102,6 +4131,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     gate = await frdGate(f.frd, reviewIds)
     if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }   // WP-08 cage
     if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+    if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
   }
   // BL-0159: the post-repair re-gate above is ALSO wrapped by enforceWholeFrdTraceability (frdGate wraps
   // every call) and can come back a genuinely deficient-but-GREEN verdict the oracle downgraded WITHOUT

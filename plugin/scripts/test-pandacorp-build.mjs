@@ -5379,7 +5379,7 @@ SCENARIOS.push({
 
 // Fail-closed: a dead proof runner proves nothing; a reviewer-typed 'drift' status is not an engine stamp.
 SCENARIOS.push({
-  name: 'BL-0178 R4 (amended by BL-0206). dead drift-proof runner → the proof cannot be READ → the claim stays UNPROVEN: never drift, never a card, and never a reopen either',
+  name: 'BL-0178 R4 (amended by BL-0206, red-teamed). dead drift-proof runner → the proof cannot be READ → the claim stays UNPROVEN: never drift, never a card, never a reopen — and never certified: the open fail defers the FRD',
   args: { mode: 'pro' },
   plan: b178Plan('frd-b178-r4', 'wo-b178r4-001'),
   responses: [
@@ -5393,7 +5393,9 @@ SCENARIOS.push({
     t.ok(hasLog(run, /DriftProofUnreadable frd-b178-r4: the drift-proof runner returned no output/), 'the dead runner is logged loudly')
     t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card: nothing was proven')
     t.ok(byLabel(run, 'patch:frd-b178-r4').length === 0, 'NO reopen on a proof that never arrived (DR-122: what is not proven never reopens)')
-    t.ok(run.result && run.result.builtFrds.includes('frd-b178-r4'), 'the FRD lands VERIFIED')
+    t.ok(byLabel(run, 'apply-gate:frd-b178-r4').length === 0, 'NOTHING certified: a dead proof runner never waives the reviewer\'s fail (DR-015 — a failure is never turned into silence)')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-b178-r4') && run.result.reopenedFrds.includes('frd-b178-r4'), 'the FRD is deferred IN_REVIEW for a fresh gate next pass, not VERIFIED')
+    t.ok(hasLog(run, /DriftProofUnproven frd-b178-r4: AC-99-004\.1 stay OPEN fails/), 'the deferral names the unproven contract')
   },
 })
 SCENARIOS.push({
@@ -5758,7 +5760,7 @@ const gcTrace = (extra = []) => [
 ]
 const GC_SOURCES = { frd: 'a'.repeat(64), blueprint: 'b'.repeat(64) }
 const gcInv = (frd, over = {}) => JSON.stringify({ version: 1, frd, gatedAt: 'abc1234', sources: GC_SOURCES, writtenAt: '2026-09-25T00:00:00Z', contracts: gcTrace(), ...over })
-const gcCheck = (frd, inventory, sources = GC_SOURCES) => ({ prefix: 'gate-inventory:', response: { output: JSON.stringify({ ok: true, frd, pin: 'abc1234', sources, inventoryPath: `.pandacorp/run/gate-evidence/${frd}/inventory.json`, inventory }) } })
+const gcCheck = (frd, inventory, sources = GC_SOURCES) => ({ prefix: 'gate-inventory:', response: { output: sealLine({ ok: true, version: 2, frd, pin: 'abc1234', sources, inventoryPath: `.pandacorp/run/gate-evidence/${frd}/inventory.json`, inventory }) } })
 const gcHasBlock = (p) => /CACHED WHOLE-FRD INVENTORY — FRD baseline gated at/.test(p)
 
 SCENARIOS.push({
@@ -5820,6 +5822,38 @@ SCENARIOS.push({
     t.ok(run.result && run.result.builtFrds.includes('frd-93-hit'), 'a verdict covering every cached contract verifies')
   },
 })
+// Red-team of BL-0206 (2026-09-30): the inventory check line carries the WHOLE cached inventory through the same
+// model relay. A copy that lost one contract row is still valid JSON and still has all 7 classes, so it used to be a
+// HIT that no longer required that contract (GC-L3d's guard only checks the rows it was given). Now it is sealed.
+{
+  const intact = gcCheck('frd-93-alt', gcInv('frd-93-alt')).response.output
+  const rowLost = intact.replace(/\{\\"contract\\":\\"AC-93-002\.1[^}]*\},/, '')
+  SCENARIOS.push({
+    name: 'GC-L3h. red-team — an inventory check line that LOST a contract row in the relay (still valid JSON, every class present) fails its seal: never a HIT, full inventory',
+    args: { mode: 'pro', gateInventoryCache: true },
+    plan: b178Plan('frd-93-alt', 'wo-93-001'),
+    responses: [{ prefix: 'gate-inventory:', response: { output: rowLost } }, { prefix: 'gate:', response: { green: true, traceability: gcTrace() } }],
+    assert(t, run) {
+      let parses = true
+      try { const j = JSON.parse(rowLost); const inv = JSON.parse(j.inventory); parses = inv.contracts.length === gcTrace().length - 1 } catch { parses = false }
+      t.ok(rowLost !== intact && parses, 'fixture: the altered line is valid JSON whose inventory lost exactly one row')
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gate = byLabel(run, 'gate:frd-93-alt')[0]
+      t.ok(gate && !gcHasBlock(gate.prompt), 'no cached inventory is injected from an altered line')
+      t.ok(hasLog(run, /frd-93-alt: the inventory-cache check line failed its integrity seal/) && !hasLog(run, /cached contract inventory HIT/), 'logged loudly, never a HIT')
+    },
+  })
+  SCENARIOS.push({
+    name: 'GC-L3i. red-team — a pre-seal inventory script (version skew) is still read, with a warning',
+    args: { mode: 'pro', gateInventoryCache: true },
+    plan: b178Plan('frd-93-old', 'wo-93-001'),
+    responses: [{ prefix: 'gate-inventory:', response: { output: JSON.stringify({ ok: true, frd: 'frd-93-old', pin: 'abc1234', sources: GC_SOURCES, inventoryPath: '.pandacorp/run/gate-evidence/frd-93-old/inventory.json', inventory: gcInv('frd-93-old') }) } }, { prefix: 'gate:', response: { green: true, traceability: gcTrace() } }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /frd-93-old: the inventory-cache check predates the sealed output/) && hasLog(run, /cached contract inventory HIT/), 'read as before, with the version-skew warning')
+    },
+  })
+}
 SCENARIOS.push({
   name: 'GC-L3d. BL-0189 — HIT, but the green verdict DROPS a cached AC: refused, re-asked WITHOUT the cache, and only the complete verdict lands',
   args: { mode: 'pro', gateInventoryCache: true },
@@ -8207,7 +8241,7 @@ SCENARIOS.push({
 })
 
 SCENARIOS.push({
-  name: 'BL-0206 c. every read unreadable → the claim is UNPROVEN (DR-122: what is not proven never reopens): no reopen, no card, no drift: entry, FRD lands; loud DriftProofUnreadable',
+  name: 'BL-0206 c (red-teamed). every read unreadable → the claim is UNPROVEN: no reopen, no card, no drift: entry — and NOT certified either (the open fail defers the FRD); loud DriftProofUnreadable',
   args: { mode: 'pro' },
   plan: b206Plan('frd-b206c'),
   responses: [
@@ -8222,9 +8256,8 @@ SCENARIOS.push({
     t.ok(hasLog(run, /REQ-63-001 is UNPROVEN .* no reopen, no card/), 'the claim itself is logged as unproven')
     t.ok(byLabel(run, /^(patch|verify-patch|revert):/).length === 0, 'NO reopen — an unreadable proof is never a cycle fault')
     t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card: nothing was proven')
-    const apply = byLabel(run, 'apply-gate:frd-b206c')[0]
-    t.ok(apply && !/set exactly `drift:/.test(apply.prompt), 'no drift: entry is stamped')
-    t.ok(run.result && run.result.builtFrds.includes('frd-b206c'), 'the FRD lands VERIFIED')
+    t.ok(byLabel(run, 'apply-gate:frd-b206c').length === 0, 'nothing is stamped: no VERIFIED and no drift: entry on an unread proof')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-b206c') && run.result.reopenedFrds.includes('frd-b206c'), 'the FRD is deferred IN_REVIEW, re-gated next pass')
   },
 })
 
@@ -8246,6 +8279,45 @@ SCENARIOS.push({
   },
 })
 
+// Red-team of BL-0206 (2026-09-30): an unread proof is evidence neither way. The first cut of the amendment turned the
+// reviewer's `fail` into `discarded`, so a green verdict with an unprovable claim was CERTIFIED (R4/c asserted
+// "lands VERIFIED": an outage of the MECH relay waived a contradicted contract). Now the entry stays an OPEN fail:
+// a green is deferred (no stamp, no reopen, no revert), and under a reopen it rides along as a finding.
+SCENARIOS.push({
+  name: 'BL-0206 k. legacy serial gate (parallelGates:false): an unreadable proof under a green verdict is NOT certified, NOT reopened, NOT reverted — deferred',
+  args: { mode: 'pro', parallelGates: false },
+  plan: b206Plan('frd-b206k'),
+  responses: [
+    b206Gate('frd-b206k', 'REQ-67-001'),
+    { prefix: 'drift-proof:', response: { output: b206Mangle.bracket(b206Intact('frd-b206k', 'REQ-67-001')) } },
+    { prefix: 'drift-proof-replay:', response: null },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'apply-gate:frd-b206k').length === 0, 'no apply-gate: nothing is stamped VERIFIED on an unproven claim')
+    t.ok(byLabel(run, /^(patch|verify-patch|certify-patch|revert|repair|persist-block|block):/).length === 0, 'no patch, no revert, no repair, no block')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-b206k') && !run.result.blockedFrds.includes('frd-b206k') && run.result.reopenedFrds.includes('frd-b206k'), 'deferred IN_REVIEW for the next pass')
+    t.ok(hasLog(run, /↩ frd-b206k: deferred to the next pass — an unproven drift claim/), 'the deferral is logged with its reason')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0206 l. an unreadable proof under a REOPEN verdict: the claim rides along as a finding and the verifier inherits it as an OPEN contract (never discarded)',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206l'),
+  responses: [
+    { label: 'gate:frd-b206l', times: 1, response: { green: false, reopen: ['wo-b206l-001'], findings: [{ wo: 'wo-b206l-001', finding: 'src/x.ts:3 off-by-one in the pager' }], testFiles: [], traceability: b178Trace(b178Claim('frd-b206l', 'REQ-68-001', 'legacy drift the cycle did not write')) } },
+    { prefix: 'drift-proof:', response: null },
+    { prefix: 'drift-proof-replay:', response: null },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'REQ-68-001 — legacy drift the cycle did not write', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const patch = byLabel(run, 'patch:frd-b206l')[0]
+    t.ok(patch && /REQ-68-001 — .*could NOT be proven \(BL-0206/.test(patch.prompt), 'the patch is told about the unproven contract')
+    const vp = byLabel(run, 'verify-patch:frd-b206l')[0]
+    t.ok(vp && /INHERITED OPEN CONTRACTS/.test(vp.prompt) && /REQ-68-001/.test(vp.prompt), 'the verifier inherits it as an OPEN contract: it was not discarded')
+  },
+})
 SCENARIOS.push({
   name: 'BL-0206 e. NEGATIVE CONTROL — an INTACT script refusal (ok:false) is still a fail-closed cycle fault: no re-read, patch-first, as before',
   args: { mode: 'pro' },

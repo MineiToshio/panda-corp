@@ -24,13 +24,15 @@
 // DR-115 honest cache: ONE writer (the certifying landing), re-derived from the adjudicated verdict of every
 // green gate, never read by a display surface, fingerprinted against its atomic source (the FRD docs).
 //
-// Output: ONE JSON line on stdout, exit 0 — `{ok:true,…}` or `{ok:false,error}` (fail-closed).
+// Output: ONE JSON line on stdout, exit 0 — `{ok:true,…}` or `{ok:false,error}` (fail-closed). A successful
+// `check` line is sealed (drift-seal.mjs): the engine verifies it and never takes a cache HIT from an altered copy.
 
 import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sealLine } from './drift-seal.mjs'
 
 const FRD_RE = /^frd-[A-Za-z0-9][A-Za-z0-9._-]*$/
 const SHA_RE = /^([0-9a-f]{7,40}|HEAD)$/
@@ -122,8 +124,11 @@ function main() {
   const file = path.join(project, rel)
 
   if (o.cmd === 'check') {
-    // VERBATIM — the engine parses it (fail-loud on a malformed file, DR-078); null only when absent.
-    out({ ok: true, frd: o.frd, pin, sources, inventoryPath: rel, inventory: existsSync(file) ? readFileSync(file, 'utf8') : null })
+    // VERBATIM — the engine parses it (fail-loud on a malformed file, DR-078); null only when absent. SEALED
+    // (drift-seal.mjs, `version: 2` announces it): the engine reads this line through a model, and a lost contract
+    // row inside the still-valid JSON would otherwise be a cache HIT that silently skips a contract (BL-0206 class).
+    process.stdout.write(`${sealLine({ ok: true, version: 2, frd: o.frd, pin, sources, inventoryPath: rel, inventory: existsSync(file) ? readFileSync(file, 'utf8') : null })}\n`)
+    process.exit(0)
   }
 
   if (typeof o.contracts !== 'string' || !/^[0-9a-f]{8}$/.test(o.digest || '')) refuse('write needs --contracts <json> and --digest <8 hex>')
