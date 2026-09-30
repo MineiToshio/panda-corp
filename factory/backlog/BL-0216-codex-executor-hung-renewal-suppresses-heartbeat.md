@@ -3,12 +3,12 @@ id: BL-0216
 type: bug
 area: build-engine
 title: "a lease renewal that never settles now suppresses every later renewal silently (BL-0213's in-flight guard), so the Codex lease can age past its TTL with no lease_lost"
-status: open
+status: done
 severity: p2
 opened: 2026-09-30
-closed:
+closed: 2026-09-30
 source: "second red-team of the BL-0212/0213/0214 batch (2026-09-30), attack 6 (executor mutex / lease TTL)"
-closes:
+closes: "plugin/runtime/codex/executor.mjs (heartbeat renewal deadline); decision-log 2026-09-30 (BL-0215/0216)"
 links: [BL-0213, BL-0166]
 ---
 
@@ -45,8 +45,26 @@ resolves after the first renewal (`new Promise(() => {})`), `PANDACORP_LEASE_TTL
 `lease_lost` journal line. RED today: it keeps dispatching with a lease that is never renewed.
 
 ## Done when
-- [ ] A renewal that never settles ends the run loudly before the lease's TTL.
-- [ ] `run-engine-tests.sh` green (three consecutive batteries, BL-0213's bar).
+- [x] A renewal that never settles ends the run loudly before the lease's TTL.
+- [x] `run-engine-tests.sh` green (three consecutive batteries, BL-0213's bar).
 
 ## Out of scope
 Making the dispatch delta tolerate a long-held mutex (it fails loud, which is correct).
+
+## Resolution (2026-09-30)
+
+`heartbeat()` now arms a one-shot deadline per renewal (`renewStallMs = leaseTtlSeconds * 500`, half the TTL) and
+clears it in `finally`. A renewal still in flight at the deadline writes `codex-executor: lease renewal stalled for N ms
+(limit …)` to stderr, emits `lease_lost` (`renewal stalled N ms`, bounded to 1 s so a stalled disk cannot delay the
+stop) and SIGTERMs the run once (exit 26, `stopped`). The guard that never stacks renewals is kept. A timer per
+renewal, not a check on the next tick, because a tick-based check can land past the TTL (the sketch's
+`5 x renewIntervalMs` equals the whole default TTL); a renewal starts at most TTL/3 after the last good one, so the
+deadline fires no later than 5/6 of the TTL. The hung renewal still holds the lease mutex (nothing can release it); this
+run's own release then fails CONTENDED (`lease_release_failed`), the mutex is reclaimed as stale after 60 s, and the
+lease simply goes stale, the honest state. The message carries numbers only (no secrets).
+
+**Test.** `test-codex-executor.mjs` "a lease renewal that never settles ends the run loudly before the lease TTL
+(BL-0216)": a `NODE_OPTIONS` preload hangs every rename of `lease.json.tmp-*` after the acquiring one; asserts exit 26,
+the stderr message, a single `LeaseLost` journal line, and a stop before the dispatch (12 s) ends. RED before (the run
+continued and ended CONTENDED after the dispatch); mutation (deadline removed) turns it RED again. Green in 3
+consecutive runs of the suite plus 2 full `run-engine-tests.sh` batteries.

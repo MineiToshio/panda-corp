@@ -95,14 +95,27 @@ const event = createRuntimeEventEmitter({ runtime: "codex", runId, project, jour
 // exit status (a supervisor, a test, a terminal) got an empty stream for an ownership or fence violation.
 const announceStop = (reason, detail = "") => process.stderr.write(`codex-executor: stopped (${reason})${detail ? `: ${detail}` : ""}\n`);
 // One renewal at a time: on a slow disk the interval otherwise stacks renewals that starve every other lease mutation of the mutex,
-// and the starved mutation's timeout ends the build as a bare CONTENDED (BL-0213).
+// and the starved mutation's timeout ends the build as a bare CONTENDED (BL-0213). The guard alone lets a renewal that never settles
+// suppress every later one in silence while the lease ages past its TTL, so each renewal also carries a one-shot deadline of half the
+// TTL (BL-0216). A renewal starts at most TTL/3 after the last good one (the configuration check above), so the deadline fires no
+// later than 5/6 of the TTL, before the lease goes stale; a timer per renewal rather than the next tick keeps that bound exact.
+const renewStallMs = leaseTtlSeconds * 500;
 let renewInFlight = false;
+async function onRenewalStalled(startedAt) {
+  const stalledMs = Date.now() - startedAt;
+  process.stderr.write(`codex-executor: lease renewal stalled for ${stalledMs} ms (limit ${renewStallMs} ms, lease TTL ${leaseTtlSeconds} s): stopping before the lease expires\n`);
+  // The journal line is best-effort and bounded: the disk that stalled the renewal may stall the append too, and SIGTERM must not wait on it.
+  await Promise.race([event("lease_lost", { error: `renewal stalled ${stalledMs} ms` }).catch(() => {}), wait(1000)]);
+  process.kill(process.pid, "SIGTERM");
+}
 async function heartbeat() {
   if (renewInFlight) return;
   renewInFlight = true;
+  const startedAt = Date.now();
+  const deadline = setTimeout(() => { void onRenewalStalled(startedAt); }, renewStallMs); deadline.unref();
   try { await renew(project, lease.token, lease.epoch); }
   catch (error) { await event("lease_lost", { error: error.message }); process.kill(process.pid, "SIGTERM"); }
-  finally { renewInFlight = false; }
+  finally { clearTimeout(deadline); renewInFlight = false; }
 }
 const notify = (message) => { if (process.platform !== "darwin") return; const child = spawn("osascript", ["-e", `display notification ${JSON.stringify(message)} with title "Pandacorp Codex"`], { stdio: "ignore" }); child.unref(); };
 const killTree = (child, signal = "SIGTERM") => { if (!child?.pid) return; try { if (process.platform === "win32") child.kill(signal); else process.kill(-child.pid, signal); } catch { try { child.kill(signal); } catch {} } };

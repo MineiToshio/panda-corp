@@ -81,6 +81,7 @@ let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
 if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){for(const t0=Date.now();Date.now()-t0<30000;await new Promise(r=>setTimeout(r,25))){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at){appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');break}}}
+if(prompt.includes('Implement exactly')&&scenario==='stalled-renewal'){for(const t0=Date.now();Date.now()-t0<12000;await new Promise(r=>setTimeout(r,25)));}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
 if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
@@ -176,6 +177,32 @@ await test(`fenced heartbeat during a long dispatch is controller-owned, not a w
   ok((await read(path.join(fx.project, ".pandacorp/run/heartbeat-observed"))).trim() === "1", "dispatch did not span a lease renewal");
   const log = await run("git", ["log", "--format=%s"], fx.project);
   ok(/feat\(WO-01\): implementation attempt/.test(log.out), log.out);
+});
+
+// A disk call that never returns (a stalled network volume): every rename of the lease file after the one that acquired it hangs
+// forever, so the first renewal never settles while it holds the lease mutation mutex (BL-0216).
+const hangingLeaseRename = async () => {
+  const file = path.join(await mkdtemp(path.join(os.tmpdir(), "pc-hung-lease-")), "hung-lease.mjs");
+  await writeFile(file, [
+    "import { createRequire, syncBuiltinESMExports } from 'node:module';",
+    "const fsp = createRequire(import.meta.url)('node:fs/promises');",
+    "if (/executor\\.mjs$/.test(process.argv[1] || '')) {",
+    "  const rename = fsp.rename; let leaseWrites = 0;",
+    "  fsp.rename = (from, ...rest) => (String(from).includes('lease.json.tmp') && ++leaseWrites > 1 ? new Promise(() => {}) : rename(from, ...rest));",
+    "  syncBuiltinESMExports();",
+    "}",
+  ].join("\n"));
+  return { NODE_OPTIONS: `${process.env.NODE_OPTIONS || ""} --import=${file}`.trim() };
+};
+await test("a lease renewal that never settles ends the run loudly before the lease TTL (BL-0216)", async () => {
+  const fx = await fixture(); const startedAt = Date.now();
+  const result = await execute(fx, "stalled-renewal", [], { PANDACORP_LEASE_TTL_SECONDS: "3", PANDACORP_LEASE_RENEW_MS: "100", ...(await hangingLeaseRename()) });
+  const elapsed = Date.now() - startedAt;
+  ok(result.code === 26, `run kept going with a lease that was never renewed\n${await explain(fx.project, result)}`);
+  ok(/lease renewal stalled for \d+ ms/.test(result.err), await explain(fx.project, result));
+  ok(elapsed < 9000, `stalled renewal was not acted on before the dispatch ended (${elapsed} ms)`);
+  const lost = (await read(path.join(fx.project, ".pandacorp/run/codex-executor.jsonl"))).split("\n").filter((line) => line.includes('"semantic_name":"lease.lost"'));
+  ok(lost.length === 1 && /renewal stalled \d+ ms/.test(lost[0]), `LeaseLost journal lines: ${JSON.stringify(lost)}`);
 });
 
 await test("a non-zero executor exit always says why on stderr (ownership violation and uncertain dispatch)", async () => {
