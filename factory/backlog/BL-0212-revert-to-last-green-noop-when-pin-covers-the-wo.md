@@ -93,3 +93,5 @@ legacy result; patch + seam revert + rebuild undone as one; dirty target; wrong 
 `plugin/scripts/test-pandacorp-build.mjs`: 9 BL-0212 scenarios (carry-over reopen order, DR-070 early block, repair
 give-up on both paths, refused plan, refused apply, altered/unreadable relay, no-op, parallel gates with two FRDs), all
 RED against the pre-fix engine. 12/12 mutations killed.
+
+**Second red-team (2026-09-30).** Four work-loss paths of `wo-revert.mjs` (rename, mixed commit, certified anonymous sibling repair, pin restore over a later writer) and one false `dirty` refusal (a preserved test moved out of the tree) are fixed with tests `test-wo-revert.mjs` (g)-(l); the baseline reconciliation named above as "left as it is" restored dirt to the pin, which staged the reversal of post-pin commits: it now restores to HEAD (scenario `DR-067 × BL-0212`). The crash window between the flip and the apply is BL-0215. See `plugin/docs/decision-log.md`.
