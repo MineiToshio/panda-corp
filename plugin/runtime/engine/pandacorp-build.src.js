@@ -572,9 +572,11 @@ const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
 // OLDER plugin than the engine version it launched, e.g. plugin 9.102.3 resident while the 9.103.0 engine
 // references the new `pandacorp:mech` agent — the runtime only picks up a new agent definition on session
 // restart). Injected into the RETRIED prompt itself (the engine has no shell/fs of its own, see the
-// agent() wrapper below) exactly once, the same call that first hits the fallback.
+// agent() wrapper below) exactly once PER requested type, the call that first hits that fallback (BL-0168:
+// the same skew hit a non-mech type — canary F2's `pandacorp:drift-finder` — and only a log line said so;
+// the event is the visible, dashboard-side signal for EVERY type, not just mech).
 const MECH_FALLBACK_EVENT = (requestedType, fallbackType) =>
-  ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
+  ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141/BL-0168: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
 
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
@@ -709,6 +711,7 @@ let mechUnavailable = false   // sticky once 'pandacorp:mech' itself 404s once �
 // call this run goes straight to its fallback instead of paying another guaranteed-failed spawn for the
 // same runtime/plugin skew.
 let mechFallbackLogged = false   // the explanatory log fires ONCE this run, not once per call site
+const typeFallbackAnnounced = new Set()   // BL-0168: requested agentTypes whose fallback already emitted its ONE MechFallback dashboard event (any type, not only mech)
 const AGENT_TYPE_NOT_FOUND_RE = /agent type '([^']+)' not found/
 const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
 // REV3-H / D1 (DR-015): these types are INDEPENDENT ORACLES — their whole contract is judging work
@@ -765,9 +768,11 @@ agent = async (prompt, opts = {}) => {
         log(`pandacorp:mech no disponible en este runtime (plugin desactualizado en la sesión): usando ${fallback}; reinicia la sesión para 9.103.0`)
       }
     } else {
-      log(`agentType '${requestedType}' no disponible en este runtime — usando ${fallback} como fallback.`)
+      log(`agentType '${requestedType}' no disponible en este runtime — usando ${fallback} como fallback${typeFallbackAnnounced.has(requestedType) ? '.' : ` (plugin desactualizado en la sesión: reinicia la sesión para cargar el plugin instalado — BL-0168; hasta entonces el agente dedicado no se usa).`}`)
     }
-    const retryPrompt = requestedType === 'pandacorp:mech' && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
+    const announceFallback = !typeFallbackAnnounced.has(requestedType)
+    typeFallbackAnnounced.add(requestedType)
+    const retryPrompt = announceFallback && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
     try {
       return await __rawAgent(retryPrompt, { ...rest, agentType: fallback })
     } catch (e2) {

@@ -3,10 +3,10 @@ id: BL-0168
 type: change
 area: plugin-skill
 title: "the Skill tool serves the plugin version THIS SESSION loaded at start, not the currently-installed one — an already-open session silently executes stale skill/reference text after `claude plugin update`"
-status: open
+status: done
 severity: p2
 opened: 2026-09-24
-closed:
+closed: 2026-09-30
 source: "canary 1 (change-now-dryrun-report.md) and canary 2 (change-now-canary-2-report.md §4.4) of /pandacorp:change --now on Mission Control, 2026-09-23 — both observed a running session serving an older plugin version than `installed_plugins.json` reported"
 closes:
 links: [BL-0152, BL-0163, BL-0166, BL-0201, BL-0203]
@@ -120,3 +120,13 @@ This strengthens rather than changes the mitigation direction already chosen her
 whether `preflight-implement.sh`'s existing session-vs-installed version WARN (BL-0152) should also name
 this specific agent-type-resolution failure mode explicitly, since it is now observed to actually fire in
 a real build, not only hypothesized.
+
+## Resolution (2026-09-30): harness-side, mitigated
+
+The constraint itself (a session serves the plugin it loaded at start: Skill text and the Workflow agent registry are session-resident) stays Claude Code harness behavior this repo cannot fix, so this closes as **harness-side, mitigated**, not as fixed. What exists on our side, verified in this session:
+
+1. **Before launch (BL-0152, already shipped).** `plugin/scripts/preflight-implement.sh` §2b WARNs when the session's own `runtime/plugin-metadata.json` is behind `installed_plugins.json`; §2c compares every `agentType` the project's engine references with the agents the session's plugin copy carries (a missing oracle type is RED, any other a WARN). §2c is the direct check for the F2 shape: a session that predates `drift-finder.md` lacks it in its own `agents/`. Covered by `test-preflight-version-skew.sh` (skew WARN, match PASS, session ahead silent, no install silent, missing oracle RED). So the answer to "does preflight already warn?" is yes, for both the version skew and the concrete missing agent.
+2. **During the run (new).** The engine's `agent()` wrapper already degraded an unknown `pandacorp:*` type to its fallback (BL-0141), but only `pandacorp:mech` said "restart" and emitted a dashboard event; F2's four `pandacorp:drift-finder` 404s left a bare log line. Now every distinct missing type logs with "plugin desactualizado en la sesión: reinicia la sesión para cargar el plugin instalado" and injects the one-time `MechFallback` (`agent.type-fallback`) event into the retried prompt, naming `requestedType` and `fallbackType`, so the skew is visible in Mission Control's stream and not only in the workflow log. Oracle types still fail closed (DR-015). Test: `test-pandacorp-build.mjs` FIX1b (restart hint in the log, event on the retried prompt of a non-mech type, never on the first attempt).
+3. **Skill text (earlier).** `change/SKILL.md` and `now-mode.md` tell the agent to compare its served version with `installed_plugins.json` and read the installed copy directly.
+
+Not done, by design: extending the self-check paragraph to every reference-heavy skill (mechanical follow-up); and the note that a read-only agent (drift-finder) ran as the write-capable reviewer during the fallback (its prompt carries the method; the event from item 2 now makes the substitution visible).

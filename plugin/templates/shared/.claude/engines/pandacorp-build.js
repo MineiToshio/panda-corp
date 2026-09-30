@@ -158,7 +158,7 @@ const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
 const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
  ` Also append the GateEvidenceFallback event (fire-and-forget — WP-06: the pre-collected evidence pack was unusable, so THIS gate ran in explore mode): printf '{"event":"GateEvidenceFallback","at":"%s","project":"%s","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
 const MECH_FALLBACK_EVENT = (requestedType, fallbackType) =>
- ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
+ ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141/BL-0168: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
 const MECH = (args && args.mechModel) || 'haiku'
 const MECH_LEAN = !(args && args.mechLean === false)
 const MECH_AGENT = (fallback) => (MECH_LEAN ? 'pandacorp:mech' : fallback)
@@ -196,6 +196,7 @@ const NOTIFY = (msg, sound) =>
 const __rawAgent = agent
 let mechUnavailable = false
 let mechFallbackLogged = false
+const typeFallbackAnnounced = new Set()
 const AGENT_TYPE_NOT_FOUND_RE = /agent type '([^']+)' not found/
 const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
 const ORACLE_TYPES = new Set(['pandacorp:reviewer', 'pandacorp:security-auditor', 'pandacorp:test-writer'])
@@ -235,9 +236,11 @@ agent = async (prompt, opts = {}) => {
     log(`pandacorp:mech no disponible en este runtime (plugin desactualizado en la sesión): usando ${fallback}; reinicia la sesión para 9.103.0`)
    }
   } else {
-   log(`agentType '${requestedType}' no disponible en este runtime — usando ${fallback} como fallback.`)
+   log(`agentType '${requestedType}' no disponible en este runtime — usando ${fallback} como fallback${typeFallbackAnnounced.has(requestedType) ? '.' : ` (plugin desactualizado en la sesión: reinicia la sesión para cargar el plugin instalado — BL-0168; hasta entonces el agente dedicado no se usa).`}`)
   }
-  const retryPrompt = requestedType === 'pandacorp:mech' && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
+  const announceFallback = !typeFallbackAnnounced.has(requestedType)
+  typeFallbackAnnounced.add(requestedType)
+  const retryPrompt = announceFallback && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
   try {
    return await __rawAgent(retryPrompt, { ...rest, agentType: fallback })
   } catch (e2) {
