@@ -172,8 +172,33 @@ work order of a previous run — the audit found it on the FIRST publication of 
 FRDs verified). Linear history cannot give both "the pin contains every verified FRD" and "the pin contains only
 verified FRDs" when the commits interleave; the engine keeps the first. So the pin is **whole-project green, not
 "reviewed-only"**: the differential drift proof already refuses a base that holds a reviewed work order
-(`baseValid`), but a revert "to `last_green_sha`" of a work order the pin already contains restores that work
-order's own rejected code — BL-0212 tracks moving the reverts to the work order's own commits.
+(`baseValid`), and no discard of rejected code restores anything "to `last_green_sha`" any more (a work order the pin
+already contains would get its own rejected build back — BL-0212); see "The revert contract" below.
+
+**The revert contract (BL-0212).** Every discard of a rejected or blocked work order's code — `revertAndReopen` (the
+DR-070/DR-073 fallback, the in-run retry's re-reject, the A3 seam revert), the A3 early block and the repair give-up
+(a gate failure without reopen, a build-wave self-test failure) — runs `plugin/scripts/wo-revert.mjs`, never a model's
+`git checkout`. The script finds the work order's CURRENT attempt in git history: it opens at the first commit that
+flipped the work order's frontmatter to `IN_REVIEW` since it was last `VERIFIED`; inside that window a commit belongs
+to the attempt when it touches the work order's own file or names it in its subject (and touches no other work order's
+file — a sibling's build that only mentions it is not its work), or when it is an FRD-level commit of this FRD only (a
+patch, a repair; the engine's commit prompts name the FRD and the work orders for this reason). Per file those commits
+touched (never `.pandacorp/**` or `docs/frds/**` — frontmatter, rollups and status belong to the engine's own commits):
+- the attempt's first touch of the file is **not** in the pin → restore it to the pin, exactly as before BL-0212;
+- otherwise → **revert the attempt's own commits** on it: nothing else touched it since → its content before the
+  attempt; another commit did (a shared file: i18n messages, constants) → a sequential 3-way reverse merge that
+  keeps that commit's edit.
+**Fail closed, never partial:** a merge conflict, an uncommitted change on a target path, a work order not in the
+required state (`--require-status`: the `PLANNED`/`BLOCKED` flip must be committed first, WS-D/D12) or an unreadable
+receipt refuses the WHOLE plan — nothing is written — and the engine blocks the FRD `needs-owner` with a Spanish
+decision record naming the conflicting files (`RevertRefused` event + log). A reopen runs a read-only `plan` BEFORE the
+flip, so a refusal never leaves a `PLANNED` work order over its rejected code; a refusal never rebuilds on top of it.
+**Never silent:** an apply that changes nothing where a change was expected emits `RevertNoop` (event + log). The script
+commits exactly the paths it changed (one commit naming the FRD and the work orders, so the next revert attributes
+it) and prints one sealed JSON line (drift-seal.mjs) the engine verifies after the MECH relay, re-reading the stored
+copy once when the relay altered it (BL-0206). Out of scope, unchanged: `persistGateBlock` and the repair-budget exit
+keep the work on the branch (no discard), and the baseline reconciliation / foundation reset act on uncommitted or
+whole-surface state, not on one work order's commits.
 
 **Durable build timeline — `.pandacorp/track.jsonl` (DR-086 → FRD-12).** At the same points it already
 touches, the engine appends a per-project timing log: `wo_start` (when a work order begins building),
@@ -979,11 +1004,11 @@ patched the one bug). So the default is **patch-first**:
   the agent ceiling** (`capHit()`) the engine **degrades honestly to the legacy path** — no diagnosis spawn,
   straight revert + in-run retry — so the ladder never *adds* cost when there's no budget for it.
 - **Only when the patch (and, if flagged, the gate-test repair) can't green it whole-project** does the engine
-  fall back to `revertAndReopen` (the DR-070 path): set the WO `PLANNED`, **increment `reopen_count`**, and
-  revert its files to `last_green_sha` — surgical `git checkout <sha> -- <files>` + `git rm` for newly-created
-  files (a **PARTIAL** revert restricts the `git checkout` to the diagnosed `seam.files` when the diagnosis said
-  `cleanlySeparable`), **never a whole-tree hard reset** (that would discard verified siblings) — committed with
-  the status change. **The revert preserves test evidence (DR-107):** a newly-created TEST file the reviewer
+  fall back to `revertAndReopen` (the DR-070 path): a read-only revert plan, then the flip commit (set the WO
+  `PLANNED`, **increment `reopen_count`**), then the deterministic discard of the WO's own commits by
+  `wo-revert.mjs` ("The revert contract", BL-0212; a **PARTIAL** revert restricts it to the diagnosed `seam.files`
+  when the diagnosis said `cleanlySeparable`), **never a whole-tree hard reset** (that would discard verified
+  siblings) and never a restore "to `last_green_sha`". **The revert preserves test evidence (DR-107):** a newly-created TEST file the reviewer
   authored or a `## Status Note` references is coverage, not rejected code — it MOVES to
   `.pandacorp/run/preserved-tests/<wo>/` instead of being deleted, and the rebuild restores it as its RED
   baseline (a green 6/6 a11y spec was deleted by a revert on personal-page-v2 and had to be re-authored blind a

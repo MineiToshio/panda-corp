@@ -62,4 +62,7 @@ file-level revert "to `last_green_sha`" would then wipe verified sibling edits o
 pin contains every VERIFIED FRD" (now stated in build-orchestration.md, "What `last_green_sha` certifies"). What breaks
 is every consumer that assumes the opposite: a revert to the pin of a work order the pin already contains restores its
 own rejected code (a silent no-op for revertAndReopen, the DR-070 block revert, the in-run retry and the A3 seam
-revert). DR-122 is safe (`baseValid` refuses such a base). Tracked as **BL-0212** (p1).
+revert). DR-122 is safe (`baseValid` refuses such a base). Tracked as **BL-0212** (p1) — **resolved 2026-09-30**:
+every discard now reverts the work order's own commits (`wo-revert.mjs`, "The revert contract" in build-orchestration.md),
+so the audit's transient first-publication window no longer lets a rejected carry-over build survive a reopen or a
+block. The audit itself stays as shipped (it reports; it does not gate).
