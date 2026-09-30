@@ -16,6 +16,7 @@
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { type FrdDriftResult, readFrdDrift } from "@/lib/frds/frd-drift";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -58,6 +59,11 @@ export interface TLFrd {
   state: TLState;
   workOrders: TLWorkOrder[];
   review: TLReview | null;
+  /**
+   * The FRD's `drift:` frontmatter, derived from the one reader (`readFrdDrift`, DR-115). Always set by
+   * `readBuildTimeline`; absent only on a hand-built timeline that never went through it.
+   */
+  drift?: FrdDriftResult;
 }
 
 export interface BuildTimeline {
@@ -724,6 +730,16 @@ export function readBuildTimeline(
   projectPath: string,
   orders: readonly WorkOrder[],
 ): BuildTimeline {
+  const timeline = readBaseTimeline(projectPath, orders);
+  if (projectPath.trim() === "") return timeline;
+  return {
+    ...timeline,
+    frds: timeline.frds.map((frd) => ({ ...frd, drift: readFrdDrift(projectPath, frd.id) })),
+  };
+}
+
+/** The timeline by source precedence (track → git → structural → empty), before drift is attached. */
+function readBaseTimeline(projectPath: string, orders: readonly WorkOrder[]): BuildTimeline {
   if (projectPath && projectPath.trim() !== "") {
     const lines = readTrackLines(projectPath);
     if (lines.length > 0) {

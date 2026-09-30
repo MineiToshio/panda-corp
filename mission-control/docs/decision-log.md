@@ -1,5 +1,41 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — FRD drift badge "Verificado · N derivas" on the Observabilidad timeline (FRD-12 AC-12-003.3)
+
+**What:** new reader `src/lib/frds/frd-drift.ts` (`parseFrdDrift` pure + `readFrdDrift`) over the `drift:`
+frontmatter list the build engine's certifying landing writes into `docs/frds/<frd>/frd.md` (DR-122,
+BL-0178; ids match the engine's `^(REQ|AC)-\d+-\d+(\.\d+)?$`). Typed result: `{ ok, ids }` (absent key or empty
+list = no drift) or `{ ok: false, reason: missing | unreadable | malformed, detail }`; a malformed value is
+never a silent `[]`. `readBuildTimeline` attaches it to every `TLFrd.drift` (all timeline source modes, one
+call to the one reader). New `FrdDriftBadge` (reuses `Chip`) renders in both `TimelineView` layouts: "Verificado
+· N derivas" (warn, icon + text, link to `?project=<slug>&tab=changes`) on a verified FRD with drift; "Deriva
+ilegible" (danger) on any FRD whose value cannot be read; nothing otherwise. Docs: FRD-12 AC-12-003.3,
+`docs/design/components.md` row. Tests: `frd-drift.test.ts` (real-shaped fixtures with and without drift, 8
+malformed variants, the gray-matter cache trap, missing/unreadable/traversal), `build-track.drift.test.ts`,
+`FrdDriftBadge.test.tsx`, `TimelineView.drift.test.tsx`.
+
+**Why:** since BL-0178 a FRD can reach VERIFIED while carrying proven pre-existing drift; without a badge
+the owner sees a clean "Hecho". The list is a replica with a single writer (the engine), so MC derives and
+stores nothing (DR-115).
+
+**Decided by agent under owner delegation** ("decide tú sobre todo"; criterion: most faithful to the FRD,
+honest with the data, smallest surface). Alternatives discarded:
+- *Put the badge on the Party Campaña chip too:* the chip is a dense `F-06 🏆 6/6` token with no room; one
+  surface (the Observabilidad timeline, which already lists FRDs with a state chip) is enough and avoids a
+  second call site for the same fact. Left for a follow-up if the owner wants it there.
+- *Derive N from the queue cards (`origin: gate-drift`) instead of the field:* the cards live in the
+  gitignored inbox and the owner archives or discards them, so their count drifts from the committed replica
+  the card spec names as the source ("N = la longitud de la lista"). The link goes to the Cambios tab, where
+  those cards are listed; `ChangeQueueItem` was not extended with `origin` (no per-card deep link exists).
+- *Show the badge on any FRD with a non-empty list, verified or not:* the list is re-derived only at
+  certifying landings, so on a reopened FRD it is stale; the badge claims VERIFIED, so it needs a verified FRD.
+  (An unreadable value is the exception: it is shown on any state, fail loud.)
+- *Read drift in `readProjectDocs`/FRD module and thread it everywhere:* larger surface; MC has no FRD-level
+  status reader today (state is rolled up from work orders), and the timeline is where FRD rows render.
+
+**Not verified / limits:** no FRD in this repo carries a `drift:` key yet (grep of `docs/frds/*/frd.md`), so
+the badge was exercised with fixtures only, not against an engine-written file.
+
 ## 2026-09-30 — Portada seal coverage: `commits`, `funnel` and the ideas series leave the portada and are always live (FRD-23 AC-23-001.5)
 
 **What:** the per-project portada (`.pandacorp/stats.json`) now holds only what its seal validates:

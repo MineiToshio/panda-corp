@@ -117,14 +117,19 @@ const EMPTY_TIMELINE: BuildTimeline = {
 
 describe("TimelineView — empty mode", () => {
   it("renders the honest 'no build data yet' status", () => {
-    render(<TimelineView timeline={EMPTY_TIMELINE} />);
+    render(<TimelineView timeline={EMPTY_TIMELINE} project="alpha" />);
     const empty = screen.getByTestId("timeline-gantt-empty");
     expect(empty).toBeTruthy();
     expect(empty.textContent).toMatch(/Sin datos de build/i);
   });
 
   it("treats a timeline with no FRDs as empty even if source claims otherwise", () => {
-    render(<TimelineView timeline={{ ...EMPTY_TIMELINE, source: "track", hasDurations: true }} />);
+    render(
+      <TimelineView
+        timeline={{ ...EMPTY_TIMELINE, source: "track", hasDurations: true }}
+        project="alpha"
+      />,
+    );
     expect(screen.getByTestId("timeline-gantt-empty")).toBeTruthy();
   });
 });
@@ -135,14 +140,14 @@ describe("TimelineView — empty mode", () => {
 
 describe("TimelineView — structural mode", () => {
   it("renders the historical banner (no fabricated durations)", () => {
-    render(<TimelineView timeline={STRUCTURAL_TIMELINE} />);
+    render(<TimelineView timeline={STRUCTURAL_TIMELINE} project="alpha" />);
     const banner = screen.getByTestId("timeline-gantt-structural-banner");
     expect(banner.textContent).toMatch(/Histórico/i);
     expect(banner.textContent).toMatch(/sin duraciones/i);
   });
 
   it("groups WOs under their FRD with a state for each (icon+label, not color alone)", () => {
-    render(<TimelineView timeline={STRUCTURAL_TIMELINE} />);
+    render(<TimelineView timeline={STRUCTURAL_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt-frd-frd-01-data-reading")).toBeTruthy();
     expect(screen.getByTestId("timeline-gantt-wo-WO-01-001")).toBeTruthy();
     expect(screen.getByTestId("timeline-gantt-label-WO-01-001").textContent).toContain(
@@ -153,7 +158,7 @@ describe("TimelineView — structural mode", () => {
   });
 
   it("renders NO duration bars in structural mode", () => {
-    render(<TimelineView timeline={STRUCTURAL_TIMELINE} />);
+    render(<TimelineView timeline={STRUCTURAL_TIMELINE} project="alpha" />);
     expect(screen.queryByTestId("timeline-gantt-bar-WO-01-001")).toBeNull();
     expect(screen.queryByTestId("timeline-gantt-axis")).toBeNull();
   });
@@ -165,7 +170,7 @@ describe("TimelineView — structural mode", () => {
 
 describe("TimelineView — durations mode", () => {
   it("renders an FRD row with nested WO bars", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt")).toBeTruthy();
     expect(screen.getByTestId("timeline-gantt-frd-frd-01-data-reading")).toBeTruthy();
     expect(screen.getByTestId("timeline-gantt-bar-WO-01-001")).toBeTruthy();
@@ -173,20 +178,20 @@ describe("TimelineView — durations mode", () => {
   });
 
   it("shows the real duration in the WO meta and the bar title (tabular-nums)", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt-meta-WO-01-001").textContent).toMatch(/34m/);
     expect(screen.getByTestId("timeline-gantt-bar-WO-01-001").title).toMatch(/34/);
   });
 
   it("renders each FRD as a collapsible <details> (open by default)", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     const frd = screen.getByTestId("timeline-gantt-frd-frd-01-data-reading");
     expect(frd.tagName.toLowerCase()).toBe("details");
     expect(frd.hasAttribute("open")).toBe(true);
   });
 
   it("sizes each WO bar proportionally to its duration (no equal-width floor bug)", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     const p1 = Number.parseFloat(screen.getByTestId("timeline-gantt-bar-WO-01-001").style.width);
     const p2 = Number.parseFloat(screen.getByTestId("timeline-gantt-bar-WO-01-002").style.width);
     expect(p1).toBeGreaterThan(p2); // 34m must be wider than 28m
@@ -194,24 +199,24 @@ describe("TimelineView — durations mode", () => {
   });
 
   it("surfaces reopen attempts in the WO meta", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt-meta-WO-01-002").textContent).toMatch(/2 intentos/);
   });
 
   it("renders a review segment bar for the FRD", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt-review-frd-01-data-reading")).toBeTruthy();
   });
 
   it("renders an FRD summary bar = the sum of its work orders", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     // WO durations 34 + 28 = 62 min. Label is now in a sibling span.
     const frdLabel = screen.getByTestId("timeline-gantt-frd-label-frd-01-data-reading");
     expect(frdLabel.textContent).toMatch(/62m/);
   });
 
   it("AC-12-003.2 — renders the jump-to-first-error note for a fail WO", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     const note = screen.getByTestId("timeline-gantt-first-error");
     expect(note.textContent).toContain("WO-01-002");
     expect(note.textContent).toMatch(/primer error/i);
@@ -228,18 +233,18 @@ describe("TimelineView — durations mode", () => {
         },
       ],
     };
-    render(<TimelineView timeline={allDone} />);
+    render(<TimelineView timeline={allDone} project="alpha" />);
     expect(screen.queryByTestId("timeline-gantt-first-error")).toBeNull();
   });
 
   it("renders state icons (Tabler ti-*) per WO — state never by color alone", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     expect(screen.getByTestId("timeline-gantt-icon-WO-01-001").className).toMatch(/ti ti-/);
     expect(screen.getByTestId("timeline-gantt-icon-WO-01-002").className).toMatch(/ti ti-/);
   });
 
   it("uses CSS token colors, no hardcoded hex", () => {
-    render(<TimelineView timeline={DURATIONS_TIMELINE} />);
+    render(<TimelineView timeline={DURATIONS_TIMELINE} project="alpha" />);
     const bar1 = screen.getByTestId("timeline-gantt-bar-WO-01-001");
     const bar2 = screen.getByTestId("timeline-gantt-bar-WO-01-002");
     for (const el of [bar1, bar2]) {

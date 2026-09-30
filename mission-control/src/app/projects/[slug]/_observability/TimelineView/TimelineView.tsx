@@ -23,6 +23,7 @@
  */
 
 import type { BuildTimeline, TLFrd, TLState, TLWorkOrder } from "@/lib/build-track/build-track";
+import { FrdDriftBadge } from "../FrdDriftBadge/FrdDriftBadge";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -31,6 +32,8 @@ import type { BuildTimeline, TLFrd, TLState, TLWorkOrder } from "@/lib/build-tra
 export interface TimelineViewProps {
   /** The durable build timeline read from `.pandacorp/track.jsonl` (or its fallbacks). */
   timeline: BuildTimeline;
+  /** Project slug — the FRD drift badge links to that project's change queue. */
+  project: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -156,9 +159,11 @@ function StateChip({ state }: { state: TLState }): React.JSX.Element {
 /** FRD heading panel (label + name + rollup state) wrapping its children. */
 function FrdHeader({
   frd,
+  project,
   children,
 }: {
   frd: TLFrd;
+  project: string;
   children: React.ReactNode;
 }): React.JSX.Element {
   const name = prettyFrdName(frd.id);
@@ -203,14 +208,23 @@ function FrdHeader({
             </span>
           )}
         </div>
-        <StateChip state={frd.state} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+          <FrdDriftBadge frdId={frd.id} state={frd.state} drift={frd.drift} project={project} />
+          <StateChip state={frd.state} />
+        </span>
       </div>
       {children}
     </div>
   );
 }
 
-function StructuralTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX.Element {
+function StructuralTimeline({
+  timeline,
+  project,
+}: {
+  timeline: BuildTimeline;
+  project: string;
+}): React.JSX.Element {
   return (
     <div data-testid="timeline-gantt" data-mode="structural" style={{ width: "100%" }}>
       <div
@@ -238,7 +252,7 @@ function StructuralTimeline({ timeline }: { timeline: BuildTimeline }): React.JS
       </div>
 
       {timeline.frds.map((frd) => (
-        <FrdHeader key={frd.id} frd={frd}>
+        <FrdHeader key={frd.id} frd={frd} project={project}>
           <ul
             data-testid={`timeline-gantt-frd-wos-${frd.id}`}
             style={{ listStyle: "none", margin: "6px 0 0", padding: 0 }}
@@ -494,7 +508,15 @@ function ReviewNestedRow({
 }
 
 /** One collapsible FRD: a summary magnitude bar (Σ of its WOs) + nested WO bars. */
-function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JSX.Element {
+function FrdDetails({
+  frd,
+  maxAxis,
+  project,
+}: {
+  frd: TLFrd;
+  maxAxis: number;
+  project: string;
+}): React.JSX.Element {
   const total = woSum(frd);
   // ONE shared axis across all FRDs (= the largest FRD's total). The FRD's summary bar then
   // equals exactly the sum of its work-order bars laid end-to-end, bars stay comparable across
@@ -567,6 +589,7 @@ function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JS
               · {name}
             </span>
           )}
+          <FrdDriftBadge frdId={frd.id} state={frd.state} drift={frd.drift} project={project} />
         </div>
 
         <div
@@ -635,7 +658,13 @@ function FrdDetails({ frd, maxAxis }: { frd: TLFrd; maxAxis: number }): React.JS
 }
 
 /** Durations / estimated mode — collapsible FRD rows with nested WO bars. */
-function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX.Element {
+function DurationsTimeline({
+  timeline,
+  project,
+}: {
+  timeline: BuildTimeline;
+  project: string;
+}): React.JSX.Element {
   const maxAxis = Math.max(1, ...timeline.frds.map(frdAxisTotal));
   const firstErr = findFirstError(timeline);
 
@@ -720,7 +749,7 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
 
       {/* Collapsible FRD rows with nested WO bars */}
       {timeline.frds.map((frd) => (
-        <FrdDetails key={frd.id} frd={frd} maxAxis={maxAxis} />
+        <FrdDetails key={frd.id} frd={frd} maxAxis={maxAxis} project={project} />
       ))}
     </div>
   );
@@ -734,12 +763,12 @@ function DurationsTimeline({ timeline }: { timeline: BuildTimeline }): React.JSX
  * TimelineView v2 — honest, durable build timeline.
  * Pure presentational: receives a pre-computed BuildTimeline, no I/O.
  */
-export function TimelineView({ timeline }: TimelineViewProps): React.JSX.Element {
+export function TimelineView({ timeline, project }: TimelineViewProps): React.JSX.Element {
   if (timeline.source === "empty" || timeline.frds.length === 0) {
     return <EmptyTimeline />;
   }
   if (!timeline.hasDurations) {
-    return <StructuralTimeline timeline={timeline} />;
+    return <StructuralTimeline timeline={timeline} project={project} />;
   }
-  return <DurationsTimeline timeline={timeline} />;
+  return <DurationsTimeline timeline={timeline} project={project} />;
 }

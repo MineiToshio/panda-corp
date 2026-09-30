@@ -151,7 +151,7 @@ export function ObservabilidadTab({
       >
         {view === "timeline" ? (
           <div data-testid="obs-view-timeline">
-            <TimelineView timeline={timeline} />
+            <TimelineView timeline={timeline} project={project} />
           </div>
         ) : (
           <WoDag workOrders={staticOrders} project={project} />

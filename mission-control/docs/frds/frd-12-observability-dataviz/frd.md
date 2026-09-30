@@ -4,7 +4,7 @@ type: frd
 title: FRD-12 — Observability and data visualization
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-21'
+last_updated: '2026-09-30'
 ui: true
 visual_source: docs/design/prototype/index.html
 ---
@@ -38,6 +38,17 @@ The analytical views live in a project-level **"Observabilidad" tab** that is a 
   4. **no build data at all** → an **honest empty state**.
   The system SHALL NEVER render fabricated/placeholder duration bars, and SHALL always flag estimated durations as estimates.
 - **AC-12-003.2** — The timeline SHALL offer a **"saltar al primer error"** affordance that locates the first failed work order in the sequence.
+
+- **AC-12-003.3 (pre-existing drift badge, DR-122)** — WHEN a FRD's rolled-up state is verified AND its
+  `docs/frds/<frd>/frd.md` frontmatter carries a non-empty `drift: [REQ-…, AC-…]` list (written only by the
+  build engine's certifying landing), THE timeline's FRD row SHALL show **"Verificado · N derivas"** (N = the
+  list length, icon + text, never color alone) as a link to the project's **Cambios** tab, where the
+  `origin: gate-drift` cards live. The badge SHALL derive from that one field through ONE shared reader
+  (`lib/frds/frd-drift.ts`, DR-115; no stored copy) and SHALL NOT appear when the list is empty/absent or the
+  FRD is not verified. The reader SHALL fail loud (DR-078): a `drift` value that is not a list of
+  `REQ-NN-MMM` / `AC-NN-MMM(.K)` ids, invalid frontmatter or an unreadable `frd.md` SHALL render a
+  **"Deriva ilegible"** error chip on that FRD (any state), never a silent empty list; a FRD folder with no
+  `frd.md` shows nothing.
 
 ### REQ-12-004 — DAG view and interactions
 - **AC-12-004.1** — WHEN the **DAG** view is selected THE system SHALL render a **work-order dependency graph** as a **2D compound (cluster) layout**: each FRD is an opaque box placed in free 2D, with its work-order cards inside it. Hand-rolled deterministic layout — no Dagre/ELK runtime dependency.
