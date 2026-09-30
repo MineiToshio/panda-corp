@@ -327,38 +327,15 @@ const ADVISORY_TO_PHASE: Record<string, Phase> = {
   lanzada: "release",
 };
 
-/** Active phases — entries with these phases appear in the portfolio rail (REQ-03-001). */
-const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>([
-  "architecture",
-  "implementation",
-  "release",
-]);
+/** Phases whose projects appear in the Portfolio rail (REQ-03-001): building + shipped only. */
+const RAIL_PHASES: ReadonlySet<Phase> = new Set<Phase>(["implementation", "release"]);
 
 /**
- * Compose helper: read the portfolio, enrich each entry with its status and
- * existence flag, and return only the active-phase entries.
- *
- * Active set: `architecture` | `implementation` | `release` (DR-085: `operation` folded into `release`).
- * Phase is determined from `status.yaml` (authoritative); absent/malformed status
- * falls back to the portfolio table's `phase` cell (advisory).
- *
- * Overload:
- * - **Omitted** — reads from `config.PORTFOLIO` (same as readPortfolio()).
- * - **Raw markdown content** (string with `\n`) — parses the content in-memory;
- *   existence probes use the raw path from the portfolio row (for inline fixture tests).
- *
- * Tolerance rules (blueprint §3):
- * - Missing portfolio → []
- * - Missing status.yaml → phase from portfolio advisory cell; exists from pathExists.
- * - Malformed status → same fallback.
- * - Path not found → exists: false; row still listed when phase is active (badge-ready).
- * - Never throws.
- *
- * @param content - Optional raw portfolio markdown content (for inline tests).
- * @returns Array of ProjectListItem (active phases only). Never throws.
- *
- * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006; AC-03-001.1
+ * Live phases: the rail's phases plus `architecture`. The dashboard cards (REQ-18-016) and the
+ * workspace route lookup still need architecture-phase projects; the rail does not (REQ-03-001).
  */
+const ACTIVE_PHASES: ReadonlySet<Phase> = new Set<Phase>(["architecture", ...RAIL_PHASES]);
+
 /**
  * Determine the rail display phase: status.yaml is authoritative; fall back to the
  * portfolio advisory phase cell (mapped to a Phase literal). Undefined when neither
@@ -422,6 +399,32 @@ function enrichEntry(entry: PortfolioEntry): ProjectListItem | null {
   };
 }
 
+/**
+ * Compose helper: read the portfolio, enrich each entry with its status and
+ * existence flag, and return only the active-phase entries.
+ *
+ * Live set: `architecture` | `implementation` | `release` (DR-085: `operation` folded into `release`); the
+ * Portfolio rail narrows it to building + shipped via {@link railProjects} (REQ-03-001).
+ * Phase is determined from `status.yaml` (authoritative); absent/malformed status
+ * falls back to the portfolio table's `phase` cell (advisory).
+ *
+ * Overload:
+ * - **Omitted** — reads from `config.PORTFOLIO` (same as readPortfolio()).
+ * - **Raw markdown content** (string with `\n`) — parses the content in-memory;
+ *   existence probes use the raw path from the portfolio row (for inline fixture tests).
+ *
+ * Tolerance rules (blueprint §3):
+ * - Missing portfolio → []
+ * - Missing status.yaml → phase from portfolio advisory cell; exists from pathExists.
+ * - Malformed status → same fallback.
+ * - Path not found → exists: false; row still listed when phase is active (badge-ready).
+ * - Never throws.
+ *
+ * @param content - Optional raw portfolio markdown content (for inline tests).
+ * @returns Array of ProjectListItem (active phases only). Never throws.
+ *
+ * Traceability: IF-03-activeProjects → REQ-03-001..003, REQ-03-006; AC-03-001.1
+ */
 export function activeProjects(content?: string): ProjectListItem[] {
   const entries = readPortfolio(content);
   const result: ProjectListItem[] = [];
@@ -434,4 +437,17 @@ export function activeProjects(content?: string): ProjectListItem[] {
   }
 
   return result;
+}
+
+/**
+ * The Portfolio rail's projects (REQ-03-001): only `implementation` (building) and `release`
+ * (shipped) — `product` / `design` / `architecture` projects live on the Tablero, not here.
+ *
+ * @param content - Optional raw portfolio markdown content (for inline tests).
+ * @returns Rail ProjectListItems in portfolio order. Never throws.
+ */
+export function railProjects(content?: string): ProjectListItem[] {
+  return activeProjects(content).filter(
+    (item) => item.stage !== undefined && RAIL_PHASES.has(item.stage),
+  );
 }

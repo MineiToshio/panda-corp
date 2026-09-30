@@ -98,14 +98,14 @@ const WITH_DECISIONS: ProjectListItem = {
 };
 
 // ---------------------------------------------------------------------------
-// Mock activeProjects() for page-level tests
+// Mock railProjects() for page-level tests
 // The mock must be declared before the page import (hoisting).
 // ---------------------------------------------------------------------------
 
 const mockItems: ProjectListItem[] = [BUILDING, SHIPPED, BROKEN];
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => mockItems,
+  railProjects: () => mockItems,
 }));
 
 // Import AFTER the mock is registered (hoisting ensures mock is set first).

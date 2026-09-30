@@ -68,12 +68,12 @@ const BROKEN_WITH_REPO: ProjectListItem = {
   running: undefined,
 };
 
-// activeProjects() is mocked so the page renders a deterministic, in-memory list
+// railProjects() is mocked so the page renders a deterministic, in-memory list
 // (the real reader hits the factory portfolio on disk; not what we want to assert).
 const mockItems: ProjectListItem[] = [BUILDING, SHIPPED, BROKEN_WITH_REPO];
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => mockItems,
+  railProjects: () => mockItems,
 }));
 
 // Import AFTER the mock is registered.

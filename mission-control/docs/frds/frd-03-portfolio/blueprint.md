@@ -38,7 +38,7 @@ states and the slot that hosts the workspace.
 
 | ID | Kind | Artifact | Responsibility | Traces |
 |---|---|---|---|---|
-| `CMP-03-active-projects` | module (compose) | `lib/portfolio.ts` helper `activeProjects()` (or in the page) | Filter portfolio entries to phases `architecture`/`implementation`(building)/`release`(shipped) using `readStatus`. | REQ-03-001 |
+| `CMP-03-active-projects` | module (compose) | `lib/portfolio/portfolio.ts` helpers `activeProjects()` (live set) and `railProjects()` (the rail's subset) | `activeProjects()` filters portfolio entries to the live phases `architecture`/`implementation`/`release` using `readStatus` (the dashboard cards, REQ-18-016, and the workspace route need them); `railProjects()` narrows that to `implementation`(building)/`release`(shipped) — the only phases the rail lists. | REQ-03-001 |
 | `CMP-03-rail` | UI (Server) | `app/portfolio/page.tsx` + `components/ProjectRail.tsx` | Vertical list of active projects: title, stage, indicator, snapshot, not-found badge. | REQ-03-001, REQ-03-002, REQ-03-003 |
 | `CMP-03-row` | UI | `components/ProjectRow.tsx` | One project row: building/stopped indicator + ⚠️ not-found badge + recovery. | REQ-03-002, REQ-03-006 |
 | `CMP-03-last-sync` | UI | `components/modules/ProjectRail/LastSyncChip.tsx` (rendered by the selectable rail row) + `lib/portfolio/formatLastSync.ts` | Relative "sync: hace N días" chip from `ProjectListItem.lastSync` (the portfolio row's `last sync` cell, carried by `activeProjects()`); an unparseable date is an explicit "fecha inválida" chip. | REQ-03-007 |
@@ -46,7 +46,7 @@ states and the slot that hosts the workspace.
 | `CMP-03-workspace-slot` | UI (Server) | `app/portfolio/page.tsx` right panel | Host the selected project's workspace (FRD-04); default-select the first. | REQ-03-004, REQ-03-005 |
 | `CMP-03-empty` | UI | `components/PortfolioEmpty.tsx` | Graceful empty state when no active projects. | REQ-03-006 |
 | `CMP-03-recovery` | UI | `components/RecoveryHint.tsx` | Copyable `git clone … && /pandacorp:sync-portfolio`, or the no-repo warning. | REQ-03-006 |
-| `IF-03-activeProjects` | interface | `activeProjects(): ProjectListItem[]` | Portfolio rows ∩ active phases, each enriched with `status` + `exists`. | REQ-03-001..003, REQ-03-006 |
+| `IF-03-activeProjects` | interface | `activeProjects(): ProjectListItem[]` and `railProjects(): ProjectListItem[]` | Portfolio rows ∩ live phases, each enriched with `status` + `exists`; `railProjects()` is the building + shipped subset the `/portfolio` rail renders. | REQ-03-001..003, REQ-03-006 |
 
 ```ts
 type ProjectListItem = {
@@ -103,7 +103,7 @@ Detection uses FRD-01 `pathExists(entry.path)`:
 
 | REQ | Acceptance criterion (abridged) | Component(s) / interface(s) |
 |---|---|---|
-| REQ-03-001 | Left vertical panel lists projects in architecture, building, shipped. | `CMP-03-active-projects`, `CMP-03-rail`, `IF-03-activeProjects` |
+| REQ-03-001 | Left vertical panel lists ONLY projects in building and shipped (`railProjects()`); architecture/design/product stay off the rail. | `CMP-03-active-projects`, `CMP-03-rail`, `IF-03-activeProjects` |
 | REQ-03-002 | Each row shows title, stage and a building/stopped indicator. | `CMP-03-row` |
 | REQ-03-003 | Each shipped project shows its business snapshot when present. | `CMP-03-snapshot` |
 | REQ-03-004 | Selecting a project shows its workspace (FRD-04) in the right panel. | `CMP-03-workspace-slot` |

@@ -20,7 +20,7 @@ import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 /**
  * Derive the slug (project name) of the currently-selected project.
  *
- * @param items   - Active project list from activeProjects().
+ * @param items   - Rail project list from railProjects().
  * @param param   - The raw ?project= URL param value, or undefined if absent.
  * @returns The selected project name, or undefined when items is empty.
  *

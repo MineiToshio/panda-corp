@@ -5,9 +5,10 @@
  * Every test here will fail until the GREEN phase — that is the intent.
  *
  * Traceability:
- *   AC-03-001.1  The portfolio SHALL list the projects in `architecture`,
- *                `implementation` and `release` (launched) — DR-085 folded the old
- *                `operation` phase into `release`, so the launched/shipped project is `release`.
+ *   AC-03-001.1  `activeProjects()` returns the LIVE projects: `architecture`, `implementation`
+ *                and `release` (launched) — DR-085 folded the old `operation` phase into `release`.
+ *                The Portfolio rail narrows this to building + shipped (REQ-03-001) through
+ *                `railProjects()` — see `portfolio/_tests/railProjects.test.ts`.
  *   AC-03-002.1  Each project SHALL expose its stage and a running indicator.
  *   AC-03-003.1  Each launched (`release`) project SHALL expose its business snapshot
  *                when present in the portfolio.

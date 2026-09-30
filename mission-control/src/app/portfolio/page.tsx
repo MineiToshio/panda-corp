@@ -1,7 +1,7 @@
 /**
  * Portfolio page — Server Component (CMP-03-workspace-slot).
  *
- * Reads active projects from activeProjects() and derives the selected project
+ * Reads the rail projects (building + shipped) from railProjects() and derives the selected project
  * from the ?project= URL param (URL-driven selection).
  *
  * Selection rules (AC-03-004.1, AC-03-005.1):
@@ -20,11 +20,11 @@
  * prop variant of the shared primitive.
  *
  * Wiring FRD-04: replace WorkspaceSlot's body with the real workspace component.
- * Read-only (architecture §1): activeProjects() never writes, never calls Claude.
+ * Read-only (architecture §1): railProjects() never writes, never calls Claude.
  *
  * Traceability:
  *   CMP-03-active-projects, CMP-03-rail, CMP-03-workspace-slot
- *   IF-03-activeProjects (docs/api.md WO-03-001)
+ *   IF-03-activeProjects + railProjects (docs/api.md WO-03-001)
  *   REQ-03-001, REQ-03-004, REQ-03-005
  *   AC-03-004.1, AC-03-005.1
  *   WO-03-002 (surface)
@@ -38,7 +38,7 @@ import {
 } from "@/app/projects/[slug]/ProjectWorkspace";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
-import { activeProjects } from "@/lib/portfolio/portfolio";
+import { railProjects } from "@/lib/portfolio/portfolio";
 import { PortfolioLayout } from "./PortfolioLayout";
 import { deriveSelectedSlug } from "./selection";
 import { WorkspaceSlot } from "./WorkspaceSlot";
@@ -79,8 +79,8 @@ const RAIL_LABEL_STYLE: React.CSSProperties = {
 export default async function PortfolioPage({
   searchParams,
 }: PageProps): Promise<React.JSX.Element> {
-  // Read-only: activeProjects() never writes, never calls Claude (architecture §7).
-  const items = activeProjects();
+  // Read-only: railProjects() never writes, never calls Claude (architecture §7).
+  const items = railProjects();
 
   // Resolve the searchParams promise (Next.js 16 requirement).
   const params = await searchParams;

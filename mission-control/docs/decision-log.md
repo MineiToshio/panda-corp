@@ -1,5 +1,25 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Portfolio rail no longer lists `architecture` projects (REQ-03-001, canary defect #2)
+
+**What:** FRD-03 REQ-03-001 (owner-approved at the whole-app re-anchor, commit `4cce1dc9`) says the rail
+lists ONLY `building` (`implementation`) and `shipped` (`release`) projects; `architecture` ones live on the
+Tablero. `ACTIVE_PHASES` in `lib/portfolio/portfolio.ts` had listed `architecture` since its first
+implementation and no test asserted the exclusion (the DR-085 sweep only folded `operation` into `release`),
+so the drift never turned a gate red. The card said to drop `architecture` from `ACTIVE_PHASES`; that would
+also have removed architecture-phase projects from the Inicio dashboard cards (FRD-18 REQ-18-016: "per
+active project (architecture / building) and per shipped project") and made their `/projects/<slug>`
+workspace 404, because `activeProjects()` feeds all three surfaces. So the rail's rule became its own
+derivation instead: `RAIL_PHASES = implementation | release`, `ACTIVE_PHASES = architecture + RAIL_PHASES`
+(one source, DR-115), and a new `railProjects()` (= `activeProjects()` narrowed to `RAIL_PHASES`) that
+`/portfolio` (`page.tsx`) now reads. Dashboard, workspace route and self-suggest keep `activeProjects()`.
+Tests: `src/lib/portfolio/_tests/railProjects.test.ts` (RED before the change: `railProjects` did not exist;
+asserts the advisory-cell path, the `status.yaml` path through `factory-full`, and that `activeProjects()`
+still includes architecture); the three page tests that mock the portfolio module now mock `railProjects`.
+
+**Docs touched:** FRD-03 `blueprint.md` (`CMP-03-active-projects`, `IF-03-activeProjects`, REQ-03-001
+traceability row). `frd.md` was already right (the code was the defect).
+
 ## 2026-09-30 — REQ-03-007 last-sync chip mounted on the portfolio rail; unmounted `PortfolioTable` removed (canary F1/F2 defect #4, BL-0211)
 
 **What:** REQ-03-007 requires a portfolio row to show a relative "last sync" chip, but WO-03-006

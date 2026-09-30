@@ -130,7 +130,8 @@ describe("FRD-03 gate (opus) — AC-03-001 membership (building+shipped only)", 
   it("lists ONLY building/shipped phases; product/design/architecture-only rows are excluded", () => {
     // A raw portfolio table whose advisory phase cells span the whole lifecycle.
     // status.yaml is absent for every fixture path → resolveStage falls back to the
-    // advisory cell. ACTIVE_PHASES = architecture | implementation | release (DR-085).
+    // advisory cell. The live set is architecture | implementation | release (DR-085);
+    // the rail narrows it (railProjects, asserted in portfolio/_tests/railProjects.test.ts).
     // The membership EARS for the rail is building (implementation) + launched (release):
     // product & design advisory cells must NOT map to an active phase → excluded.
     const md = [

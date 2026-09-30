@@ -30,7 +30,7 @@ import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 // ---------------------------------------------------------------------------
 
 export interface SelectableProjectRailProps {
-  /** Active project list from activeProjects(). */
+  /** Rail project list from railProjects(). */
   items: ProjectListItem[];
   /** The currently-selected project name (from URL param or default-select). */
   selectedSlug: string | undefined;

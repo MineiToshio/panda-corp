@@ -21,7 +21,7 @@ const ALPHA: ProjectListItem = {
 };
 
 vi.mock("@/lib/portfolio/portfolio", () => ({
-  activeProjects: () => [ALPHA],
+  railProjects: () => [ALPHA],
 }));
 
 import PortfolioPage from "../page";

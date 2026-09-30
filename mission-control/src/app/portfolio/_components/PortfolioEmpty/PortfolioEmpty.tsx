@@ -1,7 +1,7 @@
 /**
  * PortfolioEmpty — Graceful empty state when there are no active projects (CMP-03-empty).
  *
- * Shown by the portfolio rail when activeProjects() returns an empty array.
+ * Shown by the portfolio rail when railProjects() returns an empty array.
  * Suggests /pandacorp:spec via a CopyButton so the owner can start a new project.
  *
  * Design rules (FRD-13, AGENTS.md):
