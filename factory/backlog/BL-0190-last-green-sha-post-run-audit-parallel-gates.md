@@ -54,3 +54,12 @@ Changing what `last_green_sha` means (DR-066/BL-0066) or blocking the lane on it
 **Result against the archived canaries** (`--from 2026-09-24`; history from branches `canary-f1`, `canary-f2`, `canary-e-run2-done`; tracks from `docs/reviews/canary-{f1,f2}-run/` and `canary-e-run2/`): the FIRST publication of each run (F1 `d858cf8d`, F2 `8dd7532b`, E2 `59ce5a79`) certified 3 build commits of sibling FRDs still IN_REVIEW, each verified 2 to 43 min later (F1: frd-05 WO-05-007 after 40 min, frd-04 WO-04-008 after 37, frd-02 WO-02-014 after 23; F2: 25 / 12 / 2 min; E2: frd-05 43 / frd-04 27 / frd-03 15 min). They are the carry-over work orders of the previous epoch, never published before (the pin had been reset). Every later publication of the three runs is clean, so each run's FINAL pin is sound. Proposal 38 §A5's "0 audit violations" is therefore not met retroactively (3 per run, all transient); whether a transient window on the first publication after a carry-over blocks anything is the owner's call.
 
 **Tests.** `plugin/scripts/test-audit-last-green.mjs` (34 assertions, auto-discovered by `run-engine-tests.sh`): a REAL F1 fixture (`plugin/scripts/fixtures/audit-last-green/`: the real `track.jsonl` plus the real commit sequence replayed into a temp repo) reproduces exactly the 3 violations and the 3 clean later publications; synthetic X5, flag-off C2 (wave landing during another FRD's gate), re-open-after-verified and grace shapes; malformed inputs (garbage track line, empty timeline, unparseable `at`, no `kind`, missing file, pin that is not a commit, no publication) exit 2 with an explanation and nothing on stdout.
+
+## Red-team verdict (2026-09-30)
+The violations are a real correctness defect, but not in the publisher. In linear history the unverified commits
+precede the verified ones, so a verified-only pin would have to be OLDER than a verified FRD's own work, and every
+file-level revert "to `last_green_sha`" would then wipe verified sibling edits of a shared file. The engine keeps "the
+pin contains every VERIFIED FRD" (now stated in build-orchestration.md, "What `last_green_sha` certifies"). What breaks
+is every consumer that assumes the opposite: a revert to the pin of a work order the pin already contains restores its
+own rejected code (a silent no-op for revertAndReopen, the DR-070 block revert, the in-run retry and the A3 seam
+revert). DR-122 is safe (`baseValid` refuses such a base). Tracked as **BL-0212** (p1).

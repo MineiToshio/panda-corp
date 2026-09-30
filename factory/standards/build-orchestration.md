@@ -162,8 +162,18 @@ makes the rework on an interruption minimal: a kill/cut/crash keeps every WO alr
 while sibling WOs of the same wave are still building, and the **selective `git add` of the WO's own
 disjoint `artifacts`** can never capture a sibling's in-flight files — so there is still **no merge**
 and no per-agent worktree. `last_green_sha` is still advanced only by the **FRD gate** (the
-review-verified anchor for `safe_to_test` / the review worktree / baseline-skip); the per-WO commits
-are finer *resume* points via the frontmatter, not new *verified* points.
+anchor for `safe_to_test` / the review worktree / baseline-skip); the per-WO commits are finer *resume*
+points via the frontmatter, not new *verified* points.
+
+**What `last_green_sha` certifies (BL-0190, BL-0212).** A publication is the landing FRD's verified snapshot of the
+WHOLE main tree: every `VERIFIED` FRD is inside it, but so is any `IN_REVIEW` work another FRD committed before that
+landing and whose own gate has not landed yet (parallel gates, a build wave between landings, and every carry-over
+work order of a previous run — the audit found it on the FIRST publication of F1, F2 and E2, 2 to 43 min before those
+FRDs verified). Linear history cannot give both "the pin contains every verified FRD" and "the pin contains only
+verified FRDs" when the commits interleave; the engine keeps the first. So the pin is **whole-project green, not
+"reviewed-only"**: the differential drift proof already refuses a base that holds a reviewed work order
+(`baseValid`), but a revert "to `last_green_sha`" of a work order the pin already contains restores that work
+order's own rejected code — BL-0212 tracks moving the reverts to the work order's own commits.
 
 **Durable build timeline — `.pandacorp/track.jsonl` (DR-086 → FRD-12).** At the same points it already
 touches, the engine appends a per-project timing log: `wo_start` (when a work order begins building),
@@ -601,7 +611,16 @@ only, `"sum"` = a cyrb53 checksum of the rest as the last key, `drift-seal.mjs`)
 received. A mismatch, unparseable or empty relay is a **transport fault, never a verdict**: the engine re-reads the
 stored copy through `drift-proof.mjs replay` (no probe re-runs; ≤ 2 times), and if every read fails the gate's claims
 stay **UNPROVEN** — no reopen, no card, no `drift:` entry, a loud `DriftProofUnreadable`, and a reviewer's own
-`needs-owner` block is kept rather than lifted (the lift needs proven drift). What stays a fail-closed cycle fault: an
+`needs-owner` block is kept rather than lifted (the lift needs proven drift). **UNPROVEN is still an open `fail`
+(red-team, 2026-09-30):** an unread proof is evidence neither for the claim nor against the code, so it never waives
+a green (DR-015; the first cut discarded the entry and certified the FRD — a dead MECH relay could turn a
+contradicted contract into a PASS). A green verdict resting on it is **deferred** (`DriftProofUnproven`: not
+certified, not reopened, nothing reverted; the FRD stays `IN_REVIEW` and re-gates next pass with a fresh proof); under
+a reopen it rides along as a finding and the post-patch verifier inherits it. `prove --out` deletes any earlier copy
+at its path before it runs, so a `replay` can never serve a previous run's proof. The same seal covers the BL-0189
+inventory-cache `check` line (it carries the whole cached inventory, and a copy that lost one contract row is still
+valid JSON): an altered line is never a cache HIT, the gate re-derives the inventory; the digested evidence report and
+the drift finder's snippets are still unverified relays (BL-0214). What stays a fail-closed cycle fault: an
 intact script refusal (`ok:false`), a probe result that is genuinely unloadable/flaky/owned, a claim with no probe.
 A pre-seal script (`version` 1, version skew with an older installed plugin) is still read, with a warning. The same
 rule covers the other relay on this route: `drift-record`'s result is re-run once when unreadable (its command is
@@ -797,7 +816,8 @@ Honest limits: `verify.sh --since` is vitest `--changed` (import-affected tests)
 fixture/JSON/CSS can slip to the close-out **full** suite, which stays the final backstop; machine contention
 (N reviewers × vitest/tsc/Playwright/`next dev`) is not modelled — size `gateSlots` to the machine (the
 red-team measured 16 GB → 2, the default); the post-run audit that every `last_green_sha` publication
-covers only verified FRDs (X5) is not built yet (BL-0190); a session killed mid-run leaves its slots dirty, and the next run drops them from
+covers only verified FRDs (X5) exists (`audit-last-green.mjs`, BL-0190) and shows that it does NOT hold: see
+"What `last_green_sha` certifies" below; a session killed mid-run leaves its slots dirty, and the next run drops them from
 the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
 shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 
