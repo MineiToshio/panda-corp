@@ -3,12 +3,12 @@ id: BL-0062
 type: change
 area: mission-control
 title: "Deterministic decision-id emitter shared between the decide skill and Mission Control"
-status: doing
+status: done
 severity: p2
 opened: 2026-07-10
-closed:
+closed: 2026-09-30
 source: "post red-team skills-improvement batch, 2026-07-10, item S2-interim (E6b)"
-closes:
+closes: "mission-control/docs/frds/frd-24-decision-id-emitter/ (VERIFIED); mission-control decision-log 2026-09-30 (decide skill repointed); plugin/skills/decide/SKILL.md step 1"
 links: []
 ---
 
@@ -110,3 +110,14 @@ ran — Opus outage, see commit message) and neither work order has been impleme
 > **blocked-by: mission-control FRD-24 build** — WO-24-001 (shared emitter) and WO-24-002 (golden
 > vectors) must actually run through `/pandacorp:implement` and land, and `decide/SKILL.md` step 1
 > must be repointed, before this item can close. Left `status: doing`.
+
+## Resolution (2026-09-30)
+
+The blocker cleared: Mission Control's FRD-24 built and is VERIFIED (WO-24-001 and WO-24-002). `parseDecisionBlocks` in
+`mission-control/src/lib/docs/activity.ts` is the one implementation; `mission-control/scripts/decisions/decision-id-cli.mjs`
+(`pnpm --silent decisions:ids <decisions.md>`) prints its ids one per line and fails loud (stderr, non-zero) on a bad path;
+`src/lib/docs/_tests/decision-id-golden.test.ts` + `fixtures/decisions-golden.md` pin the library and the CLI to the same
+committed id list. `plugin/skills/decide/SKILL.md` step 1 no longer restates the counting rule: it runs the CLI, names the
+golden vectors as the pin, and stops (no hand counting) if the CLI is unavailable. Checked live: the CLI run on a mixed
+file (two same-date headings around a legacy one) printed `2026-06-21-1`, `legacy-1`, `2026-06-21-2`. The MC-side record is
+the 2026-09-30 entry in `mission-control/docs/decision-log.md`.

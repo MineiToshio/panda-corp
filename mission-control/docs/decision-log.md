@@ -1,5 +1,27 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Pandacorp overlay upgraded 8.93.0 -> 8.94.0
+
+**What:** compatible (same MAJOR) bump. The only template that changed between the two overlays is the build engine
+(`plugin/templates/shared/.claude/engines/pandacorp-build.js`); `.claude/engines/pandacorp-build.js` here is already
+byte-identical to it (`cmp` clean), and `guide.md`, `docs/rules/`, `verify.sh` and the e2e gate files have no template
+diff, so `overlay_version` is the only managed field that moves.
+
+**Why:** the factory released plugin 9.117.0 (revert contract, sealed drift and evidence relays, finder-aware
+`maxAgents` floor); a project's `overlay_version` records the machinery version it carries.
+
+## 2026-09-30 — FRD-24 shipped: the factory's `decide` skill now consumes the shared decision-id emitter (BL-0062)
+
+**What:** FRD-24's work orders are VERIFIED (`parseDecisionBlocks` exported from `src/lib/docs/activity.ts`;
+`scripts/decisions/decision-id-cli.mjs`, published as `pnpm --silent decisions:ids <decisions.md>`;
+`src/lib/docs/_tests/decision-id-golden.test.ts` against `fixtures/decisions-golden.md`). The factory-side
+follow-up the FRD listed as out of scope is now done: `plugin/skills/decide/SKILL.md` step 1 runs the CLI to get
+the ids instead of re-deriving the counting rule from prose.
+
+**Why:** one rule, one implementation (DR-115): the owner pastes `/pandacorp:decide <id>` from Mission Control's
+chip and the skill must resolve the SAME block; a prose replica could drift silently from the TypeScript. No id
+scheme change.
+
 ## 2026-09-30 — FRD drift badge "Verificado · N derivas" on the Observabilidad timeline (FRD-12 AC-12-003.3)
 
 **What:** new reader `src/lib/frds/frd-drift.ts` (`parseFrdDrift` pure + `readFrdDrift`) over the `drift:`
