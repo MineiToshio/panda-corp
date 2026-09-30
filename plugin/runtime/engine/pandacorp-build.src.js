@@ -185,7 +185,10 @@ const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'ga
 //     fails at both → recorded as a draft change card + the FRD's `drift:` frontmatter, and it never blocks
 //     or reopens the cycle's work orders; passes at last green → a regression this cycle caused → reopened
 //     patch-first; passes at the pin → the claim is discarded (logged); unloadable/flaky/owned/unprovable →
-//     a cycle fault (fail-closed). 'block' is the rollback switch: claims are ignored and every `fail` is a
+//     a cycle fault (fail-closed). BL-0206: the ONE exception is a proof that never ARRIVED intact (the line is
+//     sealed, the engine re-reads the stored copy twice): every claim of that gate stays UNPROVEN — no reopen, no
+//     card, loud DriftProofUnreadable — because a transcription fault is not evidence about the code.
+//     'block' is the rollback switch: claims are ignored and every `fail` is a
 //     cycle fault exactly as before BL-0178. Any other value falls back to 'record' with a loud log.
 //   args.parallelGates: OPT-OUT (**default TRUE** since v9.116.0 — canary F1/F2 verdict, proposal 38
 //     "Cierre del sprint": the gates are no longer the cost/time bottleneck, 0 drops to the legacy lane, 0
@@ -369,7 +372,7 @@ const DRIFT_CLAIM_DIRECTIVE = "**Pre-existing drift (DR-122, BL-0178) — you PR
 // A scope dismissal needs its literal citation; a WO / change-card line never dismisses a normative FRD clause (engine side: classifyDismissals).
 const DISMISSAL_CITATION_DIRECTIVE = "**Scope dismissals need a literal citation (BL-0211):** when you noticed something that looks like an unmet contract or a defect and you decline to record it as a `fail` or a finding because a work order, a change card or the FRD scopes it out (\"matches the WO scope\", \"out of scope\", \"by design\", \"deferred\"), list it in the verdict's `dismissals` array as `{ finding, ground, contract, source, quote }`. `source` is `<repo-relative path>:<line>` of the literal line that scopes it out: open the file and find the line with `grep -n`, never cite from memory and never paraphrase; `quote` is that line's own words, verbatim. No literal citation, no dismissal: if you cannot cite it, record it as a `fail` (or a finding). Set `contract` to the REQ/AC id (or the clause text) whenever the thing you noticed is a normative clause of `frd.md`. The FRD outranks the work order: a work order's or change card's \"out of scope\" can never dismiss a normative FRD clause, because a work order that defers something the FRD says SHALL exist is itself the contradiction. Record that clause as a `fail` (and propose it as pre-existing drift with `direction: spec` or `unknown` when it pre-dates this cycle). Only a line of `frd.md` itself (an out-of-scope or exclusions clause) or of the PRD can dismiss a `contract`; a work order or change-card line may dismiss only a finding that is not an FRD clause (for example a fence on which files to touch). The engine validates the citation's shape: a dismissal without a valid citation is treated as NOT dismissed and your verdict is sent back to you once."
 // BL-0203: GENERATED from plugin/agents/drift-finder.md's DRIFT_FINDER block (generate-build-prompt-fragments.mjs) — do not hand-edit.
-const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give file, line and a short snippet), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
+const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 0. **Pin discipline (BL-0205) — the shell forgets its directory between your Bash calls.** Your Bash tool starts EVERY call in the launching session's own directory, the factory's MAIN checkout where later commits have already landed, never in the pinned worktree; a `cd` in one call does NOT carry to the next, so a bare `grep`/`cat` silently audits the wrong code. The engine's prompt names the pinned worktree and the pinned commit. Your FIRST call prints the absolute project directory inside the pin and its HEAD (`cd \"<dir>\" && pwd -P && git rev-parse HEAD`): that HEAD must start with the pinned commit, and if it does not, STOP and return no contracts. From then on start EVERY Bash command with the literal absolute directory it printed (`cd \"<pinDir>\" && …`, or `git -C \"<pinDir>\" …`, or only absolute paths), the heredocs that write probes included, and give Read, Grep and Glob absolute paths under it, never a relative one. Your LAST call repeats the HEAD check. Report `pinDir` and `headSha` (first call) and `headShaEnd` (last call) exactly as printed: the engine discards your whole report if a reported HEAD is not the pin. 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give file, line and a short snippet), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -616,7 +619,7 @@ const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${
 // slot is a whole-repo checkout too, so a nested project's gate enters `gate-worktree-<k>/<prefix>` — and the
 // slot's bootstrap (gateWorktreePrompt) runs from that same project directory, where `.pandacorp/` lives.
 const gateProjectCd = (wt = GATE_WORKTREE) => `cd "${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"`
-const worktreeWorkFrom = (pinSha, wt = GATE_WORKTREE) => `Work from the GATE WORKTREE ${wt} — FIRST cd into the PROJECT directory inside it, exactly: \`${gateProjectCd(wt)}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only).\n`
+const worktreeWorkFrom = (pinSha, wt = GATE_WORKTREE) => `Work from the GATE WORKTREE ${wt} — FIRST cd into the PROJECT directory inside it, exactly: \`${gateProjectCd(wt)}\` (the worktree holds the WHOLE repo; a nested project's root is not the worktree root). It is a DETACHED git worktree checked out at the pinned commit ${pinSha} (a frozen, quiet copy of the tree so the main build keeps going); DO NOT cd to the main project root and DO NOT run any \`git commit\`/branch op that writes the main tree. Every relative path below is relative to that project directory inside the worktree; any path written as an absolute ${PROJECT_DIR}/... is the MAIN tree (append-only files only). **Your shell does NOT remember that \`cd\` (BL-0205):** a subagent's Bash tool starts every call in the launching session's own directory — the MAIN checkout, which is NOT the pinned commit — so a bare \`grep\`/\`cat\`/\`ls\` reads the wrong tree. Start EVERY Bash command with that same \`cd\` (\`<that cd> && <command>\`), or use only absolute paths / \`git -C <worktree>\`, and give Read/Grep/Glob absolute paths under the worktree.\n`
 // ── D1 gate-slot pool geometry (args.parallelGates, BL-0186) ──────────────────────────────────────
 // Slot k (1-based) lives at `${GATE_WORKTREE}-<k>` — never the single C2 path, so a dirty legacy worktree
 // (BL-0067 crash evidence, e.g. Mission Control's own) can never poison the pool, and the flag-off path
@@ -1098,6 +1101,8 @@ function enforceWholeFrdTraceability(result) {
 //   • passes at the pin → the reviewer was wrong → the entry is DISCARDED (logged loudly).
 //   • unloadable / flaky / missing probe / invalid base / no contract id / owned → cycle fault (fail-closed:
 //     an unproven claim is never recorded as drift and never waives a green).
+//   • BL-0206: the proof line itself never arrived intact (seal mismatch after two re-reads of the stored copy) →
+//     UNPROVEN: neither drift nor a cycle fault — a model's transcription error says nothing about the code.
 // Proven drift NEVER blocks and NEVER reopens the cycle's WOs: it becomes a `draft` change card (the owner
 // decides direction — `/pandacorp:sync` rule: never degrade the spec) with the probe preserved under
 // .pandacorp/run/gate-evidence/<frd>/drift/, plus the FRD's `drift:` frontmatter at the certifying landing.
@@ -1160,16 +1165,48 @@ function probeRunState(runs) {
   const states = [...new Set(runs.map(one))]
   return states.length === 1 ? states[0] : 'flaky'
 }
-// Fail-closed parse of the MECH's verbatim stdout (same discipline as validateEvidence): anything that is
-// not the script's ok:true shape proves nothing.
+// BL-0206: the proof line reaches the engine through a MECH agent — a model, not a lossless copy channel.
+// Canary F1 lost a whole `"base":[…]` key in the relay (still valid JSON → read as "probe unloadable at
+// last_green_sha" → a spurious cycle fault, BL-0209); canary F2 dropped one `]` (invalid JSON → the same
+// fault, 4.01 $ of spurious patch). drift-proof.mjs therefore SEALS its line (drift-seal.mjs: a cyrb53 checksum
+// of the body as the last key, body ASCII-only) and the engine recomputes the seal over the EXACT text it got.
+// This is a verbatim copy of drift-seal.mjs's `cyrb53` + verifier (a Workflow script has no imports); the test
+// suite seals every fixture with the real module, so a divergence between the two fails every sealed scenario.
+const cyrb53 = (str) => {
+  let h1 = 0xdeadbeef
+  let h2 = 0x41c6ce57
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i)
+    h1 = Math.imul(h1 ^ ch, 2654435761)
+    h2 = Math.imul(h2 ^ ch, 1597334677)
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909)
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909)
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0)
+}
+const DRIFT_SEAL_RE = /,"sum":"([0-9a-f]{14})"\}$/
+const driftSealHolds = (text) => {
+  const m = DRIFT_SEAL_RE.exec(text)
+  return Boolean(m) && cyrb53(`${text.slice(0, m.index)}}`).toString(16).padStart(14, '0') === m[1]
+}
+// Fail-closed parse of the MECH's verbatim stdout (same discipline as validateEvidence): anything that is not
+// the script's ok:true shape proves nothing. `transport: true` = the line never ARRIVED intact (nothing came
+// back, unparseable, unsealed, or the seal does not match what the relay delivered). That says nothing about
+// the claim, so the caller never turns it into a verdict (a cycle fault / reopen, BL-0206) — it re-reads the
+// stored proof and, failing that, leaves the claim UNPROVEN. A script REFUSAL (`ok:false`, an intact line) and a
+// shape violation in a sealed line stay what they always were: fail-closed cycle faults.
 function parseDriftProof(raw) {
   const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
-  if (!text) return { proof: null, error: 'the drift-proof runner returned no output' }
+  if (!text) return { proof: null, error: 'the drift-proof runner returned no output', transport: true }
   let j
-  try { j = JSON.parse(text) } catch { return { proof: null, error: 'the drift-proof output is not valid JSON' } }
+  try { j = JSON.parse(text) } catch { return { proof: null, error: 'the drift-proof output is not valid JSON', transport: true } }
+  if (j && typeof j === 'object' && j.ok === false && typeof j.error === 'string') return { proof: null, error: `the drift-proof script refused: ${j.error}` }
+  const sealed = Boolean(j) && typeof j === 'object' && (j.sum !== undefined || Number(j.version) >= 2)
+  if (sealed && !driftSealHolds(text)) return { proof: null, error: 'the drift-proof output failed its integrity seal (the relay altered it)', transport: true }
+  if (!sealed && !(j && typeof j === 'object' && j.version === 1)) return { proof: null, error: 'the drift-proof output carries neither a seal nor a legacy version marker (garbled)', transport: true }
   if (!j || j.ok !== true) return { proof: null, error: `the drift-proof script refused: ${(j && j.error) || 'no ok:true'}` }
   if (!Array.isArray(j.probes) || !j.owned || typeof j.owned !== 'object') return { proof: null, error: 'the drift-proof output lacks probes/owned' }
-  return { proof: j, error: '' }
+  return { proof: j, error: '', legacy: !sealed }
 }
 // Owned contract cores from the reviewed WOs at the pin: `source_requirements` when declared, else every
 // id the file mentions (fail-closed). null = ownership unprovable → every claim is a cycle fault.
@@ -1186,13 +1223,14 @@ function ownedDriftCores(proof, woPaths) {
 }
 /**
  * The BL-0178 predicate for ONE claimed `fail` entry. Pure: every input is a fact the MECH run reported.
- * @returns {{ verdict: 'preexisting'|'regression'|'refuted'|'cycle-fault', why: string, stored?: string }}
+ * @param {boolean} [unreadable] the proof line never arrived intact (BL-0206) — the claim is then UNPROVEN, not a fault
+ * @returns {{ verdict: 'preexisting'|'regression'|'refuted'|'cycle-fault'|'unproven', why: string, stored?: string }}
  */
-function classifyDriftClaim(entry, proof, owned, proofError) {
+function classifyDriftClaim(entry, proof, owned, proofError, unreadable = false) {
   const id = contractIdOf(entry.contract)
   if (!id) return { verdict: 'cycle-fault', why: 'the contract carries no REQ/AC id, so non-ownership cannot be proven' }
   if (!DRIFT_PROBE_RE.test(String(entry.evidence_test || ''))) return { verdict: 'cycle-fault', why: 'no valid evidence_test probe (.pandacorp/run/drift-probes/<frd>/<id>.drift-probe.ts)' }
-  if (!proof) return { verdict: 'cycle-fault', why: proofError || 'the differential proof did not run' }
+  if (!proof) return { verdict: unreadable ? 'unproven' : 'cycle-fault', why: proofError || 'the differential proof did not run' }
   if (!owned) return { verdict: 'cycle-fault', why: 'reviewed work-order ownership could not be read at the pin' }
   if (owned.has(contractCore(id))) return { verdict: 'cycle-fault', why: `${id} is owned by a reviewed work order (source_requirements) — never pre-existing` }
   const probe = proof.probes.find((p) => p && p.path === entry.evidence_test)
@@ -1207,6 +1245,7 @@ function classifyDriftClaim(entry, proof, owned, proofError) {
   if (base === 'passed') return { verdict: 'regression', why: `held at last_green_sha ${String(proof.base || '').slice(0, 8)} and fails at the pin — this cycle broke it`, stored }
   return { verdict: 'cycle-fault', why: `the probe is ${base} at last_green_sha — unproven`, stored }
 }
+const DRIFT_PROOF_REPLAYS = 2   // BL-0206: cheap re-reads of the stored proof after an altered relay, before a claim is left unproven
 async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
   const st = frdState.get(frd)
   const reviewed = st ? st.f.workOrders.filter((w) => reviewIds.includes(w.id)) : []
@@ -1214,18 +1253,35 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
   const provable = claims.filter((e) => DRIFT_PROBE_RE.test(String(e.evidence_test || '')) && String(e.evidence_test).includes(`/drift-probes/${frd}/`))
   if (!provable.length) return { proof: null, owned: null, error: 'no claim carries a valid evidence_test for this FRD' }
   if (!reviewed.length || woPaths.length !== reviewed.length) return { proof: null, owned: null, error: 'a reviewed work order has no valid path — ownership cannot be read' }
-  const cmd = `${DRIFT_CLI_COMMAND} prove --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --source ${shellQuote(sourceDir)} --pin ${shellQuote(pinSha || 'HEAD')} ${woPaths.map((p) => `--wo ${shellQuote(p)}`).join(' ')} ${[...new Set(provable.map((e) => e.evidence_test))].map((p) => `--probe ${shellQuote(p)}`).join(' ')}`
-  agentSpawned++
-  let raw = null
-  try {
-    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 differential drift proof for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize or reformat the output.`,
-      { label: `drift-proof:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
-  } catch (e) {
-    log(`⚠ ${frd}: the drift-proof runner threw (${(e && e.message) || e}) — every drift claim stays a cycle fault (BL-0178 fail-closed)`)
-    return { proof: null, owned: null, error: 'the drift-proof runner threw' }
+  // BL-0206: the script keeps a SEALED copy of its line on disk (`--out`); when the first relay of the stdout
+  // fails its seal, the engine re-reads that stored line (`replay`: no probe re-runs, seconds) instead of
+  // trusting or re-running anything. The single spawn site below serves both reads.
+  st.driftProofSeq = (st.driftProofSeq || 0) + 1
+  const storedProof = `.pandacorp/run/drift-proofs/${frd}/${String(pinSha || 'head').replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'head'}-${st.driftProofSeq}.json`
+  const proveCmd = `${DRIFT_CLI_COMMAND} prove --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --source ${shellQuote(sourceDir)} --pin ${shellQuote(pinSha || 'HEAD')} ${woPaths.map((p) => `--wo ${shellQuote(p)}`).join(' ')} ${[...new Set(provable.map((e) => e.evidence_test))].map((p) => `--probe ${shellQuote(p)}`).join(' ')} --out ${shellQuote(storedProof)}`
+  const replayCmd = `${DRIFT_CLI_COMMAND} replay --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --file ${shellQuote(storedProof)}`
+  const relay = async (label, cmd, what) => {
+    agentSpawned++
+    try {
+      return await agent(`MECHANICAL COMMAND RUNNER — BL-0178 ${what} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. ${label.startsWith('drift-proof-replay:') ? 'It only prints a line it stored earlier, so it is instant.' : "It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix."} The line is machine JSON ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize, re-format or re-type the output.`,
+        { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+    } catch (e) {
+      log(`⚠ ${frd}: the ${label} runner threw (${(e && e.message) || e})`)
+      return null
+    }
   }
-  const { proof, error } = parseDriftProof(raw)
+  let parsed = parseDriftProof(await relay(`drift-proof:${frd}`, proveCmd, 'differential drift proof'))
+  for (let i = 1; !parsed.proof && parsed.transport && i <= DRIFT_PROOF_REPLAYS; i++) {
+    log(`⚠ DriftProofRelay ${frd}: ${parsed.error} — re-reading the stored proof, attempt ${i}/${DRIFT_PROOF_REPLAYS} (BL-0206: a model's copy of machine JSON is never trusted, never turned into a verdict)`)
+    parsed = parseDriftProof(await relay(`drift-proof-replay:${frd}`, replayCmd, 'drift proof re-read'))
+  }
+  const { proof, error } = parsed
+  if (!proof && parsed.transport) {
+    log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry (DR-122: what is not proven never reopens; BL-0206). Re-running the gate proves it`)
+    return { proof: null, owned: null, error, unreadable: true }
+  }
   if (!proof) { log(`⚠ ${frd}: ${error} — every drift claim stays a cycle fault (BL-0178 fail-closed)`); return { proof: null, owned: null, error } }
+  if (parsed.legacy) log(`⚠ ${frd}: the drift-proof script predates the sealed output (version 1) — its relay integrity could not be verified (BL-0206; update the installed plugin)`)
   if (proof.cleanup && proof.cleanup.ok === false) log(`⚠ ${frd}: drift-proof left temporary worktree(s) behind: ${(proof.cleanup.leftover || []).join(', ')}`)
   return { proof, owned: ownedDriftCores(proof, woPaths), error: '' }
 }
@@ -1238,14 +1294,19 @@ async function recordDrift(frd, confirmed) {
   if (!fresh.length) { log(`◦ ${frd}: drift ${confirmed.map((d) => d.id).join(', ')} already recorded this run — not filing it again (BL-0178 idempotent)`); return }
   const items = fresh.map((d) => ({ id: d.id, contract: d.contract, contractClass: d.contractClass, direction: d.direction, probe: d.stored, pin: d.pin, base: d.base }))
   const cmd = `${DRIFT_CLI_COMMAND} record --project ${shellQuote(PROJECT_DIR)} --frd ${shellQuote(frd)} --project-name "${PROJECT}" --items ${shellQuote(JSON.stringify(items))}`
-  agentSpawned++
-  let raw = null
-  try {
-    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
-      { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
-  } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
+  // BL-0206: the command is idempotent on disk (drift_key), so when its one-line result never ARRIVES readable
+  // (nothing back / unparseable — the relay is a model) it is simply run once more; a script REFUSAL (ok:false) is final.
   let res = null
-  try { res = raw && typeof raw.output === 'string' ? JSON.parse(raw.output.trim().split('\n').pop()) : null } catch { res = null }
+  for (let attempt = 1; attempt <= 2 && !res; attempt++) {
+    agentSpawned++
+    let raw = null
+    try {
+      raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
+        { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+    } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
+    try { res = raw && typeof raw.output === 'string' ? JSON.parse(raw.output.trim().split('\n').pop()) : null } catch { res = null }
+    if (!res && attempt === 1) log(`⚠ ${frd}: the drift-record result was unreadable — running the idempotent command once more (BL-0206)`)
+  }
   if (!res || res.ok !== true) {
     log(`⚠⚠ ${frd}: drift ${fresh.map((d) => d.id).join(', ')} is PROVEN but its draft card could NOT be written (${(res && res.error) || 'no ok:true output'}) — it still lands in the FRD's committed \`drift:\` frontmatter; file the card by hand (BL-0178)`)
     return
@@ -1267,15 +1328,16 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
     return { ...gate, traceability: gate.traceability.map((e, i) => { if (!claimIdx.includes(i)) return e; const { claim, ...rest } = e; return rest }) }
   }
   const claims = claimIdx.map((i) => gate.traceability[i])
-  const { proof, owned, error } = await runDriftProof(frd, reviewIds, claims, pinSha, sourceDir)
+  const { proof, owned, error, unreadable } = await runDriftProof(frd, reviewIds, claims, pinSha, sourceDir)
   const confirmed = []
   const faults = []
+  const unreadableIds = []
   const trace = gate.traceability.map((e, i) => {
     if (!claimIdx.includes(i)) return e
     // BL-0203: a claim the drift finder proposed (merged by mergeDriftFinderClaims) takes the finder predicate —
     // same facts, but an unproven finder claim is discarded instead of becoming a cycle fault.
     const fromFinder = e.origin === 'drift-finder'
-    const c = fromFinder ? classifyFinderClaim(e, proof, owned, error) : classifyDriftClaim(e, proof, owned, error)
+    const c = fromFinder ? classifyFinderClaim(e, proof, owned, error) : classifyDriftClaim(e, proof, owned, error, unreadable === true)
     const id = contractIdOf(e.contract)
     const { __judgeEntry, ...claimEntry } = e
     const dropFinderClaim = (why) => (__judgeEntry ? __judgeEntry : { ...claimEntry, status: 'discarded', __driftAdjudicated: true, driftWhy: why })
@@ -1289,6 +1351,11 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
       return fromFinder ? dropFinderClaim(c.why) : { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
     }
     if (c.verdict === 'unproven') {
+      if (unreadable === true) unreadableIds.push(id || e.contract)
+      if (!fromFinder) {
+        log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: no reopen, no card (DR-122, BL-0206)`)
+        return { ...e, status: 'discarded', __driftAdjudicated: true, driftWhy: c.why }
+      }
       log(`⚖ ${frd}: drift finder claim on ${id || e.contract} is unproven (${c.why}) — discarded, never a cycle fault on a finder's word (BL-0203)`)
       return dropFinderClaim(c.why)
     }
@@ -1314,6 +1381,10 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
     if (next.green === true && !atCap) next = { ...next, green: false, reopen: [...reviewIds], findings: findingsAdd, failure: `BL-0178: ${faults.length} pre-existing-drift claim(s) were NOT proven pre-existing — reopened patch-first` }
     else if (next.green !== true && next.reopen && next.reopen.length) next = { ...next, findings: [...(next.findings || []), ...findingsAdd] }
     else if (next.green !== true && onlyDriftRed && next.blocked_reason !== 'external') next = { ...next, blocked_reason: undefined, reopen: [...reviewIds], findings: findingsAdd, failure: `BL-0178: the block rested only on drift claims, and ${faults.length} of them are cycle faults — reopened patch-first` }
+  } else if (next.green !== true && onlyDriftRed && !(next.reopen && next.reopen.length) && next.blocked_reason === 'needs-owner' && unreadableIds.length) {
+    // BL-0206: the lift below needs PROVEN drift. The proof was unreadable, so the reviewer's own block stands
+    // (the engine adds no block and no reopen of its own — the owner decides).
+    log(`◦ ${frd}: the needs-owner block is KEPT — it rested on drift claim(s) ${unreadableIds.join(', ')} whose proof could not be read, so they are not proven drift (BL-0206)`)
   } else if (next.green !== true && onlyDriftRed && !(next.reopen && next.reopen.length) && next.blocked_reason === 'needs-owner') {
     // The canary-D2 frd-02 shape: the reviewer blocked needs-owner ONLY because of drift it could not pin on a
     // reviewed WO. Every one of its reds is now proven drift (or refuted) → policy (a): the cycle is not blocked.
@@ -2157,8 +2228,11 @@ const DRIFT_FINDER_TOOL_BUDGET = 60   // tool calls (finder's own count); the di
 const FINDER_PROBE_RE = /\.finder\.drift-probe\.tsx?$/   // the finder's own probes, never the reviewer's (DR-122 path + infix)
 const DRIFT_FINDER_STATUSES = ['implemented', 'drift', 'unknown']
 const DRIFT_FINDER_SCHEMA = {
-  type: 'object', required: ['contracts'],
+  type: 'object', required: ['contracts', 'pinDir', 'headSha'],
   properties: {
+    pinDir: { type: 'string', description: 'BL-0205: the absolute project directory inside the pinned worktree, as `pwd -P` printed it on your FIRST call' },
+    headSha: { type: 'string', description: 'BL-0205: `git rev-parse HEAD` as printed on your FIRST call, run inside pinDir — it must be the pinned commit' },
+    headShaEnd: { type: 'string', description: 'BL-0205: the same HEAD check on your LAST call, run inside pinDir' },
     contracts: { type: 'array', description: 'ONE entry per normative contract of the FRD — none dropped, none merged into a range', items: {
       type: 'object', required: ['contract', 'status'],
       properties: {
@@ -2184,12 +2258,13 @@ const frdRoster = (frd) => {
   return wos.map((w) => `${w.id} · ${w.status || 'unknown'} · ${w.path || `docs/frds/${frd}/work-orders/${w.id}.md`}`).join('\n  ')
 }
 // Start the finder for THIS gate (idempotent per FRD; a no-op unless DRIFT_FINDER). The promise never rejects.
-function startDriftFinder(frd, reviewIds, pinSha, workFrom) {
+function startDriftFinder(frd, reviewIds, pinSha, workFrom, wt = GATE_WORKTREE) {
   if (!DRIFT_FINDER) return null
   const st = frdState.get(frd)
   if (!st) return null
   if (st.driftFinderPromise) return st.driftFinderPromise
   const acText = reviewedAcText(frd, reviewIds)
+  st.driftFinderPin = { sha: String(pinSha || ''), wt }   // BL-0205: what awaitDriftFinding checks the finder's reported HEAD / dir against
   agentSpawned += COST('sonnet')   // BL-0203: one STANDARD-tier unit, reserved in gateCostEstimate
   st.driftFinderPromise = agent(`${EMIT('reviewer', frd, { frd, phase: 'review', activity: 'find-drift' })}FRD gate — the WHOLE-FRD DRIFT FINDER for ${frd} (BL-0203, canary F2). You run BESIDE this FRD's gate, in its pinned worktree, while another agent runs the gate script here; the opus reviewer that judges this FRD reads your report. You are NOT the judge (DR-015): everything you return is a proposal the judge weighs and the engine proves (DR-122).
   ${DRIFT_FINDER_DIRECTIVE}
@@ -2197,19 +2272,43 @@ function startDriftFinder(frd, reviewIds, pinSha, workFrom) {
   ${frdRoster(frd) || '(the plan carried no work-order list — find them under docs/frds/' + frd + '/work-orders/)'}
   **THE WORK ORDERS UNDER REVIEW THIS CYCLE:** ${reviewIds.join(', ')} — a contract one of them owns is a \`cycle\` contract; every other contract is \`preexisting\`, and those are where the judge cannot look: do them FIRST.${acText ? `\n  The planner's verbatim criteria of those work orders (a head start, not the inventory): \n  ${acText}` : ''}
   **DECLARED EVIDENCE, if cached:** \`${PROJECT_DIR}/.pandacorp/run/gate-evidence/${frd}/inventory.json\` (MAIN tree, read-only, may be absent or stale — frd.md at this pin is the authority) lists the evidence tests of the last green gate per contract.
-  **PROBES:** write each drift probe at \`.pandacorp/run/drift-probes/${frd}/<contract-id-slug>.finder.drift-probe.ts\`, relative to this project directory inside the worktree.
-  **TOOL BUDGET: at most ${DRIFT_FINDER_TOOL_BUDGET} tool calls** — count them; report your count in \`toolCalls\` (telemetry only: the engine decides nothing from it).
-  Return { contracts: [{ contract, contractClass, owner, status: implemented|drift|unknown, evidence: { file, line, snippet }, claim: preexisting|cycle, probe_test (drift only), direction (drift only: code|spec|unknown), why }], toolCalls, budgetExhausted }.`,
+  **THE PIN (BL-0205 — read this twice).** Pinned worktree: \`${wt}\`. Pinned commit: \`${pinSha}\`. Your Bash tool starts EVERY call in the launching session's directory (the MAIN checkout, NOT this commit): a \`cd\` does not carry to your next call. Your FIRST call, exactly: \`PIN_DIR="${wt}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix)"; cd "$PIN_DIR" && pwd -P && git rev-parse HEAD\`. It prints the absolute project directory inside the pin (from here on \`<pinDir>\`) and its HEAD, which MUST start with \`${pinSha}\` — if it does not, STOP and return \`contracts: []\` with what you saw. Then begin EVERY Bash command with the literal printed directory (\`cd "<pinDir>" && …\`, or \`git -C "<pinDir>" …\`), each probe-writing heredoc included, and give Read/Grep/Glob absolute paths under \`<pinDir>\`. Your LAST call: \`cd "<pinDir>" && git rev-parse HEAD\`. Return \`pinDir\`, \`headSha\` (first call), \`headShaEnd\` (last call); the engine DISCARDS your whole report when a reported HEAD is not the pin.
+  **PROBES:** write each drift probe at \`.pandacorp/run/drift-probes/${frd}/<contract-id-slug>.finder.drift-probe.ts\`, relative to this project directory inside the worktree (i.e. \`<pinDir>/.pandacorp/run/drift-probes/…\`).
+  **TOOL BUDGET: at most ${DRIFT_FINDER_TOOL_BUDGET} tool calls** — count them (the two HEAD checks included); report your count in \`toolCalls\` (telemetry only: the engine decides nothing from it).
+  Return { pinDir, headSha, headShaEnd, contracts: [{ contract, contractClass, owner, status: implemented|drift|unknown, evidence: { file, line, snippet }, claim: preexisting|cycle, probe_test (drift only), direction (drift only: code|spec|unknown), why }], toolCalls, budgetExhausted }.`,
     { label: `find:drift:${frd}`, phase: 'Review', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:drift-finder', fallbackAgentType: 'pandacorp:reviewer', schema: DRIFT_FINDER_SCHEMA, workFrom })
     .then((r) => r, (e) => ({ __threw: (e && e.message) || String(e) }))
   return st.driftFinderPromise
 }
+// BL-0205: canary F2's finders told to `cd` into their pinned slot read the factory's MAIN checkout on later Bash
+// calls (a subagent's cwd resets every call): 2 false `implemented` on defects that main had already fixed. The
+// prompt now demands absolute paths and a HEAD check on the first and last call; the engine checks what the finder
+// REPORTED and throws the whole report away on a mismatch — a claim proven against the wrong commit is never merged
+// (a finder row is only a proposal anyway: the gate runs without it, DR-015). `headSha` and `pinDir` are required
+// (they come from the mandatory first call); `headShaEnd` is checked whenever the finder gave it. Honest limit:
+// this verifies what the finder SAYS it looked at, not each read in between — the per-command discipline in the
+// prompt is the defense for those.
+// → '' when the report names the pin, else the reason it cannot be trusted.
+function finderWrongTree(raw, pin) {
+  const want = String(pin.sha || '').trim().toLowerCase()
+  if (!want) return ''
+  const same = (x) => { const v = String(x || '').trim().toLowerCase(); return v.length >= 7 && (want.startsWith(v) || v.startsWith(want)) }
+  if (typeof raw.headSha !== 'string' || !raw.headSha.trim()) return `the finder reported no HEAD sha, so the tree it audited cannot be shown to be the gate pin ${want.slice(0, 8)} (BL-0205)`
+  if (!same(raw.headSha)) return `WRONG TREE: the finder's first HEAD check reported ${raw.headSha.trim().slice(0, 12)}, not the gate pin ${want.slice(0, 8)} — it audited another checkout (BL-0205)`
+  if (raw.headShaEnd !== undefined && raw.headShaEnd !== null && !same(raw.headShaEnd)) return `WRONG TREE: the finder's last HEAD check reported ${String(raw.headShaEnd).trim().slice(0, 12)}, not the gate pin ${want.slice(0, 8)} — it drifted to another checkout mid-run (BL-0205)`
+  const dir = typeof raw.pinDir === 'string' ? raw.pinDir.trim().replace(/\/+$/, '') : ''
+  const slot = String(pin.wt || '').replace(/\/+$/, '').split('/').pop()
+  if (!dir.startsWith('/') || (slot && !dir.includes(`/${slot}`)) || dir === String(PROJECT_DIR).replace(/\/+$/, '')) return `WRONG TREE: the finder reported working in '${dir || '(none)'}', not inside the pinned worktree ${pin.wt || '(unknown)'} (BL-0205)`
+  return ''
+}
 // DR-078 fail-loud read boundary over the finder's answer: a usable report, or an explicit reason — never a
 // silent empty list. Malformed ROWS are counted and named, never dropped silently; a drift row without a valid
 // finder probe for THIS FRD stays in the report as an unproven pointer (the judge sees it; nothing is merged).
-function validateDriftFinding(raw, frd) {
+function validateDriftFinding(raw, frd, pin = null) {
   if (!raw || typeof raw !== 'object') return { finding: null, reason: 'the finder returned no verdict' }
   if (raw.__threw) return { finding: null, reason: `the finder threw (${raw.__threw})` }
+  const wrongTree = pin ? finderWrongTree(raw, pin) : ''
+  if (wrongTree) return { finding: null, reason: wrongTree }
   if (!Array.isArray(raw.contracts)) return { finding: null, reason: 'the finder output has no contracts array' }
   if (!raw.contracts.length) return { finding: null, reason: 'the finder returned no contracts (an FRD always has some — it did not do the pass)' }
   const rows = []
@@ -2241,7 +2340,7 @@ async function awaitDriftFinding(frd) {
   const st = frdState.get(frd)
   if (!st || !st.driftFinderPromise) return null
   if (st.driftFinding !== undefined && st.driftFinding !== null) return st.driftFinding
-  const { finding, reason } = validateDriftFinding(await st.driftFinderPromise, frd)
+  const { finding, reason } = validateDriftFinding(await st.driftFinderPromise, frd, st.driftFinderPin)
   if (!finding) { log(`⚠ DriftFinderFallback ${frd}: ${reason} — this gate runs without a drift-finder report (the gate itself is never skipped)`); st.driftFinding = false; return null }
   const n = (s) => finding.rows.filter((r) => r.status === s).length
   log(`⌕ ${frd}: drift finder → ${finding.rows.length} contract(s): ${n('implemented')} implemented, ${n('drift')} drift (${finding.rows.filter((r) => r.provable).length} with a probe), ${n('unknown')} unknown${finding.malformed.length ? `; ${finding.malformed.length} MALFORMED row(s) ignored (#${finding.malformed.join(', #')})` : ''}; self-reported (UNVERIFIED, telemetry only): ${finding.selfReported.toolCalls === null ? 'no tool-call count' : `${finding.selfReported.toolCalls} tool calls`}${finding.selfReported.budgetExhausted ? ', budget exhausted' : ''}`)
@@ -4413,7 +4512,7 @@ function launchGateInSlot(frd, slot, est) {
   const work = (async () => {
     const ok = await ensureGateWorktree(pinSha, slot)
     if (!ok) return { __worktreeFailed: true, __slotDirty: Boolean(slot.failedOnDirt) }
-    startDriftFinder(frd, reviewIds, pinSha, worktreeWorkFrom(pinSha, slot.path))   // BL-0203: beside the collector, in this slot
+    startDriftFinder(frd, reviewIds, pinSha, worktreeWorkFrom(pinSha, slot.path), slot.path)   // BL-0203: beside the collector, in this slot
     const evidencePack = await resolveGateEvidence(frd, reviewIds, pinSha)   // digested: collected INLINE in this slot (launchEvidence is a no-op under D1)
     slot.clean = false
     let gate

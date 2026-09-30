@@ -57,9 +57,12 @@
 // Exit 0 green / 1 red. Output ends in `RESULT: N passed, M failed`.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sealLine } from './drift-seal.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ENGINE_PATH = path.resolve(__dirname, '../runtime/engine/pandacorp-build.src.js')
@@ -204,6 +207,18 @@ async function runEngine(scenario) {
   const responses = [...(scenario.responses || [])]
   if (scenario.plan) responses.unshift({ label: 'plan', response: scenario.plan })
 
+  // BL-0205: a real finder reports the HEAD and directory its first call printed; a scripted finder that does not
+  // say (every pre-BL-0205 scenario) is a faithful one — it reports the pin and the worktree its own prompt named.
+  // A scenario that scripts `headSha`/`pinDir`/`headShaEnd` explicitly (even `null`) is left exactly as written.
+  const finderAnswersAtPin = (call, answer) => {
+    if (!call.label.startsWith('find:drift:')) return answer
+    return Promise.resolve(answer).then((a) => {
+      if (!a || typeof a !== 'object' || !Array.isArray(a.contracts)) return a
+      const sha = (call.prompt.match(/at the pinned commit (\S+)/) || [])[1]
+      const wt = (call.prompt.match(/Work from the GATE WORKTREE (\S+) /) || [])[1]
+      return { ...('headSha' in a ? {} : { headSha: sha }), ...('pinDir' in a ? {} : { pinDir: `${String(wt).startsWith('/') ? '' : '/test-project/'}${wt}/mission-control` }), ...a }
+    })
+  }
   const agentStub = async (prompt, opts = {}) => {
     const call = { index: calls.length, label: opts.label || '', prompt: String(prompt), opts }
     calls.push(call)
@@ -226,14 +241,14 @@ async function runEngine(scenario) {
       if ((call.label === 'safe-point' || call.label === 'safe-point-pre-loop') && answer && typeof answer === 'object' && !('stop_receipt' in answer)) {
         return { ...answer, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' } }
       }
-      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
+      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : finderAnswersAtPin(call, answer)
     }
     const def = promptAwareDefault(call) ?? defaultResponse(call.label)
     if (def === null) {
       unmatched.push(call.label || call.prompt.slice(0, 80))
       return {}
     }
-    return def
+    return finderAnswersAtPin(call, def)
   }
 
   const budget = scenario.budget || { total: 0, spent: () => 0, remaining: () => Infinity }
@@ -5098,13 +5113,16 @@ const b178Run = (s) => (s === 'fail'
     ? { parsed: true, exit: 0, total: 1, failed: 0, passed: 1, suiteErrors: 0 }
     : { parsed: true, exit: 1, total: 0, failed: 0, passed: 0, suiteErrors: 1 })   // 'load' — the module never loaded
 // The drift-proof.mjs stdout the MECH hands back verbatim. `probes`: [[contractId, headStates, baseStates]].
-const b178Proof = ({ frd, wos, owned, probes, baseValid = true }) => ({ output: JSON.stringify({
-  ok: true, version: 1, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'wo is already IN_REVIEW at last_green_sha',
+// BL-0206: the line is SEALED exactly as the real script seals it (drift-seal.mjs) — a scenario that hands the
+// engine an altered copy has to alter the sealed text, which is what the relay hazard is.
+const b178ProofBody = ({ frd, wos, owned, probes, baseValid = true }) => ({
+  ok: true, version: 2, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'wo is already IN_REVIEW at last_green_sha',
   owned: Object.fromEntries(wos.map((w) => [`docs/frds/${frd}/work-orders/${w}.md`, { sourceRequirements: owned, ids: owned }])),
   probes: probes.map(([id, head, base]) => ({ path: b178Probe(frd, id), stored: `.pandacorp/run/gate-evidence/${frd}/drift/${b178Slug(id)}.drift-probe.ts`, head: head.map(b178Run), base: base.map(b178Run) })),
   cleanup: { ok: true, leftover: [] },
-}) })
-const b178Claim = (frd, id, text, direction = 'code') => ({ contract: `${id} — ${text}`, contractClass: 'acceptance-criterion', status: 'fail', claim: 'preexisting', evidence_test: b178Probe(frd, id), direction, tests: [] })
+})
+const b178Proof = (spec) => ({ output: sealLine(b178ProofBody(spec)) })
+const b178Claim =(frd, id, text, direction = 'code') => ({ contract: `${id} — ${text}`, contractClass: 'acceptance-criterion', status: 'fail', claim: 'preexisting', evidence_test: b178Probe(frd, id), direction, tests: [] })
 const b178Trace = (...extra) => [...validTraceability, ...extra]
 const b178Record = { prefix: 'drift-record:', response: (call) => ({ output: JSON.stringify({ ok: true, written: [(call.prompt.match(/drift record for (\S+)\./) || [])[1] + '-drift.md'], skipped: [] }) }) }
 const b178Plan = (frd, wo, extra = {}) => mkPlan([{ frd, deps: [], workOrders: [mkWo(wo, 'PLANNED', { frd, artifacts: [`src/${frd}/**`], ...extra })] }])
@@ -5361,18 +5379,21 @@ SCENARIOS.push({
 
 // Fail-closed: a dead proof runner proves nothing; a reviewer-typed 'drift' status is not an engine stamp.
 SCENARIOS.push({
-  name: 'BL-0178 R4. dead drift-proof runner → every claim is a cycle fault (reopen), never drift',
+  name: 'BL-0178 R4 (amended by BL-0206). dead drift-proof runner → the proof cannot be READ → the claim stays UNPROVEN: never drift, never a card, and never a reopen either',
   args: { mode: 'pro' },
   plan: b178Plan('frd-b178-r4', 'wo-b178r4-001'),
   responses: [
     { label: 'gate:frd-b178-r4', times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim('frd-b178-r4', 'AC-99-004.1', 'x')) } },
     { prefix: 'drift-proof:', response: null },
-    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'AC-99-004.1 — x', pass: true, tests: ['t.test.ts'] }] } },
+    { prefix: 'drift-proof-replay:', response: null },
   ],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
-    t.ok(hasLog(run, /drift-proof runner returned no output — every drift claim stays a cycle fault/), 'the dead runner is logged')
-    t.ok(byLabel(run, /^drift-record:/).length === 0 && byLabel(run, 'patch:frd-b178-r4').length === 1, 'no card; reopened patch-first')
+    t.ok(byLabel(run, /^drift-proof-replay:/).length === 2, 'the stored proof was re-read twice before giving up')
+    t.ok(hasLog(run, /DriftProofUnreadable frd-b178-r4: the drift-proof runner returned no output/), 'the dead runner is logged loudly')
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card: nothing was proven')
+    t.ok(byLabel(run, 'patch:frd-b178-r4').length === 0, 'NO reopen on a proof that never arrived (DR-122: what is not proven never reopens)')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b178-r4'), 'the FRD lands VERIFIED')
   },
 })
 SCENARIOS.push({
@@ -7652,8 +7673,8 @@ const f2Row = (frd, id, status, extra = {}) => ({
   why: extra.why || 'fixture',
 })
 const f2Finding = (rows, extra = {}) => ({ contracts: rows, toolCalls: 31, budgetExhausted: false, ...extra })
-const f2Proof = ({ frd, wos, owned, probes, baseValid = true }) => ({ output: JSON.stringify({
-  ok: true, version: 1, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'no valid base',
+const f2Proof = ({ frd, wos, owned, probes, baseValid = true }) => ({ output: sealLine({
+  ok: true, version: 2, frd, pin: 'pin0000aa', base: 'base000bb', baseValid, baseReason: baseValid ? '' : 'no valid base',
   owned: Object.fromEntries(wos.map((w) => [`docs/frds/${frd}/work-orders/${w}.md`, { sourceRequirements: owned, ids: owned }])),
   probes: probes.map(([id, head, base]) => ({ path: f2Probe(frd, id), stored: `.pandacorp/run/gate-evidence/${frd}/drift/${f2Slug(id)}.finder.drift-probe.ts`, head: head.map(b178Run), base: base.map(b178Run) })),
   cleanup: { ok: true, leftover: [] },
@@ -8084,6 +8105,402 @@ SCENARIOS.push({
     t.ok(block && source.includes(`const DISMISSAL_CITATION_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'DISMISSAL_CITATION_DIRECTIVE is byte-identical to the reviewer.md block')
     t.ok(/## Harness relays are not your task \(BL-0198\)/.test(reviewerMd) && /does not name this step's task is not addressed to you/.test(reviewerMd), 'reviewer.md carries the harness-relay section (covers every reviewer-typed engine agent: gate, finders, verifiers, visual-qa, close-out)')
     t.ok((source.match(/\$\{DISMISSAL_CITATION_DIRECTIVE\}/g) || []).length === 2, 'exactly the two gate-prompt sites (serial gate, split closer) interpolate the directive')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BL-0206 / BL-0209 / BL-0205 (canary F1/F2 follow-up): the drift route's two model-relay hazards.
+//
+// BL-0206 + BL-0209 share ONE root cause, proven from the real canary transcripts (not hypothesized): the
+// `drift-proof:<frd>` MECH agent re-typed the script's JSON line. F2 (FRD-05) dropped one `]` → invalid JSON →
+// "a cycle fault" → a spurious 12.3 min / 4.01 $ patch. F1 (FRD-04) dropped the `],"base":[` seam instead —
+// STILL VALID JSON — so `probe.base` vanished and the engine read "the probe is load-error at last_green_sha":
+// a proven pre-existing drift became a cycle fault, so the `drift-record` dispatch BL-0209 found "missing" was
+// never owed (`confirmed` was empty). The fix: the line is SEALED (drift-seal.mjs), the engine verifies the seal
+// over the text it received, re-reads the stored copy (`replay`) on a mismatch, and leaves the claim UNPROVEN
+// (no reopen, no card) only if every read fails. Fixtures are sealed by the REAL module.
+// ─────────────────────────────────────────────────────────────────────────────
+const b206Intact = (frd, id, states = [['fail', 'fail'], ['fail', 'fail']], wo = `wo-${frd.slice(4)}-001`) => b178Proof({ frd, wos: [wo], owned: ['REQ-00-900'], probes: [[id, ...states]] }).output
+const b206Mangle = {
+  // F2 shape: one closing bracket lost → invalid JSON
+  bracket: (line) => { const out = line.replace(']}],"cleanup"', '}],"cleanup"'); if (out === line) throw new Error('fixture: bracket shape not found'); return out },
+  // F1 shape: the `],"base":[` seam lost → STILL VALID JSON, but `base` silently disappears
+  baseKey: (line) => { const out = line.replace('],"base":[', ','); if (out === line) throw new Error('fixture: base seam not found'); return out },
+  // the seal dropped while `"version":2` stays
+  seal: (line) => line.replace(/,"sum":"[0-9a-f]{14}"\}$/, '}'),
+}
+const b206Plan = (frd) => b178Plan(frd, `wo-${frd.slice(4)}-001`)
+const b206Gate = (frd, id) => ({ label: `gate:${frd}`, times: 1, response: { green: true, testFiles: [], traceability: b178Trace(b178Claim(frd, id, 'legacy drift the cycle did not write')) } })
+const b206Out = (prompt) => ((prompt.match(/--out '([^']+)'/) || [])[1]) || null
+
+SCENARIOS.push({
+  name: 'BL-0206 a. F2 shape — a dropped `]` (invalid JSON) in the relay is caught by the seal, the stored proof is re-read, and the drift is recorded; NOT a cycle fault, NO patch',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206a'),
+  responses: [
+    b206Gate('frd-b206a', 'REQ-61-001'),
+    { prefix: 'drift-proof:', response: { output: b206Mangle.bracket(b206Intact('frd-b206a', 'REQ-61-001')) } },
+    { prefix: 'drift-proof-replay:', response: { output: b206Intact('frd-b206a', 'REQ-61-001') } },
+    b178Record,
+  ],
+  assert(t, run) {
+    const mangled = b206Mangle.bracket(b206Intact('frd-b206a', 'REQ-61-001'))
+    let parses = true
+    try { JSON.parse(mangled) } catch { parses = false }
+    t.ok(!parses, 'fixture: the relayed line is genuinely invalid JSON (the exact F2 corruption)')
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const prove = byLabel(run, 'drift-proof:frd-b206a')
+    const replay = byLabel(run, 'drift-proof-replay:frd-b206a')
+    t.ok(prove.length === 1 && replay.length === 1, `one proof run + ONE cheap re-read of its stored line (got ${prove.length} / ${replay.length})`)
+    const out = prove[0] && b206Out(prove[0].prompt)
+    t.ok(out && /^\.pandacorp\/run\/drift-proofs\/frd-b206a\/[A-Za-z0-9]+-1\.json$/.test(out), `the proof asks the script to STORE its sealed line (${out})`)
+    t.ok(replay[0] && /drift-proof\.mjs' replay/.test(replay[0].prompt) && replay[0].prompt.includes(`--file '${out}'`), 'the re-read replays that same file — it never re-runs a probe')
+    t.ok(replay[0] && replay[0].opts.agentType === 'pandacorp:mech' && replay[0].opts.model === 'haiku', 'the re-read is a MECH too (seconds, cents)')
+    t.ok(hasLog(run, /DriftProofRelay frd-b206a: the drift-proof output is not valid JSON — re-reading the stored proof, attempt 1\/2/), 'the altered relay is logged loudly')
+    t.ok(hasLog(run, /REQ-61-001 is PROVEN pre-existing drift/), 'the claim is proven from the intact re-read')
+    t.ok(byLabel(run, /^patch:/).length === 0 && !hasLog(run, /CYCLE FAULT/), 'NO spurious cycle fault, NO patch (the 4.01 $ / 12.3 min F2 cost)')
+    t.ok(byLabel(run, 'drift-record:frd-b206a').length === 1, 'the owner card is filed')
+    const apply = byLabel(run, 'apply-gate:frd-b206a')[0]
+    t.ok(apply && /drift: \[REQ-61-001\]/.test(apply.prompt), 'the FRD lands with drift: [REQ-61-001]')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b206a'), 'VERIFIED')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0209 root cause. F1 shape — the relay drops the `],"base":[` seam: STILL VALID JSON (old engine: "probe load-error at last_green_sha" → cycle fault → the drift-record BL-0209 saw missing was never owed). Sealed, it is caught, re-read, and the drift-record IS dispatched',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b209a'),
+  responses: [
+    b206Gate('frd-b209a', 'REQ-04-003'),
+    { prefix: 'drift-proof:', response: { output: b206Mangle.baseKey(b206Intact('frd-b209a', 'REQ-04-003')) } },
+    { prefix: 'drift-proof-replay:', response: { output: b206Intact('frd-b209a', 'REQ-04-003') } },
+    b178Record,
+  ],
+  assert(t, run) {
+    const mangled = JSON.parse(b206Mangle.baseKey(b206Intact('frd-b209a', 'REQ-04-003')))
+    t.ok(mangled.ok === true && mangled.probes[0].base === undefined && mangled.probes[0].head.length === 4, 'fixture: the corrupted line PARSES, `base` is gone and head holds all four runs (the exact F1 corruption)')
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /failed its integrity seal \(the relay altered it\)/), 'the silent structural alteration is caught by the seal, not by luck')
+    t.ok(!hasLog(run, /load-error at last_green_sha/), 'the engine never reads the altered line as a verdict about the probe')
+    t.ok(byLabel(run, 'drift-record:frd-b209a').length === 1 && byLabel(run, /^patch:/).length === 0, 'drift-record dispatched, no patch')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b209a'), 'VERIFIED')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 b. two altered reads in a row (bracket, then the seal dropped) — the THIRD read (second re-read) is intact and proves the drift',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206b'),
+  responses: [
+    b206Gate('frd-b206b', 'REQ-62-001'),
+    { prefix: 'drift-proof:', response: { output: b206Mangle.bracket(b206Intact('frd-b206b', 'REQ-62-001')) } },
+    { prefix: 'drift-proof-replay:', times: 1, response: { output: b206Mangle.seal(b206Intact('frd-b206b', 'REQ-62-001')) } },
+    { prefix: 'drift-proof-replay:', response: { output: b206Intact('frd-b206b', 'REQ-62-001') } },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof-replay:frd-b206b').length === 2, 'two re-reads')
+    t.ok(hasLog(run, /failed its integrity seal/), 'a sealed line whose seal was dropped is rejected (version 2 promises a seal)')
+    t.ok(byLabel(run, 'drift-record:frd-b206b').length === 1 && byLabel(run, /^patch:/).length === 0, 'proven on the last read: card, no patch')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 c. every read unreadable → the claim is UNPROVEN (DR-122: what is not proven never reopens): no reopen, no card, no drift: entry, FRD lands; loud DriftProofUnreadable',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206c'),
+  responses: [
+    b206Gate('frd-b206c', 'REQ-63-001'),
+    { prefix: 'drift-proof:', response: { output: b206Mangle.bracket(b206Intact('frd-b206c', 'REQ-63-001')) } },
+    { prefix: 'drift-proof-replay:', response: { output: b206Mangle.baseKey(b206Intact('frd-b206c', 'REQ-63-001')) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-proof-replay:frd-b206c').length === 2, 'bounded: exactly two re-reads, never a loop')
+    t.ok(hasLog(run, /DriftProofUnreadable frd-b206c: .*after 2 re-read\(s\).*UNPROVEN: no reopen, no card, no drift: entry/), 'the unreadable proof is an explicit, loud event')
+    t.ok(hasLog(run, /REQ-63-001 is UNPROVEN .* no reopen, no card/), 'the claim itself is logged as unproven')
+    t.ok(byLabel(run, /^(patch|verify-patch|revert):/).length === 0, 'NO reopen — an unreadable proof is never a cycle fault')
+    t.ok(byLabel(run, /^drift-record:/).length === 0, 'no card: nothing was proven')
+    const apply = byLabel(run, 'apply-gate:frd-b206c')[0]
+    t.ok(apply && !/set exactly `drift:/.test(apply.prompt), 'no drift: entry is stamped')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b206c'), 'the FRD lands VERIFIED')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 d. an unreadable proof under a needs-owner block does NOT lift the block (the lift needs PROVEN drift) and opens no reopen of its own',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206d'),
+  responses: [
+    { label: 'gate:frd-b206d', times: 1, response: { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'REQ-64-001 contradicted by code no reviewed WO touched — needs the owner', testFiles: [], traceability: b178Trace(b178Claim('frd-b206d', 'REQ-64-001', 'drift')) } },
+    { prefix: 'drift-proof:', response: { output: b206Mangle.bracket(b206Intact('frd-b206d', 'REQ-64-001')) } },
+    { prefix: 'drift-proof-replay:', response: null },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /the needs-owner block is KEPT/), 'the block is kept, and says why')
+    t.ok(!hasLog(run, /the block is lifted/), 'never "lifted" on an unproven claim')
+    t.ok(byLabel(run, /^(patch|revert):/).length === 0 && byLabel(run, /^drift-record:/).length === 0, 'no reopen, no card')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-b206d'), 'the reviewer\'s own block stands for the owner')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 e. NEGATIVE CONTROL — an INTACT script refusal (ok:false) is still a fail-closed cycle fault: no re-read, patch-first, as before',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206e'),
+  responses: [
+    b206Gate('frd-b206e', 'REQ-65-001'),
+    { prefix: 'drift-proof:', response: { output: JSON.stringify({ ok: false, error: 'pin deadbeef is not a commit' }) } },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'REQ-65-001 — legacy drift the cycle did not write', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-proof-replay:/).length === 0, 'an intact refusal is final — nothing to re-read')
+    t.ok(hasLog(run, /the drift-proof script refused: pin deadbeef is not a commit — every drift claim stays a cycle fault/), 'fail-closed log')
+    t.ok(byLabel(run, 'patch:frd-b206e').length === 1 && byLabel(run, /^drift-record:/).length === 0, 'cycle fault → patch-first, no card')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 f. NEGATIVE CONTROL — a genuine probe result is still judged on its merits: a probe that loads only at the pin is "unproven at last_green" (cycle fault), sealed or not',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206f'),
+  responses: [
+    b206Gate('frd-b206f', 'REQ-66-001'),
+    { prefix: 'drift-proof:', response: { output: b206Intact('frd-b206f', 'REQ-66-001', [['fail', 'fail'], ['load', 'load']]) } },
+    { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'REQ-66-001 — legacy drift the cycle did not write', pass: true, tests: ['t.test.ts'] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^drift-proof-replay:/).length === 0, 'a valid sealed line needs no re-read')
+    t.ok(hasLog(run, /REQ-66-001 is a CYCLE FAULT \(cycle-fault: the probe is load-error at last_green_sha/), 'still a cycle fault for a REAL load error')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0206 g. version skew — an installed script that predates the seal (version 1, unsealed) is still read, with a loud warning (no sealed claim is ever accepted unsealed)',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206g'),
+  responses: [
+    b206Gate('frd-b206g', 'REQ-67-001'),
+    { prefix: 'drift-proof:', response: { output: JSON.stringify({ ...b178ProofBody({ frd: 'frd-b206g', wos: ['wo-b206g-001'], owned: ['REQ-00-900'], probes: [['REQ-67-001', ['fail', 'fail'], ['fail', 'fail']]] }), version: 1 }) } },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /predates the sealed output \(version 1\)/), 'the skew is logged')
+    t.ok(byLabel(run, 'drift-record:frd-b206g').length === 1 && byLabel(run, /^patch:/).length === 0, 'the legacy line still proves the drift')
+  },
+})
+
+// The real script ↔ the engine's copy of the verifier: the line the REAL drift-proof.mjs prints is accepted by the
+// engine untouched and rejected after a one-character change; the stored copy replays byte-identically.
+{
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'b206-real-'))
+  const app = path.join(tmp, 'app')
+  mkdirSync(path.join(app, '.pandacorp'), { recursive: true })
+  execFileSync('git', ['init', '-q'], { cwd: app })
+  execFileSync('git', ['config', 'user.email', 't@example.com'], { cwd: app })
+  execFileSync('git', ['config', 'user.name', 't'], { cwd: app })
+  writeFileSync(path.join(app, '.pandacorp/status.yaml'), 'phase: implementation\nlast_green_sha: none\n')
+  execFileSync('git', ['add', '-A'], { cwd: app })
+  execFileSync('git', ['commit', '-qm', 'base'], { cwd: app })
+  const stored = '.pandacorp/run/drift-proofs/frd-b206h/pin-1.json'
+  const real = execFileSync('node', [path.resolve(__dirname, 'drift-proof.mjs'), 'prove', '--project', app, '--frd', 'frd-b206h', '--source', app, '--pin', 'HEAD', '--out', stored], { encoding: 'utf8' }).trim()
+  const replayed = execFileSync('node', [path.resolve(__dirname, 'drift-proof.mjs'), 'replay', '--project', app, '--frd', 'frd-b206h', '--file', stored], { encoding: 'utf8' }).trim()
+  const badReplay = (file) => JSON.parse(execFileSync('node', [path.resolve(__dirname, 'drift-proof.mjs'), 'replay', '--project', app, '--frd', 'frd-b206h', '--file', file], { encoding: 'utf8' }).trim())
+  const realJson = JSON.parse(real)
+  const flipped = real.replace(/"pin":"([0-9a-f])/, (m, c) => `"pin":"${c === '0' ? '1' : '0'}`)
+  SCENARIOS.push({
+    name: 'BL-0206 h. the REAL drift-proof.mjs line: sealed (version 2, `sum` last), ASCII-only, stored byte-identically and replayable; the engine\'s own verifier accepts it untouched and rejects any edit',
+    args: { mode: 'pro' },
+    plan: b206Plan('frd-b206h'),
+    responses: [
+      b206Gate('frd-b206h', 'REQ-68-001'),
+      { prefix: 'drift-proof:', response: { output: real } },
+      { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'REQ-68-001 — legacy drift the cycle did not write', pass: true, tests: ['t.test.ts'] }] } },
+    ],
+    assert(t, run) {
+      t.ok(realJson.ok === true && realJson.version === 2 && /^[0-9a-f]{14}$/.test(realJson.sum) && /"sum":"[0-9a-f]{14}"\}$/.test(real), 'the script seals its line: version 2, `sum` is the LAST key')
+      t.ok(!/[^\x20-\x7e]/.test(real), 'the relayed line is pure ASCII')
+      t.ok(replayed === real && readFileSync(path.join(app, stored), 'utf8').trim() === real, 'the stored copy is byte-identical and `replay` prints it back')
+      writeFileSync(path.join(app, '.pandacorp/run/drift-proofs/frd-b206h/bad-1.json'), `${flipped}\n`)
+      const refusal = badReplay('.pandacorp/run/drift-proofs/frd-b206h/bad-1.json')
+      t.ok(refusal.ok === false && /corrupt/.test(refusal.error), 'replay refuses a stored line whose seal no longer matches')
+      t.ok(badReplay('.pandacorp/run/drift-proofs/frd-b206h/none-1.json').ok === false, 'replay of a file that was never written is a refusal, not a silent success')
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(!hasLog(run, /failed its integrity seal/), 'the engine accepts the real script\'s seal (the two implementations agree)')
+      t.ok(byLabel(run, 'drift-proof:frd-b206h').length === 1 && byLabel(run, /^drift-proof-replay:/).length === 0, 'the real line needed no re-read')
+    },
+  })
+  const flippedRun = await runEngine({
+    args: { mode: 'pro' }, plan: b206Plan('frd-b206h'),
+    responses: [b206Gate('frd-b206h', 'REQ-68-001'), { prefix: 'drift-proof:', response: { output: flipped } }, { prefix: 'drift-proof-replay:', response: { output: real } },
+      { prefix: 'verify-patch:', response: { green: true, inheritedResolved: [{ contract: 'REQ-68-001 — legacy drift the cycle did not write', pass: true, tests: ['t.test.ts'] }] } }],
+  })
+  SCENARIOS.push({
+    name: 'BL-0206 h2. a ONE-character edit of the real line (a hash nibble of the pin) is rejected by the engine and recovered from the stored copy',
+    args: { mode: 'pro' },
+    plan: b206Plan('frd-b206h'),
+    responses: [],
+    assert(t) {
+      t.ok(!flippedRun.error, `engine threw: ${flippedRun.error}`)
+      t.ok(flippedRun.logs.some((l) => /failed its integrity seal/.test(l)), 'a one-character alteration fails the seal')
+      t.ok(flippedRun.calls.filter((c) => c.label === 'drift-proof-replay:frd-b206h').length === 1, 'and the stored copy is re-read once')
+      rmSync(tmp, { recursive: true, force: true })
+    },
+  })
+}
+
+// BL-0209 (the F1 asymmetry itself): three FRDs each confirm one pre-existing claim in the SAME run, FRD-04's
+// first relay altered exactly as in canary F1 — ALL THREE get a drift-record and a `drift:` line, none is lost.
+{
+  const f = ['frd-b209-1', 'frd-b209-2', 'frd-b209-3']
+  const ids = ['AC-02-010.8', 'REQ-03-001', 'REQ-04-003']
+  const verdicts = Object.fromEntries(f.map((x, i) => [x, { green: true, testFiles: [], traceability: b178Trace(b178Claim(x, ids[i], `legacy drift ${i + 1}`)) }]))
+  const h = d1Harness({ order: f, autoFlushAt: 3, verdicts })
+  SCENARIOS.push({
+    name: 'BL-0209 b. three FRDs, one confirmed pre-existing drift each, the LAST one\'s proof relay altered (F1 shape): 3 drift-record dispatches, 3 `drift:` lines — never "two of three"',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 3 },
+    plan: d1Resume('b209', 3),
+    responses: [
+      ...f.slice(0, 2).map((x, i) => ({ prefix: `drift-proof:${x}`, response: { output: b206Intact(x, ids[i], undefined, `wo-b209-${i + 1}`) } })),
+      { prefix: 'drift-proof:frd-b209-3', response: { output: b206Mangle.baseKey(b206Intact('frd-b209-3', 'REQ-04-003', undefined, 'wo-b209-3')) } },
+      { prefix: 'drift-proof-replay:frd-b209-3', response: { output: b206Intact('frd-b209-3', 'REQ-04-003', undefined, 'wo-b209-3') } },
+      b178Record,
+      ...h.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(!run.unmatched.length, `unmatched labels ${run.unmatched.join(', ')}`)
+      for (const [i, x] of f.entries()) {
+        t.ok(byLabel(run, `drift-record:${x}`).length === 1, `${x}: exactly one drift-record dispatched`)
+        const apply = byLabel(run, `apply-gate:${x}`)[0]
+        t.ok(apply && apply.prompt.includes(`drift: [${ids[i]}]`), `${x}: the landing writes drift: [${ids[i]}]`)
+      }
+      t.ok(byLabel(run, 'drift-proof-replay:frd-b209-3').length === 1 && byLabel(run, /^drift-proof-replay:/).length === 1, 'only the altered relay needed a re-read')
+      t.ok(run.result && f.every((x) => run.result.builtFrds.includes(x)), 'all three FRDs VERIFIED')
+    },
+  })
+}
+
+// The drift-record result is the other relay on this route. Its command is idempotent on disk, so an unreadable
+// result is simply run once more; a script refusal is final.
+SCENARIOS.push({
+  name: 'BL-0206 i. drift-record — an unreadable result is retried ONCE (idempotent command), then recorded; a refusal is not retried',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206i'),
+  responses: [
+    b206Gate('frd-b206i', 'REQ-69-001'),
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b206i', wos: ['wo-b206i-001'], owned: ['REQ-00-900'], probes: [['REQ-69-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    { prefix: 'drift-record:', times: 1, response: { output: '{"ok":true,"written":["x.md"' } },
+    b178Record,
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-record:frd-b206i').length === 2, 'the unreadable result was followed by exactly one more run')
+    t.ok(hasLog(run, /the drift-record result was unreadable — running the idempotent command once more/) && hasLog(run, /pre-existing drift recorded as draft card/), 'logged, then recorded')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0206 j. drift-record — a script REFUSAL (ok:false) is final (not retried) and stays loud; the drift still reaches frd.md',
+  args: { mode: 'pro' },
+  plan: b206Plan('frd-b206j'),
+  responses: [
+    b206Gate('frd-b206j', 'REQ-70-001'),
+    { prefix: 'drift-proof:', response: b178Proof({ frd: 'frd-b206j', wos: ['wo-b206j-001'], owned: ['REQ-00-900'], probes: [['REQ-70-001', ['fail', 'fail'], ['fail', 'fail']]] }) },
+    { prefix: 'drift-record:', response: { output: '{"ok":false,"error":"item REQ-70-001 carries no stored probe path"}' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'drift-record:frd-b206j').length === 1, 'a refusal is never retried')
+    t.ok(hasLog(run, /⚠⚠ frd-b206j: drift REQ-70-001 is PROVEN but its draft card could NOT be written/), 'loud')
+    const apply = byLabel(run, 'apply-gate:frd-b206j')[0]
+    t.ok(apply && /drift: \[REQ-70-001\]/.test(apply.prompt), 'the committed drift: replica still lands')
+  },
+})
+
+// BL-0205 — the finder audits the PINNED tree, by construction: a prompt that demands absolute paths plus a HEAD
+// self-check on the first and last call, and an engine that throws the report away when the reported HEAD is not
+// the pin. (Canary F2: 2 of 4 finders read the factory's MAIN checkout after a cwd reset — 2 false `implemented`.)
+const b205Finder = (frd, extra = {}) => f2Finding([f2Row(frd, 'REQ-59-001', 'implemented', { snippet: 'B205-IMPL' })], extra)
+const b205Run = (tag, finding, args = { mode: 'pro', gateEvidence: 'digested' }) => ({
+  args, plan: f2Plan(`frd-b205${tag}`, `wo-b205${tag}-001`),
+  responses: [{ prefix: 'evidence:', response: f2Pack(`b205${tag}`) }, { prefix: 'find:drift:', response: finding }],
+})
+SCENARIOS.push({
+  name: 'BL-0205 a. the finder prompt carries the pin discipline: the absolute pinned worktree + commit, a mandatory first-call HEAD check, a literal dir on EVERY command, absolute paths for Read/Grep/Glob, a last-call HEAD check; the schema demands pinDir + headSha',
+  ...b205Run('a', b205Finder('frd-b205a')),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const f = byLabel(run, 'find:drift:frd-b205a')[0]
+    t.ok(f && /THE PIN \(BL-0205/.test(f.prompt), 'an explicit pin block')
+    t.ok(f && /Pinned worktree: `[^`]*gate-worktree`\. Pinned commit: `defaultcommitsha`/.test(f.prompt), 'names the pinned worktree and the pinned commit')
+    t.ok(f && /FIRST call, exactly: `PIN_DIR="[^"]*gate-worktree\/\$\(git -C '\.' rev-parse --show-prefix\)"; cd "\$PIN_DIR" && pwd -P && git rev-parse HEAD`/.test(f.prompt), 'the first call prints the absolute project dir and the HEAD')
+    t.ok(f && /EVERY Bash command with the literal printed directory/.test(f.prompt) && /absolute paths under `<pinDir>`/.test(f.prompt), 'every command prefixed; Read/Grep/Glob get absolute paths')
+    t.ok(f && /LAST call: `cd "<pinDir>" && git rev-parse HEAD`/.test(f.prompt) && /DISCARDS your whole report/.test(f.prompt), 'a last-call HEAD check, and the consequence is stated')
+    t.ok(f && /shell does NOT remember that `cd` \(BL-0205\)/.test(f.prompt), 'the shared gate-worktree preamble says the cwd does not persist')
+    t.ok(f && /Whole-FRD drift finder method/.test(f.prompt) && /0\. \*\*Pin discipline \(BL-0205\)/.test(f.prompt), 'the generated directive (drift-finder.md) carries step 0')
+    t.ok(/required: \['contracts', 'pinDir', 'headSha'\]/.test(source), 'the structured output requires pinDir and headSha')
+    t.ok(hasLog(run, /drift finder → 1 contract\(s\)/) && !hasLog(run, /DriftFinderFallback/), 'a finder that reports the pin is accepted')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0205 b. a finder whose FIRST HEAD check is not the pin audited another checkout → the WHOLE report is discarded loudly (DriftFinderFallback … WRONG TREE); the gate runs without it, nothing is merged',
+  ...b205Run('b', f2Finding([f2Row('frd-b205b', 'REQ-59-002', 'implemented', { snippet: 'B205-FALSE-IMPLEMENTED' })], { headSha: '0ecdc144aaaaaaa' })),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /DriftFinderFallback frd-b205b: WRONG TREE: the finder's first HEAD check reported 0ecdc144aaaa, not the gate pin defaultc/), 'discarded with the observed HEAD and the pin named')
+    const gate = byLabel(run, 'gate:frd-b205b')[0]
+    t.ok(gate && !/WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt) && !/B205-FALSE-IMPLEMENTED/.test(gate.prompt), 'the judge never sees a claim proven against the wrong commit')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b205b'), 'the gate itself still ran and the FRD verified')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0205 c. the LAST HEAD check is checked too (a finder that started right and drifted back to main); a missing headSha, or a pinDir that is not inside the pinned worktree, is discarded the same way',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: mkPlan(['c1', 'c2', 'c3'].map((k) => ({ frd: `frd-b205${k}`, deps: [], workOrders: [mkWo(`wo-b205${k}-001`, 'PLANNED', { frd: `frd-b205${k}`, artifacts: [`src/b205${k}/**`] })] }))),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('b205c') },
+    { prefix: 'find:drift:frd-b205c1', response: b205Finder('frd-b205c1', { headShaEnd: 'feedface12345' }) },
+    { prefix: 'find:drift:frd-b205c2', response: b205Finder('frd-b205c2', { headSha: undefined, pinDir: undefined }) },
+    { prefix: 'find:drift:frd-b205c3', response: b205Finder('frd-b205c3', { pinDir: '/Users/x/Proyectos/panda-corp/mission-control' }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /DriftFinderFallback frd-b205c1: WRONG TREE: the finder's last HEAD check reported feedface1234, not the gate pin defaultc/), 'last HEAD check mismatch')
+    t.ok(hasLog(run, /DriftFinderFallback frd-b205c2: the finder reported no HEAD sha/), 'no HEAD reported at all')
+    t.ok(hasLog(run, /DriftFinderFallback frd-b205c3: WRONG TREE: the finder reported working in '\/Users\/x\/Proyectos\/panda-corp\/mission-control', not inside the pinned worktree/), 'a directory outside the pinned worktree')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0205 d. under parallelGates the finder is pinned to ITS OWN slot: the prompt names gate-worktree-<k>, and a report from another slot\'s path is discarded',
+  args: { mode: 'pro', gateEvidence: 'digested', parallelGates: true, gateSlots: 1 },
+  plan: f2Plan('frd-b205d', 'wo-b205d-001'),
+  responses: [
+    { prefix: 'evidence:', response: f2Pack('b205d') },
+    { prefix: 'find:drift:', response: (call) => b205Finder('frd-b205d', { pinDir: (call.prompt.match(/Work from the GATE WORKTREE (\S+) /) || [])[1].replace(/gate-worktree-1$/, 'gate-worktree-9') + '/mission-control' }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const f = byLabel(run, 'find:drift:frd-b205d')[0]
+    t.ok(f && /Pinned worktree: `[^`]*gate-worktree-1`/.test(f.prompt) && /PIN_DIR="[^"]*gate-worktree-1\//.test(f.prompt), 'the slot path, not the legacy single worktree')
+    t.ok(hasLog(run, /DriftFinderFallback frd-b205d: WRONG TREE: the finder reported working in '[^']*gate-worktree-9\/mission-control'/), 'a different slot is a wrong tree')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0205 e. the cwd-reset defense is in the SHARED gate-worktree preamble, so every gate-worktree agent (evidence collector, gate judge, split lenses) carries it — not only the finder',
+  args: { mode: 'pro', gateEvidence: 'digested' },
+  plan: f2Plan('frd-b205e', 'wo-b205e-001'),
+  responses: [{ prefix: 'evidence:', response: f2Pack('b205e') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    for (const label of ['evidence:frd-b205e', 'gate:frd-b205e', 'find:drift:frd-b205e']) {
+      const c = byLabel(run, label)[0]
+      t.ok(c && /^Work from the GATE WORKTREE/.test(c.prompt) && /shell does NOT remember that `cd` \(BL-0205\)/.test(c.prompt) && /Start EVERY Bash command with that same `cd`/.test(c.prompt), `${label} is told its shell forgets the cd`)
+    }
   },
 })
 

@@ -18,18 +18,26 @@
 //           (idempotent on frd::contract), indexes it in the queue README, and appends ONE
 //           GateDriftRecorded event. Draft = never drained by the build: the owner decides direction.
 //
-// Output: exactly one JSON line on stdout, exit 0 — `{ ok: false, error }` on any refusal. Inputs reach
-// git and a shell-free child process only after strict validation (fail-closed).
+//   replay  Re-prints a stored `prove` result (`--file`, written by `prove --out`) without re-running any
+//           probe — the engine's cheap second read when the first relay of the line was altered (BL-0206).
+//
+// Output: exactly one JSON line on stdout, exit 0 — `{ ok: false, error }` on any refusal. A successful
+// `prove` line is SEALED (drift-seal.mjs, BL-0206): the engine reads it through a model, which is not a
+// lossless copy channel, so the last key is a checksum of the rest and the engine rejects any altered copy.
+// Inputs reach git and a shell-free child process only after strict validation (fail-closed).
 
 import { spawnSync } from 'node:child_process'
 import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { sealLine, verifySealedLine } from './drift-seal.mjs'
 
 const FRD_RE = /^frd-[A-Za-z0-9][A-Za-z0-9._-]*$/
 const PROBE_RE = /^\.pandacorp\/run\/drift-probes\/[A-Za-z0-9][A-Za-z0-9._-]*\/[A-Za-z0-9][A-Za-z0-9._-]*\.drift-probe\.tsx?$/
 const WO_RE = /^docs\/frds\/[A-Za-z0-9][A-Za-z0-9._-]*\/work-orders\/wo-[A-Za-z0-9._-]+\.md$/
 const SHA_RE = /^([0-9a-f]{4,40}|HEAD)$/
+const PROOF_FILE_RE = /^\.pandacorp\/run\/drift-proofs\/([A-Za-z0-9][A-Za-z0-9._-]*)\/[A-Za-z0-9][A-Za-z0-9._-]*\.json$/
+const isProofFileOf = (frd, file) => { const m = PROOF_FILE_RE.exec(String(file || '')); return Boolean(m) && m[1] === frd }
 const ID_RE = /\b(?:REQ|AC)-\d+-\d+(?:\.\d+)?\b/g
 const RUNS_PER_SHA = 2
 const RUN_TIMEOUT_MS = Number(process.env.PANDACORP_DRIFT_TIMEOUT_MS || 300000)
@@ -117,6 +125,7 @@ function prove(o) {
   if (!SHA_RE.test(o.pin || 'HEAD')) refuse('--pin must be a hex sha or HEAD')
   for (const p of o.probe) if (!PROBE_RE.test(p) || !p.includes(`/drift-probes/${o.frd}/`)) refuse(`probe path ${JSON.stringify(p)} must be .pandacorp/run/drift-probes/${o.frd}/<name>.drift-probe.ts(x)`)
   for (const w of o.wo) if (!WO_RE.test(w)) refuse(`work-order path ${JSON.stringify(w)} is malformed`)
+  if (o.out !== undefined && !isProofFileOf(o.frd, o.out)) refuse(`--out must be .pandacorp/run/drift-proofs/${o.frd}/<name>.json`)
   const project = path.resolve(o.project)
   const source = path.resolve(o.source || project)
   const top = git(project, ['rev-parse', '--show-toplevel'])
@@ -209,11 +218,35 @@ function prove(o) {
     }
     if (cleanup.ok) rmSync(tmpRoot, { recursive: true, force: true })
   }
-  emit({
-    ok: true, version: 1, frd: o.frd, pin, base, baseValid, baseReason, owned,
+  const line = sealLine({
+    ok: true, version: 2, frd: o.frd, pin, base, baseValid, baseReason, owned,
     probes: probes.map(({ abs, name, ...rest }) => rest),
     cleanup,
   })
+  if (o.out !== undefined) {
+    // The stored copy is the engine's recovery channel: if the relayed stdout is altered, `replay` re-reads
+    // THIS exact line. A failed write only removes the recovery path — stdout below is still the result.
+    try {
+      mkdirSync(path.dirname(path.join(project, o.out)), { recursive: true })
+      writeFileSync(path.join(project, o.out), `${line}\n`)
+    } catch { /* recovery copy only */ }
+  }
+  process.stdout.write(`${line}\n`)
+  process.exit(0)
+}
+
+// ── replay ────────────────────────────────────────────────────────────────────────────────────────
+function replay(o) {
+  if (!o.project || !path.isAbsolute(o.project) && o.project !== '.') refuse('--project must be an absolute path (or .)')
+  if (!FRD_RE.test(o.frd || '')) refuse('--frd is malformed')
+  if (!isProofFileOf(o.frd, o.file)) refuse(`--file must be .pandacorp/run/drift-proofs/${o.frd}/<name>.json`)
+  const abs = path.join(path.resolve(o.project), o.file)
+  if (!existsSync(abs)) refuse('no stored proof at that path — the prove run never finished writing it')
+  const line = readFileSync(abs, 'utf8').trim().split('\n').pop()
+  const v = verifySealedLine(line)
+  if (!v.ok) refuse(`the stored proof is corrupt: ${v.reason}`)
+  process.stdout.write(`${line}\n`)
+  process.exit(0)
 }
 
 // ── record ────────────────────────────────────────────────────────────────────────────────────────
@@ -303,4 +336,5 @@ function record(o) {
 const opts = parseArgs(process.argv.slice(2))
 if (opts.mode === 'prove') prove(opts)
 else if (opts.mode === 'record') record(opts)
-else refuse('usage: drift-proof.mjs prove|record --project <dir> --frd <frd> …')
+else if (opts.mode === 'replay') replay(opts)
+else refuse('usage: drift-proof.mjs prove|record|replay --project <dir> --frd <frd> …')

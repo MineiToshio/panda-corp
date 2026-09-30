@@ -17,6 +17,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { verifySealedLine } from './drift-seal.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(HERE, 'drift-proof.mjs')
@@ -237,6 +238,38 @@ const run = (args, env = {}) => {
   const p = json.probes && json.probes[0]
   check(json.ok === true && p && p.missing !== true, 'prove (D1 slot): a relative --source naming a pool slot resolves from the project root, and the nested probe under <slot>/<prefix>/ is FOUND')
   check(p && p.head.length === 2 && p.head.every((x) => x.parsed && x.failed > 0), 'prove (D1 slot): the slot\'s probe actually ran at the pin')
+  rmSync(r.root, { recursive: true, force: true })
+}
+
+// ── BL-0206: the sealed line, the stored copy and `replay` (the engine reads this line through a model) ──
+{
+  const r = mkRepo()
+  const probe = '.pandacorp/run/drift-probes/frd-01-demo/ac-01-009-4.drift-probe.ts'
+  write(path.join(r.app, probe), '// ASSERT src/lib/value.txt góod — \u{1F680}\n')   // non-ASCII in the probe → in the failure message
+  const stored = '.pandacorp/run/drift-proofs/frd-01-demo/pin-1.json'
+  const { out, json } = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.app, '--pin', r.pin.slice(0, 8),
+    '--wo', 'docs/frds/frd-01-demo/work-orders/wo-01-001-a.md', '--probe', probe, '--out', stored], { PANDACORP_DRIFT_VITEST: `node ${r.fake}` })
+  const line = out.trim().split('\n').pop()
+  check(json.ok === true && json.version === 2, 'seal: a successful prove line is version 2')
+  check(/,"sum":"[0-9a-f]{14}"\}$/.test(line) && verifySealedLine(line).ok, 'seal: `sum` is the LAST key and the line verifies')
+  check(!/[^\x20-\x7e]/.test(line), 'seal: the relayed line is pure ASCII (non-ASCII escaped as \\uXXXX, still plain JSON)')
+  check(JSON.parse(line).probes[0].head[0].message.includes('\u{1F680}') || JSON.parse(line).probes[0].head[0].message.includes('ó'), 'seal: the escaped characters parse back to the original text')
+  check(!verifySealedLine(line.replace('"baseValid":true', '"baseValid":false')).ok && !verifySealedLine(line.replace(']}],"cleanup"', '}],"cleanup"')).ok && !verifySealedLine(line.replace(/,"sum":"[0-9a-f]{14}"\}$/, '}')).ok, 'seal: an edited value, a dropped bracket and a dropped seal are all detected')
+  const obj = JSON.parse(line)
+  const reordered = JSON.stringify({ ...obj, frd: obj.frd })   // a re-serialization a model might do: `sum` no longer last → no seal
+  check(!verifySealedLine(reordered).ok || reordered === line, 'seal: a re-serialized copy is either byte-identical or rejected — never silently accepted')
+  check(existsSync(path.join(r.app, stored)) && readFileSync(path.join(r.app, stored), 'utf8') === `${line}\n`, 'out: the stored copy is the exact sealed line')
+  check(run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', stored]).out.trim() === line, 'replay: prints the stored line byte-for-byte without re-running a probe')
+  check(git(r.repo, 'status', '--porcelain') === '', 'out: the stored proof is gitignored run-state (main tree stays clean)')
+  write(path.join(r.app, '.pandacorp/run/drift-proofs/frd-01-demo/tampered-1.json'), `${line.replace('"pin":"', '"pin":"0')}\n`)
+  const tampered = run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', '.pandacorp/run/drift-proofs/frd-01-demo/tampered-1.json']).json
+  check(tampered.ok === false && /corrupt/.test(tampered.error), 'replay: a stored line whose seal no longer matches is refused')
+  check(run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', '.pandacorp/run/drift-proofs/frd-01-demo/absent.json']).json.ok === false, 'replay: a missing file is a refusal')
+  for (const bad of ['../../etc/passwd', '.pandacorp/run/drift-proofs/frd-02-other/x.json', '.pandacorp/run/drift-proofs/frd-01-demo/../../../x.json', '.pandacorp/status.yaml']) {
+    check(run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', bad]).json.ok === false, `replay: path ${JSON.stringify(bad)} is refused (only .pandacorp/run/drift-proofs/<this frd>/*.json)`)
+  }
+  const badOut = run(['prove', '--project', r.app, '--frd', 'frd-01-demo', '--source', r.app, '--pin', 'HEAD', '--out', '../escape.json'], { PANDACORP_DRIFT_VITEST: `node ${r.fake}` }).json
+  check(badOut.ok === false && /--out/.test(badOut.error), 'out: a path outside .pandacorp/run/drift-proofs/<frd>/ is refused before anything runs')
   rmSync(r.root, { recursive: true, force: true })
 }
 
