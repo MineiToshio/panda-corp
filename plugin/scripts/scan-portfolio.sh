@@ -2,6 +2,10 @@
 # Pandacorp portfolio scanner: read-only cross-check of factory/portfolio.md rows against each
 # project's own .pandacorp/status.yaml. Prints one line per project row:
 #   <path> · phase=<phase> · <summary> · overlay=<project> vs <factory current> · drift=<flag>
+# It also validates the row's LAST column ("Última sync"): it admits ONLY a YYYY-MM-DD date. A row
+# whose last cell holds anything else (prose, empty) prints an extra
+#   MALFORMED · <name> · "Última sync" must be YYYY-MM-DD (got: <cell>)
+# line and is counted in the closing summary; notes belong in "Veredicto", never there.
 # Read-only by design: NEVER writes factory/portfolio.md (gitignored owner data) or any project
 # file. Degrades honestly (never crashes, never deletes):
 #   - missing factory/portfolio.md          -> clear message, exit 1
@@ -42,8 +46,10 @@ get_field() {
 
 rows=0
 broken=0
+malformed=0
 
-while IFS='|' read -r _ name path _repo _rest; do
+while IFS= read -r line; do
+  IFS='|' read -r _ name path _repo _rest <<< "$line"
   name=$(echo "$name" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
   [ -z "$name" ] && continue
   case "$name" in
@@ -51,6 +57,11 @@ while IFS='|' read -r _ name path _repo _rest; do
   esac
 
   rows=$((rows + 1))
+  sync_cell=$(printf '%s' "$line" | awk -F'|' '{ c=$(NF); if (c ~ /^[[:space:]]*$/) c=$(NF-1); gsub(/^[[:space:]]+|[[:space:]]+$/, "", c); print c }')
+  if ! printf '%s' "$sync_cell" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'; then
+    echo "MALFORMED · $name · \"Última sync\" must be YYYY-MM-DD (got: $(printf '%s' "$sync_cell" | cut -c1-60))"
+    malformed=$((malformed + 1))
+  fi
   raw_path=$(echo "$path" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
   proj_path=$(echo "$raw_path" | sed -n 's/.*`\([^`]*\)`.*/\1/p')
 
@@ -100,6 +111,6 @@ while IFS='|' read -r _ name path _repo _rest; do
 done < "$PORTFOLIO"
 
 echo "---"
-echo "Scanned $rows project row(s), $broken broken."
+echo "Scanned $rows project row(s), $broken broken, $malformed malformed."
 [ "$rows" -eq 0 ] && exit 1
 exit 0
