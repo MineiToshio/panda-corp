@@ -67,8 +67,8 @@ The FRD-23 gate surfaced a DR-115 defect in decision §1 above: the **per-projec
 - **Factory-scoped store** `<factory-root>/.pandacorp/stats-factory.json` holds the factory-wide facts,
   written by **one** writer, with its **own factory-wide seal** = the last commit touching
   `factory/portfolio.md` + `factory/decisions/` + `factory/memory/` + every project's `status.yaml`.
-- **Per-project portada** keeps only per-project facts (`weeklyFlow`, `scalars.frds`/`scalars.commits`,
-  `funnel`); its per-project seal now validates 100% of its contents.
+- **Per-project portada** keeps only per-project facts its seal validates (`woFlow`, `scalars.frds`); its
+  per-project seal now validates 100% of its contents (narrowed again by "Seal coverage" below).
 - **The reader composes both**, each with an **independent** fail-loud fallback to live git (DR-078): a
   factory-seal mismatch re-derives / falls back for the factory-wide facts only, leaving valid per-project
   facts untouched, and vice-versa. Never a fabricated zero.
@@ -76,6 +76,21 @@ The FRD-23 gate surfaced a DR-115 defect in decision §1 above: the **per-projec
 This **supersedes** decision §1 (portada as the sole honest cache of *all* Informe facts). §2 (aggregate
 index of per-project portadas), §3–§6 and the read-only invariant are unchanged; the factory store is a
 second honest cache under the same DR-115/DR-078 contract. Implemented via FRD-23 REQ-23-006/007.
+
+## Seal coverage (2026-09-30, change `portada-seal-coverage-commits-funnel-ideas`)
+
+The split above left three facts inside the per-project portada that its seal cannot validate:
+`scalars.commits` (`git rev-list --count HEAD` moves on any repo commit), `funnel` (reads gitignored
+`factory/ideas/` plus every project's status) and the ideas-per-week series (`factory/ideas/`). A fresh
+portada therefore served them stale (real drift: sealed 1096 vs live 1101 commits, same seal).
+
+**Decision (by agent under owner delegation):** take them out of the portada and always read them live.
+Rejected: deriving `commits` only from the sealed routes (silently redefines the KPI); composing the seal
+with a fingerprint of `factory/ideas/` (mtime/content hashing of a gitignored folder is as costly as
+reading it, fragile, and still misses the funnel's dependence on every project's status). The cost of
+going live is nil: `commits` is one O(1) git call, and the funnel/ideas series derive from files the page
+already reads; the expensive `git log -p docs/frds` WO series stays materialized. Rule restated:
+**a store holds a fact only if its seal validates it** (LESSON-0101, DR-115).
 
 ## Consequences
 

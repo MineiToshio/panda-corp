@@ -86,9 +86,8 @@ store by scope; the FRD §"Portada scope-split" is the contract, ADR-0004 §"SSO
 StatsPortada = {
   seal: string,
   generatedAt: string,        // ISO — provenance, not authority
-  weeklyFlow: WeeklyFlow,     // from report/types.ts (reused verbatim)
-  scalars: ProjectScalars,    // per-project subset: { frds, commits }  (projects/decisions REMOVED)
-  funnel: FunnelFlow,
+  woFlow: WoVerifiedSeries,   // from report/types.ts: { woVerified, peakWeek } (the sealed half of WeeklyFlow)
+  scalars: ProjectScalars,    // sealed subset: { frds }  (commits/funnel/ideas series are ALWAYS LIVE, AC-23-001.5)
 }
 StatsAggregate = { projects: Record<string, StatsPortada> }
 PortadaResult   = { ok: true; value: StatsPortada } | { ok: false; reason: "missing" | "stale" | "unparseable" }
@@ -104,7 +103,7 @@ StatsFactory = {
 FactoryResult = { ok: true; value: StatsFactory } | { ok: false; reason: "missing" | "stale" | "unparseable" }
 ```
 
-`ReportScalars` splits into `ProjectScalars` (`frds`, `commits`) held per-project and `FactoryScalars`
+`ReportScalars` splits into `ProjectScalars` (`frds`) held per-project and `FactoryScalars`
 (`projects`, `decisions`) held factory-wide; the Informe composes both back into the shape FRD-10 renders.
 Neither reader returns a bare `[]`/`null` on an unrecognised shape (DR-078); `reason` distinguishes
 "missing" / "unparseable" / "stale" so the caller acts correctly and per scope independently.

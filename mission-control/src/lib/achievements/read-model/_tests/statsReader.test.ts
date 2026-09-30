@@ -57,8 +57,7 @@ describe("readStatsPortada — present, well-formed, seal matches (AC-23-001.1)"
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.scalars.frds).toBe(23);
-      expect(result.value.funnel.launched).toBe(1);
-      expect(result.value.weeklyFlow.peakWeek).toBe(7);
+      expect(result.value.woFlow.peakWeek).toBe(7);
     }
     expect(mockedCurrentSeal).toHaveBeenCalledWith(projectDir);
   });

@@ -23,6 +23,11 @@ function spyLive<T>(value: T): { fn: () => T; calls: () => number } {
   return { fn: spy, calls: () => spy.mock.calls.length };
 }
 
+const IDEAS = {
+  ok: true as const,
+  value: { ideasCaptured: [], ideasWithoutCreated: 0 },
+};
+
 describe("resolveInformeSources — fresh portada (AC-23-001.1, SSOT split WO-23-005)", () => {
   it("uses the portada for per-project facts + the live cores for factory-wide facts", () => {
     const portada = makePortada();
@@ -51,6 +56,7 @@ describe("resolveInformeSources — fresh portada (AC-23-001.1, SSOT split WO-23
       testsPassing: null,
     });
     const lessonsLive = spyLive({ distilled: 5, captured: 6 });
+    const ideasLive = spyLive(IDEAS);
     const funnelLive = spyLive({
       totalIdeas: 0,
       byStatus: {
@@ -71,16 +77,20 @@ describe("resolveInformeSources — fresh portada (AC-23-001.1, SSOT split WO-23
       phaseTransitions: phaseTransitionsLive.fn,
       scalars: scalarsLive.fn,
       lessons: lessonsLive.fn,
+      ideasSeries: ideasLive.fn,
       funnel: funnelLive.fn,
     });
 
-    // Per-project facts come from the portada (the per-project git shell-out is skipped).
-    expect(sources.weeklyFlow).toEqual({ ok: true, value: portada.weeklyFlow });
-    expect(sources.funnel).toEqual(portada.funnel);
+    // Sealed per-project facts come from the portada (the git-backed shell-out is skipped); the
+    // unsealed commits/funnel/ideas series stay live (REQ-23-001).
+    expect(sources.weeklyFlow).toEqual({
+      ok: true,
+      value: { ...portada.woFlow, ...IDEAS.value },
+    });
     expect(sources.scalars.frds).toBe(portada.scalars.frds);
-    expect(sources.scalars.commits).toBe(portada.scalars.commits);
+    expect(sources.scalars.commits).toBe(999);
+    expect(sources.funnel).toEqual(funnelLive.fn());
     expect(weeklyFlowLive.calls()).toBe(0);
-    expect(funnelLive.calls()).toBe(0);
 
     // Factory-wide facts come from the LIVE cores (the portada no longer holds them — SSOT split).
     expect(sources.phaseTransitions).toEqual(phaseTransitionsLive.fn());
@@ -116,6 +126,7 @@ describe("resolveInformeSources — non-ok portada falls back to live (AC-23-001
         testsPassing: null,
       });
       const lessonsLive = spyLive({ distilled: 1, captured: 2 });
+      const ideasLive = spyLive(IDEAS);
       const funnelLive = spyLive({
         totalIdeas: 4,
         byStatus: {
@@ -136,6 +147,7 @@ describe("resolveInformeSources — non-ok portada falls back to live (AC-23-001
         phaseTransitions: phaseTransitionsLive.fn,
         scalars: scalarsLive.fn,
         lessons: lessonsLive.fn,
+        ideasSeries: ideasLive.fn,
         funnel: funnelLive.fn,
       });
 
@@ -169,6 +181,7 @@ describe("resolveInformeSources — never returns a silent empty on fallback", (
       testsPassing: null,
     });
     const lessonsLive = spyLive(null);
+    const ideasLive = spyLive(IDEAS);
     const funnelLive = spyLive({
       totalIdeas: 0,
       byStatus: {
@@ -191,6 +204,7 @@ describe("resolveInformeSources — never returns a silent empty on fallback", (
         phaseTransitions: phaseTransitionsLive.fn,
         scalars: scalarsLive.fn,
         lessons: lessonsLive.fn,
+        ideasSeries: ideasLive.fn,
         funnel: funnelLive.fn,
       },
     );
@@ -228,6 +242,7 @@ function makeLive() {
     testsPassing: null,
   });
   const lessons = spyLive({ distilled: 1, captured: 2 });
+  const ideasSeries = spyLive(IDEAS);
   const funnel = spyLive({
     totalIdeas: 4,
     byStatus: {
@@ -242,12 +257,13 @@ function makeLive() {
     wip: 1,
     discardsWithoutReason: 2,
   });
-  return { weeklyFlow, phaseTransitions, scalars, lessons, funnel };
+  return { weeklyFlow, ideasSeries, phaseTransitions, scalars, lessons, funnel };
 }
 
 function readers(live: ReturnType<typeof makeLive>) {
   return {
     weeklyFlow: live.weeklyFlow.fn,
+    ideasSeries: live.ideasSeries.fn,
     phaseTransitions: live.phaseTransitions.fn,
     scalars: live.scalars.fn,
     lessons: live.lessons.fn,
@@ -274,13 +290,16 @@ describe("resolveInformeSources — composes factory-wide store + per-project po
     expect(live.phaseTransitions.calls()).toBe(0);
     expect(live.lessons.calls()).toBe(0);
 
-    // Per-project facts come from the fresh portada; its live readers not invoked either.
+    // Sealed per-project facts come from the fresh portada; the git-backed reader is not invoked.
+    // The unsealed commits/funnel/ideas series are live even beside a fresh portada (REQ-23-001).
     expect(sources.scalars.frds).toBe(portada.scalars.frds);
-    expect(sources.scalars.commits).toBe(portada.scalars.commits);
-    expect(sources.weeklyFlow).toEqual({ ok: true, value: portada.weeklyFlow });
-    expect(sources.funnel).toEqual(portada.funnel);
+    expect(sources.scalars.commits).toBe(100);
+    expect(sources.weeklyFlow).toEqual({
+      ok: true,
+      value: { ...portada.woFlow, ...IDEAS.value },
+    });
+    expect(sources.funnel).toEqual(live.funnel.fn());
     expect(live.weeklyFlow.calls()).toBe(0);
-    expect(live.funnel.calls()).toBe(0);
 
     // testsPassing is composed live (not held in either store) — never fabricated.
     expect(sources.scalars.testsPassing).toBeNull();
@@ -304,10 +323,12 @@ describe("resolveInformeSources — independent fallback per scope (AC-23-007.2)
     expect(sources.scalars.decisions).toBe(999);
     expect(live.phaseTransitions.calls()).toBeGreaterThan(0);
 
-    // Per-project facts still come from the fresh portada — untouched by the factory-store miss.
+    // Sealed per-project facts still come from the fresh portada — untouched by the factory-store miss.
     expect(sources.scalars.frds).toBe(portada.scalars.frds);
-    expect(sources.scalars.commits).toBe(portada.scalars.commits);
-    expect(sources.weeklyFlow).toEqual({ ok: true, value: portada.weeklyFlow });
+    expect(sources.weeklyFlow).toEqual({
+      ok: true,
+      value: { ...portada.woFlow, ...IDEAS.value },
+    });
     expect(live.weeklyFlow.calls()).toBe(0);
   });
 
@@ -356,7 +377,7 @@ describe("resolveInformeSources — cross-project staleness regression (AC-23-00
   // for those facts. This MUST fail if the resolver ignored the FactoryResult and served stored data.
   it("project A does NOT read stale factory-wide data when B's phase change mismatches the factory seal", () => {
     // A's per-project portada is fresh (A itself did not change) — its per-project facts stay.
-    const portadaA = makePortada({ scalars: { frds: 11, commits: 222 } });
+    const portadaA = makePortada({ scalars: { frds: 11 } });
 
     // The factory store still holds B's OLD phase transitions + OLD scalars (pre-change) — but the
     // factory seal now mismatches (B changed), so the reader returns STALE, forcing a live re-derive.
@@ -382,6 +403,7 @@ describe("resolveInformeSources — cross-project staleness regression (AC-23-00
       { ok: true, value: portadaA },
       {
         weeklyFlow: live.weeklyFlow.fn,
+        ideasSeries: live.ideasSeries.fn,
         phaseTransitions: phaseTransitionsLive.fn,
         scalars: live.scalars.fn,
         lessons: live.lessons.fn,
@@ -396,7 +418,9 @@ describe("resolveInformeSources — cross-project staleness regression (AC-23-00
 
     // A's own per-project facts are untouched (its portada is still fresh).
     expect(sources.scalars.frds).toBe(11);
-    expect(sources.scalars.commits).toBe(222);
-    expect(sources.weeklyFlow).toEqual({ ok: true, value: portadaA.weeklyFlow });
+    expect(sources.weeklyFlow).toEqual({
+      ok: true,
+      value: { ...portadaA.woFlow, ...IDEAS.value },
+    });
   });
 });

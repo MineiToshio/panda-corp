@@ -22,6 +22,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   FunnelFlow,
+  IdeasSeries,
   LessonCounts,
   PhaseTransition,
   ReportResult,
@@ -64,6 +65,10 @@ const LIVE_WEEKLY: ReportResult<WeeklyFlow> = {
   ok: true,
   value: { woVerified: [], ideasCaptured: [], peakWeek: 9, ideasWithoutCreated: 0 },
 };
+const LIVE_IDEAS: ReportResult<IdeasSeries> = {
+  ok: true,
+  value: { ideasCaptured: [], ideasWithoutCreated: 0 },
+};
 const LIVE_FUNNEL: FunnelFlow = {
   totalIdeas: 3,
   byStatus: { discovered: 3, recommended: 0, "in-pipeline": 0, shipped: 0, discarded: 0 },
@@ -76,6 +81,7 @@ const LIVE_FUNNEL: FunnelFlow = {
 function spyReaders() {
   return {
     weeklyFlow: vi.fn((): ReportResult<WeeklyFlow> => LIVE_WEEKLY),
+    ideasSeries: vi.fn((): ReportResult<IdeasSeries> => LIVE_IDEAS),
     phaseTransitions: vi.fn((): ReportResult<PhaseTransition[]> => LIVE_TRANSITIONS),
     scalars: vi.fn((): ReportScalars => LIVE_SCALARS),
     lessons: vi.fn((): LessonCounts | null => LIVE_LESSONS),
@@ -129,9 +135,11 @@ describe("full aggregate → factory-store → composed chain (FRD-23, WO-23-006
     const readers = spyReaders();
     const sources = resolveInformeSources(portadaResult, readers, factoryResult);
 
-    // Per-project facts from the fresh portada → their live readers NEVER shell out (AC-23-003.1).
+    // The sealed git-backed series comes from the fresh portada → its live reader NEVER shells out
+    // (AC-23-003.1); the unsealed funnel/ideas series are always live (REQ-23-001).
     expect(readers.weeklyFlow).not.toHaveBeenCalled();
-    expect(readers.funnel).not.toHaveBeenCalled();
+    expect(readers.funnel).toHaveBeenCalled();
+    expect(readers.ideasSeries).toHaveBeenCalled();
     // Factory-wide facts from the FRESH store → their live readers NEVER shell out (AC-23-007.1).
     expect(readers.phaseTransitions).not.toHaveBeenCalled();
     expect(readers.lessons).not.toHaveBeenCalled();
@@ -171,12 +179,12 @@ describe("full aggregate → factory-store → composed chain (FRD-23, WO-23-006
     expect(readers.phaseTransitions).toHaveBeenCalled();
     expect(readers.lessons).toHaveBeenCalled();
 
-    // Per-project facts stay from the fresh portada — the corrupt factory store did NOT touch them.
+    // Sealed per-project facts stay from the fresh portada — the corrupt factory store did NOT touch
+    // them; the unsealed `commits` is live either way (REQ-23-001).
     const portada = makePortada();
     expect(sources.scalars.frds).toBe(portada.scalars.frds);
-    expect(sources.scalars.commits).toBe(portada.scalars.commits);
+    expect(sources.scalars.commits).toBe(LIVE_SCALARS.commits);
     expect(readers.weeklyFlow).not.toHaveBeenCalled();
-    expect(readers.funnel).not.toHaveBeenCalled();
     fs.rmSync(factoryRoot, { recursive: true, force: true });
   });
 

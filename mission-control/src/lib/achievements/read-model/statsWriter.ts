@@ -21,14 +21,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { getGuildState } from "../../gamification/guildState";
-import type { IdeaCard } from "../../ideas/ideas";
-import { readIdeas } from "../../ideas/ideas";
-import type { StatusResult } from "../../status/status";
-import { weeklyFlow } from "../report/flowSeries";
-import { funnelAndFlow } from "../report/funnel";
+import { woVerifiedSeries } from "../report/flowSeries";
 import { reportScalars } from "../report/scalars";
-import type { FunnelFlow, ReportResult, WeeklyFlow } from "../report/types";
+import type { ReportResult, WoVerifiedSeries } from "../report/types";
 import { currentSeal } from "./seal";
 import type { ProjectScalars, StatsPortada } from "./statsSchema";
 
@@ -40,17 +35,17 @@ const STATS_FILENAME = "stats.json";
  * produce (DR-092: assembled from them, never re-derived). Injected into the pure `buildPortada`
  * so the assembly is unit-testable without git I/O and the equivalence check compares like-for-like.
  *
- * `weeklyFlow` is a `ReportResult` (it can be `git-unavailable` / `unparseable`); `buildPortada`
+ * `woFlow` is a `ReportResult` (it can be `git-unavailable` / `unparseable`); `buildPortada`
  * unwraps it and refuses to materialize an un-derivable portada (fail loud, DR-078) — a portada
  * that lies about "no activity" is worse than no portada at all.
  *
- * SSOT split (WO-23-005): the portada holds ONLY per-project facts — `scalars` is the per-project
- * subset (`frds`, `commits`); `phaseTransitions`/`lessons` moved to the factory store.
+ * The portada holds ONLY what its seal validates (REQ-23-001): the WO-verified series and the
+ * FRD count. `commits`, `funnel` and the ideas series are not sealed, so they are never written
+ * (always live); `phaseTransitions`/`lessons` live in the factory store.
  */
 export type LiveReportValues = {
-  readonly weeklyFlow: ReportResult<WeeklyFlow>;
+  readonly woFlow: ReportResult<WoVerifiedSeries>;
   readonly scalars: ProjectScalars;
-  readonly funnel: FunnelFlow;
 };
 
 /** Provenance + freshness stamp the writer adds on top of the derived numbers. */
@@ -79,8 +74,8 @@ export class PortadaDeriveError extends Error {
  *
  * Pure: no I/O, no clock, no mutation — same inputs → same portada. It only UNWRAPS the report
  * results (it never re-derives a number, DR-092/DR-115), so the materialized portada equals the
- * live-git numbers by construction (AC-23-002.3). A non-`ok` `weeklyFlow`/`phaseTransitions`
- * throws `PortadaDeriveError` (fail loud — never materialize a fabricated zero, DR-078).
+ * live-git numbers by construction (AC-23-002.3). A non-`ok` `woFlow` throws `PortadaDeriveError`
+ * (fail loud — never materialize a fabricated zero, DR-078).
  *
  * @param values - The live report values (the same the render reads), some as `ReportResult`.
  * @param stamp  - The freshness seal + generation timestamp.
@@ -88,8 +83,8 @@ export class PortadaDeriveError extends Error {
  * @throws PortadaDeriveError when a required source could not be derived from git.
  */
 export function buildPortada(values: LiveReportValues, stamp: PortadaStamp): StatsPortada {
-  if (!values.weeklyFlow.ok) {
-    throw new PortadaDeriveError(`weeklyFlow could not be derived (${values.weeklyFlow.reason})`);
+  if (!values.woFlow.ok) {
+    throw new PortadaDeriveError(`woFlow could not be derived (${values.woFlow.reason})`);
   }
   if (stamp.seal === "") {
     throw new PortadaDeriveError("cannot stamp an empty seal");
@@ -98,38 +93,25 @@ export function buildPortada(values: LiveReportValues, stamp: PortadaStamp): Sta
   return {
     seal: stamp.seal,
     generatedAt: stamp.generatedAt,
-    weeklyFlow: values.weeklyFlow.value,
+    woFlow: values.woFlow.value,
     scalars: values.scalars,
-    funnel: values.funnel,
   };
 }
 
 /**
  * Gather the live per-project report values for a project through the SAME report readers the
- * Informe render uses (`weeklyFlow`, `reportScalars`, `funnelAndFlow`) — so the materialized
- * portada is derived once, not twice (DR-092), and equals the live numbers. Only the PER-PROJECT
- * subset of `reportScalars` (`frds`, `commits`) is kept; `projects`/`decisions` are factory-wide
- * and live in the factory store (WO-23-005). `phaseTransitions`/`lessons` also left the portada.
- *
- * `ideas` + `statuses` feed the pure `funnelAndFlow`; when omitted they are read from the same
- * single sources the render reads (`readIdeas`, `getGuildState`), so a standalone writer call
- * (hook / backfill) produces the identical funnel the render would.
+ * Informe render uses (`woVerifiedSeries`, `reportScalars`) — so the materialized portada is
+ * derived once, not twice (DR-092), and equals the live numbers. Only the sealed subset of
+ * `reportScalars` (`frds`) is kept; `commits` is unsealed (any repo commit moves it) and
+ * `projects`/`decisions` are factory-wide (factory store, WO-23-005).
  *
  * @param projectPath - Absolute path to the project's git work-tree.
- * @param ideas       - Optional pre-read idea cards (defaults to `readIdeas()`).
- * @param statuses    - Optional pre-read project statuses (defaults to `getGuildState().statuses`).
  * @returns The live per-project report values ready for `buildPortada`.
  */
-export function gatherLiveValues(
-  projectPath: string,
-  ideas: readonly IdeaCard[] = readIdeas(),
-  statuses: readonly StatusResult[] = getGuildState().statuses,
-): LiveReportValues {
-  const scalars = reportScalars(projectPath);
+export function gatherLiveValues(projectPath: string): LiveReportValues {
   return {
-    weeklyFlow: weeklyFlow(projectPath),
-    scalars: { frds: scalars.frds, commits: scalars.commits },
-    funnel: funnelAndFlow(ideas, statuses),
+    woFlow: woVerifiedSeries(projectPath),
+    scalars: { frds: reportScalars(projectPath).frds },
   };
 }
 

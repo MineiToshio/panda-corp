@@ -19,7 +19,13 @@ import path from "node:path";
 import matter from "gray-matter";
 import { cache } from "react";
 import { resolveFactoryRoot } from "../../config/config";
-import type { ReportResult, WeeklyBucket, WeeklyFlow } from "./types";
+import type {
+  IdeasSeries,
+  ReportResult,
+  WeeklyBucket,
+  WeeklyFlow,
+  WoVerifiedSeries,
+} from "./types";
 
 /**
  * ISO week key "YYYY-WW" (Monday-based) for a date. Matches signals.ts / stats.ts so the
@@ -62,6 +68,38 @@ function toBuckets(counts: Map<string, number>): WeeklyBucket[] {
 }
 
 /**
+ * Pure derivation of the per-project half: WO-verified per ISO week + its peak.
+ * An unparseable date fails loud (`unparseable`, DR-078); an empty source is a real zero.
+ */
+export function deriveWoVerifiedSeries(
+  verifiedAt: readonly (string | null)[],
+): ReportResult<WoVerifiedSeries> {
+  const woCounts = bucketByWeek(verifiedAt);
+  if (woCounts === null) return { ok: false, reason: "unparseable" };
+  const woVerified = toBuckets(woCounts);
+  const peakWeek = woVerified.reduce((max, b) => Math.max(max, b.count), 0);
+  return { ok: true, value: { woVerified, peakWeek } };
+}
+
+/**
+ * Pure derivation of the factory-wide half: ideas captured per ISO week. A null `created` is
+ * EXCLUDED + tallied; a present-but-unparseable date fails loud (DR-078).
+ */
+export function deriveIdeasSeries(
+  ideasCreated: readonly (string | null)[],
+): ReportResult<IdeasSeries> {
+  const ideasWithoutCreated = ideasCreated.filter((c) => c === null || c === undefined).length;
+  const ideaCounts = bucketByWeek(ideasCreated);
+  if (ideaCounts === null) return { ok: false, reason: "unparseable" };
+  return { ok: true, value: { ideasCaptured: toBuckets(ideaCounts), ideasWithoutCreated } };
+}
+
+/** Compose the two halves into the render's `WeeklyFlow` (the ONLY place they are joined). */
+export function composeWeeklyFlow(wo: WoVerifiedSeries, ideas: IdeasSeries): WeeklyFlow {
+  return { ...wo, ...ideas };
+}
+
+/**
  * Pure derivation of the weekly flow (IF-10-flow-series core).
  *
  * - `input === null` → the git source was unavailable → `{ ok: false, reason: "git-unavailable" }`.
@@ -70,29 +108,11 @@ function toBuckets(counts: Map<string, number>): WeeklyBucket[] {
  */
 export function deriveWeeklyFlow(input: FlowInput | null): ReportResult<WeeklyFlow> {
   if (input === null) return { ok: false, reason: "git-unavailable" };
-
-  const woCounts = bucketByWeek(input.verifiedAt);
-  if (woCounts === null) return { ok: false, reason: "unparseable" };
-
-  // Ideas: a null `created` is EXCLUDED + tallied; a present-but-unparseable date fails loud.
-  const ideasWithoutCreated = input.ideasCreated.filter(
-    (c) => c === null || c === undefined,
-  ).length;
-  const ideaCounts = bucketByWeek(input.ideasCreated);
-  if (ideaCounts === null) return { ok: false, reason: "unparseable" };
-
-  const woVerified = toBuckets(woCounts);
-  const peakWeek = woVerified.reduce((max, b) => Math.max(max, b.count), 0);
-
-  return {
-    ok: true,
-    value: {
-      woVerified,
-      ideasCaptured: toBuckets(ideaCounts),
-      peakWeek,
-      ideasWithoutCreated,
-    },
-  };
+  const wo = deriveWoVerifiedSeries(input.verifiedAt);
+  if (!wo.ok) return wo;
+  const ideas = deriveIdeasSeries(input.ideasCreated);
+  if (!ideas.ok) return ideas;
+  return { ok: true, value: composeWeeklyFlow(wo.value, ideas.value) };
 }
 
 // ---------------------------------------------------------------------------
@@ -251,3 +271,36 @@ function readWeeklyFlow(projectPath: string): ReportResult<WeeklyFlow> {
  * re-run git per row. Keyed on `projectPath`.
  */
 export const weeklyFlow: (projectPath: string) => ReportResult<WeeklyFlow> = cache(readWeeklyFlow);
+
+/**
+ * Read the per-project WO-verified series (git-backed, fail-loud) — the ONLY part of the weekly
+ * flow the portada materializes, because it is the only part its per-project seal validates
+ * (`docs/frds` history). Same derivation as `readWeeklyFlow`, so the two cannot drift.
+ *
+ * @param projectPath - Absolute path to the project repo whose wo-*.md history is read.
+ * @returns A `ReportResult<WoVerifiedSeries>` — absent when git is unavailable, unparseable on a bad date.
+ */
+function readWoVerifiedSeries(projectPath: string): ReportResult<WoVerifiedSeries> {
+  if (!projectPath || projectPath.trim() === "" || !gitAvailable(projectPath)) {
+    return { ok: false, reason: "git-unavailable" };
+  }
+  const verifiedIso = verifiedIsoByWo(projectPath);
+  return deriveWoVerifiedSeries(
+    collectWoFiles(projectPath).map((rel) => lookupVerified(verifiedIso, rel)),
+  );
+}
+
+/** Per-request-cached `readWoVerifiedSeries` (React `cache`, DR-092). Keyed on `projectPath`. */
+export const woVerifiedSeries: (projectPath: string) => ReportResult<WoVerifiedSeries> =
+  cache(readWoVerifiedSeries);
+
+/**
+ * Read the factory-wide ideas-per-week series from `factory/ideas/*.md`. ALWAYS live: that folder
+ * is gitignored, so no git-based seal can validate it and the portada never holds it (FRD-23).
+ */
+function readIdeasSeries(): ReportResult<IdeasSeries> {
+  return deriveIdeasSeries(readIdeaCreatedDates(resolveFactoryRoot()));
+}
+
+/** Per-request-cached `readIdeasSeries` (React `cache`, DR-092). */
+export const ideasSeries: () => ReportResult<IdeasSeries> = cache(readIdeasSeries);

@@ -14,40 +14,22 @@ const DEFAULT_FACTORY_SEAL = "f0e1d2c3b4a5968778695a4b3c2d1e0f00112233";
 /**
  * A real-shape, well-typed per-project portada; override any field to build a variant.
  *
- * SSOT split (WO-23-005): the portada holds ONLY per-project facts — `weeklyFlow`, per-project
- * `scalars` (`frds`, `commits`) and `funnel`. Factory-wide facts live in `makeFactoryStore`.
+ * The portada holds ONLY what its per-project seal validates: the WO-verified series (`woFlow`)
+ * and the FRD count (`scalars.frds`). Factory-wide facts live in `makeFactoryStore`; `commits`,
+ * `funnel` and the ideas series are always live.
  */
 export function makePortada(over: Partial<StatsPortada> = {}): StatsPortada {
   const base: StatsPortada = {
     seal: DEFAULT_SEAL,
     generatedAt: "2026-07-06T12:00:00.000Z",
-    weeklyFlow: {
+    woFlow: {
       woVerified: [
         { isoWeek: "2026-26", count: 4 },
         { isoWeek: "2026-27", count: 7 },
       ],
-      ideasCaptured: [
-        { isoWeek: "2026-26", count: 2 },
-        { isoWeek: "2026-27", count: 3 },
-      ],
       peakWeek: 7,
-      ideasWithoutCreated: 1,
     },
-    scalars: { frds: 23, commits: 412 },
-    funnel: {
-      totalIdeas: 18,
-      byStatus: {
-        discovered: 6,
-        recommended: 0,
-        "in-pipeline": 2,
-        shipped: 1,
-        discarded: 9,
-      },
-      launched: 1,
-      conversionPct: 6,
-      wip: 1,
-      discardsWithoutReason: 6,
-    },
+    scalars: { frds: 23 },
   };
   return { ...base, ...over };
 }

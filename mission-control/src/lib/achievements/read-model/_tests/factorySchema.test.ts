@@ -89,9 +89,9 @@ describe("parseStatsPortada — the pruned per-project shape (AC-23-006.4)", () 
     expect(parsed).not.toBeNull();
   });
 
-  it("parses per-project scalars as {frds, commits} only", () => {
+  it("parses per-project scalars as {frds} only (commits is unsealed, always live)", () => {
     const parsed = parseStatsPortada(makePortada());
-    expect(parsed?.scalars).toEqual({ frds: 23, commits: 412 });
+    expect(parsed?.scalars).toEqual({ frds: 23 });
   });
 
   it("no longer exposes factory-wide fields on the parsed portada (retired by construction)", () => {

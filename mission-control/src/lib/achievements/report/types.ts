@@ -41,17 +41,24 @@ export type WeeklyBucket = {
   readonly count: number;
 };
 
-/** IF-10-flow-series — WO-verified + ideas-captured per ISO week. */
-export type WeeklyFlow = {
+/** The per-project half of the weekly flow: WO-verified per ISO week (git history of `docs/frds`). */
+export type WoVerifiedSeries = {
   /** WO-verified per week, from the git crossing-to-VERIFIED commit of each wo-*.md. */
   readonly woVerified: readonly WeeklyBucket[];
-  /** Ideas captured per week, from the `created` frontmatter of factory/ideas/*.md. */
-  readonly ideasCaptured: readonly WeeklyBucket[];
   /** Max WO-verified week count (for the records grid, REQ-10-027). */
   readonly peakWeek: number;
+};
+
+/** The factory-wide half of the weekly flow: ideas captured per ISO week (`factory/ideas`, gitignored). */
+export type IdeasSeries = {
+  /** Ideas captured per week, from the `created` frontmatter of factory/ideas/*.md. */
+  readonly ideasCaptured: readonly WeeklyBucket[];
   /** Count of idea cards with no `created` frontmatter (excluded, observable — not silently zeroed). */
   readonly ideasWithoutCreated: number;
 };
+
+/** IF-10-flow-series — WO-verified + ideas-captured per ISO week (the two halves composed). */
+export type WeeklyFlow = WoVerifiedSeries & IdeasSeries;
 
 /** IF-10-phase-transitions — one per-project `phase` transition. */
 export type PhaseTransition = {

@@ -18,10 +18,23 @@ describe("parseStatsPortada — real production shape (per-project only, WO-23-0
     const portada = parsed as StatsPortada;
     expect(portada.seal).toBe(raw.seal);
     expect(portada.generatedAt).toBe(raw.generatedAt);
-    expect(portada.weeklyFlow.woVerified).toEqual(raw.weeklyFlow.woVerified);
-    expect(portada.weeklyFlow.peakWeek).toBe(raw.weeklyFlow.peakWeek);
+    expect(portada.woFlow.woVerified).toEqual(raw.woFlow.woVerified);
+    expect(portada.woFlow.peakWeek).toBe(raw.woFlow.peakWeek);
     expect(portada.scalars).toEqual(raw.scalars);
-    expect(portada.funnel).toEqual(raw.funnel);
+  });
+
+  it("holds only sealed facts: no commits, funnel or ideas series survive parsing", () => {
+    const withUnsealed = {
+      ...makePortada(),
+      scalars: { frds: 23, commits: 412 },
+      funnel: { totalIdeas: 1 },
+      woFlow: { woVerified: [], peakWeek: 0, ideasCaptured: [] },
+    };
+    const parsed = parseStatsPortada(withUnsealed);
+    expect(parsed).not.toBeNull();
+    expect(Object.keys(parsed ?? {}).sort()).toEqual(["generatedAt", "scalars", "seal", "woFlow"]);
+    expect(parsed?.scalars).toEqual({ frds: 23 });
+    expect(Object.keys(parsed?.woFlow ?? {}).sort()).toEqual(["peakWeek", "woVerified"]);
   });
 });
 
@@ -40,31 +53,30 @@ describe("parseStatsPortada — fail loud on unrecognised shapes (AC-23-001.4)",
     expect(parseStatsPortada(makePortada({ seal: 123 as unknown as string }))).toBeNull();
   });
 
-  it("rejects a weeklyFlow with a malformed bucket (count is a string)", () => {
+  it("rejects a woFlow with a malformed bucket (count is a string)", () => {
     const raw = makePortada();
     const bad = {
       ...raw,
-      weeklyFlow: {
-        ...raw.weeklyFlow,
-        woVerified: [{ isoWeek: "2026-27", count: "seven" }],
-      },
+      woFlow: { ...raw.woFlow, woVerified: [{ isoWeek: "2026-27", count: "seven" }] },
     };
     expect(parseStatsPortada(bad)).toBeNull();
   });
 
   it("rejects per-project scalars with a NaN/Infinity count (corrupt number)", () => {
     const raw = makePortada();
-    expect(parseStatsPortada({ ...raw, scalars: { ...raw.scalars, frds: Number.NaN } })).toBeNull();
-    expect(
-      parseStatsPortada({ ...raw, scalars: { ...raw.scalars, commits: Number.POSITIVE_INFINITY } }),
-    ).toBeNull();
+    expect(parseStatsPortada({ ...raw, scalars: { frds: Number.NaN } })).toBeNull();
+    expect(parseStatsPortada({ ...raw, scalars: { frds: Number.POSITIVE_INFINITY } })).toBeNull();
   });
 
-  it("rejects a funnel missing an idea-status bucket", () => {
-    const raw = makePortada();
-    const { discovered: _drop, ...partialByStatus } = raw.funnel.byStatus;
-    const bad = { ...raw, funnel: { ...raw.funnel, byStatus: partialByStatus } };
-    expect(parseStatsPortada(bad)).toBeNull();
+  it("rejects a pre-seal-coverage portada (weeklyFlow/funnel shape) so it falls back live", () => {
+    const { woFlow: _drop, ...rest } = makePortada();
+    const legacy = {
+      ...rest,
+      weeklyFlow: { woVerified: [], ideasCaptured: [], peakWeek: 0, ideasWithoutCreated: 0 },
+      scalars: { frds: 23, commits: 412 },
+      funnel: { totalIdeas: 0 },
+    };
+    expect(parseStatsPortada(legacy)).toBeNull();
   });
 });
 

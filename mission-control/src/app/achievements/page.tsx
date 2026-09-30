@@ -39,7 +39,7 @@ import { resolvePortadaFromAggregate } from "@/lib/achievements/read-model/aggre
 import { readStatsFactory } from "@/lib/achievements/read-model/factoryStoreReader";
 import { resolveInformeSources } from "@/lib/achievements/read-model/informeResolver";
 import { readStatsAggregate } from "@/lib/achievements/read-model/statsReader";
-import { weeklyFlow } from "@/lib/achievements/report/flowSeries";
+import { ideasSeries, weeklyFlow } from "@/lib/achievements/report/flowSeries";
 import { funnelAndFlow } from "@/lib/achievements/report/funnel";
 import { lessonCounts } from "@/lib/achievements/report/lessons";
 import { phaseTransitions } from "@/lib/achievements/report/phaseTransitions";
@@ -120,6 +120,7 @@ export default async function HallPage(): Promise<React.JSX.Element> {
     portadaResult,
     {
       weeklyFlow: () => weeklyFlow(projectPath),
+      ideasSeries: () => ideasSeries(),
       phaseTransitions: () => phaseTransitions(),
       scalars: () => reportScalars(projectPath),
       lessons: () => lessonCounts(),

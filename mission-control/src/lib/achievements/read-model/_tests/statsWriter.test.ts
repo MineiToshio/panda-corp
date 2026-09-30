@@ -13,10 +13,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { withFactoryRoot } from "../../../../tests/fixtures/index";
-import { getGuildState } from "../../../gamification/guildState";
-import { readIdeas } from "../../../ideas/ideas";
 import { weeklyFlow } from "../../report/flowSeries";
-import { funnelAndFlow } from "../../report/funnel";
 import { reportScalars } from "../../report/scalars";
 import { currentSeal } from "../seal";
 import { readStatsPortada } from "../statsReader";
@@ -33,14 +30,13 @@ import { FIXTURE_SEAL, makePortada } from "./fixtures";
 import { makeSyntheticFactoryRepo, type SyntheticFactoryRepo } from "./gitFixture";
 
 // ── Live report values from the fixture portada (so tests are deterministic) ──────
-// SSOT split (WO-23-005): the portada holds ONLY per-project facts now.
+// The portada holds ONLY what its per-project seal validates (woFlow + scalars.frds).
 const FIXTURE = makePortada();
 
 function okValues(): LiveReportValues {
   return {
-    weeklyFlow: { ok: true, value: FIXTURE.weeklyFlow },
+    woFlow: { ok: true, value: FIXTURE.woFlow },
     scalars: FIXTURE.scalars,
-    funnel: FIXTURE.funnel,
   };
 }
 
@@ -53,9 +49,8 @@ describe("buildPortada — assembles from live values, never re-derives (AC-23-0
 
     expect(portada.seal).toBe(FIXTURE_SEAL);
     expect(portada.generatedAt).toBe("2026-07-06T12:00:00.000Z");
-    expect(portada.weeklyFlow).toEqual(FIXTURE.weeklyFlow);
+    expect(portada.woFlow).toEqual(FIXTURE.woFlow);
     expect(portada.scalars).toEqual(FIXTURE.scalars);
-    expect(portada.funnel).toEqual(FIXTURE.funnel);
   });
 
   it("produces a portada that satisfies the fail-loud parser (round-trips)", () => {
@@ -65,20 +60,19 @@ describe("buildPortada — assembles from live values, never re-derives (AC-23-0
     expect(round).toEqual(portada);
   });
 
-  it("holds only per-project facts — no factory-wide fields (SSOT split, WO-23-005)", () => {
+  it("holds only sealed facts: no factory-wide fields, no commits/funnel (REQ-23-001/006)", () => {
     const portada = buildPortada(okValues(), STAMP);
     expect(portada).not.toHaveProperty("phaseTransitions");
     expect(portada).not.toHaveProperty("lessons");
-    expect(portada.scalars).toEqual({
-      frds: FIXTURE.scalars.frds,
-      commits: FIXTURE.scalars.commits,
-    });
+    expect(portada).not.toHaveProperty("funnel");
+    expect(portada).not.toHaveProperty("weeklyFlow");
+    expect(portada.scalars).toEqual({ frds: FIXTURE.scalars.frds });
   });
 
-  it("fails loud when weeklyFlow could not be derived (never a fabricated zero, DR-078)", () => {
+  it("fails loud when woFlow could not be derived (never a fabricated zero, DR-078)", () => {
     const values: LiveReportValues = {
       ...okValues(),
-      weeklyFlow: { ok: false, reason: "git-unavailable" },
+      woFlow: { ok: false, reason: "git-unavailable" },
     };
     expect(() => buildPortada(values, STAMP)).toThrow(PortadaDeriveError);
   });
@@ -147,13 +141,10 @@ describe("writePortadaAtomic — atomic tmp + rename (AC-23-002.2)", () => {
 
 // ── gatherLiveValues — reuses the report readers (DR-092) ─────────────────────────
 describe("gatherLiveValues — assembles from the report readers, not a re-derivation", () => {
-  it("calls the injected ideas/statuses through funnelAndFlow (single derivation)", () => {
-    // Real MC repo at cwd backs the git-derived series; ideas/statuses default to the single sources.
-    const values = gatherLiveValues(process.cwd(), [], []);
-    // funnelAndFlow of empty ideas/statuses is a real, deterministic zero funnel.
-    expect(values.funnel.totalIdeas).toBe(0);
-    expect(values.funnel.launched).toBe(0);
-    expect(values.funnel.wip).toBe(0);
+  it("gathers only the sealed facts: the WO-verified series and the FRD count", () => {
+    const values = gatherLiveValues(process.cwd());
+    expect(Object.keys(values).sort()).toEqual(["scalars", "woFlow"]);
+    expect(values.scalars).toEqual({ frds: reportScalars(process.cwd()).frds });
   });
 });
 
@@ -228,7 +219,6 @@ describe("portada-vs-live equivalence (AC-23-002.3)", () => {
       // derivability (committed docs/frds + status.yaml history), so `ok` is ASSERTED, not skipped.
       const liveWeekly = weeklyFlow(projectPath);
       const liveScalars = reportScalars(projectPath);
-      const liveFunnel = funnelAndFlow(readIdeas(), getGuildState().statuses);
       expect(liveWeekly.ok).toBe(true);
       if (!liveWeekly.ok) return;
 
@@ -242,16 +232,14 @@ describe("portada-vs-live equivalence (AC-23-002.3)", () => {
       expect(materialized).not.toBeNull();
       if (materialized === null) return;
 
-      // Field-by-field: the materialized per-project portada equals the live-git derivation (no drift).
-      expect(materialized.weeklyFlow).toEqual(liveWeekly.value);
-      // Per-project subset only — projects/decisions are factory-wide (WO-23-005 factory store).
-      expect(materialized.scalars).toEqual({
-        frds: liveScalars.frds,
-        commits: liveScalars.commits,
+      // Field-by-field: the materialized WO-verified series equals the live derivation (no drift);
+      // the ideas half of the live flow is deliberately NOT materialized (unsealed, always live).
+      expect(materialized.woFlow).toEqual({
+        woVerified: liveWeekly.value.woVerified,
+        peakWeek: liveWeekly.value.peakWeek,
       });
-      // The funnel depends on ideas/statuses read at write time — it uses the same single sources,
-      // so re-deriving here with those same sources equals the materialized value.
-      expect(materialized.funnel).toEqual(liveFunnel);
+      // Sealed subset only: `commits` moves on any repo commit, projects/decisions are factory-wide.
+      expect(materialized.scalars).toEqual({ frds: liveScalars.frds });
     });
   });
 });

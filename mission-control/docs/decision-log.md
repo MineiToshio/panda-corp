@@ -1,5 +1,44 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Portada seal coverage: `commits`, `funnel` and the ideas series leave the portada and are always live (FRD-23 AC-23-001.5)
+
+**What:** the per-project portada (`.pandacorp/stats.json`) now holds only what its seal validates:
+`woFlow` (`{ woVerified, peakWeek }`, from the `docs/frds` git history) and `scalars.frds`.
+`scalars.commits`, `funnel` and the ideas-per-week series (`weeklyFlow.ideasCaptured` /
+`ideasWithoutCreated`) are not materialized anywhere and are read live even beside a fresh portada
+(`informeResolver.ts`, new `ideasSeries` live reader; `flowSeries.ts` split into
+`deriveWoVerifiedSeries` / `deriveIdeasSeries` + `composeWeeklyFlow`; `WeeklyFlow = WoVerifiedSeries &
+IdeasSeries`). Docs: FRD-23 §"Seal coverage", AC-23-001.1/.5 and AC-23-006.4 amended; ADR-0004 §"Seal
+coverage"; blueprint §4 data model; `architecture.md` read-model paragraph. Tests:
+`informeResolver.sealCoverage.test.ts` (RED before: sealed 412 commits served against live 1101, funnel
+and ideas series served from the portada), `flowSeries.halves.test.ts`, updated schema/writer/resolver
+tests. Two reviewer-authored suites (`aggregateChain.reviewer`, `composedReader.reviewer`) were edited
+because the contract they pinned (per-project funnel/commits served from the portada) is exactly what
+this change supersedes.
+
+**Why:** a store may hold a fact only if its seal validates it (LESSON-0101, DR-115). The seal
+`git log -1 -- docs/frds .pandacorp/status.yaml` does not move when any other commit lands
+(`commits`), nor ever for `factory/ideas/` (gitignored), nor for another project's status (the funnel
+reads every project). Real drift: a sealed-fresh aggregate entry with `commits=1096` while live was `1101`,
+same seal. Going live costs nothing: `commits` is one O(1) `git rev-list --count`, the funnel and ideas
+series derive from files the page already reads (`readIdeas`, `getGuildState`); the expensive
+`git log -p docs/frds` walk stays materialized, which is the portada's purpose.
+
+**Decided by agent under owner delegation** ("decide tú sobre todo"; criterion: most faithful to FRD-23,
+honest with the data, smallest surface). Alternatives discarded:
+- *Derive `commits` only from the sealed routes* (`git rev-list --count HEAD -- docs/frds .pandacorp/status.yaml`):
+  it would keep the seal honest but silently redefines the KPI the Informe shows as "commits", and still
+  leaves `funnel`/ideas unsealed.
+- *Compose the seal with a fingerprint of `factory/ideas/`* (mtime or content hash): hashing a gitignored
+  folder costs as much as just reading it, mtimes are fragile across checkouts/restores, and it still
+  does not cover the funnel's dependence on every project's `status.yaml`.
+- *Keep the fields in the portada but ignore them in the reader:* leaves a stale copy on disk that the
+  next reader can trust (DR-115: retire the copy, remove the field from types and parsers).
+
+**Migration:** a portada written in the old shape (`weeklyFlow`/`funnel` keys) fails the fail-loud parser
+(`unparseable`), so the Informe falls back to live git until `pnpm stats:backfill` (or the next commit
+trigger) rewrites it. Verified by `statsSchema.test.ts`.
+
 ## 2026-09-30 — La Fragua: a composite `frd` event field never names the scene focus (FRD-06 AC-06-019.4)
 
 **What:** `detectModeAndFrd` (`fragua-snapshot.ts`) now ignores an event whose `frd` holds several ids

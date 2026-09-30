@@ -5,7 +5,7 @@ title: FRD-23 — Materialized stats read-model
 status: ACTIVE
 implementation_status: VERIFIED
 ui: false
-last_updated: '2026-07-06'
+last_updated: '2026-09-30'
 ---
 # FRD-23 — Materialized stats read-model (stop deriving git on every render)
 
@@ -26,8 +26,8 @@ to "read the snapshot, fall back to live git only when the snapshot is missing/s
 ## Why this shape (design agreed with the owner)
 
 1. **Portada per project** — `.pandacorp/stats.json`, an **honest cache** (DR-115): the already-derived
-   **per-project** numbers that feed the Informe (WOs verified per ISO week `weeklyFlow`, per-project
-   scalars `scalars.frds`/`scalars.commits`, funnel). **Single writer**, re-derived from git **at a safe
+   **per-project, sealed** numbers that feed the Informe (WOs verified per ISO week `woFlow`, the FRD
+   count `scalars.frds`). **Single writer**, re-derived from git **at a safe
    point** — never with incremental `+1/-1` sums (that drifts and DR-115 forbids it). It holds **only
    per-project facts**, so its **per-project seal validates everything it contains** (see §Portada
    scope-split below).
@@ -76,8 +76,8 @@ exactly what its store contains.
 - **Factory seal** = the last commit touching the factory-wide routes:
   `factory/portfolio.md` + `factory/decisions/` + `factory/memory/` + the `status.yaml` of **all** projects.
   It validates everything the factory store contains.
-- **Per-project portada** — keeps `weeklyFlow`, `scalars.frds`/`scalars.commits`, `funnel`; its existing
-  per-project seal now validates 100% of its contents.
+- **Per-project portada** — keeps only `woFlow` (WO-verified per week) and `scalars.frds`; its existing
+  per-project seal now validates 100% of its contents (see §Seal coverage below).
 - **Reader composes both, each with an independent fail-loud fallback (DR-078):** factory-wide facts from
   the factory store (validated by the factory seal) + per-project facts from the portada (validated by the
   per-project seal). A factory-seal mismatch re-derives / falls back to live **only the factory-wide facts**,
@@ -85,6 +85,28 @@ exactly what its store contains.
 
 > **Supersedes** this FRD's original §"Why this shape" item 1 (portada held factory-wide facts) and
 > [ADR-0004](../../adr/ADR-0004-materialized-stats-read-model.md) §1. See ADR-0004 §"SSOT correction".
+
+## Seal coverage — unsealed facts are always live (decided 2026-09-30, DR-115)
+
+A store may hold a fact only if its seal validates it. Three facts the portada used to hold escaped the
+per-project seal (`git log -1 -- docs/frds .pandacorp/status.yaml`), so a **fresh** portada served them
+stale (proved with real data: sealed `commits=1096` vs live `1101`, same seal):
+
+- `scalars.commits` (`git rev-list --count HEAD`): any commit of the repo moves it, not only the sealed routes.
+- `funnel`: derived from `factory/ideas/` (gitignored, no commit ever invalidates a seal) **and** from every
+  project's status (not per-project at all).
+- the ideas-per-week series (`weeklyFlow.ideasCaptured` / `ideasWithoutCreated`): `factory/ideas/` again.
+
+**Contract:** they are not materialized in either store and are always read live (`commits` via
+`git rev-list --count` O(1); `funnel` and the ideas series from files the page already reads). The
+expensive git walk (WO-verified series from `git log -p docs/frds`) stays materialized, which is the
+whole point of the portada. The portada keeps `woFlow` + `scalars.frds` only; `peakWeek` is part of
+`woFlow` (one derivation). A portada written in the previous shape (`weeklyFlow`/`funnel` keys) no longer
+parses: the fail-loud reader returns `unparseable`, the caller falls back to live git, and the next
+`pnpm stats:backfill` / commit-trigger regeneration rewrites it.
+
+> **Supersedes** REQ-23-001/002 wording that listed `weeklyFlow`, `scalars.commits` and `funnel` as portada
+> contents. Decision record: `docs/decision-log.md` 2026-09-30.
 
 **Excluded from the materialized model:** `getPendingMerge` (FRD-21, un-merged worktrees/branches)
 stays **live** — it is state that must be fresh; caching it would show stale info exactly where
@@ -94,8 +116,11 @@ freshness matters.
 
 ### REQ-23-001 — Portada reader (fail-loud, DR-078)
 - **AC-23-001.1** — WHEN a project's `.pandacorp/stats.json` is present, well-formed and its seal
-  **matches** the current git seal, Mission Control SHALL read the Informe numbers from the portada and
-  NOT shell out to git for that project.
+  **matches** the current git seal, Mission Control SHALL read the **sealed** Informe numbers (the WO-verified
+  series and the FRD count) from the portada and NOT shell out to the `docs/frds` git history for that project.
+- **AC-23-001.5** — The portada SHALL NOT hold any fact its seal does not validate: `commits`, `funnel` and
+  the ideas-per-week series SHALL be read live even beside a fresh portada, and a live failure to derive
+  one of them SHALL surface as an explicit error result, never a fabricated zero (DR-078).
 - **AC-23-001.2** — WHEN the portada is **missing**, Mission Control SHALL fall back to the live git
   reader for that project (current behavior), never a fabricated zero.
 - **AC-23-001.3** — WHEN the portada exists but its **seal mismatches** the current git seal (stale),
@@ -139,7 +164,8 @@ freshness matters.
 - **AC-23-006.3** — The write SHALL be **atomic** (tmp + rename); the reader SHALL be **fail-loud**
   (DR-078): a missing / stale / malformed factory store returns an explicit reason, never a silent empty.
 - **AC-23-006.4** — The per-project portada SHALL NO LONGER contain factory-wide facts; it holds only
-  `weeklyFlow`, per-project `scalars` (`frds`, `commits`) and `funnel`, all validated by the per-project seal.
+  `woFlow` (WO-verified per week) and per-project `scalars` (`frds`), all validated by the per-project seal
+  (amended 2026-09-30: `weeklyFlow`'s ideas half, `scalars.commits` and `funnel` left it, AC-23-001.5).
 
 ### REQ-23-007 — Composed reader (per-project + factory-wide, independent fallback)
 - **AC-23-007.1** — The Informe reader SHALL compose factory-wide facts from the factory store (validated

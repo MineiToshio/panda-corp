@@ -14,6 +14,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   FunnelFlow,
+  IdeasSeries,
   LessonCounts,
   PhaseTransition,
   ReportResult,
@@ -59,8 +60,14 @@ const LIVE_FUNNEL: FunnelFlow = {
   discardsWithoutReason: 0,
 };
 
+const LIVE_IDEAS: ReportResult<IdeasSeries> = {
+  ok: true,
+  value: { ideasCaptured: [], ideasWithoutCreated: 0 },
+};
+
 const liveReaders = {
   weeklyFlow: () => LIVE_WEEKLY,
+  ideasSeries: () => LIVE_IDEAS,
   phaseTransitions: () => LIVE_TRANSITIONS,
   scalars: () => LIVE_SCALARS,
   lessons: () => LIVE_LESSONS,
@@ -108,11 +115,12 @@ describe("full aggregate→resolve→informe chain — honest fallback, never a 
     }
   });
 
-  it("a FRESH aggregate entry supplies its PER-PROJECT facts directly — only the FACTORY-WIDE readers shell out to live (SSOT split, REQ-23-006.4 / AC-23-003.1)", () => {
+  it("a FRESH aggregate entry supplies its SEALED facts directly — the git-backed WO series never shells out; unsealed and factory-wide facts are live (REQ-23-001/006.4, AC-23-003.1)", () => {
     const seal = "fresh".padEnd(40, "f");
     mockedCurrentSeal.mockReturnValue(seal);
     const spy = {
       weeklyFlow: vi.fn(liveReaders.weeklyFlow),
+      ideasSeries: vi.fn(liveReaders.ideasSeries),
       phaseTransitions: vi.fn(liveReaders.phaseTransitions),
       scalars: vi.fn(liveReaders.scalars),
       lessons: vi.fn(liveReaders.lessons),
@@ -127,21 +135,24 @@ describe("full aggregate→resolve→informe chain — honest fallback, never a 
     expect(portadaResult.ok).toBe(true);
 
     const sources = resolveInformeSources(portadaResult, spy);
-    // PER-PROJECT facts come from the fresh portada → their live git readers NEVER run.
+    // The git-backed per-project series comes from the fresh portada → its live reader NEVER runs.
     expect(spy.weeklyFlow).not.toHaveBeenCalled();
-    expect(spy.funnel).not.toHaveBeenCalled();
-    // FACTORY-WIDE facts are NOT covered by the per-project seal (SSOT split, REQ-23-006.4) — the
-    // portada can no longer supply them, so they MUST come from live: these DO run (that is correct,
-    // never-stale behavior, not a needless shell-out of a per-project fact).
+    // FACTORY-WIDE and UNSEALED facts (commits, funnel, ideas series) are NOT covered by the
+    // per-project seal (REQ-23-001/006.4) — the portada cannot supply them, so they MUST come from
+    // live: these DO run (correct never-stale behavior, not a needless shell-out).
     expect(spy.phaseTransitions).toHaveBeenCalled();
     expect(spy.lessons).toHaveBeenCalled();
     expect(spy.scalars).toHaveBeenCalled();
-    // Honest composition: per-project numbers from the portada, factory-wide from live.
+    expect(spy.funnel).toHaveBeenCalled();
+    expect(spy.ideasSeries).toHaveBeenCalled();
+    // Honest composition: sealed numbers from the portada, everything else from live.
     const portada = makePortada();
     if (sources.weeklyFlow.ok) {
-      expect(sources.weeklyFlow.value.peakWeek).toBe(portada.weeklyFlow.peakWeek);
+      expect(sources.weeklyFlow.value.peakWeek).toBe(portada.woFlow.peakWeek);
     }
     expect(sources.scalars.frds).toBe(portada.scalars.frds);
+    expect(sources.scalars.commits).toBe(LIVE_SCALARS.commits);
+    expect(sources.funnel).toEqual(LIVE_FUNNEL);
     expect(sources.scalars.projects).toBe(LIVE_SCALARS.projects);
     expect(sources.phaseTransitions).toEqual(LIVE_TRANSITIONS);
   });

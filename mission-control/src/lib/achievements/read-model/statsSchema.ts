@@ -8,9 +8,12 @@
  *
  * SSOT split (DR-115, WO-23-005, REQ-23-006): factory-wide facts (`phaseTransitions`,
  * `scalars.projects`, `scalars.decisions`, `lessons`) live in ONE factory-scoped store validated
- * by a factory-wide seal; the per-project portada keeps ONLY per-project facts (`weeklyFlow`,
- * `scalars.{frds,commits}`, `funnel`) so its per-project seal validates 100% of its contents.
- * `ReportScalars` splits into `ProjectScalars` (`frds`, `commits`) held per-project and
+ * by a factory-wide seal; the per-project portada keeps ONLY the facts its per-project seal
+ * (`docs/frds` + `status.yaml` history) validates: the WO-verified series and the FRD count.
+ * Seal coverage (REQ-23-001): `commits`, `funnel` and the ideas-per-week series are NOT held by
+ * either store because no seal covers them (commits move on any repo commit; `factory/ideas` is
+ * gitignored); they are always live.
+ * `ReportScalars` splits into `ProjectScalars` (`frds`) held per-project and
  * `FactoryScalars` (`projects`, `decisions`) held factory-wide.
  *
  * Fail-loud (DR-078): each parser returns a typed value OR `null` for an unrecognised shape (the
@@ -19,24 +22,22 @@
  * churn); we mirror the codebase's hand-written type-guard convention (`ideas.ts`).
  */
 
-import type { IdeaStatus } from "../../ideas/ideas";
 import type {
-  FunnelFlow,
   LessonCounts,
   Phase,
   PhaseTransition,
   WeeklyBucket,
-  WeeklyFlow,
+  WoVerifiedSeries,
 } from "../report/types";
 
 /**
  * Per-project scalar counts held in the portada (the per-project subset of `ReportScalars`).
- * `projects` / `decisions` are factory-wide (see `FactoryScalars`); `testsPassing` is not yet
- * wired for any project and is composed at read time, so it does NOT live in either store.
+ * `projects` / `decisions` are factory-wide (see `FactoryScalars`); `commits` and `testsPassing`
+ * are not sealed by the per-project seal, so they are composed live at read time and live in
+ * NEITHER store.
  */
 export type ProjectScalars = {
   readonly frds: number;
-  readonly commits: number;
 };
 
 /** Factory-wide scalar counts held in the factory store (the factory-wide subset of `ReportScalars`). */
@@ -48,18 +49,17 @@ export type FactoryScalars = {
 /**
  * The materialized read-model for one project (`.pandacorp/stats.json`).
  *
- * Holds ONLY per-project facts (SSOT split, REQ-23-006.4): `weeklyFlow`, per-project `scalars`
- * (`frds`, `commits`) and `funnel`. `seal` = the hash of the last commit touching the routes that
- * feed THIS project's Informe (`git log -1 --format=%H -- docs/frds .pandacorp/status.yaml`); it
- * now validates 100% of the portada's contents. Factory-wide facts left this store (see
- * `StatsFactory`). `generatedAt` is provenance (ISO), NOT authority — the seal decides freshness.
+ * Holds ONLY the facts its seal validates (REQ-23-001/006.4): `woFlow` (WO-verified per ISO week,
+ * from the `docs/frds` git history) and per-project `scalars` (`frds`). `seal` = the hash of the last
+ * commit touching `docs/frds` + `.pandacorp/status.yaml`, so it validates 100% of the portada's
+ * contents. Factory-wide facts live in `StatsFactory`; `commits`, `funnel` and the ideas series are
+ * always live. `generatedAt` is provenance (ISO), NOT authority — the seal decides freshness.
  */
 export type StatsPortada = {
   readonly seal: string;
   readonly generatedAt: string;
-  readonly weeklyFlow: WeeklyFlow;
+  readonly woFlow: WoVerifiedSeries;
   readonly scalars: ProjectScalars;
-  readonly funnel: FunnelFlow;
 };
 
 /** The aggregate index `sync-portfolio` joins from the N portadas (O(1) MC read). */
@@ -86,14 +86,6 @@ export type StatsFactory = {
 
 const PHASES: readonly Phase[] = ["product", "design", "architecture", "implementation", "release"];
 
-const IDEA_STATUSES: readonly IdeaStatus[] = [
-  "discovered",
-  "recommended",
-  "in-pipeline",
-  "shipped",
-  "discarded",
-];
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -119,18 +111,11 @@ function isWeeklyBucketArray(value: unknown): value is readonly WeeklyBucket[] {
   return Array.isArray(value) && value.every(isWeeklyBucket);
 }
 
-function parseWeeklyFlow(value: unknown): WeeklyFlow | null {
+function parseWoFlow(value: unknown): WoVerifiedSeries | null {
   if (!isRecord(value)) return null;
   if (!isWeeklyBucketArray(value.woVerified)) return null;
-  if (!isWeeklyBucketArray(value.ideasCaptured)) return null;
   if (!isNumber(value.peakWeek)) return null;
-  if (!isNumber(value.ideasWithoutCreated)) return null;
-  return {
-    woVerified: value.woVerified,
-    ideasCaptured: value.ideasCaptured,
-    peakWeek: value.peakWeek,
-    ideasWithoutCreated: value.ideasWithoutCreated,
-  };
+  return { woVerified: value.woVerified, peakWeek: value.peakWeek };
 }
 
 function parsePhaseTransition(value: unknown): PhaseTransition | null {
@@ -160,12 +145,11 @@ function parsePhaseTransitions(value: unknown): readonly PhaseTransition[] | nul
   return out;
 }
 
-/** Parse the per-project scalar subset (`frds`, `commits`) held in the portada. */
+/** Parse the per-project scalar subset (`frds`) held in the portada. */
 function parseProjectScalars(value: unknown): ProjectScalars | null {
   if (!isRecord(value)) return null;
   if (!isNumber(value.frds)) return null;
-  if (!isNumber(value.commits)) return null;
-  return { frds: value.frds, commits: value.commits };
+  return { frds: value.frds };
 }
 
 /** Parse the factory-wide scalar subset (`projects`, `decisions`) held in the factory store. */
@@ -184,36 +168,6 @@ function parseLessons(value: unknown): LessonCounts | null | undefined {
   return { distilled: value.distilled, captured: value.captured };
 }
 
-function parseByStatus(value: unknown): Readonly<Record<IdeaStatus, number>> | null {
-  if (!isRecord(value)) return null;
-  const out = {} as Record<IdeaStatus, number>;
-  for (const status of IDEA_STATUSES) {
-    const n = value[status];
-    if (!isNumber(n)) return null;
-    out[status] = n;
-  }
-  return out;
-}
-
-function parseFunnel(value: unknown): FunnelFlow | null {
-  if (!isRecord(value)) return null;
-  const byStatus = parseByStatus(value.byStatus);
-  if (byStatus === null) return null;
-  if (!isNumber(value.totalIdeas)) return null;
-  if (!isNumber(value.launched)) return null;
-  if (!isNumber(value.conversionPct)) return null;
-  if (!isNumber(value.wip)) return null;
-  if (!isNumber(value.discardsWithoutReason)) return null;
-  return {
-    totalIdeas: value.totalIdeas,
-    byStatus,
-    launched: value.launched,
-    conversionPct: value.conversionPct,
-    wip: value.wip,
-    discardsWithoutReason: value.discardsWithoutReason,
-  };
-}
-
 /**
  * Parse an already-`JSON.parse`d value into a `StatsPortada`, or `null` on any unrecognised
  * shape (fail loud — the reader turns `null` into an explicit `unparseable` result).
@@ -226,22 +180,13 @@ export function parseStatsPortada(value: unknown): StatsPortada | null {
   if (!isString(value.seal) || value.seal === "") return null;
   if (!isString(value.generatedAt)) return null;
 
-  const weeklyFlow = parseWeeklyFlow(value.weeklyFlow);
-  if (weeklyFlow === null) return null;
+  const woFlow = parseWoFlow(value.woFlow);
+  if (woFlow === null) return null;
 
   const scalars = parseProjectScalars(value.scalars);
   if (scalars === null) return null;
 
-  const funnel = parseFunnel(value.funnel);
-  if (funnel === null) return null;
-
-  return {
-    seal: value.seal,
-    generatedAt: value.generatedAt,
-    weeklyFlow,
-    scalars,
-    funnel,
-  };
+  return { seal: value.seal, generatedAt: value.generatedAt, woFlow, scalars };
 }
 
 /**

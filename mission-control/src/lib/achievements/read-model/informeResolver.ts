@@ -4,9 +4,12 @@
  * Platform golden rule (architecture §1): read-only. Composes the Informe's sources from TWO stores,
  * each with an INDEPENDENT fail-loud fallback to the live `derive*` cores (DR-078, REQ-23-007):
  *
- *   - PER-PROJECT facts (`weeklyFlow`, per-project `scalars.{frds,commits}`, `funnel`) come from the
- *     portada (validated by the PER-PROJECT seal) when it is fresh, and fall back to the live git
- *     readers on ANY non-`ok` `PortadaResult` — `missing`, `stale`, `unparseable` (REQ-23-001).
+ *   - SEALED per-project facts (the WO-verified series and `scalars.frds`) come from the portada
+ *     (validated by the PER-PROJECT seal) when it is fresh, and fall back to the live git readers on
+ *     ANY non-`ok` `PortadaResult` — `missing`, `stale`, `unparseable` (REQ-23-001).
+ *   - UNSEALED facts are ALWAYS live, even beside a fresh portada: `scalars.commits` (any repo commit
+ *     moves it), `funnel` and the ideas-per-week series (`factory/ideas` is gitignored; the funnel also
+ *     reads every project's status). No seal can validate them, so the portada never holds them.
  *   - FACTORY-WIDE facts (`phaseTransitions`, `scalars.{projects,decisions}`, `lessons`) come from the
  *     factory store (validated by the FACTORY seal) when it is fresh, and fall back to the live cores
  *     on ANY non-`ok` `FactoryResult` (REQ-23-006/007).
@@ -32,8 +35,10 @@
  * exact "factory-wide always live" behavior WO-23-005 shipped, so the split reviewer test is unchanged.
  */
 
+import { composeWeeklyFlow } from "../report/flowSeries";
 import type {
   FunnelFlow,
+  IdeasSeries,
   LessonCounts,
   PhaseTransition,
   ReportResult,
@@ -55,6 +60,8 @@ export type InformeSources = {
 /** Lazy accessors to the existing live git readers (WO-10-014) — called ONLY on fallback / for factory-wide facts. */
 export type LiveInformeReaders = {
   readonly weeklyFlow: () => ReportResult<WeeklyFlow>;
+  /** The factory-wide ideas-per-week half of the flow — always read live, never sealed. */
+  readonly ideasSeries: () => ReportResult<IdeasSeries>;
   readonly phaseTransitions: () => ReportResult<PhaseTransition[]>;
   readonly scalars: () => ReportScalars;
   readonly lessons: () => LessonCounts | null;
@@ -105,9 +112,9 @@ function resolveFactoryWide(
  * Compose the Informe's sources from the per-project portada + the factory-wide store, each with an
  * INDEPENDENT fail-loud fallback to the live `derive*` cores (REQ-23-007).
  *
- * PER-PROJECT facts (`weeklyFlow`, per-project `scalars.{frds,commits}`, `funnel`) come from the
- * portada when it is fresh (AC-23-001.1) and fall back to live on any non-`ok` `PortadaResult`
- * (AC-23-001.2..4). FACTORY-WIDE facts (`phaseTransitions`, `scalars.{projects,decisions}`,
+ * SEALED per-project facts (the WO-verified series, `scalars.frds`) come from the portada when it
+ * is fresh (AC-23-001.1) and fall back to live on any non-`ok` `PortadaResult` (AC-23-001.2..4);
+ * the unsealed `commits`, `funnel` and ideas series are live either way. FACTORY-WIDE facts (`phaseTransitions`, `scalars.{projects,decisions}`,
  * `lessons`) come from the factory store when fresh and fall back to live on any non-`ok`
  * `FactoryResult` (AC-23-007.1/.2). The two fallbacks never collapse into one and never fabricate a
  * zero (DR-078). `testsPassing` is always composed from the live scalars (not held in either store).
@@ -130,20 +137,25 @@ export function resolveInformeSources(
 
   if (portadaResult.ok) {
     const portada = portadaResult.value;
+    const liveScalars = live.scalars();
+    const ideas = live.ideasSeries();
     return {
-      weeklyFlow: { ok: true, value: portada.weeklyFlow },
+      // Sealed WO-verified series + the always-live ideas series; a live failure stays loud.
+      weeklyFlow: ideas.ok
+        ? { ok: true, value: composeWeeklyFlow(portada.woFlow, ideas.value) }
+        : ideas,
       phaseTransitions: factory.phaseTransitions,
-      // Compose the render's full `ReportScalars`: per-project counts from the portada +
-      // factory-wide counts (projects/decisions) from the factory store/live; testsPassing live.
+      // Compose the render's full `ReportScalars`: the sealed FRD count from the portada, the
+      // unsealed `commits`/`testsPassing` live, factory-wide counts from the factory store/live.
       scalars: {
         frds: portada.scalars.frds,
-        commits: portada.scalars.commits,
+        commits: liveScalars.commits,
         projects: factory.projects,
         decisions: factory.decisions,
-        testsPassing: live.scalars().testsPassing,
+        testsPassing: liveScalars.testsPassing,
       },
       lessons: factory.lessons,
-      funnel: portada.funnel,
+      funnel: live.funnel(),
     };
   }
 

@@ -275,7 +275,7 @@ fields verbatim; everything else in the app is read-only.
   phase transitions, commit/decision/lesson counts) read a **materialized read-model** instead —
   an honest cache (DR-115) with a **self-validating freshness seal** (`git log -1 --format=%H` over
   the paths that feed it). Two scopes, two seals: a **per-project portada** (`<project>/.pandacorp/
-  stats.json`) holds per-project facts (weeklyFlow, per-project scalars, funnel), and a **factory-
+  stats.json`) holds the sealed per-project facts (WO-verified series, FRD count; commits, funnel and the ideas series are always live because no seal validates them), and a **factory-
   scoped store** (`<factory-root>/.pandacorp/stats-factory.json`) holds factory-wide facts
   (phaseTransitions, scalars.projects/decisions, lessons) — each seal validates exactly what its
   store contains (the SSOT invariant a single per-project seal could not; see ADR-0004). On any
