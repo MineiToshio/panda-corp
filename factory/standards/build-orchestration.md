@@ -209,9 +209,25 @@ it) and prints one sealed JSON line (drift-seal.mjs) the engine verifies after t
 copy once when the relay altered it (BL-0206). Out of scope, unchanged: `persistGateBlock` and the repair-budget exit
 keep the work on the branch (no discard), and the baseline reconciliation / foundation reset act on uncommitted or
 whole-surface state, not on one work order's commits — the baseline discards uncommitted edits by restoring them to
-`HEAD`, never to the pin (DR-067 below). **Known gap (BL-0215):** the flip and the discard are two steps; a run cut
-between them (the supervisor's external brake `TaskStop`, a crash) leaves a `PLANNED`/`BLOCKED` work order over its
-rejected code, and nothing re-runs the discard before the next pass rebuilds it. Commits written before BL-0212 name
+`HEAD`, never to the pin (DR-067 below). **Interrupted discards (BL-0215):** the flip and the discard are two steps, and a
+run cut between them (the supervisor's external brake `TaskStop` — it fires at an agent boundary, exactly there —, a crash,
+an owner stop) would leave a `PLANNED`/`BLOCKED` work order over its rejected code. Git alone cannot tell that state from a
+deliberate one (an owner-unblocked work order, a repair that kept its code on purpose), so the discard records its
+**intent** first: `wo-revert.mjs plan --record-intent PLANNED|BLOCKED` (the reopen plan, the early-block plan and — the
+repair agent decides to give up on its own, so it has no plan step — an extra plan relay before each repair) writes
+`.pandacorp/run/wo-revert/pending-<frd>.json` (gitignored: the work orders, the status the flip leaves them in, the
+seam) when there is an attempt to discard; every `apply`, whatever its outcome, consumes it. A marker still present at
+the next run start is therefore exactly an interrupted discard: right after the plan is read, the engine runs
+`wo-revert.mjs recover` ONCE per FRD that holds a `BLOCKED` or reopened-`PLANNED` work order (one MECH unit each; none
+when there is none, no extra read) — the script re-runs the discard for the marker's work orders that are STILL in the
+recorded status (a work order anything else moved on, e.g. an owner unblock, is never touched — `stale`), with the
+recorded seam (a partial revert stays partial), commits it (subject naming the work orders, `BL-0215`), clears the marker
+and emits `RevertRecovered`. Idempotent (a second `recover`, or an `apply` after one, finds nothing) and fail-closed like
+`apply`: a conflict / dirty target / unreadable receipt blocks the FRD `needs-owner` exactly as `refuseRevert` does, the
+marker is consumed so the refusal is reported once, and an unreadable marker is dropped with a `RevertIntentDropped` event,
+never guessed at. Residual (documented, not closed): a cut inside the repair path BEFORE the intent plan's own relay
+ran, or where the plan found no committed attempt yet (a self-test failure before its first commit), records no
+intent — that discard is not recovered. Commits written before BL-0212 name
 no work order: a patch of that era is attributed only through the work-order file it touched, else treated as
 another commit (its edit is kept, or the plan refuses on a conflict) — a partial discard, never a loss of other work.
 

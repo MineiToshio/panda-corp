@@ -222,12 +222,14 @@ function promptAwareDefault(call) {
     return { hashes: m ? JSON.parse(m[1]) : [] }
   }
   // BL-0212: the deterministic revert discards the work orders' own commits (a sealed wo-revert.mjs line).
-  if (/^wo-revert-(plan|apply|replay):/.test(call.label)) return { output: woRevertLine(call) }
+  if (/^wo-revert-(plan|apply|replay|recover):/.test(call.label)) return { output: woRevertLine(call) }
   return null
 }
 // A real-shaped, sealed wo-revert.mjs receipt for the work orders the prompt's command names.
 function woRevertLine(call, over = {}) {
-  const mode = call.label.startsWith('wo-revert-plan:') || /-plan\.json'/.test(call.prompt) ? 'plan' : 'apply'   // a replay re-prints the stored receipt of the mode it names
+  const mode = call.label.startsWith('wo-revert-recover:') || /-recover\.json'/.test(call.prompt) ? 'recover' : call.label.startsWith('wo-revert-plan:') || /-plan\.json'/.test(call.prompt) ? 'plan' : 'apply'   // a replay re-prints the stored receipt of the mode it names
+  // BL-0215: the happy path of a run start is "no pending intent" — the script finds no marker and changes nothing.
+  if (mode === 'recover') return sealLine({ ok: true, version: 1, mode, frd: call.label.slice(call.label.indexOf(':') + 1), status: 'nothing', changed: false, committed: null, recovery: 'none', reason: 'no pending revert intent', wos: [], files: [], ...over })
   const wos = [...call.prompt.matchAll(/--wo '([^']+)'/g)].map((m) => ({ id: m[1], status: 'PLANNED', attempt: 'b0000001' }))
   return sealLine({ ok: true, version: 1, mode, frd: call.label.slice(call.label.indexOf(':') + 1), pinSha: 'pin00001', pinValid: true, skipped: [], wos, commits: ['b0000001'], seamUntouched: [], status: 'reverted', reason: '', files: [{ path: 'src/rejected.ts', action: 'delete', via: 'revert' }], head: 'head0001', changed: true, committed: mode === 'plan' ? null : 'revert000001', ...over })
 }
@@ -8857,6 +8859,123 @@ SCENARIOS.push({
     },
   })
 }
+
+// ── BL-0215 · a run cut between the state flip (PLANNED/BLOCKED) and the wo-revert apply leaves the work order over its
+// rejected code. Each discard records its INTENT first (`plan --record-intent`, the apply consumes it) and every run START
+// finishes an interrupted one (`wo-revert.mjs recover`): one MECH unit per FRD holding a BLOCKED / reopened-PLANNED work
+// order, none otherwise. The marker/git logic is proven on real repositories by test-wo-revert.mjs (m…q); these scenarios
+// prove the ENGINE asks for the recovery at the right moment, before any build, and fails closed on a refusal.
+const b215Plan = (tag, status = 'PLANNED', reopen = 1) => mkPlan([{ frd: `frd-${tag}`, deps: [], workOrders: [mkWo(`wo-${tag}-001`, status, { frd: `frd-${tag}`, artifacts: [`src/${tag}/**`], reopen_count: reopen })] }])
+const b215Recover = (tag, over) => ({ label: `wo-revert-recover:frd-${tag}`, response: b212Receipt(over) })
+const b215Recovered = (tag) => ({ status: 'reverted', changed: true, committed: 'rec000000001', recovery: 'recovered', reason: '', wos: [{ id: `wo-${tag}-001`, status: 'PLANNED', attempt: 'b0000001' }], files: [{ path: `src/${tag}/a.ts`, action: 'delete', via: 'revert' }] })
+
+SCENARIOS.push({
+  name: 'BL-0215 a. a PLANNED reopened work order whose previous run was cut before the apply: the recovery runs at run start, BEFORE any build, is logged loud, and the rebuild proceeds',
+  args: { mode: 'pro' },
+  plan: b215Plan('b215a'),
+  responses: [b215Recover('b215a', b215Recovered('b215a'))],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const rec = byLabel(run, 'wo-revert-recover:frd-b215a')
+    const build = byLabel(run, 'build:wo-b215a-001')[0]
+    t.ok(rec.length === 1 && build && rec[0].index < build.index, 'exactly one recovery relay, and it ran before the first build')
+    t.ok(rec[0] && /wo-revert\.mjs' recover --project/.test(rec[0].prompt) && /--frd 'frd-b215a'/.test(rec[0].prompt) && !/--wo /.test(rec[0].prompt), 'it runs the script`s recover mode for this FRD (the marker names the work orders)')
+    t.ok(rec[0] && rec[0].opts.model === 'haiku' && /MECHANICAL COMMAND RUNNER/.test(rec[0].prompt), 'a mechanical relay (zero judgment)')
+    t.ok(hasLog(run, /↩ RevertRecovered frd-b215a: a previous run was cut between the state flip and the discard — discarded the rejected work of wo-b215a-001 \(1 file\(s\)\), commit rec000000001/), 'the recovery is never silent')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b215a'), 'the work order was rebuilt and verified')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0215 b. nothing pending (the discard had landed): the recovery answers `nothing`, logs nothing, and the build runs — and a run with no BLOCKED / reopened work order spends NO recovery agent',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b215b', deps: [], workOrders: [mkWo('wo-b215b-001', 'PLANNED', { frd: 'frd-b215b', artifacts: ['src/b215b/**'], reopen_count: 2 })] },
+    { frd: 'frd-b215c', deps: [], workOrders: [mkWo('wo-b215c-001', 'PLANNED', { frd: 'frd-b215c', artifacts: ['src/b215c/**'], reopen_count: 0 })] },
+  ]),
+  responses: [],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'wo-revert-recover:frd-b215b').length === 1, 'the reopened work order\'s FRD asked for the recovery')
+    t.ok(byLabel(run, 'wo-revert-recover:frd-b215c').length === 0, 'a never-reopened PLANNED work order cannot have a discard pending: no agent spent')
+    t.ok(!hasLog(run, /RevertRecovered|pending revert intent/), 'a `nothing` answer is silent')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b215b'), 'the build ran')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0215 c. a BLOCKED work order triggers the recovery check; an intent the script found STALE (the state moved on) or unreadable is logged, never acted on',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b215d', deps: [], workOrders: [mkWo('wo-b215d-001', 'BLOCKED', { frd: 'frd-b215d', artifacts: ['src/b215d/**'] })] },
+    { frd: 'frd-b215e', deps: [], workOrders: [mkWo('wo-b215e-001', 'BLOCKED', { frd: 'frd-b215e', artifacts: ['src/b215e/**'] })] },
+    { frd: 'frd-b215f', deps: [], workOrders: [mkWo('wo-b215f-001', 'PLANNED', { frd: 'frd-b215f', artifacts: ['src/b215f/**'] })] },
+  ]),
+  responses: [
+    b215Recover('b215d', { recovery: 'stale', reason: 'none of wo-b215d-001 is still BLOCKED: the state moved on after the interrupted discard, nothing to undo' }),
+    b215Recover('b215e', { recovery: 'dropped', reason: 'pending revert intent dropped: unreadable (unrecognised shape)' }),
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'wo-revert-recover:frd-b215d').length === 1 && byLabel(run, 'wo-revert-recover:frd-b215e').length === 1 && byLabel(run, 'wo-revert-recover:frd-b215f').length === 0, 'one relay per FRD that holds a BLOCKED work order, none for the clean one')
+    t.ok(hasLog(run, /ℹ frd-b215d: a pending revert intent was not acted on — none of wo-b215d-001 is still BLOCKED/) && hasLog(run, /ℹ frd-b215e: a pending revert intent was not acted on — pending revert intent dropped/), 'stale and dropped intents are logged loud')
+    t.ok(run.calls.filter((c) => /^wo-revert-apply:/.test(c.label)).length === 0, 'nothing was discarded by these')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0215 d. the recovery REFUSES (a conflict with another commit\'s edit): nothing is reverted, no rebuild on top of the rejected code — the FRD is BLOCKED needs-owner with the conflicting file',
+  args: { mode: 'pro' },
+  plan: b215Plan('b215g'),
+  responses: [b215Recover('b215g', { status: 'conflict', changed: false, committed: null, files: [], conflicts: ['src/messages.json'], recovery: 'refused', reason: 'reverting the attempt would conflict with another commit\'s edit of: src/messages.json — nothing was reverted (never a partial revert)' })],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'build:wo-b215g-001').length === 0, 'the work order was NOT rebuilt on top of its rejected code')
+    const refused = byLabel(run, 'block-revert-refused:frd-b215g')[0]
+    t.ok(refused && /src\/messages\.json/.test(refused.prompt) && /NOTHING was reverted/.test(refused.prompt) && /just set PLANNED/.test(refused.prompt), 'the block records the conflict and knows the work order is PLANNED over its code')
+    t.ok(run.result && run.result.blockedReasons['frd-b215g'] === 'needs-owner', 'blocked needs-owner')
+    t.ok(hasLog(run, /⛔ RevertRefused frd-b215g: .*conflict/), 'loud RevertRefused log')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0215 e. the recovery relay cannot be read (unsealed, twice): fail closed — the FRD is BLOCKED needs-owner, never read as "nothing pending"',
+  args: { mode: 'pro' },
+  plan: b215Plan('b215h'),
+  responses: [{ label: 'wo-revert-recover:frd-b215h', response: { output: '{"ok":true,"status":"nothing"' } }, { label: 'wo-revert-replay:frd-b215h', response: { output: '' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'wo-revert-replay:frd-b215h').length === 1 && byLabel(run, 'build:wo-b215h-001').length === 0, 're-read once, then refused; no build')
+    t.ok(run.result && run.result.blockedReasons['frd-b215h'] === 'needs-owner', 'blocked needs-owner')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0215 f. every discard records its intent BEFORE the flip: the reopen plan (PLANNED), the early block plan (BLOCKED) and — with no plan of its own — the repair path (a plan relay before the repair agent)',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b215i', deps: [], workOrders: [mkWo('wo-b215i-001', 'IN_REVIEW', { frd: 'frd-b215i', artifacts: ['src/b215i/**'] })] },
+    { frd: 'frd-b215j', deps: [], workOrders: [mkWo('wo-b215j-001', 'IN_REVIEW', { frd: 'frd-b215j', artifacts: ['src/b215j/**'] })] },
+    { frd: 'frd-b215k', deps: [], workOrders: [mkWo('wo-b215k-001', 'IN_REVIEW', { frd: 'frd-b215k', artifacts: ['src/b215k/**'] })] },
+  ]),
+  responses: [
+    b212Reject('b215i'), ...b212FullRevert('frd-b215i'),
+    b212Reject('b215j'), { label: 'patch:frd-b215j', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'diagnose:frd-b215j', response: { classification: 'architectural', repeatsPrior: false, recommendation: 'block-needs-owner', confidence: 'high', decisionRecord: 'x' } },
+    { label: 'gate:frd-b215k', response: { green: false, reopen: [], blocked_reason: 'error', failure: 'the integration suite crashes' } },
+    { label: 'repair:frd-b215k', response: { green: false, blocked_reason: 'error', failure: 'cannot fix' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const planI = byLabel(run, 'wo-revert-plan:frd-b215i')[0]
+    t.ok(planI && /--record-intent PLANNED/.test(planI.prompt) && planI.index < byLabel(run, 'revert:frd-b215i')[0].index, 'reopen: the plan records a PLANNED intent before the flip agent runs')
+    const planJ = byLabel(run, 'wo-revert-plan:frd-b215j')[0]
+    t.ok(planJ && /--record-intent BLOCKED/.test(planJ.prompt) && planJ.index < byLabel(run, 'block-needs-owner:frd-b215j')[0].index, 'early block: the plan records a BLOCKED intent before the block agent runs')
+    const planK = byLabel(run, 'wo-revert-plan:frd-b215k')[0]
+    t.ok(planK && /--wo 'wo-b215k-001' --record-intent BLOCKED/.test(planK.prompt) && planK.index < byLabel(run, 'repair:frd-b215k')[0].index, 'repair path: an intent plan runs before the repair agent (it decides to give up on its own)')
+    t.ok(run.calls.filter((c) => /^wo-revert-apply:/.test(c.label) && !/--record-intent/.test(c.prompt)).length >= 3, 'the applies never carry the flag (they consume the intent)')
+  },
+})
 
 // ── BL-0214 · the two remaining model relays of machine output: the digested evidence report, and the drift finder's
 // `implemented` snippets. A model is not a lossless copy channel (BL-0206). (a) the collector's report is SEALED by

@@ -233,7 +233,10 @@ fi
 # The evidence report's seal adds no agent (the script runs inside the collector's own spawn); its re-reads fire only on a
 # corrupted relay and are not reserved. BL-0212: a DR-073 revert fallback (rarer than the patch ladder above) adds 2 MECH
 # units to its ladder (wo-revert plan + apply, +1 per relay re-read) and a block path 1 (apply) — not in the floor. The
-# engine's own brake never cuts that sequence (capHit() only at safe points); the supervisor's external brake can (BL-0215).
+# engine's own brake never cuts that sequence (capHit() only at safe points); the supervisor's external brake can, which
+# BL-0215 survives: every discard records its intent (the repair path spends 1 more MECH unit per repair on that plan) and a
+# run START spends ONE MECH unit per FRD that holds a BLOCKED or reopened-PLANNED work order to finish an interrupted discard
+# (none when there is none) — pre-loop, not in the floor.
 # The finder is ON with `--drift-finder on`,
 # or under `--gate-evidence digested` unless `--drift-finder off` (the engine's own default: on under digested, off
 # under the default explore).

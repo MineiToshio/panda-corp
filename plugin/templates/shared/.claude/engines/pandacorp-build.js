@@ -2068,12 +2068,13 @@ let woRevertSeq = 0
 async function woRevert(frd, ids, mode, opts = {}) {
  const stored = `.pandacorp/run/wo-revert/${frd}-e${LEASE_EPOCH}-${++woRevertSeq}-${mode}.json`
  const flags = [...ids.map((id) => `--wo ${shellQuote(id)}`), ...(opts.seam || []).map((p) => `--seam ${shellQuote(p)}`),
-  opts.requireStatus ? `--require-status ${opts.requireStatus}` : '', opts.onlyStatus ? `--only-status ${opts.onlyStatus}` : '', opts.expectChange ? '--expect-change' : ''].filter(Boolean).join(' ')
+  opts.requireStatus ? `--require-status ${opts.requireStatus}` : '', opts.onlyStatus ? `--only-status ${opts.onlyStatus}` : '', opts.expectChange ? '--expect-change' : '',
+  opts.recordIntent ? `--record-intent ${opts.recordIntent}` : ''].filter(Boolean).join(' ')
  const cmd = `${WO_REVERT_CLI_COMMAND} ${mode} --project ${shellQuote(PROJECT_DIR)} --project-name "${PROJECT}" --frd ${shellQuote(frd)} ${flags} --out ${shellQuote(stored)}`
  const relay = async (label, command) => {
   agentSpawned++
   try {
-   return await agent(`MECHANICAL COMMAND RUNNER — BL-0212 ${mode === 'plan' ? 'read-only revert plan' : 'revert'} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
+   return await agent(`MECHANICAL COMMAND RUNNER — BL-0212 ${mode === 'plan' ? 'revert plan (changes no tracked file)' : mode === 'recover' ? 'interrupted-revert recovery' : 'revert'} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
     { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
   } catch (e) {
    log(`⚠ ${frd}: the ${label} runner threw (${(e && e.message) || e})`)
@@ -2108,6 +2109,27 @@ async function refuseRevert(frd, ids, rv, { flip = false, blocked = false, emit 
   Return { green: false, blocked_reason: 'needs-owner' }.`,
   { label: `block-revert-refused:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
+async function recordRepairDiscardIntent(frd, ids) {
+ if (ids.length) await woRevert(frd, ids, 'plan', { recordIntent: 'BLOCKED' })
+}
+async function recoverPendingReverts() {
+ for (const f of plan.frds || []) {
+  if (ONLY && !ONLY.includes(f.frd)) continue
+  const wos = f.workOrders || []
+  const atRisk = wos.filter((w) => w.status === 'PLANNED' && (w.reopen_count || 0) >= 1).map((w) => w.id)
+  if (!atRisk.length && !wos.some((w) => w.status === 'BLOCKED')) continue
+  const rv = await woRevert(f.frd, [], 'recover')
+  if (!rv.ok) {
+   const named = rv.receipt && Array.isArray(rv.receipt.wos) && rv.receipt.wos.length ? rv.receipt.wos.map((w) => w.id) : atRisk
+   await refuseRevert(f.frd, named, rv, { flip: atRisk.length > 0, blocked: atRisk.length === 0, emit: false })
+   blockFrdInSchedule(f.frd, 'needs-owner')
+   continue
+  }
+  const r = rv.receipt
+  if (r.recovery === 'recovered') log(`↩ RevertRecovered ${f.frd}: a previous run was cut between the state flip and the discard — discarded the rejected work of ${(r.wos || []).map((w) => w.id).join(', ')} (${(r.files || []).filter((x) => x.action !== 'keep').length} file(s)), commit ${r.committed || '?'} (BL-0215)`)
+  else if (r.recovery === 'stale' || r.recovery === 'dropped') log(`ℹ ${f.frd}: a pending revert intent was not acted on — ${r.reason} (BL-0215)`)
+ }
+}
 async function discardBlockedCode(frd, ids) {
  if (!ids.length) return true
  const done = await woRevert(frd, ids, 'apply', { onlyStatus: 'BLOCKED' })
@@ -2120,7 +2142,7 @@ async function revertAndReopen(frd, reopenIds, opts = {}) {
  reviewerTestsByFrd.delete(frd)
  const seamFiles = (opts.seamFiles && opts.seamFiles.length) ? opts.seamFiles : null
  const refused = async (rv, flip) => { await refuseRevert(frd, ids, rv, { flip }); blockFrd(frd, 'needs-owner', `revert refused (BL-0212): ${rv.error}`); return { refused: true } }
- const plan = await woRevert(frd, ids, 'plan', { seam: seamFiles })
+ const plan = await woRevert(frd, ids, 'plan', { seam: seamFiles, recordIntent: 'PLANNED' })
  if (!plan.ok) return await refused(plan, false)
  agentSpawned += COST(P.judge)
  const reopenReason = seamFiles ? 'seam' : 'gate-reject'
@@ -2358,7 +2380,7 @@ async function diagnoseFailure(frd, gate, reviewIds) {
 }
 async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
  const ids = reopenIds || []
- const plan = await woRevert(frd, ids, 'plan')
+ const plan = await woRevert(frd, ids, 'plan', { recordIntent: 'BLOCKED' })
  if (!plan.ok) log(`⛔ RevertRefused ${frd}: the rejected code of ${ids.join(', ')} cannot be discarded without touching other work (${plan.error}) — it stays on main and the decision record says so (BL-0212)`)
  agentSpawned += COST(P.judge)
  const cls = (diag && diag.classification) || 'architectural'
@@ -2590,6 +2612,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   return 'blocked'
  }
  log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
+ await recordRepairDiscardIntent(f.frd, reviewIds || [])
  const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'), true)
  const discardRefused = !(fix && fix.green === true) && !(await discardBlockedCode(f.frd, reviewIds || []))
  if (fix && fix.green === true) {
@@ -2656,6 +2679,7 @@ function enrollFrd(f) {
 }
 for (const f of plan.frds) enrollFrd(f)
 detectCycles()
+await preLoopGuarded(() => recoverPendingReverts())
 function blockFrdInSchedule(frd, reason) {
  const st = frdState.get(frd)
  if (st) { st.failed = true; for (const id of st.toBuildIds) { globalQueue.delete(id); blockedIds.add(id) } }
@@ -3202,14 +3226,15 @@ while (true) {
   if (!st || !st.failed) continue
   log(`! ${frd}: a work order failed — attempting repair before giving up`)
   waveRepairRan = true
+  const liveIds = ((st.f && st.f.workOrders) || []).filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED').map((w) => w.id)
+  await recordRepairDiscardIntent(frd, liveIds)
   const fix = await attemptRepair(frd, 'a work order failed its self-test during the build wave')
   if (fix && fix.green === true) {
    log(`✓ ${frd}: repaired — proceeding to the gate`)
    st.failed = false
    for (const id of [...st.toBuildIds]) if (!globalQueue.has(id)) { st.toBuildIds.delete(id); doneIds.add(id) }
   } else {
-   const live = ((st.f && st.f.workOrders) || []).filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED').map((w) => w.id)
-   const reason = (await discardBlockedCode(frd, live)) ? ((fix && fix.blocked_reason) || 'error') : 'needs-owner'
+   const reason = (await discardBlockedCode(frd, liveIds)) ? ((fix && fix.blocked_reason) || 'error') : 'needs-owner'
    log(`⊘ ${frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
    blockFrdInSchedule(frd, reason)
   }

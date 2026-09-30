@@ -28,13 +28,26 @@
 // RevertRefused event is appended.
 //
 // Modes: `plan` computes and prints; `apply` writes, stages and commits exactly the changed paths (one commit
-// naming the FRD and the work orders, so the next revert attributes it too); `replay` re-prints a stored line.
+// naming the FRD and the work orders, so the next revert attributes it too); `replay` re-prints a stored line;
+// `recover` finishes a discard an interrupted run left behind (BL-0215, below).
 // Output: ONE sealed JSON line (drift-seal.mjs) — the engine reads it through a model and verifies the seal.
 // Exit: 0 reverted/nothing · 4 refused (conflict | dirty | refused) · 2 unusable input or a git failure.
 //
+// Interrupted discards (BL-0215). The engine discards in two steps — the state flip commit (PLANNED / BLOCKED), then
+// `apply` — and a run cut between them (the supervisor's external brake, a crash) leaves the flipped work order over
+// its rejected code. Git alone cannot tell that state from a deliberate one (an owner-unblocked work order, a repair
+// that kept its code), so the engine records the INTENT first: `plan --record-intent <S>` writes
+// `.pandacorp/run/wo-revert/pending-<frd>.json` (gitignored runtime state: the work orders, the status the flip will
+// leave them in, the seam) when there is an attempt to discard; every `apply` — whatever its outcome — consumes it.
+// A marker still present at the next run start is therefore exactly an interrupted discard: `recover` re-runs the
+// discard for the marker's work orders that are STILL in the recorded status (same seam, same attribution), commits
+// it, and clears the marker. A work order in any other status was moved on by someone else: nothing is discarded.
+// Idempotent: a second `recover` (or an `apply` after one) finds no marker / nothing left to undo.
+//
 // Usage: wo-revert.mjs plan|apply --project <dir> --frd <frd-folder> --wo <id> [--wo <id>…] [--seam <path>…]
-//          [--require-status <S> | --only-status <S>] [--expect-change] [--pin <sha>] [--project-name <n>]
-//          [--out <file>] [--events <file>]
+//          [--require-status <S> | --only-status <S>] [--expect-change] [--record-intent PLANNED|BLOCKED]
+//          [--pin <sha>] [--project-name <n>] [--out <file>] [--events <file>]
+//        wo-revert.mjs recover --project <dir> --frd <frd-folder> [--project-name <n>] [--out <file>] [--events <file>]
 //        wo-revert.mjs replay --project <dir> --file <out>
 
 import { spawnSync } from 'node:child_process'
@@ -50,6 +63,7 @@ const WO_TOKEN_RE = /\bWO-[0-9A-Za-z]+-\d+\b/gi
 const FRD_TOKEN_RE = /\bfrd-(\d+)/gi
 const PIN_RE = /^last_green_sha:\s*["']?([0-9a-f]{7,40})["']?\s*(?:#.*)?$/m
 const REFUSED_EXIT = 4
+const INTENT_STATUSES = new Set(['PLANNED', 'BLOCKED'])
 const INPUT_EXIT = 2
 
 /** An input the script cannot act on — exit 2, never a quiet success. */
@@ -83,7 +97,7 @@ export function frontmatterStatus(text) {
 
 function parseArgs(argv) {
   const mode = argv[0]
-  if (!['plan', 'apply', 'replay'].includes(mode)) throw new InputError(`first argument must be plan|apply|replay, got ${JSON.stringify(mode)}`)
+  if (!['plan', 'apply', 'replay', 'recover'].includes(mode)) throw new InputError(`first argument must be plan|apply|replay|recover, got ${JSON.stringify(mode)}`)
   const o = { mode, wos: [], seam: [], expectChange: false }
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i]
@@ -97,6 +111,7 @@ function parseArgs(argv) {
     else if (k === '--seam') o.seam.push(v.replace(/^\.\//, ''))
     else if (k === '--require-status') o.requireStatus = v.toUpperCase()
     else if (k === '--only-status') o.onlyStatus = v.toUpperCase()
+    else if (k === '--record-intent') o.recordIntent = v.toUpperCase()
     else if (k === '--pin') o.pin = v
     else if (k === '--project-name') o.projectName = v
     else if (k === '--out') o.out = v
@@ -107,7 +122,8 @@ function parseArgs(argv) {
   if (!o.project) throw new InputError('--project is required')
   if (mode === 'replay') { if (!o.file) throw new InputError('replay needs --file'); return o }
   if (!o.frd || !/^frd-\d+/i.test(o.frd) || o.frd.includes('/')) throw new InputError('--frd must be an FRD folder name (frd-NN-…)')
-  if (!o.wos.length) throw new InputError('at least one --wo is required')
+  if (mode !== 'recover' && !o.wos.length) throw new InputError('at least one --wo is required')
+  if (o.recordIntent && (mode !== 'plan' || !INTENT_STATUSES.has(o.recordIntent))) throw new InputError('--record-intent PLANNED|BLOCKED is only valid on plan')
   if (o.requireStatus && o.onlyStatus) throw new InputError('--require-status and --only-status are exclusive')
   return o
 }
@@ -327,7 +343,7 @@ function applyWrites(opts, plan) {
     if (w.content === null) { if (existsSync(abs)) unlinkSync(abs) } else { mkdirSync(path.dirname(abs), { recursive: true }); writeFileSync(abs, w.content) }
   }
   const ids = plan.wos.map((w) => w.id).join(', ')
-  const msg = `revert(${opts.frd}): discard the rejected work of ${ids} (BL-0212)\n\nReverts the attempt's own commits: ${(plan.commits || []).join(' ')}.`
+  const msg = `revert(${opts.frd}): discard the rejected work of ${ids} (${opts.mode === 'recover' ? 'recovered after an interrupted run, BL-0215' : 'BL-0212'})\n\nReverts the attempt's own commits: ${(plan.commits || []).join(' ')}.`
   const add = g.run(['--literal-pathspecs', 'add', '-A', '--', ...paths])
   const commit = add.ok ? g.run(['--literal-pathspecs', 'commit', '-q', '-m', msg, '--', ...paths]) : add
   if (!commit.ok) {
@@ -350,6 +366,59 @@ function finish(opts, body) {
   process.stdout.write(`${line}\n`)
 }
 
+// ── Pending-discard intent (BL-0215): one marker per FRD, gitignored runtime state ──────────────────
+const intentFile = (opts) => path.join(opts.project, '.pandacorp', 'run', 'wo-revert', `pending-${opts.frd}.json`)
+const clearIntent = (opts) => rmSync(intentFile(opts), { force: true })
+function writeIntent(opts, plan) {
+  const file = intentFile(opts)
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, `${JSON.stringify({ version: 1, frd: opts.frd, wos: opts.wos, expectStatus: opts.recordIntent, seam: opts.seam, head: plan.head.slice(0, 8), at: new Date().toISOString() })}\n`)
+}
+/** The FRD's marker, `null` when absent, `{ error }` when it cannot be interpreted (never guessed at). */
+function readIntent(opts) {
+  const file = intentFile(opts)
+  if (!existsSync(file)) return null
+  try {
+    const m = JSON.parse(readFileSync(file, 'utf8'))
+    const strings = (a) => Array.isArray(a) && a.every((x) => typeof x === 'string' && x)
+    const valid = m && m.version === 1 && m.frd === opts.frd && INTENT_STATUSES.has(m.expectStatus) && strings(m.wos) && m.wos.length > 0 && strings(m.seam)
+    return valid ? m : { error: 'unrecognised shape' }
+  } catch (e) {
+    return { error: e.message }
+  }
+}
+
+/**
+ * `recover`: finish the discard an interrupted run left behind (BL-0215). The marker names the work orders, the status
+ * their flip leaves them in and the seam; a work order no longer in that status was moved on by someone else and is
+ * never touched. Always consumes the marker (terminal outcome) — a refusal is reported once, never retried forever.
+ * @returns {number} the exit code
+ */
+function recover(opts) {
+  const receipt = (over) => ({ ok: true, version: 1, mode: 'recover', frd: opts.frd, status: 'nothing', changed: false, committed: null, recovery: 'none', reason: '', wos: [], files: [], ...over })
+  const done = (over) => { finish(opts, receipt(over)); return 0 }
+  const marker = readIntent(opts)
+  if (!marker) return done({ reason: 'no pending revert intent' })
+  const drop = (why) => { clearIntent(opts); emit(opts, 'RevertIntentDropped', { reason: why }); return done({ recovery: 'dropped', reason: `pending revert intent dropped: ${why}` }) }
+  if (marker.error) return drop(`unreadable (${marker.error})`)
+  let plan
+  try {
+    plan = computePlan({ ...opts, wos: marker.wos, seam: marker.seam, onlyStatus: marker.expectStatus })
+  } catch (e) {
+    if (e instanceof InputError && /^work order /.test(e.message)) return drop(e.message)
+    throw e
+  }
+  if (!plan.wos.length) { clearIntent(opts); return done({ recovery: 'stale', reason: `none of ${marker.wos.join(', ')} is still ${marker.expectStatus}: the state moved on after the interrupted discard, nothing to undo`, wos: plan.skipped || [] }) }
+  const committed = plan.status === 'reverted' ? applyWrites({ ...opts, mode: 'recover' }, plan) : null
+  clearIntent(opts)
+  const { _writes, _top, head, ...rest } = plan
+  const refused = ['conflict', 'dirty', 'refused'].includes(plan.status)
+  if (refused) emit(opts, 'RevertRefused', { status: plan.status, wos: marker.wos, reason: plan.reason })
+  else if (committed) emit(opts, 'RevertRecovered', { wos: marker.wos, committed: committed.slice(0, 12), reason: 'a run cut between the state flip and the discard left the rejected code on main (BL-0215)' })
+  finish(opts, receipt({ ...rest, head: head ? head.slice(0, 8) : null, pinSha: plan.pinSha ? plan.pinSha.slice(0, 8) : null, changed: Boolean(committed), committed: committed ? committed.slice(0, 12) : null, recovery: committed ? 'recovered' : refused ? 'refused' : 'applied' }))
+  return refused ? REFUSED_EXIT : 0
+}
+
 /** CLI entry: returns the exit code. */
 export function main(argv) {
   let opts = { project: process.cwd() }
@@ -361,9 +430,13 @@ export function main(argv) {
       process.stdout.write(`${readFileSync(file, 'utf8').trim().split('\n').pop()}\n`)
       return 0
     }
+    if (opts.mode === 'recover') return recover(opts)
     const plan = computePlan(opts)
     let committed = null
     if (opts.mode === 'apply' && plan.status === 'reverted') committed = applyWrites(opts, plan)
+    // A newer plan supersedes an older intent; an apply, whatever its outcome, is the terminal step of the discard.
+    if (opts.mode === 'apply' || opts.recordIntent) clearIntent(opts)
+    if (opts.recordIntent && plan.status === 'reverted') writeIntent(opts, plan)
     const { _writes, _top, head, ...rest } = plan
     const body = { ok: true, version: 1, mode: opts.mode, frd: opts.frd, ...rest, head: head ? head.slice(0, 8) : null, pinSha: plan.pinSha ? plan.pinSha.slice(0, 8) : null, changed: plan.status === 'reverted', committed: committed ? committed.slice(0, 12) : null }
     const refused = ['conflict', 'dirty', 'refused'].includes(plan.status)

@@ -370,6 +370,117 @@ console.log('(l) the pin restore never wipes another FRD\'s IN_REVIEW commit mad
   } finally { r.cleanup() }
 }
 
+// ── (m…q) BL-0215: a run cut between the state flip and the discard ─────────────────────────────────
+// The engine records the INTENT (plan --record-intent) before the flip; the marker survives a cut and `recover` finishes
+// the discard at the next run start — only for work orders still in the recorded status, with the recorded seam.
+const MARKER = '.pandacorp/run/wo-revert/pending-frd-01-alpha.json'
+const planIntent = (r, status, ...more) => r.run('plan', ...args(r, '--wo', 'WO-01-001', '--record-intent', status, ...more))
+const recoverRun = (r) => r.run('recover', ...args(r))
+
+console.log('(m) cut between the PLANNED flip and the apply → recover discards the rejected code; idempotent')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/alpha.ts': 'export const alpha = "rejected"\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    const pin = r.commit('feat(frd-02-beta): WO-02-001 beta widget', { 'src/beta.ts': 'export const beta = 1\n', [WO_B]: woMd('WO-02-001', 'IN_REVIEW') })
+    r.publish(pin)
+    const plan = planIntent(r, 'PLANNED')
+    ok(plan.code === 0 && plan.receipt.status === 'reverted' && r.read(MARKER) !== null, 'plan --record-intent writes the pending marker when there is an attempt to discard')
+    ok(r.git('status', '--porcelain', '--', 'proj/src', 'proj/docs').trim() === '', 'recording the intent touches no tracked code')
+    r.commit('chore(frd-01-alpha): reopen WO-01-001 (gate reject)', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    // …the run is cut here: no apply. The next run starts:
+    const before = r.head()
+    const rec = recoverRun(r)
+    ok(rec.code === 0 && rec.receipt && rec.receipt.status === 'reverted' && rec.receipt.recovery === 'recovered' && rec.receipt.changed === true && typeof rec.receipt.committed === 'string', `recover discards the rejected code (got ${rec.line.slice(0, 220)})`)
+    ok(verifySealedLine(rec.line).ok, 'the recover receipt carries a valid integrity seal')
+    ok(r.read('src/alpha.ts') === null && r.read('src/beta.ts') === 'export const beta = 1\n', 'the rejected file is gone, the sibling FRD\'s file is untouched')
+    ok(r.head() !== before && /WO-01-001/.test(r.git('log', '-1', '--format=%s')) && /BL-0215/.test(r.git('log', '-1', '--format=%s')), 'one commit naming the work order and saying it is a recovery')
+    ok(r.read(MARKER) === null, 'the marker is consumed')
+    ok(r.events().some((e) => e.event === 'RevertRecovered' && (e.wos || []).includes('WO-01-001')), 'a RevertRecovered event is emitted (the recovery is never silent)')
+    const again = recoverRun(r)
+    ok(again.code === 0 && again.receipt.status === 'nothing' && again.receipt.recovery === 'none' && r.head() !== before && r.git('rev-list', '--count', `${before}..HEAD`) === '1', 'a second recover finds nothing and commits nothing')
+    const late = r.run('apply', ...args(r, '--wo', 'WO-01-001'))
+    ok(late.code === 0 && late.receipt.status === 'nothing', 'a plain apply afterwards finds the attempt already undone')
+  } finally { r.cleanup() }
+}
+
+console.log('(n) cut BEFORE the flip (the work order is still IN_REVIEW) → the marker is stale, nothing is discarded')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/alpha.ts': 'export const alpha = "built"\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    planIntent(r, 'PLANNED')
+    const before = r.head()
+    const rec = recoverRun(r)
+    ok(rec.code === 0 && rec.receipt.recovery === 'stale' && rec.receipt.changed === false && r.head() === before && r.read('src/alpha.ts') !== null, `a work order still IN_REVIEW is never discarded (got ${rec.line.slice(0, 200)})`)
+    ok(r.read(MARKER) === null, 'the stale marker is consumed')
+  } finally { r.cleanup() }
+}
+
+console.log('(o) the owner moved the BLOCKED work order on (unblocked → PLANNED, code kept on purpose) → stale, never discarded')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/alpha.ts': 'export const alpha = "kept by the owner"\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    planIntent(r, 'BLOCKED')
+    r.commit('chore(frd-01-alpha): block WO-01-001 needs-owner', { [WO_A]: woMd('WO-01-001', 'BLOCKED') })
+    r.commit('chore(frd-01-alpha): owner decision — keep the code, fix forward', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const before = r.head()
+    const rec = recoverRun(r)
+    ok(rec.code === 0 && rec.receipt.recovery === 'stale' && r.head() === before && r.read('src/alpha.ts') !== null, `code the owner chose to keep survives (got ${rec.line.slice(0, 200)})`)
+  } finally { r.cleanup() }
+}
+
+console.log('(p) a PARTIAL (seam) discard that was cut is recovered with the SAME seam, not the whole attempt')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/alpha.ts': 'export const alpha = "bad seam"\n', 'src/alphaGood.ts': 'export const good = 1\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    planIntent(r, 'PLANNED', '--seam', 'src/alpha.ts')
+    r.commit('chore(frd-01-alpha): reopen WO-01-001 (seam)', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const rec = recoverRun(r)
+    ok(rec.code === 0 && rec.receipt.recovery === 'recovered', `recovered (got ${rec.line.slice(0, 200)})`)
+    ok(r.read('src/alpha.ts') === null && r.read('src/alphaGood.ts') === 'export const good = 1\n', 'only the seam file is discarded; the good work the diagnosis preserved stays')
+  } finally { r.cleanup() }
+}
+
+console.log('(q) the normal two-step discard consumes the marker; a refusal is reported once; nothing to revert records no intent')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/alpha.ts': 'export const alpha = "rejected"\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    planIntent(r, 'PLANNED')
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(r.read(MARKER) === null && recoverRun(r).receipt.recovery === 'none', 'an apply consumes the marker: the next run start has nothing to recover')
+    const empty = mkRepo()
+    try {
+      const n = planIntent(empty, 'PLANNED')
+      ok(n.code === 0 && n.receipt.status === 'nothing' && empty.read(MARKER) === null, 'no attempt to discard → no intent recorded')
+    } finally { empty.cleanup() }
+    // A conflict at recovery time refuses (exit 4), consumes the marker and discards nothing.
+    const c = mkRepo()
+    try {
+      c.commit('feat(frd-01-alpha): WO-01-001 alpha widget', { 'src/messages.json': '{\n  "title": "T",\n  "alpha": "A"\n}\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+      planIntent(c, 'PLANNED')
+      c.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+      c.commit('feat(frd-02-beta): WO-02-001 edits the same lines', { 'src/messages.json': '{\n  "title": "T",\n  "alpha": "B"\n}\n' })
+      const before = c.head()
+      const rec = recoverRun(c)
+      ok(rec.code === 4 && rec.receipt.status === 'conflict' && rec.receipt.recovery === 'refused' && c.head() === before, `a conflicting recovery refuses and writes nothing (got ${rec.line.slice(0, 200)})`)
+      ok(c.read(MARKER) === null && c.events().some((e) => e.event === 'RevertRefused'), 'the refusal is reported once (marker consumed, RevertRefused event)')
+    } finally { c.cleanup() }
+    // An unreadable marker is dropped loudly, never guessed at.
+    const m = mkRepo()
+    try {
+      m.write(MARKER, '{not json')
+      const rec = recoverRun(m)
+      ok(rec.code === 0 && rec.receipt.recovery === 'dropped' && m.read(MARKER) === null && m.events().some((e) => e.event === 'RevertIntentDropped'), 'an unreadable marker is dropped with an event, never acted on')
+    } finally { m.cleanup() }
+    ok(planIntent(r, 'OOPS').code === 2, 'an unknown --record-intent status is an input error')
+  } finally { r.cleanup() }
+}
+
 // ── fail-closed inputs ────────────────────────────────────────────────────────────────────────────
 console.log('fail-closed inputs')
 {
