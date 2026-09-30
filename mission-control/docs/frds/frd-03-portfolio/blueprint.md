@@ -40,7 +40,7 @@ states and the slot that hosts the workspace.
 |---|---|---|---|---|
 | `CMP-03-active-projects` | module (compose) | `lib/portfolio/portfolio.ts` helpers `activeProjects()` (live set) and `railProjects()` (the rail's subset) | `activeProjects()` filters portfolio entries to the live phases `architecture`/`implementation`/`release` using `readStatus` (the dashboard cards, REQ-18-016, and the workspace route need them); `railProjects()` narrows that to `implementation`(building)/`release`(shipped) — the only phases the rail lists. | REQ-03-001 |
 | `CMP-03-rail` | UI (Server) | `app/portfolio/page.tsx` + `components/ProjectRail.tsx` | Vertical list of active projects: title, stage, indicator, snapshot, not-found badge. | REQ-03-001, REQ-03-002, REQ-03-003 |
-| `CMP-03-row` | UI | `components/ProjectRow.tsx` | One project row: building/stopped indicator + ⚠️ not-found badge + recovery. | REQ-03-002, REQ-03-006 |
+| `CMP-03-row` | UI | `components/modules/ProjectRail/ProjectRail.tsx` (`SelectableRow`) | One project row of the rail: building/stopped icon + stage line + count dots + ⚠️ not-found badge + recovery (the standalone `ProjectRow` card was removed 2026-09-30). | REQ-03-002, REQ-03-006 |
 | `CMP-03-last-sync` | UI | `components/modules/ProjectRail/LastSyncChip.tsx` (rendered by the selectable rail row) + `lib/portfolio/formatLastSync.ts` | Relative "sync: hace N días" chip from `ProjectListItem.lastSync` (the portfolio row's `last sync` cell, carried by `activeProjects()`); an unparseable date is an explicit "fecha inválida" chip. | REQ-03-007 |
 | `CMP-03-snapshot` | UI | `components/BusinessSnapshot.tsx` | Shipped project's users / return / verdict chips from the portfolio row. | REQ-03-003 |
 | `CMP-03-workspace-slot` | UI (Server) | `app/portfolio/page.tsx` right panel | Host the selected project's workspace (FRD-04); default-select the first. | REQ-03-004, REQ-03-005 |
@@ -146,7 +146,7 @@ frd-13 (foundation, VERIFIED)
         │
         └─ WO-03-002  Portfolio surface      artifacts: app/portfolio/**,
                       (rail + table + rows +             components/modules/{ProjectRail,
-                       empty + recovery +                ProjectRow}/**
+                       empty + recovery +                ProjectRail}/**
                        status chips)
 ```
 

@@ -1,7 +1,7 @@
 /**
  * ProjectRail — relative "last sync" chip on the MOUNTED selectable row (REQ-03-007, AC-03-007.3).
  *
- * The chip used to live only on `PortfolioTable`, which no route mounts; the rail is the surface
+ * The chip first shipped on a component no route mounted; the rail is the surface
  * the owner actually sees, so the chip is asserted here, through the rail's public output.
  */
 

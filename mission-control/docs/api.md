@@ -1969,8 +1969,7 @@ export function activeProjects(content?: string): ProjectListItem[];
 
 ### Consumption (downstream features)
 
-- **`app/portfolio/page.tsx` + `components/ProjectRail.tsx`** (WO-03-002): calls `activeProjects()` server-side, passes `ProjectListItem[]` to the rail for rendering.
-- **`components/ProjectRow.tsx`** (WO-03-002): receives one `ProjectListItem`; reads `exists`, `stage`, `running` for the building/stopped indicator and ⚠️ badge.
+- **`app/portfolio/page.tsx` + `components/ProjectRail.tsx`** (WO-03-002): calls `railProjects()` (the building + shipped subset of `activeProjects()`, REQ-03-001) server-side, passes `ProjectListItem[]` to the rail, whose rows read `exists`, `stage`, `running` for the status icon and the path-not-found recovery.
 - **`components/BusinessSnapshot.tsx`** (WO-03-003): receives `item.snapshot` for shipped-project chips.
 - **`components/RecoveryHint.tsx`** (WO-03-005): receives `item.repo` and `item.path` for the copyable recovery command.
 

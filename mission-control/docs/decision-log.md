@@ -1,5 +1,27 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Dead portfolio duplicates removed: `modules/ProjectRow` and `ProjectRail`'s non-selectable mode
+
+**What:** After `PortfolioTable` was removed (entry below), two more unmounted duplicates of the selectable
+rail row remained. Evidence of no production use, gathered this session: `grep -rn ProjectRow src` found
+no importer outside its own folder (the only other hit is an unrelated local function inside
+`ProjectRail.tsx`); `grep -rn "<ProjectRail" src` shows production callers only in `app/portfolio/page.tsx`
+(always with `selectedSlug`) and the `SelectableProjectRail` pass-through (always a string), never with
+`isLoading`/`error`; `tsc --noEmit` and `knip` are clean after removal. Removed: `ProjectRow/ProjectRow.tsx`
+(163 lines) + its test, and in `ProjectRail.tsx` the non-selectable card mode (`ProjectRow` function,
+loading/error/empty states, `InlineRecoveryHint`, `InlineBusinessSnapshot`, 14 style constants, the
+`isLoading`/`error` props). `selectedSlug` is now a required prop. `ProjectRail.tsx` went from 794 to 398
+lines, so no split was needed (`clean-code.md` ceiling 500). Its old test file (`ProjectRail.test.tsx`,
+500 lines, all on the removed mode) was deleted; the selectable mode keeps `ProjectRail.selectable.test.tsx`
+(gained an ordering test) and `ProjectRail.lastSync.test.tsx`. Stale comments citing
+`PortfolioTable.test.tsx` in `OnboardingGate.gaps.test.tsx` now point at the rail's token-invariant test.
+**Docs touched:** `docs/design/components.md` (row `ProjectRow` removed, `ProjectRail` row notes the
+removals), FRD-03 `blueprint.md` (`CMP-03-row` now points at the rail's `SelectableRow`), WO-03-002 note,
+`docs/api.md` consumption list.
+**Left for a separate change (also unmounted in production):** `app/portfolio/SelectableProjectRail.tsx`
+(a test-only pass-through, five test files import it) and `app/portfolio/_components/BusinessSnapshot`
+(FRD-03 defers the snapshot). Not removed here: outside the brief.
+
 ## 2026-09-30 — Campaña fichas restored to the current factory (AC-02-010.8) and unique keys for the Informe transitions band
 
 **AC-02-010.8 (card `campaign-pipeline-ac02-010-8-rebuild`).** The FRD requires the Design ficha to name

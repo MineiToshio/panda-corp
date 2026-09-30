@@ -30,8 +30,9 @@ VERIFIED and consumed as-is; this WO is presentational.
 - **`ProjectRail` / `RailItem`** (`src/components/modules/ProjectRail/ProjectRail.tsx`) — the
   selectable rail nav primitive (`.rail` / `.rail.on`): status icon + title + count badges + stage
   line. Distinct from `Tabs` and the docs `.navitem` — reuse the rail primitive, do not fork a tab.
-- **`ProjectRow`** (`src/components/modules/ProjectRow/ProjectRow.tsx`; its former sibling `PortfolioTable`
-  was removed 2026-09-30, see WO-03-006) — the project row: title, stage, building/stopped indicator (icon + label, not color-only).
+- **`ProjectRow`** (`src/components/modules/ProjectRow/ProjectRow.tsx`) — the standalone project card. **Removed
+  2026-09-30** (as was `PortfolioTable`, see WO-03-006, and the rail's own non-selectable card mode): no route
+  mounted any of them; the rail's `SelectableRow` is the one project row (title, stage, building/stopped icon).
 - **`StatusChips`** (`src/app/portfolio/_components/status-chips/status-chips.tsx`) — per-row
   pending-decisions / bugs / rethink count badges; built as **`CountBadge` presets** (`tabular-nums`),
   not new pills.

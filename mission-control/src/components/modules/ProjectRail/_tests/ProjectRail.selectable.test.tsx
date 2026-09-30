@@ -1,7 +1,6 @@
 /**
- * ProjectRail — selectedSlug extension tests (RED → GREEN → refactor).
+ * ProjectRail tests (RED → GREEN → refactor): the ONE portfolio rail (DR-057).
  *
- * When ProjectRail receives `selectedSlug`, it activates "selectable mode":
  *   - Rail root: data-testid="selectable-project-rail" (nav element)
  *   - Each row: data-testid="selectable-project-row" (article element)
  *   - Each row has a Link to ?project=<name>
@@ -15,9 +14,8 @@
  *     sibling of the link (no button-inside-anchor). NO business snapshot in the
  *     rail item — faithful to the prototype `.rail` item.
  *
- * These tests replace the integration seam previously provided by
- * app/portfolio/SelectableProjectRail.tsx. After this, page.tsx imports
- * ProjectRail directly (satisfying the DR-057 gate).
+ * The earlier non-selectable card mode (and its `project-rail-*` testids) was removed
+ * 2026-09-30: no route rendered it.
  *
  * Traceability:
  *   CMP-03-rail → REQ-03-001, REQ-03-002, REQ-03-004, REQ-03-005
@@ -108,22 +106,23 @@ const ITEM_SHIPPED = makeItem({
 // ---------------------------------------------------------------------------
 
 describe("ProjectRail selectable mode — root element", () => {
-  it("renders selectable-project-rail when selectedSlug is provided", () => {
+  it("renders the selectable-project-rail nav", () => {
     render(<ProjectRail items={[ITEM_ALPHA]} selectedSlug="proj-alpha" />);
-    expect(screen.getByTestId("selectable-project-rail")).toBeDefined();
+    expect(screen.getByTestId("selectable-project-rail").tagName).toBe("NAV");
   });
 
-  it("does NOT render project-rail testid in selectable mode", () => {
-    render(<ProjectRail items={[ITEM_ALPHA]} selectedSlug="proj-alpha" />);
-    expect(screen.queryByTestId("project-rail")).toBeNull();
-  });
-
-  it("renders selectable-project-rail-empty when items=[] in selectable mode", () => {
-    render(<ProjectRail items={[]} selectedSlug={undefined} />);
-    // When selectedSlug is passed (even undefined makes it selectable) — handled:
-    // pass selectedSlug="" to trigger selectable mode with empty items
-    render(<ProjectRail items={[]} selectedSlug="any" />);
+  it("renders selectable-project-rail-empty when items=[]", () => {
+    render(<ProjectRail items={[]} selectedSlug="" />);
     expect(screen.getByTestId("selectable-project-rail-empty")).toBeDefined();
+  });
+
+  it("renders the rows in the order of the input array", () => {
+    render(<ProjectRail items={[ITEM_BETA, ITEM_ALPHA]} selectedSlug="proj-alpha" />);
+    const rows = screen.getAllByTestId("selectable-project-row");
+    expect(rows.map((row) => row.getAttribute("aria-label"))).toEqual([
+      "Proyecto: proj-beta",
+      "Proyecto: proj-alpha",
+    ]);
   });
 });
 

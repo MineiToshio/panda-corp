@@ -37,7 +37,7 @@
  *
  *   GAP-5  Zero hardcoded color values in inline styles
  *          → AGENTS.md rule: "styles only with design tokens, never hardcoded colors".
- *            PortfolioTable.test.tsx has this guard; OnboardingGate does not.
+ *            ProjectRail.selectable.test.tsx has this guard; OnboardingGate does not.
  *
  *   GAP-6  Guard integration with the real readProfile contract
  *          → the existing guard tests use an inline helper unrelated to readProfile.
@@ -204,7 +204,7 @@ describe("frd-01 AC-01-001.1: gate renders a hint explaining what to do after ru
 
 // ---------------------------------------------------------------------------
 // GAP-5 — Zero hardcoded color values in inline styles (AGENTS.md invariant)
-// Mirrors the identical guard in PortfolioTable.test.tsx (Group 10).
+// Mirrors the identical guard in ProjectRail.selectable.test.tsx (design token invariant).
 // Mutation: if a developer adds `color: "#ff0000"` to any style const, this
 // test catches it before the design-token rule is violated.
 // ---------------------------------------------------------------------------

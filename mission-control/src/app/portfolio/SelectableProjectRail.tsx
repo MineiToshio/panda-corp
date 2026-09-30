@@ -13,7 +13,7 @@
  * CHIP_BUILDING_STYLE, CHIP_STOPPED_STYLE) as top-level `const` — those belong
  * to the ONE shared primitive (verified by frd-03-rail-reuse.gate.reviewer.test.tsx).
  *
- * Consumers of ProjectRail's selectable mode can also import ProjectRail directly:
+ * Consumers can also import ProjectRail directly:
  *   import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
  *   <ProjectRail items={items} selectedSlug={selectedSlug} />
  *
@@ -37,11 +37,11 @@ export interface SelectableProjectRailProps {
 }
 
 // ---------------------------------------------------------------------------
-// Component — thin pass-through to ProjectRail's selectable mode.
+// Component — thin pass-through to ProjectRail.
 // ---------------------------------------------------------------------------
 
 /**
- * SelectableProjectRail — renders the shared ProjectRail in selectable mode.
+ * SelectableProjectRail — renders the shared ProjectRail.
  *
  * Pass-through wrapper kept for import-site compatibility. New code should
  * import ProjectRail directly and pass `selectedSlug`.
@@ -50,9 +50,6 @@ export function SelectableProjectRail({
   items,
   selectedSlug,
 }: SelectableProjectRailProps): React.JSX.Element {
-  // selectedSlug may be undefined (empty items, no selection possible).
-  // ProjectRail treats undefined selectedSlug as "no selectable mode", so we
-  // pass an empty string as sentinel when items is empty to stay in selectable mode.
-  const slug = selectedSlug ?? "";
-  return <ProjectRail items={items} selectedSlug={slug} />;
+  // selectedSlug is undefined when the list is empty (nothing to select); ProjectRail takes "".
+  return <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />;
 }
