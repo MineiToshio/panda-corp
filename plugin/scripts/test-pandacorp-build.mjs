@@ -66,6 +66,9 @@ import { sealLine } from './drift-seal.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ENGINE_PATH = path.resolve(__dirname, '../runtime/engine/pandacorp-build.src.js')
+// The harness's default `stateCli` names no real file; scenarios that EXECUTE an engine-built shell command against the
+// scripts it names (BL-0214: the collector's seal-report.mjs) point it at this real scripts directory.
+const REAL_STATE_CLI = path.join(__dirname, 'pandacorp-build-state.mjs')
 // BL-0204: the deployable engine is GENERATED from the source (generate-engine.mjs strips comments to fit
 // the Workflow tool's 512 KB script limit). Static source guards and text assertions always read the
 // SOURCE; PANDACORP_ENGINE_RUN=artifact makes every scenario EXECUTE the generated artifact instead, so
@@ -168,6 +171,7 @@ function defaultResponse(label) {
   if (label.startsWith('port-reviewer-tests:') || label.startsWith('reviewer-test-hash:')) return null   // BL-0184: echo EXPECTED — see hashEchoDefault(call)
   if (label.startsWith('commit:')) return { committed: 1, sha: 'defaultcommitsha' }   // WP-03 fusion (ii): the real mech commit writer always reports its own sha
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
+  if (label.startsWith('evidence-reread:')) return { output: '' }             // BL-0214: nothing readable back unless a scenario scripts the stored sealed line
   if (label.startsWith('find:drift:')) return { contracts: [{ contract: 'REQ-00-001 — fixture contract', contractClass: 'requirement', owner: 'none', status: 'implemented', claim: 'preexisting', evidence: { file: 'src/fixture.ts', line: 1, snippet: 'fixture()' } }], toolCalls: 12, budgetExhausted: false } // BL-0203 DRIFT_FINDER_SCHEMA — a clean whole-FRD pass
   if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
@@ -183,10 +187,31 @@ function defaultResponse(label) {
   return null // unmatched — recorded loudly
 }
 
+// BL-0214: what the engine asked finder-snippets.mjs to check (the `--rows '<json>'` argument and the `--pin`), read back from the prompt.
+const snippetRowsOf = (call) => { const m = call.prompt.match(/--rows '((?:[^']|'"'"')*)'/); return m ? JSON.parse(m[1].replaceAll(`'"'"'`, "'")) : [] }
+const snippetPinOf = (call) => { const m = call.prompt.match(/--pin '((?:[^']|'"'"')*)'/); return m ? m[1] : '' }
+// BL-0214: the collector's machine line, sealed exactly as seal-report.mjs seals it. A scenario that hands over a bare
+// gate-report string is a faithful collector (the pre-BL-0214 fixtures); `__rawReport: true` keeps the string as written
+// (an unsealed or altered copy), and a string that is not a JSON object is left alone too.
+const sealedEvidenceAnswer = (call, answer) => Promise.resolve(answer).then((a) => {
+  if (!a || typeof a !== 'object' || typeof a.report !== 'string') return a
+  const { __rawReport, ...rest } = a
+  if (__rawReport) return rest
+  let report = null
+  try { report = JSON.parse(a.report) } catch { return a }
+  if (!report || typeof report !== 'object' || Array.isArray(report) || report.kind === 'gate-report') return a
+  const m = call.prompt.match(/--frd (\S+) --pin (\S+) --out/)
+  return { ...rest, report: sealLine({ ok: true, version: 2, kind: 'gate-report', frd: m ? m[1] : call.label.slice('evidence:'.length), pin: m ? m[2] : '', report }) }
+})
+
 // BL-0182/0184 prompt-aware defaults (the happy path): a gate release salvages exactly the test files the
 // gate DECLARED (the JSON the engine embeds in the release prompt) and leaves the worktree clean; a port /
 // integrity check observes every EXPECTED file intact (echoes the JSON the engine embeds).
 function promptAwareDefault(call) {
+  if (call.label.startsWith('finder-snippets:')) {
+    // BL-0214 happy path: every cited snippet is at the pin (the real script reads the committed tree; scenarios that care script the line).
+    return { output: sealLine({ ok: true, version: 2, pin: snippetPinOf(call), results: snippetRowsOf(call).map((r) => ({ i: r.i, status: 'ok' })) }) }
+  }
   if (call.label.startsWith('gate-release:')) {
     const m = call.prompt.match(/declared these test files \(JSON\): (\[[^\]]*\])/)
     const declared = m ? JSON.parse(m[1]) : []
@@ -220,6 +245,7 @@ async function runEngine(scenario) {
   // say (every pre-BL-0205 scenario) is a faithful one — it reports the pin and the worktree its own prompt named.
   // A scenario that scripts `headSha`/`pinDir`/`headShaEnd` explicitly (even `null`) is left exactly as written.
   const finderAnswersAtPin = (call, answer) => {
+    if (call.label.startsWith('evidence:')) return sealedEvidenceAnswer(call, answer)
     if (!call.label.startsWith('find:drift:')) return answer
     return Promise.resolve(answer).then((a) => {
       if (!a || typeof a !== 'object' || !Array.isArray(a.contracts)) return a
@@ -2617,8 +2643,11 @@ SCENARIOS.push({
     // gate-cost + 3 D1), recounted from the source below.
     // + 1 (BL-0212): 'wo-revert-<mode>:<frd>' — runs ONE wo-revert.mjs command and returns its sealed stdout
     // verbatim (zero judgment; the SCRIPT computes the revert from git history, the ENGINE verifies the seal). = 26.
-    t.ok(mechAgentCount === 26, `exactly 26 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 26, `exactly 26 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // + 2 (BL-0214): 'evidence-reread:<frd>' (re-prints the collector's stored SEALED report when the relayed copy fails its
+    // seal) and 'finder-snippets:<frd>' (ONE finder-snippets.mjs check against the pin, a read-only git runner) — each runs
+    // ONE script command and returns its stdout verbatim; the ENGINE verifies the seal and decides. = 28.
+    t.ok(mechAgentCount === 28, `exactly 28 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 28, `exactly 28 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -6893,7 +6922,7 @@ SCENARIOS.push({
   const h = d1Harness({ order: ['frd-b193-2', 'frd-b193-1'], autoFlushAt: 2 })
   SCENARIOS.push({
     name: 'BL-0193a. digested collector in slot k — verify.sh in the FOREGROUND with an explicit timeout, output to a file, and the report read from gate-worktree-<k>/mission-control/.pandacorp/run/gate-report.json (executed), never the main tree',
-    args: { mode: 'pro', parallelGates: true, gateSlots: 2, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    args: { mode: 'pro', parallelGates: true, gateSlots: 2, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control', stateCli: REAL_STATE_CLI },   // BL-0214: the command now runs the real seal-report.mjs
     plan: d1Resume('b193', 2),
     responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, tests: [], ac: '' } }, ...h.responses],
     assert(t, run) {
@@ -6916,7 +6945,7 @@ SCENARIOS.push({
         t.ok(run1.ok && run1.out.includes(`"fresh":"slot-${k}"`) && !/STALE|MAIN-TREE/.test(run1.out) && /verify exit=0/.test(run1.out), `${frd}: executed from another cwd, the command prints slot ${k}'s FRESH report (got ${(run1.out || run1.err || '').slice(0, 160)})`)
         t.ok(gcFs.existsSync(path.join(slotDir(k), 'mission-control/.pandacorp/run/evidence-verify.log')), `${frd}: the verify.sh console output went to the slot's log file`)
         const hung = cmd ? gcBash(cmd.replace('<PIN_BASE>', 'hang').replace(' 540 bash ', ' 1 bash '), gcOs.tmpdir()) : { ok: false, out: '' }
-        t.ok(/verify exit=142/.test(hung.out) && /REPORT MISSING/.test(hung.out), `${frd}: the shell-level alarm really bounds a hung verify.sh (1 s here, 540 s in the engine) and the report is then reported missing (got ${(hung.out || hung.err || '').slice(0, 160)})`)
+        t.ok(/verify exit=142/.test(hung.out) && /"ok":false,"error":"no file at/.test(hung.out), `${frd}: the shell-level alarm really bounds a hung verify.sh (1 s here, 540 s in the engine) and the report is then reported missing (got ${(hung.out || hung.err || '').slice(0, 160)})`)
       }
       gcFs.rmSync(fx.root, { recursive: true, force: true })
     },
@@ -7387,7 +7416,7 @@ SCENARIOS.push({
   const h = d1Harness()
   SCENARIOS.push({
     name: 'E2-6a. digested collector in a FRESH slot with no .pandacorp/run/ (executed) — the command creates it, logs to the file and prints the report on its FIRST attempt',
-    args: { mode: 'pro', parallelGates: true, gateSlots: 1, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control' },
+    args: { mode: 'pro', parallelGates: true, gateSlots: 1, gateEvidence: 'digested', projectDir: fx.app, project: 'mission-control', stateCli: REAL_STATE_CLI },   // BL-0214: the command now runs the real seal-report.mjs
     plan: d1Resume('e26', 1),
     responses: [{ prefix: 'evidence:', response: { report: '{"green":true,"scope":"since","subgates":[]}', diffStat: '', diff: '', truncated: false, tests: [], ac: '' } }, ...h.responses],
     assert(t, run) {
@@ -8099,13 +8128,13 @@ SCENARIOS.push({
 {
   const h = d1Harness()
   SCENARIOS.push({
-    name: 'F2e1. budget — the parallel-gate reservation counts the finder: a digested gate link is ~7 units (probe + collector + finder + opus judge + release)',
+    name: 'F2e1. budget — the parallel-gate reservation counts the finder: a digested gate link is ~8 units (probe + collector + finder + its snippet check + opus judge + release)',
     args: { mode: 'pro', parallelGates: true, gateEvidence: 'digested', maxAgents: 20 },
     plan: d1Resume('f2e1', 2),
     responses: [{ prefix: 'evidence:', response: f2Pack('f2e1') }, ...h.responses],
     assert(t, run) {
       t.ok(!run.error, `engine threw: ${run.error}`)
-      t.ok(hasLog(run, /gate for frd-f2e1-2 deferred: agent budget — ~7 units for the gate/), `the reservation includes the finder (${run.logs.filter((l) => /deferred: agent budget/.test(l)).join(' | ')})`)
+      t.ok(hasLog(run, /gate for frd-f2e1-2 deferred: agent budget — ~8 units for the gate/), `the reservation includes the finder and its snippet check (${run.logs.filter((l) => /deferred: agent budget/.test(l)).join(' | ')})`)
     },
   })
 }
@@ -8123,14 +8152,14 @@ SCENARIOS.push({
   })
 }
 SCENARIOS.push({
-  name: 'F2e3. static recount — the finder is ONE new sonnet spawn site (not MECH: the 25 MECH sites are unchanged); its agent exists on sonnet; its method is the generated copy of drift-finder.md',
+  name: 'F2e3. static recount — the finder is ONE new sonnet spawn site (not MECH: the 27 MECH sites are unchanged by it); its agent exists on sonnet; its method is the generated copy of drift-finder.md',
   args: { mode: 'pro' },
   plan: mkPlan([]),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error}`)
     // Not a MECH site: the finder reads and judges code against a spec (a STANDARD-tier task), so it is a
-    // sonnet spawn with its own agent, never MECH_AGENT(...). The WP03a count (25) therefore does not move.
-    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 26, 'the MECH_AGENT sites are unchanged by the finder (26 = the WP03a recount, incl. BL-0212\'s revert relay)')
+    // sonnet spawn with its own agent, never MECH_AGENT(...). The WP03a count (28 since BL-0214) therefore does not move.
+    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 28, 'the MECH_AGENT sites are unchanged by the finder (28 = the WP03a recount, incl. BL-0212 and BL-0214)')
     t.ok((source.match(/agentType: 'pandacorp:drift-finder'/g) || []).length === 1, 'exactly one pandacorp:drift-finder spawn site')
     t.ok(/label: `find:drift:\$\{frd\}`[^\n]*model: 'sonnet'[^\n]*effort: 'medium'/.test(source), 'that site is sonnet at effort medium')
     const agentMd = readFileSync(path.resolve(__dirname, '../agents/drift-finder.md'), 'utf8')
@@ -8768,6 +8797,266 @@ SCENARIOS.push({
       const reverts = run.calls.filter((c) => /^wo-revert-/.test(c.label))
       t.ok(reverts.length >= 2 && reverts.every((c) => /--frd 'frd-b212f-1'/.test(c.prompt) && /--wo 'wo-b212f-1'/.test(c.prompt) && !/wo-b212f-2/.test(c.prompt)), 'every revert relay names only FRD A and its work order — never B')
       t.ok(run.result && run.result.builtFrds.includes('frd-b212f-2') && run.result.builtFrds.includes('frd-b212f-1'), 'B verified; A verified after its retry')
+    },
+  })
+}
+
+// ── BL-0214 · the two remaining model relays of machine output: the digested evidence report, and the drift finder's
+// `implemented` snippets. A model is not a lossless copy channel (BL-0206). (a) the collector's report is SEALED by
+// seal-report.mjs and the engine verifies it (re-read from the stored copy, then a loud explore fallback — never a copy
+// trusted); (b) a deterministic MECH step contrasts every `implemented` row's cited snippet with the committed tree at the
+// pin: a row whose snippet is not there becomes `unknown` (the judge must look), two such rows discard the report.
+const b214Report = { at: '2026-09-30T10:00:00Z', scope: 'since', green: false, subgates: [{ name: 'vitest', exit: 1, duration_ms: 900, failures: [{ file: 'src/a.test.ts', msg: 'B214-ROW-ONE' }, { file: 'src/b.test.ts', msg: 'B214-ROW-TWO' }] }] }
+const B214_PIN = 'defaultcommitsha'   // the pin the serial gate freezes in this harness (the `commit:` default answer)
+const b214Line = (frd, report = b214Report, { pin = B214_PIN } = {}) => sealLine({ ok: true, version: 2, kind: 'gate-report', frd, pin, report })
+const b214Pack = (tag, line, extra = {}) => ({ ...f2Pack(tag), report: line, __rawReport: true, ...extra })
+const b214Lost = (line) => { const out = line.replace(',{"file":"src/b.test.ts","msg":"B214-ROW-TWO"}', ''); if (out === line) throw new Error('fixture: the row to drop is not in the line'); return out }
+const b214Flipped = (line) => { const out = line.replace('"exit":1', '"exit":0'); if (out === line) throw new Error('fixture: nothing to flip'); return out }
+{
+  const frd = 'frd-b214a'
+  const good = b214Line(frd)
+  SCENARIOS.push({
+    name: 'BL-0214 a. digested — a relay that LOST a failures[] row (still valid JSON with a boolean green) fails its seal; the stored sealed line is re-read and the judge gets the COMPLETE report',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214a-001'),
+    responses: [
+      { prefix: 'evidence:', response: b214Pack('b214a', b214Lost(good)) },
+      { prefix: 'evidence-reread:', response: { output: good } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /EvidenceRelay frd-b214a: the collector report failed its integrity seal.*attempt 1\/2/), 'the altered relay is logged loudly')
+      const rr = byLabel(run, /^evidence-reread:/)
+      t.ok(rr.length === 1 && rr[0].label === 'evidence-reread:frd-b214a', `exactly ONE re-read (got ${rr.length})`)
+      t.ok(rr[0] && /seal-report\.mjs' reread --file "[^"]*gate-report\.frd-b214a\.sealed\.json"/.test(rr[0].prompt), "the re-read runs the script on this FRD's stored sealed file")
+      t.ok(!hasLog(run, /GateEvidenceFallback/), 'the pack was recovered: no fallback')
+      const gate = byLabel(run, 'gate:frd-b214a')[0]
+      t.ok(gate && /YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt) && /B214-ROW-ONE/.test(gate.prompt) && /B214-ROW-TWO/.test(gate.prompt), 'the gate is digested and carries BOTH failure rows, including the one the relay lost')
+    },
+  })
+}
+{
+  const frd = 'frd-b214b'
+  const good = b214Line(frd)
+  SCENARIOS.push({
+    name: 'BL-0214 b. digested — every read of the report fails its seal (a flipped sub-gate exit, twice): the pack is DISCARDED, never trusted — loud GateEvidenceFallback, the gate runs in explore mode',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214b-001'),
+    responses: [
+      { prefix: 'evidence:', response: b214Pack('b214b', b214Flipped(good)) },
+      { prefix: 'evidence-reread:', response: { output: b214Flipped(good) } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^evidence-reread:/).length === 2, 'bounded: exactly EVIDENCE_REREADS (2) re-reads')
+      t.ok(hasLog(run, /GateEvidenceFallback frd-b214b: the collector report failed its integrity seal.*after 2 re-read\(s\).*EXPLORE mode/), 'the discard is logged with its reason')
+      const gate = byLabel(run, 'gate:frd-b214b')[0]
+      t.ok(gate && /GateEvidenceFallback/.test(gate.prompt) && /Run the FOCUSED gate/.test(gate.prompt) && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'the gate degrades to explore and emits the GateEvidenceFallback event (never silence, never the altered copy)')
+      t.ok(gate && !/B214-ROW/.test(gate.prompt), 'no row of the altered report reaches the judge')
+    },
+  })
+}
+{
+  const frd = 'frd-b214c'
+  SCENARIOS.push({
+    name: 'BL-0214 c. digested — a sealed report of ANOTHER FRD (a stale stored copy) verifies but is refused: no re-read can fix it, loud explore fallback',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214c-001'),
+    responses: [{ prefix: 'evidence:', response: b214Pack('b214c', b214Line('frd-other-one')) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /GateEvidenceFallback frd-b214c: the sealed report belongs to frd-other-one at defaultcommi, not to frd-b214c at defaultcommi/), 'refused by identity, with both identities named')
+      t.ok(byLabel(run, /^evidence-reread:/).length === 0, 'a wrong-identity report is not a transport fault: no re-read is spawned')
+      const gate = byLabel(run, 'gate:frd-b214c')[0]
+      t.ok(gate && /GateEvidenceFallback/.test(gate.prompt) && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'explore fallback with its event')
+    },
+  })
+}
+{
+  const frd = 'frd-b214d'
+  SCENARIOS.push({
+    name: 'BL-0214 d. digested — a BARE (unsealed) copy of the report is not a report: re-read, then explore (the pre-BL-0214 engine accepted any JSON with a boolean green)',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214d-001'),
+    responses: [{ prefix: 'evidence:', response: b214Pack('b214d', JSON.stringify(b214Report)) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /EvidenceRelay frd-b214d: the collector report failed its integrity seal/) && byLabel(run, /^evidence-reread:/).length === 2, 'unsealed → two re-reads')
+      t.ok(hasLog(run, /GateEvidenceFallback frd-b214d/), 'and then a loud fallback')
+      const gate = byLabel(run, 'gate:frd-b214d')[0]
+      t.ok(gate && !/YOUR EVIDENCE IS ALREADY COLLECTED/.test(gate.prompt), 'the bare copy never reaches the judge as authoritative')
+    },
+  })
+}
+{
+  const frd = 'frd-b214e'
+  SCENARIOS.push({
+    name: 'BL-0214 e. digested negative control — an intact sealed report is accepted on the FIRST read (no re-read spawn, no fallback); the collector is told to run the sealer and return its last line byte-for-byte',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214e-001'),
+    responses: [{ prefix: 'evidence:', response: b214Pack('b214e', b214Line(frd)) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^evidence-reread:/).length === 0 && !hasLog(run, /EvidenceRelay|GateEvidenceFallback/), 'nothing to recover, nothing logged')
+      const ev = byLabel(run, 'evidence:frd-b214e')[0]
+      t.ok(ev && /seal-report\.mjs' seal --file "\$REPORT" --frd frd-b214e --pin defaultcommitsha --out "[^"]*gate-report\.frd-b214e\.sealed\.json"/.test(ev.prompt), "the collector command seals the report and stores it under the FRD's own name")
+      t.ok(ev && /LAST line that command printed is the report, SEALED/.test(ev.prompt) && /byte-for-byte/.test(ev.prompt) && !/cat "\$REPORT"/.test(ev.prompt), 'the collector returns the sealed line verbatim, not a cat of the file')
+      const gate = byLabel(run, 'gate:frd-b214e')[0]
+      t.ok(gate && /B214-ROW-TWO/.test(gate.prompt), 'the report reaches the judge whole')
+    },
+  })
+}
+
+// (b) the finder's snippets. The finder's pinDir (what the harness's faithful finder reports) lets a row cite an ABSOLUTE path.
+const b214Finder = (rows) => (call) => {
+  const wt = (call.prompt.match(/Work from the GATE WORKTREE (\S+) /) || [])[1]
+  return f2Finding(rows, { pinDir: `${String(wt).startsWith('/') ? '' : '/test-project/'}${wt}/mission-control`, headSha: (call.prompt.match(/at the pinned commit (\S+)/) || [])[1] })
+}
+const b214PinDir = (call) => b214Finder([])(call).pinDir
+const b214Check = (statusOf, { alter } = {}) => (call) => {
+  const rows = snippetRowsOf(call)
+  const line = sealLine({ ok: true, version: 2, pin: snippetPinOf(call), results: rows.map((r) => ({ i: r.i, status: statusOf(r) })) })
+  return { output: alter ? alter(line) : line }
+}
+{
+  const frd = 'frd-b214f'
+  SCENARIOS.push({
+    name: "BL-0214 f. the F2 shape — an `implemented` row whose snippet exists only on main (not at the pin) becomes `unknown`: the judge's prompt lists it under UNKNOWN ON THIS CYCLE'S CONTRACTS; a verified row stays a pointer",
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214f-001', { acText: 'AC-80-002.1 WHEN B214F-CYCLE THE SYSTEM SHALL hold' }),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214f') },
+      { prefix: 'find:drift:', response: b214Finder([
+        f2Row(frd, 'REQ-80-001', 'implemented', { file: 'src/lib/stays.ts', line: 10, snippet: 'B214F-STAYS-SNIPPET' }),
+        f2Row(frd, 'AC-80-002.1', 'implemented', { owner: 'wo-b214f-001', file: 'src/lib/formatLastSync.ts', line: 7, snippet: 'B214F-ONLY-ON-MAIN' }),
+      ]) },
+      { prefix: 'finder-snippets:', response: b214Check((r) => (/ONLY-ON-MAIN/.test(r.snippet) ? 'missing' : 'ok')) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const ck = byLabel(run, /^finder-snippets:/)
+      t.ok(ck.length === 1 && ck[0].label === 'finder-snippets:frd-b214f', `ONE snippet check per finder gate (got ${ck.length})`)
+      const asked = ck[0] ? snippetRowsOf(ck[0]) : []
+      t.ok(asked.length === 2 && asked[0].file === 'src/lib/stays.ts' && asked[1].file === 'src/lib/formatLastSync.ts' && asked[1].line === 7 && asked[1].snippet === 'B214F-ONLY-ON-MAIN', `it asks about the two implemented rows, project-relative (got ${JSON.stringify(asked)})`)
+      t.ok(ck[0] && /--digest [0-9a-f]{8} --rows /.test(ck[0].prompt) && /finder-snippets\.mjs' check --project /.test(ck[0].prompt), 'the command carries the rows digest (an altered INPUT is refused by the script)')
+      t.ok(hasLog(run, /DriftFinderSnippets frd-b214f: 1 of 2 "implemented" row\(s\) cite a snippet that cannot be verified at the pin \(AC-80-002\.1 missing\)/), 'the downgrade is logged loudly, naming the contract')
+      const gate = byLabel(run, 'gate:frd-b214f')[0]
+      const unknownCycle = gate && ((gate.prompt.match(/\(2\) UNKNOWN ON THIS CYCLE'S CONTRACTS[^\n]*\n([\s\S]*?)\n  \(3\)/) || [])[1] || '')
+      t.ok(unknownCycle && /AC-80-002\.1/.test(unknownCycle) && /cited snippet could not be verified at the pin \(missing\)/.test(unknownCycle), "the false `implemented` is listed under UNKNOWN on this cycle's contracts, with the engine's note")
+      const implemented = gate ? (gate.prompt.split('(4) IMPLEMENTED')[1] || '') : ''
+      t.ok(/REQ-80-001/.test(implemented) && !/AC-80-002\.1/.test(implemented), 'the verified row stays in the IMPLEMENTED pointer map; the downgraded one is gone from it')
+    },
+  })
+}
+{
+  const frd = 'frd-b214g'
+  SCENARIOS.push({
+    name: 'BL-0214 g. two `implemented` rows absent from the pin mean the finder read another tree: the WHOLE report is discarded like a wrong-tree report (DriftFinderFallback), the gate runs without it',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214g-001'),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214g') },
+      { prefix: 'find:drift:', response: b214Finder([
+        f2Row(frd, 'REQ-80-001', 'implemented', { snippet: 'B214G-ONE' }),
+        f2Row(frd, 'REQ-80-002', 'implemented', { snippet: 'B214G-TWO' }),
+        f2Row(frd, 'REQ-80-003', 'drift', { snippet: 'B214G-DRIFT' }),
+      ]) },
+      { prefix: 'finder-snippets:', response: b214Check((r) => (/ONE/.test(r.snippet) ? 'missing' : 'no-file')) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(hasLog(run, /DriftFinderFallback frd-b214g: WRONG TREE \(snippets\): 2 of the finder's 2 implemented citations are not in the tree at the gate pin/), 'discarded loudly with the count and the pin')
+      const gate = byLabel(run, 'gate:frd-b214g')[0]
+      t.ok(gate && !/WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt) && !/B214G/.test(gate.prompt), 'no row of the discarded report reaches the judge (the drift row included)')
+      t.ok(run.result && run.result.builtFrds.includes('frd-b214g'), 'the gate itself still ran and verified')
+    },
+  })
+}
+{
+  const frd = 'frd-b214h'
+  let runs = 0
+  SCENARIOS.push({
+    name: "BL-0214 h. the checker's own line is a model relay too: a copy that fails its seal is simply RUN AGAIN (read-only, idempotent, bounded), and the intact answer is applied",
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214h-001'),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214h') },
+      { prefix: 'find:drift:', response: b214Finder([f2Row(frd, 'REQ-80-001', 'implemented', { snippet: 'B214H-ONE' })]) },
+      { prefix: 'finder-snippets:', response: (call) => b214Check(() => 'missing', { alter: (line) => (runs++ === 0 ? line.replace('"status":"missing"', '"status":"ok"') : line) })(call) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^finder-snippets:/).length === 2, 'the altered answer (missing → ok, the one that would have kept a false implemented) was not applied; the check ran again')
+      t.ok(hasLog(run, /DriftFinderSnippetRelay frd-b214h: the snippet checker output failed its integrity seal.*attempt 1\/2/), 'the altered relay is logged loudly')
+      t.ok(hasLog(run, /DriftFinderSnippets frd-b214h: 1 of 1 "implemented" row\(s\) cite a snippet that cannot be verified at the pin \(REQ-80-001 missing\)/), 'the INTACT answer is the one applied')
+    },
+  })
+}
+{
+  const frd = 'frd-b214i'
+  SCENARIOS.push({
+    name: 'BL-0214 i. the checker cannot be read back at all (unsealed): NO `implemented` row is trusted — every one goes to the judge as UNKNOWN, with a loud DriftFinderSnippetsUnavailable; drift rows are untouched',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214i-001'),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214i') },
+      { prefix: 'find:drift:', response: b214Finder([
+        f2Row(frd, 'REQ-80-001', 'implemented', { snippet: 'B214I-ONE' }),
+        f2Row(frd, 'REQ-80-002', 'drift', { snippet: 'B214I-DRIFT', probe: 'no-valid-probe' }),
+      ]) },
+      { prefix: 'finder-snippets:', response: (call) => ({ output: JSON.stringify({ ok: true, version: 2, pin: snippetPinOf(call), results: [{ i: 0, status: 'ok' }] }) }) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^finder-snippets:/).length === 3, 'bounded: the first run plus FINDER_SNIPPET_RETRIES (2) re-runs')
+      t.ok(hasLog(run, /DriftFinderSnippetsUnavailable frd-b214i: the snippet checker output failed its integrity seal.*none is trusted/), 'loud, and says what it did about it')
+      const gate = byLabel(run, 'gate:frd-b214i')[0]
+      t.ok(gate && /WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt) && /\(unchecked\)/.test(gate.prompt), 'the report still reaches the judge and the unchecked row is marked')
+      const unknownOther = gate ? ((gate.prompt.match(/\(3\) UNKNOWN ON OTHER CONTRACTS[^\n]*\n([\s\S]*?)\n  \(4\)/) || [])[1] || '') : ''
+      t.ok(/REQ-80-001/.test(unknownOther), 'the `implemented` row is now UNKNOWN (unreviewed)')
+    },
+  })
+}
+{
+  const frd = 'frd-b214j'
+  SCENARIOS.push({
+    name: 'BL-0214 j. no `implemented` row, nothing to check: the snippet check is NOT spawned (its agent is paid only when there is something to verify)',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214j-001'),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214j') },
+      { prefix: 'find:drift:', response: b214Finder([f2Row(frd, 'REQ-80-001', 'unknown', {}), f2Row(frd, 'REQ-80-002', 'drift', { probe: 'no-valid-probe' })]) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^finder-snippets:/).length === 0, 'no spawn')
+      t.ok(hasLog(run, /drift finder → 2 contract\(s\): 0 implemented/), 'the finder report itself was accepted')
+    },
+  })
+}
+{
+  const frd = 'frd-b214k'
+  SCENARIOS.push({
+    name: 'BL-0214 k. `ok` and `moved` (a stale line number only) keep the row `implemented`; an ABSOLUTE cited path inside the pinned worktree is made project-relative before the lookup',
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(frd, 'wo-b214k-001'),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack('b214k') },
+      { prefix: 'find:drift:', response: (call) => b214Finder([
+        f2Row(frd, 'REQ-80-001', 'implemented', { file: `${b214PinDir(call)}/src/lib/abs.ts`, line: 4, snippet: 'B214K-ABS' }),
+        f2Row(frd, 'REQ-80-002', 'implemented', { file: 'src/lib/moved.ts', line: 400, snippet: 'B214K-MOVED' }),
+      ])(call) },
+      { prefix: 'finder-snippets:', response: b214Check((r) => (/MOVED/.test(r.snippet) ? 'moved' : 'ok')) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const ck = byLabel(run, /^finder-snippets:/)[0]
+      const asked = ck ? snippetRowsOf(ck) : []
+      t.ok(asked[0] && asked[0].file === 'src/lib/abs.ts', `the absolute path inside the pinned worktree is stripped to a project-relative one (got ${asked[0] && asked[0].file})`)
+      t.ok(!hasLog(run, /DriftFinderSnippets frd-b214k/) && hasLog(run, /drift finder → 2 contract\(s\): 2 implemented/), 'both rows stay implemented, no downgrade, no noise')
+      const gate = byLabel(run, 'gate:frd-b214k')[0]
+      const implemented = gate ? (gate.prompt.split('(4) IMPLEMENTED')[1] || '') : ''
+      t.ok(/REQ-80-001/.test(implemented) && /REQ-80-002/.test(implemented), 'both are in the pointer map')
     },
   })
 }

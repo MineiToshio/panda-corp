@@ -644,8 +644,9 @@ certified, not reopened, nothing reverted; the FRD stays `IN_REVIEW` and re-gate
 a reopen it rides along as a finding and the post-patch verifier inherits it. `prove --out` deletes any earlier copy
 at its path before it runs, so a `replay` can never serve a previous run's proof. The same seal covers the BL-0189
 inventory-cache `check` line (it carries the whole cached inventory, and a copy that lost one contract row is still
-valid JSON): an altered line is never a cache HIT, the gate re-derives the inventory; the digested evidence report and
-the drift finder's snippets are still unverified relays (BL-0214). What stays a fail-closed cycle fault: an
+valid JSON): an altered line is never a cache HIT, the gate re-derives the inventory. BL-0214 closes the last two
+relays that shaped a verdict: the digested collector's report and the drift finder's snippets (next two paragraphs).
+What stays a fail-closed cycle fault: an
 intact script refusal (`ok:false`), a probe result that is genuinely unloadable/flaky/owned, a claim with no probe.
 A pre-seal script (`version` 1, version skew with an older installed plugin) is still read, with a warning. The same
 rule covers the other relay on this route: `drift-record`'s result is re-run once when unreadable (its command is
@@ -653,6 +654,34 @@ idempotent on disk) and a script refusal is final. **Invariant (BL-0209):** ever
 reaches either a `drift-record` dispatch or a logged reason (`already recorded this run`, or the loud "card could NOT
 be written") — `recordDrift` has no cap and no ordering dependence between FRDs; `BL-0209 b` proves three FRDs each
 confirming one drift in the same run get three dispatches and three `drift:` lines.
+
+**The digested evidence report is sealed (BL-0214).** The collector used to `cat` `gate-report.json` and hand it to the
+engine through a model; a copy that lost a `failures[]` row or flipped a sub-gate's `exit` is still valid JSON with a
+boolean `green`, and the opus judge read it as authoritative (certification was never exposed, because the judge
+re-runs `verify.sh --since` and the WP-08 cage reads that run, so the cost was a misdirected review). The collector's
+command now ends in `seal-report.mjs seal --file "$REPORT" --frd <frd> --pin <pin> --out <slot>/.pandacorp/run/gate-report.<frd>.sealed.json`
+and returns that command's LAST line byte-for-byte: `{ok,version:2,kind:"gate-report",frd,pin,report,sum}`, sealed with
+the same scheme as `drift-proof.mjs` (`drift-seal.mjs`). `resolveGateEvidence` recomputes the seal; a line that never
+arrived intact (unparseable, unsealed, seal mismatch) is re-read from the stored copy by a MECH `evidence-reread:<frd>`
+(`seal-report.mjs reread`, at most 2), and if it still does not verify the pack is discarded: the existing loud
+`GateEvidenceFallback` log plus the gate prompt's event, and the gate runs in explore mode, never a copy, never silence.
+A sealed report of another FRD or pin (a stale stored copy) verifies but is refused by identity and is not re-read.
+No extra agent on the happy path (the script runs inside the collector's own spawn).
+
+**The drift finder's `implemented` rows are checked against the pin (BL-0214).** BL-0205 checks the HEAD the finder
+SAYS it saw; the rows themselves were never checked, and an `implemented` row tells the digested judge not to look (F2
+lost 2 defects that way). After the finder answers, ONE MECH step `finder-snippets:<frd>` runs `finder-snippets.mjs
+check`, which contrasts every `implemented` row's `{file,line,snippet}` with the committed tree at the pin (`git show
+<pin>:./<file>`, never a working tree): `ok`, `moved` (present, stale line number), `missing`, `no-file`,
+`unverifiable` (snippet empty or under 6 characters). The rows travel with an FNV-1a `--digest` (a damaged copy is
+refused, not checked) and the answer is a sealed line; the engine verifies it and, being read-only and idempotent,
+simply runs it again (at most 2 more) when a relay altered either direction. A row that is not `ok`/`moved` becomes
+`unknown`: the judge lists it under "UNKNOWN on this cycle's contracts" with an `[ENGINE]` note, off its read budget.
+Two or more `missing`/`no-file` rows mean the finder read another tree: the whole report is discarded
+(`DriftFinderFallback … WRONG TREE (snippets)`). If the check cannot be read back at all, no `implemented` row is
+trusted (all become `unknown`) and `DriftFinderSnippetsUnavailable` says so. Cost: ONE MECH unit per finder gate link
+(counted in `gateCostEstimate`, so the launcher's finder-on `maxAgents` floor is 19 × the FRDs, not 17); a finder that
+returned no `implemented` row spawns nothing. Drift rows are not checked: the engine proves those with the DR-122 probe.
 
 **The drift finder audits the pinned tree, by construction (BL-0205).** A subagent's Bash tool starts every call in
 the launching session's directory (the factory's `main` checkout), so a `cd` into the pinned gate worktree does not
@@ -796,8 +825,8 @@ section `D1 parallelGates`, BL-0186), not a guideline:
   remaining cost too (a reopen ladder ~7 units), so a gate launched during it cannot starve it. Otherwise the engine logs
   `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
   ran out after 2 gates; canary F2 at 60 for 4 FRDs saturated the ceiling exactly as the run finished — the
-  drift finder is one more sonnet unit per gate link and again on each re-gate, so the floor is **17 × the FRDs**
-  whenever the finder is on, BL-0207; `launch-implement.sh` warns below it whenever parallel gates is not
+  drift finder is one more sonnet unit per gate link and again on each re-gate, and BL-0214 adds one MECH snippet-check
+  unit beside it, so the floor is **19 × the FRDs** whenever the finder is on, BL-0207/BL-0214; `launch-implement.sh` warns below it whenever parallel gates is not
   explicitly off — the default, since v9.116.0 — and the engine logs a one-shot `AgentBudgetAdvisory` when 80 % of
   `maxAgents` is spent with work pending, and another when less than one reopen ladder remains). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.

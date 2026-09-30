@@ -36,6 +36,9 @@ const DRIFT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'drift-
 const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'gate-inventory.mjs'))}`
 // BL-0212: the deterministic discard of a rejected work order's OWN commits (same scripts dir, same rule).
 const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo-revert.mjs'))}`
+// BL-0214: the evidence collector's report sealer and the drift finder's snippet checker ship in the same scripts dir.
+const SEAL_REPORT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'seal-report.mjs'))}`
+const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'finder-snippets.mjs'))}`
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
@@ -103,7 +106,9 @@ const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo
 //     (DR-080), still returns the 7-class whole-FRD traceability inventory (enforceWholeFrdTraceability),
 //     and still owns every reject/blocked exit. FAIL-CLOSED: a collector that returns null, a `report` that
 //     is not valid JSON, or a `report.green` that is not a boolean makes THAT gate run in 'explore' mode
-//     (logged + a `GateEvidenceFallback` event) — there is never a gate without evidence.
+//     (logged + a `GateEvidenceFallback` event) — there is never a gate without evidence. BL-0214: the report reaches
+//     the engine as a SEALED line (seal-report.mjs); a relay that altered it is re-read from its stored copy (≤ 2) and,
+//     failing that, discarded the same way — a model's copy of machine output is never trusted.
 //     SCOPE: only a gate that is handed a pack runs digested. Re-gates on the quiesced main tree (the
 //     convergence ladder, the post-repair re-gate) and the legacy synchronous gate path always run
 //     'explore' — their evidence would be from a superseded pin, and a stale digest is worse than none.
@@ -118,8 +123,9 @@ const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo
 //     prompt (DR-015), and every drift claim the judge neither recorded as a fail nor refuted with a test of its own
 //     goes through the DR-122 differential proof (finalizeGate): proven pre-existing → card + `drift:`; a regression,
 //     or a reviewed-WO-owned contract failing on an assertion at the pin → reopened patch-first; anything unproven →
-//     discarded with a log. Cost: 1 sonnet unit in maxAgents (COST('sonnet')). A dead/malformed finder is a logged
-//     DriftFinderFallback; the gate always runs. Only the pinned gate that launched it sees its report; re-gates on
+//     discarded with a log. Cost: 1 sonnet unit in maxAgents (COST('sonnet')) plus one MECH unit for the BL-0214
+//     snippet check (an `implemented` row whose snippet is not at the pin becomes `unknown`). A dead/malformed finder
+//     is a logged DriftFinderFallback; the gate always runs. Only the pinned gate that launched it sees its report; re-gates on
 //     main do not (its probes live in the released slot).
 //   args.gateContextScope: OPT-IN (BL-0188, **default FALSE** until canary E measures it) — proposal 38
 //     addendum lever (g). Adds a CONTEXT-SCOPE directive to every FRD gate (serial, split finders and
@@ -375,7 +381,7 @@ const DRIFT_CLAIM_DIRECTIVE = "**Pre-existing drift (DR-122, BL-0178) — you PR
 // A scope dismissal needs its literal citation; a WO / change-card line never dismisses a normative FRD clause (engine side: classifyDismissals).
 const DISMISSAL_CITATION_DIRECTIVE = "**Scope dismissals need a literal citation (BL-0211):** when you noticed something that looks like an unmet contract or a defect and you decline to record it as a `fail` or a finding because a work order, a change card or the FRD scopes it out (\"matches the WO scope\", \"out of scope\", \"by design\", \"deferred\"), list it in the verdict's `dismissals` array as `{ finding, ground, contract, source, quote }`. `source` is `<repo-relative path>:<line>` of the literal line that scopes it out: open the file and find the line with `grep -n`, never cite from memory and never paraphrase; `quote` is that line's own words, verbatim. No literal citation, no dismissal: if you cannot cite it, record it as a `fail` (or a finding). Set `contract` to the REQ/AC id (or the clause text) whenever the thing you noticed is a normative clause of `frd.md`. The FRD outranks the work order: a work order's or change card's \"out of scope\" can never dismiss a normative FRD clause, because a work order that defers something the FRD says SHALL exist is itself the contradiction. Record that clause as a `fail` (and propose it as pre-existing drift with `direction: spec` or `unknown` when it pre-dates this cycle). Only a line of `frd.md` itself (an out-of-scope or exclusions clause) or of the PRD can dismiss a `contract`; a work order or change-card line may dismiss only a finding that is not an FRD clause (for example a fence on which files to touch). The engine validates the citation's shape: a dismissal without a valid citation is treated as NOT dismissed and your verdict is sent back to you once."
 // BL-0203: GENERATED from plugin/agents/drift-finder.md's DRIFT_FINDER block (generate-build-prompt-fragments.mjs) — do not hand-edit.
-const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 0. **Pin discipline (BL-0205) — the shell forgets its directory between your Bash calls.** Your Bash tool starts EVERY call in the launching session's own directory, the factory's MAIN checkout where later commits have already landed, never in the pinned worktree; a `cd` in one call does NOT carry to the next, so a bare `grep`/`cat` silently audits the wrong code. The engine's prompt names the pinned worktree and the pinned commit. Your FIRST call prints the absolute project directory inside the pin and its HEAD (`cd \"<dir>\" && pwd -P && git rev-parse HEAD`): that HEAD must start with the pinned commit, and if it does not, STOP and return no contracts. From then on start EVERY Bash command with the literal absolute directory it printed (`cd \"<pinDir>\" && …`, or `git -C \"<pinDir>\" …`, or only absolute paths), the heredocs that write probes included, and give Read, Grep and Glob absolute paths under it, never a relative one. Your LAST call repeats the HEAD check. Report `pinDir` and `headSha` (first call) and `headShaEnd` (last call) exactly as printed: the engine discards your whole report if a reported HEAD is not the pin. 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give file, line and a short snippet), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
+const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 0. **Pin discipline (BL-0205) — the shell forgets its directory between your Bash calls.** Your Bash tool starts EVERY call in the launching session's own directory, the factory's MAIN checkout where later commits have already landed, never in the pinned worktree; a `cd` in one call does NOT carry to the next, so a bare `grep`/`cat` silently audits the wrong code. The engine's prompt names the pinned worktree and the pinned commit. Your FIRST call prints the absolute project directory inside the pin and its HEAD (`cd \"<dir>\" && pwd -P && git rev-parse HEAD`): that HEAD must start with the pinned commit, and if it does not, STOP and return no contracts. From then on start EVERY Bash command with the literal absolute directory it printed (`cd \"<pinDir>\" && …`, or `git -C \"<pinDir>\" …`, or only absolute paths), the heredocs that write probes included, and give Read, Grep and Glob absolute paths under it, never a relative one. Your LAST call repeats the HEAD check. Report `pinDir` and `headSha` (first call) and `headShaEnd` (last call) exactly as printed: the engine discards your whole report if a reported HEAD is not the pin. 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give the project-relative file, the line and a short snippet copied verbatim from those lines, at least 6 characters — the engine checks every snippet against the committed tree at the pin, and a row whose snippet is not there is handed to the judge as `unknown`; two such rows discard your whole report), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
 // REV-5: the minimal, standalone shape of RENEW_LEASE's own ask (no stop_receipt fence — RENEW_LEASE
 // never runs INSPECT_STOP, only the full safe-point prompt does) — used by the throttled-boundary
@@ -1451,13 +1457,14 @@ const driftFrontmatter = (frd) => {
 // ── WP-06 evidence-pack schema (args.gateEvidence: 'digested') ───────────────
 // What the cheap `evidence:<frd>` collector returns to the ENGINE (never to the reviewer directly — the
 // engine validates it fail-closed first, then interpolates it into the gate prompt). `report` is the
-// VERBATIM text of `.pandacorp/run/gate-report.json` (a string, not a parsed object) precisely so the
-// engine can prove it is well-formed JSON with a boolean `green` before any reviewer sees it: a pack that
-// cannot be proven well-formed is discarded and the gate runs in explore mode.
+// SEALED line (seal-report.mjs, BL-0214) of `.pandacorp/run/gate-report.json` (a string, not a parsed object)
+// precisely so the engine can prove it arrived intact (the checksum), is well-formed JSON and carries a boolean
+// `green` before any reviewer sees it: a pack that cannot be proven is re-read from its stored copy, and if that
+// fails too it is discarded and the gate runs in explore mode.
 const EVIDENCE_SCHEMA = {
   type: 'object', required: ['report'],
   properties: {
-    report: { type: ['string', 'null'], description: 'the VERBATIM contents of .pandacorp/run/gate-report.json after `bash .pandacorp/verify.sh --since <last_green_sha> --report-all` — the whole file as text, never a summary, never re-formatted. `null` iff the sanity gate (step 0) refused to run verify.sh at all — see `reason`.' },
+    report: { type: ['string', 'null'], description: 'BL-0214: the SEALED LINE the last command of step 1 printed (`seal-report.mjs seal` over .pandacorp/run/gate-report.json after `bash .pandacorp/verify.sh --since <last_green_sha> --report-all`) — that one line, byte-for-byte, never re-formatted, never a summary. The engine recomputes its checksum. `null` iff the sanity gate (step 0) refused to run verify.sh at all — see `reason`.' },
     reason: { type: 'string', description: 'BL-0149: set ONLY when `report` is null — why the collector refused to run verify.sh (e.g. "gate-worktree-not-bootstrapped"). The engine surfaces this VERBATIM in the GateEvidenceFallback log/event instead of a generic message.' },
     report_suspect: { type: 'boolean', description: 'BL-0149: true iff 3+ cheap sub-gates (biome/tsc/knip/madge…) are red with environment-only noise (command not found, Cannot find module) rather than a real finding — the pack is discarded and the gate degrades to explore, same as a null report.' },
     diffStat: { type: 'string', description: 'the output of `git diff <pin_base>..<pin> --stat` (the full stat, every file)' },
@@ -2148,6 +2155,10 @@ function reviewedAcText(frd, reviewIds) {
   return reviewed.filter((w) => w.acText).map((w) => `[${w.id}] ${w.acText}`).join('\n  ')
 }
 
+// BL-0214: where the collector keeps the sealed copy of its report inside THIS gate's slot (`.pandacorp/run/` survives a slot
+// reuse, so the name carries the FRD: another FRD's collector in the same serial worktree can never overwrite it). The shell
+// expression is evaluated by the MECH's own shell, exactly like the collector's `slotRun`.
+const gateSealedReportPath = (frd) => `${gateWorktreePathOf(frd)}/$(git -C ${shellQuote(PROJECT_DIR)} rev-parse --show-prefix).pandacorp/run/gate-report.${frd}.sealed.json`
 // The collector itself: a MECH, effort:'low', zero-judgment agent. It runs commands and pastes their
 // output. It NEVER reviews, NEVER writes a file, NEVER commits, NEVER touches frontmatter — it is not a
 // second opinion, so it cannot dilute the trust boundary (DR-015: the judge remains the only judge).
@@ -2176,7 +2187,7 @@ async function collectGateEvidence(frd, reviewIds, pinSha) {
   agentSpawned++
   return await agent(`WP-06 GATE EVIDENCE COLLECTOR for ${frd}. You are NOT the reviewer: you judge NOTHING, you fix NOTHING, you decide NOTHING. Your entire job is to run the commands below in this frozen worktree and return their output VERBATIM, so the reviewer that runs after you does not have to re-derive it. **Write no file, edit no frontmatter, run no mutating git command, never \`git commit\`, never touch the main tree.**
   0) **SANITY GATE (BL-0149) — confirm this worktree is actually bootstrapped BEFORE you touch verify.sh.** From the project directory (the cd above), run exactly \`node -e "process.stdout.write(require('node:fs').existsSync('node_modules/.bin/vitest') ? 'BOOTSTRAPPED' : 'NOT-BOOTSTRAPPED')"\` — NEVER shell \`test\`/\`[\`, which an owner alias can hijack (BL-0187). If it prints NOT-BOOTSTRAPPED, \`.pandacorp/worktree-bootstrap.sh\` never ran here (or it failed): do NOT run verify.sh, do NOT attempt steps 1-4 below, and return IMMEDIATELY \`{ report: null, reason: "gate-worktree-not-bootstrapped" }\`. A gate report produced without node_modules is command-not-found noise dressed up as evidence — worse than no report at all, because a reviewer would read it as authoritative.
-  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once (that argument ORDER is required — \`--since\` is positional). **Run it as ONE Bash call, in the FOREGROUND, with the Bash tool's \`timeout: 600000\` (the run takes minutes; the 120 s default would push it to the background) — NEVER \`run_in_background\`, never \`&\`, NEVER a polling/\`until\`/\`sleep\` loop. The command, verbatim except PIN_BASE:** \`${gateProjectCd(wt)} && { mkdir -p "${slotRun}"; REPORT="${slotRun}/gate-report.json"; LOG="${slotRun}/evidence-verify.log"; rm -f "$REPORT"; perl -e 'alarm shift; exec @ARGV' 540 bash .pandacorp/verify.sh --since <PIN_BASE> --report-all > "$LOG" 2>&1; echo "verify exit=$?"; cat "$REPORT" || echo "REPORT MISSING: $REPORT"; }\` — REPORT is THIS gate worktree's own report, an absolute path inside it (for a nested project such as Mission Control it resolves to \`<this worktree>/mission-control/.pandacorp/run/gate-report.json\`); NEVER read the main project tree's copy of that file, it belongs to a different run. The perl alarm is the hard bound (540 s): exit 142 means it timed out, and the report is then missing. A non-zero exit is FINE and expected otherwise — it is data, not a problem for you to fix. Return the report that command printed — its **entire contents as a string**, byte-for-byte, in \`report\`. Do NOT summarise it, do NOT reformat it, do NOT drop \`failures[]\` rows however many there are. If the file is missing after the run, say so in \`report\` — the engine detects the malformed pack and falls back.
+  1) Read \`last_green_sha\` from .pandacorp/status.yaml (call it PIN_BASE) and run the gate script exactly once (that argument ORDER is required — \`--since\` is positional). **Run it as ONE Bash call, in the FOREGROUND, with the Bash tool's \`timeout: 600000\` (the run takes minutes; the 120 s default would push it to the background) — NEVER \`run_in_background\`, never \`&\`, NEVER a polling/\`until\`/\`sleep\` loop. The command, verbatim except PIN_BASE:** \`${gateProjectCd(wt)} && { mkdir -p "${slotRun}"; REPORT="${slotRun}/gate-report.json"; LOG="${slotRun}/evidence-verify.log"; rm -f "$REPORT"; perl -e 'alarm shift; exec @ARGV' 540 bash .pandacorp/verify.sh --since <PIN_BASE> --report-all > "$LOG" 2>&1; echo "verify exit=$?"; ${SEAL_REPORT_CLI_COMMAND} seal --file "$REPORT" --frd ${frd} --pin ${pinSha} --out "${gateSealedReportPath(frd)}"; }\` — REPORT is THIS gate worktree's own report, an absolute path inside it (for a nested project such as Mission Control it resolves to \`<this worktree>/mission-control/.pandacorp/run/gate-report.json\`); NEVER read the main project tree's copy of that file, it belongs to a different run. The perl alarm is the hard bound (540 s): exit 142 means it timed out, and the report is then missing. A non-zero exit is FINE and expected otherwise — it is data, not a problem for you to fix. The LAST line that command printed is the report, SEALED by a script (\`{"ok":true,"version":2,"kind":"gate-report",…,"sum":"<14 hex>"}\`, ASCII, one line): return that line **byte-for-byte** in \`report\` — never pretty-print it, never re-indent it, never shorten it, never drop or reorder a key or a \`failures[]\` row however many there are. The engine recomputes the checksum over exactly what you return, and a copy that differs by ONE character is discarded (BL-0214). If that last line is \`{"ok":false,…}\` (the file was missing or unreadable), return it as \`report\` anyway — the engine detects it and falls back.
   1b) **SANITY CHECK (BL-0149) on what step 1 just produced.** Look at the sub-gates in that report. If **3 or more** of the cheap sub-gates (biome/tsc/knip/madge and similar) are RED with an ENVIRONMENT-only message (\`command not found\`, \`Cannot find module\`, \`ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL\`, or equivalent "the tool itself could not run" text — never an actual lint/type finding), set \`report_suspect: true\`: this is a broken worktree, not a real verdict, and a reviewer must never mistake environment noise for a finding. Otherwise set \`report_suspect: false\`.
   2) \`git diff --relative <PIN_BASE>..${pinSha} --stat\` → return it verbatim in \`diffStat\`. \`--relative\` is REQUIRED (BL-0187): it keeps the stat to THIS project — without it a nested project's stat lists every file the enclosing repo changed.
   3) \`git diff --relative <PIN_BASE>..${pinSha}${scope}\` → return it in \`diff\` (${scopeNote}). **Hard cap ${EVIDENCE_DIFF_MAX_LINES} lines.** If the full patch is longer, do NOT silently cut it: include the largest files first, clip each at a hunk boundary, add a \`… <N> lines clipped from <path>\` marker where you clipped, and set \`truncated: true\`. Under the cap → the complete patch and \`truncated: false\`.
@@ -2216,9 +2227,43 @@ async function resolveGateEvidence(frd, reviewIds, pinSha) {
   let raw = null
   try { raw = (st && st.evidencePromise) ? await st.evidencePromise : await collectGateEvidence(frd, reviewIds, pinSha) }
   catch (e) { log(`⚠ GateEvidenceFallback ${frd}: the evidence collector threw (${(e && e.message) || e}) — this gate runs in EXPLORE mode`); return { evidence: null, fallbackReason: 'collector threw' } }
-  const verdict = validateEvidence(raw)
+  const verdict = validateEvidence(await verifyEvidenceSeal(frd, raw, pinSha))
   if (!verdict.evidence) log(`⚠ GateEvidenceFallback ${frd}: ${verdict.fallbackReason} — this gate runs in EXPLORE mode (the gate is never skipped and never runs blind)`)
   return verdict
+}
+
+// BL-0214: the collector hands gate-report.json to the engine through a model, and a model is not a lossless copy channel
+// (BL-0206): a copy that lost a failures[] row or flipped a sub-gate's exit is still valid JSON with a boolean `green`, which
+// the judge would read as authoritative. seal-report.mjs seals the line (drift-seal.mjs) and keeps the sealed copy on disk;
+// the engine recomputes the seal over the text it received. A line that never ARRIVED intact (unparseable, unsealed, or a
+// mismatched seal) is re-read from the stored copy, at most EVIDENCE_REREADS times; if it still does not verify, the pack is
+// discarded and the gate runs in explore mode (the existing GateEvidenceFallback log + event) — a copy is never trusted.
+const EVIDENCE_REREADS = 2
+function readSealedReport(text, frd, pinSha) {
+  const line = String(text || '').trim().split('\n').pop()
+  let j = null
+  try { j = JSON.parse(line) } catch { return { error: 'the collector report is not valid JSON', transport: true } }
+  if (j && typeof j === 'object' && j.ok === false && typeof j.error === 'string') return { error: `the collector could not seal gate-report.json: ${j.error.replace(/[^\w .,:;/()-]/g, ' ').slice(0, 120)}` }   // the reason is interpolated into a printf event line: no quotes
+  if (!j || typeof j !== 'object' || j.kind !== 'gate-report' || !driftSealHolds(line)) return { error: 'the collector report failed its integrity seal (the relay altered it, or it was never sealed)', transport: true }
+  if (j.frd !== frd || String(j.pin) !== String(pinSha)) return { error: `the sealed report belongs to ${String(j.frd).slice(0, 40)} at ${String(j.pin).slice(0, 12)}, not to ${frd} at ${String(pinSha).slice(0, 12)}` }
+  if (!j.report || typeof j.report !== 'object') return { error: 'the sealed report carries no report object' }
+  return { report: JSON.stringify(j.report) }
+}
+async function verifyEvidenceSeal(frd, raw, pinSha) {
+  if (!raw || typeof raw !== 'object' || typeof raw.report !== 'string' || !raw.report.trim()) return raw   // null / missing: validateEvidence reports its own (BL-0149) reason
+  let read = readSealedReport(raw.report, frd, pinSha)
+  for (let i = 1; !read.report && read.transport && i <= EVIDENCE_REREADS; i++) {
+    log(`⚠ EvidenceRelay ${frd}: ${read.error} — re-reading the stored sealed report, attempt ${i}/${EVIDENCE_REREADS} (BL-0214: a model's copy of machine JSON is never trusted)`)
+    agentSpawned++
+    let again = null
+    try {
+      again = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 evidence re-read for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${SEAL_REPORT_CLI_COMMAND} reread --file "${gateSealedReportPath(frd)}"\`. It only prints a line the collector stored earlier, so it is instant. Do not inspect, edit, fix, summarize, re-format or re-indent its output: it is ONE sealed JSON line and the engine verifies its checksum character by character.`,
+        { label: `evidence-reread:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+    } catch (e) { log(`⚠ ${frd}: the evidence re-read runner threw (${(e && e.message) || e})`) }
+    read = readSealedReport(again && typeof again.output === 'string' ? again.output : '', frd, pinSha)
+  }
+  if (!read.report) return { report: null, reason: `${read.error}${read.transport ? ` after ${EVIDENCE_REREADS} re-read(s)` : ''}` }
+  return { ...raw, report: read.report }
 }
 
 // ── BL-0203 · WHOLE-FRD DRIFT FINDER (canary F2) ─────────────────────────────────────────────────
@@ -2339,7 +2384,72 @@ function validateDriftFinding(raw, frd, pin = null) {
   if (!rows.length) return { finding: null, reason: `every one of the finder's ${raw.contracts.length} rows is malformed` }
   // BL-0208: what the finder says about ITS OWN execution is an unverified claim — kept under `selfReported` for the
   // log only; no decision and no judge prompt reads it (see the DRIFT_FINDER_TOOL_BUDGET note).
-  return { finding: { rows, malformed, selfReported: { toolCalls: Number(raw.toolCalls) || null, budgetExhausted: raw.budgetExhausted === true } }, reason: '' }
+  return { finding: { rows, malformed, pinDir: typeof raw.pinDir === 'string' ? raw.pinDir.trim() : '', selfReported: { toolCalls: Number(raw.toolCalls) || null, budgetExhausted: raw.budgetExhausted === true } }, reason: '' }
+}
+// BL-0214: BL-0205 checks the HEAD the finder SAYS it saw; nothing checked the rows. A finder that reported the pin and
+// then read the main checkout still yielded a false `implemented` (canary F2: 2 false negatives), and an `implemented`
+// row tells the digested judge not to look. finder-snippets.mjs (a MECH step; its sealed line is verified like every
+// other relayed machine line) contrasts each `implemented` row's cited snippet with the COMMITTED tree at the gate pin.
+// A row whose snippet is not at the pin is downgraded to `unknown` (the judge must look, off its read budget); two such
+// rows mean the finder read another tree, and the whole report is discarded like a wrong-tree report. If the check
+// cannot be run or read back, no `implemented` row is trusted (all become `unknown`) and the log says so.
+const FINDER_SNIPPET_MISS_LIMIT = 2   // missing/no-file citations that discard the whole report
+const FINDER_SNIPPET_RETRIES = 2      // the check is read-only and idempotent: a relay that damaged either direction simply runs it again
+const finderCitedFile = (file, pinDir) => {
+  const f = String(file || '').trim()
+  for (const base of [pinDir, PROJECT_DIR]) {
+    const b = String(base || '').replace(/\/+$/, '')
+    if (b && f.startsWith(`${b}/`)) return f.slice(b.length + 1)
+  }
+  return f
+}
+// → { results: Map<rowIndex,status> } | { error } — the line must verify, name this pin and answer every row asked.
+function parseSnippetCheck(raw, pinSha, rows) {
+  const line = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
+  if (!line) return { error: 'the snippet checker returned no output' }
+  let j = null
+  try { j = JSON.parse(line) } catch { return { error: 'the snippet checker output is not valid JSON' } }
+  if (j && j.ok === false && typeof j.error === 'string') return { error: `the snippet checker refused: ${j.error.slice(0, 160)}` }
+  if (!j || j.ok !== true || !driftSealHolds(line)) return { error: 'the snippet checker output failed its integrity seal (the relay altered it)' }
+  if (j.pin !== pinSha || !Array.isArray(j.results)) return { error: 'the snippet checker output does not name this pin or carries no results' }
+  const results = new Map(j.results.filter((x) => x && Number.isInteger(x.i) && typeof x.status === 'string').map((x) => [x.i, x.status]))
+  if (rows.some((r) => !results.has(r.i))) return { error: 'the snippet checker did not answer every row' }
+  return { results }
+}
+async function verifyFinderSnippets(frd, finding, pin) {
+  const targets = finding.rows.map((r, at) => ({ r, at })).filter(({ r }) => r.status === 'implemented')
+  if (!targets.length || !pin || !pin.sha) return { finding }
+  const asked = targets.map(({ r, at }) => ({ i: at, file: finderCitedFile(r.evidence && r.evidence.file, finding.pinDir), line: Number(r.evidence && r.evidence.line) || null, snippet: String((r.evidence && r.evidence.snippet) || '') }))
+  const json = JSON.stringify(asked)
+  const cmd = `${FINDER_SNIPPETS_CLI_COMMAND} check --project ${shellQuote(PROJECT_DIR)} --pin ${shellQuote(pin.sha)} --digest ${inventoryDigest(json)} --rows ${shellQuote(json)}`
+  let results = null
+  let why = ''
+  for (let attempt = 0; attempt <= FINDER_SNIPPET_RETRIES && !results; attempt++) {
+    if (attempt) log(`⚠ DriftFinderSnippetRelay ${frd}: ${why} — running the check again, attempt ${attempt}/${FINDER_SNIPPET_RETRIES} (BL-0214: a model's copy of machine output is never trusted)`)
+    agentSpawned++
+    let raw = null
+    try {
+      raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 drift-finder snippet check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. The JSON after --rows is ONE argument: copy it character for character, never re-format it (the script refuses a copy whose checksum differs). It only READS committed git objects and prints ONE sealed JSON line: do not inspect, edit, fix, summarize, re-format or re-indent anything.`,
+        { label: `finder-snippets:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+    } catch (e) { why = `the snippet-check runner threw (${(e && e.message) || e})`; continue }
+    const parsed = parseSnippetCheck(raw, pin.sha, asked)
+    if (parsed.results) results = parsed.results
+    else why = parsed.error
+  }
+  if (!results) log(`⚠⚠ DriftFinderSnippetsUnavailable ${frd}: ${why} after ${FINDER_SNIPPET_RETRIES} re-run(s) — none of the finder's ${targets.length} "implemented" rows could be checked against the pin, so none is trusted: each is handed to the judge as UNKNOWN (BL-0214)`)
+  let misses = 0
+  const cited = []
+  const rows = finding.rows.map((r, at) => {
+    if (r.status !== 'implemented') return r
+    const status = results ? results.get(at) : 'unchecked'
+    if (status === 'ok' || status === 'moved') return { ...r, snippetCheck: status }
+    if (status === 'missing' || status === 'no-file') misses++
+    cited.push(`${contractIdOf(r.contract) || String(r.contract).slice(0, 24)} ${status}`)
+    return { ...r, status: 'unknown', snippetCheck: status }
+  })
+  if (misses >= FINDER_SNIPPET_MISS_LIMIT) return { finding: null, reason: `WRONG TREE (snippets): ${misses} of the finder's ${targets.length} implemented citations are not in the tree at the gate pin ${String(pin.sha).slice(0, 8)} — it read something other than the pinned commit (BL-0214)` }
+  if (results && cited.length) log(`⚠ DriftFinderSnippets ${frd}: ${cited.length} of ${targets.length} "implemented" row(s) cite a snippet that cannot be verified at the pin (${cited.join(', ')}) — downgraded to UNKNOWN: the judge must open that code itself (BL-0214)`)
+  return { finding: { ...finding, rows } }
 }
 /**
  * BL-0208: does the finder's self-report contradict itself? A `budgetExhausted: true` claim paired with a self-count
@@ -2358,7 +2468,8 @@ async function awaitDriftFinding(frd) {
   const st = frdState.get(frd)
   if (!st || !st.driftFinderPromise) return null
   if (st.driftFinding !== undefined && st.driftFinding !== null) return st.driftFinding
-  const { finding, reason } = validateDriftFinding(await st.driftFinderPromise, frd, st.driftFinderPin)
+  const validated = validateDriftFinding(await st.driftFinderPromise, frd, st.driftFinderPin)
+  const { finding, reason } = validated.finding ? await verifyFinderSnippets(frd, validated.finding, st.driftFinderPin) : validated
   if (!finding) { log(`⚠ DriftFinderFallback ${frd}: ${reason} — this gate runs without a drift-finder report (the gate itself is never skipped)`); st.driftFinding = false; return null }
   const n = (s) => finding.rows.filter((r) => r.status === s).length
   log(`⌕ ${frd}: drift finder → ${finding.rows.length} contract(s): ${n('implemented')} implemented, ${n('drift')} drift (${finding.rows.filter((r) => r.provable).length} with a probe), ${n('unknown')} unknown${finding.malformed.length ? `; ${finding.malformed.length} MALFORMED row(s) ignored (#${finding.malformed.join(', #')})` : ''}; self-reported (UNVERIFIED, telemetry only): ${finding.selfReported.toolCalls === null ? 'no tool-call count' : `${finding.selfReported.toolCalls} tool calls`}${finding.selfReported.budgetExhausted ? ', budget exhausted' : ''}`)
@@ -2375,7 +2486,7 @@ function isCycleRow(frd, reviewIds, row) {
   const id = contractIdOf(row.contract)
   return Boolean(id) && reviewedAcText(frd, reviewIds).includes(id)
 }
-const finderRowLine = (r) => `• ${r.contract}${r.evidence && r.evidence.file ? ` — ${r.evidence.file}${r.evidence.line ? `:${r.evidence.line}` : ''}` : ''}${r.evidence && r.evidence.snippet ? ` \`${String(r.evidence.snippet).slice(0, 160)}\`` : ''}${r.owner ? ` · owner ${r.owner}` : ''}${r.why ? ` · ${String(r.why).slice(0, 240)}` : ''}${r.status === 'drift' ? (r.provable ? ` · probe ${r.probe_test}${r.direction ? ` · direction ${r.direction}` : ''}` : ' · NO valid probe (unproven pointer)') : ''}`
+const finderRowLine = (r) => `• ${r.contract}${r.evidence && r.evidence.file ? ` — ${r.evidence.file}${r.evidence.line ? `:${r.evidence.line}` : ''}` : ''}${r.evidence && r.evidence.snippet ? ` \`${String(r.evidence.snippet).slice(0, 160)}\`` : ''}${r.owner ? ` · owner ${r.owner}` : ''}${r.why ? ` · ${String(r.why).slice(0, 240)}` : ''}${r.snippetCheck && r.snippetCheck !== 'ok' && r.snippetCheck !== 'moved' ? ` · [ENGINE] the finder called it implemented, but its cited snippet could not be verified at the pin (${r.snippetCheck}) — UNREVIEWED, open the code yourself` : ''}${r.status === 'drift' ? (r.provable ? ` · probe ${r.probe_test}${r.direction ? ` · direction ${r.direction}` : ''}` : ' · NO valid probe (unproven pointer)') : ''}`
 // The judge's view of the report (serial gate + split closer). Empty when there is no usable report.
 function driftFinderBlock(frd, reviewIds) {
   const f = currentDriftFinding(frd)
@@ -4592,13 +4703,13 @@ function gateConflict(frd, force = false) {
   return null
 }
 // The cost-weighted units ONE gate link is expected to spend: probe + (digested collector) + (the BL-0203 drift
-// finder, one sonnet unit) + the review (the split when frdGate would pick it) + the release. The drift proof is
-// rare and not reserved.
+// finder, one sonnet unit, plus its one MECH snippet check, BL-0214) + the review (the split when frdGate would pick
+// it) + the release. The drift proof, the evidence re-reads and the snippet-check re-runs are rare and not reserved.
 function gateCostEstimate(frd) {
   const st = frdState.get(frd)
   const reviewed = st ? st.f.workOrders.filter((w) => st.reviewIds.includes(w.id)) : []
   const split = P.reviewSplit && (((st && st.gateAttempts) || 0) >= 1 || reviewed.some((w) => (w.reopen_count || 0) >= 1))
-  return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (DRIFT_FINDER ? COST('sonnet') : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
+  return 1 + (GATE_EVIDENCE === 'digested' ? 1 : 0) + (DRIFT_FINDER ? COST('sonnet') + 1 : 0) + (split ? splitGateEstimatedCost() : COST(P.judge)) + 1
 }
 /**
  * E2 finding 1: the upstream FRD whose verdict must land BEFORE `frd`'s may (its gate is in flight or its verdict

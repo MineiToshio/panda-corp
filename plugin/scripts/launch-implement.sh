@@ -226,8 +226,12 @@ fi
 # 15 x the FRDs to gate is the floor (E's 4 FRDs -> 60). Advisory only: nothing here changes what the engine does.
 # BL-0207 (canary F2, 2026-09-26): the whole-FRD drift finder is ONE more sonnet unit in every gate link (the
 # engine's gateCostEstimate: `DRIFT_FINDER ? COST('sonnet')`) and a re-gate after a reopen launches it again — F2 at
-# 15 x 4 = 60 spent the whole ceiling exactly as it finished. Its floor is 17 x the FRDs (15 + 1 for the first gate's
-# finder + 1 amortized for the re-gates' finders at the ~50 % reopen rate). The finder is ON with `--drift-finder on`,
+# 15 x 4 = 60 spent the whole ceiling exactly as it finished. Its floor was 17 x the FRDs (15 + 1 for the first gate's
+# finder + 1 amortized for the re-gates' finders at the ~50 % reopen rate).
+# BL-0214: each finder gate also spends ONE MECH unit on the deterministic snippet check (finder-snippets.mjs, the engine's
+# gateCostEstimate counts it), first gate and amortized re-gates alike — so the finder-on floor is 19 x the FRDs (15 + 2 + 2).
+# The evidence report's seal adds no agent (the script runs inside the collector's own spawn); its re-reads fire only on a
+# corrupted relay and are not reserved. The finder is ON with `--drift-finder on`,
 # or under `--gate-evidence digested` unless `--drift-finder off` (the engine's own default: on under digested, off
 # under the default explore).
 # parallelGates now defaults ON (v9.116.0, F1/F2 verdict) — this warning fires whenever PARALLEL_GATES is not
@@ -235,7 +239,7 @@ fi
 if [ "$PARALLEL_GATES" != "0" ]; then
   PER_FRD=15; FINDER_NOTE=""
   if [ "$DRIFT_FINDER" = "on" ] || { [ "$GATE_EVIDENCE" = "digested" ] && [ "$DRIFT_FINDER" != "off" ]; }; then
-    PER_FRD=17; FINDER_NOTE=" + ~2 for the drift finder (BL-0207)"
+    PER_FRD=19; FINDER_NOTE=" + ~4 for the drift finder and its snippet check (BL-0207, BL-0214)"
   fi
   GATE_FRDS=""
   [ -n "$FRDS" ] && GATE_FRDS=$(printf '%s\n' "$FRDS" | tr ',' '\n' | grep -c .)

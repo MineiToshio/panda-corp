@@ -247,14 +247,14 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
     ok(expected(launched.stdout), name);
     await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
   };
-  const finderWarns = (out) => /recommended\s+floor is 17 x FRDs\s+= 68/.test(out) && /drift finder \(BL-0207\)/.test(out);
-  await warnsAt(["--gate-evidence", "digested"], "BL-0207: digested (finder on by default) at the OLD 15 x FRDs floor (60 for 4 FRDs) still warns, with the finder-aware floor 68", finderWarns);
-  await warnsAt(["--drift-finder", "on"], "BL-0207: an explicit --drift-finder on under the default explore evidence also raises the floor to 68", finderWarns);
-  await warnsAt(["--gate-evidence", "explore", "--drift-finder", "off"], "BL-0207 control: explore + finder off at 60 for 4 FRDs prints no sizing warning (nothing to add)", (out) => !/17 x FRDs|15 x FRDs|drift finder \(BL-0207\)/.test(out));
+  const finderWarns = (out) => /recommended\s+floor is 19 x FRDs\s+= 76/.test(out) && /drift finder and its snippet check \(BL-0207, BL-0214\)/.test(out);
+  await warnsAt(["--gate-evidence", "digested"], "BL-0207: digested (finder on by default) at the OLD 15 x FRDs floor (60 for 4 FRDs) still warns, with the finder-aware floor 76", finderWarns);
+  await warnsAt(["--drift-finder", "on"], "BL-0207: an explicit --drift-finder on under the default explore evidence also raises the floor to 76", finderWarns);
+  await warnsAt(["--gate-evidence", "explore", "--drift-finder", "off"], "BL-0207 control: explore + finder off at 60 for 4 FRDs prints no sizing warning (nothing to add)", (out) => !/19 x FRDs|15 x FRDs|drift finder and its snippet check/.test(out));
   await warnsAt(["--gate-evidence", "digested", "--drift-finder", "off"], "BL-0207 control: digested with the finder explicitly off keeps the old floor (60 passes)", (out) => !/recommended\s+floor is/.test(out));
   const root = await fixture({ phase: "architecture", running: "false" });
   const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--gate-evidence", "digested"]);
-  ok(/size maxAgents to at least 17 x the FRDs this run will gate/.test(launched.stdout), "BL-0207: an untargeted digested run gets the 17-per-FRD sizing note");
+  ok(/size maxAgents to at least 19 x the FRDs this run will gate/.test(launched.stdout), "BL-0207/BL-0214: an untargeted digested run gets the 19-per-FRD sizing note");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
 const repo = path.resolve(path.dirname(resolver), "../..");

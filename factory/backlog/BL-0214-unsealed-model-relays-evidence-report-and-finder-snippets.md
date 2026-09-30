@@ -3,12 +3,12 @@ id: BL-0214
 type: change
 area: build-engine
 title: "two remaining model relays of machine output are unverified: the digested evidence report, and the drift finder's `implemented` snippets (no check against the pin)"
-status: open
+status: done
 severity: p2
 opened: 2026-09-30
-closed:
+closed: 2026-09-30
 source: "red-team of the BL-0205/0206/0209 batch (2026-09-30): follow-ups the implementers named, triaged"
-closes: "plugin/runtime/engine/pandacorp-build.src.js (validateEvidence, validateDriftFinding), plugin/runtime/verify (gate-report), a new deterministic snippet checker"
+closes: "plugin/scripts/seal-report.mjs, plugin/scripts/finder-snippets.mjs (new), plugin/runtime/engine/pandacorp-build.src.js (verifyEvidenceSeal, verifyFinderSnippets), plugin/scripts/launch-implement.sh (finder floor 19); tests BL-0214 a-k in test-pandacorp-build.mjs, test-evidence-seals.mjs"
 links: [BL-0206, BL-0205, BL-0187, BL-0189, BL-0203]
 ---
 
@@ -42,9 +42,16 @@ snippet exists only on main (F2's `formatLastSync.ts` shape) becomes `unknown` a
 "UNKNOWN on this cycle's contracts". Script tests against a real git fixture.
 
 ## Done when
-- [ ] Neither relay can steer a gate from an altered or wrong-tree copy without a loud log.
-- [ ] `run-engine-tests.sh`, `test-engine-artifact.mjs` green.
+- [x] Neither relay can steer a gate from an altered or wrong-tree copy without a loud log.
+- [x] `run-engine-tests.sh`, `test-engine-artifact.mjs` green.
 
 ## Out of scope
 The MECH relays that only carry receipts the engine already treats as advisory (the inventory `write` receipt, the
 rollup sync receipts).
+
+## Resolution (2026-09-30)
+**(a) The evidence report is sealed.** New `plugin/scripts/seal-report.mjs`: `seal --file gate-report.json --frd <frd> --pin <sha> --out <slot>/.pandacorp/run/gate-report.<frd>.sealed.json` prints ONE sealed line `{ok,version:2,kind:"gate-report",frd,pin,report,sum}` (same scheme as `drift-seal.mjs`: ASCII, `sum` last) and stores it; `reread --file` re-prints the stored copy after verifying it. The collector's command ends in that script instead of `cat "$REPORT"` and returns the LAST line byte-for-byte. The engine (`verifyEvidenceSeal`) recomputes the seal; an unparseable / unsealed / mismatching line is re-read through a MECH `evidence-reread:<frd>` (at most 2), and if it still does not verify the pack is discarded through the existing loud `GateEvidenceFallback` (log + the gate prompt's event) and the gate runs in explore mode. A sealed report of another FRD or pin verifies but is refused by identity (no re-read). No extra agent on the happy path. Version skew (an older installed plugin without the script) degrades to the same loud explore fallback, never a silent digest.
+**(b) The finder's snippets are checked against the pin.** New `plugin/scripts/finder-snippets.mjs check --project --pin --digest --rows`: for every `implemented` row it looks the snippet up in `git show <pin>:./<file>` (the committed tree; an uncommitted edit on main does not count), whitespace-collapsed, within +-10 lines of the cited line (`ok`), elsewhere in the file (`moved`), or not at all (`missing`); `no-file`; `unverifiable` (empty / under 6 chars). The rows travel with an FNV-1a digest (a damaged copy is refused, not checked) and the answer is a sealed line. The engine (`verifyFinderSnippets`, called from `awaitDriftFinding`) verifies it, and because the check is read-only and idempotent it simply runs it again (<= 2 more) when a relay altered either direction. A row that is not `ok`/`moved` becomes `unknown` (the judge lists it under UNKNOWN ON THIS CYCLE'S CONTRACTS with an `[ENGINE]` note, off its read budget); >= 2 `missing`/`no-file` discard the whole report like a wrong tree (`DriftFinderFallback ... WRONG TREE (snippets)`); if the check cannot be read back at all, NO `implemented` row is trusted (`DriftFinderSnippetsUnavailable`). Absolute cited paths inside the pinned worktree are made project-relative first. `plugin/agents/drift-finder.md` (+ regenerated TOML and prompt fragment) tells the finder its snippets are checked.
+**Cost in agents.** The snippet check is ONE MECH unit per finder gate link (`gateCostEstimate` +1, `agentSpawned++`), spawned only when the finder returned at least one `implemented` row. It is a MECH step, not a model judgment, so it is cheap in tokens and runs on the critical path for seconds. It was chosen over a finder-side self-check (untrusted) and over a check inside the evidence collector (the collector usually finishes before the finder). Launcher floor: 17 -> **19 x FRDs** (15 + 2 finder + 2 snippet check, first gate and amortized re-gates), advisory only. The evidence seal and the re-reads add nothing on the happy path; re-reads / re-runs fire only on a corrupted relay and are not reserved.
+**Tests.** `test-evidence-seals.mjs` (40): both scripts against a real nested git repository, including the F2 shape (a snippet that exists only on a later main commit -> `missing`, an uncommitted edit -> `missing`, a path outside the project -> `no-file`), seal/digest/identity refusals. `test-pandacorp-build.mjs` BL-0214 a-k: a lost `failures[]` row is caught and re-read; every read altered -> loud explore fallback; another FRD's sealed report refused; a bare unsealed copy refused; an intact report takes no re-read; the F2 false `implemented` lands in the judge's UNKNOWN list; two misses discard; an altered checker line is re-run; an unreadable checker trusts no row; no `implemented` row spawns nothing; `ok`/`moved` stay implemented. Existing evidence fixtures are sealed by the harness like the real collector. **Mutation (each revert turns a test RED):** seal not verified, no re-read, identity not checked, no downgrade, miss limit off, no checker retry, unavailable treated as ok, checker seal not checked, cost not reserved, absolute path kept.
+**Not verified:** no live engine run (the suite drives scripted agents); the real rate at which a MECH agent alters either line is unmeasured; the recall effect on canary F2's two false negatives is argued from the transcripts' shape, not re-measured.
