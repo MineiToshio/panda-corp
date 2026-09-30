@@ -43,9 +43,9 @@ const ROWS: readonly Row[] = [
     writer: "implement / decide",
   },
   {
-    file: ".pandacorp/inbox/bugs/",
-    stores: "bandeja de bugs reportados",
-    writer: "bug / implement",
+    file: ".pandacorp/inbox/changes/",
+    stores: "cola de cambios: features, ajustes y bugs (tipo bug) por atender",
+    writer: "change / implement",
   },
   {
     file: ".pandacorp/comms/progress.md",

@@ -21,6 +21,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readManualPages } from "@/lib/manual/manual";
+import { renderedManualText } from "@/test/manualPageText";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -74,36 +75,36 @@ describe("AC-14-006.1 — file existence and indexing", () => {
 describe("AC-14-006.1 — three feedback channels documented", () => {
   it("page mentions /pandacorp:bug", () => {
     const page = getFeedBuildPage();
-    expect(page?.body).toContain("/pandacorp:bug");
+    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:bug");
   });
 
   it("page mentions /pandacorp:iterate", () => {
     const page = getFeedBuildPage();
-    expect(page?.body).toContain("/pandacorp:iterate");
+    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:iterate");
   });
 
   it("page mentions /pandacorp:decide", () => {
     const page = getFeedBuildPage();
-    expect(page?.body).toContain("/pandacorp:decide");
+    expect(page ? renderedManualText(page) : "").toContain("/pandacorp:decide");
   });
 
   it("all three channels are described as writing files (file-based semantics)", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must mention file-based mechanism (fichero / archivo / file)
     expect(body.toLowerCase()).toMatch(/ficher|archiv|file/i);
   });
 
   it("page explains 'next safe point' pickup semantics", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must mention safe point pickup (the build reads channels between work orders)
     expect(body.toLowerCase()).toMatch(/safe.?point|punto.?seguro/i);
   });
 
   it("page states the motor never interrupts mid-work-order", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must convey the 'never interrupts mid-work-order' semantics
     // Key phrase: 'nunca interrumpe' / 'no interrumpe' / 'entre work orders' / 'entre WOs'
     expect(body.toLowerCase()).toMatch(
@@ -119,7 +120,7 @@ describe("AC-14-006.1 — three feedback channels documented", () => {
 describe("AC-14-006.1 — cross-links to snapshot panel and decision points", () => {
   it("page cross-links to the snapshot panel (CMP-14-snapshot-panel or snapshot section)", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must reference the snapshot panel — by name or by reference to 'panel de snapshot',
     // 'snapshot panel', or the concept of the probable point
     expect(body.toLowerCase()).toMatch(
@@ -129,7 +130,7 @@ describe("AC-14-006.1 — cross-links to snapshot panel and decision points", ()
 
   it("page cross-links to workspace decision points (FRD-04 pending decisions)", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must reference decision points — by mention of 'decisiones pendientes',
     // 'workspace', 'punto de decisión', or 'decide'
     expect(body.toLowerCase()).toMatch(
@@ -145,7 +146,7 @@ describe("AC-14-006.1 — cross-links to snapshot panel and decision points", ()
 describe("AC-14-006.1 — consistent with infra.md semantics", () => {
   it("page does NOT say the agent writes status.yaml (state is written by the gate)", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // The agent must NOT be described as writing status.yaml directly —
     // that is the gate script's job (infra.md). A simple check: must not say
     // 'el agente escribe status.yaml' or similar
@@ -156,7 +157,7 @@ describe("AC-14-006.1 — consistent with infra.md semantics", () => {
 
   it("page mentions that the motor reads channels between work orders (gate-driven)", () => {
     const page = getFeedBuildPage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Safe-point / gate semantics: the motor picks up feedback at the end of a WO
     expect(body.toLowerCase()).toMatch(
       /motor.*lee|motor.*recoge|motor.*revisa|revisa.*canal|entre.*work.?order|al.?terminar.*wo|safe.?point/i,

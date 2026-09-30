@@ -4,7 +4,7 @@ type: blueprint
 parent: FRD-08
 status: ACTIVE
 implementation_status: VERIFIED
-last_updated: '2026-06-21'
+last_updated: '2026-09-30'
 ---
 # FRD-08 — Documentation (the Manual / "Códice del gremio") · feature blueprint
 
@@ -93,12 +93,12 @@ different feature, FRD-04/05.) A small `lib/manual.ts` indexes the authored page
 ### Components (`app/manual/`)
 - **`CMP-08-manual-page`** — `app/manual/page.tsx` (Server Component): side menu (pages grouped by Diátaxis quadrant) + reading area. App surface architecture §11 `app/manual`. → AC "side menu + reading area".
 - **`CMP-08-doc-nav`** — the side menu; groups Empezar aquí / Guías / Referencia / Conceptos. → AC "side menu".
-- **`CMP-08-doc-reader`** — renders the selected page (authored markdown via `react-markdown`, or a Reference catalog view). → AC "renders each page".
+- **`CMP-08-doc-reader`** — renders the selected page: a bespoke renderer when `getManualPageComponent(slug)` resolves (it always wins and is the page's only content source), else the `.md` body via `react-markdown`; or a Reference catalog view. → AC "renders each page", AC "one source per page".
 - **`CMP-08-reference-commands`** — Reference: commands list, derived from `readSkills()`. → DR-046 AC.
 - **`CMP-08-reference-agents`** — Reference: agents/party list, derived from `readAgents()`. → DR-046 AC.
 - **`CMP-08-reference-rules`** — Reference: decision rules, derived from `readDecisionRules()`. → DR-046 AC.
 - **`CMP-08-reference-standards`** — Reference: standards, derived from `readStandards()`. → DR-046 AC.
-- **`CMP-08-concept-pages`** — the authored Tutorial/Guides/Concepts content (MDX), including the DR-049 feature-centric structure page. → AC "pages cover…", "sufficient for no-context reader", DR-049 currency.
+- **`CMP-08-concept-pages`** — the authored Tutorial/Guides/Concepts content: one bespoke renderer per page in `src/app/manual/manualPages.tsx` (long reference sections live in `src/app/manual/_components/*Detail.tsx`, reference tables use `ProseTable`), plus an index-stub `.md` per page that only feeds the nav (`readManualPages`). Includes the DR-049 feature-centric structure page (`espinazo-de-documentos`). The team roster + bios share one `GROUPS` array in `manual-diagrams/TeamDiagram.tsx`. → AC "pages cover…", "sufficient for no-context reader", DR-049 currency, "one source per page", "El equipo lists every plugin agent".
 
 ### Reused
 - `CopyButton` (FRD-02) for inline commands inside pages.
@@ -128,6 +128,8 @@ FRD-08 states EARS bullets (no explicit `REQ-08-MMM` ids). Work orders assign `A
 | Manual stays in sync: Reference auto-derived; Tutorial/Guides/Concepts kept current by discipline (DR-046) | `CMP-08-reference-*` (auto) + `CMP-08-concept-pages` (discipline) |
 | Multi-runtime page exposes the current permission boundary, one-shot R10/R11 certification exceptions and safe-point-only cold switch | `CMP-08-concept-pages` (`ConceptMultiRuntime` + `RuntimeComparison`) |
 | Concept/Guide pages reflect the feature-centric DR-049 layout + ID spine + hierarchy | `CMP-08-concept-pages` (the structure page) |
+| A bespoke page's `.md` is an index stub; one source of content per page (DR-115) | `CMP-08-doc-reader` + `CMP-08-concept-pages`; guard `src/app/manual/_tests/manualSingleSource.test.ts` |
+| "El equipo" shows a bio card for every agent in `plugin/agents/` (incl. `drift-finder`) | `CMP-08-concept-pages` (`TeamDiagram`/`TeamBios`); guard `src/app/manual/_tests/conceptEquipo.test.tsx` |
 
 ## 9. Build Plan (Phase 2)
 

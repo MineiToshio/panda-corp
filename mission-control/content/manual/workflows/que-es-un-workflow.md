@@ -6,6 +6,6 @@ order: 0
 
 # Dynamic Workflows
 
-Un Dynamic Workflow es un guion de JavaScript que orquesta subagentes de forma determinista: decide en código qué corre en paralelo, qué espera a qué, dónde hay un control de calidad y cómo retomar si algo se corta.
+Un Dynamic Workflow es un guion de JavaScript que orquesta subagentes de forma determinista.
 
-> El cuerpo se compone en React (`WorkflowsOverview`); este markdown respalda el índice del Manual.
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

@@ -23,6 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { readManualPages } from "@/lib/manual/manual";
+import { renderedManualText } from "@/test/manualPageText";
 
 // ---------------------------------------------------------------------------
 // The app root is the mission-control directory (one level up from content/)
@@ -64,9 +65,9 @@ const REQUIRED_CONCEPT_SLUGS = [
   "autoaprendizaje",
 ];
 
-// The slug that covers the DR-049 feature-centric documentation structure
-// (may live in concepts or guides — we check for existence across all groups)
-const STRUCTURE_PAGE_SLUG = "arquitectura-del-sistema";
+// The slug that covers the DR-049 feature-centric documentation structure. The content
+// assertions read what the reader renders (the bespoke page), never a shadowed .md body.
+const STRUCTURE_PAGE_SLUG = "espinazo-de-documentos";
 
 // ---------------------------------------------------------------------------
 // Helper — index via readManualPages so we test the live content tree
@@ -118,7 +119,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const page = pages.find((p) => p.slug === "como-empezar");
     expect(page, "como-empezar page not found").toBeDefined();
     // Must mention the install/start concept so a no-context reader can begin
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     expect(body.toLowerCase()).toMatch(/pandacorp|fábrica|factory|instala|primer/);
   });
 
@@ -126,7 +127,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const pages = getPages();
     const page = pages.find((p) => p.slug === "g-feedback");
     expect(page, "g-feedback page not found").toBeDefined();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Should mention the feedback channels available while a build runs.
     expect(body.toLowerCase()).toMatch(/bug|iterate|decid|canal|agente/i);
   });
@@ -135,7 +136,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const pages = getPages();
     const page = pages.find((p) => p.slug === "g-modo");
     expect(page, "g-modo page not found").toBeDefined();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     expect(body.toLowerCase()).toMatch(/implement|modo|construi|balanced|powerful/i);
   });
 
@@ -143,7 +144,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const pages = getPages();
     const page = pages.find((p) => p.slug === "g-traspaso");
     expect(page, "g-traspaso page not found").toBeDefined();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     expect(body.toLowerCase()).toMatch(/persona|traspas|hand.?off|retomar|otra/i);
   });
 
@@ -151,7 +152,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const pages = getPages();
     const page = pages.find((p) => p.slug === "que-es-pandacorp");
     expect(page, "que-es-pandacorp page not found").toBeDefined();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     expect(body.toLowerCase()).toMatch(/fábrica|software|pandacorp/i);
   });
 
@@ -159,7 +160,7 @@ describe("AC-08-005.1 + AC-08-005.2 — required page slugs are present and inde
     const pages = getPages();
     const page = pages.find((p) => p.slug === "el-pipeline");
     expect(page, "el-pipeline page not found").toBeDefined();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must mention at least three phases
     expect(body.toLowerCase()).toMatch(/product|design|architect|implement|build/i);
   });
@@ -196,53 +197,53 @@ describe("AC-08-005.3 — DR-049 feature-centric structure page", () => {
 
   it("structure page mentions the feature-centric per-feature folder pattern", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must mention the pattern docs/frds/frd-NN-<slug>/ or similar
     expect(body).toMatch(/docs\/frds\/frd-\w+/);
   });
 
   it("structure page mentions the ID spine (REQ-NN-MMM)", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
-    expect(body).toMatch(/REQ-\d{2}-\d{3}/);
+    const body = page ? renderedManualText(page) : "";
+    expect(body).toMatch(/REQ-(\d{2}|NN)-(\d{3}|MMM)/);
   });
 
   it("structure page mentions the source-of-truth hierarchy", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Must include FRD > ... work order hierarchy
     expect(body).toMatch(/FRD.*blueprint|blueprint.*work.?order/i);
   });
 
   it("structure page mentions docs/product/ layer", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     expect(body).toMatch(/docs\/product/);
   });
 
   it("structure page does NOT describe a global docs/blueprint.md", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Old layout had a single global docs/blueprint.md — must NOT appear
     expect(body).not.toMatch(/docs\/blueprint\.md/);
   });
 
   it("structure page does NOT describe a global docs/work-orders/ directory", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Old layout had docs/work-orders/ at the root — must NOT appear
     expect(body).not.toMatch(/docs\/work-orders\//);
   });
 
   it("structure page mentions AC-NN-MMM.K acceptance criteria IDs", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
-    expect(body).toMatch(/AC-\d{2}-\d{3}/);
+    const body = page ? renderedManualText(page) : "";
+    expect(body).toMatch(/AC-(\d{2}|NN)-(\d{3}|MMM)/);
   });
 
   it("structure page mentions on-demand blueprint.md within feature modules", () => {
     const page = getStructurePage();
-    const body = page?.body ?? "";
+    const body = page ? renderedManualText(page) : "";
     // Feature-centric: blueprint lives INSIDE frd-NN-<slug>/, not at docs/ root
     // It should mention blueprint in the context of a feature folder
     expect(body).toMatch(/blueprint\.md/);

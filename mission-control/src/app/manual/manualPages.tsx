@@ -49,10 +49,23 @@ import { SnapshotMini } from "@/components/modules/manual-diagrams/SnapshotMini"
 import { SourceOfTruthMap } from "@/components/modules/manual-diagrams/SourceOfTruthMap";
 import { StacksTable } from "@/components/modules/manual-diagrams/StacksTable";
 import { StateTable } from "@/components/modules/manual-diagrams/StateTable";
-import { TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
+import { TeamBios, TeamDiagram } from "@/components/modules/manual-diagrams/TeamDiagram";
 import { VaultDiagram } from "@/components/modules/manual-diagrams/VaultDiagram";
 import { WorkflowShapeDiagram } from "@/components/modules/manual-diagrams/WorkflowShapeDiagram";
 import { backlogFlow, buildFlow } from "@/lib/manual/workflow-flows";
+import { ArquitecturaDetail } from "./_components/ArquitecturaDetail";
+import { CockpitDetail } from "./_components/CockpitDetail";
+import { DesatendidaDetail } from "./_components/DesatendidaDetail";
+import { EmpezarNext, EmpezarPrereqs } from "./_components/EmpezarDetail";
+import { EstadoDetail } from "./_components/EstadoDetail";
+import { EstandaresDetail } from "./_components/EstandaresDetail";
+import { FeedbackDetail } from "./_components/FeedbackDetail";
+import { HooksDetail } from "./_components/HooksDetail";
+import { ManualLink } from "./_components/ManualLink";
+import { PipelineDetail } from "./_components/PipelineDetail";
+import { PluginDetail } from "./_components/PluginDetail";
+import { QueEsDetail } from "./_components/QueEsDetail";
+import { StacksDetail } from "./_components/StacksDetail";
 import { useManualNav } from "./ManualNavContext";
 
 // ---------------------------------------------------------------------------
@@ -326,6 +339,7 @@ function ManualQuickstart(): React.JSX.Element {
         Code al lado.{" "}
         <i>Recuerda — Mission Control solo muestra; los comandos los pegas en Claude Code.</i>
       </Lead>
+      <EmpezarPrereqs />
       <QuickStep
         n={1}
         title="Personaliza tu fábrica (solo la 1ª vez)"
@@ -367,6 +381,7 @@ function ManualQuickstart(): React.JSX.Element {
         entender el porqué? Ve a <B weight={600}>Conceptos</B>. ¿Una tarea puntual? Mira las{" "}
         <B weight={600}>Guías</B>.
       </NotePanel>
+      <EmpezarNext />
     </>
   );
 }
@@ -453,26 +468,36 @@ function GuideModo(): React.JSX.Element {
       }
       steps={[
         <>
-          <B weight={600}>pro</B> — 1 agente, modelos económicos (sonnet/haiku). Más lento, mínimo
-          consumo. Para plan Pro. → <Code>implement pro</Code>
+          <B weight={600}>pro</B>: hasta 2 work orders en paralelo, modelos económicos
+          (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro. → <Code>implement pro</Code>
         </>,
         <>
-          <B weight={600}>balanced</B> (default) — equipo de ≤3 agentes, líder opus. Pensado para
-          Max 5x. → <Code>implement</Code>
+          <B weight={600}>balanced</B> (default): hasta 4 work orders en paralelo, juez opus.
+          Pensado para Max 5x. → <Code>implement</Code>
         </>,
         <>
-          <B weight={600}>powerful</B> — hasta 5 agentes en paralelo, avanza más rápido. Para Max
-          20x. → <Code>implement powerful</Code>
+          <B weight={600}>powerful</B>: hasta 8 work orders en paralelo y revisión de FRD en cuatro
+          lentes, avanza más rápido. Para Max 20x. → <Code>implement powerful</Code>
         </>,
         <>
-          <B weight={600}>deep</B> — mejores modelos en todos + revisión adversarial extra. Para un
-          proyecto especial. → <Code>implement deep</Code>
+          <B weight={600}>deep</B>: opus también en los builders (hasta 6 en paralelo) + revisión
+          adversarial extra. Para un proyecto especial. → <Code>implement deep</Code>
         </>,
       ]}
       tip={
         <>
           Siempre es <B weight={600}>reanudable</B>: si se corta, vuelves a correr{" "}
           <Code>implement</Code> y continúa desde la feature (FRD) pendiente.
+          <br />
+          <B weight={600}>Build parcial:</B> también puedes construir solo un FRD (
+          <Code>implement frd-05-settings</Code>, o varios separados por espacio) o una change de la
+          cola (<Code>implement change:&lt;nombre&gt;</Code>, que debe estar en{" "}
+          <Code>status: ready</Code>). Antes de arrancar verifica que las dependencias estén
+          VERIFIED y, si no, te lista qué implementar primero. El detalle está en la guía{" "}
+          <ManualLink group="guides" slug="g-implement-parcial">
+            Build parcial: por FRD o por change
+          </ManualLink>
+          .
         </>
       }
     />
@@ -494,6 +519,7 @@ function GuideFeedback(): React.JSX.Element {
         Mission Control te resalta los puntos de decisión pendientes y los bugs por procesar en
         Portfolio → Resumen.
       </NotePanel>
+      <FeedbackDetail />
     </>
   );
 }
@@ -615,6 +641,7 @@ function ConceptQueEs(): React.JSX.Element {
           en Claude Code, así sale de tu suscripción.
         </div>
       </Panel>
+      <QueEsDetail />
     </>
   );
 }
@@ -642,6 +669,7 @@ function ConceptPipeline(): React.JSX.Element {
         se guarda en <Code>.pandacorp/comms/iteration.md</Code>, así retomas aunque pierdas la
         conversación (otra sesión, otra compu, el celular).
       </NotePanel>
+      <PipelineDetail />
     </>
   );
 }
@@ -658,6 +686,27 @@ function ConceptEquipo(): React.JSX.Element {
       <Panel>
         <TeamDiagram />
       </Panel>
+
+      <DocH title="Quién hace qué" />
+      <Body>
+        El propietario es el único humano del equipo: todos los demás son agentes, cada uno con un
+        rol definido, un modelo asignado y responsabilidades concretas. Esta es la ficha de cada
+        uno, con la misma lista que ves arriba.
+      </Body>
+      <TeamBios />
+
+      <DocH title="Cómo se orquesta el equipo" />
+      <Body>
+        El motor de <Code>implement</Code> asigna las work orders a los agentes según el tipo de
+        tarea. Cada oleada toma las work orders listas de todos los FRDs y las construye en paralelo
+        hasta el tope del modo (en potente, 8 a la vez) cuando no dependen entre sí. La coordinación
+        es explícita en el código del workflow: no hay comunicación directa entre agentes.
+      </Body>
+      <NotePanel icon="ti-device-gamepad-2" iconColor="var(--color-accent)">
+        <B weight={500}>En Mission Control,</B> el panel Party muestra a los agentes activos con sus
+        avatares animados. Los estados reflejan el trabajo en tiempo real: el agente se mueve cuando
+        trabaja, se congela cuando espera y celebra cuando completa una work order.
+      </NotePanel>
     </>
   );
 }
@@ -770,6 +819,7 @@ function ConceptEstandares(): React.JSX.Element {
           bloquea. Canónico: <Code>document-consistency.md</Code>.
         </div>
       </Panel>
+      <EstandaresDetail />
     </>
   );
 }
@@ -791,6 +841,7 @@ function ConceptArquitectura(): React.JSX.Element {
         puntero. El proyecto nunca necesita leer la fábrica para trabajar — los estándares llegan
         por el plugin.
       </NotePanel>
+      <ArquitecturaDetail />
     </>
   );
 }
@@ -800,8 +851,10 @@ function ConceptCockpit(): React.JSX.Element {
     <>
       <DocH title="Mission Control por dentro" level={1} />
       <Lead>
-        Hoy ves un prototipo en HTML. La app real se construirá así — y es el primer proyecto que la
-        fábrica construye para sí misma (dogfooding).
+        Mission Control es la interfaz de control de la fábrica: una aplicación Next.js con App
+        Router que vive dentro de <Code>panda-corp/mission-control/</Code>. Fue el primer proyecto
+        que la fábrica construyó para sí misma (dogfooding). Esta página explica su estructura
+        interna.
       </Lead>
       <div style={{ marginBottom: "10px" }}>
         <Panel>
@@ -823,8 +876,8 @@ function ConceptCockpit(): React.JSX.Element {
             pegando comandos en Claude Code (tu suscripción Max).
           </li>
           <li>
-            <B weight={500}>Única escritura:</B> marcar una idea «descartada» y reportar un bug a la
-            bandeja.
+            <B weight={500}>Únicas escrituras:</B> descartar o restaurar una tarjeta de idea y
+            marcarla como favorita.
           </li>
           <li>
             <B weight={500}>Se refresca solo:</B> re-lee los archivos cada pocos segundos tras
@@ -832,6 +885,7 @@ function ConceptCockpit(): React.JSX.Element {
           </li>
         </Ul>
       </Panel>
+      <CockpitDetail />
     </>
   );
 }
@@ -856,6 +910,7 @@ function ConceptEstado(): React.JSX.Element {
         ese fichero mientras la lease siga activa; al detenerse conserva la identidad y publica
         <Code>running: false</Code> para el relevo en frío.
       </NotePanel>
+      <EstadoDetail />
     </>
   );
 }
@@ -896,6 +951,7 @@ function ConceptHooks(): React.JSX.Element {
         <Code>find … -delete</Code> — y es fail-closed si su propio parser (jq) falta. Probado por
         una matriz canary de 36 casos (<Code>test-block-dangerous.sh</Code>).
       </NotePanel>
+      <HooksDetail />
     </>
   );
 }
@@ -1120,6 +1176,7 @@ function ConceptStacks(): React.JSX.Element {
         para mostrar.
       </Lead>
       <StacksTable />
+      <StacksDetail />
     </>
   );
 }
@@ -1178,6 +1235,7 @@ function ConceptDesatendida(): React.JSX.Element {
       <Panel>
         <SnapshotMini />
       </Panel>
+      <DesatendidaDetail />
       <NotePanel icon="ti-route" iconColor="var(--color-accent)">
         El mecanismo del motor (oleadas globales, gate en abanico, supervisor) está detallado en{" "}
         <button
@@ -1253,9 +1311,9 @@ function ConceptPlugin(): React.JSX.Element {
           Instalación y mantenimiento
         </div>
         <Body size="13px" margin="0 0 8px">
-          Instalado desde un marketplace local, scope usuario,{" "}
-          <B weight={500}>versión = SHA del commit</B>. Tras editar algo en plugin/:{" "}
-          <Code>commit</Code> → <Code>claude plugin update</Code> → reiniciar sesión.
+          Instalado desde un marketplace local, con scope de usuario. Tras editar algo en plugin/:{" "}
+          <Code>bumpear la versión</Code> → <Code>commit</Code> → <Code>claude plugin update</Code>{" "}
+          → reiniciar sesión.
         </Body>
         <div style={{ fontSize: "12px", color: "var(--color-text2)" }}>
           <i
@@ -1267,6 +1325,7 @@ function ConceptPlugin(): React.JSX.Element {
           instalado con el repo) y muestra un aviso.
         </div>
       </Panel>
+      <PluginDetail />
     </>
   );
 }
@@ -1482,6 +1541,37 @@ function ConceptAutoaprendizaje(): React.JSX.Element {
         (BL-0088): tu aprobación ya es corroboración más fuerte que el umbral cruzado de proyectos,
         así que una lección aprobada nunca se queda invisible en <Code>status: candidate</Code>.
       </NotePanel>
+
+      <DocH title="Qué NO es autoaprendizaje" />
+      <Panel>
+        <Ul>
+          <li>
+            <B weight={500}>No es reflexión sobre reflexiones:</B> las lecciones se anclan en
+            evidencia concreta (un bug real, un diff, un fallo de test), no en lo que el agente
+            «cree que aprendió». El único paso sintético permitido, el pase de reflexión que agrupa
+            3 o más lecciones de un dominio en un patrón, sintetiza desde lecciones ancladas y nunca
+            desde otras reflexiones. Es una regla dura con verificador (MEM-1): el{" "}
+            <Code>source:</Code> de una lección debe citar un localizador comprobable (una fecha, un
+            id, un archivo, un commit o una URL) o <Code>validate-memory.sh</Code> pone la memoria
+            en rojo.
+          </li>
+          <li>
+            <B weight={500}>No es confianza en el agente:</B> el uso se mide con citas contadas por
+            script (<Code>count-lesson-citations.sh</Code>), la validez exige corroboración cruzada
+            y los verificadores son deterministas. Antes de trabajo no trivial, cada builder lee{" "}
+            <Code>factory/memory/INDEX.md</Code> (una línea por lección activa con su trigger «úsala
+            cuando…») y abre las que aplican.
+          </li>
+          <li>
+            <B weight={500}>No es memoria de conversación:</B> no se guardan conversaciones
+            completas, solo lecciones atómicas y falsificables.
+          </li>
+          <li>
+            <B weight={500}>No es promoción sin gate:</B> solo el tier medio (un SHOULD con
+            verificador) se aplica solo, y siempre notificando; todo lo demás espera al dueño.
+          </li>
+        </Ul>
+      </Panel>
 
       <DocH title="Tipos de lección" />
       <Panel>
@@ -1858,10 +1948,12 @@ function ConceptDespuesDeLanzar(): React.JSX.Element {
       </NotePanel>
       <NotePanel icon="ti-layout-dashboard" iconColor="var(--color-accent)">
         Alimenta el portfolio con columnas de negocio —Usuarios / Retorno / Veredicto— para ver
-        ganadores vs zombies. Puede correr a demanda, en sesión atendida como un job{" "}
-        <Code>/loop</Code> (se auto-expira a los 7 días), o de forma durable vía la rutina semanal
-        programada <Code>pandacorp-review-launch</Code> (<Code>plugin/docs/routines.md</Code>) que
-        barre todo el portfolio lanzado: sin nadie presente, solo mide, registra y avisa.
+        ganadores vs zombies. Una idea matada realimenta a <Code>recommend</Code>, para que no
+        vuelva a proponer la misma apuesta muerta. Puede correr a demanda, en sesión atendida como
+        un job <Code>/loop</Code> (se auto-expira a los 7 días), o de forma durable vía la rutina
+        semanal programada <Code>pandacorp-review-launch</Code> (
+        <Code>plugin/docs/routines.md</Code>) que barre todo el portfolio lanzado: sin nadie
+        presente, solo mide, registra y avisa.
       </NotePanel>
     </>
   );
@@ -2167,8 +2259,24 @@ function ConceptEspinazoDocs(): React.JSX.Element {
       <NotePanel icon="ti-folders" iconColor="var(--color-accent)">
         La estructura es <B weight={500}>feature-céntrica</B> (DR-049): una capa fina de producto +
         un módulo autocontenido por feature. Las carpetas aparecen bajo demanda. El Manual de
-        Mission Control refleja esta misma disciplina (DR-046).
+        Mission Control refleja esta misma disciplina (DR-046). <Code>NN</Code> es el número de la
+        carpeta del FRD y no cambia una vez asignado; el nombre legible vive en el slug, no en el
+        ID.
       </NotePanel>
+      <DocH title="Patrón prohibido: docs/proposals/ en un proyecto" />
+      <Panel>
+        <Body size="13px" margin="0 0 8px">
+          Un proyecto <B weight={600}>nunca</B> tiene una carpeta <Code>docs/proposals/</Code>: ese
+          patrón solo existe en el repo de la fábrica, para sus RFCs. Un archivo ahí es invisible
+          para el motor de build y para la cola de cambios de Mission Control, así que nunca se va a
+          procesar.
+        </Body>
+        <div style={{ fontSize: "12px", color: "var(--color-text2)", lineHeight: 1.6 }}>
+          Un cambio pendiente siempre va a <Code>.pandacorp/inbox/changes/</Code>, por{" "}
+          <Code>/pandacorp:change</Code>. Si tienes una idea o un cambio para un proyecto, úsalo: no
+          crees un documento de propuesta dentro de <Code>docs/</Code>.
+        </div>
+      </Panel>
     </>
   );
 }
@@ -2219,9 +2327,10 @@ function ConceptTuPerfil(): React.JSX.Element {
         </KvRow>
       </Panel>
       <NotePanel icon="ti-scale">
-        Un lente cuyo dolor tu propio tablero ya saturó (hoy: el coleccionista) queda en descanso.
-        El criterio dual se honra: no descarta una idea alineada por monetizar poco, ni una idea
-        general brillante por no ser «tu tema».
+        Un lente cuyo dolor tu propio tablero ya saturó (hoy: el coleccionista) queda en descanso. Y
+        tus comentarios y DMs de TikTok son la fuente #1 que el agente no puede leer: cuando pegas
+        los temas que se repiten, entran como semillas. El criterio dual se honra: no descarta una
+        idea alineada por monetizar poco, ni una idea general brillante por no ser «tu tema».
       </NotePanel>
 
       <DocH title="recommend usa la misma lógica dual" />
@@ -2510,7 +2619,12 @@ function GuideAdoptar(): React.JSX.Element {
       <NotePanel icon="ti-plug-connected" iconColor="var(--color-accent)">
         Tras adoptar, el proyecto aparece de inmediato en el <B weight={600}>Tablero</B> de Mission
         Control (por su ficha) y también en el <B weight={600}>Portfolio</B> (por su fila), con su
-        fase inferida, igual que un proyecto nacido del handoff.
+        fase inferida, igual que un proyecto nacido del handoff. El Tablero (fichas) y el Portfolio
+        (<Code>portfolio.md</Code>) son dos lecturas distintas, por eso todo proyecto necesita su
+        ficha para salir en el Tablero; la ficha guarda en <Code>project:</Code> la ruta que
+        entiende <Code>resolveProjectPath</Code> (relativa a la raíz de la fábrica:{" "}
+        <Code>../slug</Code> para un repo hermano, o <Code>slug</Code> si vive dentro de la fábrica;
+        o absoluta), y ambos la resuelven con el mismo helper para no desincronizarse.
       </NotePanel>
     </>
   );
@@ -3234,4 +3348,9 @@ const MANUAL_PAGE_COMPONENTS: Record<string, () => React.JSX.Element> = {
  */
 export function getManualPageComponent(slug: string): (() => React.JSX.Element) | null {
   return MANUAL_PAGE_COMPONENTS[slug] ?? null;
+}
+
+/** Every slug that has a bespoke renderer (each needs a matching `.md` index stub). */
+export function manualPageSlugs(): readonly string[] {
+  return Object.keys(MANUAL_PAGE_COMPONENTS);
 }

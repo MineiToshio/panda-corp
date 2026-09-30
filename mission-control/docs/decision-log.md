@@ -1,5 +1,66 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — Manual: one source of content per page (bespoke component wins, `.md` becomes an index stub) + the team page lists `drift-finder`
+
+**What:** `DocReader.AuthoredBody` renders a slug's bespoke component (`manualPages.tsx`) and never its
+`content/manual/<group>/<slug>.md` body. Inventory at this commit: 37 `.md` pages, **35 have a bespoke
+component** (so 35 dead bodies) and only `la-fragua` and `g-implement-parcial` render their markdown.
+Of the 35, 13 were already index stubs; 22 carried prose the reader never showed, and the syncs kept
+editing it (`estandares-y-reglas.md` 22 commits, `el-pipeline.md` 17, `multi-runtime.md` 12, the last
+batch `58beb8cf` had to fix the component *and* the `.md`). The two the owner named were the worst:
+`construccion-desatendida.md` (the engine `args.*` table, the receipt-fenced stop order) and
+`el-equipo.md` (agent bios incl. the new `drift-finder`). Fix, in three parts:
+
+1. **Ported what the reader was missing** into the components (Spanish, no em dash). Whole sections
+   for the thin pages (`que-es-pandacorp`, `el-pipeline`, `el-equipo`, `estandares-y-reglas`,
+   `arquitectura-del-sistema`, `mission-control-por-dentro`, `estado-y-archivos`,
+   `hooks-gates-seguridad`, `stacks-golden-paths`, `construccion-desatendida`, `el-plugin`,
+   `como-empezar`) in `src/app/manual/_components/*Detail.tsx` (keeps `manualPages.tsx` from growing
+   another ~2k lines), a reusable `ProseTable` and `MonoBlock`, and small gap-fills in the pages that
+   were already JSX-first (`g-feedback`, `g-modo`, `g-adoptar`, `tu-perfil`, `espinazo-de-documentos`,
+   `despues-de-lanzar`, `autoaprendizaje`).
+2. **Reduced all 35 `.md` to an index stub** (frontmatter for the nav + H1 + one-line summary + a
+   pointer to `manualPages.tsx`). The `.md` cannot simply be deleted: `readManualPages()` builds the
+   side menu (title, group, order) from it.
+3. **Guard test** `src/app/manual/_tests/manualSingleSource.test.ts`: a slug with a bespoke component
+   must have a stub `.md` (≤4 content lines, no headings/lists/tables, pointer to `manualPages.tsx`);
+   every registered component needs an indexed `.md`; a slug with no component must carry real prose.
+   The next sync that edits a dead body goes RED with the path to edit instead.
+
+The content tests `content/manual/wo-08-005.content.test.ts` and `wo-14-004.feedback-channels.test.ts`
+asserted keywords against the dead `.md` bodies (so they proved nothing about what the owner sees);
+they now read `renderedManualText()` (`src/test/manualPageText.tsx`: the bespoke component rendered,
+else the `.md`). The DR-049 structure assertions moved from `arquitectura-del-sistema` to
+`espinazo-de-documentos`, which is the page that owns the ID spine and the source-of-truth hierarchy
+(and `arquitectura-del-sistema` now links to it instead of repeating the tree).
+
+**Team page:** `TeamDiagram` had a hand-kept 9-role list (no `implementer`, `librarian`, `mech` or
+`drift-finder`). The roster and the bios now share one `GROUPS` array (new `TeamBios`, one labelled
+card per agent), and `conceptEquipo.test.tsx` fails when an agent exists in `plugin/agents/` without
+a card. Agents outside the 13 canonical `AGENT_ROLES` (no sprite) get an icon tile rather than
+`Avatar` (whose `AgentRole` contract `Avatar.test.tsx` pins). `drift-finder` explains what it does and
+that it only runs under `gateEvidence: 'digested'` (not the default, `'explore'` is) or with
+`--drift-finder on`, and that it only proposes (verified against `factory/standards/build-orchestration.md`).
+
+**Stale claims found while porting, corrected or not ported (CONV-13: read against the live source):**
+the `.md` bodies described `.pandacorp/inbox/bugs/` (folded into `changes/` by DR-069), a
+"freeze-on-red, max 3 attempts" loop (replaced by the DR-117 repair ladder already on the page),
+"up to 3 agents in parallel" (engine `PROFILES`: pro 2, balanced 4, powerful 8, deep 6, which also
+fixes `g-modo`, whose JSX said 1/3/5), the plugin version living in `plugin/.claude-plugin/plugin.json`
+(it is generated from `plugin/runtime/plugin-metadata.json`), "versión = SHA" for the plugin, and a
+hand list of 14 skills (Referencia → Comandos derives it, DR-046). `StateTable` also listed
+`.pandacorp/inbox/bugs/`; it now lists `changes/`. Deliberately **not** ported: the long paused
+Codex R10/R11 write-contract prose in `multi-runtime.md` (DR-120 froze it; the page keeps the freeze,
+the reopening trigger and the shared core; the contract lives in `factory/standards/agent-portability.md`
+PORT-5 and in git history).
+
+**Why:** DR-115 (one writer per fact). A second copy of a page that nothing reads is the exact
+"dead field rendered as truth" defect, except here the dead copy misled the people maintaining the
+page, not the reader. Structural fix (a test that fails) over a convention.
+
+**Docs touched:** `docs/frds/frd-08-documentation/frd.md` (two new ACs), its `blueprint.md`
+(`CMP-08-doc-reader`, `CMP-08-concept-pages`, traceability rows).
+
 ## 2026-09-25 — FRD-02/FRD-03 doc↔code drift reconciled (canario D whole-FRD gate, `wf_faf48b18-881`)
 
 **What:** the whole-FRD gate exercised by canario D (speed-sprint close-out, `ed915b43`) surfaced

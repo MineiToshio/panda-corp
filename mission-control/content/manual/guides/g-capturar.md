@@ -8,4 +8,4 @@ order: 1
 
 Cuatro formas de llenar la columna «Descubierta». Todas corren en la fábrica (panda-corp).
 
-> El cuerpo paso a paso se compone en React. Este markdown respalda el índice del Manual.
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

@@ -8,4 +8,4 @@ order: 2
 
 El handoff es donde una idea deja de ser una ficha y nace como proyecto con su propio repo.
 
-> El cuerpo paso a paso se compone en React. Este markdown respalda el índice del Manual.
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

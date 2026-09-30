@@ -6,6 +6,6 @@ order: 0
 
 # Qué es Pandacorp
 
-Operas una fábrica de software hecha 100% con IA. Pandacorp (Mission Control) es el tablero de mando: te muestra el estado de todo y te dice qué comando pegar en Claude Code para avanzar.
+Qué es Pandacorp y Mission Control: el tablero de mando de la fábrica y un recorrido por sus partes.
 
-> El cuerpo de esta página se compone en React (recorrido de una idea + tarjetas de funciones + tour). Este markdown es el respaldo del índice/menú.
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

@@ -128,3 +128,26 @@ export function ChipFlow({ children }: { children: React.ReactNode }): React.JSX
     </div>
   );
 }
+
+/**
+ * A preformatted mono block for a folder tree or a short flow that must keep its
+ * alignment. Scrolls horizontally on a narrow viewport instead of overflowing.
+ */
+export function MonoBlock({ text }: { text: string }): React.JSX.Element {
+  return (
+    <Panel>
+      <pre
+        style={{
+          margin: 0,
+          overflowX: "auto",
+          fontFamily: "var(--font-mono, monospace)",
+          fontSize: "12px",
+          lineHeight: 1.7,
+          color: "var(--color-text2)",
+        }}
+      >
+        {text}
+      </pre>
+    </Panel>
+  );
+}

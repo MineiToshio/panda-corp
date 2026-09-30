@@ -6,6 +6,6 @@ order: 2
 
 # pandacorp-backlog — el motor de drenado del backlog
 
-Drena el backlog de la fábrica de forma determinista: un subagente por ítem en paralelo, cada uno en su propio worktree, mergeados a main de uno en uno con un validador entre cada merge.
+El workflow que drena el backlog de la fábrica: un subagente por ítem, en su propio worktree.
 
-> El cuerpo se compone en React (`WorkflowBacklog`); este markdown respalda el índice del Manual.
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.

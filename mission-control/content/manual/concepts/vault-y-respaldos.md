@@ -6,6 +6,6 @@ order: 21
 
 # El vault · tu estado personal
 
-Tus ideas, tu perfil, tu portfolio no viven en el repo — son personales, están gitignoreados. ¿Dónde viven entonces, y cómo no perderlos? En una carpeta hermana: el **vault**.
+Dónde vive tu estado personal gitignoreado (el vault) y cómo no perderlo.
 
-> La página se renderiza desde el componente `ConceptVault` (manualPages.tsx); este `.md` solo aporta el título, el grupo y el orden en la navegación. Fuente canónica del contenido: `factory/standards/infra.md` → "pandacorp-vault".
+> El cuerpo de esta página se compone en React (`src/app/manual/manualPages.tsx`). Este markdown solo respalda el índice del Manual (título, grupo y orden): no edites su prosa aquí.
