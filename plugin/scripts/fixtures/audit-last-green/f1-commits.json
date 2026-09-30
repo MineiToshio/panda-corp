@@ -1,0 +1,716 @@
+[
+ {
+  "id": "5381f6f3",
+  "at": "2026-09-03T13:29:55-05:00",
+  "subject": "chore(build): publish last green snapshot",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "2d7dd892",
+  "at": "2026-09-03T13:42:12-05:00",
+  "subject": "style(visual-qa): sweep punch-list for frd-24-decision-id-emitter",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "6b3ef3c3",
+  "at": "2026-09-03T13:46:38-05:00",
+  "subject": "chore: quiesce Claude build lease",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "d1dc41fe",
+  "at": "2026-09-03T13:53:53-05:00",
+  "subject": "chore(mission-control): record usage_summary for build wf_ddcc95c6 (FRD-24) -- first real cost telemetry, BL-0096",
+  "files": [
+   ".pandacorp/track.jsonl"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "b56754a7",
+  "at": "2026-09-16T09:11:33-05:00",
+  "subject": "chore(memory): harvest mission-control -- 3 lessons, 0 backlog items, 1 citation update",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "f4c29fda",
+  "at": "2026-09-22T00:09:03-05:00",
+  "subject": "merge: integrate wp-05-gate-report-json into integration-speed-sprint-a",
+  "files": [],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "ebf21cd8",
+  "at": "2026-09-22T01:15:05-05:00",
+  "subject": "fix(gates): reset gate-report.json before the --canary early exit (REV-C)",
+  "files": [
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "5d5a8635",
+  "at": "2026-09-22T01:15:13-05:00",
+  "subject": "feat(observability): register UiPassSkipped in the canonical event vocabulary",
+  "files": [
+   "src/lib/events/event-vocabulary.json"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "65b78183",
+  "at": "2026-09-22T01:44:51-05:00",
+  "subject": "merge: integrate wp-06-digested-gate into integration-speed-sprint-a",
+  "files": [
+   "src/lib/events/event-vocabulary.json"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "f08ffef6",
+  "at": "2026-09-22T01:52:39-05:00",
+  "subject": "merge: integrate wp-08-scoped-repair into integration-speed-sprint-a",
+  "files": [
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "645319d2",
+  "at": "2026-09-22T03:01:00-05:00",
+  "subject": "fix(gates): validate --files (REV2-G), warn on a misplaced --since (D11)",
+  "files": [
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "2c1c9fe2",
+  "at": "2026-09-22T03:27:28-05:00",
+  "subject": "chore(mission-control): resync build engine machinery to plugin 9.103.0",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   "docs/decision-log.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "47340f6b",
+  "at": "2026-09-22T09:15:40-05:00",
+  "subject": "chore(memory): harvest mission-control -- 3 lessons, 1 update, 0 new backlog items",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "c389d9c7",
+  "at": "2026-09-22T09:54:35-05:00",
+  "subject": "merge(plugin): land speed sprint second batch (9.104.0, overlay 8.82.0)",
+  "files": [],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "ab5fc696",
+  "at": "2026-09-22T10:00:05-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.82.0",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/doc-lint.sh",
+   ".pandacorp/guide.md",
+   ".pandacorp/status.yaml",
+   "AGENTS.md",
+   "docs/decision-log.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "8b047f3f",
+  "at": "2026-09-22T10:32:27-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.82.1",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/status.yaml",
+   ".pandacorp/worktree-bootstrap.sh",
+   "docs/decision-log.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "3c765dc7",
+  "at": "2026-09-22T15:17:33-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.82.2",
+  "files": [
+   ".pandacorp/status.yaml",
+   ".pandacorp/worktree-bootstrap.sh",
+   "docs/decision-log.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "b738beda",
+  "at": "2026-09-22T16:19:25-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.82.3",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "e5491ebe",
+  "at": "2026-09-22T17:18:29-05:00",
+  "subject": "fix(build-engine): derive a per-worktree e2e Playwright port (BL-0154)",
+  "files": [
+   ".pandacorp/worktree-bootstrap.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "dc9c9523",
+  "at": "2026-09-22T17:39:05-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.83.0",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "e2504b55",
+  "at": "2026-09-22T20:12:31-05:00",
+  "subject": "docs(mission-control): document speed-sprint build args and pandacorp:mech in the Manual",
+  "files": [
+   "content/manual/concepts/construccion-desatendida.md",
+   "content/manual/concepts/el-equipo.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "d0b4ac51",
+  "at": "2026-09-22T20:17:16-05:00",
+  "subject": "fix(mission-control): correct the Mech agent entry in the Manual",
+  "files": [
+   "content/manual/concepts/el-equipo.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "f5509290",
+  "at": "2026-09-22T20:22:29-05:00",
+  "subject": "docs(mission-control): close-out manual-speed-sprint-args (decision log)",
+  "files": [
+   "docs/decision-log.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "8a5ee9b1",
+  "at": "2026-09-22T20:26:13-05:00",
+  "subject": "chore(mission-control): record usage_summary for change manual-speed-sprint-args",
+  "files": [
+   ".pandacorp/track.jsonl"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "06cf24eb",
+  "at": "2026-09-22T20:48:57-05:00",
+  "subject": "fix(build-engine): reuse a fresh full-green gate-report at close-out/notify-end instead of re-running verify.sh (BL-0147)",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   "src/lib/events/event-vocabulary.json"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "06869e21",
+  "at": "2026-09-22T20:54:50-05:00",
+  "subject": "fix(build-engine): repair brake gets a real-token second opinion on the already-floored budget (BL-0138)",
+  "files": [
+   ".claude/engines/pandacorp-build.js"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "2e99ba79",
+  "at": "2026-09-22T20:55:44-05:00",
+  "subject": "fix(change): keep --card on the project checkout during --now reclassification (BL-0162)",
+  "files": [
+   "src/lib/events/event-vocabulary.json"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "47f5b1ff",
+  "at": "2026-09-22T21:04:50-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.84.0",
+  "files": [
+   ".pandacorp/status.yaml",
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "cf5c0398",
+  "at": "2026-09-23T10:17:25-05:00",
+  "subject": "feat(mission-control): render UiPassSkipped in La Fragua timeline",
+  "files": [
+   "src/app/projects/[slug]/_party/event-vm/_tests/event-vm.uipassskipped.test.ts",
+   "src/app/projects/[slug]/_party/event-vm/event-vm.ts",
+   "src/lib/events/_tests/events.uipassskipped.test.ts",
+   "src/lib/events/event-types.ts",
+   "src/lib/events/events.ts"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "7446d4cd",
+  "at": "2026-09-23T10:17:25-05:00",
+  "subject": "test(mission-control): add reviewer adversarial suite for UiPassSkipped",
+  "files": [
+   "src/app/projects/[slug]/_party/event-vm/_tests/event-vm.uipassskipped.review.test.ts"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "1a8cc7b1",
+  "at": "2026-09-23T10:21:16-05:00",
+  "subject": "docs(mission-control): close-out render-uipassskipped-timeline (WO-06-001, decision-log)",
+  "files": [
+   "docs/decision-log.md",
+   "docs/frds/frd-06-party/work-orders/wo-06-001-event-vocabulary-vm.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "3b820278",
+  "at": "2026-09-23T10:22:52-05:00",
+  "subject": "chore(mission-control): record canario 2 change_usage in track.jsonl",
+  "files": [
+   ".pandacorp/track.jsonl"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "95446e75",
+  "at": "2026-09-24T19:46:03-05:00",
+  "subject": "fix(build-engine): trace every terminal gate outcome and stop notify-end's stale narrative (BL-0159)",
+  "files": [
+   ".claude/engines/pandacorp-build.js"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "bb462163",
+  "at": "2026-09-24T19:48:56-05:00",
+  "subject": "fix(build-engine): bare-path dirtyPaths + worktree-scoped PANDACORP_FACTORY_ROOT (BL-0160)",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/worktree-bootstrap.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "95695cc5",
+  "at": "2026-09-24T19:58:04-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.85.0",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "b4b1e7bf",
+  "at": "2026-09-24T20:56:04-05:00",
+  "subject": "fix(build-engine): gate change-created work orders, commit rollup docs at close, and name a wave's real cut reason",
+  "files": [
+   ".claude/engines/pandacorp-build.js"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "8d25ae29",
+  "at": "2026-09-24T22:21:19-05:00",
+  "subject": "fix(build-engine): honest gate-block telemetry, evidence salvage, and agent-ceiling reporting (BL-0174/0175/0176/0177)",
+  "files": [
+   ".claude/engines/pandacorp-build.js"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "5fc5093c",
+  "at": "2026-09-24T22:25:26-05:00",
+  "subject": "chore(plugin): release 9.109.0 (BL-0171/0172/0173/0174/0175/0176/0177 merged, BL-0178/0179 open)",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "c34ba57c",
+  "at": "2026-09-25T08:31:15-05:00",
+  "subject": "docs(mission-control): reconcile FRD-02/FRD-03 drift surfaced by the whole-FRD gate (canary D)",
+  "files": [
+   "docs/decision-log.md",
+   "docs/frds/frd-02-ideas-board/frd.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "8f3de66a",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "docs(mission-control): plan change canario-d-paralelismo as 4 independent WOs",
+  "files": [
+   "docs/decision-log.md",
+   "docs/frds/frd-02-ideas-board/frd.md",
+   "docs/frds/frd-02-ideas-board/work-orders/README.md",
+   "docs/frds/frd-02-ideas-board/work-orders/wo-02-014-empty-column-a11y.md",
+   "docs/frds/frd-03-portfolio/frd.md",
+   "docs/frds/frd-03-portfolio/work-orders/README.md",
+   "docs/frds/frd-03-portfolio/work-orders/wo-03-006-last-sync-chip.md",
+   "docs/frds/frd-04-project-workspace/frd.md",
+   "docs/frds/frd-04-project-workspace/work-orders/README.md",
+   "docs/frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md",
+   "docs/frds/frd-05-work-orders/frd.md",
+   "docs/frds/frd-05-work-orders/work-orders/README.md",
+   "docs/frds/frd-05-work-orders/work-orders/wo-05-007-wo-state-filter.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "82bf00d1",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "chore(mission-control): sync rollups (corrected: 8)",
+  "files": [
+   ".pandacorp/status.yaml",
+   "docs/frds/frd-02-ideas-board/blueprint.md",
+   "docs/frds/frd-02-ideas-board/frd.md",
+   "docs/frds/frd-03-portfolio/blueprint.md",
+   "docs/frds/frd-03-portfolio/frd.md",
+   "docs/frds/frd-04-project-workspace/blueprint.md",
+   "docs/frds/frd-04-project-workspace/frd.md",
+   "docs/frds/frd-05-work-orders/blueprint.md",
+   "docs/frds/frd-05-work-orders/frd.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "58ec39a5",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "feat(frd-02): WO-02-014 — accessible empty-column marker on ideas board",
+  "files": [
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-02-ideas-board/work-orders/wo-02-014-empty-column-a11y.md",
+   "src/app/board/IdeaBoardView/IdeaBoardView.tsx",
+   "src/app/board/IdeaBoardView/_tests/IdeaBoardView.wo02014.test.tsx"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "bab6480e",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "chore: quiesce Claude build lease",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "10fd7ce5",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "docs(mission-control): mark FRD-02 in review after WO-02-014 (budget-cut carry-over)",
+  "files": [
+   "docs/frds/frd-02-ideas-board/blueprint.md",
+   "docs/frds/frd-02-ideas-board/frd.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "a5f7195f",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "docs(mission-control): promote canario-d work orders to ACTIVE with DR-100 stamps",
+  "files": [
+   "docs/frds/frd-02-ideas-board/blueprint.md",
+   "docs/frds/frd-02-ideas-board/work-orders/wo-02-014-empty-column-a11y.md",
+   "docs/frds/frd-03-portfolio/blueprint.md",
+   "docs/frds/frd-03-portfolio/work-orders/wo-03-006-last-sync-chip.md",
+   "docs/frds/frd-04-project-workspace/blueprint.md",
+   "docs/frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md",
+   "docs/frds/frd-05-work-orders/blueprint.md",
+   "docs/frds/frd-05-work-orders/work-orders/wo-05-007-wo-state-filter.md"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "405596ff",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "chore(mission-control): sync build state and rollups (epoch 2) Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "6086d0b8",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "feat(frd-03-portfolio): add last-sync chip to portfolio table (WO-03-006)",
+  "files": [
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-03-portfolio/work-orders/wo-03-006-last-sync-chip.md",
+   "src/components/modules/PortfolioTable/PortfolioTable.tsx",
+   "src/components/modules/PortfolioTable/_tests/PortfolioTable.test.tsx",
+   "src/lib/portfolio/_tests/formatLastSync.test.ts",
+   "src/lib/portfolio/formatLastSync.ts"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "acecdb7a",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "feat(changes): add relative date formatting for changes card",
+  "files": [
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md",
+   "src/app/projects/[slug]/_components/tab-changes/ChangeCard.tsx",
+   "src/app/projects/[slug]/_components/tab-changes/_tests/ChangeCard.test.tsx",
+   "src/lib/changes/_tests/formatChangeDate.test.ts",
+   "src/lib/changes/formatChangeDate.ts"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "c575adfc",
+  "at": "2026-09-25T08:35:29-05:00",
+  "subject": "feat(frd-05-work-orders): WO-05-007 — add state filter to work-orders kanban",
+  "files": [
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-05-work-orders/work-orders/wo-05-007-wo-state-filter.md",
+   "src/app/projects/[slug]/_components/wo-frd-filtered-board/_tests/wo-frd-filtered-board.test.tsx",
+   "src/app/projects/[slug]/_components/wo-frd-filtered-board/wo-frd-filtered-board.tsx",
+   "src/app/projects/[slug]/_components/wo-state-filter/_tests/wo-state-filter.test.tsx",
+   "src/app/projects/[slug]/_components/wo-state-filter/wo-state-filter.tsx"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "e045b293",
+  "at": "2026-09-25T16:25:44-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.89.0 (canary E)",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/status.yaml",
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "e089f3aa",
+  "at": "2026-09-25T23:02:25-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.92.0 (canary F1)",
+  "files": [
+   ".claude/engines/pandacorp-build.js",
+   ".pandacorp/status.yaml",
+   ".pandacorp/verify.sh"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "f3dd384c",
+  "at": "2026-09-25T23:20:27-05:00",
+  "subject": "chore(mission-control): engine artifact ≤512KB (canary F1)",
+  "files": [
+   ".claude/engines/pandacorp-build.js"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "7740eb95",
+  "at": "2026-09-25T23:20:48-05:00",
+  "subject": "chore(mission-control): upgrade overlay to 8.92.1 (canary F1)",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "fdc2c09d",
+  "at": "2026-09-25T23:40:59-05:00",
+  "subject": "fix(frd-03-portfolio): bucket last-sync chip by the owner's local calendar day (WO-03-006)",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   "src/lib/portfolio/_tests/formatLastSync.test.ts",
+   "src/lib/portfolio/formatLastSync.ts"
+  ],
+  "pin": "d9addc89"
+ },
+ {
+  "id": "1529d924",
+  "at": "2026-09-25T23:46:51-05:00",
+  "subject": "fix(portfolio): formatLastSync now buckets by owner's LOCAL calendar day",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   ".pandacorp/status.yaml",
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-03-portfolio/blueprint.md",
+   "docs/frds/frd-03-portfolio/frd.md",
+   "docs/frds/frd-03-portfolio/work-orders/wo-03-006-last-sync-chip.md",
+   "docs/frds/frd-04-project-workspace/blueprint.md",
+   "docs/frds/frd-04-project-workspace/frd.md",
+   "docs/frds/frd-05-work-orders/blueprint.md",
+   "docs/frds/frd-05-work-orders/frd.md",
+   "src/components/modules/PortfolioTable/_tests/PortfolioTable.lastSync.gate.reviewer.test.tsx",
+   "src/lib/portfolio/_tests/formatLastSync.gate.reviewer.test.ts"
+  ],
+  "pin": null
+ },
+ {
+  "id": "d858cf8d",
+  "at": "2026-09-25T23:47:00-05:00",
+  "subject": "chore(build): publish last green snapshot",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "1529d924"
+ },
+ {
+  "id": "a72db912",
+  "at": "2026-09-26T00:02:22-05:00",
+  "subject": "test(frd-02-ideas-board): repair the bounded-writes exclusion probe to FRD-02's real contract",
+  "files": [
+   "src/app/board/_tests/frd-02.bounded-writes.reviewer.test.ts"
+  ],
+  "pin": "1529d924"
+ },
+ {
+  "id": "f6ebface",
+  "at": "2026-09-26T00:09:57-05:00",
+  "subject": "feat(frd-02): certify independent verification of bounded-writes fix",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   ".pandacorp/status.yaml",
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-02-ideas-board/blueprint.md",
+   "docs/frds/frd-02-ideas-board/frd.md",
+   "docs/frds/frd-02-ideas-board/work-orders/wo-02-014-empty-column-a11y.md",
+   "e2e/board-empty-column.spec.ts",
+   "src/app/board/_tests/frd-02.empty-column.reviewer.test.tsx",
+   "src/app/board/_tests/frd-02.whole-frd-oracle.reviewer.test.tsx"
+  ],
+  "pin": "1529d924"
+ },
+ {
+  "id": "4ee66352",
+  "at": "2026-09-26T00:10:15-05:00",
+  "subject": "chore(build): publish last green snapshot",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "f6ebface"
+ },
+ {
+  "id": "27ef4596",
+  "at": "2026-09-26T00:18:37-05:00",
+  "subject": "fix(frd-04): bucket change-card dates by the owner's local day and show mission objectives in Resumen",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   "docs/frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md",
+   "src/app/projects/[slug]/ProjectWorkspace.tsx",
+   "src/app/projects/[slug]/_components/tab-changes/_tests/ChangeCard.test.tsx",
+   "src/app/projects/[slug]/_components/tab-summary/_tests/tab-summary.test.tsx",
+   "src/app/projects/[slug]/_components/tab-summary/tab-summary.tsx",
+   "src/app/projects/[slug]/_tests/req-04-003.drift-probe.test.ts",
+   "src/lib/changes/_tests/formatChangeDate.test.ts",
+   "src/lib/changes/formatChangeDate.ts"
+  ],
+  "pin": "f6ebface"
+ },
+ {
+  "id": "a9f54cd9",
+  "at": "2026-09-26T00:24:20-05:00",
+  "subject": "feat(frd-04): verify formatChangeDate local-calendar bucketing and Summary tab progress block",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   ".pandacorp/status.yaml",
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-04-project-workspace/blueprint.md",
+   "docs/frds/frd-04-project-workspace/frd.md",
+   "docs/frds/frd-04-project-workspace/work-orders/wo-04-008-change-card-relative-date.md",
+   "src/app/projects/[slug]/_components/tab-changes/_tests/frd-04-changes.gate.reviewer.test.tsx",
+   "src/lib/changes/_tests/formatChangeDate.gate.reviewer.test.ts"
+  ],
+  "pin": "f6ebface"
+ },
+ {
+  "id": "7392d105",
+  "at": "2026-09-26T00:24:31-05:00",
+  "subject": "chore(build): publish last green snapshot",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "a9f54cd9"
+ },
+ {
+  "id": "ed2bbf72",
+  "at": "2026-09-26T00:26:48-05:00",
+  "subject": "chore(frd-05): apply VERIFIED gate for work-orders state filter (WO-05-007)",
+  "files": [
+   ".pandacorp/build-journal.jsonl",
+   ".pandacorp/status.yaml",
+   ".pandacorp/track.jsonl",
+   "docs/frds/frd-05-work-orders/blueprint.md",
+   "docs/frds/frd-05-work-orders/frd.md",
+   "docs/frds/frd-05-work-orders/work-orders/wo-05-007-wo-state-filter.md",
+   "e2e/frd-05-wo-state-filter.spec.ts",
+   "src/app/projects/[slug]/_components/_tests/frd-05-wo-state-filter.gate.reviewer.test.tsx"
+  ],
+  "pin": "a9f54cd9"
+ },
+ {
+  "id": "eb5d260b",
+  "at": "2026-09-26T00:27:02-05:00",
+  "subject": "chore(build): publish last green snapshot",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "ed2bbf72"
+ },
+ {
+  "id": "ace8a67f",
+  "at": "2026-09-26T00:40:38-05:00",
+  "subject": "style(mission-control): end-of-build visual QA pass for frd-03/02/04/05",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "ed2bbf72"
+ },
+ {
+  "id": "a24d3a41",
+  "at": "2026-09-26T00:44:49-05:00",
+  "subject": "chore: quiesce Claude build lease",
+  "files": [
+   ".pandacorp/status.yaml"
+  ],
+  "pin": "ed2bbf72"
+ },
+ {
+  "id": "7d40bea8",
+  "at": "2026-09-26T02:20:00-05:00",
+  "subject": "chore(canary): archive F1 runtime artifacts (usage summary)",
+  "files": [
+   ".pandacorp/track.jsonl"
+  ],
+  "pin": "ed2bbf72"
+ }
+]

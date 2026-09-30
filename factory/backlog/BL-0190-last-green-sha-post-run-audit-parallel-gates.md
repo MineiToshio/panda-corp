@@ -3,10 +3,10 @@ id: BL-0190
 type: change
 area: build-engine
 title: "Add a post-run audit that every last_green_sha publication covers only verified-FRD commits (parallel-gates lane, red-team X5)"
-status: open
+status: done
 severity: p2
 opened: 2026-09-25
-closed:
+closed: 2026-09-30
 source: "docs/proposals/38-parallel-frd-gates-and-drift-policy.md, Red-team addendum (2026-09-25) §A3 finding X5; left open by BL-0186"
 closes:
 links: [BL-0186, BL-0066, DR-118]
@@ -40,7 +40,17 @@ violation. A run with only verified commits between publications reports none. T
 covered too.
 
 ## Done when
-- [ ] The audit runs on every close path, is tested RED → GREEN, and canary E reports its count.
+- [x] The audit exists (`plugin/scripts/audit-last-green.mjs`), is tested against the REAL F1 fixture and malformed inputs (`test-audit-last-green.mjs`), and is wired as a post-run step in `plugin/skills/implement/SKILL.md` (the supervisor runs it once per pass after the cost rollup). It is deliberately NOT an engine close-out step (see Resolution).
 
 ## Out of scope
 Changing what `last_green_sha` means (DR-066/BL-0066) or blocking the lane on it before the owner decides.
+
+## Resolution (2026-09-30)
+
+**What shipped.** `plugin/scripts/audit-last-green.mjs` (Node; exit 0 clean, 1 violation, 2 unreadable input). It reads the project's git history (every commit that changed `last_green_sha` in `status.yaml` is a publication; the certified commits are the project's non-merge commits in `<previous pin>..<pin>`) and the `track.jsonl` timeline (per FRD: `frd_end` = verified; any `wo_*` event or non-pass `review_end` = unverified work again). The FRD state is read at the publication's commit time plus a 90 s grace, because the landing stamps `frd_end` up to about a minute before or after its own publication commit (measured on the archives). A commit is attributed to an FRD by its subject (`frd-NN` / `WO-NN-MMM`) or the work-order files it touches; docs/`.pandacorp`-only commits are metadata; code commits with no attributable FRD are listed as `unattributed`, not violations. `--record` appends one `last_green_audit` line to `track.jsonl` (MC's timeline reader ignores lines without an `frd`). Timestamps are compared with `Date.parse`, never lexicographically.
+
+**Where it runs, and why not in the engine.** As a post-run step next to the BL-0096 cost rollup in `implement/SKILL.md`, not as a MECH step in `notify-end`/`close-out`: the engine artifact sits just under the Workflow tool's 524288-byte limit (BL-0204), a deterministic CLI beats spending an agent turn on a history walk, and the audit only reports. The supervisor runs it after whichever terminal a pass took, so it covers every close path.
+
+**Result against the archived canaries** (`--from 2026-09-24`; history from branches `canary-f1`, `canary-f2`, `canary-e-run2-done`; tracks from `docs/reviews/canary-{f1,f2}-run/` and `canary-e-run2/`): the FIRST publication of each run (F1 `d858cf8d`, F2 `8dd7532b`, E2 `59ce5a79`) certified 3 build commits of sibling FRDs still IN_REVIEW, each verified 2 to 43 min later (F1: frd-05 WO-05-007 after 40 min, frd-04 WO-04-008 after 37, frd-02 WO-02-014 after 23; F2: 25 / 12 / 2 min; E2: frd-05 43 / frd-04 27 / frd-03 15 min). They are the carry-over work orders of the previous epoch, never published before (the pin had been reset). Every later publication of the three runs is clean, so each run's FINAL pin is sound. Proposal 38 §A5's "0 audit violations" is therefore not met retroactively (3 per run, all transient); whether a transient window on the first publication after a carry-over blocks anything is the owner's call.
+
+**Tests.** `plugin/scripts/test-audit-last-green.mjs` (34 assertions, auto-discovered by `run-engine-tests.sh`): a REAL F1 fixture (`plugin/scripts/fixtures/audit-last-green/`: the real `track.jsonl` plus the real commit sequence replayed into a temp repo) reproduces exactly the 3 violations and the 3 clean later publications; synthetic X5, flag-off C2 (wave landing during another FRD's gate), re-open-after-verified and grace shapes; malformed inputs (garbage track line, empty timeline, unparseable `at`, no `kind`, missing file, pin that is not a commit, no publication) exit 2 with an explanation and nothing on stdout.
