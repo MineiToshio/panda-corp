@@ -209,6 +209,19 @@ dispatch log also now states why each candidate WO was NOT dispatched this wave:
 `dependsOn`), `artifacts` (an overlap serialized to a later wave, DR-060) or `blocked` (an upstream
 `BLOCKED` dependency).
 
+**Real tool-call counts and per-label cost categories (BL-0208, BL-0210).** Each `agents[]` row carries
+`tool_calls` (distinct `tool_use` blocks in the agent's OWN transcript, its `StructuredOutput` return call
+excluded), `tool_calls_harness` (the Workflow's own per-agent ledger; it includes the return call) and, when the
+agent wrote one into its structured output, `tool_calls_self_reported` with `tool_calls_undercount_pct`. The
+self-report is kept only to measure how far a model's account of itself drifts from the ledger (canary F2's drift
+finder undercounted 35-47 %); no engine decision reads it. `by_category` splits the run by engine label prefix
+(`gate`, `patch`, `find:drift`, `find` for the split lenses, `evidence`, ...), and `gate_test_repair` is an
+always-present block (`fired`, `frds`, `calls`, `cost_usd`, `duration_s`). **Canary reporting convention:** every
+canary report's cost/time comparison table states `gate_test_repair.fired` for EACH side of the comparison and shows
+its `cost_usd`/`duration_s` as its own line (canary F1's FRD-02 spent 12.1 min / 6.544 $ / 81 calls on it, absent
+from the D2/E2 baselines); a side where it did not fire says `fired: false`. A comparison that omits it silently
+inflates, or favours, one side.
+
 Worktree-per-agent
 was considered and rejected for this shape: the work is already partitioned into disjoint files, so the
 isolation a worktree buys is already achieved by construction; Claude Code's own *agent-teams* guidance
@@ -703,8 +716,10 @@ section `D1 parallelGates`, BL-0186), not a guideline:
   remaining cost too (a reopen ladder ~7 units), so a gate launched during it cannot starve it. Otherwise the engine logs
   `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
   ran out after 2 gates; canary F2 at 60 for 4 FRDs saturated the ceiling exactly as the run finished — the
-  15×FRDs floor does not yet add the drift finder's own reserved unit, BL-0207; `launch-implement.sh` warns
-  below it whenever parallel gates is not explicitly off — the default, since v9.116.0). With nothing in flight the first eligible gate always starts (progress
+  drift finder is one more sonnet unit per gate link and again on each re-gate, so the floor is **17 × the FRDs**
+  whenever the finder is on, BL-0207; `launch-implement.sh` warns below it whenever parallel gates is not
+  explicitly off — the default, since v9.116.0 — and the engine logs a one-shot `AgentBudgetAdvisory` when 80 % of
+  `maxAgents` is spent with work pending, and another when less than one reopen ladder remains). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.
 - **One landing lane on main.** Verdicts land **one at a time, in arrival order** among those no upstream verdict
   holds (Eligibility): PASS → stale-pin guard →

@@ -3,12 +3,12 @@ id: BL-0210
 type: change
 area: build-engine
 title: "gate-test-repair's extra opus reviewer pass (BL-0001) is real, measured overhead (12.1 min / 6.544 $ / 81 calls on canary F1's FRD-02) that no D2/E2/F1 cost or timing comparison currently budgets for"
-status: open
+status: done
 severity: p2
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f1-report.md §5 point 1 (canary F1, wf run, FRD-02)"
-closes:
+closes: "plugin/scripts/usage-rollup.mjs (by_category, gate_test_repair), factory/standards/build-orchestration.md (canary reporting convention)"
 links: [BL-0201, BL-0001]
 ---
 
@@ -57,10 +57,16 @@ already are.
   script.
 
 ## Done when
-- [ ] Confirmed (with evidence: read `usage-rollup.mjs`'s source) whether `gate-test-repair` cost is already
+- [x] Confirmed (with evidence: read `usage-rollup.mjs`'s source) whether `gate-test-repair` cost is already
       separately attributable in the raw rollup data.
-- [ ] Either the rollup script change lands with its test, or the reporting-convention doc update lands
+- [x] Either the rollup script change lands with its test, or the reporting-convention doc update lands
       (state which, with the evidence for the choice, in this file before closing).
+
+## Resolution (2026-09-30)
+- **Evidence (read `usage-rollup.mjs` before the change):** it was NOT separately attributable in the summary. Each `agents[]` row carried its `label` (`gate-test-repair:<frd>`), so the data was derivable by hand, but the only aggregation was `by_phase`, and the engine stamps `gate-test-repair` with `phase: 'Review'` (`pandacorp-build.src.js`, the `label: \`gate-test-repair:${frd}\`` spawn), the same bucket as `gate:`, `patch:`, `find:drift:`. So the canary tables' per-phase breakdown could not show it.
+- **Both fixes landed.** (1) Script: `by_category` (engine label prefix; `find:drift` kept apart from the four split-gate lenses) and an always-present `gate_test_repair` block (`fired`, `agents`, `frds`, `calls`, `tool_calls`, `cost_usd`, `duration_s`; `fired: false` with zeros when the pass did not run). `by_phase` is unchanged and equals the sum of the categories. (2) Convention: `factory/standards/build-orchestration.md` (next to the rollup's description) requires every canary report's cost/time comparison to state `gate_test_repair.fired` for each side and show its cost/time as its own line. Mechanism (BL-0001/DR-073) untouched.
+- **Tests (RED then GREEN):** `test-usage-rollup.mjs` — a fixture run with a `gate-test-repair:frd-02` agent (2 opus calls = $10) asserts its own category and block, the category partition of the `Review` phase, and a control run where it did not fire reports `fired: false`. The convention itself is documentation, enforced by canary authors following it (not automatable).
+- Live sanity check: the new rollup run against the real `wf_d23327e1-6cb` transcripts emits `by_category` and `gate_test_repair: {fired:false,...}` without error.
 
 ## Out of scope
 - Changing `gate-test-repair`/DR-073's own mechanism (it worked correctly here) — this item is about cost

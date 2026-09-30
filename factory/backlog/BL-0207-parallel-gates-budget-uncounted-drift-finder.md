@@ -3,12 +3,12 @@ id: BL-0207
 type: change
 area: build-engine
 title: "the launcher's parallelGates maxAgents sizing advice (15 x FRDs) doesn't add the drift finder's own unit, and with parallelGates now default-on the run can saturate maxAgents one reopen short of finishing"
-status: open
+status: done
 severity: p2
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f2-report.md §4.4 (canary F2, wf_8bab7752-702)"
-closes:
+closes: "plugin/scripts/launch-implement.sh (finder-aware 17 x FRDs floor), plugin/runtime/engine/pandacorp-build.src.js (warnAgentBudgetNearExhaustion), plugin/skills/implement/SKILL.md, factory/standards/build-orchestration.md"
 links: [BL-0201, BL-0203, BL-0173]
 ---
 
@@ -53,11 +53,17 @@ The launcher's advisory text never reads `GATE_EVIDENCE`/`DRIFT_FINDER`, so it c
   below one reopen-ladder's cost with FRDs still ungated.
 
 ## Done when
-- [ ] The launcher's sizing floor accounts for the drift finder's cost whenever it is active (explicit or
+- [x] The launcher's sizing floor accounts for the drift finder's cost whenever it is active (explicit or
       default-on).
-- [ ] A near-exhaustion advisory log exists and is tested.
-- [ ] `plugin/skills/implement/SKILL.md`'s `parallelGates`/`driftFinder` table rows are updated to state the
+- [x] A near-exhaustion advisory log exists and is tested.
+- [x] `plugin/skills/implement/SKILL.md`'s `parallelGates`/`driftFinder` table rows are updated to state the
       combined floor.
+
+## Resolution (2026-09-30)
+- **Launcher:** `plugin/scripts/launch-implement.sh` now computes `PER_FRD`: 15, or **17** when the drift finder is on (`--drift-finder on`, or `--gate-evidence digested` unless `--drift-finder off` — the engine's own default coupling). 17 = 15 + 1 (the first gate's finder, the engine's `gateCostEstimate` term `DRIFT_FINDER ? COST('sonnet')`) + 1 amortized for the re-gates' finders at the ~50 % reopen rate. The warning and the untargeted NOTE print the finder-aware floor and name it. Root-cause correction to the item text: the launcher's default is `gateEvidence: explore`, under which the finder is OFF, so the floor only rises when the finder is actually on; `preflight-implement.sh` carries no sizing advice and needed no change.
+- **Engine:** `warnAgentBudgetNearExhaustion` (before the loop-top brake) logs a one-shot `AgentBudgetAdvisory` when `agentSpawned >= 80 %` of `maxAgents` with work pending, and a second one-shot when the remainder is below `GATE_LADDER_COST` (one reopen ladder). Log-only; the brake is unchanged. Known limit: a single beat that jumps from under 80 % straight to the ceiling logs nothing (the existing "Agent ceiling reached" line covers that stop).
+- **Docs:** `plugin/skills/implement/SKILL.md` (`parallelGates` row) and `factory/standards/build-orchestration.md` state the combined floor and the advisory.
+- **Tests (RED then GREEN):** `test-build-run-id.mjs` (digested/`--drift-finder on` at the old 60 for 4 FRDs warns with floor 68; explore + finder off and digested + finder off do not; untargeted digested NOTE says 17); `test-pandacorp-build.mjs` `BL-0207a/b/c` (both advisories fire exactly once at 13/15 with 2 left; silent at maxAgents 500 and uncapped).
 
 ## Out of scope
 - Changing the cost-weighted budget model itself (`COST()`, `gateCostEstimate`) — this item only makes the

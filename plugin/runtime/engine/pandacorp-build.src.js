@@ -2081,7 +2081,14 @@ async function resolveGateEvidence(frd, reviewIds, pinSha) {
 // Lifecycle: started in the gate's slot link beside the evidence collector (launchEvidence / launchGate /
 // launchGateInSlot), awaited by the serial gate before it spawns and by the split gate beside its four lenses,
 // and dropped when frdGate returns — a re-gate on main never sees a report whose probes live in a released slot.
-const DRIFT_FINDER_TOOL_BUDGET = 60   // tool calls; the digested judge's cap is 8 reads — the finder exists to read
+// BL-0208 (canary F2): the tool budget is PROMPT-ENFORCED against the finder's own count of its calls, and that count
+// is not a measurement — F2 billed 52/47/15/27 calls where the finder self-reported 34/27/8/17 (it undercounts by
+// 35-47 %), and one finder narrated "the 60-call budget was spent" at 15 billed calls. So 60 is a soft ceiling in
+// the finder's OWN units (the billed count runs ~1.5-1.9x that), and NOTHING in this engine decides on the
+// self-reported `toolCalls` / `budgetExhausted`: `agent()` exposes no per-agent call ledger, so the authoritative
+// figure is the transcript's own count, which usage-rollup.mjs reports per agent (`tool_calls`) and reconciles
+// against the self-report (`tool_calls_self_reported`) at the run's shutdown.
+const DRIFT_FINDER_TOOL_BUDGET = 60   // tool calls (finder's own count); the digested judge's cap is 8 reads — the finder exists to read
 const FINDER_PROBE_RE = /\.finder\.drift-probe\.tsx?$/   // the finder's own probes, never the reviewer's (DR-122 path + infix)
 const DRIFT_FINDER_STATUSES = ['implemented', 'drift', 'unknown']
 const DRIFT_FINDER_SCHEMA = {
@@ -2101,8 +2108,8 @@ const DRIFT_FINDER_SCHEMA = {
         why: { type: 'string' },
       },
     } },
-    toolCalls: { type: 'number' },
-    budgetExhausted: { type: 'boolean' },
+    toolCalls: { type: 'number', description: 'your own count of your tool calls — telemetry only, never used to decide anything (it undercounts the billed calls)' },
+    budgetExhausted: { type: 'boolean', description: 'true iff you stopped because the tool budget ran out — telemetry only, never used to decide anything' },
   },
 }
 // The FRD's work orders as the finder's roster: every one, the VERIFIED foundation included (that is where drift lives).
@@ -2126,7 +2133,7 @@ function startDriftFinder(frd, reviewIds, pinSha, workFrom) {
   **THE WORK ORDERS UNDER REVIEW THIS CYCLE:** ${reviewIds.join(', ')} — a contract one of them owns is a \`cycle\` contract; every other contract is \`preexisting\`, and those are where the judge cannot look: do them FIRST.${acText ? `\n  The planner's verbatim criteria of those work orders (a head start, not the inventory): \n  ${acText}` : ''}
   **DECLARED EVIDENCE, if cached:** \`${PROJECT_DIR}/.pandacorp/run/gate-evidence/${frd}/inventory.json\` (MAIN tree, read-only, may be absent or stale — frd.md at this pin is the authority) lists the evidence tests of the last green gate per contract.
   **PROBES:** write each drift probe at \`.pandacorp/run/drift-probes/${frd}/<contract-id-slug>.finder.drift-probe.ts\`, relative to this project directory inside the worktree.
-  **TOOL BUDGET: at most ${DRIFT_FINDER_TOOL_BUDGET} tool calls** — count them; report the count in \`toolCalls\`.
+  **TOOL BUDGET: at most ${DRIFT_FINDER_TOOL_BUDGET} tool calls** — count them; report your count in \`toolCalls\` (telemetry only: the engine decides nothing from it).
   Return { contracts: [{ contract, contractClass, owner, status: implemented|drift|unknown, evidence: { file, line, snippet }, claim: preexisting|cycle, probe_test (drift only), direction (drift only: code|spec|unknown), why }], toolCalls, budgetExhausted }.`,
     { label: `find:drift:${frd}`, phase: 'Review', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:drift-finder', fallbackAgentType: 'pandacorp:reviewer', schema: DRIFT_FINDER_SCHEMA, workFrom })
     .then((r) => r, (e) => ({ __threw: (e && e.message) || String(e) }))
@@ -2148,7 +2155,21 @@ function validateDriftFinding(raw, frd) {
     rows.push({ ...r, provable: probeOk && Boolean(contractIdOf(r.contract)) })
   }
   if (!rows.length) return { finding: null, reason: `every one of the finder's ${raw.contracts.length} rows is malformed` }
-  return { finding: { rows, malformed, toolCalls: Number(raw.toolCalls) || null, budgetExhausted: raw.budgetExhausted === true }, reason: '' }
+  // BL-0208: what the finder says about ITS OWN execution is an unverified claim — kept under `selfReported` for the
+  // log only; no decision and no judge prompt reads it (see the DRIFT_FINDER_TOOL_BUDGET note).
+  return { finding: { rows, malformed, selfReported: { toolCalls: Number(raw.toolCalls) || null, budgetExhausted: raw.budgetExhausted === true } }, reason: '' }
+}
+/**
+ * BL-0208: does the finder's self-report contradict itself? A `budgetExhausted: true` claim paired with a self-count
+ * well under DRIFT_FINDER_TOOL_BUDGET (or no count at all) cannot both be true — canary F2's FRD-04 finder narrated an
+ * exhausted 60-call budget at 15 billed calls. Returns the discrepancy text, or '' when the two agree.
+ */
+function driftSelfReportDiscrepancy(selfReported) {
+  if (!selfReported || !selfReported.budgetExhausted) return ''
+  const { toolCalls } = selfReported
+  if (toolCalls === null) return `it claims its ${DRIFT_FINDER_TOOL_BUDGET}-call tool budget ran out but reports no call count`
+  if (toolCalls < DRIFT_FINDER_TOOL_BUDGET * 0.8) return `it claims its ${DRIFT_FINDER_TOOL_BUDGET}-call tool budget ran out but self-reports only ${toolCalls} calls`
+  return ''
 }
 // Await + validate the finder of THIS gate (memoized on st.driftFinding for the prompt block and finalizeGate).
 async function awaitDriftFinding(frd) {
@@ -2158,7 +2179,9 @@ async function awaitDriftFinding(frd) {
   const { finding, reason } = validateDriftFinding(await st.driftFinderPromise, frd)
   if (!finding) { log(`⚠ DriftFinderFallback ${frd}: ${reason} — this gate runs without a drift-finder report (the gate itself is never skipped)`); st.driftFinding = false; return null }
   const n = (s) => finding.rows.filter((r) => r.status === s).length
-  log(`⌕ ${frd}: drift finder → ${finding.rows.length} contract(s): ${n('implemented')} implemented, ${n('drift')} drift (${finding.rows.filter((r) => r.provable).length} with a probe), ${n('unknown')} unknown${finding.malformed.length ? `; ${finding.malformed.length} MALFORMED row(s) ignored (#${finding.malformed.join(', #')})` : ''}${finding.budgetExhausted ? '; its tool budget ran out' : ''}`)
+  log(`⌕ ${frd}: drift finder → ${finding.rows.length} contract(s): ${n('implemented')} implemented, ${n('drift')} drift (${finding.rows.filter((r) => r.provable).length} with a probe), ${n('unknown')} unknown${finding.malformed.length ? `; ${finding.malformed.length} MALFORMED row(s) ignored (#${finding.malformed.join(', #')})` : ''}; self-reported (UNVERIFIED, telemetry only): ${finding.selfReported.toolCalls === null ? 'no tool-call count' : `${finding.selfReported.toolCalls} tool calls`}${finding.selfReported.budgetExhausted ? ', budget exhausted' : ''}`)
+  const discrepancy = driftSelfReportDiscrepancy(finding.selfReported)
+  if (discrepancy) log(`⚠ DriftFinderSelfReportDiscrepancy ${frd}: ${discrepancy} — its self-report is not trusted (BL-0208); the billed count is in the run's usage-rollup (tool_calls)`)
   st.driftFinding = finding
   return finding
 }
@@ -2182,7 +2205,7 @@ function driftFinderBlock(frd, reviewIds) {
   const implemented = f.rows.filter((r) => r.status === 'implemented')
   const list = (rows) => (rows.length ? rows.map(finderRowLine).join('\n  ') : '(none)')
   return `
-  **WHOLE-FRD DRIFT FINDER REPORT (BL-0203).** A separate sonnet agent walked EVERY contract of \`docs/frds/${frd}/frd.md\` (and the blueprint's CMP/IF) against the code at this pin, OUTSIDE the diff you were handed${f.toolCalls ? `, in ${f.toolCalls} tool calls` : ''}${f.budgetExhausted ? ' — its tool budget ran out, so treat its UNKNOWN rows as unreviewed' : ''}. It is not a verdict and it proved nothing by itself: you are the judge (DR-015).
+  **WHOLE-FRD DRIFT FINDER REPORT (BL-0203).** A separate sonnet agent walked EVERY contract of \`docs/frds/${frd}/frd.md\` (and the blueprint's CMP/IF) against the code at this pin, OUTSIDE the diff you were handed. Every UNKNOWN row below is UNREVIEWED, whatever reason the finder gives (it may have stopped early or run out of tool budget, and its own account of how many calls it made is not reliable). It is not a verdict and it proved nothing by itself: you are the judge (DR-015).
   (1) DRIFT CLAIMS — open each evidence file:line and each probe. If the code contradicts the contract, record it as a \`fail\` traceability entry: with \`claim: "preexisting"\`, \`evidence_test\` = that probe path and a \`direction\` when no reviewed work order owns it (the engine proves it, DR-122), or as a finding/reopen of the reviewed work order that owns it. If you disagree, refute it ONLY with a test of your own that asserts the contract HOLDS: status \`pass\`, that test in the entry's \`tests\` AND in \`testFiles\`. **The engine submits every drift claim you neither record as a \`fail\` nor refute with a test of your own to the same differential proof:** proven pre-existing → a draft card, never a block; a regression, or a contract a reviewed work order owns failing on an assertion at this pin → reopened patch-first; anything unproven → discarded with a log.
   ${list(drift)}
   (2) UNKNOWN ON THIS CYCLE'S CONTRACTS (${reviewIds.join(', ')}) — the finder could NOT locate their implementation. You MUST deep-review each one yourself: open the implementing code, exercise it with at least one test, and return it in \`traceability\` with non-empty \`tests\` (or as a \`fail\`). These reads do NOT count against your read budget.
@@ -4538,6 +4561,26 @@ if (gateQueue.length) { await capturePin([...gateQueue]); for (const frd of gate
 // the loop so it survives across iterations; unused (and harmless) on a bare run.
 let safePointChecks = 0
 
+// BL-0207: the agent budget is the run's real brake, and a parallel-gate run can spend it to the last unit without
+// any line saying so (canary F2: 60/60, finished one reopen short of an agent-cap stop). Two ONE-SHOT advisories
+// over the same cost-weighted counter the brake reads, only while work remains: (1) 80 % of maxAgents consumed;
+// (2) what is left can no longer pay one more reopen ladder (GATE_LADDER_COST). Log-only — never a stop.
+const AGENT_BUDGET_WARN_RATIO = 0.8
+let agentBudget80Warned = false
+let agentBudgetLadderWarned = false
+function warnAgentBudgetNearExhaustion(workRemains) {
+  if (!MAX_AGENTS || !workRemains || agentSpawned >= MAX_AGENTS) return
+  const remaining = MAX_AGENTS - agentSpawned
+  if (!agentBudget80Warned && agentSpawned >= AGENT_BUDGET_WARN_RATIO * MAX_AGENTS) {
+    agentBudget80Warned = true
+    log(`⚠ AgentBudgetAdvisory: ${agentSpawned}/${MAX_AGENTS} cost-weighted agent units spent (${Math.round((100 * agentSpawned) / MAX_AGENTS)} %, threshold ${Math.round(AGENT_BUDGET_WARN_RATIO * 100)} %) with work still pending (${globalQueue.size} WO(s) to build, ${gateQueue.length + gatesInFlight.size + gateResults.length} gate(s) queued/in flight) — ${remaining} unit(s) left; the run stops at the agent ceiling if it is reached before the work finishes (BL-0207)`)
+  }
+  if (!agentBudgetLadderWarned && remaining < GATE_LADDER_COST) {
+    agentBudgetLadderWarned = true
+    log(`⚠ AgentBudgetAdvisory: only ${remaining} cost-weighted unit(s) left of maxAgents ${MAX_AGENTS} — less than one reopen ladder (~${GATE_LADDER_COST}) with work still pending: a gate that reopens now cannot be patched inside this budget (BL-0207)`)
+  }
+}
+
 while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
@@ -4549,8 +4592,9 @@ while (true) {
   // agentes" for a run that had nothing left to build or gate. Only call it an agent-cap STOP when
   // work actually remains; otherwise fall through unlabeled (stopReason stays null = ran to
   // completion) and let the natural end-of-queue check a few lines below close the run honestly.
+  const workRemains = globalQueue.size > 0 || gateQueue.length > 0 || gatesInFlight.size > 0 || gateResults.length > 0 || convergeQueue.length > 0
+  warnAgentBudgetNearExhaustion(workRemains)
   if (MAX_AGENTS && agentSpawned >= MAX_AGENTS) {
-    const workRemains = globalQueue.size > 0 || gateQueue.length > 0 || gatesInFlight.size > 0 || gateResults.length > 0 || convergeQueue.length > 0
     if (workRemains) { stopReason = 'agents'; log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) — stopping at a safe point`); break }
     log(`Agent ceiling reached (${agentSpawned} ≥ maxAgents ${MAX_AGENTS}) but no work remains (F5/BL-0177) — closing normally, not an agent-cap stop`)
   }

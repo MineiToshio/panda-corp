@@ -61,6 +61,13 @@
 // depends on, is a genuinely corrupted/foreign artifact — fails loud, same discipline as a corrupted
 // transcript line.
 //
+// BL-0208/BL-0210 addition (same join): each `agents[]` row also carries the agent's REAL tool-call count
+// (`tool_calls` from its transcript, `tool_calls_harness` from the wf json; see `toolCallFields`) and, when the agent
+// wrote its own `toolCalls` into its structured output, that claim as `tool_calls_self_reported` with the measured
+// `tool_calls_undercount_pct` — a model's account of its own execution is reconciled, never trusted. `by_category`
+// splits cost by engine label prefix and `gate_test_repair` is an always-present block (`fired: false` when absent),
+// so `gate-test-repair`'s extra opus pass never hides inside the generic `Review` phase of a canary comparison.
+//
 // `cache_creation_cost_usd_estimated` is a SEPARATE, clearly-labeled estimate (1.25x each model's
 // verified INPUT rate — cache-write pricing itself is not in the audited table, so this is not treated
 // as a verified number) and is never folded into `cost_usd_total`, which keeps its existing meaning.
@@ -240,6 +247,8 @@ function parseTranscriptFile(filePath) {
   const lines = raw.split('\n')
   while (lines.length && lines[lines.length - 1] === '') lines.pop()   // the trailing '' after the final \n is not a real line
   const rawEntries = []
+  const toolUseIds = new Set()   // BL-0208: distinct tool_use blocks the agent really issued (one id each, however many lines repeat it)
+  let selfReportedToolCalls = null   // BL-0208: the `toolCalls` the agent wrote into its own StructuredOutput — an unverified claim, reconciled, never trusted
   let skippedIncompleteLines = 0
   lines.forEach((line, index) => {
     if (!line.trim()) return
@@ -253,12 +262,21 @@ function parseTranscriptFile(filePath) {
     }
     if (!entry || entry.type !== 'assistant') return
     const message = entry.message
+    for (const block of (message && Array.isArray(message.content)) ? message.content : []) {
+      if (!block || block.type !== 'tool_use') continue
+      if (block.name === 'StructuredOutput') {   // the agent's RETURN value, not a work tool call
+        const claimed = block.input && block.input.toolCalls
+        if (typeof claimed === 'number') selfReportedToolCalls = claimed
+        continue
+      }
+      toolUseIds.add(block.id || `${entry.uuid}:${toolUseIds.size}`)
+    }
     const usage = message && message.usage
     const model = message && message.model
     if (!usage || !model) return
     rawEntries.push({ model, usage, timestamp: entry.timestamp, messageId: message.id })
   })
-  return { entries: dedupeByMessageId(rawEntries), skippedIncompleteLines }
+  return { entries: dedupeByMessageId(rawEntries), skippedIncompleteLines, toolCalls: toolUseIds.size, selfReportedToolCalls }
 }
 
 // `.../<sessionId>.jsonl` → `.../<sessionId>/subagents` — see the F5 header note above: FLAT only,
@@ -354,6 +372,47 @@ function summarizeAgentUsage(agentModels) {
   return { ...totals, model: dominantModel, cost_usd: allPriced ? round(costUsd) : null }
 }
 
+// BL-0208: the REAL tool-call count of one agent. `tool_calls` = distinct `tool_use` blocks in its own transcript
+// (its return value, the StructuredOutput call, excluded — it is not a work tool); `tool_calls_harness` = the
+// Workflow's own per-agent ledger from the wf json (`toolCalls`, which DOES include that return call — verified
+// 2026-09-30 on wf_d23327e1-6cb: 7 = 5 work calls + 2 StructuredOutput). `tool_calls_self_reported` is what the
+// agent wrote into its own structured output, kept only to measure how far a model's account of itself drifts from
+// the ledger (canary F2's drift finder undercounted by 35-47 %): never an input to any decision.
+function toolCallFields(tools, wfEntry) {
+  const fields = { tool_calls: tools.billed }
+  if (wfEntry && typeof wfEntry.toolCalls === 'number') fields.tool_calls_harness = wfEntry.toolCalls
+  if (tools.selfReported !== null) {
+    fields.tool_calls_self_reported = tools.selfReported
+    if (tools.billed > 0) fields.tool_calls_undercount_pct = round(((tools.billed - tools.selfReported) / tools.billed) * 100)
+  }
+  return fields
+}
+
+// BL-0210: the cost category of one agent, from its engine label (`gate:frd-02`, `patch:frd-02`,
+// `gate-test-repair:frd-02`, `find:drift:frd-02`, `evidence:frd-02`…): the label up to the FRD/WO id. The drift finder
+// keeps its own `find:drift` bucket apart from the four split-gate lenses (`find:<lens>:<frd>` → `find`).
+function categoryOf(label) {
+  if (typeof label !== 'string' || !label) return 'unlabeled'
+  if (label.startsWith('find:drift:')) return 'find:drift'
+  return label.split(':')[0]
+}
+
+// BL-0210: `gate-test-repair` (BL-0001/DR-073) is a conditionally-fired extra opus reviewer pass. It always gets its
+// own explicit block — `fired: false` when it did not run — so a canary comparison can state on BOTH sides whether it
+// inflated (or was absent from) the run being compared.
+function gateTestRepairOf(rows) {
+  const repairs = rows.filter((r) => categoryOf(r.label) === 'gate-test-repair')
+  return {
+    fired: repairs.length > 0,
+    agents: repairs.length,
+    frds: repairs.map((r) => r.label.slice('gate-test-repair:'.length)).sort(),
+    calls: repairs.reduce((sum, r) => sum + r.calls, 0),
+    tool_calls: repairs.reduce((sum, r) => sum + r.tool_calls, 0),
+    cost_usd: round(repairs.reduce((sum, r) => sum + (r.cost_usd || 0), 0)),
+    duration_s: round(repairs.reduce((sum, r) => sum + r.durationMs / 1000, 0)),
+  }
+}
+
 // Sweep-line max overlap of [startedAt, startedAt + durationMs) intervals. Ends are processed BEFORE
 // starts at an identical timestamp so two agents that merely touch (one ends exactly when the next
 // starts) are never counted as concurrent.
@@ -409,13 +468,15 @@ function runDirMode({ dir, wfJson, out }) {
 
   const models = {}
   const agentUsage = {}   // agentId → { model → bucket } — almost always a single model per agent
+  const agentTools = {}   // BL-0208: agentId → { billed (transcript tool_use ids), selfReported (its own StructuredOutput claim | null) }
   let skippedIncompleteLines = 0
   let callsTotal = 0
 
   for (const name of files) {
     const agentId = agentIdFromFilename(name)
     const filePath = path.join(dir, name)
-    const { entries, skippedIncompleteLines: skipped } = parseTranscriptFile(filePath)
+    const { entries, skippedIncompleteLines: skipped, toolCalls, selfReportedToolCalls } = parseTranscriptFile(filePath)
+    agentTools[agentId] = { billed: toolCalls, selfReported: selfReportedToolCalls }
     skippedIncompleteLines += skipped
     for (const { model, usage } of entries) {
       callsTotal++
@@ -449,6 +510,8 @@ function runDirMode({ dir, wfJson, out }) {
   let agentsDurationSumS = null
   let concurrencyMax = null
   let byPhase = null
+  let byCategory = null
+  let gateTestRepair = null
 
   if (wf.missing) {
     agentsJoin = `missing wf json at ${wfJsonPath}`
@@ -459,6 +522,7 @@ function runDirMode({ dir, wfJson, out }) {
       const wfEntry = wf.byAgentId.get(agentId)
       if (!wfEntry) { unjoined.push({ agentId, cost_usd: summarizeAgentUsage(agentModels).cost_usd }); continue }
       const usage = summarizeAgentUsage(agentModels)
+      const tools = agentTools[agentId]
       rows.push({
         agentId,
         label: wfEntry.label,
@@ -468,6 +532,7 @@ function runDirMode({ dir, wfJson, out }) {
         startedAt: wfEntry.startedAt,
         durationMs: wfEntry.durationMs,
         calls: usage.calls,
+        ...toolCallFields(tools, wfEntry),
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         cache_read_input_tokens: usage.cache_read_input_tokens,
@@ -493,6 +558,16 @@ function runDirMode({ dir, wfJson, out }) {
       b.duration_s = round(b.duration_s + r.durationMs / 1000)
       b.calls += r.calls
     }
+    byCategory = {}
+    for (const r of rows) {
+      const b = byCategory[categoryOf(r.label)] || (byCategory[categoryOf(r.label)] = { agents: 0, cost_usd: 0, duration_s: 0, calls: 0, tool_calls: 0 })
+      b.agents++
+      b.cost_usd = round(b.cost_usd + (r.cost_usd || 0))
+      b.duration_s = round(b.duration_s + r.durationMs / 1000)
+      b.calls += r.calls
+      b.tool_calls += r.tool_calls
+    }
+    gateTestRepair = gateTestRepairOf(rows)
   }
 
   const summary = {
@@ -512,6 +587,8 @@ function runDirMode({ dir, wfJson, out }) {
     agents_duration_sum_s: agentsDurationSumS,
     concurrency_max: concurrencyMax,
     by_phase: byPhase,
+    by_category: byCategory,
+    gate_test_repair: gateTestRepair,
   }
   if (agentsJoin) summary.agents_join = agentsJoin
   if (agentsUnjoined) summary.agents_unjoined = agentsUnjoined   // D-10: named, not dropped (DR-078)

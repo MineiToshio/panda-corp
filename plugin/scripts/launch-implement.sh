@@ -224,19 +224,29 @@ fi
 # opus patch + hash check + verifier + certify stamp) plus drift proof/record/unport ~1-3. A PASS FRD is ~8-9 units,
 # a reopened one ~15-17; at the canaries' ~50 % first-gate reopen rate, plus the fixed pre-wave overhead above,
 # 15 x the FRDs to gate is the floor (E's 4 FRDs -> 60). Advisory only: nothing here changes what the engine does.
+# BL-0207 (canary F2, 2026-09-26): the whole-FRD drift finder is ONE more sonnet unit in every gate link (the
+# engine's gateCostEstimate: `DRIFT_FINDER ? COST('sonnet')`) and a re-gate after a reopen launches it again — F2 at
+# 15 x 4 = 60 spent the whole ceiling exactly as it finished. Its floor is 17 x the FRDs (15 + 1 for the first gate's
+# finder + 1 amortized for the re-gates' finders at the ~50 % reopen rate). The finder is ON with `--drift-finder on`,
+# or under `--gate-evidence digested` unless `--drift-finder off` (the engine's own default: on under digested, off
+# under the default explore).
 # parallelGates now defaults ON (v9.116.0, F1/F2 verdict) — this warning fires whenever PARALLEL_GATES is not
 # explicitly "0" (--no-parallel-gates), not only when --parallel-gates was typed.
 if [ "$PARALLEL_GATES" != "0" ]; then
+  PER_FRD=15; FINDER_NOTE=""
+  if [ "$DRIFT_FINDER" = "on" ] || { [ "$GATE_EVIDENCE" = "digested" ] && [ "$DRIFT_FINDER" != "off" ]; }; then
+    PER_FRD=17; FINDER_NOTE=" + ~2 for the drift finder (BL-0207)"
+  fi
   GATE_FRDS=""
   [ -n "$FRDS" ] && GATE_FRDS=$(printf '%s\n' "$FRDS" | tr ',' '\n' | grep -c .)
-  if [ -n "$MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$MAX_AGENTS" -lt $((15 * GATE_FRDS)) ]; then
+  if [ -n "$MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$MAX_AGENTS" -lt $((PER_FRD * GATE_FRDS)) ]; then
     echo "  WARNING: parallel FRD gates (default on) with maxAgents=$MAX_AGENTS for $GATE_FRDS FRD(s): the recommended"
-    echo "  floor is 15 x FRDs = $((15 * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder)."
+    echo "  floor is $PER_FRD x FRDs = $((PER_FRD * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD${FINDER_NOTE}, +~7-9 for each reopen ladder)."
     echo "  Below it the run will likely stop at the agent ceiling before every FRD has gated (canary E: 40 for"
     echo "  4 FRDs ran out after 2 gates) — raise maxAgents, gate fewer FRDs this run, or pass --no-parallel-gates."
   elif [ -z "$GATE_FRDS" ]; then
-    echo "  NOTE: parallel FRD gates (default on): size maxAgents to at least 15 x the FRDs this run will gate (gate"
-    echo "  ~6 + landing ~2-3 per FRD, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
+    echo "  NOTE: parallel FRD gates (default on): size maxAgents to at least $PER_FRD x the FRDs this run will gate (gate"
+    echo "  ~6 + landing ~2-3 per FRD${FINDER_NOTE}, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
   fi
 fi
 exit 0

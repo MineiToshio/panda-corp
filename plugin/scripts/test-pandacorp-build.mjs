@@ -415,6 +415,45 @@ SCENARIOS.push({
     t.ok(end && /techo de agentes/.test(end.prompt), 'the end-of-run report tells the owner the stop was the agent ceiling')
   },
 })
+// BL-0207: the same four-WO plan as 2a, but with maxAgents 15 — iteration 2's loop top reads 13 units spent (13/15 =
+// 87 % ≥ 80 %, and the 2 left are less than one reopen ladder, ~7) with WOs still unbuilt, so BOTH one-shot
+// advisories fire there (each exactly once); a roomy ceiling and an uncapped run print neither.
+const bl0207Plan = () => mkPlan([{
+  frd: 'frd-bl0207',
+  deps: [],
+  workOrders: ['a', 'b', 'c', 'd'].map((k, i) => mkWo(`wo-bl0207-00${i + 1}`, 'PLANNED', { frd: 'frd-bl0207', artifacts: [`src/bl0207/${k}/**`] })),
+}])
+SCENARIOS.push({
+  name: 'BL-0207a. near-exhaustion advisory — 80 % of maxAgents consumed with work pending logs ONE AgentBudgetAdvisory, and a second ONE when less than a reopen ladder remains',
+  args: { mode: 'pro', maxAgents: 15 },
+  plan: bl0207Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const pct = run.logs.filter((l) => /AgentBudgetAdvisory: \d+\/15 cost-weighted agent units spent/.test(l))
+    t.ok(pct.length === 1 && /13\/15 cost-weighted agent units spent \(87 %, threshold 80 %\) with work still pending/.test(pct[0]), `exactly one 80 % advisory naming the units (got ${pct.join(' | ')})`)
+    const ladder = run.logs.filter((l) => /AgentBudgetAdvisory: only \d+ cost-weighted unit/.test(l))
+    t.ok(ladder.length === 1 && /only 2 cost-weighted unit\(s\) left of maxAgents 15 — less than one reopen ladder \(~7\)/.test(ladder[0]), `exactly one reopen-ladder advisory (got ${ladder.join(' | ')})`)
+    t.ok(run.result && run.result.stopReason === 'agents', 'the advisory is log-only: the run still stops at the agent ceiling by its own brake')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0207b. no advisory with a roomy maxAgents, nor on an uncapped run',
+  args: { mode: 'pro', maxAgents: 500 },
+  plan: bl0207Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!hasLog(run, /AgentBudgetAdvisory/), 'maxAgents 500 never crosses 80 %')
+  },
+})
+SCENARIOS.push({
+  name: 'BL-0207c. an uncapped run never logs an AgentBudgetAdvisory',
+  args: { mode: 'pro' },
+  plan: bl0207Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(!hasLog(run, /AgentBudgetAdvisory/), 'no maxAgents, no advisory')
+  },
+})
 // 2b: COST-weighting proof. mode 'balanced' (judge=opus, COST 3). Pre-loop (WS-D/D10 adds the MECH
 // baseline pre-check): baseline-precheck(MECH,1) + baseline(3) + plan(3) = 7 — WP-03 fusion (i),
 // MECH_LEAN default: sync-rollups no longer spawns standalone here (folded into the first dispatch, which
@@ -7700,9 +7739,39 @@ SCENARIOS.push({
     t.ok(/do NOT count against your read budget/.test(cycleSection), 'its review is outside the digested read budget')
     t.ok(/non-empty `tests`/.test(cycleSection), 'it must come back in traceability with a test')
     t.ok(/AC-88-011\.1/.test(p), 'the non-cycle unknown is still listed')
-    t.ok(/budget ran out/i.test(p), "the finder's exhausted budget is disclosed to the judge")
+    // BL-0208: the finder's self-reported `budgetExhausted` / `toolCalls` decide nothing — the judge is told every
+    // UNKNOWN is unreviewed regardless, and never sees the self-reported figures as fact.
+    t.ok(/UNKNOWN row below is UNREVIEWED, whatever reason the finder gives/.test(p), 'every UNKNOWN is declared unreviewed unconditionally (not conditioned on the finder self-reporting exhaustion)')
+    t.ok(!/tool budget ran out|in \d+ tool calls/i.test(p), "the finder's self-reported exhaustion / call count never reach the judge as fact")
   },
 })
+// BL-0208: the finder's self-report is telemetry. A `budgetExhausted: true` claim at a self-count far under the
+// 60-call budget (canary F2's FRD-04: "the 60-call budget was spent" at 15 billed calls) is a LOUD discrepancy in
+// the log; a consistent or absent claim is not; and in no case does it change what the judge is told.
+for (const [id, extra, expectDiscrepancy, what] of [
+  ['g1', { toolCalls: 8, budgetExhausted: true }, /claims its 60-call tool budget ran out but self-reports only 8 calls/, 'exhausted at a self-count of 8'],
+  ['g2', { toolCalls: undefined, budgetExhausted: true }, /claims its 60-call tool budget ran out but reports no call count/, 'exhausted with no count at all'],
+  ['g3', { toolCalls: 59, budgetExhausted: true }, null, 'exhausted at a self-count of 59 (consistent)'],
+  ['g4', { toolCalls: 8, budgetExhausted: false }, null, 'not exhausted at 8 (consistent)'],
+]) {
+  SCENARIOS.push({
+    name: `F2${id}. BL-0208 — finder self-report ${what}: ${expectDiscrepancy ? 'a loud DriftFinderSelfReportDiscrepancy log' : 'no discrepancy'}; the judge prompt never carries the self-reported figures`,
+    args: { mode: 'pro', gateEvidence: 'digested' },
+    plan: f2Plan(`frd-f2${id}`, `wo-f2${id}-001`, { acText: 'AC-88-020.1 WHEN F2G THE SYSTEM SHALL hold' }),
+    responses: [
+      { prefix: 'evidence:', response: f2Pack(`f2${id}`) },
+      { prefix: 'find:drift:', response: f2Finding([f2Row(`frd-f2${id}`, 'AC-88-020.1', 'unknown', { owner: 'none' })], extra) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      if (expectDiscrepancy) t.ok(hasLog(run, new RegExp(`DriftFinderSelfReportDiscrepancy frd-f2${id}.*`)) && run.logs.some((l) => expectDiscrepancy.test(l)), `the discrepancy is logged (${run.logs.filter((l) => /Discrepancy/.test(l)).join(' | ')})`)
+      else t.ok(!hasLog(run, /DriftFinderSelfReportDiscrepancy/), 'no discrepancy logged for a self-consistent report')
+      t.ok(hasLog(run, /self-reported \(UNVERIFIED, telemetry only\)/), 'the finder summary line labels its figures as unverified self-report')
+      const gate = byLabel(run, `gate:frd-f2${id}`)[0]
+      t.ok(gate && /WHOLE-FRD DRIFT FINDER REPORT/.test(gate.prompt) && !/tool budget ran out|in \d+ tool calls/i.test(gate.prompt), 'the judge prompt is unchanged by the self-report')
+    },
+  })
+}
 SCENARIOS.push({
   name: 'F2d2. the same obligation on the SERIAL gate (first attempt)',
   args: { mode: 'pro', gateEvidence: 'digested' },

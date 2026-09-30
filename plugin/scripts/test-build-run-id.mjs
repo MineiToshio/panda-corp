@@ -237,6 +237,26 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   ok(!/15 x (the )?FRDs/.test(launched.stdout), "canary E control: at/above the per-FRD floor no parallel-gates budget line is printed");
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
+{
+  // BL-0207 (canary F2): the drift finder is one more sonnet unit per gate link (+ re-gates), so when it is ON the
+  // per-FRD floor is 17, not 15. F2 (maxAgents 60, 4 FRDs, digested + finder) spent the whole ceiling as it finished.
+  const frds = ["--frds", "frd-02,frd-03,frd-04,frd-05"];
+  const warnsAt = async (args, name, expected) => {
+    const root = await fixture({ phase: "architecture", running: "false" });
+    const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "60", "auto", ...frds, ...args]);
+    ok(expected(launched.stdout), name);
+    await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+  };
+  const finderWarns = (out) => /recommended\s+floor is 17 x FRDs\s+= 68/.test(out) && /drift finder \(BL-0207\)/.test(out);
+  await warnsAt(["--gate-evidence", "digested"], "BL-0207: digested (finder on by default) at the OLD 15 x FRDs floor (60 for 4 FRDs) still warns, with the finder-aware floor 68", finderWarns);
+  await warnsAt(["--drift-finder", "on"], "BL-0207: an explicit --drift-finder on under the default explore evidence also raises the floor to 68", finderWarns);
+  await warnsAt(["--gate-evidence", "explore", "--drift-finder", "off"], "BL-0207 control: explore + finder off at 60 for 4 FRDs prints no sizing warning (nothing to add)", (out) => !/17 x FRDs|15 x FRDs|drift finder \(BL-0207\)/.test(out));
+  await warnsAt(["--gate-evidence", "digested", "--drift-finder", "off"], "BL-0207 control: digested with the finder explicitly off keeps the old floor (60 passes)", (out) => !/recommended\s+floor is/.test(out));
+  const root = await fixture({ phase: "architecture", running: "false" });
+  const launched = await exec("bash", [claudeLauncherPath, root, "powerful", "40", "auto", "--gate-evidence", "digested"]);
+  ok(/size maxAgents to at least 17 x the FRDs this run will gate/.test(launched.stdout), "BL-0207: an untargeted digested run gets the 17-per-FRD sizing note");
+  await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+}
 const repo = path.resolve(path.dirname(resolver), "../..");
 const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
 ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");

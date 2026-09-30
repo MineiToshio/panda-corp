@@ -235,6 +235,72 @@ const run = async (args) => {
   await rm(root, { recursive: true })
 }
 
+// (BL-0208 / BL-0210) real tool-call counts, the self-report reconciliation and the per-label cost category.
+// Transcript shape verified live 2026-09-30 (wf_d23327e1-6cb): one content block per JSONL line, `tool_use` blocks
+// carry `id`/`name`/`input`, the agent's return value is a `StructuredOutput` tool_use, and the wf json's per-agent
+// `toolCalls` (the harness ledger) counts that return call too.
+const toolLine = (model, messageId, block, usage = { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) => JSON.stringify({
+  parentUuid: null, isSidechain: true, agentId: 'a1', type: 'assistant', uuid: `u-${messageId}-${block.id || 'b'}`, timestamp: '2026-09-03T00:00:00Z',
+  message: { model, id: messageId, role: 'assistant', content: [block], usage },
+})
+const toolUse = (id, name, input = {}) => ({ type: 'tool_use', id, name, input })
+const setupToolRun = async ({ withRepair }) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-tools-'))
+  const sessionDir = path.join(root, 'session-t')
+  const runDir = path.join(sessionDir, 'subagents', 'workflows', 'wf_tools')
+  await mkdir(runDir, { recursive: true })
+  await mkdir(path.join(sessionDir, 'workflows'), { recursive: true })
+  const sonnet = 'claude-sonnet-5'
+  const opus = 'claude-opus-5'
+  // the drift finder: 3 work calls (m1 is STREAMED over two lines repeating the same tool_use id — counted once),
+  // then its StructuredOutput claiming only 2 calls.
+  await writeFile(path.join(runDir, 'agent-fnd.jsonl'), [
+    toolLine(sonnet, 'm1', toolUse('t1', 'Read')),
+    toolLine(sonnet, 'm1', toolUse('t1', 'Read')),
+    toolLine(sonnet, 'm2', toolUse('t2', 'Grep')),
+    toolLine(sonnet, 'm3', toolUse('t3', 'Bash')),
+    toolLine(sonnet, 'm4', toolUse('t4', 'StructuredOutput', { contracts: [], toolCalls: 2, budgetExhausted: true })),
+  ].join('\n') + '\n')
+  await writeFile(path.join(runDir, 'agent-gat.jsonl'), toolLine(opus, 'g1', toolUse('g1t', 'Read')) + '\n')
+  await writeFile(path.join(runDir, 'agent-lns.jsonl'), toolLine(sonnet, 'l1', toolUse('l1t', 'Read')) + '\n')
+  if (withRepair) await writeFile(path.join(runDir, 'agent-rep.jsonl'), [toolLine(opus, 'r1', toolUse('r1t', 'Read')), toolLine(opus, 'r2', toolUse('r2t', 'Edit'))].join('\n') + '\n')
+  const wfAgent = (agentId, label, startedAt, durationMs, model, toolCalls) => ({ type: 'workflow_agent', index: 1, label, phaseIndex: 1, phaseTitle: 'Review', agentId, agentType: 'pandacorp:reviewer', model, state: 'done', startedAt, queuedAt: startedAt, durationMs, toolCalls })
+  await writeFile(path.join(sessionDir, 'workflows', 'wf_tools.json'), JSON.stringify({
+    runId: 'wf_tools',
+    workflowProgress: [
+      { type: 'workflow_phase', index: 1, title: 'Review' },
+      wfAgent('fnd', 'find:drift:frd-04', 0, 2000, sonnet, 4),
+      wfAgent('gat', 'gate:frd-02', 0, 3000, opus, 1),
+      wfAgent('lns', 'find:correctness:frd-02', 0, 1000, sonnet, 1),
+      ...(withRepair ? [wfAgent('rep', 'gate-test-repair:frd-02', 3000, 4000, opus, 2)] : []),
+    ],
+  }))
+  return { root, runDir }
+}
+{
+  const { root, runDir } = await setupToolRun({ withRepair: true })
+  const { code, stdout } = await run(['--dir', runDir])
+  ok(code === 0, 'BL-0208/0210: a run dir with tool_use blocks and a gate-test-repair agent exits 0')
+  const summary = JSON.parse(stdout.trim())
+  const byId = Object.fromEntries(summary.agents.map((a) => [a.agentId, a]))
+  ok(byId.fnd.tool_calls === 3, 'BL-0208: the REAL tool-call count is the distinct tool_use ids in the transcript (a streamed repeat line and the StructuredOutput return call are not counted)')
+  ok(byId.fnd.tool_calls_harness === 4, "BL-0208: the harness's own ledger (wf json toolCalls, which includes the return call) is reported beside it")
+  ok(byId.fnd.tool_calls_self_reported === 2 && byId.fnd.tool_calls_undercount_pct === 33.333333, 'BL-0208: the finder self-report (2) is kept only as a reconciled claim and its undercount vs the real count (3) is measured')
+  ok(byId.gat.tool_calls === 1 && !('tool_calls_self_reported' in byId.gat), 'BL-0208: an agent that self-reports nothing gets no self-report fields, only the real count')
+  ok(summary.by_category['gate-test-repair'].agents === 1 && summary.by_category['gate-test-repair'].cost_usd === 10 && summary.by_category['gate-test-repair'].tool_calls === 2, 'BL-0210: gate-test-repair is its OWN cost category (2 opus calls x $5), not folded into the Review phase')
+  ok(summary.by_category.gate.cost_usd === 5 && summary.by_category['find:drift'].agents === 1 && summary.by_category.find.agents === 1, 'BL-0210: gate / find:drift / find (split lens) are separate categories')
+  ok(summary.by_phase.Review.cost_usd === summary.by_category.gate.cost_usd + summary.by_category['gate-test-repair'].cost_usd + summary.by_category['find:drift'].cost_usd + summary.by_category.find.cost_usd, 'BL-0210: the categories partition the phase (by_phase is unchanged and still equals their sum)')
+  ok(summary.gate_test_repair.fired === true && summary.gate_test_repair.frds.join(',') === 'frd-02' && summary.gate_test_repair.cost_usd === 10 && summary.gate_test_repair.duration_s === 4, 'BL-0210: the explicit gate_test_repair block names the FRD and its cost/time for the canary table')
+  await rm(root, { recursive: true })
+}
+{
+  const { root, runDir } = await setupToolRun({ withRepair: false })
+  const { stdout } = await run(['--dir', runDir])
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.gate_test_repair.fired === false && summary.gate_test_repair.agents === 0 && summary.gate_test_repair.cost_usd === 0 && !('gate-test-repair' in summary.by_category), 'BL-0210: a run where it did NOT fire says so explicitly (fired:false), so both sides of a comparison state it')
+  await rm(root, { recursive: true })
+}
+
 // (h) No wf_*.json anywhere reachable → agents: null + an explicit agents_join reason (DR-078: never a
 // silent empty array), while the rest of the summary (calls_total, models, cost_usd_total) is untouched.
 {

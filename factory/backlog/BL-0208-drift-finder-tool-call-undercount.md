@@ -3,12 +3,12 @@ id: BL-0208
 type: bug
 area: build-engine
 title: "the whole-FRD drift finder's self-reported toolCalls count undercounts its actually-billed tool calls by 35-47%, and it can wrongly narrate budget exhaustion at a fraction of the real cap"
-status: open
+status: done
 severity: p2
 opened: 2026-09-26
-closed:
+closed: 2026-09-30
 source: "docs/reviews/canary-f2-report.md §2 tool-budget table (canary F2, wf_8bab7752-702)"
-closes:
+closes: "plugin/runtime/engine/pandacorp-build.src.js (validateDriftFinding/awaitDriftFinding/driftFinderBlock, DRIFT_FINDER_TOOL_BUDGET note), plugin/scripts/usage-rollup.mjs (tool_calls, tool_calls_self_reported)"
 links: [BL-0201, BL-0203]
 ---
 
@@ -61,10 +61,17 @@ the system that actually knows).
   under `DRIFT_FINDER_TOOL_BUDGET` produces a loud discrepancy log line (never a silent accept).
 
 ## Done when
-- [ ] Either an authoritative tool-call count replaces the self-report, or a discrepancy check is in place
+- [x] Either an authoritative tool-call count replaces the self-report, or a discrepancy check is in place
       and logs loudly.
-- [ ] The sizing guidance in `plugin/agents/drift-finder.md`/the engine's arg-doc comment states the known
+- [x] The sizing guidance in `plugin/agents/drift-finder.md`/the engine's arg-doc comment states the known
       undercount, so a future canary sizes the budget correctly.
+
+## Resolution (2026-09-30)
+- **Investigation (evidence):** `agent()` hands the engine no per-agent call ledger (the engine has no fs either), so an in-engine authoritative count is not available. The authoritative figures exist OUTSIDE the engine: the agent's own transcript (`tool_use` blocks) and the Workflow's per-agent `toolCalls` in `wf_<runId>.json`. Verified 2026-09-30 on `wf_d23327e1-6cb`: harness `toolCalls` 7 = 7 `tool_use` blocks in the transcript = 5 work calls + 2 `StructuredOutput` return calls.
+- **Engine decisions no longer read the self-report.** Before: the self-reported `toolCalls` was quoted to the judge ("in N tool calls") and `budgetExhausted` conditioned the judge's "treat UNKNOWN rows as unreviewed" text. Now `validateDriftFinding` keeps them under `selfReported` for the log only; the judge is told unconditionally that every UNKNOWN row is unreviewed "whatever reason the finder gives". A `budgetExhausted` claim with a self-count under 80 % of `DRIFT_FINDER_TOOL_BUDGET` (or no count) logs a loud `DriftFinderSelfReportDiscrepancy` (canary F2 FRD-04 shape: exhausted "at 8").
+- **Real count:** `usage-rollup.mjs` adds per-agent `tool_calls` (distinct transcript `tool_use` ids, `StructuredOutput` excluded), `tool_calls_harness` (wf json ledger, includes the return call), `tool_calls_self_reported` and `tool_calls_undercount_pct`, so the next canary reads the billed number straight from the rollup.
+- **Guidance:** the `DRIFT_FINDER_TOOL_BUDGET` comment now states the measured 35-47 % undercount: 60 is a soft ceiling in the finder's own units and the billed count runs ~1.5-1.9x that. The number itself is unchanged (a behavior change for a measurement fix would confound the next canary). `plugin/agents/drift-finder.md` was NOT edited: its method block is mirrored byte-for-byte into the engine and into the generated Codex agents.
+- **Tests (RED then GREEN):** `test-pandacorp-build.mjs` `F2g1..F2g4` (discrepancy logged at 8/60 and at no count; none at 59 or when not exhausted; the judge prompt never carries the self-reported figures) plus the tightened `F2d1`; `test-usage-rollup.mjs` (real count with a streamed duplicate line and a `StructuredOutput` return; harness ledger; 2-vs-3 undercount 33.33 %).
 
 ## Out of scope
 - Building a general per-agent token/tool-call telemetry system for every agent type in the engine (a much
