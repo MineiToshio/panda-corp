@@ -227,7 +227,7 @@ function promptAwareDefault(call) {
 }
 // A real-shaped, sealed wo-revert.mjs receipt for the work orders the prompt's command names.
 function woRevertLine(call, over = {}) {
-  const mode = call.label.startsWith('wo-revert-plan:') ? 'plan' : 'apply'
+  const mode = call.label.startsWith('wo-revert-plan:') || /-plan\.json'/.test(call.prompt) ? 'plan' : 'apply'   // a replay re-prints the stored receipt of the mode it names
   const wos = [...call.prompt.matchAll(/--wo '([^']+)'/g)].map((m) => ({ id: m[1], status: 'PLANNED', attempt: 'b0000001' }))
   return sealLine({ ok: true, version: 1, mode, frd: call.label.slice(call.label.indexOf(':') + 1), pinSha: 'pin00001', pinValid: true, skipped: [], wos, commits: ['b0000001'], seamUntouched: [], status: 'reverted', reason: '', files: [{ path: 'src/rejected.ts', action: 'delete', via: 'revert' }], head: 'head0001', changed: true, committed: mode === 'plan' ? null : 'revert000001', ...over })
 }
@@ -7724,6 +7724,36 @@ SCENARIOS.push({
     t.ok(c && /use `git status -- \.` \(THIS project only, BL-0202\)/.test(c.prompt) && !/use `git status` to identify/.test(c.prompt), `scoped status read in the commit step (labels: ${run.calls.map((x) => x.label).join(' ')})`)
   },
 })
+{
+  // Red-team 2026-09-30 (the DR-067 sibling of BL-0212): last_green_sha is OLDER than HEAD whenever IN_REVIEW work was
+  // committed after it (every carry-over work order). The judge baseline used to restore a dirty path "to the last green":
+  // `git checkout <pin> -- <path>` rewrites the INDEX too, so it staged the reversal of the later commit and the next commit
+  // anywhere (a per-WO commit stages its files and commits the whole index) erased it silently. It must discard ONLY the
+  // uncommitted edit: restore to HEAD. EXECUTED against a real nested repository whose pin (fx.base) is behind HEAD.
+  const fx = b2Nested()
+  gcWrite(path.join(fx.app, 'src/y.ts'), 'export const y = 2 // WO build, IN_REVIEW, committed after the pin\n')
+  gcGit(fx.repo, 'add', '-A'); gcGit(fx.repo, 'commit', '-qm', 'feat(frd-01-alpha): WO-01-001 build')
+  gcWrite(path.join(fx.app, 'src/y.ts'), 'export const y = 3 // half-written by a killed run\n')
+  SCENARIOS.push({
+    name: 'DR-067 × BL-0212 (red-team). the judge baseline discards a dirty path\'s uncommitted edit by restoring it to HEAD, never to an older last_green_sha: the IN_REVIEW commit after the pin survives and nothing is left staged (executed)',
+    args: { mode: 'pro', projectDir: fx.app, project: 'mission-control' },
+    responses: [{ label: 'baseline-precheck', response: b2HonestPrecheck(fx.repo) }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const b = byLabel(run, 'baseline')[0]
+      const status = b2Marker(b && b.prompt, 'STATUS')
+      const restore = b2Marker(b && b.prompt, 'RESTORE')
+      const s = b2Parse(gcBash(status || 'false', fx.app).out)
+      t.ok(JSON.stringify(s.in) === '["mission-control/src/y.ts"]', `the dirty path is IN (got ${JSON.stringify(s)})`)
+      const r = gcBash(b2Fill(restore || 'false', { sha: fx.base, paths: s.in }), fx.app)   // an old prompt's <LAST_GREEN_SHA> would be the pin
+      t.ok(r.ok, `the restore ran (${r.err || ''})`)
+      t.ok(b2Read(path.join(fx.app, 'src/y.ts')) === 'export const y = 2 // WO build, IN_REVIEW, committed after the pin\n', 'the committed IN_REVIEW work after the pin survives (only the half-written edit is gone)')
+      t.ok(gcGit(fx.repo, 'diff', '--cached', '--name-only') === '' && gcGit(fx.repo, 'status', '--porcelain', '--', 'mission-control/src') === '', 'nothing is left staged or dirty for the next commit to sweep in')
+      t.ok(b && /NEVER to last_green_sha/.test(b.prompt) && !/<LAST_GREEN_SHA>/.test(b.prompt), 'the prompt restores to HEAD and never asks for the pin')
+      gcFs.rmSync(fx.root, { recursive: true, force: true })
+    },
+  })
+}
 
 // ---- F2 drift finder ----
 // BL-0203 (canary F2, BL-0201): `gateEvidence:'digested'` cut the gate's cost −62 % on canary E2 but its judge never
@@ -8761,6 +8791,33 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'revert:frd-b212g').length === 1 && byLabel(run, 'wo-revert-apply:frd-b212g').length === 1, 'the re-read receipt lets the discard proceed')
     t.ok(byLabel(run, 'revert:frd-b212h').length === 0 && byLabel(run, 'block-revert-refused:frd-b212h').length === 1, 'an unreadable receipt is a refusal: no flip, blocked')
     t.ok(run.result && run.result.blockedReasons['frd-b212h'] === 'needs-owner', 'blocked needs-owner')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 d4 (red-team). a sealed receipt that is NOT this request\'s (a stale PLAN served as the APPLY\'s result) is never read as a discard: it is re-read from THIS run\'s own stored path (lease epoch in the name); a stale re-read too → refused',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b212s', deps: [], workOrders: [mkWo('wo-b212s-001', 'IN_REVIEW', { frd: 'frd-b212s', artifacts: ['src/b212s/**'] })] },
+    { frd: 'frd-b212t', deps: [], workOrders: [mkWo('wo-b212t-001', 'IN_REVIEW', { frd: 'frd-b212t', artifacts: ['src/b212t/**'] })] },
+  ]),
+  responses: [b212Reject('b212s'), b212Reject('b212t'), ...b212FullRevert('frd-b212s'), ...b212FullRevert('frd-b212t'),
+    // s: the apply relay hands back a (valid, sealed) PLAN receipt — the replay of the apply's own path is intact.
+    { label: 'wo-revert-apply:frd-b212s', times: 1, response: (call) => ({ output: woRevertLine({ ...call, label: 'wo-revert-plan:frd-b212s' }) }) },
+    // t: the apply relay AND its replay both hand back a plan receipt (a stale copy) — never trusted.
+    { label: 'wo-revert-apply:frd-b212t', response: (call) => ({ output: woRevertLine({ ...call, label: 'wo-revert-plan:frd-b212t' }) }) },
+    { label: 'wo-revert-replay:frd-b212t', response: (call) => ({ output: woRevertLine({ ...call, label: 'wo-revert-plan:frd-b212t', prompt: '' }) }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const applyS = byLabel(run, 'wo-revert-apply:frd-b212s')[0]
+    const replayS = byLabel(run, 'wo-revert-replay:frd-b212s')[0]
+    t.ok(applyS && /--out '\.pandacorp\/run\/wo-revert\/frd-b212s-e1-\d+-apply\.json'/.test(applyS.prompt), `the stored receipt path carries this run's lease epoch (got ${applyS && (applyS.prompt.match(/--out '[^']+'/) || [''])[0]})`)
+    t.ok(replayS && /--file '\.pandacorp\/run\/wo-revert\/frd-b212s-e1-\d+-apply\.json'/.test(replayS.prompt), 'a misdirected receipt is re-read from this run\'s own stored path')
+    t.ok(hasLog(run, /frd-b212s: the revert receipt is not this request's \(it names frd-b212s plan, expected frd-b212s apply\)/), 'the mismatch is logged')
+    t.ok(byLabel(run, 'block-revert-refused:frd-b212s').length === 0 && byLabel(run, 'build:wo-b212s-001').length === 1, 's: the intact re-read lets the retry proceed')
+    t.ok(byLabel(run, 'block-revert-refused:frd-b212t').length === 1 && byLabel(run, 'build:wo-b212t-001').length === 0, 't: a stale receipt twice is a refusal — no rebuild on top of code that may still be there')
+    t.ok(!hasLog(run, /frd-b212t: discarded the rejected work/), 't: never logged as discarded')
+    t.ok(run.result && run.result.blockedReasons['frd-b212t'] === 'needs-owner', 't: blocked needs-owner')
   },
 })
 

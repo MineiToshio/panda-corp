@@ -254,6 +254,122 @@ console.log('flat project (repository root)')
   } finally { r.cleanup() }
 }
 
+// ── red-team (2026-09-30): the hostile shapes of a real history ──────────────────────────────────
+console.log('(g) the WO RENAMED a pre-existing file → the old name comes back, not only the new one goes (nested and flat)')
+for (const sub of ['proj', '']) {
+  const r = mkRepo(sub)
+  const at = (rel) => (sub ? `${sub}/${rel}` : rel)
+  try {
+    r.git('mv', at('src/existing.ts'), at('src/renamed.ts'))
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW')); r.git('add', '--', at(WO_A))
+    r.git('commit', '-q', '-m', 'feat(frd-01-alpha): WO-01-001 rename existing')
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 0 && res.receipt.status === 'reverted', `${sub || 'flat'}: reverted (got ${res.line.slice(0, 160)})`)
+    ok(r.read('src/existing.ts') === 'export const existing = 1\n', `${sub || 'flat'}: the renamed-away pre-existing file is restored (a rename-blind log lost it)`)
+    ok(r.read('src/renamed.ts') === null && r.status() === '', `${sub || 'flat'}: the new name is gone, tree clean`)
+  } finally { r.cleanup() }
+}
+
+console.log('(h) a MIXED commit (the WO and another FRD\'s WO built in one commit) → refused, the verified sibling\'s code survives')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat: build wave WO-01-001 + WO-02-001', { 'src/alpha.ts': 'a\n', 'src/beta.ts': 'b\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW'), [WO_B]: woMd('WO-02-001', 'IN_REVIEW') })
+    const pin = r.commit('test(frd-02-beta): verify WO-02-001', { [WO_B]: woMd('WO-02-001', 'VERIFIED') })
+    r.publish(pin)
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const before = r.head()
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 4 && res.receipt.status === 'refused' && /mixed commit/.test(res.receipt.reason) && /wo-02-001/.test(res.receipt.reason), `refused as a mixed commit naming the other WO (got ${res.line.slice(0, 220)})`)
+    ok(r.head() === before && r.read('src/beta.ts') === 'b\n' && r.read('src/alpha.ts') === 'a\n', 'nothing reverted: the VERIFIED beta.ts is intact')
+    ok(r.events().some((e) => e.event === 'RevertRefused' && e.status === 'refused'), 'RevertRefused event')
+    // A multi-WO flip that carries no code (the joint reopen) is NOT mixed.
+    const r2 = mkRepo()
+    try {
+      r2.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'a\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+      r2.commit('feat(frd-01-alpha): WO-01-002 alpha two', { 'src/alpha2.ts': 'b\n', [WO_A2]: woMd('WO-01-002', 'IN_REVIEW') })
+      r2.commit('chore(frd-01-alpha): reopen WO-01-001, WO-01-002', { [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_A2]: woMd('WO-01-002', 'PLANNED') })
+      const one = r2.run('apply', ...args(r2, '--wo', 'WO-01-001', '--require-status', 'PLANNED'))
+      ok(one.code === 0 && one.receipt.status === 'reverted' && r2.read('src/alpha.ts') === null && r2.read('src/alpha2.ts') === 'b\n', `a frontmatter-only joint flip is not mixed (got ${one.line.slice(0, 160)})`)
+    } finally { r2.cleanup() }
+  } finally { r.cleanup() }
+}
+
+console.log('(i) an anonymous FRD-level repair a later PASS of the SAME FRD certified is the sibling\'s work, never the reopened WO\'s')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'a\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    r.commit('chore(frd-01-alpha): block WO-01-001', { [WO_A]: woMd('WO-01-001', 'BLOCKED') })
+    r.commit('revert(frd-01-alpha): discard the rejected work of WO-01-001 (BL-0212)', { 'src/alpha.ts': null })
+    r.commit('feat(frd-01-alpha): WO-01-002 alpha two', { 'src/alpha2.ts': 'two\n', [WO_A2]: woMd('WO-01-002', 'IN_REVIEW') })
+    r.commit('fix(frd-01-alpha): repair self-test', { 'src/alpha2.ts': 'two fixed\n' })   // the pre-BL-0212 prompt: no WO named
+    const pin = r.commit('test(frd-01-alpha): gate PASS', { [WO_A2]: woMd('WO-01-002', 'VERIFIED') })
+    r.publish(pin)
+    r.commit('chore(frd-01-alpha): owner unblocks WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha retry', { 'src/alpha.ts': 'a2\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    r.commit('fix(frd-01-alpha): patch gate findings', { 'src/alpha.ts': 'a2 patched\n' })   // uncertified: still the attempt's
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 0 && res.receipt.status === 'reverted', `reverted (got ${res.line.slice(0, 200)})`)
+    ok(r.read('src/alpha2.ts') === 'two fixed\n', 'the certified repair of the VERIFIED sibling WO-01-002 survives')
+    ok(r.read('src/alpha.ts') === null, 'the reopened WO\'s build and its uncertified patch are discarded')
+  } finally { r.cleanup() }
+}
+
+console.log('(j) the reopen judge MOVED a preserved test out of the tree (DR-107) → not a dirty refusal')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'a\n', 'src/_tests/alpha.test.ts': 't\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    r.publish(r.head())
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    r.remove('src/_tests/alpha.test.ts')   // moved to the gitignored .pandacorp/run/preserved-tests/, the flip committed alone
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 0 && res.receipt.status === 'reverted', `a target already in its reverted state is not dirty (got ${res.line.slice(0, 200)})`)
+    ok(r.read('src/alpha.ts') === null && r.status() === '' && r.git('ls-tree', '-r', '--name-only', 'HEAD', '--', 'proj/src/_tests') === '', 'code discarded, the moved test\'s deletion committed, tree clean')
+    // Any OTHER uncommitted content on a target is still a refusal.
+    const r2 = mkRepo()
+    try {
+      r2.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'a\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+      r2.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+      r2.write('src/alpha.ts', 'someone else\'s edit\n')
+      const d = r2.run('apply', ...args(r2, '--wo', 'WO-01-001'))
+      ok(d.code === 4 && d.receipt.status === 'dirty' && r2.read('src/alpha.ts') === 'someone else\'s edit\n', 'a divergent uncommitted edit still refuses and survives')
+    } finally { r2.cleanup() }
+  } finally { r.cleanup() }
+}
+
+console.log('(k) a path git would C-quote (a double quote in the name) is still attributed and reverted')
+{
+  const r = mkRepo()
+  try {
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/say "hi".ts': 'q\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 0 && res.receipt.status === 'reverted' && r.read('src/say "hi".ts') === null && r.status() === '', `quoted path reverted (got ${res.line.slice(0, 200)})`)
+  } finally { r.cleanup() }
+}
+
+console.log('(l) the pin restore never wipes another FRD\'s IN_REVIEW commit made after the pin on the same shared file')
+{
+  const r = mkRepo()
+  try {
+    const base = LINES(40)
+    r.publish(r.head())
+    r.commit('feat(frd-02-beta): WO-02-001 beta', { 'src/shared.txt': edit(base, 35, 'l36 beta'), [WO_B]: woMd('WO-02-001', 'IN_REVIEW') })
+    const afterB = edit(base, 35, 'l36 beta').split('\n').slice(0, -1)
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/shared.txt': edit(afterB, 2, 'l3 alpha'), 'src/alpha.ts': 'a\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    r.commit('chore(frd-01-alpha): reopen WO-01-001', { [WO_A]: woMd('WO-01-001', 'PLANNED') })
+    const res = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--require-status', 'PLANNED', '--expect-change'))
+    ok(res.code === 0 && res.receipt.status === 'reverted', `reverted (got ${res.line.slice(0, 160)})`)
+    ok(r.read('src/shared.txt') === edit(base, 35, 'l36 beta'), 'beta\'s IN_REVIEW edit after the pin survives; only alpha\'s line is undone')
+    const f = Object.fromEntries((res.receipt.files || []).map((x) => [x.path, x.via]))
+    ok(f['src/shared.txt'] === 'revert' && f['src/alpha.ts'] === 'pin', `a file another commit touched since the pin takes the revert path; one only the attempt touched keeps the pin restore (got ${JSON.stringify(f)})`)
+  } finally { r.cleanup() }
+}
+
 // ── fail-closed inputs ────────────────────────────────────────────────────────────────────────────
 console.log('fail-closed inputs')
 {

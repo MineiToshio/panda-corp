@@ -1681,7 +1681,7 @@ if (precheck && precheck.green === true) {
   baseline = await preLoopGuarded(() => agent(
     `You are the Pandacorp baseline-repair engineer (DR-067 reconciliation + verify). The cheap pre-check found the tree DIRTY or HEAD beyond the certified last_green snapshot/pointer pair${precheck && precheck.dirty ? ' (tree is dirty)' : ''}.
     **STEP 0 — FAIL-LOUD project-root guard (BL-0022/BL-0068):** execute exactly \`${INSPECT_STOP}\`; if it fails, return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" } and do nothing else. NEVER use shell \`test\` or \`[\` for this guard.
-    **STEP 1 — DR-067 RECONCILIATION, scoped to THIS project (BL-0202) (only if the tree is dirty/conflicted):** list the tree with the BL-0202 STATUS COMMAND: \`${PROJECT_STATUS_COMMAND}\` (VERBATIM, ONE Bash call). \`IN <path>\` lines are THIS project's dirty paths; \`OUT <path>\` lines are OTHER work sharing the repository (a nested project: the factory's parallel sessions) — NEVER restore, clean, stage, stash or commit an OUT path, it is not yours.${outsideDirtyPaths.length ? ` The pre-check already saw these OUT paths — leave every one exactly as it is: ${outsideDirtyPaths.slice(0, 20).map((p) => `\`${p}\``).join(', ')}.` : ''} Read \`last_green_sha\` from status.yaml. The valid active fence makes \`.pandacorp/status.yaml\` controller-owned: NEVER checkout or restore \`.pandacorp/status.yaml\`; renew/sync-rollups deterministically re-derive its active projection from the fenced lease. If the IN lines show other uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), RESTORE only those other tracked MODIFIED IN paths to the last green (every IN path except .pandacorp/status.yaml) with the BL-0202 RESTORE COMMAND: \`${scopedRestoreCommand('<LAST_GREEN_SHA>')}\` — run it VERBATIM except <LAST_GREEN_SHA> (the sha you just read) and ${SCOPED_PATHS_NOTE} It refuses (exit 3, touching nothing) any path outside this project, the controller-owned status.yaml, or an empty list. Surgical — ${NO_WHOLE_TREE_WRITES} Stashes: leave EVERY stash as it is — never drop or pop one (DR-067: never stash-pop across a moved tree; the stash list is repository-wide, so in a nested project it holds other sessions' stashes, and a drop is unrecoverable). Remove leftover temp preview pages — any \`preview-wo*\` scratch page/route the build created (untracked IN paths) — with the BL-0202 CLEAN COMMAND: \`${scopedCleanCommand()}\` (VERBATIM except <PATHS>, same path rules). Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
+    **STEP 1 — DR-067 RECONCILIATION, scoped to THIS project (BL-0202) (only if the tree is dirty/conflicted):** list the tree with the BL-0202 STATUS COMMAND: \`${PROJECT_STATUS_COMMAND}\` (VERBATIM, ONE Bash call). \`IN <path>\` lines are THIS project's dirty paths; \`OUT <path>\` lines are OTHER work sharing the repository (a nested project: the factory's parallel sessions) — NEVER restore, clean, stage, stash or commit an OUT path, it is not yours.${outsideDirtyPaths.length ? ` The pre-check already saw these OUT paths — leave every one exactly as it is: ${outsideDirtyPaths.slice(0, 20).map((p) => `\`${p}\``).join(', ')}.` : ''} The valid active fence makes \`.pandacorp/status.yaml\` controller-owned: NEVER checkout or restore \`.pandacorp/status.yaml\`; renew/sync-rollups deterministically re-derive its active projection from the fenced lease. If the IN lines show other uncommitted/conflicted changes (unmerged paths or \`<<<<<<<\` markers — a kill or app-restart left a run mid-write), DISCARD only the uncommitted edits of those other tracked MODIFIED IN paths (every IN path except .pandacorp/status.yaml) by restoring them to HEAD — NEVER to last_green_sha — with the BL-0202 RESTORE COMMAND: \`${scopedRestoreCommand('HEAD')}\` — run it VERBATIM except ${SCOPED_PATHS_NOTE} (Why HEAD: whenever IN_REVIEW work was committed after the pin — every carry-over work order, BL-0212 — a checkout of the pin rewrites the INDEX too, staging the reversal of those later commits, and the next commit anywhere would silently erase them.) It refuses (exit 3, touching nothing) any path outside this project, the controller-owned status.yaml, or an empty list. Surgical — ${NO_WHOLE_TREE_WRITES} Stashes: leave EVERY stash as it is — never drop or pop one (DR-067: never stash-pop across a moved tree; the stash list is repository-wide, so in a nested project it holds other sessions' stashes, and a drop is unrecoverable). Remove leftover temp preview pages — any \`preview-wo*\` scratch page/route the build created (untracked IN paths) — with the BL-0202 CLEAN COMMAND: \`${scopedCleanCommand()}\` (VERBATIM except <PATHS>, same path rules). Leave legitimate untracked owner state (\`.pandacorp/\`, etc.) untouched.
     **STEP 2 —${GATE_SKIP} THEN run \`bash ${PROJECT_DIR}/.pandacorp/verify.sh\`:**
     - GREEN → return { green: true }, change nothing further.
     - RED → fix the PRODUCTION code (never weaken/skip tests) until it passes end-to-end, commit (Conventional Commits with scope) staging ONLY this project's files by explicit path (never \`git add -A\`/\`git add .\`/\`git commit -a\` — BL-0202: in a nested project they sweep other sessions' work into your commit), return { green: true }. (A route quarantined above is NOT yours to fix — it waits on the owner; do not touch it.)
@@ -3541,12 +3541,15 @@ async function certifyPatched(frd, reviewIds, verdict) {
 // the wrong state refuses the WHOLE plan — nothing written, never a partial revert — and the engine blocks
 // needs-owner. The script's one line is SEALED (drift-seal.mjs): a model relays it, the engine verifies it (BL-0206).
 const WO_REVERT_OK = new Set(['reverted', 'nothing'])
-function parseWoRevert(raw) {
+// `frd`/`mode`: the receipt must be THIS request's (red-team 2026-09-30) — a sealed line of another FRD or mode is a
+// misdirected or stale copy (a plan's "reverted" read as the apply's would report a discard that never ran).
+function parseWoRevert(raw, frd, mode) {
   const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
   if (!text) return { receipt: null, error: 'the revert runner returned no output', transport: true }
   let j
   try { j = JSON.parse(text) } catch { return { receipt: null, error: 'the revert output is not valid JSON', transport: true } }
   if (!driftSealHolds(text)) return { receipt: null, error: 'the revert output failed its integrity seal (the relay altered it)', transport: true }
+  if (j && j.ok === true && (j.frd !== frd || j.mode !== mode)) return { receipt: null, error: `the revert receipt is not this request's (it names ${String(j.frd).slice(0, 40)} ${String(j.mode).slice(0, 8)}, expected ${frd} ${mode})`, transport: true }
   if (!j || j.ok !== true) return { receipt: null, error: `the revert script refused its input: ${(j && j.error) || 'no ok:true'}` }
   if (!WO_REVERT_OK.has(j.status)) return { receipt: j, error: `${j.status}: ${j.reason || 'refused'}` }
   if (typeof j.changed !== 'boolean') return { receipt: j, error: 'the revert receipt carries no `changed` flag' }
@@ -3560,7 +3563,9 @@ let woRevertSeq = 0
  * @returns {Promise<{ok: boolean, receipt: object|null, error: string}>} ok only for status reverted|nothing
  */
 async function woRevert(frd, ids, mode, opts = {}) {
-  const stored = `.pandacorp/run/wo-revert/${frd}-${++woRevertSeq}-${mode}.json`
+  // The lease epoch makes the path unique to THIS run: the sequence restarts at 1 every run, and a replay of a path an
+  // earlier run wrote would serve that run's receipt when this run's command never executed (red-team 2026-09-30).
+  const stored = `.pandacorp/run/wo-revert/${frd}-e${LEASE_EPOCH}-${++woRevertSeq}-${mode}.json`
   const flags = [...ids.map((id) => `--wo ${shellQuote(id)}`), ...(opts.seam || []).map((p) => `--seam ${shellQuote(p)}`),
     opts.requireStatus ? `--require-status ${opts.requireStatus}` : '', opts.onlyStatus ? `--only-status ${opts.onlyStatus}` : '', opts.expectChange ? '--expect-change' : ''].filter(Boolean).join(' ')
   const cmd = `${WO_REVERT_CLI_COMMAND} ${mode} --project ${shellQuote(PROJECT_DIR)} --project-name "${PROJECT}" --frd ${shellQuote(frd)} ${flags} --out ${shellQuote(stored)}`
@@ -3574,10 +3579,10 @@ async function woRevert(frd, ids, mode, opts = {}) {
       return null
     }
   }
-  let parsed = parseWoRevert(await relay(`wo-revert-${mode}:${frd}`, cmd))
+  let parsed = parseWoRevert(await relay(`wo-revert-${mode}:${frd}`, cmd), frd, mode)
   if (!parsed.receipt && parsed.transport) {
     log(`⚠ ${frd}: ${parsed.error} — re-reading the stored revert receipt once (BL-0212)`)
-    parsed = parseWoRevert(await relay(`wo-revert-replay:${frd}`, `${WO_REVERT_CLI_COMMAND} replay --project ${shellQuote(PROJECT_DIR)} --file ${shellQuote(stored)}`))
+    parsed = parseWoRevert(await relay(`wo-revert-replay:${frd}`, `${WO_REVERT_CLI_COMMAND} replay --project ${shellQuote(PROJECT_DIR)} --file ${shellQuote(stored)}`), frd, mode)
   }
   return { ok: !parsed.error, receipt: parsed.receipt, error: parsed.error }
 }

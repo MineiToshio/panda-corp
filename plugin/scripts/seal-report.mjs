@@ -10,15 +10,18 @@
 //
 //   seal   --file <gate-report.json> --frd <frd> --pin <sha> [--out <sealed.json>]
 //       Prints ONE sealed line `{ok:true,version:2,kind:"gate-report",frd,pin,report:<the parsed report>,sum}` (the FRD
-//       and the pin ride inside the seal, so a stored copy of ANOTHER gate's report can never be mistaken for this one);
-//       with --out it also stores that exact line (the engine's recovery channel when the first relay fails its seal).
+//       and the pin ride inside the seal, so a stored copy of another FRD's or another pin's report is refused by identity);
+//       with --out it also stores that exact line (the engine's recovery channel when the first relay fails its seal),
+//       and it first REMOVES any earlier copy there, even when it then refuses — an earlier gate of the SAME FRD at the
+//       SAME pin would pass the identity check. The seal is a checksum against accidental alteration by a model relay,
+//       not a signature: anything that can run node can compute it.
 //   reread --file <sealed.json>
 //       Re-prints the stored line after verifying it (instant: nothing is re-run).
 //
 // A refusal is ONE unsealed `{ok:false,error}` line, exit 0 (the engine treats an unreadable report as "no
 // evidence": the gate runs in explore mode, loudly — never a silent pass).
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sealLine, verifySealedLine } from './drift-seal.mjs'
@@ -58,6 +61,10 @@ function parseArgs(argv) {
 function main() {
   const o = parseArgs(process.argv.slice(2))
   if ((o.cmd !== 'seal' && o.cmd !== 'reread') || !o.file) refuse('usage: seal-report.mjs seal --file <gate-report.json> --frd <frd> --pin <sha> [--out <sealed.json>] | reread --file <sealed.json>')
+  // A seal that refuses (the report is missing: verify.sh timed out) must not leave an EARLIER gate's sealed copy at --out:
+  // a relay that garbled this refusal would be re-read from it, and an earlier gate of the same FRD at the same pin passes
+  // the identity check (red-team 2026-09-30; drift-proof.mjs `prove --out` does the same).
+  if (o.cmd === 'seal' && o.out) rmSync(o.out, { force: true })
   if (!existsSync(o.file)) refuse(`no file at ${o.file}`)
   if (o.cmd === 'reread') {
     const line = readFileSync(o.file, 'utf8').trim().split('\n').pop()

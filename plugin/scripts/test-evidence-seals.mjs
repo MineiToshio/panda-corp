@@ -11,7 +11,7 @@
 // Exit 0 green / 1 red. Output ends in `RESULT: N passed, M failed`.
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -71,6 +71,14 @@ write(reportFile, `${JSON.stringify(REPORT, null, 2)}\n`)
   write(path.join(tmp, 'arr.json'), '[1,2]')
   check(run(SEAL, 'seal', '--file', path.join(tmp, 'arr.json'), ...ID).ok === false, 'seal: a JSON array is not a gate report')
   check(verifySealedLine(sealGateReport(JSON.stringify(REPORT), { frd: 'frd-01-demo', pin: 'abc1234' })).ok, 'sealGateReport (the library entry point) seals like the CLI')
+  // Red-team 2026-09-30: a seal that REFUSES (verify.sh timed out, the report is missing) must not leave an earlier gate's
+  // sealed copy of the same FRD at the same pin at --out — the identity check cannot tell it apart, so a re-read would serve it.
+  const earlier = runLine(SEAL, 'seal', '--file', reportFile, ...ID, '--out', stored)
+  check(existsSync(stored) && verifySealedLine(earlier).ok, 'setup: an earlier gate stored a valid sealed report')
+  const timedOut = run(SEAL, 'seal', '--file', path.join(tmp, 'missing-gate-report.json'), ...ID, '--out', stored)
+  check(timedOut.ok === false && /no file/.test(timedOut.error), 'seal: a missing report is a refusal')
+  check(!existsSync(stored), 'seal --out: the refusal REMOVED the earlier stored copy, so a re-read can never serve it')
+  check(run(SEAL, 'reread', '--file', stored).ok === false, 'reread after a refused seal: nothing to serve (refused, never the earlier report)')
 }
 
 // ── finder-snippets.mjs: pure classification ─────────────────────────────────────────────────────────────────

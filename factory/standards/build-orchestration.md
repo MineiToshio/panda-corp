@@ -182,15 +182,25 @@ DR-070/DR-073 fallback, the in-run retry's re-reject, the A3 seam revert), the A
 flipped the work order's frontmatter to `IN_REVIEW` since it was last `VERIFIED`; inside that window a commit belongs
 to the attempt when it touches the work order's own file or names it in its subject (and touches no other work order's
 file — a sibling's build that only mentions it is not its work), or when it is an FRD-level commit of this FRD only (a
-patch, a repair; the engine's commit prompts name the FRD and the work orders for this reason). Per file those commits
-touched (never `.pandacorp/**` or `docs/frds/**` — frontmatter, rollups and status belong to the engine's own commits):
-- the attempt's first touch of the file is **not** in the pin → restore it to the pin, exactly as before BL-0212;
+patch, a repair; the engine's commit prompts name the FRD and the work orders for this reason) that no later PASS
+landing of this FRD certified (a sibling work order of the same FRD flipped to `VERIFIED` after it: then it is that
+sibling's accepted work — a repair committed in the pre-BL-0212 format, naming no work order — and is kept, red-team
+2026-09-30). The history is read with `--no-renames` (a rename lists both paths, so a renamed-away pre-existing file
+is restored, not lost) and NUL-separated (a path git would quote still matches). Per file those commits touched (never
+`.pandacorp/**` or `docs/frds/**` — frontmatter, rollups and status belong to the engine's own commits):
+- the attempt's first touch of the file is **not** in the pin **and no other commit touched the file since the pin**
+  → restore it to the pin, exactly as before BL-0212 (red-team 2026-09-30: with another FRD's `IN_REVIEW` edit of a
+  shared file after the pin, the pin restore wiped it — that case takes the revert path below);
 - otherwise → **revert the attempt's own commits** on it: nothing else touched it since → its content before the
   attempt; another commit did (a shared file: i18n messages, constants) → a sequential 3-way reverse merge that
   keeps that commit's edit.
-**Fail closed, never partial:** a merge conflict, an uncommitted change on a target path, a work order not in the
-required state (`--require-status`: the `PLANNED`/`BLOCKED` flip must be committed first, WS-D/D12) or an unreadable
-receipt refuses the WHOLE plan — nothing is written — and the engine blocks the FRD `needs-owner` with a Spanish
+**Fail closed, never partial:** a merge conflict, an uncommitted change on a target path (unless the file on disk
+already IS what the revert commits — the reopen judge moved a preserved test out of the tree, DR-107), a **mixed
+commit** (one that flips a selected work order's file AND another work order's, with code: nothing in git says which
+file is whose, and reverting it whole would discard the other work order's code), a work order not in the required
+state (`--require-status`: the `PLANNED`/`BLOCKED` flip must be committed first, WS-D/D12) or an unreadable receipt —
+including a sealed receipt of another FRD or mode, and every stored receipt path carries the run's lease epoch so a
+replay can never serve an earlier run's line — refuses the WHOLE plan — nothing is written — and the engine blocks the FRD `needs-owner` with a Spanish
 decision record naming the conflicting files (`RevertRefused` event + log). A reopen runs a read-only `plan` BEFORE the
 flip, so a refusal never leaves a `PLANNED` work order over its rejected code; a refusal never rebuilds on top of it.
 **Never silent:** an apply that changes nothing where a change was expected emits `RevertNoop` (event + log). The script
@@ -198,7 +208,12 @@ commits exactly the paths it changed (one commit naming the FRD and the work ord
 it) and prints one sealed JSON line (drift-seal.mjs) the engine verifies after the MECH relay, re-reading the stored
 copy once when the relay altered it (BL-0206). Out of scope, unchanged: `persistGateBlock` and the repair-budget exit
 keep the work on the branch (no discard), and the baseline reconciliation / foundation reset act on uncommitted or
-whole-surface state, not on one work order's commits.
+whole-surface state, not on one work order's commits — the baseline discards uncommitted edits by restoring them to
+`HEAD`, never to the pin (DR-067 below). **Known gap (BL-0215):** the flip and the discard are two steps; a run cut
+between them (the supervisor's external brake `TaskStop`, a crash) leaves a `PLANNED`/`BLOCKED` work order over its
+rejected code, and nothing re-runs the discard before the next pass rebuilds it. Commits written before BL-0212 name
+no work order: a patch of that era is attributed only through the work-order file it touched, else treated as
+another commit (its edit is kept, or the plan refuses on a conflict) — a partial discard, never a loss of other work.
 
 **Durable build timeline — `.pandacorp/track.jsonl` (DR-086 → FRD-12).** At the same points it already
 touches, the engine appends a per-project timing log: `wo_start` (when a work order begins building),
@@ -666,7 +681,12 @@ arrived intact (unparseable, unsealed, seal mismatch) is re-read from the stored
 (`seal-report.mjs reread`, at most 2), and if it still does not verify the pack is discarded: the existing loud
 `GateEvidenceFallback` log plus the gate prompt's event, and the gate runs in explore mode, never a copy, never silence.
 A sealed report of another FRD or pin (a stale stored copy) verifies but is refused by identity and is not re-read.
-No extra agent on the happy path (the script runs inside the collector's own spawn).
+A stale copy of the SAME FRD and pin would pass that check, so `seal --out` first removes any earlier copy at its
+path, even when it then refuses (a missing report after a verify.sh timeout): a garbled refusal can never be re-read
+as an earlier gate's report (red-team 2026-09-30, the `prove --out` precedent). The seal is a cyrb53 checksum against
+accidental alteration by a model relay, not a signature — an agent that runs node can recompute it; the threat it
+closes is a lossy copy, never an adversary. No extra agent on the happy path (the script runs inside the collector's
+own spawn).
 
 **The drift finder's `implemented` rows are checked against the pin (BL-0214).** BL-0205 checks the HEAD the finder
 SAYS it saw; the rows themselves were never checked, and an `implemented` row tells the digested judge not to look (F2
@@ -1165,8 +1185,11 @@ now explicit, because a build went off-script and violated them — costing ~1h:
   state. A stash popped later onto a tree that has moved on **conflicts** (the MC Phase-2 build stashed a
   killed run's `frd02-lacampana` work, then applied it onto an already-`VERIFIED` FRD-02 → `<<<<<<<` markers
   in `Button.tsx`, 130 gate errors, build wedged). The **only** safe recovery from a dirty/conflicted tree
-  is to **restore it to `last_green_sha`** (a clean reset to the green commit); never hand-resolve a
-  stash-pop. On startup the engine **clears leftover temp `preview-wo*` pages** (baseline self-heal) — they're
+  is to **discard its uncommitted edits: restore the project's own dirty paths to `HEAD`** — never to
+  `last_green_sha` (red-team 2026-09-30): the pin is older than HEAD whenever `IN_REVIEW` work was committed
+  after it (every carry-over work order, BL-0212), and `git checkout <pin> -- <path>` rewrites the index too, so
+  it stages the reversal of those later commits and the next commit anywhere erases them silently. Never
+  hand-resolve a stash-pop. On startup the engine **clears leftover temp `preview-wo*` pages** (baseline self-heal) — they're
   stale, the work is resumable — and **leaves every stash untouched** (BL-0202: the stash list is
   repository-wide, so a nested project's holds other sessions' stashes, and a drop is unrecoverable).
   **Every read and write of the tree is scoped to the project (BL-0202).** For a project nested in a larger

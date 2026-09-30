@@ -12,16 +12,20 @@
 // from a model): the first commit that flipped each work order's frontmatter to IN_REVIEW since it was last
 // VERIFIED opens the window; inside it, a commit belongs to the attempt when it touches the work order's own
 // file or names it in its subject (and touches no other work order's file — a sibling's build that only mentions
-// it as a dependency is not its work), or when it is an FRD-level commit of this FRD only (a patch, a repair).
+// it as a dependency is not its work), or when it is an FRD-level commit of this FRD only (a patch, a repair) that
+// no later PASS landing of this FRD certified (then it is the verified sibling's work, kept).
 // Then, per file those commits touched (never `.pandacorp/**`, never `docs/frds/**` — frontmatter, rollups and
 // status belong to the engine's own commits):
-//   - the file's first touch by the attempt is NOT in a valid pin → restore it to the pin (the pre-BL-0212
-//     behaviour, unchanged: the pin cannot hold any of this attempt's work on that file);
+//   - the file's first touch by the attempt is NOT in a valid pin and no other commit touched it since the pin →
+//     restore it to the pin (the pre-BL-0212 behaviour: the pin cannot hold any of this attempt's work on that
+//     file; a later commit of another work order on it would be wiped, so that case takes the revert path);
 //   - otherwise → revert the attempt's commits on that file: no other commit touched it since → restore the
 //     content before the attempt's first touch; another commit did (a shared file) → a sequential 3-way reverse
 //     merge (`git merge-file`), newest first, which keeps the other commit's edit.
-// Any conflict, an uncommitted change on a target path, or a work order in the wrong state refuses the WHOLE
-// plan: nothing is written (never a partial revert), exit 4, and a RevertRefused event is appended.
+// Any conflict, an uncommitted change on a target path (unless the file on disk already is what the revert commits),
+// a mixed commit (it flips a selected work order AND another one, with code: its files cannot be attributed), or a
+// work order in the wrong state refuses the WHOLE plan: nothing is written (never a partial revert), exit 4, and a
+// RevertRefused event is appended.
 //
 // Modes: `plan` computes and prints; `apply` writes, stages and commits exactly the changed paths (one commit
 // naming the FRD and the work orders, so the next revert attributes it too); `replay` re-prints a stored line.
@@ -190,19 +194,32 @@ export function computePlan(opts) {
   let earliest = active[0].start
   for (const w of active.slice(1)) if (isAncestor(w.start, earliest)) earliest = w.start
   const rangeBase = parentOf(earliest)
-  const logArgs = ['log', '--no-merges', '--topo-order', '--reverse', '--name-only', '--format=%x1e%H%x1f%s', rangeBase ? `${rangeBase}..${head}` : head, '--', prefix || '.']
+  // --no-renames: a rename must list BOTH paths, or reverting it would delete the new name and never restore the
+  // old one (a pre-existing file lost). -z: a path git would C-quote (a quote, a backslash) is still matched exactly.
+  const logArgs = ['log', '-z', '--no-merges', '--no-renames', '--topo-order', '--reverse', '--name-only', '--format=%x1e%H%x1f%s', rangeBase ? `${rangeBase}..${head}` : head, '--', prefix || '.']
   const range = g.must(logArgs).split('\x1e').filter((r) => r.trim()).map((rec) => {
-    const [first, ...rest] = rec.split('\n')
-    const [sha, subject] = first.split('\x1f')
-    return { sha, subject: subject || '', files: rest.filter(Boolean) }
+    const nul = rec.indexOf('\0')
+    const [sha, subject] = (nul < 0 ? rec : rec.slice(0, nul)).trim().split('\x1f')
+    return { sha, subject: subject || '', files: (nul < 0 ? '' : rec.slice(nul + 1)).replace(/^\n/, '').split('\0').filter(Boolean) }
   })
   const index = new Map(range.map((c, i) => [c.sha, i]))
   const startIdx = new Map(active.map((w) => [w.id, index.get(w.start)]))
   const frdNum = Number(/^frd-(\d+)/i.exec(opts.frd)[1])
+  const selectedMd = new Set(active.map((w) => w.md))
+  const ownWoDir = repoPath(`docs/frds/${opts.frd}/work-orders/`)
+  const isCode = (rp) => (!prefix || rp.startsWith(prefix)) && !PROTECTED_RE.test(projPath(rp))
+  // A PASS landing of THIS FRD after a commit certified it: the commit that flipped a sibling work order of this FRD
+  // (never a selected one — its own flip would have closed its window) to VERIFIED.
+  let lastCertified = -1
+  range.forEach((c, i) => {
+    if (c.files.some((f) => f.startsWith(ownWoDir) && WO_FILE_RE.test(projPath(f)) && !selectedMd.has(f) && (() => { const b = blob(c.sha, f); return frontmatterStatus(b ? b.toString('utf8') : null) === 'VERIFIED' })())) lastCertified = i
+  })
   // A commit belongs to the attempt: it touches a selected work order's own file inside that work order's
   // window; else, touching NO work-order file at all (a sibling's build always touches its own), it names a
   // selected work order inside its window, or it is an FRD-level commit of THIS FRD only whose every named
-  // work order is a selected one inside its window (a patch, a repair — never an earlier cycle's stamp).
+  // work order is a selected one inside its window (a patch, a repair — never an earlier cycle's stamp) and that
+  // no later PASS landing of this FRD certified (an anonymous commit a sibling's gate accepted is that sibling's
+  // work — a repair committed without naming its work order, the pre-BL-0212 prompt format).
   const inWindow = (i) => active.filter((w) => i >= startIdx.get(w.id))
   const belongs = (c, i) => {
     const open = inWindow(i)
@@ -211,20 +228,29 @@ export function computePlan(opts) {
     if (open.some((w) => idRe(w.id).test(c.subject))) return true
     const frds = new Set([...c.subject.matchAll(FRD_TOKEN_RE)].map((m) => Number(m[1])))
     const woTokens = [...c.subject.matchAll(WO_TOKEN_RE)].map((m) => m[0].toLowerCase())
-    return frds.size === 1 && frds.has(frdNum) && woTokens.every((t) => open.some((w) => w.id.toLowerCase() === t))
+    return frds.size === 1 && frds.has(frdNum) && woTokens.every((t) => open.some((w) => w.id.toLowerCase() === t)) && i > lastCertified
   }
   const attempt = range.filter((c, i) => belongs(c, i))
   const inAttempt = new Set(attempt.map((c) => c.sha))
   const seam = opts.seam.length ? new Set(opts.seam.map(repoPath)) : null
   const targets = [...new Set(attempt.flatMap((c) => c.files))]
-    .filter((rp) => (!prefix || rp.startsWith(prefix)) && !PROTECTED_RE.test(projPath(rp)))
+    .filter(isCode)
     .filter((rp) => !seam || seam.has(rp))
     .sort()
 
-  const dirtyOut = targets.length ? g.must(['--literal-pathspecs', 'status', '--porcelain', '--', ...targets]) : ''
-  const dirty = dirtyOut.split('\n').filter(Boolean).map((l) => projPath(l.slice(3)))
   const common = { ...base, commits: attempt.map((c) => c.sha.slice(0, 8)), seamUntouched: seam ? [...seam].filter((rp) => !targets.includes(rp)).map(projPath) : [] }
-  if (dirty.length) return { ...common, status: 'dirty', reason: `uncommitted change(s) on target path(s): ${dirty.join(', ')} — nothing was reverted`, dirty, files: [], _writes: [] }
+  // A MIXED commit — one that flips a selected work order's file AND another work order's, and carries code — holds
+  // work of both, and nothing in git says which file is whose: reverting it whole would discard the other work
+  // order's code (a VERIFIED sibling's included). Refuse the whole plan, never guess.
+  const mixed = attempt.filter((c) => c.files.some((f) => selectedMd.has(f)) && c.files.some((f) => WO_FILE_RE.test(projPath(f)) && !selectedMd.has(f)) && c.files.some(isCode))
+  if (mixed.length) {
+    const others = [...new Set(mixed.flatMap((c) => c.files.filter((f) => WO_FILE_RE.test(projPath(f)) && !selectedMd.has(f)).map((f) => path.basename(f, '.md'))))]
+    return { ...common, status: 'refused', reason: `commit(s) ${mixed.map((c) => c.sha.slice(0, 8)).join(', ')} also carry the work of ${others.join(', ')} (a mixed commit): their files cannot be attributed to one work order — nothing was reverted`, mixed: mixed.map((c) => c.sha.slice(0, 8)), files: [], _writes: [] }
+  }
+
+  const dirtyOut = targets.length ? g.must(['--literal-pathspecs', 'status', '--porcelain', '-z', '--no-renames', '--untracked-files=all', '--', ...targets]) : ''
+  const dirtyRp = dirtyOut.split('\0').filter(Boolean).map((l) => l.slice(3))
+  const onDisk = (rp) => { const abs = path.join(top, rp); return existsSync(abs) ? readFileSync(abs) : null }
 
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'wo-revert-'))
   try {
@@ -250,7 +276,10 @@ export function computePlan(opts) {
       let desired
       let via
       let action
-      if (pinValid && !isAncestor(first, pinSha)) {
+      // The pin restore is exact only while the attempt is the ONLY writer of the file since the pin: another commit
+      // after it (an IN_REVIEW build of another FRD on a shared file) would be wiped with it — take the revert path.
+      const onlyAttemptSincePin = () => g.must(['log', '--no-merges', '--no-renames', '--format=%H', `${pinSha}..${head}`, '--', rp]).split('\n').filter(Boolean).every((sha) => inAttempt.has(sha))
+      if (pinValid && !isAncestor(first, pinSha) && onlyAttemptSincePin()) {
         via = 'pin'
         desired = blob(pinSha, rp)
         action = 'restore'
@@ -279,6 +308,11 @@ export function computePlan(opts) {
       writes.push({ rp, content: desired })
     }
     if (conflicts.length) return { ...common, status: 'conflict', reason: `reverting the attempt would conflict with another commit's edit of: ${conflicts.join(', ')} — nothing was reverted (never a partial revert)`, conflicts, files: [], _writes: [] }
+    // An uncommitted change on a target refuses the plan — unless the file on disk already IS the content the revert
+    // commits (the reopen judge MOVED a preserved test out of the tree, DR-107: the revert would delete it anyway).
+    const written = new Map(writes.map((w) => [w.rp, w.content]))
+    const dirty = dirtyRp.filter((rp) => !(written.has(rp) && sameBlob(onDisk(rp), written.get(rp)))).map(projPath)
+    if (dirty.length) return { ...common, status: 'dirty', reason: `uncommitted change(s) on target path(s): ${dirty.join(', ')} — nothing was reverted`, dirty, files: [], _writes: [] }
     return { ...common, status: writes.length ? 'reverted' : 'nothing', reason: writes.length ? '' : 'the attempt\'s commits are already undone in the tree', files, _writes: writes, _top: top }
   } finally {
     rmSync(tmp, { recursive: true, force: true })

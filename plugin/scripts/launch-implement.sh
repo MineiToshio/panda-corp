@@ -231,7 +231,10 @@ fi
 # BL-0214: each finder gate also spends ONE MECH unit on the deterministic snippet check (finder-snippets.mjs, the engine's
 # gateCostEstimate counts it), first gate and amortized re-gates alike — so the finder-on floor is 19 x the FRDs (15 + 2 + 2).
 # The evidence report's seal adds no agent (the script runs inside the collector's own spawn); its re-reads fire only on a
-# corrupted relay and are not reserved. The finder is ON with `--drift-finder on`,
+# corrupted relay and are not reserved. BL-0212: a DR-073 revert fallback (rarer than the patch ladder above) adds 2 MECH
+# units to its ladder (wo-revert plan + apply, +1 per relay re-read) and a block path 1 (apply) — not in the floor. The
+# engine's own brake never cuts that sequence (capHit() only at safe points); the supervisor's external brake can (BL-0215).
+# The finder is ON with `--drift-finder on`,
 # or under `--gate-evidence digested` unless `--drift-finder off` (the engine's own default: on under digested, off
 # under the default explore).
 # parallelGates now defaults ON (v9.116.0, F1/F2 verdict) — this warning fires whenever PARALLEL_GATES is not
