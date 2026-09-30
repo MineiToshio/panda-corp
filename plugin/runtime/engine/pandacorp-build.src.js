@@ -365,6 +365,9 @@ const WHOLE_FRD_ORACLE = "**Whole-FRD source oracle (mandatory, fail-closed):** 
 // BL-0178: GENERATED from plugin/agents/reviewer.md's DRIFT_CLAIM block (generate-build-prompt-fragments.mjs) — do not hand-edit.
 // The reviewer PROPOSES pre-existing drift (claim + a probe test); the engine proves or rejects it (adjudicateDrift below).
 const DRIFT_CLAIM_DIRECTIVE = "**Pre-existing drift (DR-122, BL-0178) — you PROPOSE, the engine DECIDES:** when a `fail` contract is contradicted by code you believe this cycle did NOT cause (legacy code, a contract no reviewed work order owns through its `source_requirements`), keep it a `status: \"fail\"` traceability entry and ADD `claim: \"preexisting\"`, `evidence_test` and `direction`. `evidence_test` is the repo-relative path of a probe you write at `.pandacorp/run/drift-probes/<frd>/<contract-id>.drift-probe.ts` (one file per claim, named after the contract id, e.g. `ac-02-010-4.drift-probe.ts`): a vitest file that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds, importing production code ONLY through the `@/` alias (never a relative import — the engine runs it from a copy placed elsewhere). The path is deliberately outside the collected test tree: never list it in `testFiles` and never copy it into `src/`. `direction` is `code` (the code is wrong), `spec` (the spec is stale) or `unknown`. The engine runs your probe at this pin AND at the pin's `last_green_sha`: only a probe that fails on an assertion at BOTH is recorded as pre-existing drift (a draft change card for the owner plus a `drift:` list in the FRD frontmatter) — it then never blocks and never reopens this cycle's work orders; a probe that passes at `last_green_sha` is a regression this cycle caused and is reopened patch-first; a probe that passes at this pin is discarded; an unloadable or flaky probe proves nothing and is treated as a cycle fault. So when your ONLY reds are pre-existing drift claims, return the verdict you would give without them — `green: true` with your `testFiles` — and never take the blocked/needs-owner exit for a drift claim. Never claim a contract a reviewed work order owns."
+// BL-0211: GENERATED from plugin/agents/reviewer.md's DISMISSAL_CITATION block (generate-build-prompt-fragments.mjs) — do not hand-edit.
+// A scope dismissal needs its literal citation; a WO / change-card line never dismisses a normative FRD clause (engine side: classifyDismissals).
+const DISMISSAL_CITATION_DIRECTIVE = "**Scope dismissals need a literal citation (BL-0211):** when you noticed something that looks like an unmet contract or a defect and you decline to record it as a `fail` or a finding because a work order, a change card or the FRD scopes it out (\"matches the WO scope\", \"out of scope\", \"by design\", \"deferred\"), list it in the verdict's `dismissals` array as `{ finding, ground, contract, source, quote }`. `source` is `<repo-relative path>:<line>` of the literal line that scopes it out: open the file and find the line with `grep -n`, never cite from memory and never paraphrase; `quote` is that line's own words, verbatim. No literal citation, no dismissal: if you cannot cite it, record it as a `fail` (or a finding). Set `contract` to the REQ/AC id (or the clause text) whenever the thing you noticed is a normative clause of `frd.md`. The FRD outranks the work order: a work order's or change card's \"out of scope\" can never dismiss a normative FRD clause, because a work order that defers something the FRD says SHALL exist is itself the contradiction. Record that clause as a `fail` (and propose it as pre-existing drift with `direction: spec` or `unknown` when it pre-dates this cycle). Only a line of `frd.md` itself (an out-of-scope or exclusions clause) or of the PRD can dismiss a `contract`; a work order or change-card line may dismiss only a finding that is not an FRD clause (for example a fence on which files to touch). The engine validates the citation's shape: a dismissal without a valid citation is treated as NOT dismissed and your verdict is sent back to you once."
 // BL-0203: GENERATED from plugin/agents/drift-finder.md's DRIFT_FINDER block (generate-build-prompt-fragments.mjs) — do not hand-edit.
 const DRIFT_FINDER_DIRECTIVE = "**Whole-FRD drift finder method (BL-0203) — one pass over EVERY contract, located in the code, never assumed:** 1. **Inventory.** Read `docs/frds/<frd>/frd.md` in full at this pin and list every normative contract with its id: each `REQ-NN-MMM` requirement, each `AC-NN-MMM.K` acceptance criterion, and the `CMP-NN-*`/`IF-NN-*` components and interfaces its `blueprint.md` declares. A clause without an id is still a contract — name it by its section. Do not stop at the contracts the work orders under review own: the drift this pass exists for lives in the OTHER contracts, the ones earlier cycles verified. 2. **Locate each one in the code, not in its name.** `grep` for the id, for the identifiers, routes, labels and literal strings the contract names, and OPEN the file that implements it. Never mark a contract implemented because a file or function has a plausible name, because a test with its id exists, or because a work order's Status Note says so — read the lines that do the work and quote them. 3. **Compare literally.** Check values, sets, enums, lists and mappings item by item against the text — a filter set the spec requires to exclude a category can still contain it under an old or renamed label. Check that content the spec requires is actually present in the rendered output, not just that the component that should carry it exists — a prior revert can silently drop the content while leaving the component standing. Check that a surface the spec requires is mounted on a reachable route, not only defined in an unused component. 4. **Check input validation beyond the type.** For every contract about parsing, dates, numbers or user input, find the validation and ask what it accepts that it should not: a lenient date parser can accept a string that only looks like a date, or resolve a calendar day in the wrong timezone; a lenient number parser can accept trailing non-numeric characters. A validation criterion met only for the inputs the implementer happened to test is drift. 5. **Classify each contract** — `implemented` (you read the implementing lines; give file, line and a short snippet), `drift` (the code contradicts the text; quote both sides in `why`), or `unknown` (you could not locate the implementation, or your tool budget ran out before you reached it). Never guess `implemented` to finish faster: an honest `unknown` makes the judge look; a false `implemented` hides the defect. Set `owner` to the work order whose `source_requirements` (frontmatter) lists the contract, or `none`, and `claim` to `cycle` when that owner is one of the work orders under review this cycle, else `preexisting`. 6. **Write one probe per drift.** A vitest file at `.pandacorp/run/drift-probes/<frd>/<contract-id-slug>.finder.drift-probe.ts` (e.g. `req-03-001.finder.drift-probe.ts`; the `.finder` infix keeps it apart from the reviewer's own probes) that FAILS on an assertion precisely because of the contradiction and would PASS once the contract holds. Import production code ONLY through the `@/` alias (the engine runs a copy of it from another directory) and `describe/it/expect` from `vitest`; keep it deterministic (fixed dates, no network, no real clock). Write it with a Bash heredoc. Do not run it — the engine runs it twice at two commits. It lives outside the collected test tree on purpose: never copy it into `src/`. 7. **Stay read-only everywhere else.** Before your first probe, delete only your own stale probes for this FRD (`rm -f .pandacorp/run/drift-probes/<frd>/*.finder.drift-probe.ts*`). Never edit production code, tests, docs or frontmatter; never run `verify.sh`, the test suite, a dev server or a browser; never run a git command that writes; never commit. Another agent is running the gate script in this same worktree right now. 8. **Budget.** Spend at most the tool-call budget the engine states. Work through the contracts the work orders under review do NOT own first (that is where the digested judge cannot look), then the cycle's own. When the budget runs out, mark every contract you have not reached `unknown` and set `budgetExhausted: true` — never drop a contract from the list."
 const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STATE_CLI_COMMAND} renew --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. If renewal fails, return stop:true and mutate nothing.`
@@ -924,9 +927,16 @@ const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fau
   type: 'object', required: ['wo', 'finding'],
   properties: { wo: { type: 'string' }, finding: { type: 'string', description: 'the specific bounded fault, with file:line' }, failingTest: { type: 'string', description: 'the RED-proven test (path / describe-it / a snippet) that fails without the fix and passes with it' }, files: { type: 'array', items: { type: 'string' }, description: 'the file(s) the fix should touch' } },
 } }
+// BL-0211: every finding the gate noticed but did NOT record as a fail/finding because a WO, change card or the FRD scopes
+// it out. Only `finding` is schema-required: the ENGINE validates source/quote (enforceWholeFrdTraceability) and re-asks, so a
+// missing citation is a fixable gap, never a schema rejection that would read as a dead gate.
+const DISMISSALS = { type: 'array', description: 'BL-0211: each thing you noticed and did NOT record as a fail/finding because a work order, change card or the FRD scopes it out. Each needs the LITERAL citation (source = <repo-relative path>:<line>, quote = that line verbatim); without it the engine treats the finding as NOT dismissed.', items: {
+  type: 'object', required: ['finding'],
+  properties: { finding: { type: 'string', description: 'what you noticed' }, ground: { type: 'string', description: 'wo-scope | change-card-scope | frd-scope | other' }, contract: { type: 'string', description: 'the REQ/AC id (or clause text) when this is a normative clause of frd.md' }, source: { type: 'string', description: 'repo-relative path and line of the literal line that scopes it out, e.g. docs/frds/frd-03/frd.md:31' }, quote: { type: 'string', description: 'that line\'s own words, verbatim' } },
+} }
 const FRD_GATE_SCHEMA = {
   type: 'object', required: ['green', 'traceability'],
-  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' },
+  properties: { green: { type: 'boolean' }, reopen: { type: 'array', items: { type: 'string' } }, findings: FINDINGS, missingFoundation: MISSING_FOUNDATION, blocked_reason: BLOCK_REASON, failure: { type: 'string' }, dismissals: DISMISSALS,
     traceability: { type: 'array', minItems: 7, description: 'Whole-FRD normative inventory: AT LEAST ONE entry per contractClass (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) — an omitted class is RED. A REQ-NN-MMM requirement is its OWN requirement entry, never covered only via its acceptance-criterion entries. A class that genuinely does not apply gets a not-applicable entry with tests: [] instead of being omitted.', items: { type: 'object', required: ['contract', 'contractClass', 'status', 'tests'], properties: { contract: { type: 'string' }, contractClass: { type: 'string', enum: ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'] }, status: { type: 'string', enum: ['pass', 'fail', 'not-applicable'] }, tests: { type: 'array', items: { type: 'string' } },
       // BL-0178: a PROPOSAL only — the engine proves or rejects it (adjudicateDrift). Meaningful on a `fail` entry.
       claim: { type: 'string', enum: ['preexisting'], description: 'BL-0178: set ONLY on a status:"fail" entry you believe this cycle did NOT cause. A proposal — the engine proves it with a differential run of evidence_test before it counts.' },
@@ -990,6 +1000,53 @@ const REQUIRED_TRACE_CLASSES = ['requirement', 'acceptance-criterion', 'invarian
 // WITHOUT the engine's stamp is still an open fail, so the waiver hole BL-0078 closed stays closed.
 const DRIFT_STATUSES = ['drift', 'discarded']
 const isOpenFail = (entry) => Boolean(entry) && (entry.status === 'fail' || (DRIFT_STATUSES.includes(entry.status) && entry.__driftAdjudicated !== true))
+// ── BL-0211 — a scope dismissal is only a dismissal with its LITERAL citation ──────────────────────────────────────
+// Canary F1: the FRD-03 gate saw the REQ-03-007 chip lives on an unmounted table and waved it off as "matches what the
+// owner's change card and the WO scope asked for" without quoting either. Checked afterwards: the WO does carry "Out of
+// scope: mounting PortfolioTable" but the change card does not, and frd.md says the row SHALL show the chip. So the rule has
+// two halves: (1) no citation, no dismissal; (2) a work order / change card can never dismiss a normative FRD contract
+// (the FRD outranks the WO; a WO that defers a SHALL is itself the contradiction), only a line of frd.md / the PRD can.
+// The engine has no fs, so it validates the citation's SHAPE and (via the prompt) relies on the reviewer having opened the
+// file; a dismissal that fails is treated as NOT dismissed: the verdict is deficient and the gate is re-asked once (B2).
+const DISMISSAL_SOURCE_RE = /^(?:docs\/|\.pandacorp\/inbox\/changes\/)[^\s:]+\.md:[1-9]\d*(?:-[1-9]\d*)?$/
+const DISMISSAL_FRD_SOURCE_RE = /^docs\/(?:frds\/[^/\s:]+\/frd\.md|product\/prd\.md|product\/prds\/[^\s:]+\.md):[1-9]\d*(?:-[1-9]\d*)?$/
+const DISMISSAL_MIN_QUOTE_CHARS = 10
+function classifyDismissals(result) {
+  const list = result && Array.isArray(result.dismissals) ? result.dismissals : []
+  const flawed = []
+  const valid = []
+  for (const d of list) {
+    const obj = d && typeof d === 'object' ? d : {}
+    const finding = String(obj.finding || obj.contract || '').replace(/\s+/g, ' ').trim().slice(0, 120) || '(unnamed dismissal)'
+    const source = String(obj.source || '').trim()
+    const quote = String(obj.quote || '').replace(/\s+/g, ' ').trim()
+    const contract = obj.contract || contractIdOf(obj.finding) || contractIdOf(quote)
+    let why = ''
+    if (!DISMISSAL_SOURCE_RE.test(source)) why = 'no <path>:<line> citation of a docs/ or change-card line'
+    else if (quote.length < DISMISSAL_MIN_QUOTE_CHARS) why = 'no literal quote of that line'
+    else if (contract && !DISMISSAL_FRD_SOURCE_RE.test(source)) why = 'a work order or change card cannot dismiss a normative FRD contract (the FRD outranks the work order): only a line of frd.md or the PRD can, otherwise record it as a fail'
+    if (why) flawed.push({ finding, why })
+    else valid.push({ finding, source, quote })
+  }
+  return { flawed, valid }
+}
+const flawedDismissals = (result) => classifyDismissals(result).flawed
+// What the re-ask tells the reviewer about its flawed dismissals ('' when there are none).
+const dismissalReaskNote = (flawed) => flawed && flawed.length
+  ? ` Your verdict's \`dismissals\` array carried ${flawed.length} scope dismissal(s) without a valid LITERAL citation, so the engine treats them as NOT dismissed: ${flawed.map((x) => `"${x.finding}" (${x.why})`).join('; ')}. For each one either (a) open the file, find the line that scopes it out with grep -n, and cite it as source \`<path>:<line>\` plus its verbatim quote (note: the FRD outranks the work order, so a work order or change card line can never dismiss a normative FRD clause; only a line of frd.md can), or (b) you cannot cite it, so record it as a \`fail\` traceability entry or a finding. Never dismiss from memory or paraphrase.`
+  : ''
+// The B2 re-ask directive (BL-0157), shared by gateConverge and the in-run retry. Unchanged text when only classes are
+// missing; BL-0211 adds the flawed-dismissal paragraph, and a dismissal-only deficiency drops the class paragraph.
+function traceabilityReaskDirective(gate, resubmitTail) {
+  const missingClasses = (gate && gate.missingClasses) || []
+  const dismissalNote = dismissalReaskNote(gate && gate.flawedDismissals)
+  const dismissalOnly = dismissalNote && missingClasses.length === 0
+  const head = dismissalOnly
+    ? '**RE-ASK — your prior verdict\'s scope dismissals were not backed by a literal citation (this is not a re-review of the code, judge the same work again):**'
+    : '**RE-ASK — your prior verdict\'s traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):**'
+  const classes = dismissalOnly ? '' : ` your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it.`
+  return `${head}${classes}${dismissalNote} Re-submit your FULL verdict ${resubmitTail}`
+}
 function enforceWholeFrdTraceability(result) {
   const trace = result && result.traceability
   const missingClasses = Array.isArray(trace) ? REQUIRED_TRACE_CLASSES.filter((kind) => !trace.some((entry) => entry && entry.contractClass === kind)) : REQUIRED_TRACE_CLASSES.slice()
@@ -998,10 +1055,11 @@ function enforceWholeFrdTraceability(result) {
   // BL-0178: only an OPEN fail waives nothing — an engine-proven pre-existing drift entry (status 'drift')
   // or an engine-refuted claim ('discarded') no longer contradicts a green verdict; an unproven claim does.
   const waivedFailure = result && result.green === true && Array.isArray(trace) && trace.some(isOpenFail)
-  if (!(missing || invalidBoundary || waivedFailure)) return result
+  const flawed = flawedDismissals(result)   // BL-0211
+  if (!(missing || invalidBoundary || waivedFailure || flawed.length)) return result
   // Keep the original phrase verbatim (older log/test assertions match on it, e.g. WP06f) and APPEND the
   // specifics B1/B2 need to act on — which classes are missing, named, never just "incomplete".
-  const note = `whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict${missing ? ` — missing contractClass: ${missingClasses.join(', ')}` : ''}${invalidBoundary ? '; an edge-case/limit entry claims pass with no boundary test' : ''}${waivedFailure ? '; a traceability entry is status:fail under an overall green verdict' : ''}`
+  const note = `whole-FRD traceability is missing, lacks boundary evidence, or contradicts a green verdict${missing ? ` — missing contractClass: ${missingClasses.join(', ')}` : ''}${invalidBoundary ? '; an edge-case/limit entry claims pass with no boundary test' : ''}${waivedFailure ? '; a traceability entry is status:fail under an overall green verdict' : ''}${flawed.length ? `; a scope dismissal lacks a valid literal citation: ${flawed.map((x) => `"${x.finding}" (${x.why})`).join('; ')}` : ''}`
   log(`⚠ ${(result && result.frd) || 'gate'}: ${note}`)
   // BL-0157 scope guard: the "reviewer forgot to inventory a whole class" defect (canary C) is a
   // FORMAT gap a re-ask can fix (B2). A NULL/garbled result (dead agent, G2) or a genuine CONTRADICTION
@@ -1009,10 +1067,10 @@ function enforceWholeFrdTraceability(result) {
   // an overall green) — is NOT a format gap; it is evidence the underlying judgment itself may be wrong,
   // so it keeps the pre-BL-0157 hard-fail contract (no traceabilityDeficient flag → gateConverge never
   // re-asks it, falls straight to attemptRepair/blocked 'error' exactly as before this fix).
-  const reaskable = missing && !invalidBoundary && !waivedFailure && result && typeof result === 'object'
+  const reaskable = (missing || flawed.length > 0) && !invalidBoundary && !waivedFailure && result && typeof result === 'object'
   if (!result || typeof result !== 'object') return { green: false, traceability: [], failure: note }
   const safeTrace = Array.isArray(trace) ? trace : []
-  const deficientFields = reaskable ? { traceabilityDeficient: true, missingClasses } : {}
+  const deficientFields = reaskable ? { traceabilityDeficient: true, missingClasses, flawedDismissals: flawed } : {}
   if (result.green !== true) {
     // Already a reject: preserve reopen/findings/missingFoundation/blocked_reason/everything else —
     // only annotate. gateConverge's normal reopen/patch-first/blocked_reason routing still applies.
@@ -1271,6 +1329,8 @@ const deferredGateOutcome = (raw) => Boolean(raw) && typeof raw === 'object' && 
 async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJECT_DIR) {
   const adjudicated = await adjudicateDrift(frd, reviewIds, mergeDriftFinderClaims(frd, raw), pinSha, sourceDir)   // BL-0203: finder claims join the reviewer's before the proof
   let result = enforceWholeFrdTraceability(adjudicated)
+  // BL-0211: an ACCEPTED scope dismissal is auditable from the log alone (what was waved off, on which line, in whose words).
+  for (const d of classifyDismissals(adjudicated).valid) log(`⊙ ${frd}: gate dismissed "${d.finding}" by ${d.source} — "${d.quote.slice(0, 160)}"`)
   // BL-0185: a reviewer that blocks needs-owner while carrying a drift claim DEFERS its review_end/GateVerdict
   // (its prompt says so) — the adjudication may still lift the block into a pass. When the verdict is STILL a
   // block, the engine owes that one terminal emission: the block's persist step runs un-alreadyTracked.
@@ -2461,7 +2521,8 @@ ${directive ? `\n  ${directive}\n` : ''}
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing (15px vs 16px), spacing, exact color/shade, minor density/polish, "doesn't match the mock 100%". A pixel-judge is noisy; rejecting on nits is the #1 cause of the build never finishing. **NEVER reopen a WO for a nit.** Instead APPEND each nit to the punch-list \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap, e.g. "heading is 15px, design tokens say 16px"> · <file:approx-line if known>\`). The dedicated end-of-build Visual QA pass + the owner sweep these directly — they do not gate VERIFIED. Scope yourself to CORRECTION + GROSS only; **flag, don't fix, don't reject** the rest (an over-broad reviewer reporting every gap HARMS convergence — research-backed).
 
   ${WHOLE_FRD_ORACLE}
-  ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
+  ${DRIFT_CLAIM_DIRECTIVE}
+  ${DISMISSAL_CITATION_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
   1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -2584,7 +2645,8 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   • **VISUAL-FIDELITY NITS (ADVISORY — do NOT block, do NOT reopen):** sizing, spacing, exact color/shade, minor polish. **NEVER reopen a WO for a nit.** APPEND each nit (the ones above + any you find) to \`.pandacorp/comms/visual-punch-list.md\` (one line: \`- [ ] ${frd} · <route> · <the gap> · <file:approx-line if known>\`). The end-of-build Visual QA pass + the owner sweep these; they never gate VERIFIED.
 
   ${WHOLE_FRD_ORACLE}
-  ${DRIFT_CLAIM_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
+  ${DRIFT_CLAIM_DIRECTIVE}
+  ${DISMISSAL_CITATION_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
   1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
@@ -3670,7 +3732,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
     const st = frdState.get(f.frd)
     const attemptNo = ((st && st.gateAttempts) || 0) + 1
     if (st) st.gateAttempts = attemptNo
-    const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict with a COMPLETE traceability inventory this time.`
+    const directive = traceabilityReaskDirective(regate, 'with a COMPLETE traceability inventory this time.')
     const reregate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
     if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); reopenedFrds.push(f.frd); return 'reopened' }
     if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry, traceability re-ask)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
@@ -3891,7 +3953,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     const st = frdState.get(f.frd)
     const attemptNo = ((st && st.gateAttempts) || 0) + 1
     if (st) st.gateAttempts = attemptNo
-    const directive = `**RE-ASK — your prior verdict's traceability inventory was INCOMPLETE (this is not a re-review of the code, judge the same work again):** your last \`traceability\` array had no entry for: ${missingClasses.join(', ') || 'a required contractClass'}. Every one of the 7 \`contractClass\` values (requirement, acceptance-criterion, invariant, edge-case, limit, error, exclusion) needs >= 1 entry. A REQ-NN-MMM requirement is its OWN \`requirement\` entry, distinct from the acceptance-criterion entries that test it. If a class genuinely does not apply to this FRD, add a \`not-applicable\` status entry for it with \`tests: []\` instead of omitting it. Re-submit your FULL verdict (green/reopen/findings unchanged unless your judgment of the code itself has changed) with a COMPLETE traceability inventory this time.`
+    const directive = traceabilityReaskDirective(gate, '(green/reopen/findings unchanged unless your judgment of the code itself has changed) with a COMPLETE traceability inventory this time.')
     const regate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, null, null, directive))
     if (regate && regate.traceabilityDeficient && (!regate.reopen || !regate.reopen.length)) {
       const stillMissing = regate.missingClasses || missingClasses
@@ -4915,9 +4977,27 @@ else {
 // byte-identical to D2's (12 min of real work there); the one new input was a harness relay, present in all 38 E2
 // transcripts and in none of D2's/E1's, of an unrelated owner question to the orchestrating session, framed as "the
 // user request … this request wins". The step now says how to read such a relay, and a done:false must carry its
-// reason (VISUAL_QA_SCHEMA), which the engine logs — a no-op is never silent again. BL-0198 tracks the harness side.
-const VISUAL_QA_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, reason: { type: 'string', description: 'REQUIRED when done is false: the step that could not complete and why (e.g. "step 1: the dev server does not start: <error>")' } } }
-const VISUAL_QA_SCOPE = 'THIS STEP\'S SCOPE: your task is the engine-computed END-OF-BUILD VISUAL QA below. The harness may ALSO relay a message the owner sent to the ORCHESTRATING session (for example a question about how the run delegates its work); when that relayed message does not mention this visual QA pass or these FRDs, it is not addressed to this step: do not answer it, do not stop because of it, do the steps below. Only a relayed message that explicitly asks to skip or change THIS visual QA pass changes it — then return done:false with a reason that quotes it. Return done:false ONLY after attempting the steps, always with `reason` naming the step that could not complete.\n'
+// reason (VISUAL_QA_SCHEMA), which the engine logs — a no-op is never silent again.
+// BL-0198 (engine half): the relay itself is the harness's behaviour and cannot be switched off from here, so the engine
+// also retries a no-work done:false ONCE (spawnVisualQa below). It cannot see tool calls, only the schema'd answer, so
+// "no work" is read from the answer: done:false that reports no tool calls and names no step ("step <n>").
+const VISUAL_QA_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, reason: { type: 'string', description: 'REQUIRED when done is false: the step that could not complete and why, starting with the step number (e.g. "step 1: the dev server does not start: <error>")' }, toolCalls: { type: 'number', description: 'REQUIRED when done is false: how many tool calls you made before answering' } } }
+const VISUAL_QA_SCOPE = 'THIS STEP\'S SCOPE: your task is the engine-computed END-OF-BUILD VISUAL QA below. The harness may ALSO relay a message the owner sent to the ORCHESTRATING session (for example a question about how the run delegates its work); when that relayed message does not mention this visual QA pass or these FRDs, it is not addressed to this step: do not answer it, do not stop because of it, do the steps below. Only a relayed message that explicitly asks to skip or change THIS visual QA pass changes it — then return done:false with a reason that quotes it. Return done:false ONLY after attempting the steps, always with `reason` starting with the number of the step that could not complete ("step <n>: …") and `toolCalls`.\n'
+const VISUAL_QA_STEP_RE = /\bstep\s*[1-4]\b/i
+const visualQaDidNoWork = (r) => Boolean(r) && typeof r === 'object' && r.done === false && !(Number(r.toolCalls) > 0) && !VISUAL_QA_STEP_RE.test(String(r.reason || ''))
+const visualQaRetryNote = (prior) => `RETRY (BL-0198) — your previous attempt at this task returned done:false without attempting any step${prior && prior.reason ? ` (its reason: "${String(prior.reason).slice(0, 200)}")` : ''}. That is not an acceptable result: a message relayed from the orchestrating session does not cancel this pass, and "nothing to do" is never the answer, because this pass has a concrete task below. START AT STEP 1 NOW and make the tool calls. Return done:false only after attempting the steps, with a reason that begins "step <n>:" and your toolCalls.\n`
+// One visual-qa spawn plus, when its answer says it did no work, exactly one retry (never a third). Never throws: a
+// rejected spawn is a null result, which is NOT retried (null is ambiguous: a 13-minute pass can also die late).
+// Returns { result, retried, noop } where noop = the FINAL answer is still a no-work done:false.
+async function spawnVisualQa(frds) {
+  const spawn = (note) => agent(note + visualQaPromptBody(frds), { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: VISUAL_QA_SCHEMA }).catch(() => null)
+  let result = await spawn('')
+  if (!visualQaDidNoWork(result)) return { result, retried: false, noop: false }
+  log(`↻ visual-qa answered done:false with no work (no tool calls reported, no step named; reason: ${result.reason ? String(result.reason).slice(0, 200) : 'none given'}) — retrying once (BL-0198)`)
+  agentSpawned += COST(VISUAL_QA_MODEL)
+  result = await spawn(visualQaRetryNote(result))
+  return { result, retried: true, noop: visualQaDidNoWork(result) }
+}
 const visualQaPromptBody = (frds) =>
   `${EMIT('reviewer', 'visual-qa', { phase: 'review', activity: 'visual-qa' })}${VISUAL_QA_SCOPE}END-OF-BUILD VISUAL QA (DR-072) — the dedicated fidelity pass, scoped to the FRDs VERIFIED this run: ${frds.join(', ')}. This is a PUNCH-LIST + bounded DIRECT fixes, NOT a re-gate: NEVER reopen a work order or send anything back to the build loop (that restarts the churn). Compare, list, fix the cheap ones, leave the rest for the owner.
     For EACH of those FRDs, for each key route:
@@ -5048,9 +5128,7 @@ if (LEAN_CLOSE_OUT) {
       // REV-2: a REJECTED promise (terminal tool/API error) must degrade exactly like a null result —
       // caught HERE, at dispatch, so the bare `await visualQaPromise` below can never throw and strand
       // the close-out region before it reaches the terminal lease release.
-      visualQaPromise = agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: VISUAL_QA_SCHEMA })
-        .catch(() => null)
+      visualQaPromise = spawnVisualQa(builtFrds).catch(() => null)   // spawnVisualQa never throws (BL-0198); the catch stays as the REV-2 belt
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
       visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')
@@ -5070,12 +5148,13 @@ if (LEAN_CLOSE_OUT) {
   // Resolve visual-qa NOW — right before the terminal closing agent, and not one moment earlier — so
   // archiveStep/hardening above never depended on it. A missing/unconfirmed result degrades honestly.
   if (visualQaPromise) {
-    const vq = await visualQaPromise
+    const out = await visualQaPromise
+    const vq = out && out.result
     if (vq && vq.done === true) {
       log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
     } else {
-      log(`⚠ visual-qa agent returned no confirmed result${vq && vq.done === false ? ` (done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'})` : ''} — degrading honestly (punch-list may be incomplete this run)`)
-      visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'agent-no-result') + ' VISUAL QA DEGRADED: the end-of-build visual QA pass did NOT return a confirmed result (agent failure/no-response) — its punch-list may be incomplete or missing this run. Note this explicitly in the progress/decisions write-up below so the owner knows to double-check fidelity by hand; the deterministic visual regression check inside the full verify.sh below is the remaining safety net.'
+      log(`⚠ visual-qa agent returned no confirmed result${vq && vq.done === false ? ` (done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'})` : ''}${out && out.retried ? ' after one no-work retry (BL-0198)' : ''} — degrading honestly (punch-list may be incomplete this run)`)
+      visualQaNote = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), out && out.noop ? 'agent-noop-after-retry' : 'agent-no-result') + ' VISUAL QA DEGRADED: the end-of-build visual QA pass did NOT return a confirmed result (agent failure/no-response) — its punch-list may be incomplete or missing this run. Note this explicitly in the progress/decisions write-up below so the owner knows to double-check fidelity by hand; the deterministic visual regression check inside the full verify.sh below is the remaining safety net.'
     }
   }
 
@@ -5136,10 +5215,12 @@ if (LEAN_CLOSE_OUT) {
     if (uiPassesRequired(builtWos)) {   // REV-D6: fails closed on a frdState miss, not just on a real UI artifact
       phase('Review')
       agentSpawned += COST(VISUAL_QA_MODEL)   // DR-073: weighted by the model actually spawned (E-3: sonnet by default, not P.judge)
-      const vq = await agent(visualQaPromptBody(builtFrds),
-        { label: 'visual-qa', phase: 'Review', model: VISUAL_QA_MODEL, effort: 'high', agentType: 'pandacorp:reviewer', schema: VISUAL_QA_SCHEMA })
-      if (vq && vq.done === false) log(`⚠ visual-qa returned done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'} (E2 finding 5)`)
+      const out = await spawnVisualQa(builtFrds)
+      const vq = out.result
+      if (vq && vq.done === false) log(`⚠ visual-qa returned done:false — reason: ${vq.reason ? String(vq.reason).slice(0, 300) : 'none given'}${out.retried ? ' (after one no-work retry, BL-0198)' : ''} (E2 finding 5)`)
+      else if (!vq || vq.done !== true) log('⚠ visual-qa agent returned no confirmed result — the punch-list may be incomplete this run')
       else log(`Visual QA pass done over ${builtFrds.length} FRD(s) — see .pandacorp/comms/visual-punch-list.md`)
+      if (out.noop) visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'agent-noop-after-retry')
     } else {
       log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
       visualQaSkipEvent = UI_PASS_SKIPPED_EVENT('visual-qa', builtFrds.join(','), 'no-ui-artifacts')

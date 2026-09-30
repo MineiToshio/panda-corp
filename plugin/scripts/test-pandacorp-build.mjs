@@ -7090,6 +7090,221 @@ SCENARIOS.push({
   },
 })
 
+// ── BL-0198 (E2 finding 5, engine side) — a visual-qa that answers done:false WITHOUT doing the work is retried once ──
+// In canary E2 the pass returned {done:false}: 1 turn, 0 tool calls, 0.03 $; the engine degraded (UiPassSkipped) and the
+// run shipped with no visual pass. The prompt scope (E2-5a) stops the likeliest cause; this is the engine's own net.
+// The engine cannot see tool calls (only the schema'd answer), so "no work" is read from the answer itself: a done:false
+// that names no step (`step <n>`) and reports no tool calls. A legitimate failure names the step it died on, so a
+// 12-minute pass that really failed is never paid for twice; a no-op costs ~0.03 $ to retry.
+const vqPlan = (tag) => mkPlan([{ frd: `frd-${tag}`, deps: [], workOrders: [mkWo(`wo-${tag}-1`, 'PLANNED', { frd: `frd-${tag}`, artifacts: [`src/app/${tag}/page.tsx`] })] }], { hasFrontend: true })
+const CLOSING_RE = /^(close-out|close-needs-hardening|notify-end)$/
+SCENARIOS.push({
+  name: 'BL0198-a. visual-qa answers done:false with no step named and no tool calls -> retried ONCE with a corrective note; the retry\'s done:true is accepted (lean close-out)',
+  args: { mode: 'pro' },
+  plan: vqPlan('bl198a'),
+  responses: [
+    { label: 'visual-qa', times: 1, response: { done: false, reason: 'the relayed owner question does not concern this pass' } },
+    { label: 'visual-qa', times: 1, response: { done: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vqs = byLabel(run, 'visual-qa')
+    t.ok(vqs.length === 2, `the no-work answer is retried exactly once (visual-qa spawns=${vqs.length})`)
+    t.ok(vqs[0] && !/RETRY \(BL-0198\)/.test(vqs[0].prompt), 'the first attempt carries no retry note')
+    t.ok(vqs[1] && /RETRY \(BL-0198\)/.test(vqs[1].prompt) && vqs[1].prompt.includes('the relayed owner question does not concern this pass'), 'the retry names the no-work answer it is correcting and quotes its reason')
+    t.ok(vqs[1] && /START AT STEP 1/.test(vqs[1].prompt) && /END-OF-BUILD VISUAL QA/.test(vqs[1].prompt), 'the retry still carries the full visual-qa task, not just a nudge')
+    t.ok(hasLog(run, /visual-qa .*no work.*retry/i), 'the engine logs the retry')
+    t.ok(hasLog(run, /Visual QA pass done/), 'the retry\'s done:true is accepted as the pass')
+    const closing = byLabel(run, CLOSING_RE)[0]
+    t.ok(closing && !/VISUAL QA DEGRADED/.test(closing.prompt), 'a recovered pass leaves no degraded note for the closing agent')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0198-b. the retry is ALSO a no-op -> never a third spawn; the closing agent gets the degraded note and a UiPassSkipped event naming agent-noop-after-retry',
+  args: { mode: 'pro' },
+  plan: vqPlan('bl198b'),
+  responses: [{ label: 'visual-qa', response: { done: false, reason: 'not applicable' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 2, 'one retry, never a loop')
+    t.ok(hasLog(run, /visual-qa agent returned no confirmed result/i), 'the degradation is logged')
+    const closing = byLabel(run, CLOSING_RE)[0]
+    t.ok(closing && /VISUAL QA DEGRADED/.test(closing.prompt), 'the closing prompt carries the degraded note')
+    t.ok(closing && /"reason":"agent-noop-after-retry"/.test(closing.prompt) && /UiPassSkipped/.test(closing.prompt), 'the closing prompt records the UiPassSkipped event with the no-op reason')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl198b'), 'the FRD still verified; only the advisory pass degraded')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0198-c. a done:false that NAMES the step it died on (a real attempt) is NOT retried',
+  args: { mode: 'pro' },
+  plan: vqPlan('bl198c'),
+  responses: [{ label: 'visual-qa', response: { done: false, reason: 'step 1: the dev server does not start: EADDRINUSE 3000' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'an attempted-and-failed pass is never paid for twice')
+    t.ok(hasLog(run, /visual-qa agent returned no confirmed result.*EADDRINUSE/i), 'its reason is logged')
+    const closing = byLabel(run, CLOSING_RE)[0]
+    t.ok(closing && /"reason":"agent-no-result"/.test(closing.prompt), 'the event keeps the pre-existing agent-no-result reason')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0198-d. a done:false that reports tool calls made (toolCalls > 0) is NOT retried even if it names no step; the schema asks for toolCalls',
+  args: { mode: 'pro' },
+  plan: vqPlan('bl198d'),
+  responses: [{ label: 'visual-qa', response: { done: false, reason: 'verify stayed red after the fix was reverted', toolCalls: 41 } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'a pass that made tool calls did work, so it is not retried')
+    t.ok(byLabel(run, 'visual-qa')[0].opts.schema.properties.toolCalls, 'the schema asks for toolCalls')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0198-e. the legacy fully-serial close-out (leanCloseOut:false) applies the same one-retry net, and a bare {done:false} (no reason at all) counts as no work',
+  args: { mode: 'pro', leanCloseOut: false },
+  plan: vqPlan('bl198e'),
+  responses: [
+    { label: 'visual-qa', times: 1, response: { done: false } },
+    { label: 'visual-qa', times: 1, response: { done: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const vqs = byLabel(run, 'visual-qa')
+    t.ok(vqs.length === 2 && /RETRY \(BL-0198\)/.test(vqs[1].prompt), `a bare {done:false} is a no-work answer and is retried once (spawns=${vqs.length})`)
+    t.ok(hasLog(run, /Visual QA pass done/), 'the retry\'s done:true is accepted')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0198-f. a null visual-qa result (agent failure) is NOT retried by the no-work net: only an explicit done:false can be read as "did nothing"',
+  args: { mode: 'pro' },
+  plan: vqPlan('bl198f'),
+  responses: [{ label: 'visual-qa', response: null }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'visual-qa').length === 1, 'null is ambiguous (a long pass can also die late); the engine does not guess')
+  },
+})
+
+// ── BL-0211 — a gate may not dismiss a finding on "the WO scope" without the literal line ──
+// Canary F1: the FRD-03 gate saw that PortfolioTable (REQ-03-007's chip) has no production importer and wrote "this
+// matches what the owner's change card and the WO scope asked for", unchecked. Verified afterwards: the WO does say
+// "Out of scope: mounting PortfolioTable" (wo-03-006, lines 46-49) but the change card does not, and frd.md REQ-03-007
+// says the row SHALL show the chip, and a WO cannot waive an FRD clause. A dismissal is now a structured `dismissals`
+// entry: it needs a literal citation, and a WO/change-card line can never dismiss a normative FRD contract.
+const dismissalGate = (dismissals) => ({ green: true, traceability: validTraceability, testFiles: ['src/d/_tests/x.test.ts'], dismissals })
+const FRD_LINE = 'docs/frds/frd-d/frd.md:31'
+const WO_LINE = 'docs/frds/frd-d/work-orders/wo-d-001-x.md:46'
+const GOOD_QUOTE = 'Out of scope: mounting PortfolioTable somewhere new.'
+const dismissalScenario = (tag, name, first, second, assertFn) => ({
+  name,
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: `frd-${tag}`, deps: [], workOrders: [mkWo(`wo-${tag}-001`, 'PLANNED', { frd: `frd-${tag}`, artifacts: [`src/${tag}/**`] })] }]),
+  responses: [
+    second === 'same' ? { label: `gate:frd-${tag}`, response: first } : { label: `gate:frd-${tag}`, times: 1, response: first },
+    ...(second && second !== 'same' ? [{ label: `gate:frd-${tag}`, response: second }] : []),
+  ],
+  assert: assertFn,
+})
+SCENARIOS.push(dismissalScenario('bl211a', 'BL0211-a. a dismissal with no citation is NOT accepted: the gate is re-asked once, naming it, and only the cleaned re-ask verifies',
+  dismissalGate([{ finding: 'the chip is only reachable on the unmounted PortfolioTable', ground: 'wo-scope' }]),
+  dismissalGate([]),
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-bl211a')
+    t.ok(gates.length === 2, `exactly one re-ask (gate calls=${gates.length})`)
+    t.ok(hasLog(run, /scope dismissal[^\n]*the chip is only reachable/i), 'the engine names the uncited dismissal in its log')
+    t.ok(gates[1] && /RE-ASK/.test(gates[1].prompt) && /dismissals/.test(gates[1].prompt) && gates[1].prompt.includes('the chip is only reachable'), 'the re-ask tells the reviewer which dismissal lacks its citation')
+    t.ok(gates[1] && /record it as a `fail`/.test(gates[1].prompt), 'the re-ask says what to do instead: cite the literal line or record the contradiction as a fail')
+    t.ok(byLabel(run, /^repair:/).length === 0, 'never a code repair for a paperwork gap')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl211a'), 'the FRD verifies on the clean re-ask')
+  }))
+SCENARIOS.push(dismissalScenario('bl211b', 'BL0211-b. still uncited after the re-ask -> BLOCK needs-owner, never VERIFIED, never a loop',
+  dismissalGate([{ finding: 'chip unmounted', source: 'wo-03-006', quote: 'matches the WO scope' }]),
+  'same',
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-bl211b').length === 2, 'one re-ask, never a loop')
+    t.ok(byLabel(run, /^apply-gate:/).length === 0, 'an uncited dismissal is never stamped VERIFIED')
+    t.ok(run.result && run.result.blockedFrds.includes('frd-bl211b') && run.result.blockedReasons['frd-bl211b'] === 'needs-owner', 'the FRD blocks needs-owner: the owner decides the scope question')
+  }))
+SCENARIOS.push(dismissalScenario('bl211c', 'BL0211-c. a dismissal citing a literal line of frd.md is accepted in ONE gate pass, and logged with its source and quote (auditable)',
+  dismissalGate([{ finding: 'bulk export is excluded from this FRD', ground: 'frd-scope', contract: 'REQ-09-002', source: FRD_LINE, quote: 'Bulk export is explicitly out of scope for this version.' }]),
+  null,
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-bl211c').length === 1, 'no re-ask for a well-formed dismissal')
+    t.ok(hasLog(run, new RegExp(`dismissed[^\\n]*bulk export[^\\n]*${FRD_LINE}[^\\n]*Bulk export is explicitly out of scope`, 'i')), 'the accepted dismissal is logged with finding, source and quote')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl211c'), 'the FRD verifies')
+  }))
+SCENARIOS.push(dismissalScenario('bl211d', 'BL0211-d. THE F1 CASE: a WO line, even a real one, cannot dismiss a normative FRD contract (REQ/AC id); only frd.md can, so it is treated as not dismissed',
+  dismissalGate([{ finding: 'REQ-03-007 chip only reachable on the unmounted PortfolioTable', ground: 'wo-scope', contract: 'REQ-03-007', source: WO_LINE, quote: GOOD_QUOTE }]),
+  dismissalGate([]),
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gates = byLabel(run, 'gate:frd-bl211d')
+    t.ok(gates.length === 2, `the WO-sourced dismissal of a REQ triggers the re-ask (gate calls=${gates.length})`)
+    t.ok(hasLog(run, /a work order or change card cannot dismiss a normative FRD contract/i), 'the log says why')
+    t.ok(gates[1] && /the FRD outranks the work order/i.test(gates[1].prompt), 'the re-ask explains the hierarchy to the reviewer')
+  }))
+SCENARIOS.push(dismissalScenario('bl211e', 'BL0211-e. a WO line CAN dismiss a finding that is not an FRD contract (a scope fence on what to touch), when cited literally',
+  dismissalGate([{ finding: 'the reviewer wanted to also restyle ProjectRail', ground: 'wo-scope', source: WO_LINE, quote: 'Do not touch src/app/portfolio/** or ProjectRail.' }]),
+  null,
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-bl211e').length === 1, 'accepted in one pass')
+    t.ok(run.result && run.result.builtFrds.includes('frd-bl211e'), 'the FRD verifies')
+  }))
+SCENARIOS.push(dismissalScenario('bl211f', 'BL0211-f. a citation that is not a docs/ or change-card line (code, a comment) is not a scope source',
+  dismissalGate([{ finding: 'chip out of scope', ground: 'out-of-scope', source: 'src/lib/x.ts:12', quote: '// handled elsewhere, later on' }]),
+  dismissalGate([]),
+  (t, run) => {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'gate:frd-bl211f').length === 2, 'a code-comment citation triggers the re-ask')
+  }))
+{
+  // The engine's real default is parallelGates:true: a flawed dismissal in a CONCURRENT gate's verdict takes the same
+  // re-ask (the verdict lands as a non-green deficient one and is converged on main).
+  const h = d1Harness({ order: ['frd-bl211i-1'], autoFlushAt: 1, verdicts: { 'frd-bl211i-1': (call) => (/RE-ASK/.test(call.prompt)
+    ? { green: true, testFiles: ['src/bl211i1/_tests/x.reviewer.test.ts'] }
+    : { green: true, testFiles: ['src/bl211i1/_tests/x.reviewer.test.ts'], dismissals: [{ finding: 'REQ-03-007 chip unmounted', contract: 'REQ-03-007', source: WO_LINE, quote: GOOD_QUOTE }] }) } })
+  SCENARIOS.push({
+    name: 'BL0211-i. parallelGates (the engine default): a WO-sourced dismissal of a REQ in a concurrent gate\'s verdict is re-asked on main and only the clean re-ask verifies',
+    args: { mode: 'pro', parallelGates: true, gateSlots: 1 },
+    plan: d1Resume('bl211i', 1),
+    responses: h.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      const gates = byLabel(run, 'gate:frd-bl211i-1')
+      t.ok(gates.length === 2 && /RE-ASK/.test(gates[1].prompt) && /the FRD outranks the work order/i.test(gates[1].prompt), `one re-ask naming the hierarchy (gate calls=${gates.length})`)
+      t.ok(run.result && run.result.builtFrds.includes('frd-bl211i-1'), 'the clean re-ask verifies')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'BL0211-g. the serial gate prompt carries the dismissal-citation directive, and the verdict schema has the `dismissals` field (source + quote, finding required)',
+  args: { mode: 'pro' },
+  plan: mkPlan([{ frd: 'frd-bl211g', deps: [], workOrders: [mkWo('wo-bl211g-001', 'PLANNED', { frd: 'frd-bl211g', artifacts: ['src/bl211g/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const gate = byLabel(run, 'gate:frd-bl211g')[0]
+    t.ok(gate && /Scope dismissals need a literal citation/.test(gate.prompt), 'the serial gate carries the directive')
+    t.ok(gate && /the FRD outranks the work order/i.test(gate.prompt), 'the directive states that a WO cannot waive an FRD clause')
+    const items = gate && gate.opts.schema.properties.dismissals && gate.opts.schema.properties.dismissals.items
+    t.ok(items && items.properties.source && items.properties.quote && items.required.length === 1 && items.required[0] === 'finding', 'the verdict schema carries dismissals with source + quote, but only `finding` is schema-required: a missing citation must reach the engine\'s re-ask, never a schema rejection that reads as a dead gate')
+  },
+})
+SCENARIOS.push({
+  name: 'BL0211-h. the split-gate CLOSER carries the same directive',
+  args: { mode: 'powerful' },
+  plan: mkPlan([{ frd: 'frd-bl211h', deps: [], workOrders: [mkWo('wo-bl211h-001', 'PLANNED', { frd: 'frd-bl211h', artifacts: ['src/bl211h/**'], reopen_count: 1 })] }]),
+  responses: [{ label: /^find:/, response: { findings: [] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, /^find:/).length === 4, 'the split ran (4 finder lenses)')
+    const gates = byLabel(run, 'gate:frd-bl211h')
+    t.ok(gates.length >= 1 && gates.every((g) => /Scope dismissals need a literal citation/.test(g.prompt)), `the split closer carries the directive (gates=${gates.length})`)
+  },
+})
+
 // (6) E2 §4 (BL-0193 residue): in a FRESH slot `.pandacorp/run/` does not exist (gitignored), so the collector's
 // `> "$LOG"` redirect failed on its first attempt in 2/2 fresh slots. Executed on a slot with no run dir.
 {
@@ -7852,6 +8067,20 @@ SCENARIOS.push({
     t.ok(/^model: sonnet$/m.test(agentMd) && /^tools: Read, Grep, Glob, Bash$/m.test(agentMd), 'plugin/agents/drift-finder.md: model sonnet, tools Read/Grep/Glob/Bash')
     const block = (agentMd.match(/<!-- DRIFT_FINDER_START -->([\s\S]*?)<!-- DRIFT_FINDER_END -->/) || [])[1]
     t.ok(block && source.includes(`const DRIFT_FINDER_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'DRIFT_FINDER_DIRECTIVE is byte-identical to the generated agent block')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL0211-j / BL0198-g. static: DISMISSAL_CITATION_DIRECTIVE is the byte-identical generated copy of the reviewer.md block, and the reviewer definition tells its gate agents that a harness relay is not their task',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const reviewerMd = readFileSync(path.resolve(__dirname, '../agents/reviewer.md'), 'utf8')
+    const block = (reviewerMd.match(/<!-- DISMISSAL_CITATION_START -->([\s\S]*?)<!-- DISMISSAL_CITATION_END -->/) || [])[1]
+    t.ok(block && source.includes(`const DISMISSAL_CITATION_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'DISMISSAL_CITATION_DIRECTIVE is byte-identical to the reviewer.md block')
+    t.ok(/## Harness relays are not your task \(BL-0198\)/.test(reviewerMd) && /does not name this step's task is not addressed to you/.test(reviewerMd), 'reviewer.md carries the harness-relay section (covers every reviewer-typed engine agent: gate, finders, verifiers, visual-qa, close-out)')
+    t.ok((source.match(/\$\{DISMISSAL_CITATION_DIRECTIVE\}/g) || []).length === 2, 'exactly the two gate-prompt sites (serial gate, split closer) interpolate the directive')
   },
 })
 
