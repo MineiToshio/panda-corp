@@ -7,7 +7,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/frds/frd-06-party/mocks/la-fragua.html
-last_updated: '2026-07-01'
+last_updated: '2026-09-30'
 ---
 # FRD-06 — Party · La Fragua (live build view)
 
@@ -145,7 +145,11 @@ With the global-wave engine (BL-0021) several FRDs genuinely build at once, so t
   done/total), in file order, each with its stable FRD color; the chip under judgment is emphasized.
 - AC-06-019.4: Trophies on the Bóveda SHALL be the LATEST `done` WOs across the project (≤9, rest
   archived), each with its FRD color plaque; the scene focus (`snapshot.frd`, MissionBar) SHALL be
-  the FRD under judgment, else the first one building, else the freshest event FRD.
+  the FRD under judgment, else the first one building (campaign file order), else the freshest
+  event FRD, else the frontmatter's in-flight FRD. An event whose `frd` field is **composite**
+  (several ids joined by comma, a run-level event spanning many FRDs, the normal case under
+  parallel FRD gates) belongs to no single FRD: like an empty `frd`, it is never the freshest
+  event FRD and never names the focus (decided 2026-09-30 under owner delegation).
 - AC-06-019.5: THE sprite engine SHALL persist across the whole build (one instance per scene, not
   per FRD) so a change of the judged/focused FRD never resets in-flight walks.
 - AC-06-019.6 (Fase 2 — vida): THE scene SHALL converse with REAL data: one rotating speech bubble

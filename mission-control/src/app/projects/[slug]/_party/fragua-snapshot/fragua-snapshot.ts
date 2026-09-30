@@ -283,8 +283,10 @@ function detectModeAndFrd(events: readonly DashboardEvent[]): {
       detectedMode = ev.mode as BuildMode;
     }
     // Empty/whitespace frd is FRD-less activity (e.g. the visual-qa pass emits
-    // frd:"") — it must never become the scene's FRD id.
-    if (typeof ev.frd === "string" && ev.frd.trim() !== "") {
+    // frd:"") — it must never become the scene's FRD id. Neither may a composite
+    // "a,b" (a run-level event spanning several FRDs, AC-06-019.4): it belongs to no
+    // single FRD, so it cannot name the focus.
+    if (typeof ev.frd === "string" && ev.frd.trim() !== "" && !ev.frd.includes(",")) {
       currentFrdId = ev.frd;
     }
   }

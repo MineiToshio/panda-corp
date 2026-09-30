@@ -1,5 +1,32 @@
 # Decision Log — Mission Control
 
+## 2026-09-30 — La Fragua: a composite `frd` event field never names the scene focus (FRD-06 AC-06-019.4)
+
+**What:** `detectModeAndFrd` (`fragua-snapshot.ts`) now ignores an event whose `frd` holds several ids
+joined by comma (e.g. `"frd-03-board,frd-06-party"`) when picking the freshest event FRD, exactly as
+it already ignored an empty `frd`. AC-06-019.4 in `docs/frds/frd-06-party/frd.md` states the full
+focus precedence (judging, else first building in campaign file order, else freshest single-FRD event,
+else frontmatter in-flight) and that a composite value never names the focus. Tests:
+`_party/_tests/fragua-snapshot.multiFrd.test.ts` (RED on the old code: the raw string became
+`snapshot.frd.id`, title `"FRD-03 Board,frd 06 Party"`).
+
+**Why:** the real composite emitters are run-level events (visual-qa `uiPassSkipped`,
+`builtFrds.join(",")` in `pandacorp-build.src.js`), not events of one FRD. With parallel FRD gates
+(`build-orchestration.md` §5c) several FRDs are active at once, so this is the normal case, not an edge.
+Every downstream scan compares `ev.frd === currentFrdId`, so a composite string could never match a
+real FRD anyway and only produced a bogus header/title.
+
+**Decided by agent under owner delegation** ("decide tú sobre todo"; criterion: most faithful to the
+current FRD, honest with the data, smallest surface). Alternatives discarded:
+- *Take the first id of the list as focus:* invents an attribution the event does not make (the run
+  touched all of them) and would silently pick a different FRD than the frontmatter says is in flight.
+- *Take the last id:* same fabrication, plus order-of-emission coupling.
+- *Make the focus a typed list of ids (multi-focus scene):* the scene, MissionBar and Campaña already
+  model multiple active FRDs through `campaign`/`running[].frd`; a second multi-FRD channel for the
+  header would be a larger surface for no new information (DR-115: one writer per fact).
+- *Split the composite and attribute the event to every member in the scans:* run-level events carry no
+  per-FRD work-order data; attributing them would double count.
+
 ## 2026-09-30 — Dead portfolio duplicates removed: `modules/ProjectRow` and `ProjectRail`'s non-selectable mode
 
 **What:** After `PortfolioTable` was removed (entry below), two more unmounted duplicates of the selectable
