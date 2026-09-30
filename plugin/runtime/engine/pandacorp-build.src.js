@@ -34,6 +34,8 @@ const STATE_CLI_COMMAND = `node ${shellQuote(STATE_CLI)}`
 const DRIFT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'drift-proof.mjs'))}`
 // BL-0189: the FRD contract-inventory cache's I/O script ships in the same installed scripts dir (same rule).
 const INVENTORY_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'gate-inventory.mjs'))}`
+// BL-0212: the deterministic discard of a rejected work order's OWN commits (same scripts dir, same rule).
+const WO_REVERT_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'wo-revert.mjs'))}`
 
 // ── Input (all optional) ─────────────────────────────────────────────────────
 //   args.mode:    'pro' | 'balanced' | 'powerful' | 'deep'  (default: powerful)
@@ -1918,7 +1920,7 @@ async function commitWOGreen(wo, frd) {
   agentSpawned++
   const link = commitChain.then(() =>
     agent(
-      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK_AND_WO_COMMIT(frd, wo.id)} Then make exactly ONE commit (Conventional Commits, with scope) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status -- .` (THIS project only, BL-0202) to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended) AND \`.pandacorp/build-journal.jsonl\` if it changed (append-only, shared — like track.jsonl; sweeps any pending build-journal lines a retry builder appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status -- .\` shows changes outside this WO's files (other than track.jsonl / build-journal.jsonl, which are append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). THEN return the sha of the commit you just made (\`git rev-parse --short HEAD\`). Return { committed: 1, sha: "<that short sha>" }.`,
+      `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK_AND_WO_COMMIT(frd, wo.id)} Then make exactly ONE commit (Conventional Commits, with scope, the subject naming ${wo.id}) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status -- .` (THIS project only, BL-0202) to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended) AND \`.pandacorp/build-journal.jsonl\` if it changed (append-only, shared — like track.jsonl; sweeps any pending build-journal lines a retry builder appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status -- .\` shows changes outside this WO's files (other than track.jsonl / build-journal.jsonl, which are append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). THEN return the sha of the commit you just made (\`git rev-parse --short HEAD\`). Return { committed: 1, sha: "<that short sha>" }.`,
       { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['committed'], properties: { committed: { type: 'number' }, sha: { type: 'string' } } } },
     ),
   )
@@ -3257,8 +3259,8 @@ async function attemptRepair(frd, context, gateBlocked = false) {
   agentSpawned += COST(P.judge)   // DR-073: repair runs on the judge model — weight it honestly
   return await chargedRepair(frd, P.judge, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
-  2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope); return { green: true }.
-  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, then ${SYNC_ROLLUPS} **DR-070 — discard the blocked WO's committed-but-broken code so it doesn't pollute sibling FRDs' global gate: revert its files to the last green (\`git checkout <last_green_sha> -- <its existing files>\`; \`git rm\` newly-created ones; NEVER a hard reset of the whole tree).** Commit only the status change + the revert${gateBlocked ? `, then append ONE more printf naming the blocked_reason you are actually returning below (needs-owner, external or error) — literally: ${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the blocked_reason you return: needs-owner|external|error>"`)}` : ''}, and return { green: false, blocked_reason, failure }:
+  2) If it is within your reach (code / test / local config): fix the PRODUCTION code (never weaken or skip tests) until \`bash .pandacorp/verify.sh\` is green for this feature; set the affected work orders' frontmatter back to \`implementation_status: IN_REVIEW\`; commit (Conventional Commits with scope, the subject naming ${frd} and the work orders you fixed); return { green: true }.
+  3) If you CANNOT fix it, classify WHY, set the affected work orders' frontmatter to \`implementation_status: BLOCKED\` + \`blocked_reason: <reason>\`, then ${SYNC_ROLLUPS} Discard ONLY the UNCOMMITTED edits of the blocked work orders' files (yours and a failed build's): restore tracked ones to HEAD with the BL-0202 RESTORE COMMAND \`${scopedRestoreCommand('HEAD')}\` and remove new untracked ones with the BL-0202 CLEAN COMMAND \`${scopedCleanCommand()}\` (each VERBATIM except ${SCOPED_PATHS_NOTE} List the paths with \`${PROJECT_STATUS_COMMAND}\`). **Never touch COMMITTED code and never restore anything "to last_green_sha"** (the pin may already contain the blocked work orders' rejected build, BL-0212): right after you return, the engine discards the blocked work orders' committed code by reverting their OWN commits (DR-070). Commit only the status change (the subject naming ${frd} and the work orders)${gateBlocked ? `, then append ONE more printf naming the blocked_reason you are actually returning below (needs-owner, external or error) — literally: ${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"%s"`, ` "<the blocked_reason you return: needs-owner|external|error>"`)}` : ''}, and return { green: false, blocked_reason, failure }:
      - 'needs-owner' → it needs a HUMAN action/decision the agent can't take: a missing env var or secret, an external account/service to set up, a product decision. ALSO append it to .pandacorp/inbox/decisions.md (what's blocked, the options, your recommendation).
      - 'external' → a transient OUTSIDE failure (no internet, an upstream 5xx) — worth a retry on a later run, not our bug.
      - 'error' → a technical failure you could not resolve.`,
@@ -3310,7 +3312,7 @@ async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mec
   THEN RE-GATE (this is the safety invariant — a focused gate is NOT enough, red-team-A): run the FULL FRD adversarial + integration tests for ${frd} AND a WHOLE-PROJECT \`pnpm knip\` + \`pnpm biome check .\` + \`pnpm tsc --noEmit\` (NOT \`verify.sh --since\` — a dead export left by the patch must not slip to a sibling FRD's global gate). Everything must be whole-project-clean.
   **SELF-REPAIR BUDGET (DR-107) — a red introduced by YOUR OWN edits does not end the patch:** if the re-gate fails on something YOUR patch just added or touched (a type/lint error in a file you created or edited — e.g. a TS2345 in your own new test file), FIX that and re-gate. You may spend up to 2 such internal fix-and-re-gate cycles. (The real incident this exists for: a 1-line i18n patch was discarded — and its whole work order rebuilt from scratch — because its own new a11y spec had a trivial type error the old contract forbade fixing.)${scoped ? `
   **SCOPED INNER LOOP (WP-08) — for those ≤2 internal cycles ONLY, do NOT re-run the whole project.** The gate report says this failure is confined to ${mech.subgates.join(' + ')}, so re-check with \`bash .pandacorp/verify.sh ${scopeFlags}\` (it runs only those sub-gates, narrows biome to those paths and vitest to their related tests; tsc/knip/madge stay whole-program inside it). Add any file YOU touch to that \`--files\` list as you go. Such a run stamps the gate report \`scope:"partial"\` and CERTIFIES NOTHING — it is a fast inner check, which is exactly why the whole-project RE-GATE above remains mandatory and unscoped before you commit. If a scoped check surfaces a failure OUTSIDE the named sub-gates, stop scoping and go back to the full re-gate.` : ''}
-  **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope), staging \`.pandacorp/build-journal.jsonl\` too (append-only — your attempt line) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
+  **If whole-project-clean:** COMMIT the patch (Conventional Commits, scope, the subject naming ${frd} and the work orders you patched — a later revert attributes the patch by them, BL-0212), staging \`.pandacorp/build-journal.jsonl\` too (append-only — your attempt line) — but do NOT set any WO \`VERIFIED\`, do NOT touch \`reopen_count\`, do NOT advance \`last_green_sha\`/status.yaml: you patched it, so you may not certify it (constitution rule 4, generator ≠ verifier — audit-20). An INDEPENDENT verifier re-runs the gate and stamps. Return { green: true }.
   **If the blocker is a DEFECTIVE reviewer test (BL-0001):** you conclude a blocking adversarial test is INTERNALLY INCONSISTENT or unsatisfiable by ANY correct implementation (e.g. it asserts desktop-only nav visibility without forcing a viewport while the Playwright config runs desktop+mobile) — **or (BL-0051) it is a BLESSED test asserting a contract that a work order of THIS FRD intentionally DEROGATES**, which no correct implementation of the new contract can satisfy either — do NOT edit that test (the patcher never rewrites the reviewer's tests) and do NOT keep bending production code to satisfy it: UNDO all your own edits (restore files you modified, delete files you created — \`git status\` must read as you found it, EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line, which is a durable record of this attempt and is swept by the engine's next commit — do NOT undo it),${PATCH_RESULT(frd, 'gate-test-defective')} and return { green: false, cause: 'gate-test-defective', defectiveTests: [{ path, why }], failure }. The engine routes it to an independent gate-test repair — not to a revert of the build.
   **If you CANNOT green it in place** (the ORIGINAL build genuinely fails beyond the findings, or your self-repair budget is spent): UNDO all your own edits the same way — leave the tree exactly as you found it (do NOT commit, do NOT revert the WO; the engine reverts cleanly), EXCEPT the append-only \`.pandacorp/build-journal.jsonl\` line (a durable record of this attempt — leave it; the engine's next commit sweeps it),${PATCH_RESULT(frd, 'code-fail')} and return { green: false, cause: 'code', failure: <why> }.`,
     { label: `patch:${frd}`, phase: 'Review', model: patchModel, effort: patchEffort, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA }))
@@ -3416,37 +3418,133 @@ async function certifyPatched(frd, reviewIds, verdict) {
   return link.then((r) => Boolean(r && r.done === true), (e) => { log(`certify-patch failed for ${frd}: ${(e && e.message) || e}`); return false })
 }
 
-// ── DR-073 fallback: revert + reopen for a clean rebuild (the old DR-070 revert logic) ──
-// Runs ONLY when the in-place patch could not green the build. For each reopened WO: set it PLANNED,
-// INCREMENT reopen_count (so the non-progress cap can fire), and discard its committed-but-rejected
-// code so it does NOT pollute sibling FRDs' WHOLE-PROJECT gate (DR-070) — surgical `git checkout
-// <last_green_sha> -- <its files that existed at last green>` + `git rm` newly-created files, NEVER a
-// whole-tree hard reset (it would discard verified siblings). Commit the status change + the revert
-// together. Reviewer-authored / Status-Note-referenced TEST files are PRESERVED, not deleted (the
-// personal-page-v2 revert deleted a green a11y spec the hand-off cited; the reviewer had to re-author
-// it blind a pass later). The rebuild happens on opus (reopen_count>=1) — first via the DR-107 in-run
-// retry in this same run, else on the next pass.
-// A3 PARTIAL REVERT: when the diagnosis says the fault is cleanly separable to a SEAM (opts.seamFiles),
-// COMMIT 2 discards ONLY those seam files (not every file the WO touched), still two-commit, still
-// increments reopen_count, still preserves reviewer tests, and the wo_reopen event carries reason:"seam".
+// ── BL-0212: discard a rejected work order's OWN commits — deterministically, never "to last_green_sha" ──
+// A publication is the whole main tree (build-orchestration.md, "What `last_green_sha` certifies"): with parallel
+// gates, build waves between landings and every carry-over work order, the pin already CONTAINS IN_REVIEW work of
+// FRDs whose gate has not landed. For such a work order a restore of its files to the pin restored its own rejected
+// build — a silent no-op: the retry rebuilt on top of the rejected code and a BLOCKED work order's broken code stayed
+// on main (the pollution DR-070 exists to prevent). wo-revert.mjs finds the commits of the work order's current
+// attempt in git history and reverts THOSE: a file whose first touch by the attempt is not in the pin is restored to
+// the pin exactly as before; any other file is reverted commit by commit, keeping every other commit's edit (a
+// verified sibling's line in a shared file). A conflict, an uncommitted change on a target path or a work order in
+// the wrong state refuses the WHOLE plan — nothing written, never a partial revert — and the engine blocks
+// needs-owner. The script's one line is SEALED (drift-seal.mjs): a model relays it, the engine verifies it (BL-0206).
+const WO_REVERT_OK = new Set(['reverted', 'nothing'])
+function parseWoRevert(raw) {
+  const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
+  if (!text) return { receipt: null, error: 'the revert runner returned no output', transport: true }
+  let j
+  try { j = JSON.parse(text) } catch { return { receipt: null, error: 'the revert output is not valid JSON', transport: true } }
+  if (!driftSealHolds(text)) return { receipt: null, error: 'the revert output failed its integrity seal (the relay altered it)', transport: true }
+  if (!j || j.ok !== true) return { receipt: null, error: `the revert script refused its input: ${(j && j.error) || 'no ok:true'}` }
+  if (!WO_REVERT_OK.has(j.status)) return { receipt: j, error: `${j.status}: ${j.reason || 'refused'}` }
+  if (typeof j.changed !== 'boolean') return { receipt: j, error: 'the revert receipt carries no `changed` flag' }
+  return { receipt: j, error: '' }
+}
+let woRevertSeq = 0
+/**
+ * Runs wo-revert.mjs through a MECH relay and verifies its sealed receipt.
+ * @param {'plan'|'apply'} mode plan = read-only prediction; apply = write + commit (one commit naming the WOs)
+ * @param {{seam?: string[], requireStatus?: string, onlyStatus?: string, expectChange?: boolean}} opts
+ * @returns {Promise<{ok: boolean, receipt: object|null, error: string}>} ok only for status reverted|nothing
+ */
+async function woRevert(frd, ids, mode, opts = {}) {
+  const stored = `.pandacorp/run/wo-revert/${frd}-${++woRevertSeq}-${mode}.json`
+  const flags = [...ids.map((id) => `--wo ${shellQuote(id)}`), ...(opts.seam || []).map((p) => `--seam ${shellQuote(p)}`),
+    opts.requireStatus ? `--require-status ${opts.requireStatus}` : '', opts.onlyStatus ? `--only-status ${opts.onlyStatus}` : '', opts.expectChange ? '--expect-change' : ''].filter(Boolean).join(' ')
+  const cmd = `${WO_REVERT_CLI_COMMAND} ${mode} --project ${shellQuote(PROJECT_DIR)} --project-name "${PROJECT}" --frd ${shellQuote(frd)} ${flags} --out ${shellQuote(stored)}`
+  const relay = async (label, command) => {
+    agentSpawned++
+    try {
+      return await agent(`MECHANICAL COMMAND RUNNER — BL-0212 ${mode === 'plan' ? 'read-only revert plan' : 'revert'} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
+        { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
+    } catch (e) {
+      log(`⚠ ${frd}: the ${label} runner threw (${(e && e.message) || e})`)
+      return null
+    }
+  }
+  let parsed = parseWoRevert(await relay(`wo-revert-${mode}:${frd}`, cmd))
+  if (!parsed.receipt && parsed.transport) {
+    log(`⚠ ${frd}: ${parsed.error} — re-reading the stored revert receipt once (BL-0212)`)
+    parsed = parseWoRevert(await relay(`wo-revert-replay:${frd}`, `${WO_REVERT_CLI_COMMAND} replay --project ${shellQuote(PROJECT_DIR)} --file ${shellQuote(stored)}`))
+  }
+  return { ok: !parsed.error, receipt: parsed.receipt, error: parsed.error }
+}
+// The non-silence guarantee: a discard that changed nothing where the rejected work was expected to leave is logged
+// loud (the script also appends a RevertNoop dashboard event); a real discard is logged with what it touched.
+function noteRevert(frd, ids, receipt, expectChange) {
+  const files = (receipt.files || []).filter((x) => x.action !== 'keep')
+  if (!receipt.changed) {
+    if (expectChange) log(`⚠ RevertNoop ${frd}: discarding ${ids.join(', ')} changed NOTHING (${receipt.reason || 'no committed attempt found'}) — the rebuild starts from the current tree (BL-0212)`)
+    return
+  }
+  log(`↩ ${frd}: discarded the rejected work of ${ids.join(', ')} — ${files.length} file(s) (${files.filter((x) => x.via === 'pin').length} restored to last_green_sha, ${files.filter((x) => x.via === 'revert').length} by reverting its own commits), commit ${receipt.committed || '?'} (BL-0212)`)
+}
+// A refused revert (conflict / dirty target / wrong state / unreadable receipt): NOTHING was reverted and nothing may
+// be — the work orders are BLOCKED needs-owner with the reason, loudly. `flip`: the reopen flip already committed them
+// PLANNED (their rejected code is still on main); `blocked`: a block path already set them BLOCKED.
+async function refuseRevert(frd, ids, rv, { flip = false, blocked = false, emit = true } = {}) {
+  const why = rv.error || 'unknown'
+  const conflicts = rv.receipt && Array.isArray(rv.receipt.conflicts) && rv.receipt.conflicts.length ? ` Conflicting file(s): ${rv.receipt.conflicts.join(', ')}.` : ''
+  log(`⛔ RevertRefused ${frd}: the rejected code of ${ids.join(', ')} could NOT be discarded without touching other work (${why}) — nothing was reverted; BLOCKED needs-owner (BL-0212)`)
+  agentSpawned++
+  const record = `No pude descartar el código rechazado de ${ids.join(', ')} (${frd}) sin tocar trabajo de otras features: ${why}.${conflicts} Ese código sigue en main y puede romper el gate de otras FRDs. Decide cómo resolverlo (revertir a mano los commits de esas órdenes resolviendo el conflicto, o conservar el código y corregirlo).`
+  await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}BL-0212 REVERT REFUSED for ${frd}. The engine's deterministic revert of the rejected work orders (${ids.join(', ')}) refused: ${why}.${conflicts} NOTHING was reverted and nothing may be: do NOT \`git checkout\`/\`restore\`/\`rm\`/\`revert\` any code file, never hand-resolve anything.
+  1) ${blocked ? 'For EACH of these work orders that is BLOCKED' : `For EACH of these work orders${flip ? ' (just set PLANNED — their rejected code is still on main)' : ''}`}: set \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
+  2) Append this owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH): ${record}
+  3) COMMIT (Conventional Commits, scope, the subject naming ${frd}) staging ONLY those frontmatter/rollup files, decisions.md and status.yaml.${emit ? emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`) : ''}${NOTIFY('FRD ' + frd + ': no pude descartar el codigo rechazado sin tocar otras features — necesita tu decision')}
+  Return { green: false, blocked_reason: 'needs-owner' }.`,
+    { label: `block-revert-refused:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+}
+// DR-070 for the repair path: after a repair gave up and BLOCKED work orders, discard the COMMITTED code of exactly
+// the candidates now BLOCKED (--only-status). Returns false when the discard was refused (the caller blocks
+// needs-owner instead of the repair's own reason).
+async function discardBlockedCode(frd, ids) {
+  if (!ids.length) return true
+  const done = await woRevert(frd, ids, 'apply', { onlyStatus: 'BLOCKED' })
+  if (done.ok) { noteRevert(frd, ids, done.receipt, false); return true }
+  await refuseRevert(frd, ids, done, { blocked: true, emit: false })
+  return false
+}
+
+// ── DR-073 fallback: revert + reopen for a clean rebuild (DR-070) ──
+// Runs ONLY when the in-place patch could not green the build. For each reopened WO: set it PLANNED, INCREMENT
+// reopen_count (so the non-progress cap can fire), and discard its committed-but-rejected code so it does NOT pollute
+// sibling FRDs' WHOLE-PROJECT gate (DR-070). WS-D/D12 order, crash-safe: (0) a read-only revert PLAN first — a
+// refusal blocks needs-owner before anything is flipped; (1) the flip commit (a judge: which tests are reviewer
+// evidence to preserve is judgment, DR-107); (2) the deterministic discard (BL-0212), which requires the flip to
+// have landed (--require-status PLANNED). Reviewer-authored / Status-Note-referenced TEST files are PRESERVED, not
+// deleted (the personal-page-v2 revert deleted a green a11y spec the hand-off cited). The rebuild happens on opus
+// (reopen_count>=1) — first via the DR-107 in-run retry in this same run, else on the next pass.
+// A3 PARTIAL REVERT: when the diagnosis says the fault is cleanly separable to a SEAM (opts.seamFiles), the discard
+// is restricted to those files (--seam), still increments reopen_count, still preserves reviewer tests, and the
+// wo_reopen event carries reason:"seam".
+// Returns { refused: true } after a refusal (the FRD is already blocked — callers return 'blocked').
 async function revertAndReopen(frd, reopenIds, opts = {}) {
-  agentSpawned += COST(P.judge)
+  const ids = reopenIds || []
   reviewerTestsByFrd.delete(frd)   // BL-0184: the pinned tests bound THIS verdict's patch ladder; the retry's fresh gate on main owns its own
   const seamFiles = (opts.seamFiles && opts.seamFiles.length) ? opts.seamFiles : null
+  const refused = async (rv, flip) => { await refuseRevert(frd, ids, rv, { flip }); blockFrd(frd, 'needs-owner', `revert refused (BL-0212): ${rv.error}`); return { refused: true } }
+  const plan = await woRevert(frd, ids, 'plan', { seam: seamFiles })
+  if (!plan.ok) return await refused(plan, false)
+  agentSpawned += COST(P.judge)
   const reopenReason = seamFiles ? 'seam' : 'gate-reject'
   const revertJournal = JOURNAL(
     `"wo":"%s","frd":"${frd}","attempt":%s,"reopen_count":%s,"rung":"revert","role":"builder","kind":"attempt","classification":"","seam":${seamFiles ? `"${seamFiles.join(', ').replace(/"/g, '')}"` : 'null'},"findingKey":"","tried":"${seamFiles ? 'partial revert (seam only)' : 'full revert'}","verdict":"","why":"%s","confidence":""`,
-    ` "<the reopened work order, else ${(reopenIds || [])[0] || frd}>" "<its NEW attempt number after the increment, an integer>" "<its NEW reopen_count after you increment it, an integer>" "<one line: why it was reverted>"`)
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'revert' })}DR-073 fallback — the in-place patch could NOT green ${frd}, so revert + reopen for a clean rebuild${seamFiles ? ' (A3 PARTIAL revert — restricted to the diagnosed seam)' : ''}. Read last_green_sha from .pandacorp/status.yaml. Reopened work orders: ${(reopenIds || []).join(', ')}${seamFiles ? `\n  **SEAM (A3) — the diagnosis isolated the fault to these files ONLY; discard NOTHING else the WO touched, so good work is preserved: ${seamFiles.join(', ')}.**` : ''}
-  **WS-D/D12 — do this in TWO commits, in THIS order (crash-safe: never leave a committed IN_REVIEW pointing at code that has been reverted away).**
-  **COMMIT 1 — flip the frontmatter FIRST, before any code is removed.** For EACH reopened work order:
+    ` "<the reopened work order, else ${ids[0] || frd}>" "<its NEW attempt number after the increment, an integer>" "<its NEW reopen_count after you increment it, an integer>" "<one line: why it was reverted>"`)
+  await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'revert' })}DR-073 fallback — the in-place patch could NOT green ${frd}, so revert + reopen for a clean rebuild${seamFiles ? ' (A3 PARTIAL revert — restricted to the diagnosed seam)' : ''}. Reopened work orders: ${ids.join(', ')}${seamFiles ? `\n  **SEAM (A3) — the diagnosis isolated the fault to these files ONLY; the engine discards NOTHING else the WO touched, so good work is preserved: ${seamFiles.join(', ')}** (the diagnosis proved the fault is confined to the seam).` : ''}
+  **WS-D/D12 — you make ONE commit, the frontmatter flip; the engine discards the code AFTER it (crash-safe: never a committed IN_REVIEW pointing at code that has been reverted away).** For EACH reopened work order:
      a) Set its frontmatter \`implementation_status: PLANNED\` and **INCREMENT its \`reopen_count\`** (the non-progress cap, DR-072 — so a WO that keeps failing eventually BLOCKS needs-owner instead of grinding).
      b) **EXCEPTION — preserve test evidence (DR-107):** a newly-created TEST file that the reviewer authored or that a \`## Status Note\` references (an adversarial spec, an e2e spec like \`a11y.spec.ts\`) is COVERAGE, not rejected code — do not destroy it. MOVE it to \`.pandacorp/run/preserved-tests/<wo-id>/\` (mkdir -p; gitignored runtime state) instead of deleting it, so the rebuild restores it as its RED baseline (the personal-page-v2 incident: a green 6/6 a11y spec was deleted by a revert and had to be re-authored blind a pass later).
      c) Append one durable reopen line PER reopened work order to ${TRACK_PATH} (fire-and-forget — reopen_count resets to 0 when the WO finally passes, so WITHOUT this line the durable timeline under-reports rework): printf '{"kind":"wo_reopen","frd":"${frd}","wo":"%s","reason":"${reopenReason}","at":"%s"}\\n' "<the-wo-id>" "$(date -u +%FT%TZ)" >> ${TRACK_PATH}.${WO_REOPEN_EVENT(frd, reopenReason)} BUILD-JOURNAL (A1) — record ONE revert line (descriptive attempt; verdict stays empty):${revertJournal}
-     ${SYNC_ROLLUPS} **COMMIT this frontmatter flip ALONE** (Conventional Commits, scope; stage \`.pandacorp/build-journal.jsonl\` too, append-only) — now no committed WO claims IN_REVIEW while its code is about to vanish.
-  **COMMIT 2 — THEN discard the rejected code.** DR-070 — so it does not pollute sibling FRDs' WHOLE-PROJECT gate: ${seamFiles ? `for the SEAM files ONLY (${seamFiles.join(', ')}) \`git checkout <last_green_sha> -- <those of them that existed at last green>\` and \`git rm\` any of them the WO newly created — leave every OTHER file the WO touched in place (A3 partial revert: the diagnosis proved the fault is confined to the seam).` : `for EACH reopened WO \`git checkout <last_green_sha> -- <its files that existed at last green>\` and \`git rm\` any files it newly created.`} **NEVER a hard reset of the whole tree** (that would discard verified siblings). Leave every other WO (IN_REVIEW or VERIFIED) untouched. **COMMIT the revert** (Conventional Commits, scope).
-  Return { green: false } (the engine retries the reopened WOs — in-run first (DR-107), else next pass — from a clean green base).`,
+     ${SYNC_ROLLUPS} **COMMIT this frontmatter flip ALONE** (Conventional Commits, scope, the subject naming ${frd} and the reopened work orders; stage \`.pandacorp/build-journal.jsonl\` too, append-only).
+  **Do NOT discard any other code yourself** — no \`git checkout\`/\`restore\`/\`rm\` of the work orders' files, never a restore "to last_green_sha" (the pin may already contain their rejected build, BL-0212) and never a hard reset. Right after your commit the engine discards the rejected code deterministically, by reverting the work orders' OWN commits (DR-070), leaving every other WO (IN_REVIEW or VERIFIED) untouched.
+  Return { green: false } (the engine retries the reopened WOs — in-run first (DR-107), else next pass — from a clean base).`,
     { label: `revert:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+  const done = await woRevert(frd, ids, 'apply', { seam: seamFiles, requireStatus: 'PLANNED', expectChange: true })
+  if (!done.ok) return await refused(done, true)
+  noteRevert(frd, ids, done.receipt, true)
+  return { refused: false }
 }
 
 // ── Foundation-completeness gate (DR-057 extended) ────────────────────────────
@@ -3792,18 +3890,30 @@ async function diagnoseFailure(frd, gate, reviewIds) {
 // ── A3 EARLY BLOCK needs-owner — a diagnosed doomed spec (architectural/deadlocked-contract, med|high) ──
 // Full revert + set the reopened WOs BLOCKED needs-owner + file the Spanish decisionRecord (with the
 // journal digest inlined) so the engine does NOT burn the remaining reopens on a spec only the owner can fix.
+// BL-0212: the discard is the deterministic revert of the work orders' own commits, run AFTER the BLOCKED flip
+// lands (--require-status BLOCKED); a plan that refuses keeps the code and says so in the decision record.
 async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
+  const ids = reopenIds || []
+  const plan = await woRevert(frd, ids, 'plan')
+  if (!plan.ok) log(`⛔ RevertRefused ${frd}: the rejected code of ${ids.join(', ')} cannot be discarded without touching other work (${plan.error}) — it stays on main and the decision record says so (BL-0212)`)
   agentSpawned += COST(P.judge)
   const cls = (diag && diag.classification) || 'architectural'
   const conf = (diag && diag.confidence) || 'high'
   const record = (diag && diag.decisionRecord) || `El gate rechaza repetidamente ${frd} y el diagnóstico lo clasifica como ${cls} (confianza ${conf}) — no es un fallo puntual que el motor pueda arreglar solo; requiere una decisión del owner.`
-  return await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}EARLY BLOCK needs-owner (A3 progressive-learning recovery) for ${frd}. The diagnoser classified this failure as **${cls}** (confidence ${conf}) — a doomed spec; burning the remaining reopens on it cannot help. Do NOT retry, do NOT patch. Steps:
-  1) Read last_green_sha from .pandacorp/status.yaml and DISCARD the rejected code for the reopened work orders (${(reopenIds || []).join(', ')}): \`git checkout <last_green_sha> -- <their files that existed at last green>\` and \`git rm\` any files they newly created. **NEVER a whole-tree hard reset** (it would discard verified siblings). PRESERVE reviewer-authored / Status-Note-referenced TEST files — MOVE them to \`.pandacorp/run/preserved-tests/<wo-id>/\` (DR-107), do not delete.
+  const refusedNote = plan.ok ? '' : ` AÑADE al registro: el motor NO pudo descartar el código rechazado sin tocar trabajo de otras features (${plan.error}); ese código sigue en main.`
+  const res = await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}EARLY BLOCK needs-owner (A3 progressive-learning recovery) for ${frd}. The diagnoser classified this failure as **${cls}** (confidence ${conf}) — a doomed spec; burning the remaining reopens on it cannot help. Do NOT retry, do NOT patch. Steps:
+  1) PRESERVE reviewer-authored / Status-Note-referenced TEST files of the reopened work orders (${ids.join(', ')}) — MOVE them to \`.pandacorp/run/preserved-tests/<wo-id>/\` (DR-107), do not delete. Discard NO other code yourself — no \`git checkout\`/\`restore\`/\`rm\`, never a restore "to last_green_sha" (the pin may already contain their rejected build), never a hard reset: ${plan.ok ? 'right after your commit the engine discards the rejected code by reverting the work orders\' OWN commits (BL-0212, DR-070).' : 'the engine\'s revert refused, so the rejected code stays on main for the owner to resolve (BL-0212).'}
   2) Set EACH reopened work order's frontmatter \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
-  3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) — what the gate keeps rejecting, the diagnosis, and exactly what the owner must decide — and INLINE the build-journal digest for this WO: read the last few ${JOURNAL_PATH} lines for ${(reopenIds || [])[0] || frd} and summarize the attempt/diagnosis history so the owner sees how it got here. The record: ${record}
-  4) COMMIT (Conventional Commits, scope) staging the frontmatter flip, the code revert, decisions.md, status.yaml AND \`.pandacorp/build-journal.jsonl\` (append-only — sweeps the diagnosis line).${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`)}${NOTIFY('FRD ' + frd + ' bloqueado (diagnóstico ' + cls + ') — necesita tu decisión')}
+  3) Append the owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH) — what the gate keeps rejecting, the diagnosis, and exactly what the owner must decide — and INLINE the build-journal digest for this WO: read the last few ${JOURNAL_PATH} lines for ${ids[0] || frd} and summarize the attempt/diagnosis history so the owner sees how it got here. The record: ${record}${refusedNote}
+  4) COMMIT (Conventional Commits, scope, the subject naming ${frd} and the work orders) staging the frontmatter flip, the moved tests, decisions.md, status.yaml AND \`.pandacorp/build-journal.jsonl\` (append-only — sweeps the diagnosis line).${emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`)}${NOTIFY('FRD ' + frd + ' bloqueado (diagnóstico ' + cls + ') — necesita tu decisión')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
     { label: `block-needs-owner:${frd}`, phase: 'Review', model: P.judge, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
+  if (plan.ok) {
+    const done = await woRevert(frd, ids, 'apply', { requireStatus: 'BLOCKED', expectChange: true })
+    if (done.ok) noteRevert(frd, ids, done.receipt, true)
+    else await refuseRevert(frd, ids, done, { blocked: true, emit: false })
+  }
+  return res
 }
 
 // ── DR-107 in-run retry (bounded, budgeted) — extracted so the A3 ladder can thread a diagnosis in ──
@@ -3811,6 +3921,11 @@ async function blockEarlyNeedsOwner(frd, reopenIds, diag) {
 // reopen_count>=1) instead of paying a whole extra pass. `priorDiagnosis` (optional) is threaded into the
 // rebuild via the wo object (_priorDiagnosis, injected by woCtx). Behaviour for the legacy call
 // (priorDiagnosis omitted) is byte-equivalent to the old inline retry. Returns 'built' | 'reopened' | 'blocked'.
+// The ladder's revert-then-rebuild: a refused revert (BL-0212) already blocked the FRD — never rebuild on top of it.
+async function revertThenRetry(f, reopenIds, reviewIds, priorDiagnosis = null, opts = {}) {
+  if ((await revertAndReopen(f.frd, reopenIds, opts)).refused) return 'blocked'
+  return await inRunRetry(f, reopenIds, reviewIds, priorDiagnosis)
+}
 async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   const retryWos = f.workOrders.filter((w) => reopenIds.includes(w.id)).map((w) => ({ ...w, reopen_count: (w.reopen_count || 0) + 1, _isRetry: true, _priorDiagnosis: priorDiagnosis }))
   const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
@@ -3850,7 +3965,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   // WP-08 cage: the in-run retry's re-gate is a certification too — a partial one certifies nothing.
   if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
   if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
-  if (regate && regate.reopen && regate.reopen.length) await revertAndReopen(f.frd, regate.reopen)
+  if (regate && regate.reopen && regate.reopen.length) { if ((await revertAndReopen(f.frd, regate.reopen)).refused) return 'blocked' }
   // B2 (BL-0157): same rule as gateConverge — a deficient traceability inventory with no reopen is a
   // reviewer-paperwork gap, not a stall to silently defer forever. Re-ask ONCE, naming what's missing;
   // if it's still deficient, block needs-owner outright rather than looping passes on a formatting gap.
@@ -3864,7 +3979,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
     const reregate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
     if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); reopenedFrds.push(f.frd); return 'reopened' }
     if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry, traceability re-ask)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
-    if (reregate && reregate.reopen && reregate.reopen.length) { await revertAndReopen(f.frd, reregate.reopen); reopenedFrds.push(f.frd); return 'reopened' }
+    if (reregate && reregate.reopen && reregate.reopen.length) { if ((await revertAndReopen(f.frd, reregate.reopen)).refused) return 'blocked'; reopenedFrds.push(f.frd); return 'reopened' }
     if (reregate && reregate.traceabilityDeficient) {
       const stillMissing = reregate.missingClasses || missingClasses
       log(`⊘ ${f.frd}: gate traceability contract STILL incomplete after the re-ask (missing: ${stillMissing.join(', ') || 'see failure'}) — BLOCK needs-owner, never 'error' (B2, BL-0157)`)
@@ -3989,8 +4104,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
           if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
         }
         log(`↻ ${f.frd}: gate-test repair from diagnosis did not green — full revert + retry`)
-        await revertAndReopen(f.frd, gate.reopen)
-        return await inRunRetry(f, gate.reopen, reviewIds, diag)
+        return await revertThenRetry(f, gate.reopen, reviewIds, diag)
       }
       // (b0) BL-0051 DEADLOCK BREAK — a BLESSED reviewer test asserts a contract a work order of this
       // same FRD intentionally derogates, and the work order that would re-bless it `dependsOn` the
@@ -4047,19 +4161,16 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         } else {
           log(`↻ ${f.frd}: patch-2 did not green (${patched2?.failure || 'no verdict'}) — full revert + retry`)
         }
-        await revertAndReopen(f.frd, gate.reopen)
-        return await inRunRetry(f, gate.reopen, reviewIds, diag)
+        return await revertThenRetry(f, gate.reopen, reviewIds, diag)
       }
       // (d) point + repeatsPrior + cleanlySeparable → PARTIAL revert (seam files ONLY) + retry.
       if (repeats && cleanlySeparable) {
         log(`↩ ${f.frd}: diagnosis = point, repeats a prior fault, cleanly separable — PARTIAL revert restricted to the seam (${seam.files.join(', ')}) + retry (A3)`)
-        await revertAndReopen(f.frd, gate.reopen, { seamFiles: seam.files })
-        return await inRunRetry(f, gate.reopen, reviewIds, diag)
+        return await revertThenRetry(f, gate.reopen, reviewIds, diag, { seamFiles: seam.files })
       }
       // (e) point + repeatsPrior + NOT cleanlySeparable (or patch budget spent) → full revert + retry, diagnosis threaded.
       log(`↻ ${f.frd}: diagnosis = point${repeats ? ', repeats a prior fault, not cleanly separable' : ''} — full revert + retry with the diagnosis threaded (A3)`)
-      await revertAndReopen(f.frd, gate.reopen)
-      return await inRunRetry(f, gate.reopen, reviewIds, diag)
+      return await revertThenRetry(f, gate.reopen, reviewIds, diag)
     } else {
       // capHit code-fail (honest degrade — no diagnosis at the ceiling, A3), or a no-verdict patch.
       patchFailNote = `in-place patch did not green (${patched?.failure || 'no verdict'}${patched && patched.cause === 'code' && capHit() ? '; agent ceiling reached — skipping the A3 diagnosis, legacy revert (honest degrade)' : ''})`
@@ -4067,8 +4178,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     // Legacy fallback (verify-failed, gate-test-not-upheld, capHit code-fail, no-verdict): revert + in-run
     // retry with NO diagnosis — byte-equivalent to the pre-A3 path (DR-107).
     log(`↻ ${f.frd}: ${patchFailNote} — reverting + reopening`)
-    await revertAndReopen(f.frd, gate.reopen)
-    return await inRunRetry(f, gate.reopen, reviewIds)
+    return await revertThenRetry(f, gate.reopen, reviewIds)
   }
 
   // B2 (BL-0157): a DEFICIENT traceability inventory with no specific WO reopen is a reviewer-paperwork
@@ -4127,6 +4237,8 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   // Gate failed with no specific reopen → TRY TO REPAIR, then re-gate ONCE (fail-closed).
   log(`! ${f.frd} gate failed${gate?.failure ? ': ' + gate.failure : ''} — attempting repair`)
   const fix = await attemptRepair(f.frd, 'the FRD review/integration gate failed: ' + (gate?.failure || 'unknown'), true)   // BL-0159: gateBlocked:true — a step-3 give-up here IS a gate's terminal outcome
+  // BL-0212/DR-070: a repair that gave up BLOCKED work orders — the engine discards their committed code (own commits).
+  const discardRefused = !(fix && fix.green === true) && !(await discardBlockedCode(f.frd, reviewIds || []))
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
     if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }   // WP-08 cage
@@ -4149,7 +4261,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     blockFrd(f.frd, 'needs-owner', gate.failure || `gate traceability contract: missing ${missing}`, gate.traceability)
     return 'blocked'
   }
-  const reason = (fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error'
+  const reason = discardRefused ? 'needs-owner' : ((fix && fix.blocked_reason) || (gate && gate.blocked_reason) || 'error')
   const failureText = (fix && fix.failure) || (gate && gate.failure) || ''
   // BL-0185: the post-repair re-gate blocked needs-owner with a drift claim, so its reviewer deferred the
   // terminal emission to the engine — persist (and thereby emit) that block exactly once.
@@ -5064,7 +5176,9 @@ while (true) {
       st.failed = false
       for (const id of [...st.toBuildIds]) if (!globalQueue.has(id)) { st.toBuildIds.delete(id); doneIds.add(id) }
     } else {
-      const reason = (fix && fix.blocked_reason) || 'error'
+      // BL-0212/DR-070: discard the committed code of this run's work orders the repair BLOCKED (never an older block).
+      const live = ((st.f && st.f.workOrders) || []).filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED').map((w) => w.id)
+      const reason = (await discardBlockedCode(frd, live)) ? ((fix && fix.blocked_reason) || 'error') : 'needs-owner'
       log(`⊘ ${frd}: could not repair (${reason}) — BLOCKED, continuing with independent FRDs`)
       blockFrdInSchedule(frd, reason)
     }

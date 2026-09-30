@@ -173,6 +173,7 @@ function defaultResponse(label) {
   if (label.startsWith('diagnose:')) return { classification: 'point', repeatsPrior: false, recommendation: 'patch', confidence: 'medium' } // DIAGNOSE_SCHEMA (A2) — benign default (only the recovery-ladder scenarios reach it)
   if (label.startsWith('block-needs-owner:')) return { green: false, blocked_reason: 'needs-owner' } // A3 early-block spawn (REPAIR_SCHEMA)
   if (label.startsWith('block-repair-budget:')) return { green: false, blocked_reason: 'needs-owner' } // WP-08 cost-brake honest exit (REPAIR_SCHEMA)
+  if (label.startsWith('block-revert-refused:')) return { green: false, blocked_reason: 'needs-owner' } // BL-0212 refused-revert block (REPAIR_SCHEMA)
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label.startsWith('gate-change-wos:')) return { results: label.slice('gate-change-wos:'.length).split('+').filter(Boolean).map((frd) => ({ frd, gated: true })) } // BL-0171: happy-path default — every FRD the change touched passes the DR-100 readiness/grounding/consistency gate
@@ -195,7 +196,15 @@ function promptAwareDefault(call) {
     const m = call.prompt.match(/EXPECTED \(JSON\): (\[.*?\])\. Return/)
     return { hashes: m ? JSON.parse(m[1]) : [] }
   }
+  // BL-0212: the deterministic revert discards the work orders' own commits (a sealed wo-revert.mjs line).
+  if (/^wo-revert-(plan|apply|replay):/.test(call.label)) return { output: woRevertLine(call) }
   return null
+}
+// A real-shaped, sealed wo-revert.mjs receipt for the work orders the prompt's command names.
+function woRevertLine(call, over = {}) {
+  const mode = call.label.startsWith('wo-revert-plan:') ? 'plan' : 'apply'
+  const wos = [...call.prompt.matchAll(/--wo '([^']+)'/g)].map((m) => ({ id: m[1], status: 'PLANNED', attempt: 'b0000001' }))
+  return sealLine({ ok: true, version: 1, mode, frd: call.label.slice(call.label.indexOf(':') + 1), pinSha: 'pin00001', pinValid: true, skipped: [], wos, commits: ['b0000001'], seamUntouched: [], status: 'reverted', reason: '', files: [{ path: 'src/rejected.ts', action: 'delete', via: 'revert' }], head: 'head0001', changed: true, committed: mode === 'plan' ? null : 'revert000001', ...over })
 }
 
 // ── Scenario runner ──────────────────────────────────────────────────────────
@@ -1531,9 +1540,10 @@ SCENARIOS.push({
 // (post-wave HEAD freeze) and the gate-worktree probe — so the ladder still runs capHit-false up to
 // revertAndReopen (agentSpawned 26) and the reopened WO rebuilds on OPUS (cost 4) with remaining 1 →
 // budgetedRetry empty → the WS-D/D6 budget-deferral (distinct from the capHit honest-degrade).
+// BL-0212: +2 (27→29) for the two MECH relays of the deterministic revert (the read-only plan + the apply).
 SCENARIOS.push({
   name: 'G8b. budgeted in-run retry — a reopen that does not fit the remaining budget defers (no retry build), FRD reopened',
-  args: { mode: 'pro', maxAgents: 27 },
+  args: { mode: 'pro', maxAgents: 29 },
   plan: mkPlan([{
     frd: 'frd-g8b-defer',
     deps: [],
@@ -2605,8 +2615,10 @@ SCENARIOS.push({
     // removes the reviewer's test copies it ported that are still untracked + byte-identical (git ls-files /
     // shasum / clean -f -- <path>), so the next re-verify's vitest --changed never runs them. = 25 (21 + 1
     // gate-cost + 3 D1), recounted from the source below.
-    t.ok(mechAgentCount === 25, `exactly 25 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 25, `exactly 25 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // + 1 (BL-0212): 'wo-revert-<mode>:<frd>' — runs ONE wo-revert.mjs command and returns its sealed stdout
+    // verbatim (zero judgment; the SCRIPT computes the revert from git history, the ENGINE verifies the seal). = 26.
+    t.ok(mechAgentCount === 26, `exactly 26 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 26, `exactly 26 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -8118,7 +8130,7 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     // Not a MECH site: the finder reads and judges code against a spec (a STANDARD-tier task), so it is a
     // sonnet spawn with its own agent, never MECH_AGENT(...). The WP03a count (25) therefore does not move.
-    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 25, 'the 25 MECH_AGENT sites are unchanged')
+    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 26, 'the MECH_AGENT sites are unchanged by the finder (26 = the WP03a recount, incl. BL-0212\'s revert relay)')
     t.ok((source.match(/agentType: 'pandacorp:drift-finder'/g) || []).length === 1, 'exactly one pandacorp:drift-finder spawn site')
     t.ok(/label: `find:drift:\$\{frd\}`[^\n]*model: 'sonnet'[^\n]*effort: 'medium'/.test(source), 'that site is sonnet at effort medium')
     const agentMd = readFileSync(path.resolve(__dirname, '../agents/drift-finder.md'), 'utf8')
@@ -8575,6 +8587,190 @@ SCENARIOS.push({
     }
   },
 })
+
+// ---- BL-0212: every discard of rejected code reverts the work order's OWN commits (wo-revert.mjs) ----
+// A restore "to last_green_sha" of a work order the pin already contains (a carry-over IN_REVIEW WO, or one a sibling's
+// landing published before its own gate) restored its own rejected build — a silent no-op. The engine now runs the
+// deterministic script (plan → flip → apply) and blocks needs-owner on any refusal. The git-level behaviour (the pin
+// shapes, shared files, conflicts) is proven on real repositories by test-wo-revert.mjs; these scenarios prove the
+// ENGINE drives it at every discard site, in the right order, and never rebuilds on top of a refused revert.
+const b212Plan = (tag, status = 'IN_REVIEW') => mkPlan([{ frd: `frd-${tag}`, deps: [], workOrders: [mkWo(`wo-${tag}-001`, status, { frd: `frd-${tag}`, artifacts: [`src/${tag}/**`] })] }])
+const b212Reject = (tag) => ({ label: `gate:frd-${tag}`, times: 1, response: { green: false, reopen: [`wo-${tag}-001`], findings: [{ wo: `wo-${tag}-001`, finding: `x at src/${tag}/a.ts:3`, files: [`src/${tag}/a.ts`] }] } })
+const b212Receipt = (over) => (call) => ({ output: woRevertLine(call, over) })
+// patch-1 fails, the diagnosis says "repeats a prior fault, not separable" → straight to the full revert + retry (the
+// cheapest path to the retry: a carry-over FRD has no build spend this run, so the WP-08 brake floor is 9 units).
+const b212FullRevert = (frd) => [{ label: `patch:${frd}`, response: { green: false, cause: 'code', failure: 'still red' } },
+  { label: `diagnose:${frd}`, response: { classification: 'point', repeatsPrior: true, recommendation: 'full-revert', confidence: 'medium', seam: null } }]
+const b212Conflict = { status: 'conflict', changed: false, committed: null, files: [], conflicts: ['src/messages.json'], reason: 'reverting the attempt would conflict with another commit\'s edit of: src/messages.json — nothing was reverted (never a partial revert)' }
+const LEGACY_PIN_RESTORE = /git checkout <last_green_sha> -- <(its|their|those)/
+const idx = (run, label) => { const c = byLabel(run, label)[0]; return c ? c.index : -1 }
+
+SCENARIOS.push({
+  name: 'BL-0212 a. a carry-over IN_REVIEW WO reopened: read-only revert PLAN → the flip commit → the deterministic APPLY (require PLANNED, expect a change) → only then the in-run retry rebuild',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212a'),
+  responses: [b212Reject('b212a'), ...b212FullRevert('frd-b212a')],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const plan = byLabel(run, 'wo-revert-plan:frd-b212a')[0]
+    const apply = byLabel(run, 'wo-revert-apply:frd-b212a')[0]
+    const flip = byLabel(run, 'revert:frd-b212a')[0]
+    const rebuild = byLabel(run, 'build:wo-b212a-001')[0]
+    t.ok(plan && flip && apply && rebuild, 'plan, flip, apply and the retry rebuild all ran')
+    t.ok(plan && flip && apply && rebuild && plan.index < flip.index && flip.index < apply.index && apply.index < rebuild.index, 'order: plan → flip → apply → rebuild (WS-D/D12: the flip lands before any code leaves)')
+    t.ok(plan && /wo-revert\.mjs' plan --project/.test(plan.prompt) && /--frd 'frd-b212a'/.test(plan.prompt) && /--wo 'wo-b212a-001'/.test(plan.prompt), 'the plan runs wo-revert.mjs for exactly this FRD and work order')
+    t.ok(apply && /wo-revert\.mjs' apply /.test(apply.prompt) && /--require-status PLANNED --expect-change/.test(apply.prompt), 'the apply requires the committed PLANNED flip and expects a change')
+    t.ok(plan && apply && plan.opts.model === 'haiku' && /MECHANICAL COMMAND RUNNER/.test(apply.prompt), 'both are mechanical relays (zero judgment)')
+    t.ok(flip && !LEGACY_PIN_RESTORE.test(flip.prompt) && /Do NOT discard any other code yourself/.test(flip.prompt), 'the flip agent is told NOT to discard code and never to restore "to last_green_sha"')
+    t.ok(!LEGACY_PIN_RESTORE.test(source), 'no prompt left in the engine source restores a work order\'s files to last_green_sha')
+    t.ok(hasLog(run, /frd-b212a: discarded the rejected work of wo-b212a-001 — 1 file\(s\)/), 'the discard is logged with what it touched')
+    t.ok(run.result && run.result.builtFrds.includes('frd-b212a'), 'the retry re-gated green')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 b1. DR-070 early block (architectural): the BLOCKED flip commits FIRST, then the deterministic discard (require BLOCKED) — main does not keep the rejected code',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212b'),
+  responses: [b212Reject('b212b'), { label: 'patch:frd-b212b', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'diagnose:frd-b212b', response: { classification: 'architectural', repeatsPrior: false, recommendation: 'block-needs-owner', confidence: 'high', decisionRecord: 'x' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const block = byLabel(run, 'block-needs-owner:frd-b212b')[0]
+    const apply = byLabel(run, 'wo-revert-apply:frd-b212b')[0]
+    t.ok(idx(run, 'wo-revert-plan:frd-b212b') >= 0 && block && apply && idx(run, 'wo-revert-plan:frd-b212b') < block.index && block.index < apply.index, 'plan → BLOCKED flip → apply')
+    t.ok(apply && /--require-status BLOCKED --expect-change/.test(apply.prompt), 'the discard requires the committed BLOCKED state')
+    t.ok(block && !LEGACY_PIN_RESTORE.test(block.prompt) && /Discard NO other code yourself/.test(block.prompt), 'the block agent discards no code itself')
+    t.ok(run.result && run.result.blockedReasons['frd-b212b'] === 'needs-owner', 'blocked needs-owner')
+    t.ok(byLabel(run, /^revert:/).length === 0 && byLabel(run, 'build:wo-b212b-001').length === 0, 'no reopen flip, no rebuild')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 b2. a gate failure without reopen whose repair gives up: the repair discards only UNCOMMITTED edits; the engine discards the BLOCKED work orders\' committed code (only-status BLOCKED)',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212c'),
+  responses: [{ label: 'gate:frd-b212c', response: { green: false, reopen: [], blocked_reason: 'error', failure: 'the integration suite crashes' } },
+    { label: 'repair:frd-b212c', response: { green: false, blocked_reason: 'error', failure: 'cannot fix' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const repair = byLabel(run, 'repair:frd-b212c')[0]
+    const apply = byLabel(run, 'wo-revert-apply:frd-b212c')[0]
+    t.ok(repair && apply && repair.index < apply.index, 'the discard runs after the repair gave up')
+    t.ok(apply && /--wo 'wo-b212c-001' --only-status BLOCKED/.test(apply.prompt), 'it reverts only the reviewed work orders the repair BLOCKED')
+    t.ok(repair && !LEGACY_PIN_RESTORE.test(repair.prompt) && /Never touch COMMITTED code/.test(repair.prompt) && /checkout HEAD --/.test(repair.prompt), 'the repair restores only uncommitted edits, to HEAD')
+    t.ok(run.result && run.result.blockedReasons['frd-b212c'] === 'error', 'the repair\'s own reason stands when the discard succeeds')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 b3. a build-wave self-test failure whose repair gives up: the discard covers this run\'s work orders (only-status BLOCKED); a refused discard turns the block needs-owner',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212w', 'PLANNED'),
+  responses: [{ label: 'build:wo-b212w-001', response: { green: false } },
+    { label: 'repair:frd-b212w', response: { green: false, blocked_reason: 'external', failure: 'registry 503' } },
+    { label: 'wo-revert-apply:frd-b212w', response: b212Receipt(b212Conflict) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const apply = byLabel(run, 'wo-revert-apply:frd-b212w')[0]
+    t.ok(apply && /--wo 'wo-b212w-001' --only-status BLOCKED/.test(apply.prompt), 'the wave repair path discards through the script too')
+    const refused = byLabel(run, 'block-revert-refused:frd-b212w')[0]
+    t.ok(refused && /For EACH of these work orders that is BLOCKED/.test(refused.prompt) && /src\/messages\.json/.test(refused.prompt), 'a refused discard records needs-owner on the BLOCKED work orders, naming the conflicting file')
+    t.ok(run.result && run.result.blockedReasons['frd-b212w'] === 'needs-owner', `blocked needs-owner, not the repair's 'external' (got ${run.result && run.result.blockedReasons['frd-b212w']})`)
+    t.ok(hasLog(run, /RevertRefused frd-b212w/), 'the refusal is logged loud')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 d1. the revert PLAN refuses (a conflict with another commit\'s edit): nothing is flipped, nothing reverted, NO rebuild — BLOCKED needs-owner with the conflicting file',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212d'),
+  responses: [b212Reject('b212d'), ...b212FullRevert('frd-b212d'),
+    { label: 'wo-revert-plan:frd-b212d', response: b212Receipt(b212Conflict) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'revert:frd-b212d').length === 0, 'no reopen flip was committed')
+    t.ok(byLabel(run, 'wo-revert-apply:frd-b212d').length === 0, 'no apply ran')
+    t.ok(byLabel(run, 'build:wo-b212d-001').length === 0, 'no retry rebuild on top of the rejected code')
+    const refused = byLabel(run, 'block-revert-refused:frd-b212d')[0]
+    t.ok(refused && /src\/messages\.json/.test(refused.prompt) && /NOTHING was reverted/.test(refused.prompt) && /"blocked_reason":"needs-owner"/.test(refused.prompt), 'the block records the conflict and emits the needs-owner outcome')
+    t.ok(run.result && run.result.blockedReasons['frd-b212d'] === 'needs-owner' && !run.result.reopenedFrds.includes('frd-b212d'), 'blocked needs-owner (not reopened)')
+    t.ok(hasLog(run, /⛔ RevertRefused frd-b212d: .*conflict/), 'loud RevertRefused log')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 d2. the APPLY refuses after the flip landed (the tree moved): no rebuild, the just-PLANNED work orders are BLOCKED needs-owner',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212e'),
+  responses: [b212Reject('b212e'), ...b212FullRevert('frd-b212e'),
+    { label: 'wo-revert-apply:frd-b212e', response: b212Receipt({ status: 'dirty', changed: false, committed: null, files: [], dirty: ['src/b212e/a.ts'], reason: 'uncommitted change(s) on target path(s): src/b212e/a.ts — nothing was reverted' }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const refused = byLabel(run, 'block-revert-refused:frd-b212e')[0]
+    t.ok(refused && /just set PLANNED — their rejected code is still on main/.test(refused.prompt), 'the block knows the flip already landed')
+    t.ok(byLabel(run, 'build:wo-b212e-001').length === 0, 'no rebuild')
+    t.ok(run.result && run.result.blockedReasons['frd-b212e'] === 'needs-owner', 'blocked needs-owner')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 d3. the relay alters the sealed receipt → re-read from the stored line (proceeds); unreadable twice → refused, fail-closed (never read as "reverted")',
+  args: { mode: 'pro' },
+  plan: mkPlan([
+    { frd: 'frd-b212g', deps: [], workOrders: [mkWo('wo-b212g-001', 'IN_REVIEW', { frd: 'frd-b212g', artifacts: ['src/b212g/**'] })] },
+    { frd: 'frd-b212h', deps: [], workOrders: [mkWo('wo-b212h-001', 'IN_REVIEW', { frd: 'frd-b212h', artifacts: ['src/b212h/**'] })] },
+  ]),
+  responses: [b212Reject('b212g'), b212Reject('b212h'),
+    { prefix: 'patch:', response: { green: false, cause: 'code', failure: 'still red' } },
+    { label: 'wo-revert-plan:frd-b212g', times: 1, response: (call) => ({ output: woRevertLine(call).replace('"reverted"', '"reverteD"') }) },
+    { label: 'wo-revert-plan:frd-b212h', response: { output: '{"ok":true,"status":"reverted"' } },
+    { label: 'wo-revert-replay:frd-b212h', response: { output: '' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(byLabel(run, 'wo-revert-replay:frd-b212g').length === 1 && /wo-revert\.mjs' replay --project/.test(byLabel(run, 'wo-revert-replay:frd-b212g')[0].prompt), 'an altered line is re-read once from the stored copy')
+    t.ok(byLabel(run, 'revert:frd-b212g').length === 1 && byLabel(run, 'wo-revert-apply:frd-b212g').length === 1, 'the re-read receipt lets the discard proceed')
+    t.ok(byLabel(run, 'revert:frd-b212h').length === 0 && byLabel(run, 'block-revert-refused:frd-b212h').length === 1, 'an unreadable receipt is a refusal: no flip, blocked')
+    t.ok(run.result && run.result.blockedReasons['frd-b212h'] === 'needs-owner', 'blocked needs-owner')
+  },
+})
+
+SCENARIOS.push({
+  name: 'BL-0212 noop. an apply that changes nothing where a change was expected is logged loud (RevertNoop); the retry still runs from the current tree',
+  args: { mode: 'pro' },
+  plan: b212Plan('b212n'),
+  responses: [b212Reject('b212n'), ...b212FullRevert('frd-b212n'),
+    { label: 'wo-revert-apply:frd-b212n', response: b212Receipt({ status: 'nothing', changed: false, committed: null, files: [{ path: 'src/b212n/a.ts', action: 'keep', via: 'revert' }], reason: 'the attempt\'s commits are already undone in the tree' }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    t.ok(hasLog(run, /⚠ RevertNoop frd-b212n: discarding wo-b212n-001 changed NOTHING \(the attempt's commits are already undone in the tree\)/), 'the no-op is logged loud with its reason')
+    t.ok(byLabel(run, 'build:wo-b212n-001').length === 1, 'the retry still runs')
+  },
+})
+
+// (f) parallel gates (the v9.116.0 default): B passes and lands FIRST — its publication now contains A's carry-over
+// IN_REVIEW build (the BL-0190 audit's exact shape) — then A's reject lands: A's discard names only A's work order.
+{
+  let aGates = 0
+  const aVerdict = () => (aGates++ === 0 ? { green: false, reopen: ['wo-b212f-1'], findings: [{ wo: 'wo-b212f-1', finding: 'x at src/b212f1/a.ts:1', files: ['src/b212f1/a.ts'] }] } : { green: true })
+  const h = d1Harness({ order: ['frd-b212f-2', 'frd-b212f-1'], autoFlushAt: 2, verdicts: { 'frd-b212f-1': aVerdict } })
+  SCENARIOS.push({
+    name: 'BL-0212 f. parallelGates (default ON), two FRDs: B lands first (the pin now contains A\'s carry-over build), then A\'s reject discards ONLY A\'s work order through the script, in the landing lane',
+    args: { mode: 'pro', parallelGates: undefined, gateSlots: 2 },   // key present but undefined → the engine's own default (ON), as D1h-omitted
+    plan: d1Resume('b212f', 2),
+    responses: [...b212FullRevert('frd-b212f-1'), ...h.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error}`)
+      t.ok(byLabel(run, /^gate:/).some((g) => /gate-worktree-\d/.test(g.prompt)) && byLabel(run, /^stale-pin:/).length >= 1, 'the pooled parallel-gate topology ran (the engine default)')
+      const landB = idx(run, 'apply-gate:frd-b212f-2')
+      const planA = idx(run, 'wo-revert-plan:frd-b212f-1')
+      t.ok(landB >= 0 && planA > landB, 'B\'s PASS landed before A\'s discard started')
+      const reverts = run.calls.filter((c) => /^wo-revert-/.test(c.label))
+      t.ok(reverts.length >= 2 && reverts.every((c) => /--frd 'frd-b212f-1'/.test(c.prompt) && /--wo 'wo-b212f-1'/.test(c.prompt) && !/wo-b212f-2/.test(c.prompt)), 'every revert relay names only FRD A and its work order — never B')
+      t.ok(run.result && run.result.builtFrds.includes('frd-b212f-2') && run.result.builtFrds.includes('frd-b212f-1'), 'B verified; A verified after its retry')
+    },
+  })
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
