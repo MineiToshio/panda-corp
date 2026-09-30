@@ -36,7 +36,7 @@ must say why it stopped.
 
 ## Done when
 - [x] Reproduced, cause confirmed; the executor never exits non-zero silently.
-- [x] Back-to-back full batteries are green (see the landing report for the runs).
+- [x] Back-to-back full batteries are green: 3 consecutive `run-engine-tests.sh` (181-192 s, 31/31 suites each) on the rebased tree, plus one under 14 CPU burners and 4 concurrent engine-suite loops (309 s, 31/31).
 
 ## Out of scope
 The other suites' timing hazards (BL-0166's own out-of-scope note).
