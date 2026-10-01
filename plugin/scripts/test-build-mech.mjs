@@ -357,6 +357,84 @@ console.log('park-wo leftovers: without a dispatch snapshot the undeclared path 
   } finally { r.cleanup() }
 }
 
+// A path dirty at the dispatch is the owner's only while it still holds what it held then: the dispatch snapshot records a
+// content hash per pre-dispatch dirty path, and park-wo --all-undeclared keeps exactly the unchanged ones. A declared
+// path the builder changed is always salvaged (the salvage copy keeps it), even when it was dirty at the dispatch.
+console.log('park-wo --all-undeclared: pre-dispatch dirt is kept only while its content is unchanged since the dispatch')
+{
+  const r = mkRepo()
+  try {
+    r.write('src/beta.ts', 'export const beta = "owner draft"\n')                 // declared by WO-01-002, dirty before the dispatch
+    r.write('src/existing.ts', 'export const existing = "owner"\n')               // undeclared, dirty before the dispatch
+    r.write('src/notes.ts', 'export const notes = "owner"\n')                     // undeclared, dirty before the dispatch
+    r.write('src/plan.ts', 'export const plan = "owner"\n')                       // declared, dirty before, never touched after
+    const d = r.run('dispatch', ['--wo', 'WO-01-002', '--commit'])
+    ok(d.code === 0 && d.receipt.status === 'stamped', 'dispatched over pre-existing dirt')
+    r.write('src/beta.ts', 'export const beta = "builder, broken"\n')            // the builder changed the declared path
+    r.write('src/existing.ts', 'export const existing = "builder"\n')             // and an undeclared pre-dirty path
+    const p = r.run('park-wo', ['--wo', 'WO-01-002', '--files', 'src/beta.ts,src/plan.ts', '--all-undeclared'])
+    const parked = (p.receipt && p.receipt.parked || []).map((x) => x.path).sort()
+    ok(p.code === 0 && p.receipt.allUndeclared === 'applied' && JSON.stringify(parked) === JSON.stringify(['src/beta.ts', 'src/existing.ts']), `the two paths the builder changed since the dispatch are parked, declared or not (got ${parked.join(', ')} ${p.receipt && (p.receipt.reason || p.receipt.error || '')})`)
+    const dir = path.join(r.proj, p.receipt.dir || 'none')
+    ok(existsSync(path.join(dir, 'src/beta.ts')) && readFileSync(path.join(dir, 'src/beta.ts'), 'utf8') === 'export const beta = "builder, broken"\n', 'the salvage copy holds the builder\'s content of the declared path')
+    ok(r.read('src/notes.ts') === 'export const notes = "owner"\n' && r.read('src/plan.ts') === 'export const plan = "owner"\n' && (p.receipt.kept || []).includes('src/notes.ts') && (p.receipt.kept || []).includes('src/plan.ts'), 'the unchanged pre-dispatch dirt is kept, untouched, declared or not')
+  } finally { r.cleanup() }
+}
+
+// A parked work order's leftover never rides a later commit: whether a later work order names it in --files (a glob or
+// a directory) or in --extra, commit-wo refuses it while it still holds the parked content. The records are run state:
+// the precheck and every dispatch clear them, so they never outlive the run that parked.
+console.log('commit-wo: a parked leftover still holding its parked content is refused through --files too; records clear at precheck and dispatch')
+{
+  const leftover = () => {
+    const r = mkRepo()
+    r.installVitest()
+    r.write('src/stray.ts', 'export const stray = 1\n')
+    const p = r.run('park-wo', ['--wo', 'WO-01-002', '--files', 'src/beta.ts', '--all-undeclared'])
+    if (!(p.code === 0 && (p.receipt.left || []).includes('src/stray.ts'))) throw new Error(`fixture: no leftover (${p.line})`)
+    buildAlpha(r)
+    return r
+  }
+  const r = leftover()
+  try {
+    const before = r.head()
+    const c = r.run('commit-wo', ['--wo', 'WO-01-001', '--files', 'src/**'])
+    ok(c.code === 4 && c.receipt.status === 'parked-leftover' && (c.receipt.paths || []).includes('src/stray.ts') && r.head() === before, `a --files glob covering the leftover is refused (got ${c.code} ${c.receipt && c.receipt.status})`)
+    const dirForm = r.run('commit-wo', ['--wo', 'WO-01-001', '--files', 'src'])
+    ok(dirForm.code === 4 && dirForm.receipt.status === 'parked-leftover', 'a --files directory covering the leftover is refused')
+    ok(/IN_PROGRESS/.test(r.read(WO_A)) && r.read('src/stray.ts') === 'export const stray = 1\n', 'nothing was stamped, committed or touched')
+    r.write('src/stray.ts', 'export const stray = 2 // this work order now owns its change\n')
+    const changed = r.run('commit-wo', ['--wo', 'WO-01-001', '--files', 'src/**'])
+    ok(changed.code === 0 && changed.receipt.status === 'committed' && r.filesAt().includes('proj/src/stray.ts'), `a leftover that no longer holds the parked content is this build's edit: it commits (got ${changed.code} ${changed.receipt && (changed.receipt.status + ' ' + (changed.receipt.reason || ''))})`)
+  } finally { r.cleanup() }
+  const pc = leftover()
+  try {
+    const parkedDir = path.join(pc.proj, '.pandacorp', 'run', 'parked')
+    ok(existsSync(parkedDir) && readdirSync(parkedDir).length === 1, 'the park left one record')
+    const pre = pc.run('precheck')
+    ok(pre.code === 0 && (!existsSync(parkedDir) || readdirSync(parkedDir).length === 0), `the precheck clears the parked records (got ${existsSync(parkedDir) ? readdirSync(parkedDir).join(',') : 'none'})`)
+    const c = pc.run('commit-wo', [...ALPHA_FILES, '--extra', 'src/stray.ts', '--reason', 'shared helper'])
+    ok(c.code === 0 && c.receipt.status === 'committed', `after the precheck no record refuses it (got ${c.code} ${c.receipt && c.receipt.status})`)
+  } finally { pc.cleanup() }
+  const dc = leftover()
+  try {
+    const parkedDir = path.join(dc.proj, '.pandacorp', 'run', 'parked')
+    const d = dc.run('dispatch', ['--wo', 'WO-02-001'])
+    ok(d.code === 0 && (!existsSync(parkedDir) || readdirSync(parkedDir).length === 0), 'a dispatch clears the parked records')
+  } finally { dc.cleanup() }
+  // The classic waves never record leftovers: a parallel sibling's files are dirty at the same time and are its own.
+  const cl = mkRepo()
+  try {
+    cl.installVitest()
+    cl.write('src/beta.ts', 'export const beta = \n')
+    buildAlpha(cl)
+    const p = cl.run('park-wo', ['--wo', 'WO-01-002', '--files', 'src/beta.ts'])
+    ok(p.code === 0 && !existsSync(path.join(cl.proj, '.pandacorp', 'run', 'parked')), 'a classic park (no --all-undeclared) records no leftover')
+    const c = cl.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 0 && c.receipt.status === 'committed', `the sibling commits its own files (got ${c.code} ${c.receipt && c.receipt.status})`)
+  } finally { cl.cleanup() }
+}
+
 // ── precheck ─────────────────────────────────────────────────────────────────────────────────────
 console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, the journals committed, owner dirt untouched')
 {

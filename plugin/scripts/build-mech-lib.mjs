@@ -194,7 +194,8 @@ export function inReviewWindow(ctx, rel) {
 }
 
 // ── declared paths ─────────────────────────────────────────────────────────────────────────────
-const globRe = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '\u0000').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '(?:.*/)?')}$`)
+// `**` is swapped for placeholders BEFORE the single `*` rule runs, so its own `.*` is never rewritten to `.[^/]*`.
+const globRe = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '\u0000').replace(/\*\*/g, '\u0001').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '(?:.*/)?').replace(/\u0001/g, '.*')}$`)
 /** Does a project-relative path fall under one declared entry (exact file, a directory, or a glob)? */
 export function matchesDeclared(declared, p) {
   return declared.some((raw) => {
