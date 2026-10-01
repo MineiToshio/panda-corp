@@ -10,7 +10,9 @@
 #           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
-#   maxAgents: integer hard cap on subagents this run (the real overnight guardrail)
+#   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
+#              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never
+#              overridden, and `auto` is NOT a budget the owner chose — the overnight warning below still fires)
 #   --ttl:     atomic lease TTL in seconds (default 3600 — BL-0153: a build phase dominated by
 #              back-to-back gate/repair attempts with no intervening safe-point can go silently
 #              unrenewed well past the historical 600s default; raise further for a targeted
@@ -66,6 +68,7 @@ done
 case "$MODE" in pro|balanced|powerful|deep) ;; *) echo "ERROR: invalid mode: $MODE" >&2; exit 3 ;; esac
 for pair in "maxAgents:$MAX_AGENTS" "maxFrds:$MAX_FRDS" "maxSpend:$MAX_SPEND" "ttl:$TTL"; do
   value=${pair#*:}; [ -z "$value" ] && continue
+  [ "$pair" = "maxAgents:auto" ] && continue
   [[ "$value" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: ${pair%%:*} must be a positive integer." >&2; exit 3; }
 done
 [ -z "$FRDS" ] || [ -z "$CHANGE" ] || { echo "ERROR: --frds and --change are mutually exclusive." >&2; exit 3; }
@@ -158,7 +161,8 @@ else
   WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" <<'NODE'
 const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache] = process.argv.slice(2);
 const args = { mode };
-if (maxAgents) args.maxAgents = Number(maxAgents);
+if (maxAgents === "auto") args.maxAgents = "auto";
+else if (maxAgents) args.maxAgents = Number(maxAgents);
 args.projectDir = projectDir;
 args.project = project;
 args.leaseToken = leaseToken;
@@ -198,6 +202,9 @@ echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
 [ -z "$MAX_AGENTS" ] && echo "  WARNING: no maxAgents given — an OVERNIGHT run MUST pass one (the real guardrail)."
+[ "$MAX_AGENTS" = "auto" ] && echo "  WARNING: maxAgents=auto is a projection-sized convenience, NOT an owner-chosen budget — an OVERNIGHT run MUST still pass an explicit integer (the real guardrail)."
+# `auto` has no integer to compare: every numeric floor check below is skipped for it (the engine logs its own projection).
+NUMERIC_MAX_AGENTS="$MAX_AGENTS"; [ "$MAX_AGENTS" = "auto" ] && NUMERIC_MAX_AGENTS=""
 # BL-0173 (canary-d, 2026-09-25): maxAgents is the run's TOTAL cost-weighted spend budget, never a
 # concurrency/wave-width knob (see this file's own header + plugin/skills/implement/SKILL.md's DR-050
 # table) — but the FIXED pre-wave overhead (baseline precheck + plan + the first wave's own safe-point +
@@ -208,7 +215,7 @@ echo "  immediately and relaunch (re-pass args; hardcode the scope into args if 
 # the owner already knows to read the engine's own "reducida a 1 WO por presupuesto de agentes agotado"
 # log line. Warn about it HERE, before the run even starts, for `powerful` mode specifically (its
 # highest wave width makes the mismatch worst) when the given ceiling is below the floor.
-if [ "$MODE" = "powerful" ] && [ -n "$MAX_AGENTS" ] && [ "$MAX_AGENTS" -lt 15 ]; then
+if [ "$MODE" = "powerful" ] && [ -n "$NUMERIC_MAX_AGENTS" ] && [ "$NUMERIC_MAX_AGENTS" -lt 15 ]; then
   echo "  WARNING: maxAgents=$MAX_AGENTS is a TOTAL run budget, NOT concurrency — powerful mode's own fixed"
   echo "  pre-wave overhead (baseline+plan+safe-point+foundation-gate, opus-weighted) alone can reach ~8-11"
   echo "  units before the first wave is even picked (~11-14 if this is a --change run). With < 15, the"
@@ -216,47 +223,38 @@ if [ "$MODE" = "powerful" ] && [ -n "$MAX_AGENTS" ] && [ "$MAX_AGENTS" -lt 15 ];
   echo "  (BL-0173) — raise maxAgents, or expect and read the engine's own 'oleada reducida a 1 WO por"
   echo "  presupuesto de agentes agotado' log line rather than mis-reading it as a dependency stall."
 fi
-# Canary E (docs/reviews/canary-e-partial-report.md §4.4, 2026-09-25): with parallel gates the per-FRD gate
-# machinery is priced in maxAgents' cost-weighted units, and E (maxAgents 40, 4 FRDs) ran out after 2 gates and one
-# reopen ladder. Per FRD, from the engine's own weights (opus = 3, every MECH step = 1): the gate link ~6 (slot probe
-# + digested collector + opus review + release; a powerful-mode re-gate splits into more), a PASS landing ~2-3
-# (stale-pin check + apply, + a re-verify when main moved), and a REOPEN adds its ladder ~7 (port reviewer tests +
-# opus patch + hash check + verifier + certify stamp) plus drift proof/record/unport ~1-3. A PASS FRD is ~8-9 units,
-# a reopened one ~15-17; at the canaries' ~50 % first-gate reopen rate, plus the fixed pre-wave overhead above,
-# 15 x the FRDs to gate is the floor (E's 4 FRDs -> 60). Advisory only: nothing here changes what the engine does.
-# BL-0207 (canary F2, 2026-09-26): the whole-FRD drift finder is ONE more sonnet unit in every gate link (the
-# engine's gateCostEstimate: `DRIFT_FINDER ? COST('sonnet')`) and a re-gate after a reopen launches it again — F2 at
-# 15 x 4 = 60 spent the whole ceiling exactly as it finished. Its floor was 17 x the FRDs (15 + 1 for the first gate's
-# finder + 1 amortized for the re-gates' finders at the ~50 % reopen rate).
-# BL-0214: each finder gate also spends ONE MECH unit on the deterministic snippet check (finder-snippets.mjs, the engine's
-# gateCostEstimate counts it), first gate and amortized re-gates alike — so the finder-on floor is 19 x the FRDs (15 + 2 + 2).
-# The evidence report's seal adds no agent (the script runs inside the collector's own spawn); its re-reads fire only on a
-# corrupted relay and are not reserved. BL-0212: a DR-073 revert fallback (rarer than the patch ladder above) adds 2 MECH
-# units to its ladder (wo-revert plan + apply, +1 per relay re-read) and a block path 1 (apply) — not in the floor. The
-# engine's own brake never cuts that sequence (capHit() only at safe points); the supervisor's external brake can, which
-# BL-0215 survives: every discard records its intent (the repair path spends 1 more MECH unit per repair on that plan) and a
-# run START spends ONE MECH unit per FRD that holds a BLOCKED or reopened-PLANNED work order to finish an interrupted discard
-# (none when there is none) — pre-loop, not in the floor.
-# The finder is ON with `--drift-finder on`,
-# or under `--gate-evidence digested` unless `--drift-finder off` (the engine's own default: on under digested, off
-# under the default explore).
-# parallelGates now defaults ON (v9.116.0, F1/F2 verdict) — this warning fires whenever PARALLEL_GATES is not
-# explicitly "0" (--no-parallel-gates), not only when --parallel-gates was typed.
+# Sizing floor (BENCH A-1, 2026-10-01 - supersedes the old "15 x the FRDs" rule of thumb, which priced the gate
+# links only and omitted the fixed pre-wave overhead, per-WO plumbing and opus weight: A-1, ONE FRD / 3 WOs / one
+# reopen, needed ~48 cost units and a maxAgents of 15 stopped it at `agents` before any gate). The engine's own weights
+# (opus = 3, every MECH step = 1) give, per run:
+#   fixed overhead ~8 (baseline precheck + plan + the first wave's safe-point + a UI build's foundation-gate)
+#   + per WO to build (3 MECH steps: dispatch share, commit, self-test relay) + the builder's weight (sonnet 1, opus 3)
+#   + ~20 per FRD gate/ladder (gate link ~6 + PASS landing ~2-3 + a reopen's patch ladder ~7-9 at the canaries' ~50 %
+#     first-gate reopen rate + the tail share).
+# The launcher cannot read the WO count, so its floor is the FRD part, 8 + 20 x the FRDs, and the owner adds ~4-6 per WO.
+# BL-0207/BL-0214: the whole-FRD drift finder (ONE sonnet unit + ONE MECH snippet check per gate link, again on every
+# re-gate) adds ~4 per FRD. The finder is ON with `--drift-finder on`, or under `--gate-evidence digested` unless
+# `--drift-finder off` (the engine's own default: on under digested, off under the default explore).
+# Advisory only: nothing here changes what the engine does, and an explicit integer is never overridden. To skip the
+# arithmetic pass `auto` (opt-in): the engine projects the run after its plan and logs the units and an approximate USD.
+# parallelGates defaults ON (v9.116.0), so this fires whenever PARALLEL_GATES is not explicitly "0".
 if [ "$PARALLEL_GATES" != "0" ]; then
-  PER_FRD=15; FINDER_NOTE=""
+  PER_FRD=20; FINDER_NOTE=""
   if [ "$DRIFT_FINDER" = "on" ] || { [ "$GATE_EVIDENCE" = "digested" ] && [ "$DRIFT_FINDER" != "off" ]; }; then
-    PER_FRD=19; FINDER_NOTE=" + ~4 for the drift finder and its snippet check (BL-0207, BL-0214)"
+    PER_FRD=24; FINDER_NOTE=" + ~4 for the drift finder and its snippet check (BL-0207, BL-0214)"
   fi
   GATE_FRDS=""
   [ -n "$FRDS" ] && GATE_FRDS=$(printf '%s\n' "$FRDS" | tr ',' '\n' | grep -c .)
-  if [ -n "$MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$MAX_AGENTS" -lt $((PER_FRD * GATE_FRDS)) ]; then
+  if [ -n "$NUMERIC_MAX_AGENTS" ] && [ -n "$GATE_FRDS" ] && [ "$NUMERIC_MAX_AGENTS" -lt $((8 + PER_FRD * GATE_FRDS)) ]; then
     echo "  WARNING: parallel FRD gates (default on) with maxAgents=$MAX_AGENTS for $GATE_FRDS FRD(s): the recommended"
-    echo "  floor is $PER_FRD x FRDs = $((PER_FRD * GATE_FRDS)) cost-weighted units (gate ~6 + landing ~2-3 per FRD${FINDER_NOTE}, +~7-9 for each reopen ladder)."
-    echo "  Below it the run will likely stop at the agent ceiling before every FRD has gated (canary E: 40 for"
-    echo "  4 FRDs ran out after 2 gates) — raise maxAgents, gate fewer FRDs this run, or pass --no-parallel-gates."
-  elif [ -z "$GATE_FRDS" ]; then
-    echo "  NOTE: parallel FRD gates (default on): size maxAgents to at least $PER_FRD x the FRDs this run will gate (gate"
-    echo "  ~6 + landing ~2-3 per FRD${FINDER_NOTE}, +~7-9 for each reopen ladder — canary E: 40 for 4 FRDs ran out after 2 gates)."
+    echo "  floor is 8 + $PER_FRD x FRDs = $((8 + PER_FRD * GATE_FRDS)) cost-weighted units (fixed overhead ~8, gate + landing + one reopen ladder ~20 per FRD${FINDER_NOTE}),"
+    echo "  PLUS ~4-6 per work order to build (3 MECH steps + the builder's weight, opus = 3). Measured: 1 FRD / 3 WOs / one reopen"
+    echo "  needed ~48 units. Below it the run will likely stop at the agent ceiling before every FRD has gated - raise"
+    echo "  maxAgents, gate fewer FRDs this run, pass --no-parallel-gates, or pass 'auto' and let the engine size it."
+  elif [ -z "$GATE_FRDS" ] && [ "$MAX_AGENTS" != "auto" ]; then
+    echo "  NOTE: parallel FRD gates (default on): size maxAgents to at least 8 + $PER_FRD x the FRDs this run will gate (fixed overhead ~8, gate +"
+    echo "  landing + one reopen ladder ~20 per FRD${FINDER_NOTE}), PLUS ~4-6 per work order to build. Measured: 1 FRD / 3 WOs / one reopen"
+    echo "  needed ~48 units. Or pass 'auto': the engine projects the run after its plan and logs the units."
   fi
 fi
 exit 0
