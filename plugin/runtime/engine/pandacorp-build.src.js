@@ -609,6 +609,15 @@ const MECH = (args && args.mechModel) || 'haiku'
 // PRE-WP-03 agentType so args.mechLean:false restores it byte-for-byte, never a guessed default.
 const MECH_LEAN = !(args && args.mechLean === false)
 const MECH_AGENT = (fallback) => (MECH_LEAN ? 'pandacorp:mech' : fallback)
+// A MECH (haiku) agent that has nothing to report for an optional string field often returns a SENTINEL string
+// instead of omitting it (bench-medium C-1, plugin 9.118.0: `failure: "null"`, `projectPrefix: "\"\""`). Control flow must
+// never branch on such a value: this returns the trimmed string, or '' for null/undefined/non-string/''/'null'/
+// 'undefined'/'none' (case-insensitive) and a quoted-empty string ('""', "''").
+const optionalText = (v) => {
+  if (typeof v !== 'string') return ''
+  const t = v.trim()
+  return /^(?:null|undefined|none|""|'')$/i.test(t) ? '' : t
+}
 const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 
 // ── C2: CONCURRENT FRD GATES IN A PINNED WORKTREE ─────────────────────────────────────────────────
@@ -1663,7 +1672,7 @@ let baseline
 // project's `git rev-parse --show-prefix`; the engine strips it here. Only a well-formed prefix is stripped (no
 // leading '/', no '..', ends in '/'), and only from a path that starts with it — anything else stays unmatched
 // and escalates, so the exclusion can never widen.
-const PRECHECK_PREFIX = (precheck && typeof precheck.projectPrefix === 'string' && /^(?:[^/.][^/]*\/)*$/.test(precheck.projectPrefix) && !precheck.projectPrefix.split('/').includes('..')) ? precheck.projectPrefix : ''
+const PRECHECK_PREFIX = (precheck && /^(?:[^/.][^/]*\/)*$/.test(optionalText(precheck.projectPrefix)) && !optionalText(precheck.projectPrefix).split('/').includes('..')) ? optionalText(precheck.projectPrefix) : ''
 const projectRelativeDirtyPath = (p) => (typeof p === 'string' && PRECHECK_PREFIX && p.startsWith(PRECHECK_PREFIX)) ? p.slice(PRECHECK_PREFIX.length) : p
 // BL-0202: a dirty path OUTSIDE the project prefix is another session's work in a shared repository — it is
 // informational, never this project's dirt. The pre-check lists it apart (outsideDirtyPaths); a path the agent
@@ -1678,7 +1687,7 @@ const leasedStatusOnly = Array.isArray(projectDirtyPaths) && projectDirtyPaths.l
 if (precheck && precheck.green === true) {
   baseline = { green: true }
   log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
-} else if (precheck && precheck.green === false && precheck.failure) {
+} else if (precheck && precheck.green === false && optionalText(precheck.failure)) {
   baseline = precheck   // BL-0022 root guard failed in the pre-check — carry its failure to the red path below
 } else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
   baseline = { green: true }
@@ -3018,7 +3027,7 @@ async function releaseGateWorktree(frd, gate, slot = LEGACY_SLOT) {
   } catch (e) { log(`⚠ C2 (BL-0182): the gate-worktree release for ${frd} threw (${(e && e.message) || e})`) }
   const salvaged = (r && Array.isArray(r.salvaged)) ? r.salvaged.filter((x) => x && typeof x.path === 'string' && x.path) : []
   const remaining = (r && Array.isArray(r.remaining)) ? r.remaining.filter(Boolean) : null
-  if (remaining && remaining.length === 0 && !(r && r.failure)) slot.clean = true
+  if (remaining && remaining.length === 0 && !optionalText(r && r.failure)) slot.clean = true
   else {
     slot.clean = false   // the next acquisition re-probes instead of taking the no-spawn fast path (BL-0183)
     log(`⚠ C2 (BL-0182): the gate worktree is NOT proven clean after ${frd}'s gate (${(r && r.failure) || (remaining ? 'paths remain' : 'no release verdict')})${remaining && remaining.length ? `: ${remaining.join(' | ')}` : ''} — the next gate re-probes it and falls back to the legacy path rather than gate over it`)

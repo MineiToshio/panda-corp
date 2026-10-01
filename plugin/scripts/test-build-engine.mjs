@@ -498,6 +498,50 @@ for (const [slug, audit, expectFix] of [
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 9.118.1 hotfix: a haiku pre-check returns sentinel STRINGS for absent optional fields (bench-medium C-1)
+// ─────────────────────────────────────────────────────────────────────────────
+const leasedStatusPrecheck = (extra) => ({ stop: false, green: false, escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml'], leaseValid: true, projectPrefix: '', ...extra })
+const preLoopSafePoint = { label: 'safe-point-pre-loop', response: { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } }
+const takesFastPath = (t, run) => {
+  t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+  t.ok(hasLog(run, /fast path BL-0124/), 'the BL-0124 fast path was taken')
+  t.ok(byLabel(run, /^baseline$/).length === 0, 'NO judge baseline spawned')
+  t.ok(byLabel(run, /^plan$/).length === 1, 'the build proceeded to planning')
+  t.ok(!(run.result && run.result.note === 'baseline red (needs manual fix)'), 'the run did not stop baseline red')
+}
+SCENARIOS.push({
+  name: '9.118.1-a. the exact bench-medium C-1 pre-check (failure:"null", projectPrefix:\'""\') takes the BL-0124 fast path',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ projectPrefix: '""', failure: 'null' }) }],
+  assert: takesFastPath,
+})
+for (const sentinel of ['undefined', '', 'none', ' None ', 'NULL']) {
+  SCENARIOS.push({
+    name: `9.118.1-b. sentinel failure ${JSON.stringify(sentinel)} is no failure: the BL-0124 fast path is taken`,
+    args: { mode: 'powerful' },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ failure: sentinel }) }],
+    assert: takesFastPath,
+  })
+}
+SCENARIOS.push({
+  name: '9.118.1-c. a real BL-0022 failure still stops the run baseline red',
+  args: { mode: 'powerful' },
+  responses: [{ label: 'baseline-precheck', response: { green: false, failure: 'BL-0022: deterministic project/lease inspection failed' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^baseline$/).length === 0, 'NO judge baseline spawned (the pre-check failure is carried)')
+    t.ok(hasLog(run, /Baseline red and auto-repair failed: BL-0022/), 'the BL-0022 failure is logged')
+    t.ok(run.result && run.result.note === 'baseline red (needs manual fix)', 'the run stopped baseline red')
+  },
+})
+SCENARIOS.push({
+  name: '9.118.1-d. a quoted-empty projectPrefix \'""\' is no prefix: a flat status.yaml path still matches',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ projectPrefix: '""', dirtyPaths: ['.pandacorp/status.yaml'], outsideDirtyPaths: [] }) }],
+  assert: takesFastPath,
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0

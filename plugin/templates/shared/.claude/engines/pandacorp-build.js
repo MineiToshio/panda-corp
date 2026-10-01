@@ -168,6 +168,11 @@ const MECH_FALLBACK_EVENT = (requestedType, fallbackType) =>
 const MECH = (args && args.mechModel) || 'haiku'
 const MECH_LEAN = !(args && args.mechLean === false)
 const MECH_AGENT = (fallback) => (MECH_LEAN ? 'pandacorp:mech' : fallback)
+const optionalText = (v) => {
+ if (typeof v !== 'string') return ''
+ const t = v.trim()
+ return /^(?:null|undefined|none|""|'')$/i.test(t) ? '' : t
+}
 const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 const MAX_CONCURRENT_GATES = (args && args.maxConcurrentGates) || 2
 const GATE_WORKTREE = PROJECT_DIR === '.' ? '.pandacorp/run/gate-worktree' : `${PROJECT_DIR}/.pandacorp/run/gate-worktree`
@@ -832,7 +837,7 @@ if (precheck && precheck.stop === true) {
  return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
 }
 let baseline
-const PRECHECK_PREFIX = (precheck && typeof precheck.projectPrefix === 'string' && /^(?:[^/.][^/]*\/)*$/.test(precheck.projectPrefix) && !precheck.projectPrefix.split('/').includes('..')) ? precheck.projectPrefix : ''
+const PRECHECK_PREFIX = (precheck && /^(?:[^/.][^/]*\/)*$/.test(optionalText(precheck.projectPrefix)) && !optionalText(precheck.projectPrefix).split('/').includes('..')) ? optionalText(precheck.projectPrefix) : ''
 const projectRelativeDirtyPath = (p) => (typeof p === 'string' && PRECHECK_PREFIX && p.startsWith(PRECHECK_PREFIX)) ? p.slice(PRECHECK_PREFIX.length) : p
 const isInProject = (p) => !PRECHECK_PREFIX || (typeof p === 'string' && p.startsWith(PRECHECK_PREFIX))
 const precheckDirty = Array.isArray(precheck && precheck.dirtyPaths) ? precheck.dirtyPaths : null
@@ -843,7 +848,7 @@ const leasedStatusOnly = Array.isArray(projectDirtyPaths) && projectDirtyPaths.l
 if (precheck && precheck.green === true) {
  baseline = { green: true }
  log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
-} else if (precheck && precheck.green === false && precheck.failure) {
+} else if (precheck && precheck.green === false && optionalText(precheck.failure)) {
  baseline = precheck
 } else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
  baseline = { green: true }
@@ -1746,7 +1751,7 @@ async function releaseGateWorktree(frd, gate, slot = LEGACY_SLOT) {
  } catch (e) { log(`⚠ C2 (BL-0182): the gate-worktree release for ${frd} threw (${(e && e.message) || e})`) }
  const salvaged = (r && Array.isArray(r.salvaged)) ? r.salvaged.filter((x) => x && typeof x.path === 'string' && x.path) : []
  const remaining = (r && Array.isArray(r.remaining)) ? r.remaining.filter(Boolean) : null
- if (remaining && remaining.length === 0 && !(r && r.failure)) slot.clean = true
+ if (remaining && remaining.length === 0 && !optionalText(r && r.failure)) slot.clean = true
  else {
   slot.clean = false
   log(`⚠ C2 (BL-0182): the gate worktree is NOT proven clean after ${frd}'s gate (${(r && r.failure) || (remaining ? 'paths remain' : 'no release verdict')})${remaining && remaining.length ? `: ${remaining.join(' | ')}` : ''} — the next gate re-probes it and falls back to the legacy path rather than gate over it`)
