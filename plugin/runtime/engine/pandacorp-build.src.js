@@ -663,6 +663,9 @@ const MECH_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'pandaco
 const mechOpCommand = (op, flags = '') => `${MECH_CLI_COMMAND} ${op} --project ${shellQuote(PROJECT_DIR)}${flags ? ` ${flags}` : ''}`
 const MECH_LINE_SCHEMA = { type: 'object', required: ['line'], properties: { line: { type: 'string', description: 'the LAST line the command printed, verbatim' } } }
 const MECH_LITERAL = (cmd) => `MECHANICAL COMMAND RUNNER (proposal 39 C1): run exactly \`${cmd}\` once, as ONE Bash call with no command before or after it, and return its last line VERBATIM as \`line\`. That line is ONE JSON object ending in an integrity checksum ("sum"): copy it character for character. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, fix, stage, commit or revert anything yourself.`
+// A FUSED op (a step folded into the same spawn: the first dispatch's rollup sync, a fire-and-forget event) is ordered
+// steps, so nothing in it says "no command before or after it" while another step asks for one.
+const MECH_FUSED = (cmd, before, after) => `MECHANICAL STEPS (proposal 39 C1): do them IN THIS ORDER, each exactly once, skipping none.\n${[before, `MECHANICAL COMMAND RUNNER: run exactly \`${cmd}\` once, as ONE Bash call of its own (nothing chained into that call), and return its last line VERBATIM as \`line\`. That line is ONE JSON object ending in an integrity checksum ("sum"): copy it character for character. Its exit code is data, not a problem for you to fix: whatever it is, do not inspect, edit, fix, stage, commit or revert anything because of it.`, after].map((x) => String(x || '').trim()).filter(Boolean).map((x, i) => `STEP ${i + 1}. ${x}`).join('\n')}\nReturn as \`line\` the last line of the MECHANICAL COMMAND RUNNER step, untouched by any other step.`
 
 // ── C2: CONCURRENT FRD GATES IN A PINNED WORKTREE ─────────────────────────────────────────────────
 // Today the loop either builds a wave OR drains ONE gate per iteration — build and review NEVER overlap,
@@ -1767,7 +1770,8 @@ function parseMechLine(raw, op) {
 }
 // `prefix`/`suffix`: prose the SAME spawn carries around the literal command (a fused step, a fire-and-forget event).
 async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffix = '' }) {
-  const raw = await agent(`${prefix}${MECH_LITERAL(mechOpCommand(op, flags))}${suffix}`, { label, phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA })
+  const cmd = mechOpCommand(op, flags)
+  const raw = await agent(prefix.trim() || suffix.trim() ? MECH_FUSED(cmd, prefix, suffix) : MECH_LITERAL(cmd), { label, phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA })
   return parseMechLine(raw, op)
 }
 // park-wo: a WO that did not land moves its dirty paths to .pandacorp/run/salvage/<wo>/ and resets them, so the next
@@ -1816,6 +1820,11 @@ async function ensureStopped(reason) {
 // uncaught, leaving `running:true` and the atomic lease held with nothing left to release it. One tiny
 // wrapper, reused at each remaining pre-loop await site, so ANY exception before the scheduler loop exists
 // gets the SAME guaranteed close-out as a normal failure branch.
+// Proposal 39 C7: a pre-loop await whose NON-infra failure keeps its own, unchanged behaviour (no close-out added): only
+// an infra halt there becomes a pause instead of an uncaught crash. With infraGuard off no InfraError exists: a no-op.
+async function infraPausable(fn) {
+  try { return await fn() } catch (e) { if (isInfraError(e)) return PAUSED; throw e }
+}
 async function preLoopGuarded(fn) {
   try {
     return await fn()
@@ -1830,7 +1839,8 @@ async function preLoopGuarded(fn) {
 // ── Baseline self-heal (deadlock breaker) — WS-D/D10 two-step: cheap MECH pre-check → reconciling judge ──
 phase('Baseline')
 // Proposal 39 C7 (mechScript): the resume precheck runs FIRST, before anything reads state — it finishes interrupted
-// discards, salvages engine-owned dirt (WO frontmatter, the journals) and demotes every IN_REVIEW without a flip commit
+// discards, commits the journals' pending lines (never resets them), salvages engine-owned dirt (a WO file whose diff is
+// only the engine's frontmatter keys; an owner-edited WO keeps every byte but its status) and demotes every IN_REVIEW without a flip commit
 // after its last IN_PROGRESS stamp, so the planner below reads only committed truth. Unverifiable = fail-closed stop.
 if (MECH_SCRIPT) {
   agentSpawned++
@@ -2173,11 +2183,12 @@ const reuseRef = (frd) => plan.hasFrontend
 // this its own Plan-phase spawn, unchanged.
 let pendingSyncRollups = null
 if (MECH_LEAN) {
-  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope). THEN, as a SEPARATE step' + (MECH_SCRIPT ? '' : ' (do not commit this part — see below)') + ':\n  '
+  // Under mechScript it is STEP 1 of the fused scripted dispatch (MECH_FUSED orders the steps); else the prose prefix.
+  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).' + (MECH_SCRIPT ? '' : ' THEN, as a SEPARATE step (do not commit this part — see below):\n  ')
 } else {
   agentSpawned++
-  await agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
-    { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' })
+  if ((await infraPausable(() => agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
+    { label: 'sync-rollups', phase: 'Plan', model: MECH, agentType: 'pandacorp:implementer' }))) === PAUSED) return await pausedExit()
 }
 
 // ── Adaptive model selection (DR-073) — escalate to opus within the mode, never below the floor ──
@@ -5540,13 +5551,26 @@ async function fastRepairOrBlock(frd, context) {
   blockFrdInSchedule(frd, reason)
   return false
 }
+// The scripted USABLE check. Three outcomes: `refused` (it certified nothing either way: a dirty tree, an uncommitted WO,
+// a busy lock, an input error or an unverifiable receipt — never a red verify.sh, so never the fix-forward or the repair
+// ladder), red, or green. USABLE has ONE writer (DR-115): the script's committed build_usable line, so `usable` is its
+// receipt's, and the engine's own fail-closed floor verdict is passed to it (--floor) so it can never commit that line.
 async function fastVerify(frd, since, ids) {
   agentSpawned++
-  const r = await runMechOp('verify', `--frd ${shellQuote(frd)}${since ? ` --since ${shellQuote(since)}` : ''}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}`, { label: `verify:${frd}` })
+  const r = await runMechOp('verify', `--frd ${shellQuote(frd)}${since ? ` --since ${shellQuote(since)}` : ''}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `verify:${frd}` })
   const b = r.body
-  if (!b || b.ok !== true) return { green: false, failure: r.error || (b && `${b.status}: ${b.reason || b.error || ''}`) || 'no verify receipt' }
+  if (!b || b.ok !== true) return { refused: true, green: false, usable: false, failure: r.error || (b && `${b.status}: ${b.reason || b.error || ''}`) || 'no verify receipt' }
   if (b.floor === true) fastFloor.add(frd)
-  return { green: b.green === true && b.scope !== 'partial', sha: b.sha || null, failure: b.failure || '' }
+  const green = b.green === true && b.scope !== 'partial'
+  return { refused: false, green, usable: green && b.usable === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '' }
+}
+// A refusal is retried once (a journal line or the lock held by a concurrent writer is transient); a second refusal
+// stops there: the FRD is not USABLE and its gate decides.
+async function fastVerifyOrRetry(frd, since, ids) {
+  const v = await fastVerify(frd, since, ids)
+  if (!v.refused) return v
+  log(`⚠ ${frd}: verify was refused (${v.failure}) — it certified nothing either way; retrying once`)
+  return await fastVerify(frd, since, ids)
 }
 const fastFixPrompt = (frd, ids, failure) => `${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}FAST-LANE FIX-FORWARD (proposal 39 C6, rung 1) for ${frd}: its work orders (${ids.join(', ')}) are committed, but \`bash .pandacorp/verify.sh\` is RED on the clean landed tree: ${failure || '(see .pandacorp/run/gate-report.json)'}. Fix the PRODUCTION code (never weaken, skip or delete a test) until \`bash .pandacorp/verify.sh\` is green. Commit every fix with exactly \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>')}\`, naming the work order whose code you fixed; never call git yourself and never edit implementation_status. Return { done: true } once verify.sh is green and the project tree is clean, else { done: false, failure }.`
 async function fastBuildFrd(frd) {
@@ -5581,23 +5605,25 @@ async function fastBuildFrd(frd) {
       if (!(await fastRepairOrBlock(frd, `work order(s) ${missed.map((w) => w.id).join(', ')} could not be built and committed`))) return null
       fastMarkLanded(frd, ids)
     }
-    let v = await fastVerify(frd, since, ids)
-    if (!v.green && !capHit() && canAffordRepair(frd, 'sonnet')) {
+    let v = await fastVerifyOrRetry(frd, since, ids)
+    if (!v.refused && !v.green && !capHit() && canAffordRepair(frd, 'sonnet')) {
       log(`! ${frd}: verify.sh red on the clean landed tree (${v.failure}) — fix-forward (sonnet)`)
       agentSpawned += COST('sonnet')
       await chargedRepair(frd, 'sonnet', () => agent(fastFixPrompt(frd, ids, v.failure), { label: `fix:${frd}`, phase: 'Build', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
-      v = await fastVerify(frd, since, ids)
+      v = await fastVerifyOrRetry(frd, since, ids)
     }
-    if (!v.green) {
+    if (!v.refused && !v.green) {
       if (!(await fastRepairOrBlock(frd, `verify.sh is red on the clean landed tree after the fix-forward: ${v.failure}`))) return null
-      v = await fastVerify(frd, since, ids)
+      v = await fastVerifyOrRetry(frd, since, ids)
     }
-    if (v.green && !fastIsFloor(frd)) {
+    if (v.usable && !fastIsFloor(frd)) {
       fastUsable.push({ frd, sha: v.sha })
       log(`✅ USABLE: ${frd} @ ${v.sha} — committed, verify.sh green on the clean landed SHA (proposal 39 C6); its gate runs now, fix-forward only from here`)
-    } else if (v.green) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
+    } else if (v.refused) log(`⚠ ${frd}: verify refused again (${v.failure}) — not USABLE; nothing is repaired or discarded, its gate decides`)
+    else if (v.green && fastIsFloor(frd)) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
+    else if (v.green) log(`⚠ ${frd}: green on ${v.sha} but not USABLE (${v.failure || 'no committed build_usable line'}) — its gate decides`)
     else log(`⚠ ${frd}: built but verify.sh is not green on the clean tree (${v.failure}) — not USABLE; its gate decides`)
-    if (!fastIsFloor(frd) && !v.green) fastFloor.add(frd)   // not USABLE: its dependents wait for its VERIFIED, like a floor's
+    if (!fastIsFloor(frd) && !v.usable) fastFloor.add(frd)   // not USABLE: its dependents wait for its VERIFIED, like a floor's
     if (enqueueGateIfComplete(frd)) {
       if (v.sha) st.pinSha = v.sha
       else await capturePin([frd])
@@ -5655,7 +5681,10 @@ function fastResult() {
 }
 
 // C2: resume gates (an all-IN_REVIEW FRD enrolled before any wave) are frozen at the baseline HEAD.
-if (gateQueue.length && !REVIEW_DEFERRED) { await capturePin([...gateQueue]); for (const frd of gateQueue) launchEvidence(frd) }   // WP-06: no-op unless gateEvidence:'digested'
+if (gateQueue.length && !REVIEW_DEFERRED) {
+  if ((await infraPausable(() => capturePin([...gateQueue]))) === PAUSED) return await pausedExit({ builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })   // proposal 39 C7: a pause, never a crash
+  for (const frd of gateQueue) launchEvidence(frd)   // WP-06: no-op unless gateEvidence:'digested'
+}
 
 // WP-11: counts safe-point CHECKPOINTS this run (every wantSafePoint boundary, whether that's an
 // upcoming wave or an idle/gate-settle sweep) — the throttle for a targeted run below. Declared outside

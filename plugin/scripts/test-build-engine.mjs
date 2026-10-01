@@ -1259,6 +1259,141 @@ SCENARIOS.push({
   },
 })
 
+// A refused verify (its dirty/uncommitted/lock-busy/input refusals) certifies nothing either way: it is retried and then
+// left to the FRD's gate, never mistaken for a red verify.sh (the fix-forward, the repair ladder, a BL-0212 discard).
+const verifyRefusal = (frd, status, reason) => ({ line: mechLine('verify', { ok: false, status, reason, frd, paths: ['.pandacorp/x'] }) })
+SCENARIOS.push({
+  name: 'F39-13. fast-lane-verify-refusal-retried — a refused verify (a gate journal line made the tree dirty) is retried once, never fix-forward or repair',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-r13', ids: ['wo-r13-001'] }]),
+  responses: [{ label: 'verify:frd-r13', times: 1, response: verifyRefusal('frd-r13', 'dirty', 'the tree is not clean (src/x.ts)') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'verify:frd-r13').length === 2, `the refused verify is retried once (got ${byLabel(run, 'verify:frd-r13').length})`)
+    t.ok(byLabel(run, /^(fix|repair|patch):frd-r13$/).length === 0 && byLabel(run, /^wo-revert/).length === 0, `no fix-forward, no repair, no revert (got ${byLabel(run, /^(fix|repair|patch|wo-revert)/).map((c) => c.label).join(', ') || 'none'})`)
+    t.ok((run.result.usable || []).some((u) => u.frd === 'frd-r13') && run.result.builtFrds.includes('frd-r13'), 'the retry certifies it USABLE, then the gate VERIFIES it')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-13b. fast-lane-verify-refused-twice-goes-to-its-gate — still refused: not USABLE, never repaired, blocked or reverted; its dependents wait for VERIFIED',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-r14', ids: ['wo-r14-001'] }, { frd: 'frd-s14', ids: ['wo-s14-001'], deps: ['frd-r14'] }]),
+  responses: [{ label: 'verify:frd-r14', response: verifyRefusal('frd-r14', 'lock-busy', 'the main-writer lock is held') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'verify:frd-r14').length === 2, `one retry, then stop (got ${byLabel(run, 'verify:frd-r14').length})`)
+    noRepairPath(t, run)
+    t.ok(byLabel(run, /^fix:frd-r14$/).length === 0, 'no fix-forward over committed code')
+    t.ok(!(run.result.usable || []).some((u) => u.frd === 'frd-r14'), 'not USABLE')
+    t.ok(hasLog(run, /frd-r14.*verify (was )?refused/i), 'the refusal is logged as a refusal, not as a red verify.sh')
+    const applyR = labelIdx(run, /^apply-gate:frd-r14$/)
+    t.ok(byLabel(run, 'gate:frd-r14').length === 1 && applyR >= 0 && labelIdx(run, /^fast-build:frd-s14$/) > applyR, `its gate decides, and the dependent builds only after it is VERIFIED (apply ${applyR}, build ${labelIdx(run, /^fast-build:frd-s14$/)})`)
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-14. fast-lane-floor-verdict-reaches-verify — the engine\'s floor verdict (plan time) is passed to verify as --floor; a non-floor FRD gets none',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-f14a', ids: ['wo-f14a-001'], floor: true }, { frd: 'frd-f14b', ids: ['wo-f14b-001'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const a = byLabel(run, 'verify:frd-f14a')[0]
+    const b = byLabel(run, 'verify:frd-f14b')[0]
+    t.ok(a && / --floor\b/.test(a.prompt), 'the floor FRD\'s verify carries --floor')
+    t.ok(b && !/ --floor\b/.test(b.prompt), 'the non-floor FRD\'s verify does not')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-14b. fast-lane-unreadable-floor-is-floor-in-verify — an unreadable classify-frd receipt is floor (fail-closed) and verify is told so: no build_usable can be committed for it',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-f14c', ids: ['wo-f14c-001'] }]),
+  noPlanLine: true,
+  responses: [
+    { label: 'mech-plan', response: { line: mechLine('plan', { status: 'no-build-plan', reason: 'frd-f14c: blueprint.md has no Build Plan table' }) } },
+    { label: 'floor:frd-f14c', response: { line: 'not a sealed line' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const v = byLabel(run, 'verify:frd-f14c')[0]
+    t.ok(v && / --floor\b/.test(v.prompt), 'verify is told the FRD is floor')
+    t.ok(!(run.result.usable || []).length, 'never USABLE')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-15. fast-lane-usable-needs-the-committed-line — a green verify whose build_usable line was not committed is not USABLE; its dependent waits for VERIFIED',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-u15', ids: ['wo-u15-001'] }, { frd: 'frd-v15', ids: ['wo-v15-001'], deps: ['frd-u15'] }]),
+  responses: [{ label: 'verify:frd-u15', response: { line: mechLine('verify', { status: 'green', frd: 'frd-u15', green: true, usable: false, floor: false, sha: 'feed00000015', scope: 'full', usableCommit: null, usableFailure: 'the build_usable commit failed' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(!(run.result.usable || []).some((u) => u.frd === 'frd-u15'), `not USABLE without its committed line (got ${JSON.stringify(run.result.usable)})`)
+    t.ok(!hasLog(run, /USABLE: frd-u15/) && hasLog(run, /frd-u15.*not USABLE/), 'no USABLE line; the reason is logged')
+    t.ok(byLabel(run, /^fix:frd-u15$/).length === 0 && byLabel(run, /^repair:frd-u15$/).length === 0, 'a green verify is never repaired')
+    const applyU = labelIdx(run, /^apply-gate:frd-u15$/)
+    t.ok(applyU >= 0 && labelIdx(run, /^fast-build:frd-v15$/) > applyU, `the dependent builds after it is VERIFIED (apply ${applyU}, build ${labelIdx(run, /^fast-build:frd-v15$/)})`)
+  },
+})
+
+const limitThrow = throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}')
+SCENARIOS.push({
+  name: 'P39-k. infra-limit-at-the-resume-gate-pin — a usage limit at the resume gates\' pin is a pause, never an uncaught crash',
+  args: { mode: 'balanced', ...FAST },
+  plan: inReviewPlan([{ frd: 'frd-k', ids: ['wo-k-001'] }]),
+  responses: [
+    { label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-k-001'] }) },
+    { label: /^pin:/, response: limitThrow },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^pin:/).length === 1, 'fixture: the resume gate\'s pin spawn ran')
+    t.ok(run.result && run.result.stopReason === 'paused-infra' && byLabel(run, 'build-paused').length === 1, `paused-infra with the paused close (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, /^gate:/).length === 0, 'no gate after the halt')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-k2. infra-limit-at-the-standalone-rollup-sync — mechLean:false: a usage limit at the sync-rollups spawn is a pause, never an uncaught crash',
+  args: { mode: 'balanced', ...SAFETY, mechLean: false },
+  plan: infraPlan('frd-k2', ['wo-k2-001']),
+  responses: [{ label: 'sync-rollups', response: limitThrow }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'sync-rollups').length === 1, 'fixture: the standalone sync ran')
+    t.ok(run.result && run.result.stopReason === 'paused-infra' && byLabel(run, 'build-paused').length === 1, `paused-infra with the paused close (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, /^build:/).length === 0, 'nothing is dispatched after the halt')
+  },
+})
+
+// A fused MECH op (the rollup sync folded into the first dispatch) must read as ordered steps, never "run only this".
+const FUSED_DISPATCH_OK = (t, call, what) => {
+  const p = (call && call.prompt) || ''
+  const sync = p.indexOf('sync-rollups --project')
+  const lit = p.indexOf("pandacorp-build-mech.mjs' dispatch --project")
+  t.ok(sync >= 0 && lit > sync && /STEP 1\.[^]*sync-rollups[^]*STEP 2\.[^]*pandacorp-build-mech\.mjs' dispatch/.test(p), `${what}: the rollup sync is STEP 1 and the literal dispatch STEP 2 (sync ${sync}, literal ${lit})`)
+  t.ok(!/no command before/i.test(p) && !/THEN, as a SEPARATE step/.test(p), `${what}: no instruction contradicts the rollup step`)
+  t.ok(/return its last line/i.test(p), `${what}: the command's last line is still returned verbatim`)
+}
+SCENARIOS.push({
+  name: 'P39-l. mechscript-fused-prefix-is-ordered — the rollup sync fused into the first scripted dispatch is STEP 1, the literal command STEP 2; later dispatches stay plain literals',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-l1', ids: ['wo-l1-001'] }, { frd: 'frd-l2', ids: ['wo-l2-001'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    FUSED_DISPATCH_OK(t, byLabel(run, 'dispatch:frd-l1')[0], 'fast lane')
+    const second = byLabel(run, 'dispatch:frd-l2')[0]
+    t.ok(second && !/sync-rollups/.test(second.prompt) && /^MECHANICAL COMMAND RUNNER/.test(second.prompt), 'the sync is consumed once: the next dispatch is the plain literal')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-l2. mechscript-fused-prefix-classic-waves — classic + mechScript: the first wave\'s scripted dispatch carries the same ordered steps',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-l3', ['wo-l3-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    FUSED_DISPATCH_OK(t, byLabel(run, /^dispatch:/)[0], 'classic waves')
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-10. classic-unchanged — without lane:fast the plan agent, per-WO builders and commits, and the classic result shape are untouched',
   args: { mode: 'balanced' },
