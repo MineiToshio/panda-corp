@@ -269,8 +269,45 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   await rm(bad, { recursive: true });
   await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
 }
+{
+  // Proposal 39 / DR-124: the fast lane and its review budget reach the engine through the launcher, never a hand edit.
+  const launch = async (extra, maxAgents = "60") => {
+    const root = await fixture({ phase: "architecture", running: "false" });
+    const launched = await exec("bash", [claudeLauncherPath, root, "powerful", maxAgents, "auto", ...extra]);
+    await releaseLauncherLease(root, launched.stdout); await rm(root, { recursive: true });
+    return launched.stdout;
+  };
+  const fast = workflowArgs(await launch(["--lane", "fast"]));
+  ok(fast.lane === "fast" && !("reviewBudget" in fast), "P39 launcher: --lane fast reaches the engine as args.lane:'fast' and sets no reviewBudget key (the engine default 'now' governs)");
+  const deferOut = await launch(["--lane", "fast", "--review-budget", "defer"]);
+  const deferArgs = workflowArgs(deferOut);
+  ok(deferArgs.lane === "fast" && deferArgs.reviewBudget === "defer", "P39 launcher: --review-budget defer reaches the engine as args.reviewBudget:'defer'");
+  ok(/lane fast · mechScript on · infraGuard on · reviewBudget defer/.test(deferOut), "P39 launcher: the ARG-ECHO reminder names the engine's lane log line to verify (lane fast · mechScript on · infraGuard on · reviewBudget defer)");
+  const nowArgs = workflowArgs(await launch(["--lane", "fast", "--review-budget", "now"]));
+  ok(nowArgs.lane === "fast" && nowArgs.reviewBudget === "now", "P39 launcher: an explicit --review-budget now is passed through as the string 'now'");
+  const classicOut = await launch(["--lane", "classic"]);
+  const classicArgs = workflowArgs(classicOut);
+  ok(classicArgs.lane === "classic" && !("reviewBudget" in classicArgs) && !/lane fast · mechScript on/.test(classicOut), "P39 launcher: --lane classic is passed explicitly and prints no fast-lane echo line");
+  const bare = workflowArgs(await launch([]));
+  ok(!("lane" in bare) && !("reviewBudget" in bare), "P39 launcher: without --lane/--review-budget the launcher adds neither key (the engine's classic default governs)");
+  const frds = ["--frds", "frd-02,frd-03,frd-04,frd-05"];
+  const deferSized = await launch([...frds, "--lane", "fast", "--review-budget", "defer"], "40");
+  ok(!/recommended\s+floor is 8/.test(deferSized) && /review-budget defer launches no FRD gate/.test(deferSized), "P39 launcher: --review-budget defer launches no gate, so the per-FRD gate sizing floor is replaced by a defer note");
+  const nowSized = await launch([...frds, "--lane", "fast"], "40");
+  ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");
+}
+for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--review-budget", "defer"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"]]) {
+  const root = await fixture({ phase: "architecture", running: "false" });
+  let rejected = false;
+  try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }
+  let leaseExists = true; try { await access(path.join(root, ".pandacorp/run/build.lease/lease.json")); } catch { leaseExists = false; }
+  const status = await readFile(path.join(root, ".pandacorp/status.yaml"), "utf8");
+  ok(rejected && !leaseExists && /^phase: architecture$/m.test(status), `P39 launcher rejects ${bad.join(" ")} before taking the lease`);
+  await rm(root, { recursive: true });
+}
 const repo = path.resolve(path.dirname(resolver), "../..");
 const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
 ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");
 ok(skill.includes("--target-runtime claude --run-mode auto") && skill.includes("owner never copies or chooses that ID"), "implement skill makes automatic continuation the owner-free default");
+ok(skill.includes("[--lane fast|classic]") && skill.includes("[--review-budget now|defer]") && /USABLE/.test(skill) && /paused-infra/.test(skill) && /review debt/i.test(skill), "P39: the implement skill documents the launcher's --lane/--review-budget flags, USABLE, review debt and the paused-infra resume");
 console.log(`RESULT: ${passed} passed, 0 failed`);

@@ -9,6 +9,7 @@
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
 #           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
+#           [--lane fast|classic] [--review-budget now|defer]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
 #              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never
@@ -33,6 +34,13 @@
 #              default applies (on under --gate-evidence digested, off under explore).
 #   --gate-inventory-cache: OPT-IN → engine args.gateInventoryCache:true (BL-0189, engine default off): a repeat
 #              gate of an FRD whose frd.md/blueprint.md body is unchanged reuses the cached contract inventory.
+#   --lane fast|classic: engine args.lane (proposal 39, DR-124; OPT-IN this release, the engine default is classic).
+#              `fast`: no plan agent, one builder per FRD committing each WO through the scripted commit-wo, a scripted
+#              verify on the clean landed tree (USABLE per non-floor FRD), the unchanged opus gates in the parallel slots
+#              while the next FRD builds, and the infra halt/resume (stopReason paused-infra). Omitted → no key.
+#   --review-budget now|defer: engine args.reviewBudget, fast lane only (requires --lane fast). `defer` stops at
+#              all-USABLE and launches no FRD gate: the unreviewed FRDs stay review debt (derived, never stored) for a
+#              later run. Omitted → no key (the engine default `now` continues to VERIFIED).
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -41,7 +49,7 @@ set -uo pipefail
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
 FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
-GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""
+GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -61,6 +69,10 @@ while [ "$#" -gt 0 ]; do
     --gate-context-scope) GATE_CONTEXT_SCOPE="1"; shift ;;
     --drift-finder) [ "$#" -ge 2 ] || { echo "ERROR: --drift-finder requires a value (on|off)." >&2; exit 3; }; DRIFT_FINDER="$2"; shift 2 ;;
     --gate-inventory-cache) GATE_INVENTORY_CACHE="1"; shift ;;
+    --lane) [ "$#" -ge 2 ] || { echo "ERROR: --lane requires a value (fast|classic)." >&2; exit 3; }
+      [ -z "$LANE" ] || { echo "ERROR: --lane given twice." >&2; exit 3; }; LANE="$2"; shift 2 ;;
+    --review-budget) [ "$#" -ge 2 ] || { echo "ERROR: --review-budget requires a value (now|defer)." >&2; exit 3; }
+      [ -z "$REVIEW_BUDGET" ] || { echo "ERROR: --review-budget given twice." >&2; exit 3; }; REVIEW_BUDGET="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -78,6 +90,10 @@ if [ -n "$GATE_SLOTS" ]; then
 fi
 case "$GATE_EVIDENCE" in ""|explore|digested) ;; *) echo "ERROR: --gate-evidence must be explore or digested." >&2; exit 3 ;; esac
 case "$DRIFT_FINDER" in ""|on|off) ;; *) echo "ERROR: --drift-finder must be on or off." >&2; exit 3 ;; esac
+case "$LANE" in ""|fast|classic) ;; *) echo "ERROR: --lane must be fast or classic." >&2; exit 3 ;; esac
+case "$REVIEW_BUDGET" in ""|now|defer) ;; *) echo "ERROR: --review-budget must be now or defer." >&2; exit 3 ;; esac
+# reviewBudget is read by the fast lane only: on any other lane the engine would silently ignore it.
+[ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget requires --lane fast." >&2; exit 3; }
 if [ -n "$FRDS" ]; then
   IFS=',' read -r -a FRD_ITEMS <<< "$FRDS"
   for item in "${FRD_ITEMS[@]}"; do
@@ -158,8 +174,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" "$LANE" "$REVIEW_BUDGET" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache, lane, reviewBudget] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents === "auto") args.maxAgents = "auto";
 else if (maxAgents) args.maxAgents = Number(maxAgents);
@@ -179,6 +195,8 @@ if (gateEvidence) args.gateEvidence = gateEvidence;
 if (gateContextScope) args.gateContextScope = true;
 if (driftFinder) args.driftFinder = driftFinder === "on";
 if (gateInventoryCache) args.gateInventoryCache = true;
+if (lane) args.lane = lane;
+if (reviewBudget) args.reviewBudget = reviewBudget;
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?
@@ -201,6 +219,7 @@ echo "ARG-ECHO VERIFICATION (mandatory): the engine's FIRST log line must read  
 echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <type>, NOT an object',"
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
+[ "$LANE" = "fast" ] && echo "  FAST LANE (DR-124): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now}  — a missing line means classic ran."
 [ -z "$MAX_AGENTS" ] && echo "  WARNING: no maxAgents given — an OVERNIGHT run MUST pass one (the real guardrail)."
 [ "$MAX_AGENTS" = "auto" ] && echo "  WARNING: maxAgents=auto is a projection-sized convenience, NOT an owner-chosen budget — an OVERNIGHT run MUST still pass an explicit integer (the real guardrail)."
 # `auto` has no integer to compare: every numeric floor check below is skipped for it (the engine logs its own projection).
@@ -238,7 +257,10 @@ fi
 # Advisory only: nothing here changes what the engine does, and an explicit integer is never overridden. To skip the
 # arithmetic pass `auto` (opt-in): the engine projects the run after its plan and logs the units and an approximate USD.
 # parallelGates defaults ON (v9.116.0), so this fires whenever PARALLEL_GATES is not explicitly "0".
-if [ "$PARALLEL_GATES" != "0" ]; then
+if [ "$REVIEW_BUDGET" = "defer" ]; then
+  echo "  NOTE: --review-budget defer launches no FRD gate: size maxAgents for the build half only (~4-6 per work order,"
+  echo "  plus a few MECH steps per FRD). The deferred gates run in a later window (a run with the default review budget)."
+elif [ "$PARALLEL_GATES" != "0" ]; then
   PER_FRD=20; FINDER_NOTE=""
   if [ "$DRIFT_FINDER" = "on" ] || { [ "$GATE_EVIDENCE" = "digested" ] && [ "$DRIFT_FINDER" != "off" ]; }; then
     PER_FRD=24; FINDER_NOTE=" + ~4 for the drift finder and its snippet check (BL-0207, BL-0214)"
