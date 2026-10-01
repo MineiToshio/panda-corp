@@ -45,6 +45,7 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sealLine } from './drift-seal.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // BL-0204: the readable SOURCE (the deployable artifact is generated from it; PANDACORP_ENGINE_RUN=artifact
@@ -539,6 +540,106 @@ SCENARIOS.push({
   args: { mode: 'powerful' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ projectPrefix: '""', dirtyPaths: ['.pandacorp/status.yaml'], outsideDirtyPaths: [] }) }],
   assert: takesFastPath,
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.118.2 hotfix (bench-medium C-1, plugin 9.118.1): a MECH result wrapped in one string field, and the
+// greenfield baseline deadlock
+// ─────────────────────────────────────────────────────────────────────────────
+// The exact C-1 shape: the real pre-check object JSON-encoded inside a single `parameter` string.
+const wrappedPrecheck = (key) => ({ [key]: '{\n  "escalate": true, "dirty": true, "dirtyPaths": [".pandacorp/status.yaml"], "outsideDirtyPaths": [], "leaseValid": true, "projectPrefix": "", "stop": false, "green": false\n}' })
+for (const key of ['parameter', 'input', 'result', 'output', 'json']) {
+  SCENARIOS.push({
+    name: `9.118.2-a. precheck-wrapped-in-${key}-is-unwrapped: the BL-0124 fast path is taken, no judge baseline`,
+    args: { mode: 'powerful' },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: wrappedPrecheck(key) }],
+    assert: takesFastPath,
+  })
+}
+SCENARIOS.push({
+  name: '9.118.2-a2. a wrapped string that is not a JSON object is left as it is (no fast path, judge baseline)',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: { parameter: 'escalate: true' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^baseline$/).length === 1, 'the judge baseline ran (nothing usable to unwrap)')
+  },
+})
+// The greenfield probe line, sealed exactly as greenfield-probe.mjs prints it.
+const greenfieldLine = (facts) => sealLine({ ok: true, probe: 'greenfield', ...facts })
+const redTreePrecheck = (probe) => ({ escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml', 'package.json'], outsideDirtyPaths: [], leaseValid: true, projectPrefix: '', greenfieldProbe: probe })
+const proceedsWithJudgeBaseline = (t, run) => {
+  t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+  t.ok(byLabel(run, /^baseline$/).length === 1, 'the judge baseline ran (behavior unchanged)')
+  t.ok(!hasLog(run, /greenfield/i), 'no greenfield log')
+}
+SCENARIOS.push({
+  name: '9.118.2-b. greenfield-skips-baseline: last_green empty + every WO PLANNED/DRAFT + red tree → plan, no judge baseline',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 9, DRAFT: 1 }, missing: 0 })) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^baseline$/).length === 0, 'NO judge baseline spawned')
+    t.ok(hasLog(run, /greenfield/i), 'the greenfield decision is logged')
+    const plan = byLabel(run, /^plan$/)
+    t.ok(plan.length === 1, 'the build proceeded to planning')
+    t.ok(plan[0] && /"event":"baseline_greenfield"/.test(plan[0].prompt) && /"kind":"baseline_greenfield"/.test(plan[0].prompt), 'the planner emits the baseline_greenfield dashboard + track event')
+    t.ok(!(run.result && run.result.note === 'baseline red (needs manual fix)'), 'the run did not stop baseline red')
+  },
+})
+SCENARIOS.push({
+  name: '9.118.2-b2. the greenfield probe arrives wrapped in `parameter` together with the whole pre-check: still greenfield',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: { parameter: JSON.stringify(redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 3, byStatus: { PLANNED: 3 }, missing: 0 }))) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^baseline$/).length === 0, 'NO judge baseline spawned')
+    t.ok(byLabel(run, /^plan$/).length === 1, 'the build proceeded to planning')
+  },
+})
+for (const [slug, byStatus] of [['in-progress', { PLANNED: 9, IN_PROGRESS: 1 }], ['in-review', { PLANNED: 9, IN_REVIEW: 1 }], ['verified', { PLANNED: 9, VERIFIED: 1 }], ['blocked', { PLANNED: 9, BLOCKED: 1 }]]) {
+  SCENARIOS.push({
+    name: `9.118.2-c. not-greenfield-when-any-wo-built (${slug}): the judge baseline runs, unchanged`,
+    args: { mode: 'powerful' },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus, missing: 0 })) }],
+    assert: proceedsWithJudgeBaseline,
+  })
+}
+SCENARIOS.push({
+  name: '9.118.2-d. not-greenfield-when-last-green-set: the judge baseline runs, unchanged',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: 'abc1234', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })) }],
+  assert: proceedsWithJudgeBaseline,
+})
+for (const [slug, probe] of [
+  ['a WO without implementation_status', greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 9 }, missing: 1 })],
+  ['no work orders at all', greenfieldLine({ lastGreenSha: '', workOrders: 0, byStatus: {}, missing: 0 })],
+  ['a broken seal', greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 }).replace('"workOrders":10', '"workOrders":11')],
+  ['an unsealed line', JSON.stringify({ ok: true, probe: 'greenfield', lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })],
+  ['a probe refusal', sealLine({ ok: false, probe: 'greenfield', error: 'status.yaml not found' })],
+]) {
+  SCENARIOS.push({
+    name: `9.118.2-e. not-greenfield on ${slug}: fail-safe to the judge baseline`,
+    args: { mode: 'powerful' },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(probe) }],
+    assert: proceedsWithJudgeBaseline,
+  })
+}
+SCENARIOS.push({
+  name: '9.118.2-f. args.strictBaseline keeps the judge baseline even on a greenfield project',
+  args: { mode: 'powerful', strictBaseline: true },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })) }],
+  assert: proceedsWithJudgeBaseline,
+})
+SCENARIOS.push({
+  name: '9.118.2-g. the pre-check prompt runs the greenfield probe from the installed scripts dir',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint],
+  assert(t, run) {
+    const pre = byLabel(run, 'baseline-precheck')[0]
+    t.ok(pre && /greenfield-probe\.mjs'/.test(pre.prompt) && /installed plugin\/scripts\/greenfield-probe\.mjs/.test(pre.prompt), 'the probe command is named from the stateCli dir')
+    t.ok(pre && /greenfieldProbe/.test(pre.prompt), 'the pre-check is asked to return greenfieldProbe')
+  },
 })
 
 // ─────────────────────────────────────────────────────────────────────────────

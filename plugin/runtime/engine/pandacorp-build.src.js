@@ -393,6 +393,9 @@ const RENEW_LEASE = `FIRST renew this run's atomic lease (fail closed): \`${STAT
 // renewal-only spawn below, which does NOT run the rest of the safe-point checklist.
 const RENEW_LEASE_SCHEMA = { type: 'object', properties: { stop: { type: 'boolean', description: 'true iff the lease renewal itself failed — the engine stops rather than continue building on an unrenewed/lost lease' } } }
 const RELEASE_LEASE = `Release this run with the fenced TWO-PHASE protocol, in this exact order: (1) \`${STATE_CLI_COMMAND} quiesce --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\` (projects running:false while the lease STILL fences every writer); (2) stage ONLY .pandacorp/status.yaml and commit it as \`chore: quiesce Claude build lease\` when it changed; (3) only after that commit succeeds run \`${STATE_CLI_COMMAND} finalize-release --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"\`. Any failure is fatal. Never use the compatibility \`release\` command here, never clear status.yaml, and never delete the lease directory by hand.`
+// 9.118.2: the greenfield baseline facts (last_green_sha + work-order implementation_status counts) — a sealed
+// line from the installed scripts dir (same rule as DRIFT_CLI_COMMAND), read by the baseline pre-check.
+const GREENFIELD_PROBE_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'greenfield-probe.mjs'))} --project ${shellQuote(PROJECT_DIR)}`
 const INSPECT_STOP = `${STATE_CLI_COMMAND} inspect-stop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}"`
 
 let agentSpawned = 0   // running count of subagents spawned (the maxAgents brake)
@@ -756,6 +759,32 @@ let oracleNoFallbackLogged = false   // the explanatory log fires ONCE this run,
 // BL-0192: { frd, spawnedAt, reserve } while a (non-final) D1 landing runs, else null. Declared HERE, before the wrapper
 // below reads it through laneTopUp() at every agent boundary (the lane logic lives with landParallelVerdict).
 let landingInFlight = null
+// 9.118.2 (bench-medium C-1, plugin 9.118.1): a MECH (haiku) agent sometimes returns its structured result
+// JSON-ENCODED inside one string field — `{ parameter: "{\"escalate\": true, \"dirtyPaths\": [...] …}" }` — so every
+// field the engine branches on read as absent (the pre-check skipped the BL-0124 fast path and paid an opus judge
+// baseline). This unwraps exactly that shape: an object whose ONLY key is one of these wrapper names, NOT a
+// property the call's own schema declares (DRIFT_OUTPUT_SCHEMA's `output` is a legitimate verbatim string), and
+// whose string value parses to a plain object. Anything else is returned untouched — the caller's own fail-closed
+// checks still judge it.
+const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
+const unwrapStructuredResult = (answer, schema) => {
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
+  const keys = Object.keys(answer)
+  if (keys.length !== 1 || !STRUCTURED_WRAPPER_KEYS.has(keys[0])) return answer
+  if (schema && schema.properties && Object.prototype.hasOwnProperty.call(schema.properties, keys[0])) return answer
+  const inner = answer[keys[0]]
+  if (typeof inner !== 'string') return answer
+  let parsed
+  try { parsed = JSON.parse(inner) } catch { return answer }   // not JSON: the untouched answer goes on to the caller's own checks
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : answer
+}
+// Applied to every MECH spawn that declares a schema (the results the engine branches on); judge/worker results are untouched.
+const unwrapMech = (answer, opts) => {
+  if (!opts || opts.model !== MECH || !opts.schema) return answer
+  const out = unwrapStructuredResult(answer, opts.schema)
+  if (out !== answer) log(`ℹ 9.118.2: ${opts.label || 'a MECH step'} returned its result JSON-encoded inside \`${Object.keys(answer)[0]}\` — unwrapped.`)
+  return out
+}
 agent = async (prompt, opts = {}) => {
   // C2: a per-call `workFrom` override lets the CONCURRENT gate run from the pinned gate worktree instead
   // of the project root (default). undefined → the legacy WORK_FROM (cd PROJECT_DIR). '' → no preamble.
@@ -771,7 +800,7 @@ agent = async (prompt, opts = {}) => {
   try {
     const answer = await __rawAgent(finalPrompt, rest)
     laneTopUp()   // BL-0192: every agent boundary of a D1 landing ladder refills slots freed meanwhile (no-op otherwise)
-    return answer
+    return unwrapMech(answer, rest)
   } catch (e) {
     const requestedType = rest && rest.agentType
     const match = requestedType && typeof requestedType === 'string' && requestedType.startsWith('pandacorp:') && e && typeof e.message === 'string'
@@ -804,7 +833,7 @@ agent = async (prompt, opts = {}) => {
     typeFallbackAnnounced.add(requestedType)
     const retryPrompt = announceFallback && typeof finalPrompt === 'string' ? MECH_FALLBACK_EVENT(requestedType, fallback) + finalPrompt : finalPrompt
     try {
-      return await __rawAgent(retryPrompt, { ...rest, agentType: fallback })
+      return unwrapMech(await __rawAgent(retryPrompt, { ...rest, agentType: fallback }), rest)
     } catch (e2) {
       // D5 (error-handling.md: never swallow an error): the fallback's own failure reason must not be
       // discarded — log it so an operator can tell WHY the rescue failed, then still surface the
@@ -930,6 +959,7 @@ const PRECHECK_SCHEMA = {
     dirtyPaths: { type: 'array', items: { type: 'string' }, description: "BL-0124: every BARE path `git status --porcelain` reported dirty — EXACTLY as that command prints it (repo-root-relative: git prints paths from the REPOSITORY root even for a nested project, e.g. 'mission-control/.pandacorp/status.yaml'), WITHOUT the leading 2-character XY status code + separating space it prints before each path (' M mission-control/.pandacorp/status.yaml' → 'mission-control/.pandacorp/status.yaml'; never the raw porcelain line with its status code still attached); [] when clean. The engine — not this step — strips projectPrefix and decides whether the narrow leased-status.yaml exclusion applies, so a path still carrying its status code silently fails that comparison and forces an unnecessary judge-baseline (BL-0160) — report the bare path honestly even when escalating." },
     outsideDirtyPaths: { type: 'array', items: { type: 'string' }, description: "BL-0202: every `OUT <path>` line of the scoped status command — a dirty path OUTSIDE this project (a nested project shares its repository, e.g. the factory's parallel sessions). INFORMATIONAL ONLY: it never escalates the baseline and nothing ever touches it; [] when none." },
     projectPrefix: { type: 'string', description: "E2 finding 2: the VERBATIM output of `git -C <project> rev-parse --show-prefix` (trimmed) — '' for a project at its repository root, e.g. 'mission-control/' for a nested one. The engine strips it from dirtyPaths before comparing, because porcelain paths are repo-root-relative." },
+    greenfieldProbe: { type: 'string', description: '9.118.2: the ONE stdout line of the greenfield probe command, VERBATIM (a sealed JSON line — never re-formatted, never summarized). Only when escalating.' },
     leaseValid: { type: 'boolean', description: "BL-0124: true iff THIS run already holds the current valid lease fence — already PROVEN by STEP 0's inspect-stop succeeding under this run's own token/epoch (the same fence BL-0079 relies on for the repair step), not a fresh check. Only meaningful together with dirtyPaths." },
     failure: { type: 'string' },
   },
@@ -1650,7 +1680,8 @@ const precheck = await preLoopGuarded(() => agent(
   **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.${PARALLEL_GATES ? ` The SAME protection covers every parallel gate slot ${gateSlotPath('<k>')} (D1, args.parallelGates): never delete, recreate, prune, reset, clean or force-remove any of them — a dirty slot is dropped from the pool by its own probe, never cleaned.` : ''}
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
   **STEP 2 — owner stop signal:** already decided exclusively by STEP 0's Node receipt. Do not probe it again. Do NOT delete the signal (the owner removes it).
-  **STEP 3 — clean-tree fast path (BL-0066), scoped to THIS project (BL-0202):** list the tree with the BL-0202 STATUS COMMAND: \`${PROJECT_STATUS_COMMAND}\` (run it VERBATIM, as ONE Bash call). Its first line is \`PREFIX=<p>\` — this project's repository prefix, the output of \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` ('' for a project at its repository root, e.g. \`mission-control/\` for a nested one) — then one \`IN <path>\` line per dirty path INSIDE this project and one \`OUT <path>\` line per dirty path ELSEWHERE in the repository (a nested project shares its repository with other work, e.g. the factory's parallel sessions). **OUT paths are INFORMATIONAL ONLY: they never make this project dirty, never escalate, and you never touch them** — just report every one as outsideDirtyPaths. This project's tree is CLEAN iff there is NO \`IN\` line. Read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git -C ${PROJECT_DIR} diff --name-only --relative <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit; \`--relative\` lists this project's own paths, project-relative). Then return { green: true, outsideDirtyPaths: <every OUT path> }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: <every OUT path> }. **A dirty tree (at least one IN line) always escalates from here — do NOT decide any exclusion yourself, even if the only IN path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every IN path>, outsideDirtyPaths: <every OUT path>, leaseValid: true, projectPrefix: <the PREFIX= value> }. **dirtyPaths entries are BARE paths, EXACTLY as the IN lines print them — repo-root-relative (git prints paths from the REPOSITORY root even for a nested project) — with the 2-character XY status code AND its separating space STRIPPED** (the command already cuts it: \`git status --porcelain\` prints \` M mission-control/.pandacorp/status.yaml\` for a nested project — status code, space, path — and the IN line reads \`IN mission-control/.pandacorp/status.yaml\`; report \`mission-control/.pandacorp/status.yaml\`, never a raw porcelain line, and never rewrite the path yourself). **projectPrefix** is the PREFIX= value VERBATIM. This is not cosmetic: the engine strips projectPrefix from dirtyPaths[0] and matches the rest against the literal string \`.pandacorp/status.yaml\` with strict equality to decide the exclusion (BL-0160 — a path still carrying its status code silently fails that match and forces an avoidable judge-baseline every time; E2 finding 2 — without the prefix a nested project could never match). (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}`,
+  **STEP 3 — clean-tree fast path (BL-0066), scoped to THIS project (BL-0202):** list the tree with the BL-0202 STATUS COMMAND: \`${PROJECT_STATUS_COMMAND}\` (run it VERBATIM, as ONE Bash call). Its first line is \`PREFIX=<p>\` — this project's repository prefix, the output of \`git -C ${PROJECT_DIR} rev-parse --show-prefix\` ('' for a project at its repository root, e.g. \`mission-control/\` for a nested one) — then one \`IN <path>\` line per dirty path INSIDE this project and one \`OUT <path>\` line per dirty path ELSEWHERE in the repository (a nested project shares its repository with other work, e.g. the factory's parallel sessions). **OUT paths are INFORMATIONAL ONLY: they never make this project dirty, never escalate, and you never touch them** — just report every one as outsideDirtyPaths. This project's tree is CLEAN iff there is NO \`IN\` line. Read \`last_green_sha\` from status.yaml. Prove it exists and is an ancestor: \`git -C ${PROJECT_DIR} cat-file -e <last_green>^{commit} && git -C ${PROJECT_DIR} merge-base --is-ancestor <last_green> HEAD\`. A CLEAN tree is known-green only when EITHER (a) HEAD == last_green_sha (legacy projects), OR (b) HEAD is its DIRECT child (\`git rev-parse HEAD^\` == last_green_sha) AND \`git -C ${PROJECT_DIR} diff --name-only --relative <last_green>..HEAD\` is EXACTLY \`.pandacorp/status.yaml\` (the BL-0066 metadata-only pointer commit; \`--relative\` lists this project's own paths, project-relative). Then return { green: true, outsideDirtyPaths: <every OUT path> }. Any other descendant may contain unverified work: return { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: <every OUT path> }. **A dirty tree (at least one IN line) always escalates from here — do NOT decide any exclusion yourself, even if the only IN path looks like the controller's own status.yaml** — but ALWAYS also report the raw signal the engine needs to apply the narrow BL-0124 exclusion on its own: return { escalate: true, dirty: true, dirtyPaths: <every IN path>, outsideDirtyPaths: <every OUT path>, leaseValid: true, projectPrefix: <the PREFIX= value> }. **dirtyPaths entries are BARE paths, EXACTLY as the IN lines print them — repo-root-relative (git prints paths from the REPOSITORY root even for a nested project) — with the 2-character XY status code AND its separating space STRIPPED** (the command already cuts it: \`git status --porcelain\` prints \` M mission-control/.pandacorp/status.yaml\` for a nested project — status code, space, path — and the IN line reads \`IN mission-control/.pandacorp/status.yaml\`; report \`mission-control/.pandacorp/status.yaml\`, never a raw porcelain line, and never rewrite the path yourself). **projectPrefix** is the PREFIX= value VERBATIM. This is not cosmetic: the engine strips projectPrefix from dirtyPaths[0] and matches the rest against the literal string \`.pandacorp/status.yaml\` with strict equality to decide the exclusion (BL-0160 — a path still carrying its status code silently fails that match and forces an avoidable judge-baseline every time; E2 finding 2 — without the prefix a nested project could never match). (leaseValid is true, not a fresh check — reaching this step already proves it, since STEP 0's inspect-stop just succeeded under THIS run's own token/epoch, the SAME fence BL-0079 relies on for the repair step).${STRICT_BASELINE ? ' NOTE: this run launched with args.strictBaseline — the engine will NOT apply the BL-0124 exclusion regardless of what dirtyPaths/leaseValid say, so it makes no difference to your answer; report the same honest signal.' : ''}
+  **STEP G — greenfield facts (9.118.2):** whenever you return escalate:true, FIRST run exactly \`${GREENFIELD_PROBE_COMMAND}\` (VERBATIM, ONE Bash call) and add its single stdout line to your verdict as \`greenfieldProbe\` — a STRING, copied character for character (it ends in a \`"sum"\` seal the engine checks; never re-format, shorten or interpret it). It is a fact for the ENGINE; it never changes any other field of your answer. Return your verdict as the structured object itself — never JSON-encoded inside a single string field.`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: PRECHECK_SCHEMA },
 ))
 if (precheck && precheck.stop === true) {
@@ -1684,6 +1715,36 @@ const projectDirtyPaths = precheckDirty ? precheckDirty.filter(isInProject) : nu
 const outsideDirtyPaths = [...new Set([...((precheck && Array.isArray(precheck.outsideDirtyPaths)) ? precheck.outsideDirtyPaths : []), ...(precheckDirty || []).filter((p) => !isInProject(p))].filter((p) => typeof p === 'string' && p))]
 if (outsideDirtyPaths.length) log(`ℹ BL-0202: ${outsideDirtyPaths.length} ruta(s) sucia(s) FUERA del proyecto${PRECHECK_PREFIX ? ` (${PRECHECK_PREFIX})` : ''}, de otra sesión — informativo: no escalan el baseline y el motor no las toca: ${outsideDirtyPaths.slice(0, 10).join(', ')}${outsideDirtyPaths.length > 10 ? ', …' : ''}`)
 const leasedStatusOnly = Array.isArray(projectDirtyPaths) && projectDirtyPaths.length === 1 && projectRelativeDirtyPath(projectDirtyPaths[0]) === '.pandacorp/status.yaml'
+// 9.118.2 GREENFIELD (bench-medium C-1): a freshly architected project — last_green_sha empty AND every work order
+// still PLANNED/DRAFT — has never been green, and its verify.sh is red BY CONSTRUCTION (knip flags the dependencies
+// the work orders will import, vitest has no test files yet). The judge baseline rightly refuses to "fix" that tree,
+// so the build stopped `baseline red (needs manual fix)` before building anything: a new project could never start
+// implement. On greenfield the baseline is NOT APPLICABLE — the red tree is the work orders' job (per-WO self-tests,
+// then the FRD gate). Decided HERE from greenfield-probe.mjs's SEALED facts (status.yaml + WO frontmatter), never
+// from a model's prose; an unsealed/garbled/refused line, a WO without implementation_status, no WOs, any WO
+// IN_PROGRESS/IN_REVIEW/VERIFIED/BLOCKED, or a set last_green_sha all leave the behavior unchanged (judge baseline).
+// args.strictBaseline keeps the judge baseline unconditionally.
+const GREENFIELD_NOT_BUILT = new Set(['PLANNED', 'DRAFT'])
+const readGreenfieldFacts = (line) => {
+  if (typeof line !== 'string') return null
+  const text = line.trim()
+  if (!driftSealHolds(text)) return null
+  let facts
+  try { facts = JSON.parse(text) } catch { return null }   // a sealed but unparseable line proves nothing: not greenfield
+  return facts && facts.ok === true && facts.probe === 'greenfield' ? facts : null
+}
+const isGreenfield = (facts) => {
+  if (!facts || facts.lastGreenSha !== '' || facts.missing !== 0) return false
+  if (!Number.isInteger(facts.workOrders) || facts.workOrders < 1) return false
+  const byStatus = facts.byStatus && typeof facts.byStatus === 'object' ? facts.byStatus : null
+  if (!byStatus) return false
+  const statuses = Object.keys(byStatus)
+  const counted = statuses.reduce((n, k) => n + (Number.isInteger(byStatus[k]) ? byStatus[k] : Number.NaN), 0)
+  return counted === facts.workOrders && statuses.every((k) => GREENFIELD_NOT_BUILT.has(k))
+}
+const greenfieldFacts = readGreenfieldFacts(precheck && precheck.greenfieldProbe)
+let baselineGreenfield = null   // the facts, when the engine took the greenfield path — the planner records the event
+
 if (precheck && precheck.green === true) {
   baseline = { green: true }
   log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
@@ -1692,6 +1753,10 @@ if (precheck && precheck.green === true) {
 } else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
   baseline = { green: true }
   log('Baseline verde (fast path BL-0124: el único diff sucio es el status.yaml propio bajo un lease ya probado válido) — no se corrió verify.sh.')
+} else if (!STRICT_BASELINE && isGreenfield(greenfieldFacts)) {
+  baseline = { green: true }
+  baselineGreenfield = greenfieldFacts
+  log(`Baseline no aplicable (greenfield 9.118.2): last_green_sha vacío y los ${greenfieldFacts.workOrders} work orders siguen PLANNED/DRAFT — el árbol rojo por construcción es trabajo de los WOs (self-tests + gate de FRD); no se corrió el judge baseline.`)
 } else {
   // (b) ESCALATE → the judge baseline: DR-067 reconciliation (the SKILL promised it; the prompt never had it)
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
@@ -1807,10 +1872,13 @@ if (CHANGE) {
 // BL-0129: wrapped in a function (was a single inline `const plan = await agent(...)`) so the SAME
 // agent/prompt/schema can be re-run after a pre-loop queue drain (drainReadyQueuePreLoop below) without
 // duplicating this prose — the prompt itself is unchanged byte-for-byte from before this refactor.
+// 9.118.2: the engine has no shell, so the FIRST planner records the greenfield baseline decision for it.
+const greenfieldEvent = (facts) =>
+  ` FIRST, record the engine's greenfield baseline decision — your ONLY write, fire-and-forget, ONE Bash call: printf '{"event":"baseline_greenfield","at":"%s","project":"%s","workOrders":${facts.workOrders}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson; printf '{"kind":"baseline_greenfield","workOrders":${facts.workOrders},"at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}.\n`
 async function runPlanner(label) {
   agentSpawned += COST(P.judge)   // DR-070/DR-073: weighted — the planner runs on the judge model
   return await agent(
-    `You are the Pandacorp build planner. Read state WITHOUT modifying anything:
+    `${label === 'plan' && baselineGreenfield ? greenfieldEvent(baselineGreenfield) : ''}You are the Pandacorp build planner. Read state WITHOUT modifying anything:
   - WALK every FRD module docs/frds/*/. For each, read frd.md and blueprint.md's **Build Plan** (WO order, intra-FRD deps, parallelism, cross-FRD deps) in full, and the **frontmatter ONLY** of every work-orders/wo-*.md (the \`implementation_status\`, \`id\`, deps, title, **\`difficulty\`** (low|medium|high, default medium), **\`reopen_count\`** (number, default 0) and **the LITERAL \`status:\` field** (DRAFT|ACTIVE — DR-100's gating field, distinct from \`implementation_status\`; absent when the WO predates this field) — NOT the full WO body; the implementer reads the body when it builds its own WO, so planning stays fast and cheap).
   - For each work order, the **frontmatter \`implementation_status\` is the source of truth**: PLANNED/IN_PROGRESS = pending; IN_REVIEW = built, awaiting its FRD gate; VERIFIED = done (NEVER rebuild); BLOCKED = skip.
   - **DR-100 gating (BL-0171 defense-in-depth):** a WO whose LITERAL \`status:\` frontmatter reads \`DRAFT\` never passed the readiness/grounding/consistency gate (/pandacorp:architecture step 9b2) — report it via \`docStatus\` below EXACTLY as it reads on disk; the engine itself refuses to schedule it. Do not silently promote or omit it.
