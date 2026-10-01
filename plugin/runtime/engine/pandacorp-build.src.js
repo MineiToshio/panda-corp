@@ -820,7 +820,11 @@ const unwrapStructuredResult = (answer, schema) => {
   if (typeof inner !== 'string') return answer
   let parsed
   try { parsed = JSON.parse(inner) } catch { return answer }   // not JSON: the untouched answer goes on to the caller's own checks
-  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : answer
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return answer
+  // A bare SEALED line (it carries its own "sum") is a receipt, not the verdict object: re-serializing it would break
+  // the character-exact seal, so it stays wrapped and the receipt reader's unwrapAnswer() lifts the verbatim text.
+  if (typeof parsed.sum === 'string' && !(schema && schema.properties && Object.prototype.hasOwnProperty.call(schema.properties, 'sum'))) return answer
+  return parsed
 }
 // Applied to every MECH spawn that declares a schema (the results the engine branches on); judge/worker results are untouched.
 const unwrapMech = (answer, opts) => {

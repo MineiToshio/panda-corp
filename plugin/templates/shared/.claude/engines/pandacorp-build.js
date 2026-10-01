@@ -245,7 +245,9 @@ const unwrapStructuredResult = (answer, schema) => {
  if (typeof inner !== 'string') return answer
  let parsed
  try { parsed = JSON.parse(inner) } catch { return answer }
- return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : answer
+ if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return answer
+ if (typeof parsed.sum === 'string' && !(schema && schema.properties && Object.prototype.hasOwnProperty.call(schema.properties, 'sum'))) return answer
+ return parsed
 }
 const unwrapMech = (answer, opts) => {
  if (!opts || opts.model !== MECH || !opts.schema) return answer
