@@ -227,3 +227,58 @@ the count, avoiding a false full-sweep trigger. No new fix-design information be
 2026-09-05/2026-09-06/2026-09-13 annotations already established; folded here per this item's own
 no-redundancy precedent. Source: factory/memory/_inbox.md agent-inferred note (2026-09-24 PASO 0 sweep,
 harvested 2026-09-25).
+
+## Note (annotated 2026-09-26) — the 2026-09-06 isolated-line anchor (`^-->\s*$`) is itself wrong; most real closes are inline
+
+A fix-design CORRECTION, not just another corroboration: the 2026-09-06 annotation above proposed anchoring
+block-boundary detection on an isolated `^-->\s*$` line. Empirically this is wrong for nearly every real
+drain block, which closes INLINE at the end of its last sentence (e.g. "No new backlog item. -->"), never on
+its own line. Verified directly during a 2026-09-26 PASO 0 count: `grep -n '^-->\s*$'` found only 1 isolated
+match in mission-control's 339-line `lessons.md` (a stale early block), while the file's true last close
+(line 327, inline) went unmatched; the factory's own `_inbox.md` (932 lines at the time) had ZERO isolated
+`-->` lines despite 10+ drained blocks. An implementation built on the 2026-09-06 anchor alone would
+systematically misread genuinely-drained history as live pending notes. What worked for manual verification
+instead: find the LAST literal `-->` occurrence (anchored or not) and diff its line number against the
+file's total line count — content after it is live, nothing after it means fully drained (confirmed against
+all 4 inbox files' actual endings that session: factory/mission-control/personal-page-v2/pandacast).
+Supersedes the 2026-09-06 annotation's anchor as the SOLE boundary rule — its point about never using an
+unanchored substring search still stands, but "isolated line" was the wrong refinement; "last occurrence,
+anchored or not" is closer, though see the next annotation for why even that is insufficient alone.
+
+## Note (annotated 2026-09-27) — "last literal `-->`" itself false-positives when a LIVE note's own prose quotes/discusses the token
+
+A further refinement: the 2026-09-26 annotation's "find the last literal `-->`, diff against total lines"
+fix-design false-positives when a live PENDING note's own prose quotes or discusses the `-->` token (exactly
+what one of this file's own then-live notes was doing, describing grep patterns against `-->`). A
+`grep -n -- '-->' factory/memory/_inbox.md | tail -3` run during a 2026-09-27 PASO 0 pass matched three
+lines, all inside that live note's own text, well past the true last drained-block close — naively taking
+the last match would have wrongly treated prose-mentioned `-->` as the comment boundary and undercounted
+pending notes. Manual Read-based verification was needed to find the true close. The fix-design needs a
+stricter anchor (e.g. comment-close must be the line's own trailing token after real prose, not inside
+backticks/quotes) before "last literal occurrence" is safe to automate — i.e. combine the 2026-09-26
+"pick the last occurrence" refinement with an anchor that excludes quoted/backticked mentions of the token.
+
+## Note (annotated 2026-09-29) — anchoring on recurring drain-block boilerplate phrases breaks when the phrase repeats; must pick the occurrence closest to EOF
+
+A third, distinct refinement: anchoring block-boundary detection on a DISTINCTIVE recurring drain-block
+boilerplate phrase (e.g. "prune-freeze stays INACTIVE...") is equally unsafe when that same phrase repeats
+across multiple drain blocks in one file. During a 2026-09-29 PASO 0 sweep, `grep -n "prune-freeze stays"`
+on mission-control's 339-line `lessons.md` matched 5 times (one per historical drain block); a first-match
+`awk` grabbed an early, stale block instead of the true last drain 13 lines from EOF, which would have
+silently included ~200 lines of already-drained history as "pending." Generalizes both prior annotations
+into one operative rule: whichever anchor is finally chosen (last literal `-->` with a quote-exclusion per
+2026-09-27, or a boilerplate-phrase match), it must always resolve ties by **proximity to EOF, not document
+order**. (True count that pass was verified manually: 11 live notes in mission-control, 2 in
+personal-page-v2, 2 in factory/`_inbox.md`, 0 in pandacast — 15 total, correctly under the 20-note
+full-sweep threshold.)
+
+Checked all three 2026-09-26/27/29 notes above against LESSON-0008
+(line-anchored-parsing-not-substring-greedy, active, high confidence): LESSON-0008 already states the
+general principles these notes keep re-deriving — "(a) ... scan the **last** match if multiple are
+structurally valid" and "(c) for a delimiter PAIR ... match the closing token that immediately precedes the
+NEXT opening marker or EOF, not a line-by-line first-close state machine" — and its own `source` field
+already cites this exact BL-0061/`_inbox.md` incident family (2026-08-02 harvest). These three notes are
+further live reproductions of that SAME already-cited incident family, from the SAME project/routine, not a
+second independent project — per DR-047 anti-poisoning and this item's own 2026-09-13 precedent (which
+reached the identical conclusion for an adjacent facet), this does not warrant another LESSON-0008 update,
+let alone a new lesson. No memory-side change made; this is pure fix-design sharpening of BL-0061 itself.
