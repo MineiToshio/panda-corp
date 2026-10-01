@@ -944,8 +944,11 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   (`rate_limit_error`/`overloaded_error`, `API Error: 429/529`, `Claude AI usage limit reached|<epoch>`), or the
   runtime's plain limit reply when it is the whole bare-text answer: a verdict about a product's own usage limit is a
   work-order verdict, never `infra`.
-- **Resume (C7).** Under `mechScript` the `precheck` runs before anything reads state: finish interrupted reverts, salvage
-  engine-owned dirt (WO frontmatter, `.pandacorp/run`) and reset it to `HEAD`, then demote every `IN_REVIEW` WO whose
+- **Resume (C7).** Under `mechScript` the `precheck` runs before anything reads state: finish interrupted reverts, commit
+  the append-only journals' pending lines (a paused run's `build_paused`, a gate's review lines: durable, never reset),
+  salvage engine-owned dirt and reset it to `HEAD` (a WO file whose diff from `HEAD` is only `implementation_status`,
+  `reopen_count` or `blocked_reason`; a WO that also carries an owner or `iterate` edit keeps every byte except its
+  `implementation_status`, which goes back to `HEAD`'s, and is reported as owner dirt), then demote every `IN_REVIEW` WO whose
   flip to `IN_REVIEW` is not committed on `HEAD` after its last `IN_PROGRESS` dispatch stamp (the `wo-revert.mjs`
   window, history walked with `--full-history`). `run_started_at` is not used, so a resume never rebuilds a previous
   run's committed work. Off `main` the demotion is report-only.
@@ -961,9 +964,16 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   the landed diff; monotone, fail-closed (unreadable = floor); the engine is the single writer of FRD frontmatter
   `floor:`.
 - **USABLE (C6).** `verify` refuses unless the tree is clean and every WO is committed `IN_REVIEW` at `HEAD`, then runs
-  `verify.sh` on that SHA. Green and non-floor → `build_usable` (track.jsonl line committed on its own + dashboard event)
-  and a push hint. Red → one sonnet fix-forward (`commit-wo --fixup`), then the classic repair. USABLE is an event; it
-  never advances `last_green_sha` (BL-0066) and nothing stores it.
+  `verify.sh` on that SHA. The shared append-only journals are not dirt: a gate in a parallel slot appends its review
+  lines to the MAIN tree's journals at any time, so `verify` and `commit-wo`'s after-commit check ignore them, and an op
+  that must undo its own journal line withdraws only that line. Green and non-floor → `build_usable` (track.jsonl line
+  committed, sweeping the journals' pending lines, + dashboard event) and a push hint. USABLE has one writer (DR-115):
+  the receipt says `usable` only once that line is committed, and the engine passes its own fail-closed floor verdict as
+  `--floor`, so an FRD the engine treats as floor can never get a `build_usable` line. Red → one sonnet fix-forward
+  (`commit-wo --fixup`), then the classic repair. A REFUSED verify (dirty, uncommitted, lock-busy, an input error or an
+  unverifiable receipt) certified nothing either way: it is retried once, then the FRD is not USABLE and its gate
+  decides; it never enters the fix-forward or the repair ladder. USABLE is an event; it never advances `last_green_sha`
+  (BL-0066) and nothing stores it.
 - **Gates overlap the next build.** The FRD's unchanged opus gate (DR-015) is pinned to the landed SHA and runs in a
   parallel gate slot (§5c) while the next FRD builds. A floor FRD is USABLE only at VERIFIED, and a dependent of a floor
   FRD (or of an FRD whose verify stayed red) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
