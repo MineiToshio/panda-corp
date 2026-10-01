@@ -933,10 +933,13 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   needs `tests_reason:`); it re-runs the related unit tests, stamps `IN_REVIEW` and commits code + stamp as ONE commit
   naming the WO, then asserts a clean tree (a failure restores the stamp). `park-wo` moves a failed WO's dirty paths to
   `.pandacorp/run/salvage/<wo>/<ts>/` and resets them. On the sequential fast lane every park passes `--all-undeclared`:
-  it also salvages every undeclared path dirtied since the FRD's `dispatch` (which records the dirt already present,
-  kept untouched as an owner's), so a stray edit never rides the next WO's commit nor keeps the FRD's verify refused.
-  Whatever a park still leaves behind is recorded, and `commit-wo` refuses it as another WO's `--extra`
-  (`parked-leftover`). Each safe point runs the `safe-point` probe first (fenced
+  it also salvages every path changed since the FRD's `dispatch`, declared or not. The `dispatch` records the dirt
+  already present with a content hash per path; a park keeps such a path only while it still holds that content, so a
+  path the builder changed is always salvaged, and a stray edit never rides the next WO's commit nor keeps the FRD's
+  verify refused. Whatever that park still leaves behind is recorded with its hash, and `commit-wo` refuses it for any
+  other WO, through `--files` (a glob, a directory) or `--extra`, while it still holds the parked content
+  (`parked-leftover`). The classic waves record nothing (a parallel sibling's files are its own), and the `precheck` and
+  every `dispatch` clear the records. Each safe point runs the `safe-point` probe first (fenced
   lease renewal, the lstat stop receipt, `rethink_pending`, ready change cards, answered needs-owner decisions): a stop
   stops the run, a quiet probe ends the safe point, and the LLM drain (the judgment part, on the implementer) runs only
   when the probe finds work or its receipt cannot be verified.
@@ -956,12 +959,27 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   flip to `IN_REVIEW` is not committed on `HEAD` after its last `IN_PROGRESS` dispatch stamp (the `wo-revert.mjs`
   window, history walked with `--full-history`). `run_started_at` is not used, so a resume never rebuilds a previous
   run's committed work. Off `main` the demotion is report-only.
+- **Owner dirt stops the fast lane.** The `precheck` never resets an owner's edit; it reports every in-project dirty path
+  beyond the journals and the lease projection as `ownerDirt`. A builder commits on `main` and undoes an undeclared
+  edit, so a fast run with any `ownerDirt` closes `needs-owner` BEFORE any dispatch, its result listing the paths
+  (`blockedReasons['owner-dirt']`, `ownerDirt`). The classic lane keeps its judge baseline's DR-067 reconciliation.
+- **Resume a cut run (both lanes).** A run cut by a usage limit before its close leaves a stale lease under its own
+  `build_run_id`. `launch-implement.sh <proj> <mode> <maxAgents> --resume <run-id>` (or that run id as the positional run
+  argument) performs the fenced reclaim with the preflight's checks (stale past the BL-0153 grace, runtime `claude`, the
+  same run id) and prints the normal Workflow call with the new token/epoch; a fresh or foreign lease is refused and
+  left untouched.
 - **Greenfield start.** A freshly architected project has `verify.sh` red by construction (knip flags the dependencies
   the work orders will import, vitest finds no tests) and no `last_green_sha`, so the baseline pre-check can only
-  escalate. The `precheck` reports `greenfield` from durable state only: no published `last_green_sha` (absent, empty,
-  `null`, `~`) and every work order `PLANNED`/`DRAFT` or only dispatched (`IN_PROGRESS`), none built or `BLOCKED`. The
-  fast lane then spends no judge baseline and never stops there; each FRD's own `verify` certifies what it builds. Any
-  other state keeps the unchanged baseline.
+  escalate. ONE definition decides greenfield (DR-115): `decideGreenfield` in `plugin/scripts/greenfield-probe.mjs`,
+  from durable state only: no published `last_green_sha` (absent, empty, `null`, `~`), not adopted (`status.yaml`
+  `created_via: adopt`, the provenance `/pandacorp:adopt` writes: an adopted brownfield project also has an empty pin and
+  `PLANNED` work orders, but its code exists), no work order EVER `IN_REVIEW`/`VERIFIED` in the project's git history
+  (frontmatter at each commit, so a resume demotion does not hide built code; an unreadable history is not greenfield),
+  and every work order `PLANNED`/`DRAFT`, none `BLOCKED`. The classic baseline reads that verdict sealed in the probe's
+  line; the fast lane's `precheck` asks the same function with `allowDispatched`, which also accepts a committed dispatch
+  stamp (`IN_PROGRESS`), since its precheck already restored every uncommitted stamp and owner dirt stops it. The fast
+  lane then spends no judge baseline and never stops there; each FRD's own `verify` certifies what it builds. Any other
+  state keeps the unchanged baseline.
 - **Wrapped relay answers.** A model may return a structured answer as one string-valued key (`{"parameter":
   "<json>"}`). Every sealed-receipt reader unwraps it once (the inner object carrying the expected key, or the bare
   sealed line) before its seal check, which still decides.
@@ -1748,8 +1766,8 @@ timestamp while the build was advancing). So:
   (2) "sin señal" engages when the heartbeat stops. See [quality.md](quality.md) "Observability-fidelity gate".
 
 The **`implement` preflight** checks the atomic lease first, after confirming `status.yaml` exists. A
-fresh lease always aborts a second launch; a stale lease is reclaimed only through the fenced CLI,
-never by editing/removing its directory. Only when no neutral lease exists does the compatibility
+fresh lease always aborts a second launch; a stale lease is reclaimed only through the fenced CLI (the
+launcher's `--resume <run-id>` runs it for the same runtime and run, §5d), never by editing/removing its directory. Only when no neutral lease exists does the compatibility
 projection below apply. **Projection liveness is
 `max(supervisor_heartbeat, last_event_at)`, not the supervisor's clock alone (DR-066):** either stamp being
 fresh means alive, so the lock is stale only when **BOTH** are ≥ 10 min old. Reading only
