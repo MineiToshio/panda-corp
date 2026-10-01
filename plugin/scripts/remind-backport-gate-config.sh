@@ -25,7 +25,7 @@ case "$file" in */plugin/templates/*) allow ;; esac
 case "$file" in
   */biome.json|*/knip.json|*/playwright.config.ts) ;;
   */.pandacorp/verify.sh) ;;
-  */e2e/smoke.spec.ts|*/e2e/visual.spec.ts|*/e2e/responsive.spec.ts|*/e2e/shell.spec.ts|*/e2e/_responsive-helper.ts) ;;
+  */e2e/smoke.spec.ts|*/e2e/visual.spec.ts|*/e2e/responsive.spec.ts|*/e2e/shell.spec.ts|*/e2e/_responsive-helper.ts|*/e2e/hydration.spec.ts|*/e2e/_hydration.ts) ;;
   *) allow ;;
 esac
 

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { gotoHydrated } from "./_hydration";
 import { notSkipped } from "./_skip";
 import { TARGETS_MOBILE } from "./_target";
 import { VISUAL_BLESSED } from "./routes";
@@ -28,7 +29,9 @@ for (const s of notSkipped(VISUAL_BLESSED)) {
     // pixels) and the page doesn't hang — a live EventSource never lets networkidle settle (DR-071).
     // The page still renders its initial server snapshot, which is what the blessed baseline captures.
     await page.route("**/api/live**", (r) => r.abort());
-    await page.goto(s.path, { waitUntil: "domcontentloaded" });
+    // gotoHydrated (optional: a surface may have no form): a screenshot taken before the form hydrates
+    // can capture the pre-hydration state and flake the baseline (bench A-1).
+    await gotoHydrated(page, s.path, { optional: true });
     await expect(page.locator("main, h1").first()).toBeVisible(); // real content rendered before the shot
     // Exclude environment/data-dependent surfaces from the visual baseline so pixel diffs stay
     // deterministic (each has its own unit/component coverage):
