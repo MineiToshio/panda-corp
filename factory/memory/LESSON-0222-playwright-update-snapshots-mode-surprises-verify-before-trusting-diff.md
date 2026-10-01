@@ -5,7 +5,7 @@ domain: testing
 tags: [playwright, visual-regression, snapshots, update-snapshots, false-positive, false-negative]
 context: regenerating Playwright visual-baseline snapshots after a real content/copy change, or reviewing whether an already-committed snapshot change reflects an intentional edit
 trigger: use this when deciding how to regenerate Playwright snapshots after a copy/content change, or when reviewing an unexpectedly-changed visual baseline and judging whether it is legitimate
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-08/2026-09-10 (2 related agent-inferred incidents, same class): (1) a verification subagent saw a home-mobile baseline differ from what it expected mid-session and, assuming DR-096/099 parallel-session WIP, reverted it — but the real cause was that a full-suite `pnpm exec playwright test e2e/ --update-snapshots` (no path scope) had regenerated every snapshot whose render diverged even slightly from baseline, including one already correctly re-blessed earlier in the SAME session, not a foreign session's WIP; (2) after a small copy change (a 20-character label), bare `-u`/`--update-snapshots` in Playwright 1.61 runs in changed mode (only rewrites snapshots whose comparison fails) and `maxDiffPixelRatio: 0.02` absorbed the small visual change, so the suite passed green against a baseline that still showed the OLD text"
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-08/2026-09-10 (2 related agent-inferred incidents, same class): (1) a verification subagent saw a home-mobile baseline differ from what it expected mid-session and, assuming DR-096/099 parallel-session WIP, reverted it — but the real cause was that a full-suite `pnpm exec playwright test e2e/ --update-snapshots` (no path scope) had regenerated every snapshot whose render diverged even slightly from baseline, including one already correctly re-blessed earlier in the SAME session, not a foreign session's WIP; (2) after a small copy change (a 20-character label), bare `-u`/`--update-snapshots` in Playwright 1.61 runs in changed mode (only rewrites snapshots whose comparison fails) and `maxDiffPixelRatio: 0.02` absorbed the small visual change, so the suite passed green against a baseline that still showed the OLD text. Corroborated a THIRD time (2026-09-28/29, same project, agent-inferred): `playwright test --update-snapshots` scoped only by SPEC FILE (not by test title) regenerated EVERY baseline in that file — 12 rewritten when only 3 had an actual content change, spanning home, projects, about and the case studies — confirming the 'overwrites MORE than intended' failure shape recurs even when a path/file scope IS given, not only when the run is fully unscoped."
 provenance: agent-inferred
 created: 2026-09-10
 status: candidate
@@ -41,3 +41,11 @@ as proof the baseline was refreshed. Conversely, before treating an unexpectedly
 evidence of foreign/reverted work (per LESSON-0043's provenance-evaluation guidance), first check whether a
 recent unscoped `--update-snapshots` run in THIS session could explain it before assuming a parallel
 session touched it.
+
+**Third occurrence's mitigation (narrower scoping than file-level):** a file-level scope
+(`e2e/some.spec.ts --update-snapshots`) is not narrow enough — it still regenerates every test's baseline
+in that file, not just the one(s) whose render actually changed. Scope with Playwright's title filter
+instead (`--update-snapshots -g "<unique test title fragment>"`) to touch only the intended baseline, then
+always run `git status -- e2e` (or the project's snapshot path) immediately after and revert any changed
+PNG outside the intended set before committing — treat an unreverted out-of-scope PNG diff as a blocking
+finding, not a cosmetic one.

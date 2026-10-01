@@ -13,7 +13,7 @@ promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §
 confidence: high
 times_applied: 1
 applied_in: [panda-corp]
-links: [BUILD-2, factory/standards/build-orchestration.md#BUILD-2]
+links: [BUILD-2, factory/standards/build-orchestration.md#BUILD-2, LESSON-0276]
 ---
 
 **Situation:** running the gate as `bash verify.sh | tail` and then checking `$?` reported `tail`'s exit

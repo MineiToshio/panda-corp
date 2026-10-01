@@ -13,7 +13,7 @@ promotion: none
 confidence: high
 times_applied: 0
 applied_in: []
-links: [LESSON-0129, LESSON-0221, LESSON-0206, LESSON-0223]
+links: [LESSON-0129, LESSON-0221, LESSON-0206, LESSON-0223, LESSON-0277]
 ---
 
 **Situation:** a full career-copy/LinkedIn rewrite pass surfaced a cluster of recurring, owner-stated

@@ -54,7 +54,17 @@ own dev server bound to the reserved port (likely with parallel worktree session
 producing a spray of 27 failures across routes the change never touched; exporting `PORT=<free-port>` before
 calling `merge-queue.sh` collapsed the same merge attempt to exactly the 2 routes actually affected. This is
 a template-level instance of the same family — tracked as an actionable fix in **BL-0133** (`merge-queue.sh`
-should detect the collision and export a free `PORT` itself, not rely on the caller remembering to)."
+should detect the collision and export a free `PORT` itself, not rely on the caller remembering to).
+Corroborated a FIFTEENTH time (2026-09-28/29, personal-page-v2, `.pandacorp/run/lessons.md`): `.pandacorp/verify.sh`
+and the project's `preview_start` both bind the SAME reserved port (4010), so a preview dev server left running
+while the gate runs reproduces the whole family (25 failures in one run, spanning lightbox colors, mobile nav, and
+smoke checks on routes the change never touched) — diagnose by COUNTING LISTENERS on the port (`lsof -i :4010`)
+first, not by reading the failure list, which points everywhere except the actual cause. New, more severe
+second-order facet: a Playwright visual baseline BLESSED (`--update-snapshots`) while two servers were competing
+for that port is silently CORRUPTED (it encodes whichever server's half-finished/wrong render won the race) and
+then PASSES review from that point on, because the corrupted baseline now matches its own corrupted self on every
+subsequent run — a baseline-blessing step must never run until the port is confirmed to have exactly one listener,
+the project's own gate process."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
@@ -62,7 +72,7 @@ promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §
 confidence: medium
 times_applied: 3
 applied_in: [mission-control, personal-page-v2, panda-corp]
-links: [BL-0037, BL-0049, BL-0133, LESSON-0197, LESSON-0185, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
+links: [BL-0037, BL-0049, BL-0133, LESSON-0197, LESSON-0185, LESSON-0222, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
 ---
 
 **Situation:** Playwright's e2e `webServer` defaults to port 3000 (`playwright.config.ts`). A sibling
@@ -112,4 +122,10 @@ consecutive clean passes, NOT reproducible in isolation) points to shared-resour
 concurrent build activity rather than a stale process or a code regression — verify via an isolated rerun
 before concluding either; and `merge-queue.sh` itself needs a `PORT` override before calling `verify.sh`,
 or the shared-checkout landing path is exposed to this same class every time a parallel worktree session
-has its own dev server up (see BL-0133).
+has its own dev server up (see BL-0133). Fifteenth occurrence adds the most severe facet yet: when the
+project's OWN gate script (`verify.sh`) and its OWN preview-launch command share one hardcoded reserved
+port, the collision is not just a false-red risk but a false-GREEN one — a visual baseline blessed while
+both processes were racing for that port bakes in a corrupted render and then silently validates itself on
+every future run, since nothing compares it back to a known-good reference. Diagnose with a listener count
+(`lsof -i :<port>`) before reading the failure list at all, and treat ANY blessing of a new baseline as
+unsafe until that count is exactly one.

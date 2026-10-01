@@ -43,3 +43,11 @@ outlive the current turn belongs in the repo (`docs/reviews/`, `factory/`, or th
 durable location) written in the SAME turn it is produced — never left sitting only in the session
 scratchpad pending a later "I'll write it up properly" pass, because that later pass may never get the
 chance to run before the scratchpad disappears.
+
+**Third corroboration, same project (2026-09-28/29):** an in-progress blog draft was lost when the
+scratchpad rotated mid-session and had to be rebuilt via the Artifact-tool `action=read` recovery channel
+above. Sharper technique for the strip step: the publish wrapper adds a doctype/head around the authored
+file, so recover the authored content by slicing from the authored `<title>` tag to the LAST `</script>`
+tag in the returned HTML, discarding everything outside that span, before re-editing and republishing.
+Also re-publish after every meaningful edit rather than batching several edits before the next publish —
+batching widens the window in which a scratchpad rotation can erase unpublished work.
