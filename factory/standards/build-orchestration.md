@@ -932,12 +932,18 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   with a reason, a schema/migration path off `main`, another WO's frontmatter, and an AC id no test cites (`tests: none`
   needs `tests_reason:`); it re-runs the related unit tests, stamps `IN_REVIEW` and commits code + stamp as ONE commit
   naming the WO, then asserts a clean tree (a failure restores the stamp). `park-wo` moves a failed WO's dirty paths to
-  `.pandacorp/run/salvage/<wo>/<ts>/` and resets them.
+  `.pandacorp/run/salvage/<wo>/<ts>/` and resets them. Each safe point runs the `safe-point` probe first (fenced
+  lease renewal, the lstat stop receipt, `rethink_pending`, ready change cards, answered needs-owner decisions): a stop
+  stops the run, a quiet probe ends the safe point, and the LLM drain (the judgment part, on the implementer) runs only
+  when the probe finds work or its receipt cannot be verified.
 - **`args.infraGuard` (C7).** An agent that throws, returns nothing, or carries a usage-limit/429/overloaded signature is
   `infra`: no repair try, never `BLOCKED`, never a `wo-revert`. One retry after 60 s; a second `infra` or any limit
   signature halts: no new dispatch, in-flight results accepted or parked, in-flight gate verdicts not landed (they
   re-gate next run), ONE allowlisted close records `build_paused` and releases the lease; `stopReason: 'paused-infra'`
-  plus a `resumeHint`. Committed work is never reverted.
+  plus a `resumeHint`. Committed work is never reverted. In an agent's ANSWER only the provider's own envelope counts
+  (`rate_limit_error`/`overloaded_error`, `API Error: 429/529`, `Claude AI usage limit reached|<epoch>`), or the
+  runtime's plain limit reply when it is the whole bare-text answer: a verdict about a product's own usage limit is a
+  work-order verdict, never `infra`.
 - **Resume (C7).** Under `mechScript` the `precheck` runs before anything reads state: finish interrupted reverts, salvage
   engine-owned dirt (WO frontmatter, `.pandacorp/run`) and reset it to `HEAD`, then demote every `IN_REVIEW` WO whose
   flip to `IN_REVIEW` is not committed on `HEAD` after its last `IN_PROGRESS` dispatch stamp (the `wo-revert.mjs`
@@ -963,7 +969,9 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   FRD (or of an FRD whose verify stayed red) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
 - **Fix-forward after USABLE.** A gate rejection is patched and certified (DR-073 ladder unchanged). A discard of a USABLE
   FRD becomes `BLOCKED: needs-owner` with a decision record naming the whole dependent set and a push; the engine reverts
-  nothing.
+  nothing. This holds across runs: the `precheck` derives the FRDs still USABLE from the committed `build_usable` lines
+  (the latest line's SHA is an ancestor of `HEAD`, every WO is VERIFIED, `IN_REVIEW` or `BLOCKED`, none re-stamped after
+  that SHA), so a run after a defer, a `paused-infra` halt or an unlanded gate keeps the same guard.
 - **Security (DR-085).** The audit starts read-only on the first gate's pin; the close-out audits only the delta since
   that pin, fail-closed to the full audit when the early verdict is unusable.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
@@ -1192,7 +1200,8 @@ work keeps the sonnet floor + opus escalation.
 `args.mechLean` default `true`).** The MECH tier above is now backed by a named agent,
 `pandacorp:mech`, scoped to `Bash` and `Read` only (no `Write`/`Edit`: it cannot touch product code), at
 `effort: 'low'`. `safe-point` itself stays explicitly NOT mechanical: it stays on the implementer, since
-deciding what to do with a drained item is judgment, not a script. `sync-rollups` merges into the wave's
+deciding what to do with a drained item is judgment, not a script (under `args.mechScript` a scripted probe runs first
+and the implementer's drain runs only when the probe finds work, proposal 39 C1). `sync-rollups` merges into the wave's
 first `dispatch` call instead of its own spawn, and `commit` now returns the resulting `sha`, which
 `capturePin` (the gate-worktree pin, §5a) reuses directly when a wave closed with a commit and no repair
 ran, saving a spawn on that path. These are fusions, not eliminations: the Dynamic Workflows runtime
