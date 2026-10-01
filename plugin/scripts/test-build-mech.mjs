@@ -311,6 +311,52 @@ console.log('park-wo: a failed WO\'s dirty paths move to salvage and are reset')
   } finally { s.cleanup() }
 }
 
+// The verifier's case: on the sequential fast lane a builder's UNDECLARED edit for a work order it then parks must
+// not survive the park — it would ride the next work order's commit (--extra, a blended commit wo-revert misattributes)
+// or keep the FRD's verify refused on a dirty tree forever. `--all-undeclared` (fast lane only) salvages every dirty
+// path created since the FRD's dispatch; dirt that was already there at the dispatch (an owner's) is never touched.
+console.log('park-wo --all-undeclared: every undeclared path since the FRD\'s dispatch is salvaged; earlier dirt is kept')
+{
+  const r = mkRepo()
+  try {
+    r.write('src/existing.ts', 'export const existing = "owner, before the dispatch"\n')
+    const d = r.run('dispatch', ['--wo', 'WO-01-002', '--commit'])
+    ok(d.code === 0 && d.receipt.status === 'stamped', 'the FRD is dispatched (committed stamp)')
+    r.write('src/beta.ts', 'export const beta = \n')            // declared by WO-01-002
+    r.write('src/stray.ts', 'export const stray = 1\n')          // undeclared: the builder's stray edit
+    r.write('src/lib/helper.ts', 'export const helper = 1\n')    // undeclared, nested
+    const p = r.run('park-wo', ['--wo', 'WO-01-002', '--files', 'src/beta.ts', '--all-undeclared'])
+    const parked = (p.receipt && p.receipt.parked || []).map((x) => x.path).sort()
+    ok(p.code === 0 && p.sealed && JSON.stringify(parked) === JSON.stringify(['src/beta.ts', 'src/lib/helper.ts', 'src/stray.ts']), `the declared AND every undeclared path since the dispatch are parked (got ${p.code} ${parked.join(', ')} ${p.receipt && (p.receipt.reason || p.receipt.error)})`)
+    ok(r.read('src/stray.ts') === null && r.read('src/lib/helper.ts') === null && r.read('src/beta.ts') === null, 'they are gone from the tree (salvaged, never lost)')
+    ok(r.read('src/existing.ts') === 'export const existing = "owner, before the dispatch"\n' && (p.receipt.kept || []).includes('src/existing.ts'), 'dirt that was there before the dispatch is kept, untouched, and reported')
+    ok(p.receipt.allUndeclared === 'applied', `the receipt says the dispatch snapshot was applied (got ${p.receipt.allUndeclared})`)
+  } finally { r.cleanup() }
+}
+console.log('park-wo leftovers: without a dispatch snapshot the undeclared path stays, and no later commit may claim it with --extra')
+{
+  const r = mkRepo()
+  try {
+    r.installVitest()
+    r.write('src/beta.ts', 'export const beta = \n')
+    r.write('src/stray.ts', 'export const stray = 1\n')
+    const p = r.run('park-wo', ['--wo', 'WO-01-002', '--files', 'src/beta.ts', '--all-undeclared'])
+    ok(p.code === 0 && p.receipt.allUndeclared === 'no-dispatch-snapshot' && r.read('src/stray.ts') !== null && (p.receipt.left || []).includes('src/stray.ts'), `no snapshot: declared paths only, the leftover is reported (got ${p.code} ${p.receipt && p.receipt.allUndeclared} ${JSON.stringify(p.receipt && p.receipt.left)})`)
+    buildAlpha(r)
+    const before = r.head()
+    const c = r.run('commit-wo', [...ALPHA_FILES, '--extra', 'src/stray.ts', '--reason', 'shared helper'])
+    ok(c.code === 4 && c.receipt.status === 'parked-leftover' && /WO-01-002/.test(c.receipt.reason || '') && r.head() === before, `commit-wo refuses --extra for a parked work order's leftover (got ${c.code} ${c.receipt && c.receipt.status})`)
+    ok(/IN_PROGRESS/.test(r.read(WO_A)) && r.read('src/stray.ts') === 'export const stray = 1\n', 'nothing was stamped, committed or touched')
+    const ok2 = r.run('commit-wo', [...ALPHA_FILES, '--extra', 'src/stray.ts', '--reason', 'x', '--extra', 'src/other.ts', '--reason', 'y'])
+    ok(ok2.code === 4 && ok2.receipt.status === 'parked-leftover', 'still refused next to another --extra')
+    r.run('park-wo', ['--wo', 'WO-01-002', '--all-undeclared'])
+    ok(r.read('src/stray.ts') === null, 'without --files the parked WO\'s every dirty path goes (the leftover is salvaged)')
+    buildAlpha(r)   // that park took the unbuilt WO-01-001's files too (no snapshot): rebuild them
+    const c2 = r.run('commit-wo', ALPHA_FILES)
+    ok(c2.code === 0 && c2.receipt.status === 'committed' && !r.filesAt().includes('proj/src/stray.ts'), 'the next work order then commits without it')
+  } finally { r.cleanup() }
+}
+
 // ── precheck ─────────────────────────────────────────────────────────────────────────────────────
 console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, the journals committed, owner dirt untouched')
 {

@@ -25,10 +25,14 @@
 //                line → one commit naming the WO (extras in a trailer) → assert the tree clean → the wo_commit event. Any failure after the stamp restores it (and
 //                undoes the commit), so an IN_REVIEW never exists without its clean commit. `--fixup <id>` commits a
 //                fix to an earlier own-FRD WO as its own commit, no stamp.
-//   park-wo      --wo <id> [--files <a,b,…>]   move a failed WO's dirty paths to .pandacorp/run/salvage/<id>/<stamp>/
-//                and reset them, so the next WO never builds on broken files (journals and other WOs' files kept).
+//   park-wo      --wo <id> [--files <a,b,…>] [--all-undeclared]   move a failed WO's dirty paths to
+//                .pandacorp/run/salvage/<id>/<stamp>/ and reset them, so the next WO never builds on broken files
+//                (journals and other WOs' files kept). --all-undeclared (the sequential fast lane only) also salvages
+//                every undeclared path dirtied since its FRD's dispatch (the dispatch snapshot); dirt that was already
+//                there is kept. What a park leaves behind is recorded, and commit-wo refuses it as an --extra.
 //   dispatch     --wo <id>… [--commit]   stamp IN_PROGRESS in the frontmatter (BL-0002); --commit makes it a commit,
-//                the anchor of the stamp-commit window (C7). A VERIFIED/BLOCKED work order is refused.
+//                the anchor of the stamp-commit window (C7). A VERIFIED/BLOCKED work order is refused. Records each
+//                FRD's dispatch snapshot (the base and the dirt already present) for park-wo --all-undeclared.
 //   safe-point   [--token T --epoch E] [--targeted]   the probe: renew the lease (fenced), the owner stop receipt
 //                (lstat), rethink_pending, ready change cards, needs-owner blocks with an answered decision →
 //                `work`. The engine spawns the LLM drain only when `work` is true.
@@ -71,7 +75,7 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared'])
 const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
 function parseArgs(argv) {
   const op = argv[0]
@@ -80,7 +84,7 @@ function parseArgs(argv) {
     const k = argv[i]
     if (!k.startsWith('--')) throw new InputError(`unexpected argument ${JSON.stringify(k)}`)
     const name = k.slice(2)
-    if (FLAGS.has(name)) { o[name] = true; continue }
+    if (FLAGS.has(name)) { o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = true; continue }
     const v = argv[++i]
     if (v === undefined) throw new InputError(`${k} needs a value`)
     if (name === 'files') o.files.push(...v.split(',').map((s) => s.trim()).filter(Boolean))
@@ -95,6 +99,35 @@ function parseArgs(argv) {
   o.project = path.resolve(o.project)
   if (o.extras.some((x) => !x.reason)) throw new InputError('every --extra needs a --reason (why the WO had to touch an undeclared path)')
   return o
+}
+
+// ── dispatch snapshots and park leftovers (gitignored run state) ──────────────────────────────────
+const dispatchSnapshotFile = (ctx, frd) => path.join(ctx.project, '.pandacorp', 'run', 'dispatch', `${frd}.json`)
+const parkedFile = (ctx, id) => path.join(ctx.project, '.pandacorp', 'run', 'parked', `${id.toUpperCase()}.json`)
+/** Not this op's own: the lease projection, a journal, or another work order's file. */
+const sharedPath = (p, ownRel) => p === PROJECTION || JOURNALS.includes(p) || (WO_FILE_RE.test(p) && p !== ownRel)
+/**
+ * The dirt already present when an FRD was dispatched (never the builder's): `applied` only when the snapshot exists,
+ * parses and its base is an ancestor of HEAD; otherwise the caller falls back to the declared paths.
+ * @returns {{ state: 'applied'|'no-dispatch-snapshot'|'stale-dispatch-snapshot', dirt: Set<string> }}
+ */
+function dispatchSnapshot(ctx, frd) {
+  let snap = null
+  try { snap = JSON.parse(readFileSync(dispatchSnapshotFile(ctx, frd), 'utf8')) } catch { return { state: 'no-dispatch-snapshot', dirt: new Set() } }
+  const valid = snap && snap.frd === frd && typeof snap.base === 'string' && Array.isArray(snap.dirt) && ctx.g.run(['merge-base', '--is-ancestor', snap.base, 'HEAD']).ok
+  return valid ? { state: 'applied', dirt: new Set(snap.dirt) } : { state: 'stale-dispatch-snapshot', dirt: new Set() }
+}
+/** Every path a parked work order (other than `ownId`) left dirty behind it: path → work order id. */
+function parkLeftovers(ctx, ownId) {
+  const dir = path.join(ctx.project, '.pandacorp', 'run', 'parked')
+  const out = new Map()
+  for (const f of existsSync(dir) ? readdirSync(dir).filter((n) => n.endsWith('.json')) : []) {
+    let rec = null
+    try { rec = JSON.parse(readFileSync(path.join(dir, f), 'utf8')) } catch { rec = null }
+    if (!rec || typeof rec.wo !== 'string' || !Array.isArray(rec.left) || rec.wo.toUpperCase() === ownId.toUpperCase()) continue
+    for (const p of rec.left) if (typeof p === 'string') out.set(p, rec.wo)
+  }
+  return out
 }
 
 // ── commit-wo ──────────────────────────────────────────────────────────────────────────────────
@@ -154,6 +187,10 @@ function commitWo(o) {
     const dirty = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION)
     const foreign = dirty.filter((e) => WO_FILE_RE.test(e.path) && e.path !== wo.rel).map((e) => e.path)
     if (foreign.length) throw new Refusal('foreign-wo', `another work order's file changed: ${foreign.join(', ')} — one commit carries one work order's flip`, { paths: foreign })
+    // A parked work order's leftover is its work, never this one's: an --extra claiming it would blend the commit.
+    const dirtySet = new Set(dirty.map((e) => e.path))
+    const claimed = [...parkLeftovers(ctx, wo.id)].filter(([p]) => dirtySet.has(p) && o.extras.some((x) => matchesDeclared([x.path], p)))
+    if (claimed.length) throw new Refusal('parked-leftover', `${claimed.map(([p, id]) => `${p} (left by the parked ${id})`).join(', ')}: a parked work order's leftover is never committed with another one — do not pass it as --extra; run that work order's park command (it salvages the leftover), then re-run this commit`, { paths: claimed.map(([p]) => p), wos: unique(claimed.map(([, id]) => id)) })
     const auto = (p) => p === wo.rel || JOURNALS.includes(p)
     const allowed = [...o.files, ...o.extras.map((x) => x.path)]
     const undeclared = dirty.filter((e) => !auto(e.path) && !matchesDeclared(allowed, e.path)).map((e) => e.path)
@@ -193,12 +230,16 @@ function commitWo(o) {
       restore()
       throw new Refusal('dirty-after-commit', `the tree was not clean after the commit (${after.join(', ')}) — the commit was undone and the stamp restored`, { paths: after })
     }
-    if (!o.fixup) emitEvent(o, { event: 'wo_commit', frd: wo.frd, wo: wo.id, state: 'IN_REVIEW' })
+    if (!o.fixup) { rmSync(parkedFile(ctx, wo.id), { force: true }); emitEvent(o, { event: 'wo_commit', frd: wo.frd, wo: wo.id, state: 'IN_REVIEW' }) }
     return { code: 0, body: { status: 'committed', wo: wo.id, frd: wo.frd, sha: sha.slice(0, 12), fixup: Boolean(o.fixup), paths, codePaths: paths.filter((p) => !auto(p) && p !== TRACK), extras: stagedExtras, acs, tests, lock: { reclaimed: lock.reclaimed } } }
   } finally { releaseLock(lock) }
 }
 
 // ── park-wo ────────────────────────────────────────────────────────────────────────────────────
+// --all-undeclared (the sequential fast lane: one builder on main, so every dirty path since the dispatch is that
+// builder's): salvage everything dirtied since the FRD's dispatch, declared or not; the dispatch snapshot's dirt (an
+// owner's, there before the build) is kept. Without a usable snapshot it falls back to the declared paths and says so.
+// What stays behind (beyond the shared paths) is recorded, so commit-wo can refuse it as another work order's --extra.
 function parkWo(o) {
   if (o.wos.length !== 1) throw new InputError('park-wo needs exactly one --wo <id>')
   const ctx = projectCtx(o.project)
@@ -206,11 +247,16 @@ function parkWo(o) {
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'park-wo' })
   try {
     const dirty = dirtyEntries(ctx)
-    const keep = (e) => e.path === PROJECTION || JOURNALS.includes(e.path) || (WO_FILE_RE.test(e.path) && e.path !== wo.rel) || (o.files.length > 0 && e.path !== wo.rel && !matchesDeclared(o.files, e.path))
+    const snap = o.allUndeclared ? dispatchSnapshot(ctx, wo.frd) : null
+    const sweep = Boolean(snap && snap.state === 'applied')
+    const keep = (e) => sharedPath(e.path, wo.rel) || (sweep ? snap.dirt.has(e.path) : (o.files.length > 0 && e.path !== wo.rel && !matchesDeclared(o.files, e.path)))
     const target = dirty.filter((e) => !keep(e))
     const dir = `.pandacorp/run/salvage/${wo.id}/${utcStamp()}`
     const parked = salvageAndReset(ctx, target, path.join(ctx.project, dir))
-    return { code: 0, body: { status: parked.length ? 'parked' : 'nothing', wo: wo.id, dir: parked.length ? dir : null, parked, kept: dirty.filter(keep).map((e) => e.path) } }
+    const left = dirty.filter((e) => keep(e) && !sharedPath(e.path, wo.rel)).map((e) => e.path)
+    const rec = parkedFile(ctx, wo.id)
+    if (left.length) { mkdirSync(path.dirname(rec), { recursive: true }); writeFileSync(rec, `${JSON.stringify({ version: 1, wo: wo.id, frd: wo.frd, left, at: new Date().toISOString() })}\n`) } else rmSync(rec, { force: true })
+    return { code: 0, body: { status: parked.length ? 'parked' : 'nothing', wo: wo.id, dir: parked.length ? dir : null, parked, kept: dirty.filter(keep).map((e) => e.path), left, ...(snap ? { allUndeclared: snap.state } : {}) } }
   } finally { releaseLock(lock) }
 }
 
@@ -338,7 +384,14 @@ function dispatch(o) {
     const texts = wos.map((w) => readFileSync(path.join(ctx.project, w.rel), 'utf8'))
     const wrong = wos.filter((w, i) => ['VERIFIED', 'BLOCKED'].includes(frontmatterStatus(texts[i])))
     if (wrong.length) return { code: REFUSED_EXIT, body: { status: 'refused', reason: `${wrong.map((w) => w.id).join(', ')}: a VERIFIED or BLOCKED work order is never dispatched — nothing was stamped` } }
-    const base = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
+    const baseFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
+    const base = baseFull.slice(0, 12)
+    const preDirt = dirtyEntries(ctx).map((e) => e.path).filter((p) => !sharedPath(p, null))
+    for (const frd of unique(wos.map((w) => w.frd))) {
+      const file = dispatchSnapshotFile(ctx, frd)
+      mkdirSync(path.dirname(file), { recursive: true })
+      writeFileSync(file, `${JSON.stringify({ version: 1, frd, base: baseFull, dirt: preDirt, at: new Date().toISOString() })}\n`)
+    }
     const stamped = []
     wos.forEach((w, i) => { if (frontmatterStatus(texts[i]) !== 'IN_PROGRESS') { writeFileSync(path.join(ctx.project, w.rel), setFrontmatterStatus(texts[i], 'IN_PROGRESS')); stamped.push(w) } })
     let committed = null

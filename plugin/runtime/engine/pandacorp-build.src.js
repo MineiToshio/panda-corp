@@ -1776,11 +1776,15 @@ async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffi
 }
 // park-wo: a WO that did not land moves its dirty paths to .pandacorp/run/salvage/<wo>/ and resets them, so the next
 // build (or the resume) never starts on its broken files. A park that cannot run is left to the resume precheck.
+// The sequential fast lane (one builder on main) also sweeps every undeclared path dirtied since the FRD's dispatch
+// (--all-undeclared): a stray edit left behind would ride the next WO's commit or keep the FRD's verify refused. The
+// classic waves never do: a parallel sibling's files are dirty at the same time.
+const parkWoFlags = (w) => `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}${FAST ? ' --all-undeclared' : ''}`
 async function parkWorkOrders(wos) {
   for (const w of wos) {
     agentSpawned++
     let r = null
-    try { r = await runMechOp('park-wo', `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}`, { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
+    try { r = await runMechOp('park-wo', parkWoFlags(w), { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
     if (r.body && r.body.ok === true) { parkedWos.push(w.id); log(`⇣ ${w.id} parked (${r.body.status}${r.body.dir ? ` → ${r.body.dir}` : ''}) — rebuilt on resume`) }
     else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — the resume precheck salvages it`)
   }
@@ -5514,13 +5518,13 @@ function fastSegments(wos) {
 const fastWoBrief = (w, frd) => `### WORK ORDER ${w.id}${w.summary ? ` — ${w.summary}` : ''}
   owns: ${w.artifacts && w.artifacts.length ? w.artifacts.join(', ') : '(nothing declared: add one --file <path> per file you changed, only files this work order needs)'}; depends on: ${(w.deps || []).join(', ') || 'none'}.${woCtx(w, frd)}
   commit: \`${mechOpCommand('commit-wo', commitWoFlags(w))}\`
-  park: \`${mechOpCommand('park-wo', `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}`)}\``
+  park: \`${mechOpCommand('park-wo', parkWoFlags(w))}\``
 const fastBuilderPrompt = (frd, wos, retry) => `${EMIT('implementer', frd, { frd, activity: retry ? 'retry' : 'implement' })}FAST-LANE BUILDER (proposal 39 C4) for FRD ${frd}.${retry ? ' RETRY: these work orders did not land on the first attempt; find out why before you rebuild them.' : ''} Build its work orders below IN THIS ORDER, one at a time, each with TDD (RED → GREEN → refactor) against its EARS criteria. A work order's boundary is the files it owns: another work order's files and the .pandacorp state are not yours.
 ${wos.map((w) => fastWoBrief(w, frd)).join('\n')}
 HOW TO RUN each work order, in order:
  1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Read the ## Status Note of the work orders it depends on and build against those interfaces.
  2) Implement it until its own tests pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.
- 3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → undo the stray edit, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
+ 3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → undo the stray edit, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's: drop that --extra, run the park command of the work order it names, then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
 // The engine trusts only a sealed commit-wo (or park-wo) receipt naming the work order; anything else did not land.

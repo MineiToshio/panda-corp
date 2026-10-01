@@ -932,7 +932,11 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   with a reason, a schema/migration path off `main`, another WO's frontmatter, and an AC id no test cites (`tests: none`
   needs `tests_reason:`); it re-runs the related unit tests, stamps `IN_REVIEW` and commits code + stamp as ONE commit
   naming the WO, then asserts a clean tree (a failure restores the stamp). `park-wo` moves a failed WO's dirty paths to
-  `.pandacorp/run/salvage/<wo>/<ts>/` and resets them. Each safe point runs the `safe-point` probe first (fenced
+  `.pandacorp/run/salvage/<wo>/<ts>/` and resets them. On the sequential fast lane every park passes `--all-undeclared`:
+  it also salvages every undeclared path dirtied since the FRD's `dispatch` (which records the dirt already present,
+  kept untouched as an owner's), so a stray edit never rides the next WO's commit nor keeps the FRD's verify refused.
+  Whatever a park still leaves behind is recorded, and `commit-wo` refuses it as another WO's `--extra`
+  (`parked-leftover`). Each safe point runs the `safe-point` probe first (fenced
   lease renewal, the lstat stop receipt, `rethink_pending`, ready change cards, answered needs-owner decisions): a stop
   stops the run, a quiet probe ends the safe point, and the LLM drain (the judgment part, on the implementer) runs only
   when the probe finds work or its receipt cannot be verified.

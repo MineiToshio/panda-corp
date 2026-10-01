@@ -1295,6 +1295,24 @@ SCENARIOS.push({
 })
 
 SCENARIOS.push({
+  name: 'F39-17. fast-lane-park-sweeps-undeclared — on the sequential fast lane every park (the builder\'s and the engine\'s) passes --all-undeclared, and the builder is told never to claim a parked leftover; the classic lane never does',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-p17', ids: ['wo-p17-001', 'wo-p17-002'] }]),
+  responses: [{ label: 'fast-build:frd-p17', response: { wos: [{ id: 'wo-p17-001', line: commitLine('wo-p17-001') }, { id: 'wo-p17-002', line: 'garbled' }] } }],
+  next: () => ({ args: { mode: 'balanced', mechScript: true, infraGuard: true }, plan: fastPlan([{ frd: 'frd-q17', ids: ['wo-q17-001'] }]), responses: [{ label: 'build:wo-q17-001', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }] }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, 'fast-build:frd-p17')[0]
+    t.ok(b && /park-wo --project '\.' --wo 'wo-p17-001'[^`]* --all-undeclared`/.test(b.prompt) && /park-wo --project '\.' --wo 'wo-p17-002'[^`]* --all-undeclared`/.test(b.prompt), 'each brief\'s park command sweeps the undeclared paths')
+    t.ok(b && /parked-leftover/.test(b.prompt), 'the builder is told what a parked-leftover refusal means')
+    const p = byLabel(run, 'park:wo-p17-002')
+    t.ok(p.length === 1 && isLiteral(p[0]) && /--all-undeclared/.test(p[0].prompt), 'the engine\'s own park of an unproven WO sweeps too')
+    const classicParks = byLabel(run.next, /^park:/)
+    t.ok(!run.next.error && classicParks.length === 1 && classicParks.every((c) => isLiteral(c) && !/--all-undeclared/.test(c.prompt)), `the classic lane (mechScript, its waves may run in parallel) never sweeps (parks: ${classicParks.map((c) => c.label).join(', ') || 'none'})`)
+  },
+})
+
+SCENARIOS.push({
   name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
   args: { mode: 'balanced', ...FAST },
   plan: fastPlan([{ frd: 'frd-l', ids: ['wo-l-001', 'wo-l-002'] }]),
