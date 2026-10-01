@@ -1148,6 +1148,8 @@ SCENARIOS.push({
   },
 })
 
+// The race's own verdict: did B's builder start while A's reviewer was still in flight (1.5 s window)?
+const f39Overlap = { overlapped: null }
 SCENARIOS.push({
   name: 'F39-7. fast-lane-gate-overlaps-next-build — FRD A\'s gate reviews in a slot WHILE FRD B (which depends on the USABLE A) builds',
   args: { mode: 'balanced', ...FAST },
@@ -1155,7 +1157,7 @@ SCENARIOS.push({
   responses: (() => {
     let started
     const bStarted = new Promise((res) => { started = res })
-    const state = { overlapped: false }
+    const state = f39Overlap
     return [
       { label: 'gate:frd-a7', response: async () => { state.overlapped = await Promise.race([bStarted.then(() => true), new Promise((res) => setTimeout(() => res(false), 1500))]); return { green: true, overlapped: state.overlapped } } },
       { label: 'fast-build:frd-b7', response: (call) => { started(); return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) } } },
@@ -1169,6 +1171,7 @@ SCENARIOS.push({
     const applyA = labelIdx(run, /^apply-gate:frd-a7$/)
     t.ok(slotA >= 0 && slotA < labelIdx(run, /^dispatch:frd-b7$/) && bB > slotA && applyA > bB, `A's gate takes its slot before B is dispatched and lands only after B built (slot ${slotA}, build B ${bB}, apply A ${applyA})`)
     t.ok(gA > slotA && gA < labelIdx(run, /^verify:frd-b7$/), 'A\'s reviewer works while B is still building (before B\'s verify)')
+    t.ok(f39Overlap.overlapped === true, `B's builder started while A's reviewer was in flight (overlapped: ${f39Overlap.overlapped})`)
     t.ok(hasLog(run, /gate frd-a7 → slot/), 'A\'s gate runs in a parallel gate slot (DR-118)')
     t.ok(run.result.builtFrds.includes('frd-a7') && run.result.builtFrds.includes('frd-b7'), 'both verify')
   },
