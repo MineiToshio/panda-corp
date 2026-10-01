@@ -631,6 +631,19 @@ function round3(n) { return Math.round(n * 1e6) / 1e6 }
   await rm(dir, { recursive: true })
 }
 
+// `claude-sonnet-5-5` — same omission class as opus-5-5 above; priced like `claude-sonnet-5` ($2/$10/$0.20 MTok)
+// until a dated snapshot proves otherwise, never left unpriced by omission.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-sonnet55-'))
+  await writeFile(path.join(dir, 'agent-hhh.jsonl'), assistantLine('claude-sonnet-5-5', { input_tokens: 1000000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }) + '\n')
+  const { code, stdout } = await run(['--dir', dir])
+  ok(code === 0, 'a claude-sonnet-5-5 transcript does not fail')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.models['claude-sonnet-5-5'].cost_usd === 2, 'claude-sonnet-5-5 prices at the same $2/MTok input rate as claude-sonnet-5, not null')
+  ok(summary.unpriced_models.length === 0, 'claude-sonnet-5-5 is not reported as unpriced')
+  await rm(dir, { recursive: true })
+}
+
 // (BL-0156b) `--dir` mode used to silently accept `--out` and drop it — `runDirMode`'s destructured
 // params never included `out`, so the flag was parsed but never wired to a write (confirmed live:
 // exit 0, a summary printed to stdout, track.jsonl untouched — canary-b2-report.md's flagged task #2,

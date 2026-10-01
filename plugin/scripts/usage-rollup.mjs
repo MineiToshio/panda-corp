@@ -124,6 +124,10 @@ const PRICING = {
   // of failing loud or pricing. Assumed identical to `claude-opus-5` (same family, no verified
   // distinct rate published yet) until a dated pricing page proves otherwise.
   'claude-opus-5-5': { in: 5, out: 25, cacheRead: 0.50 },
+  // `claude-sonnet-5-5` (the id the bench-form A-1 run's sonnet agents are stamped with) is missing from the audited
+  // table for the same reason `claude-opus-5-5` was (BL-0156): it would roll up cost_usd: null. Assumed identical to
+  // `claude-sonnet-5` (same family, no verified distinct rate published yet) until a dated pricing page proves otherwise.
+  'claude-sonnet-5-5': { in: 2, out: 10, cacheRead: 0.20 },
   'claude-sonnet-5': { in: 2, out: 10, cacheRead: 0.20 },
   'claude-haiku-4-5': { in: 1, out: 5, cacheRead: 0.10 },
   'claude-opus-4-8': { in: 5, out: 25, cacheRead: 0.50 },
