@@ -71,7 +71,13 @@ const engine = new AsyncFunction('args', 'budget', 'agent', 'parallel', 'pipelin
 // ── Schema-conformant default responses by label (the happy path) ────────────
 // A scenario only scripts the deviations it is about; everything else greens.
 const validTraceability = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'].map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))
+// proposal 39 C1 (mechScript): a MECH op answers with its sealed line; the classic shape keeps reading the other keys.
+const mechLine = (op, body = {}) => sealLine({ version: 1, op, ok: true, ...body })
 function defaultResponse(label) {
+  if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
+  if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
+  if (label.startsWith('infra-pause:')) return { done: true }
+  if (label === 'build-paused') return { done: true }
   if (label === 'baseline-precheck') return { escalate: true }
   if (label === 'baseline') return { green: true }                       // VERIFY_SCHEMA
   if (label === 'plan') return { frds: [] }                             // PLAN_SCHEMA (empty → early exit)
@@ -79,13 +85,13 @@ function defaultResponse(label) {
   if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
-  if (label.startsWith('dispatch:')) return {}
-  if (/^gate-worktree(:\d+)?$/.test(label)) return { ok: true, created: true }   // D1: bare (serial) or pooled 'gate-worktree:<slot>' (parallelGates, now the v9.116.0 default)
+  if (label.startsWith('dispatch:')) return { line: mechLine('dispatch', { status: 'stamped', stamped: [], committed: 'd15pa7c' }) }
+  if (/^gate-worktree(:\d+)?$/.test(label)) return { ok: true, created: true, line: mechLine('gate-prepare', { created: true, sha: 'pinsha0' }) }   // D1: bare (serial) or pooled 'gate-worktree:<slot>' (parallelGates, now the v9.116.0 default)
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }
   if (label.startsWith('apply-gate:')) return { done: true }
   if (label.startsWith('persist-block:')) return { done: true }
-  if (label.startsWith('gate-release:')) return { salvaged: [], remaining: [] }   // BL-0182: the C2 gate-worktree release (salvage + exact clean) — a clean tree, nothing left behind
-  if (label.startsWith('commit:')) return { committed: 1 }
+  if (label.startsWith('gate-release:')) return { salvaged: [], remaining: [], line: mechLine('gate-release', { salvaged: [], remaining: [] }) }   // BL-0182: the C2 gate-worktree release (salvage + exact clean) — a clean tree, nothing left behind
+  if (label.startsWith('commit:')) return { committed: 1, line: mechLine('commit-wo', { status: 'committed', sha: 'c0ffee000000' }) }
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('find:')) return { findings: [] }                 // FINDER_SCHEMA — nothing found
   if (label.startsWith('verify-finding:')) return { refuted: true, reason: 'default refuted' } // VERIFY_FINDING_SCHEMA
@@ -93,7 +99,7 @@ function defaultResponse(label) {
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
-  if (label === 'close-out-verify-reuse-check') return { canReuse: false, reason: 'no-report' } // BL-0147: safe default — the full rerun happens exactly as pre-BL-0147 unless a scenario scripts a fresh full-green report
+  if (label === 'close-out-verify-reuse-check') return { canReuse: false, reason: 'no-report', line: mechLine('reuse-check', { canReuse: false, reason: 'no-report' }) } // BL-0147: safe default — the full rerun happens exactly as pre-BL-0147 unless a scenario scripts a fresh full-green report
   if (/^(hardening:security-audit|hardening:security-fix|hardening:telemetry|close-out|close-needs-hardening|notify-end|ensure-stopped-crash|archive-changes|release-lease)$/.test(label)) return { done: true } // STOP_SCHEMA
   return null // unmatched — recorded loudly
 }
@@ -639,6 +645,226 @@ SCENARIOS.push({
     const pre = byLabel(run, 'baseline-precheck')[0]
     t.ok(pre && /greenfield-probe\.mjs'/.test(pre.prompt) && /installed plugin\/scripts\/greenfield-probe\.mjs/.test(pre.prompt), 'the probe command is named from the stateCli dir')
     t.ok(pre && /greenfieldProbe/.test(pre.prompt), 'the pre-check is asked to return greenfieldProbe')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 39 stage 2 — engine safety: the `infra` failure class (C7), stamp-anchored resume, mechScript (C1)
+// ─────────────────────────────────────────────────────────────────────────────
+const MECH_SCRIPT_RE = /pandacorp-build-mech\.mjs' (\S+) --project/
+const literalOp = (call) => (MECH_SCRIPT_RE.exec(call.prompt) || [])[1] || null
+const isLiteral = (call) => Boolean(literalOp(call)) && /return its last line/i.test(call.prompt)
+const indexOf = (run, re) => run.calls.findIndex((c) => re.test(c.label))
+const infraPlan = (frd, ids, status = 'PLANNED') => mkPlan([{ frd, deps: [], workOrders: ids.map((id, i) => mkWo(id, status, { frd, artifacts: [`src/${frd}/${i}/**`] })) }])
+const throwing = (message) => () => { throw new Error(message) }
+const noRepairPath = (t, run) => {
+  t.ok(byLabel(run, /^(repair|patch|diagnose|revert|foundation-repair):/).length === 0, `no repair/patch/diagnose/revert spawn (got ${byLabel(run, /^(repair|patch|diagnose|revert|foundation-repair):/).map((c) => c.label).join(', ') || 'none'})`)
+  t.ok(byLabel(run, /^wo-revert/).length === 0, 'no wo-revert spawn')
+  t.ok(run.result && Array.isArray(run.result.blockedFrds) && run.result.blockedFrds.length === 0, `nothing is BLOCKED (got ${run.result && JSON.stringify(run.result.blockedFrds)})`)
+}
+
+SCENARIOS.push({
+  name: 'P39-a. infra-throw-is-not-a-repair — a builder whose agent() throws is infra: one pause + one retry, never attemptRepair, never BLOCKED, never wo-revert',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-i1', ['wo-i1-001', 'wo-i1-002']),
+  responses: [{ label: 'build:wo-i1-001', times: 1, response: throwing('socket hang up') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'build:wo-i1-001').length === 2, `the builder is retried exactly once (got ${byLabel(run, 'build:wo-i1-001').length} spawns)`)
+    const pause = indexOf(run, /^infra-pause:build:wo-i1-001$/)
+    t.ok(pause >= 0 && pause < run.calls.map((c) => c.label).lastIndexOf('build:wo-i1-001'), 'an infra pause runs BEFORE the retry')
+    t.ok(pause >= 0 && /sleep 60/.test(run.calls[pause].prompt), 'the pause is a literal `sleep 60` op (the Workflow runtime has no sleep)')
+    noRepairPath(t, run)
+    t.ok(hasLog(run, /infra/i) && hasLog(run, /not a work-order failure/i), 'the infra class is logged as not a WO failure')
+    t.ok(run.result && run.result.stopReason !== 'paused-infra' && run.result.builtFrds.includes('frd-i1'), 'a single recovered infra failure does not stop the run: the FRD verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-a2. infra-null-twice-halts — a builder that returns no output twice (infra, then infra again) halts the run instead of repairing it',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-i2', ['wo-i2-001']),
+  responses: [{ label: 'build:wo-i2-001', response: null }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'build:wo-i2-001').length === 2 && byLabel(run, /^infra-pause:/).length === 1, 'one pause, one retry, then the second infra halts')
+    noRepairPath(t, run)
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `stopReason is paused-infra (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, 'park:wo-i2-001').length === 1 && isLiteral(byLabel(run, 'park:wo-i2-001')[0]) && literalOp(byLabel(run, 'park:wo-i2-001')[0]) === 'park-wo', 'the unlanded WO is parked through the literal park-wo op')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-b. infra-429-halts-cleanly — a 429/usage-limit signature halts at once: no pause, no new dispatch, a build_paused event (dashboard + track.jsonl), stopReason paused-infra + a resume hint, no close-out',
+  args: { mode: 'pro', lane: 'fast' },
+  plan: infraPlan('frd-q', ['wo-q-001', 'wo-q-002', 'wo-q-003']),
+  responses: [{ label: 'build:wo-q-001', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'build:wo-q-001').length === 1 && byLabel(run, /^infra-pause:/).length === 0, 'a limit signature is never retried and never paused-and-retried')
+    t.ok(byLabel(run, 'build:wo-q-003').length === 0, 'no new dispatch after the halt (wo-q-003 never builds)')
+    t.ok(byLabel(run, /^dispatch:/).length === 1, 'exactly one wave was dispatched')
+    noRepairPath(t, run)
+    t.ok(byLabel(run, /^gate[:-]/).length === 0 || byLabel(run, /^gate:/).length === 0, 'no FRD gate is launched after the halt')
+    t.ok(byLabel(run, /^(notify-end|close-out|close-needs-hardening|hardening:|visual-qa|ensure-stopped)/).length === 0, `no close-out/hardening spawn (got ${byLabel(run, /^(notify-end|close-out|close-needs-hardening|hardening:|visual-qa|ensure-stopped)/).map((c) => c.label).join(', ') || 'none'})`)
+    const paused = byLabel(run, 'build-paused')
+    t.ok(paused.length === 1, `exactly one build-paused spawn (got ${paused.length})`)
+    t.ok(paused[0] && /"event":"build_paused"/.test(paused[0].prompt) && /dashboard-events\.ndjson/.test(paused[0].prompt), 'the build_paused dashboard event is in its prompt')
+    t.ok(paused[0] && /"kind":"build_paused"/.test(paused[0].prompt) && /track\.jsonl/.test(paused[0].prompt), 'the build_paused track.jsonl line is in its prompt')
+    t.ok(paused[0] && /finalize-release/.test(paused[0].prompt), 'the paused close releases the lease (running:false)')
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `stopReason is paused-infra (got ${run.result && run.result.stopReason})`)
+    t.ok(run.result && typeof run.result.resumeHint === 'string' && /resume|relaunch/i.test(run.result.resumeHint), `the result carries a resume hint (got ${run.result && run.result.resumeHint})`)
+    t.ok(run.result && run.result.paused && run.result.paused.kind === 'limit' && run.result.paused.label === 'build:wo-q-001', `the result names the limit and the call that hit it (got ${run.result && JSON.stringify(run.result.paused)})`)
+    t.ok(hasLog(run, /paused-infra|build paused/i), 'the halt is logged')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-b2. infra-limit-before-the-loop — a limit at the baseline pre-check pauses the run (no pre-loop failure, no ensure-stopped crash path)',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-p', ['wo-p-001']),
+  responses: [{ label: 'baseline-precheck', response: throwing('Overloaded') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'paused-infra' && byLabel(run, 'build-paused').length === 1, 'paused-infra with its paused close')
+    t.ok(byLabel(run, /^(build|dispatch):/).length === 0 && byLabel(run, 'ensure-stopped').length === 0, 'nothing built, and the pre-loop failure path never ran')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-b3. infra-limit-in-the-close-out — a limit during hardening pauses the run instead of closing it',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-h', ['wo-h-001']),
+  responses: [{ label: 'hardening:security-audit', response: throwing('API Error: 429 Too Many Requests') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'paused-infra' && byLabel(run, 'build-paused').length === 1, 'paused-infra with its paused close')
+    t.ok(byLabel(run, /^(hardening:security-fix|hardening:telemetry|close-out|notify-end|ensure-stopped)$/).length === 0, 'no further close-out spawn after the limit')
+    t.ok(run.result.builtFrds.includes('frd-h'), 'the FRD verified before the limit stays verified')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-c. infra-in-flight-results-accepted — after a halt, in-flight builders land: a green one is committed, a failed one and the infra one are parked (never repaired), an in-flight gate is never landed',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: mkPlan([
+    { frd: 'frd-g', deps: [], workOrders: [mkWo('wo-g-001', 'IN_REVIEW', { frd: 'frd-g', artifacts: ['src/g/**'] })] },
+    { frd: 'frd-c', deps: [], workOrders: [
+      mkWo('wo-c-001', 'PLANNED', { frd: 'frd-c', artifacts: ['src/c/1/**'] }),
+      mkWo('wo-c-002', 'PLANNED', { frd: 'frd-c', artifacts: ['src/c/2/**'] }),
+      mkWo('wo-c-003', 'PLANNED', { frd: 'frd-c', artifacts: ['src/c/3/**'] }),
+    ] },
+  ]),
+  responses: [
+    { label: 'build:wo-c-001', response: throwing('Claude AI usage limit reached|1759363200') },
+    { label: 'build:wo-c-003', response: { green: false, failure: 'self-test red' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'commit:wo-c-002').length === 1, 'the in-flight green builder is accepted: its commit runs after the halt')
+    t.ok(byLabel(run, 'park:wo-c-001').length === 1 && byLabel(run, 'park:wo-c-003').length === 1 && byLabel(run, 'park:wo-c-002').length === 0, `the infra WO and the failed WO are parked, the committed one is not (got ${byLabel(run, /^park:/).map((c) => c.label).join(', ')})`)
+    noRepairPath(t, run)
+    t.ok(byLabel(run, /^apply-gate:/).length === 0 && !(run.result.builtFrds || []).includes('frd-g'), 'an in-flight gate verdict is never landed after the halt (it re-gates on resume)')
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `stopReason is paused-infra (got ${run.result && run.result.stopReason})`)
+    t.ok(run.result && run.result.paused && JSON.stringify([...run.result.paused.parked].sort()) === JSON.stringify(['wo-c-001', 'wo-c-003']), `the result lists the parked WOs (got ${run.result && run.result.paused && JSON.stringify(run.result.paused.parked)})`)
+  },
+})
+
+const precheckLine = (body) => ({ line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [], ...body }) })
+SCENARIOS.push({
+  name: 'P39-d. resume-demotes-unstamped-in-review — the mech precheck runs (literally) before the planner reads anything; a demoted WO is logged and rebuilt',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-r', ['wo-r-001']),
+  responses: [{ label: 'mech-precheck', response: precheckLine({ demoted: [{ wo: 'wo-r-001', rel: 'docs/frds/frd-r/work-orders/wo-r-001.md', from: 'IN_REVIEW', to: 'PLANNED', why: 'no-flip-after-stamp', applied: true, committed: true }], demotionCommit: 'abc123456789' }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const pre = indexOf(run, /^mech-precheck$/)
+    t.ok(pre >= 0 && pre < indexOf(run, /^plan$/), 'the mech precheck runs before the planner')
+    t.ok(pre >= 0 && isLiteral(run.calls[pre]) && literalOp(run.calls[pre]) === 'precheck', 'the precheck prompt is the literal precheck op')
+    t.ok(hasLog(run, /wo-r-001/) && hasLog(run, /demot/i), 'the demotion is logged with the WO id')
+    t.ok(byLabel(run, 'build:wo-r-001').length === 1, 'the demoted WO is rebuilt')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-e. resume-keeps-committed-in-review — a WO the precheck keeps IN_REVIEW is never rebuilt: it goes straight to its gate',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-k', ['wo-k-001'], 'IN_REVIEW'),
+  responses: [{ label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-k-001'] }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^build:/).length === 0, 'no builder spawns (the committed IN_REVIEW is kept)')
+    t.ok(byLabel(run, /^gate:frd-k$/).length === 1 && run.result.builtFrds.includes('frd-k'), 'the FRD is gated and verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-e2. resume-precheck-unverifiable-stops — a precheck line that fails its seal stops the run before planning (fail-closed)',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-u', ['wo-u-001']),
+  responses: [{ label: 'mech-precheck', response: { line: mechLine('precheck', { status: 'ok' }).replace('"ok"', '"OK"') } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(indexOf(run, /^plan$/) < 0 && byLabel(run, /^build:/).length === 0, 'nothing is planned or built')
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'the run closes through ensure-stopped')
+    t.ok(run.result && /precheck/i.test(run.result.note || ''), `the result names the precheck (got ${run.result && run.result.note})`)
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-f. mechscript-prompts-are-literal — under the fast lane every scripted MECH op is "run exactly <cmd>, return its last line"',
+  args: { mode: 'balanced', lane: 'fast' },
+  plan: infraPlan('frd-m', ['wo-m-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    for (const [re, op] of [[/^mech-precheck$/, 'precheck'], [/^dispatch:/, 'dispatch'], [/^commit:wo-m-001$/, 'commit-wo'], [/^gate-worktree$/, 'gate-prepare'], [/^gate-release:frd-m$/, 'gate-release'], [/^close-out-verify-reuse-check$/, 'reuse-check']]) {
+      const calls = byLabel(run, re)
+      t.ok(calls.length >= 1 && calls.every((c) => isLiteral(c) && literalOp(c) === op), `${re} runs the literal ${op} op (got ${calls.map((c) => literalOp(c)).join(', ') || 'no spawn'})`)
+    }
+    const dispatch = byLabel(run, /^dispatch:/)[0]
+    t.ok(dispatch && /--commit/.test(dispatch.prompt) && /--wo 'wo-m-001'/.test(dispatch.prompt) && !/perl -0pi/.test(dispatch.prompt), 'dispatch commits the IN_PROGRESS stamp (the C7 anchor) through the script, no perl recipe')
+    const commit = byLabel(run, 'commit:wo-m-001')[0]
+    t.ok(commit && /--file 'src\/frd-m\/0\/\*\*'/.test(commit.prompt) && !/SOLE git writer/.test(commit.prompt), 'the WO commit is commit-wo with its declared artifacts, not the prose recipe')
+    t.ok(run.result && run.result.builtFrds.includes('frd-m'), 'the FRD still verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-g. mechscript-opt-in-and-out — classic + mechScript:true is literal; fast + mechScript:false keeps the prose recipes',
+  args: { mode: 'balanced', mechScript: true },
+  plan: infraPlan('frd-o', ['wo-o-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^dispatch:/).every(isLiteral) && byLabel(run, 'commit:wo-o-001').every(isLiteral) && byLabel(run, 'mech-precheck').length === 1, 'classic lane with mechScript:true → literal ops + the precheck')
+    t.ok(byLabel(run, /^infra-pause:/).length === 0, 'mechScript alone does not turn the infra guard on')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-g2. fast lane with mechScript:false keeps the prose MECH recipes',
+  args: { mode: 'balanced', lane: 'fast', mechScript: false },
+  plan: infraPlan('frd-o2', ['wo-o2-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'mech-precheck').length === 0 && byLabel(run, /^dispatch:/).every((c) => /perl -0pi/.test(c.prompt) && !isLiteral(c)), 'no precheck, the perl dispatch recipe')
+  },
+})
+
+SCENARIOS.push({
+  name: 'P39-h. classic-unchanged — no lane arg: no precheck, prose MECH recipes, and a builder that returns nothing is a WO failure repaired exactly as before (no infra class)',
+  args: { mode: 'balanced' },
+  plan: infraPlan('frd-cl', ['wo-cl-001']),
+  responses: [
+    { label: 'build:wo-cl-001', times: 1, response: null },
+    // the classic repair path records its discard intent first (BL-0215) — an untouched classic behavior
+    { label: 'wo-revert-plan:frd-cl', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-cl', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'mech-precheck').length === 0 && byLabel(run, /^(infra-pause|park):/).length === 0 && byLabel(run, 'build-paused').length === 0, 'no precheck, no pause, no park, no paused close')
+    t.ok(byLabel(run, /^dispatch:/).every((c) => /perl -0pi/.test(c.prompt) && !isLiteral(c)), 'the dispatch keeps its perl recipe')
+    t.ok(byLabel(run, 'build:wo-cl-001').length === 1 && byLabel(run, 'repair:frd-cl').length === 1, 'the null builder is NOT retried: the FRD goes to attemptRepair as before')
+    t.ok(run.result && run.result.stopReason !== 'paused-infra' && !('resumeHint' in run.result), 'the result has the classic shape')
+    t.ok(!hasLog(run, /lane fast/i), 'no fast-lane log line')
   },
 })
 

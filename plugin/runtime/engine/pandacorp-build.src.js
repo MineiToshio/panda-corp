@@ -215,6 +215,10 @@ const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$
 //   args.gateSlots: the pool size when parallelGates is on (integer 1..8, **default 2** — the red-team's
 //     16 GB measurement, X6; anything else → 2 with a loud log). `args.maxParallelGates` (the proposal's name) is accepted as an alias; gateSlots
 //     wins when both are set. Ignored (logged) when parallelGates is off.
+//   args.lane: 'classic' (DEFAULT, unchanged) | 'fast' — proposal 39. Stage 2 wires only its safety contracts, each also
+//     reachable alone: args.mechScript (C1, scripted MECH ops + the C7 resume precheck) and args.infraGuard (C7, the
+//     `infra` failure class + the paused-infra halt). Both default to true under lane 'fast', false otherwise. See the
+//     "Proposal 39 (fast lane) stage 2" section below.
 //   NOTE — the scope:"partial" CAGE is NOT behind any flag. A gate-report whose `scope` is "partial"
 //     (what verify.sh stamps on every --only/--files run) can never promote a work order to VERIFIED
 //     nor advance last_green_sha, whatever scopedRepair/repairBrake say. See the cage section below.
@@ -623,6 +627,26 @@ const optionalText = (v) => {
 }
 const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 
+// ── Proposal 39 (fast lane) stage 2: engine safety ─────────────────────────────────────────────────
+// args.lane: 'fast' | 'classic' (default classic, byte-identical behavior). The fast lane turns on, by default:
+//   args.mechScript (C1): the scripted MECH ops of pandacorp-build-mech.mjs — each prompt is "run exactly <cmd>, return
+//     its last line" and the engine verifies the line's seal; plus the C7 resume precheck before anything is read.
+//   args.infraGuard (C7): an agent() that throws, returns nothing, or carries a usage-limit/429/overloaded signature is
+//     `infra`, never a work-order failure (no repair try, no BLOCKED, no wo-revert): one pause + one retry; a second
+//     infra or any limit signature HALTS the run (stopReason 'paused-infra'), committed work kept.
+// Each flag can be passed explicitly in either lane (true/false), e.g. classic + mechScript:true.
+const LANE = (args && args.lane === 'fast') ? 'fast' : 'classic'
+if (args && args.lane !== undefined && args.lane !== 'fast' && args.lane !== 'classic') log(`⚠ args.lane ${JSON.stringify(args.lane)} is neither fast nor classic — running classic`)
+const argFlag = (key, dflt) => (argBool(args, key, true) ? true : argBool(args, key, false) ? false : dflt)
+const MECH_SCRIPT = argFlag('mechScript', LANE === 'fast')
+const INFRA_GUARD = argFlag('infraGuard', LANE === 'fast')
+const INFRA_PAUSE_SECONDS = 60
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'} (proposal 39)`)
+const MECH_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'pandacorp-build-mech.mjs'))}`
+const mechOpCommand = (op, flags = '') => `${MECH_CLI_COMMAND} ${op} --project ${shellQuote(PROJECT_DIR)}${flags ? ` ${flags}` : ''}`
+const MECH_LINE_SCHEMA = { type: 'object', required: ['line'], properties: { line: { type: 'string', description: 'the LAST line the command printed, verbatim' } } }
+const MECH_LITERAL = (cmd) => `MECHANICAL COMMAND RUNNER (proposal 39 C1): run exactly \`${cmd}\` once, as ONE Bash call with no command before or after it, and return its last line VERBATIM as \`line\`. That line is ONE JSON object ending in an integrity checksum ("sum"): copy it character for character. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, fix, stage, commit or revert anything yourself.`
+
 // ── C2: CONCURRENT FRD GATES IN A PINNED WORKTREE ─────────────────────────────────────────────────
 // Today the loop either builds a wave OR drains ONE gate per iteration — build and review NEVER overlap,
 // so wall-clock = builds + gates (fully additive). The gate needs a QUIET tree only because it runs
@@ -792,6 +816,72 @@ agent = async (prompt, opts = {}) => {
   let rest = opts
   if (opts && opts.workFrom !== undefined) { rest = { ...opts }; delete rest.workFrom }   // never leak workFrom into the real agent() opts
   const finalPrompt = typeof prompt === 'string' && wf ? wf + prompt : prompt
+  return INFRA_GUARD ? infraGuardedSpawn(finalPrompt, rest) : spawnWithTypeFallback(finalPrompt, rest)
+}
+// ── Proposal 39 C7: the `infra` failure class ─────────────────────────────────────────────────────
+// A dead agent (a throw, no output) or a provider limit (usage limit, 429, overload) says nothing about the work
+// order: it must never consume a repair try, never BLOCK, never discard code. One pause + one retry for a plain
+// failure; a limit signature, or a second failure of the retried call, HALTS: from then on no new dispatch is spawned
+// (only the in-flight results' own landing: their commit, their park, their gate-worktree release, the paused close).
+class InfraError extends Error { constructor(message, extra = {}) { super(message); this.infra = true; Object.assign(this, extra) } }
+const isInfraError = (e) => Boolean(e && e.infra === true)
+let infraHalt = null   // { kind: 'limit'|'infra', label, detail } once the run is halted
+const parkedWos = []
+const acceptedWos = []
+// A thrown message is the runtime's own error text: any limit-ish word counts. An ANSWER's text is the agent's prose
+// (a builder may legitimately write about HTTP 429 handling), so only the provider's own phrasing counts there.
+const THROWN_LIMIT_RE = /\b(?:429|529)\b|overloaded|rate[ _-]?limit|usage limit|quota|too many requests/i
+const ANSWER_LIMIT_RE = /usage limit (?:reached|exceeded)|(?:you've|you have) (?:hit|reached) your (?:usage )?limit|rate_limit_error|overloaded_error|API Error:?\s*(?:429|529)|limit will reset/i
+const INFRA_ALLOWED_AFTER_HALT = /^(?:commit:|park:|gate-release:|build-paused$)/
+function infraSignal(answer, err, opts) {
+  if (err) {
+    const m = String((err && err.message) || err)
+    return { kind: THROWN_LIMIT_RE.test(m) ? 'limit' : 'infra', detail: `threw: ${m.slice(0, 200)}` }
+  }
+  if (answer === null || answer === undefined) return { kind: 'infra', detail: 'returned no output' }
+  if (typeof answer === 'string') {
+    if (!answer.trim()) return { kind: 'infra', detail: 'returned empty text' }
+    return ANSWER_LIMIT_RE.test(answer) ? { kind: 'limit', detail: 'its text carries a usage-limit signature' } : null
+  }
+  if (typeof answer === 'object') {
+    if (opts && opts.schema && !Array.isArray(answer) && Object.keys(answer).length === 0) return { kind: 'infra', detail: 'returned an empty object' }
+    const text = ['failure', 'reason', 'error'].map((k) => answer[k]).filter((v) => typeof v === 'string').join(' ')
+    if (ANSWER_LIMIT_RE.test(text)) return { kind: 'limit', detail: 'its text carries a usage-limit signature' }
+  }
+  return null
+}
+function haltForInfra(sig, label) {
+  if (!infraHalt) {
+    infraHalt = { kind: sig.kind, label: label || '', detail: sig.detail }
+    log(`⏸ INFRA HALT (paused-infra, proposal 39 C7): ${sig.kind === 'limit' ? 'a usage-limit/429/overload signature' : 'a second infrastructure failure'} on ${label || 'an agent call'} (${sig.detail}) — no new dispatch from here; in-flight results land as they arrive, unlanded work orders are parked, nothing is blocked or reverted`)
+  }
+  return new InfraError(`infra halt: ${sig.detail}`, { kind: sig.kind, label })
+}
+// The Workflow runtime has no sleep: the pause is a cheap MECH op whose only command is `sleep`.
+async function infraPause(forLabel) {
+  agentSpawned++
+  try {
+    const r = await spawnWithTypeFallback(`${WORK_FROM}INFRA PAUSE (proposal 39 C7): the previous agent call (${forLabel}) failed for an infrastructure reason. Run exactly \`sleep ${INFRA_PAUSE_SECONDS}\` as ONE Bash call (timeout ${(INFRA_PAUSE_SECONDS + 30) * 1000} ms), nothing before or after it, then return { done: true }.`,
+      { label: `infra-pause:${forLabel}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
+    return Boolean(r && r.done === true)
+  } catch (e) { return false }
+}
+async function infraGuardedSpawn(finalPrompt, rest) {
+  const label = (rest && rest.label) || ''
+  if (infraHalt && !INFRA_ALLOWED_AFTER_HALT.test(label)) throw new InfraError(`run paused (${infraHalt.kind}): ${label || 'an agent call'} was not dispatched`, { kind: infraHalt.kind, label, refused: true })
+  for (let attempt = 1; ; attempt++) {
+    let answer
+    let err = null
+    try { answer = await spawnWithTypeFallback(finalPrompt, rest) } catch (e) { err = e }
+    if (err && (isInfraError(err) || (typeof err.message === 'string' && AGENT_TYPE_NOT_FOUND_RE.test(err.message)))) throw err   // a missing agent type is configuration, never infra
+    const sig = infraSignal(answer, err, rest)
+    if (!sig) return answer
+    if (sig.kind === 'limit' || attempt >= 2 || infraHalt) throw haltForInfra(sig, label)
+    log(`⚠ infra on ${label || 'an agent call'} (${sig.detail}) — not a work-order failure: pausing ${INFRA_PAUSE_SECONDS}s, then one retry (proposal 39 C7)`)
+    if (!(await infraPause(label))) throw haltForInfra({ kind: 'infra', detail: `${sig.detail}; the pause itself failed` }, label)
+  }
+}
+async function spawnWithTypeFallback(finalPrompt, rest) {
   // Already know pandacorp:mech is unavailable this run — substitute the fallback BEFORE spawning, so
   // this call never pays for a repeat of the same guaranteed rejection.
   if (mechUnavailable && rest && rest.agentType === 'pandacorp:mech') {
@@ -1324,6 +1414,7 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
       return await agent(`MECHANICAL COMMAND RUNNER — BL-0178 ${what} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. ${label.startsWith('drift-proof-replay:') ? 'It only prints a line it stored earlier, so it is instant.' : "It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix."} The line is machine JSON ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize, re-format or re-type the output.`,
         { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) {
+      if (isInfraError(e)) throw e   // proposal 39 C7: an infra halt is never read as a missing receipt
       log(`⚠ ${frd}: the ${label} runner threw (${(e && e.message) || e})`)
       return null
     }
@@ -1643,6 +1734,53 @@ const FOUNDATION_SCHEMA = {
 // planner failed, unsatisfied deps). Each of those used to `return` WITHOUT writing running:false, leaving
 // Mission Control showing a phantom running build until the next launch. ensureStopped() is a single cheap
 // MECH spawn that guarantees running:false (and NEVER touches `phase`) — awaited before every such return.
+// ── Proposal 39: scripted MECH ops (C1) and the paused-infra exit (C7) ─────────────────────────────
+// The relay is a model, never a lossless copy channel: the line must carry a valid seal and name its own op.
+function parseMechLine(raw, op) {
+  const text = raw && typeof raw.line === 'string' ? raw.line.trim().split('\n').pop().trim() : ''
+  if (!text) return { body: null, error: `the ${op} runner returned no line` }
+  let j
+  try { j = JSON.parse(text) } catch { return { body: null, error: `the ${op} line is not valid JSON` } }
+  if (!driftSealHolds(text)) return { body: null, error: `the ${op} line failed its integrity seal (the relay altered it)` }
+  if (!j || j.op !== op) return { body: null, error: `the line is not a ${op} receipt` }
+  return { body: j, error: '' }
+}
+// `prefix`/`suffix`: prose the SAME spawn carries around the literal command (a fused step, a fire-and-forget event).
+async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffix = '' }) {
+  const raw = await agent(`${prefix}${MECH_LITERAL(mechOpCommand(op, flags))}${suffix}`, { label, phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA })
+  return parseMechLine(raw, op)
+}
+// park-wo: a WO that did not land moves its dirty paths to .pandacorp/run/salvage/<wo>/ and resets them, so the next
+// build (or the resume) never starts on its broken files. A park that cannot run is left to the resume precheck.
+async function parkWorkOrders(wos) {
+  for (const w of wos) {
+    agentSpawned++
+    let r = null
+    try { r = await runMechOp('park-wo', `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}`, { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
+    if (r.body && r.body.ok === true) { parkedWos.push(w.id); log(`⇣ ${w.id} parked (${r.body.status}${r.body.dir ? ` → ${r.body.dir}` : ''}) — rebuilt on resume`) }
+    else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — the resume precheck salvages it`)
+  }
+}
+const PAUSED = Object.freeze({ paused: true })
+const INFRA_RESUME_HINT = 'Paused on an infrastructure failure (usage limit, 429, overload or a dead agent). Committed work orders are kept; nothing was blocked, repaired or reverted. Relaunch /pandacorp:implement once the usage window resets: the resume precheck demotes any IN_REVIEW without its commit and only that work is rebuilt.'
+const jsonSafe = (s) => String(s || '').replace(/[^\w:.+@/-]/g, '_').slice(0, 120)
+// The run's exit on an infra halt: accept the in-flight gates as they settle (never landed: a landing is a new
+// dispatch, they re-gate on resume), then ONE allowlisted close that records build_paused and releases the lease.
+// Under a usage limit that close may fail too — the result still carries the pause for the supervisor.
+async function pausedExit(st = {}) {
+  if (st.inFlight && st.inFlight.size) { log(`⏸ waiting for ${st.inFlight.size} in-flight gate(s) to settle — their verdicts are not landed this run`); await Promise.allSettled([...st.inFlight.values()]) }
+  const h = infraHalt || { kind: 'infra', label: '', detail: 'unknown' }
+  agentSpawned++
+  let closed = null
+  try {
+    closed = await agent(`BUILD PAUSED (paused-infra, proposal 39 C7): the run halted on an infrastructure failure (${jsonSafe(h.kind)} at ${jsonSafe(h.label)}). Record it and release the run, nothing else (no verify, no fix, no commit beyond the lease release). Append the dashboard event (fire-and-forget): printf '{"event":"build_paused","at":"%s","project":"%s","reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.${TRACK('build_paused', `,"reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"`)} Then: ${RELEASE_LEASE} Return done:true once the lease release succeeded.`,
+      { label: 'build-paused', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
+  } catch (e) { log(`⚠ the build-paused close could not run (${(e && e.message) || e}) — build_paused is not recorded and the lease expires by its TTL`) }
+  log(`⏸ Run ended: paused-infra (${h.kind} at ${h.label || '?'}). ${INFRA_RESUME_HINT}`)
+  return { mode: MODE, builtFrds: st.builtFrds || [], blockedFrds: st.blockedFrds || [], reopenedFrds: st.reopenedFrds || [], blockedReasons: st.blockedReasons || {}, blockedFailures: st.blockedFailures || {}, stopReason: 'paused-infra',
+    paused: { kind: h.kind, label: h.label, detail: h.detail, parked: [...parkedWos], accepted: [...acceptedWos], closed: Boolean(closed && closed.done === true) }, resumeHint: INFRA_RESUME_HINT }
+}
+
 async function ensureStopped(reason) {
   agentSpawned++
   const receipt = await agent(`MECHANICAL COMMAND RUNNER — your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`${STATE_CLI_COMMAND} close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
@@ -1662,6 +1800,7 @@ async function preLoopGuarded(fn) {
   try {
     return await fn()
   } catch (e) {
+    if (isInfraError(e)) return PAUSED   // proposal 39 C7: an infra halt is a pause, not a pre-loop failure — the caller returns pausedExit()
     log('☠ pre-loop failure: ' + e.message)
     await ensureStopped('pre-loop failure: ' + e.message)
     throw e
@@ -1670,6 +1809,26 @@ async function preLoopGuarded(fn) {
 
 // ── Baseline self-heal (deadlock breaker) — WS-D/D10 two-step: cheap MECH pre-check → reconciling judge ──
 phase('Baseline')
+// Proposal 39 C7 (mechScript): the resume precheck runs FIRST, before anything reads state — it finishes interrupted
+// discards, salvages engine-owned dirt (WO frontmatter, the journals) and demotes every IN_REVIEW without a flip commit
+// after its last IN_PROGRESS stamp, so the planner below reads only committed truth. Unverifiable = fail-closed stop.
+if (MECH_SCRIPT) {
+  agentSpawned++
+  const pre = await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
+  if (pre === PAUSED) return await pausedExit()
+  const p = pre.body
+  if (!p || p.ok !== true) {
+    const why = pre.error || (p && (p.reason || p.error || p.status)) || 'no receipt'
+    log(`⊘ resume precheck unverifiable or refused (${why}) — stopping before planning (fail-closed, proposal 39 C7)`)
+    await ensureStopped('precheck failed')
+    return { mode: MODE, builtFrds: [], blockedFrds: ['precheck'], blockedReasons: { precheck: 'error' }, note: `precheck failed: ${why}` }
+  }
+  const demoted = Array.isArray(p.demoted) ? p.demoted : []
+  for (const d of demoted) log(`↓ resume: ${d.wo} demoted ${d.from}→${d.to} (${d.why}${d.applied === false ? ', reported only: not on main' : ''}) — rebuilt this run (proposal 39 C7)`)
+  if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
+  if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
+  if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
+}
 // (a) MECH PRE-CHECK: the root guard + rethink consume + owner stop signal + the clean-tree fast path — all
 // cheap, no verify.sh. Only if it escalates does the expensive judge baseline run.
 agentSpawned++
@@ -1684,6 +1843,7 @@ const precheck = await preLoopGuarded(() => agent(
   **STEP G — greenfield facts (9.118.2):** whenever you return escalate:true, FIRST run exactly \`${GREENFIELD_PROBE_COMMAND}\` (VERBATIM, ONE Bash call) and add its single stdout line to your verdict as \`greenfieldProbe\` — a STRING, copied character for character (it ends in a \`"sum"\` seal the engine checks; never re-format, shorten or interpret it). It is a fact for the ENGINE; it never changes any other field of your answer. Return your verdict as the structured object itself — never JSON-encoded inside a single string field.`,
   { label: 'baseline-precheck', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: PRECHECK_SCHEMA },
 ))
+if (precheck === PAUSED) return await pausedExit()
 if (precheck && precheck.stop === true) {
   log('⏸ owner stop signal (.pandacorp/run/stop) — el motor para limpio antes de construir (no lo borro, lo hace el owner)')
   await ensureStopped('owner stop signal')
@@ -1771,6 +1931,7 @@ if (precheck && precheck.green === true) {
     If you genuinely can't, return { green: false, failure } describing what remains.${NOTIFY('Baseline roto y no se pudo reparar — necesita tu intervencion')}`,
     { label: 'baseline', phase: 'Baseline', model: P.judge, agentType: 'pandacorp:implementer', schema: VERIFY_SCHEMA },
   ))
+  if (baseline === PAUSED) return await pausedExit()
 }
 if (!baseline || baseline.green !== true) {
   log(`Baseline red and auto-repair failed${baseline?.failure ? ': ' + baseline.failure : ''} — stopping for the owner.`)
@@ -1859,6 +2020,7 @@ async function processChange(slug, phaseTitle) {
 if (CHANGE) {
   phase('Process Change')
   const proc = await preLoopGuarded(() => processChange(CHANGE, 'Process Change'))
+  if (proc === PAUSED) return await pausedExit()
   if (!proc || !proc.done || !proc.affectedFrds || !proc.affectedFrds.length) {
     log(`⊘ No se pudo procesar la change '${CHANGE}': ${proc?.failure || 'no se encontró o no tiene FRDs afectados'}.`)
     await ensureStopped('change not processed')   // WS-D/D3
@@ -1891,6 +2053,7 @@ async function runPlanner(label) {
 }
 phase('Plan')
 let plan = await preLoopGuarded(() => runPlanner('plan'))
+if (plan === PAUSED) return await pausedExit()
 // WS-D/D3: SPLIT the old single guard. A null/garbled planner verdict (agent died / no `frds` array) is
 // NOT "all verified" — reading it that way silently declared a project done. Fail LOUD with a distinct
 // note. Only a REAL empty `frds` array (the planner ran and found nothing pending) is all-verified.
@@ -1912,7 +2075,7 @@ if (plan.frds.length === 0) {
     // phantom-running build). Guarantee the SAME running:false close-out WS-D/D2 gives the in-loop path,
     // then rethrow so the caller still sees the failure loud.
     let drain
-    try { drain = await drainReadyQueuePreLoop() } catch (e) { log('☠ pre-loop drain failed: ' + e.message); await ensureStopped('pre-loop drain failed'); throw e }
+    try { drain = await drainReadyQueuePreLoop() } catch (e) { if (isInfraError(e)) return await pausedExit(); log('☠ pre-loop drain failed: ' + e.message); await ensureStopped('pre-loop drain failed'); throw e }
     if (drain.stop) {
       await ensureStopped('owner stop signal')
       return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
@@ -1920,6 +2083,7 @@ if (plan.frds.length === 0) {
     if (drain.drained) {
       log('Cola de changes drenada antes del plan vacío (BL-0129) — replanificando con el trabajo recién creado.')
       plan = await preLoopGuarded(() => runPlanner('plan-post-drain'))
+      if (plan === PAUSED) return await pausedExit()
       if (!plan || !plan.frds) {
         log('planner returned no verdict after the pre-loop drain — fail-loud (NOT treating a dead/garbled plan as "all verified")')
         await ensureStopped('planner failed')
@@ -1970,7 +2134,7 @@ const reuseRef = (frd) => plan.hasFrontend
 // this its own Plan-phase spawn, unchanged.
 let pendingSyncRollups = null
 if (MECH_LEAN) {
-  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope). THEN, as a SEPARATE step (do not commit this part — see below):\n  '
+  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope). THEN, as a SEPARATE step' + (MECH_SCRIPT ? '' : ' (do not commit this part — see below)') + ':\n  '
 } else {
   agentSpawned++
   await agent(SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).',
@@ -2009,9 +2173,22 @@ let lastCommitSha = null
 // right before the commit (instead of straddling it) is safe.
 const TRACK_AND_WO_COMMIT = (frd, woId) =>
   ` Also, in a SINGLE bash call (one heredoc covering both printfs, not two separate commands), append BOTH fire-and-forget lines: (1) to ${TRACK_PATH} — the durable timeline wo_end line: \`printf '{"kind":"wo_end","frd":"${frd}","wo":"${woId}","state":"in_review","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}\`; (2) to ~/.claude/dashboard-events.ndjson — the Party wo_commit event: \`printf '{"event":"wo_commit","at":"%s","project":"%s","frd":"${frd}","wo":"${woId}","state":"IN_REVIEW"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson\`.`
-async function commitWOGreen(wo, frd) {
+// Proposal 39 C1/C2 (mechScript): a SOLO wave (one WO building, so no sibling's in-flight files) with declared artifacts
+// commits through the scripted commit-wo (clean-tree, AC-citation floor, related unit tests, one commit naming the WO).
+// A multi-WO wave keeps the prose writer: commit-wo refuses any undeclared dirty path, and a sibling is still building.
+const commitWoFlags = (wo) => [`--wo ${shellQuote(wo.id)}`, ...wo.artifacts.map((a) => `--file ${shellQuote(a)}`),
+  ...(plan && plan.hasFrontend ? [`--extra ${shellQuote('docs/design/components.md')} --reason ${shellQuote('DR-057 shared component inventory')}`] : []),
+  ...(P.split && plan && plan.hasFrontend ? [`--extra ${shellQuote(`docs/api/${wo.id}.md`)} --reason ${shellQuote('DR-060 per-WO API contract')}`] : [])].join(' ')
+async function scriptedCommitWO(wo) {
+  const r = await runMechOp('commit-wo', commitWoFlags(wo), { label: `commit:${wo.id}` })
+  const b = r.body
+  if (b && b.ok === true && (b.status === 'committed' || b.status === 'nothing')) return { committed: b.status === 'committed' ? 1 : 0, sha: b.sha }
+  throw new Error(`commit-wo did not commit ${wo.id}: ${r.error || (b && `${b.status}: ${b.reason || b.error || ''}`) || 'no receipt'}`)
+}
+async function commitWOGreen(wo, frd, solo = false) {
   agentSpawned++
-  const link = commitChain.then(() =>
+  const scripted = MECH_SCRIPT && solo && Array.isArray(wo.artifacts) && wo.artifacts.length > 0
+  const link = commitChain.then(() => scripted ? scriptedCommitWO(wo) :
     agent(
       `You are the SOLE git writer at this instant (serialized — no other commit runs concurrently, so there is NO index.lock race), committing work order ${wo.id} now that its self-test is green and its frontmatter is IN_REVIEW.${TRACK_AND_WO_COMMIT(frd, wo.id)} Then make exactly ONE commit (Conventional Commits, with scope, the subject naming ${wo.id}) staging ONLY this work order's own files: its declared artifacts ${wo.artifacts && wo.artifacts.length ? '(' + wo.artifacts.join(' ') + ')' : "(use `git status -- .` (THIS project only, BL-0202) to identify THIS wo's files)"} AND its own work-order markdown under \`docs/frds/${frd}/work-orders/\` (the IN_REVIEW frontmatter + ## Status Note) AND \`.pandacorp/track.jsonl\` (the durable timeline lines for THIS wo — the wo_start the builder appended + the wo_end you just appended) AND \`.pandacorp/build-journal.jsonl\` if it changed (append-only, shared — like track.jsonl; sweeps any pending build-journal lines a retry builder appended). Sibling work orders of the same wave may be MID-BUILD — do NOT stage or touch their files; if \`git status -- .\` shows changes outside this WO's files (other than track.jsonl / build-journal.jsonl, which are append-only and shared), leave them untouched. Do NOT advance last_green_sha (that is the FRD gate's job — this WO is self-test-green, not yet review-verified). THEN return the sha of the commit you just made (\`git rev-parse --short HEAD\`). Return { committed: 1, sha: "<that short sha>" }.`,
       { label: `commit:${wo.id}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: { type: 'object', required: ['committed'], properties: { committed: { type: 'number' }, sha: { type: 'string' } } } },
@@ -2025,7 +2202,7 @@ async function commitWOGreen(wo, frd) {
   // capturePin's fast path with an unverified sha; only a sha from an ACTUAL landed commit is trustworthy.
   // (The `return true` below on committed:0 is a separate, preexisting, out-of-scope behavior — the caller
   // still treats it as "done", not routed to repair; left unchanged here.)
-  return link.then((r) => { if (r && r.sha && Number(r.committed) > 0) lastCommitSha = r.sha; return true }, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
+  return link.then((r) => { if (r && r.sha && Number(r.committed) > 0) lastCommitSha = r.sha; if (infraHalt) acceptedWos.push(wo.id); return true }, (e) => { log(`commit failed for ${wo.id}: ${(e && e.message) || e}`); return false })
 }
 
 // ── Build ONE work order: implement → fast self-test → IN_REVIEW + hand-off → commit-when-green ──
@@ -2057,7 +2234,15 @@ const retryAttemptJournal = (wo, frd) => wo._isRetry
       ` "<one line: what you rebuilt/changed this retry>" "<one line: your approach vs the prior attempt>" "<low|medium|high: your confidence it now meets the AC>"`)
   : ''
 
-async function buildWO(wo, frd) {
+// Proposal 39 C7: an infra halt inside a build is never a WO failure — the wave parks the WO instead of repairing it.
+async function buildWO(wo, frd, solo = false) {
+  try { return await buildWOUnguarded(wo, frd, solo) } catch (e) {
+    if (!isInfraError(e)) throw e
+    log(`⏸ ${wo.id}: infrastructure failure, not a work-order failure (${e.message}) — parked, never repaired`)
+    return { green: false, committed: false, infra: true }
+  }
+}
+async function buildWOUnguarded(wo, frd, solo) {
   const woModel = pickWorkerModel(wo)   // DR-073: opus floor-escalation, a-priori (difficulty=high) or empirical (reopen_count>=1)
   if (woModel !== P.worker) log(`⤴ opus: ${wo.id} (${wo.difficulty === 'high' ? 'difficulty=high' : 'reopen=' + (wo.reopen_count || 0)})`)
   // WP-08/D4b: the denominator of the repair budget. woWaveCost() already mirrors, exactly, the
@@ -2097,7 +2282,7 @@ async function buildWO(wo, frd) {
   // the whole wave. Only still-building (uncommitted) WOs are rebuilt.
   // WS-D/D1: capture whether the commit actually LANDED — a green build whose commit failed is NOT done;
   // the wave-results handling routes it into the FRD's repair path (never adds it to doneIds).
-  const committed = green ? await commitWOGreen(wo, frd) : false
+  const committed = green ? await commitWOGreen(wo, frd, solo) : false
   return { green, committed }
 }
 
@@ -3026,7 +3211,9 @@ async function ensureGateWorktree(sha, slot = LEGACY_SLOT) {
     agentSpawned++
     let r
     try {
-    r = await agent(
+    r = MECH_SCRIPT   // proposal 39 C1: the scripted gate-prepare (same checks, same receipt shape)
+      ? (await runMechOp('gate-prepare', `--path ${shellQuote(pooled ? slot.path : GATE_WORKTREE)} --sha ${shellQuote(sha)}${pooled ? ` --port ${slot.port}` : ''}`, { label: pooled ? `gate-worktree:${slot.id}` : 'gate-worktree', phase: 'Review' })).body
+      : await agent(
       pooled
         ? gateWorktreePrompt(slot.path, sha, `PANDACORP_E2E_PORT=${slot.port} bash .pandacorp/worktree-bootstrap.sh`, `The engine drops THIS gate slot (${slot.id}) from the parallel pool for the rest of the run (D1); the other slots keep gating.`)
         : gateWorktreePrompt(GATE_WORKTREE, sha, 'bash .pandacorp/worktree-bootstrap.sh', 'The engine falls back to synchronous gates on the quiet main tree for the rest of the run.'),
@@ -3082,7 +3269,9 @@ async function releaseGateWorktree(frd, gate, slot = LEGACY_SLOT) {
   agentSpawned++
   let r = null
   try {
-    r = await agent(
+    r = MECH_SCRIPT   // proposal 39 C1: the scripted gate-release (salvage then clean exactly those paths)
+      ? (await runMechOp('gate-release', `--path ${shellQuote(wt)} --dir ${shellQuote(dir)}`, { label: `gate-release:${frd}`, phase: 'Review' })).body
+      : await agent(
       `C2 gate-worktree RELEASE for ${frd} (BL-0182). The FRD gate for ${frd} just finished in the gate worktree ${wt}; whatever it left there must be SALVAGED to the durable evidence dir ${dir} and then CLEANED, so the next gate starts on a clean tree. You run commands only — judge nothing, edit no source, run no git command that writes the MAIN tree. Do EXACTLY, in order:
       1) LIST: \`git -C ${wt} status --porcelain=v1 --untracked-files=all\`. \`--untracked-files=all\` is REQUIRED — plain \`--porcelain\` collapses a new directory to one \`?? dir/\` line and its files would never be salvaged. Each line is \`XY <path>\`; the path is relative to the worktree ROOT (git prints repo-root paths even for a nested project) — keep it EXACTLY as printed (unquote it if git double-quoted it).
       2) SALVAGE each listed path: \`??\` → untracked; a \`D\` in either status column → deleted; anything else → modified. Untracked/modified: \`mkdir -p\` the parent and \`cp ${wt}/<path> ${dir}/<path>\` (overwrite), then \`shasum -a 256 ${dir}/<path>\` and record { path, status, sha256 }. Deleted: record { path, status: "deleted", sha256: null } (nothing to copy).
@@ -3453,6 +3642,7 @@ async function blockRepairBudgetExhausted(frd, reopenIds, gate) {
 // review ever starts — no review_start was emitted for it) leaves this false: emitting review_end there
 // would announce the close of a review that never opened.
 async function attemptRepair(frd, context, gateBlocked = false) {
+  if (infraHalt) throw new InfraError(`run paused (${infraHalt.kind}): no repair of ${frd}`, { refused: true })   // proposal 39 C7: an infra halt never consumes a repair try
   agentSpawned += COST(P.judge)   // DR-073: repair runs on the judge model — weight it honestly
   return await chargedRepair(frd, P.judge, () => agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}The build of FRD ${frd} hit a problem: ${context}. You are the repair engineer — TRY TO FIX it before we give up.
   1) Diagnose the root cause: read the failing output, the work orders, and .pandacorp/comms/progress.md.
@@ -3650,6 +3840,7 @@ let woRevertSeq = 0
  * @returns {Promise<{ok: boolean, receipt: object|null, error: string}>} ok only for status reverted|nothing
  */
 async function woRevert(frd, ids, mode, opts = {}) {
+  if (infraHalt) throw new InfraError(`run paused (${infraHalt.kind}): no ${mode} of ${frd}'s code`, { refused: true })   // proposal 39 C7: an infra halt never discards code
   // The lease epoch makes the path unique to THIS run: the sequence restarts at 1 every run, and a replay of a path an
   // earlier run wrote would serve that run's receipt when this run's command never executed (red-team 2026-09-30).
   const stored = `.pandacorp/run/wo-revert/${frd}-e${LEASE_EPOCH}-${++woRevertSeq}-${mode}.json`
@@ -3663,6 +3854,7 @@ async function woRevert(frd, ids, mode, opts = {}) {
       return await agent(`MECHANICAL COMMAND RUNNER — BL-0212 ${mode === 'plan' ? 'revert plan (changes no tracked file)' : mode === 'recover' ? 'interrupted-revert recovery' : 'revert'} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
         { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) {
+      if (isInfraError(e)) throw e   // proposal 39 C7: an infra halt is never read as a missing receipt
       log(`⚠ ${frd}: the ${label} runner threw (${(e && e.message) || e})`)
       return null
     }
@@ -3885,6 +4077,7 @@ let deferredWork = false    // WS-D/D4a: a safe-point drain routed a change's ne
 // verdict; the TEXT it quoted was wrong). Prefixing the failing contract ids from `trace` guarantees the
 // stored text names the actual cause even when the reviewer's prose doesn't lead with it.
 function blockFrd(frd, reason, failure = '', trace = null) {
+  if (infraHalt) { log(`⏸ ${frd}: not BLOCKED (${reason || 'error'}) — the run is paused on infra, the FRD resumes next run (proposal 39 C7)`); return }
   reason = reason || 'error'
   blockedFrds.push(frd)
   blockedReasons[frd] = reason
@@ -4640,7 +4833,7 @@ function enrollFrd(f) {
 for (const f of plan.frds) enrollFrd(f)
 sizeAgentBudget()
 detectCycles()   // WS-D/D13: fail LOUD on a dependency cycle up front, before it surfaces late as a generic stall
-await preLoopGuarded(() => recoverPendingReverts())   // BL-0215: finish a discard a previous run was cut in the middle of, before any wave
+if ((await preLoopGuarded(() => recoverPendingReverts())) === PAUSED) return await pausedExit({ builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })   // BL-0215: finish a discard a previous run was cut in the middle of, before any wave
 
 // Block an FRD before its gate: drop its unbuilt WOs from the schedule (built/IN_REVIEW ones stay
 // committed — the next run resumes them) and record the reason.
@@ -5181,6 +5374,7 @@ function warnAgentBudgetNearExhaustion(workRemains) {
 
 while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
+  if (infraHalt) { stopReason = 'paused-infra'; break }   // proposal 39 C7: no new dispatch after an infra halt
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
   // F5/BL-0177: the ceiling can be reached on the SAME pass that finishes all remaining work (the
@@ -5426,6 +5620,11 @@ while (true) {
   // "skip any already IN_PROGRESS" needs no separate branch). Verified against real mission-control
   // WO frontmatter (incl. one with a `---` horizontal rule + a prose mention of the same field in
   // its body, which it correctly leaves untouched) on macOS' perl 5.34.1.
+  if (MECH_SCRIPT) {
+    // Proposal 39 C1/C7: the scripted stamp, COMMITTED — the IN_PROGRESS stamp commit is the anchor of the resume window.
+    const d = await runMechOp('dispatch', `${wave.map((w) => `--wo ${shellQuote(w.id)}`).join(' ')} --commit`, { label: `dispatch:${waveFrds.join('+')}`, prefix: dispatchSyncRollups, suffix: uiPassSkipEvent })
+    if (!d.body || d.body.ok !== true) log(`⚠ dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — the builders run anyway; an unstamped WO is rebuilt on resume`)
+  } else
   await agent(`${dispatchSyncRollups}Stamp \`implementation_status: IN_PROGRESS\` in the frontmatter of EACH of these work-order files (change nothing else beyond the sync-rollups step above if present, do NOT commit this part) by running EXACTLY this command once per file, substituting its path: \`perl -0pi -e 's/\\A(---\\n(?:(?!---\\n).*\\n)*?)implementation_status:[^\\n]*/$1implementation_status: IN_PROGRESS/' <file>\`. Files: ${wave.map((w) => w.path || `docs/frds/${w._frd}/work-orders/${w.id}`).join(', ')}. Return when all are stamped.${uiPassSkipEvent}`,
     { label: `dispatch:${waveFrds.join('+')}`, phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT })
   // BL-0138 path 1: bracket the wave's own build barrier with a real-token delta, attributed to
@@ -5433,7 +5632,7 @@ while (true) {
   // a multi-FRD wave's delta can't be split among its FRDs).
   const waveBuildTokensBefore = budget.spent()
   const gatesAlongsideWave = PARALLEL_GATES ? gatesInFlight.size : 0   // D1: parallel gates reviewing during this wave spend into the same counter
-  const results = await parallel(wave.map((w) => () => buildWO(w, w._frd)))
+  const results = await parallel(wave.map((w) => () => buildWO(w, w._frd, wave.length === 1)))
   if (gatesAlongsideWave) for (const frd of waveFrds) markTokensUnreliable(frd, `${gatesAlongsideWave} parallel gate(s) were reviewing during its build wave`)
   else recordWaveBuildTokens(waveFrds, budget.spent() - waveBuildTokensBefore)
   // Option B (DR-060) + finer save points (DR-086): each GREEN work order was ALREADY committed the
@@ -5451,6 +5650,13 @@ while (true) {
     // attemptRepair path as a self-test failure, so its unpersisted work never counts as a satisfied dep.
     if (results[i] && results[i].green === true && results[i].committed === true) doneIds.add(w.id)
     else if (st) st.failed = true
+  }
+  // Proposal 39 C7: after an infra halt the wave's in-flight results have landed (a green one committed, even after the
+  // halt); every WO that did not land is parked — never repaired, never BLOCKED, never reverted — and dispatch stops.
+  if (infraHalt || results.some((r) => r && r.infra)) {
+    await parkWorkOrders(wave.filter((w) => !doneIds.has(w.id)))
+    stopReason = 'paused-infra'
+    break
   }
 
   // A work order failed its self-test → TRY TO REPAIR that FRD before blocking (owner's rule).
@@ -5488,6 +5694,7 @@ while (true) {
     for (const frd of newlyGateReady) launchEvidence(frd)
   }
   } catch (loopErr) {
+    if (isInfraError(loopErr) || infraHalt) { stopReason = 'paused-infra'; log(`⏸ scheduler stopped on the infra halt (${(loopErr && loopErr.message) || loopErr})`); break }   // proposal 39 C7: a pause, not a crash
     // WS-D/D2: any throw inside the scheduler loop must NOT die with running:true left in status.yaml (Mission
     // Control would show a phantom running build forever). Log LOUD, guarantee running:false via a dedicated
     // MECH spawn (NEVER touching `phase` — nothing here is verified), then RETHROW (the crash is not swallowed;
@@ -5503,6 +5710,8 @@ while (true) {
 // ── C2 run-end invariant: settle EVERY in-flight gate + drain the convergeQueue BEFORE hardening/close-out/
 // notify-end (the loop may have broken — budget/agents/blocks — with gates still running; a gate already
 // spawned is work we committed to, and its apply/converge decides builtFrds/release honestly). ──
+if (stopReason === 'paused-infra') return await pausedExit({ inFlight: gatesInFlight, builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })   // proposal 39 C7: in-flight gates settle, nothing lands, no close-out
+try {   // proposal 39 C7: an infra halt during the drain or the close-out is a pause too (the catch is at the end)
 if (PARALLEL_GATES) await drainParallelGates()   // D1: the same invariant, landed through the one lane
 else {
   await settleGates(true)
@@ -5617,7 +5826,9 @@ const CLOSE_OUT_VERIFY_REUSED_EVENT = (sha, ageSeconds) =>
 const REUSE_REPORT_CLAUSE = (reuse) => `a FULL, GREEN run of this EXACT commit (sha ${reuse.headSha}, ~${Math.max(0, Math.round(reuse.ageSeconds || 0))}s ago, clean tree)`
 async function checkFullVerifyReuse() {
   agentSpawned++
-  const r = await agent(
+  const r = MECH_SCRIPT   // proposal 39 C1: the scripted reuse-check (the engine re-checks its fields below either way)
+    ? (await runMechOp('reuse-check', `--max-age ${REUSE_MAX_AGE_SECONDS}`, { label: 'close-out-verify-reuse-check', phase: 'Review' })).body
+    : await agent(
     `BL-0147 READ-ONLY CHECK — before the next step runs the WHOLE-PROJECT \`bash .pandacorp/verify.sh\`, decide whether it actually needs to: a recent \`scope:"full"\` green gate-report for this EXACT commit may already certify it. A \`scope:"since"\` or \`scope:"partial"\` report NEVER does — the full suite is the backstop for what a since-scoped run cannot see. Change NOTHING; this is a pure read, not a gate. Do these steps IN ORDER:
   1) \`git -C ${PROJECT_DIR} rev-parse HEAD\` → headSha (the full sha).
   2) \`git -C ${PROJECT_DIR} status --porcelain\` → dirty = true if it prints ANY line, else false.
@@ -5839,6 +6050,11 @@ if (!LEAN_CLOSE_OUT && closed && closed.done === true) {
   agentSpawned++
   await agent(`Terminal lease close. ${RELEASE_LEASE} Confirm done:true.`,
     { label: 'release-lease', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
+}
+} catch (e) {
+  if (!isInfraError(e) && !infraHalt) throw e
+  log(`⏸ infra halt during the drain/close-out (${(e && e.message) || e}) — the run pauses instead of closing`)
+  return await pausedExit({ inFlight: gatesInFlight, builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })
 }
 
 return { mode: MODE, builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures, stopReason }

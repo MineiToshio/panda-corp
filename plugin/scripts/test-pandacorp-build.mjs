@@ -2648,8 +2648,12 @@ SCENARIOS.push({
     // + 2 (BL-0214): 'evidence-reread:<frd>' (re-prints the collector's stored SEALED report when the relayed copy fails its
     // seal) and 'finder-snippets:<frd>' (ONE finder-snippets.mjs check against the pin, a read-only git runner) — each runs
     // ONE script command and returns its stdout verbatim; the ENGINE verifies the seal and decides. = 28.
-    t.ok(mechAgentCount === 28, `exactly 28 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
-    t.ok(mechEffortCount === 28, `exactly 28 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
+    // + 3 (proposal 39 stage 2, reached ONLY under args.lane:'fast' / mechScript / infraGuard — the classic spawn
+    // sequence is unchanged): runMechOp (the ONE spawn site of every scripted pandacorp-build-mech.mjs op: precheck,
+    // dispatch, commit-wo, park-wo, gate-prepare, gate-release, reuse-check), infraPause (`sleep 60`) and the paused-infra
+    // close ('build-paused') — each runs exact commands, zero judgment. = 31.
+    t.ok(mechAgentCount === 31, `exactly 31 call sites use agentType: MECH_AGENT(...) (got ${mechAgentCount})`)
+    t.ok(mechEffortCount === 31, `exactly 31 call sites carry effort: MECH_EFFORT, one per MECH_AGENT(...) site (got ${mechEffortCount})`)
     t.ok(siteKeepsOriginalAgentType("label: 'safe-point'") && !siteKeepsOriginalAgentType("label: 'safe-point-pre-loop'"), 'in-loop safe-point (class c, genuine judgment + frontmatter mutation) keeps its ORIGINAL agentType — never converted; the pre-loop sibling (read-only) is NOT covered by this same anchor')
     t.ok(siteKeepsOriginalAgentType('label: `apply-gate:${frd}`'), 'apply-gate keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
     t.ok(siteKeepsOriginalAgentType('label: `persist-block:${frd}`'), 'persist-block keeps its ORIGINAL agentType — inside the parallel "reparación" region this package does not touch')
@@ -8191,7 +8195,7 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error}`)
     // Not a MECH site: the finder reads and judges code against a spec (a STANDARD-tier task), so it is a
     // sonnet spawn with its own agent, never MECH_AGENT(...). The WP03a count (28 since BL-0214) therefore does not move.
-    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 28, 'the MECH_AGENT sites are unchanged by the finder (28 = the WP03a recount, incl. BL-0212 and BL-0214)')
+    t.ok((source.match(/agentType: MECH_AGENT\(/g) || []).length === 31, 'the MECH_AGENT sites are unchanged by the finder (31 = the WP03a recount, incl. BL-0212, BL-0214 and proposal 39)')
     t.ok((source.match(/agentType: 'pandacorp:drift-finder'/g) || []).length === 1, 'exactly one pandacorp:drift-finder spawn site')
     t.ok(/label: `find:drift:\$\{frd\}`[^\n]*model: 'sonnet'[^\n]*effort: 'medium'/.test(source), 'that site is sonnet at effort medium')
     const agentMd = readFileSync(path.resolve(__dirname, '../agents/drift-finder.md'), 'utf8')
