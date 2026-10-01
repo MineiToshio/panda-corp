@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0252, LESSON-0266]
+links: [LESSON-0252, LESSON-0266, LESSON-0278]
 ---
 
 **Situation:** a shared helper computed a derived set (e.g. which phases count as "active") that one

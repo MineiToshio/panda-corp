@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0266]
+links: [LESSON-0266, LESSON-0278]
 ---
 
 **Situation:** two features needed a classification of the same input (an href) that looked like the same

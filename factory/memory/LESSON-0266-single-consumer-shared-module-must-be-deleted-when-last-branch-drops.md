@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0252]
+links: [LESSON-0252, LESSON-0278]
 ---
 
 **Situation:** a shared predicate module (`hrefKind.ts`) was correctly extracted while it served two
