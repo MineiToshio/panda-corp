@@ -11,8 +11,8 @@ created: 2026-07-07
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [mission-control]
 links: [DR-115, DR-078]
 ---
 

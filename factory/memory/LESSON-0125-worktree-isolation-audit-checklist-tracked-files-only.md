@@ -78,9 +78,15 @@ working tree) does not automatically provide any of them:
    generic "clean up worktrees" pass has no innate way to tell a disposable scoped-change worktree apart
    from an operator-pinned, actively-served one (a launchd deploy, DR-089) unless it explicitly checks for
    a locked/detached-HEAD state and excludes paths outside the project's own tree before removing anything.
+10. **Landing authority stays with the orchestrator, not the worktree subagent** (mission-control,
+    2026-09-30) — a subagent dispatched INTO a worktree cannot run `git -C <main-checkout> merge
+    --ff-only` to land its own branch back into the shared main checkout; the environment's own write
+    guard blocks a worktree session from merging into the checkout it isn't in. Telling the subagent this
+    upfront (land via the orchestrator / `merge-queue.sh`, never attempt the merge itself) avoids a wasted
+    round trip discovering the block mid-task.
 
 **Apply next time:** when a new capability adopts or touches DR-096 worktree isolation, run this
-nine-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
+ten-point checklist BEFORE the first incident, not after: (1) verify every dispatched agent/process
 actually resolves paths relative to the worktree it was handed — check `git status` in both trees after
 a parallel wave; (2) if the worktree (or the main checkout) holds gitignored state that would be a real
 loss, confirm it has an external backstop, independent of the worktree; (3) if a process is
@@ -101,6 +107,9 @@ blocks a hard reset named by branch and only permits the explicit-commit-id form
 (by hand or by an agent), confirm the target is not `git worktree lock`ed and does not resolve under a
 known deploy-root path (check `git worktree list --porcelain` and the project's own infra docs) — a
 disposable-looking `git worktree remove` reads as an ordinary safe operation right up until it deletes the
-one worktree a daemon is actively serving from. A symptom that reproduces "only inside
+one worktree a daemon is actively serving from; (10) tell a worktree-dispatched subagent upfront that it
+cannot land its own branch — landing (the `merge --ff-only`/`merge-queue.sh` step) is the orchestrator's
+job, never the worktree subagent's own, so it doesn't spend a round trip discovering the write guard's
+block mid-task. A symptom that reproduces "only inside
 a worktree" or "only when a parallel session is active" is the tell to reach for this checklist before
 assuming a genuine logic regression.
