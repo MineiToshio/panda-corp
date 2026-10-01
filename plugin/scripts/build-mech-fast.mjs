@@ -13,7 +13,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectCtx, releaseLock, unique, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, woAcIds, woIdOf } from './build-mech-lib.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
 const TRACK = JOURNALS[0]
@@ -249,6 +249,36 @@ export function verifyOp(o) {
   }
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
   return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, dirtyAfter: after, exit: r.status } }
+}
+
+// ── USABLE across runs (C6) ────────────────────────────────────────────────────────────────────
+/**
+ * The FRDs still USABLE at HEAD, derived from durable state only (DR-115: nothing is stored for it): the latest
+ * build_usable line of each FRD committed in track.jsonl names a sha that is an ancestor of HEAD, every work order is
+ * VERIFIED, IN_REVIEW or BLOCKED (one is not VERIFIED), and none was stamped IN_PROGRESS after that sha (a rebuild is
+ * not USABLE until its own verify certifies it). The engine seeds its never-auto-discard guard from this list, so a
+ * later run (after a defer, a paused-infra halt, an unlanded gate) keeps fix-forward only.
+ * @param {object} ctx the projectCtx of the project
+ * @returns {Array<{ frd: string, sha: string }>} in FRD folder order
+ */
+export function durableUsable(ctx) {
+  const latest = new Map()
+  for (const line of String(blobAt(ctx, 'HEAD', TRACK) || '').split('\n')) {
+    let j = null
+    try { j = JSON.parse(line) } catch { j = null }
+    if (j && j.kind === 'build_usable' && typeof j.frd === 'string' && typeof j.sha === 'string' && /^[0-9a-f]{7,40}$/i.test(j.sha)) latest.set(j.frd, j.sha)
+  }
+  const isAncestor = (a, b) => ctx.g.run(['merge-base', '--is-ancestor', a, b]).ok
+  const out = []
+  for (const f of readFrds(ctx)) {
+    const sha = latest.get(f.frd)
+    if (!sha || !ctx.g.run(['rev-parse', '--verify', '-q', `${sha}^{commit}`]).ok || !isAncestor(sha, 'HEAD')) continue
+    const atHead = f.wos.map((w) => ({ rel: w.rel, status: frontmatterStatus(blobAt(ctx, 'HEAD', w.rel)) }))
+    if (!atHead.every((w) => ['VERIFIED', 'IN_REVIEW', 'BLOCKED'].includes(w.status)) || atHead.every((w) => w.status === 'VERIFIED')) continue
+    if (atHead.some((w) => inReviewWindow(ctx, w.rel).stamps.some((s) => !isAncestor(s, sha)))) continue
+    out.push({ frd: f.frd, sha })
+  }
+  return out
 }
 
 export const FAST_OPS = { plan: planOp, 'classify-frd': classifyFrdOp, verify: verifyOp }

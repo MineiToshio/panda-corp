@@ -189,6 +189,7 @@ if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScri
 const fastFloor = new Set()
 const fastClassified = new Set()
 const fastUsable = []
+const priorUsable = []
 let earlySecurity = null
 const MECH_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'pandacorp-build-mech.mjs'))}`
 const mechOpCommand = (op, flags = '') => `${MECH_CLI_COMMAND} ${op} --project ${shellQuote(PROJECT_DIR)}${flags ? ` ${flags}` : ''}`
@@ -973,6 +974,10 @@ if (MECH_SCRIPT) {
  if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
  if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
  if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
+ if (FAST) {
+  for (const u of Array.isArray(p.usable) ? p.usable : []) if (u && typeof u.frd === 'string' && typeof u.sha === 'string') priorUsable.push({ frd: u.frd, sha: u.sha })
+  if (priorUsable.length) log(`✓ resume: ${priorUsable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')} USABLE since an earlier run (committed build_usable, proposal 39 C6) — fix-forward only, never auto-discarded`)
+ }
 }
 agentSpawned++
 const precheck = await preLoopGuarded(() => agent(
@@ -3311,7 +3316,8 @@ async function drainParallelGates() {
   else await landParallelVerdict(true, idx)
  }
 }
-const isUsable = (frd) => FAST && fastUsable.some((u) => u.frd === frd)
+const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
+const isUsable = (frd) => FAST && Boolean(usableOf(frd))
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
 const FAST_BUILD_SCHEMA = { type: 'object', required: ['wos'], properties: { wos: { type: 'array', items: { type: 'object', required: ['id', 'line'], properties: { id: { type: 'string' }, line: { type: 'string', description: "the LAST line this work order's final commit or park command printed, copied character for character" } } } } } }
 const SEC_AUDIT_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, findings: { type: 'array', items: { type: 'object' } } } }
@@ -3512,7 +3518,7 @@ async function securityDeltaAudit(fullAudit) {
   { label: 'hardening:security-delta', phase: 'Hardening', model: P.judge, effort: 'high', agentType: 'pandacorp:security-auditor', schema: SEC_AUDIT_SCHEMA })
 }
 async function holdUsableDiscard(frd, ids, what) {
- const sha = (fastUsable.find((u) => u.frd === frd) || {}).sha
+ const sha = (usableOf(frd) || {}).sha
  const set = [frd, ...[...frdState.keys()].filter((x) => x !== frd && frdUpstream(x).has(frd))]
  log(`⛔ ${frd}: USABLE since ${sha} — ${what} would discard landed code; fix-forward only: BLOCKED needs-owner, nothing reverted (proposal 39 C6)`)
  const record = `${frd} ya era USABLE (en main, verify.sh verde en ${sha}) y su gate lo rechaza; la escalera quiere descartar ${ids.join(', ')} (${what}). El motor no revierte codigo USABLE solo. Decide: corregirlo encima (fix-forward) o descartarlo; si apruebas el descarte se revierte de una vez todo el conjunto dependiente: ${set.join(', ')}.`

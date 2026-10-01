@@ -678,5 +678,65 @@ console.log('verify: the USABLE check — clean tree, committed WOs, landed floo
   }
 }
 
+console.log('precheck: USABLE is derived from the committed build_usable lines, so a later run still never auto-discards it')
+{
+  const VERIFY_GREEN = '#!/bin/sh\nmkdir -p .pandacorp/run\nprintf \'{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n\' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n'
+  const setup = () => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write('.pandacorp/verify.sh', VERIFY_GREEN); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: the project gate')
+    const base = r.head()
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001')
+    r.write('src/beta.ts', 'export const beta = 1\n')
+    r.write(WO_B, woMd('WO-01-002', 'IN_REVIEW', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-002')
+    const v = r.run('verify', ['--frd', 'frd-01-alpha', '--since', base, '--wo', 'WO-01-001', '--wo', 'WO-01-002'])
+    return { r, v }
+  }
+  const usableOf = (p) => (p.receipt && Array.isArray(p.receipt.usable) ? p.receipt.usable : null)
+  {
+    const { r, v } = setup()
+    try {
+      ok(v.receipt && v.receipt.usable === true && v.receipt.usableCommit, `fixture: frd-01-alpha certified USABLE and its build_usable line committed (got ${v.receipt && JSON.stringify({ u: v.receipt.usable, c: v.receipt.usableCommit, f: v.receipt.failure })})`)
+      const p = r.run('precheck')
+      ok(p.code === 0 && p.sealed && JSON.stringify(usableOf(p)) === JSON.stringify([{ frd: 'frd-01-alpha', sha: v.receipt.sha }]), `the next run's precheck reports the FRD USABLE at its certified sha (got ${JSON.stringify(usableOf(p))})`)
+      r.write(WO_B, woMd('WO-01-002', 'BLOCKED', { acs: ['AC-01-002.1'], extraFm: `${fmB()}blocked_reason: needs-owner\n` }))
+      r.git('commit', '-q', '-am', 'chore: frd-01-alpha usable rejected, needs-owner')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === JSON.stringify([{ frd: 'frd-01-alpha', sha: v.receipt.sha }]), 'a work order held BLOCKED needs-owner keeps its FRD USABLE (the owner decides the discard)')
+      r.write(WO_A, woMd('WO-01-001', 'VERIFIED', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+      r.write(WO_B, woMd('WO-01-002', 'VERIFIED', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+      r.git('commit', '-q', '-am', 'chore: frd-01-alpha verified')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', 'an all-VERIFIED FRD is no longer reported (nothing left to discard)')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, v } = setup()
+    try {
+      r.write(WO_A, woMd('WO-01-001', 'PLANNED', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+      r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+      r.git('commit', '-q', '-am', 'chore: the owner approved the discard of frd-01-alpha')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', `a work order back to PLANNED (an owner-approved discard) ends USABLE: it is rebuilt (sha ${v.receipt.sha})`)
+      r.run('dispatch', ['--wo', 'WO-01-001', '--wo', 'WO-01-002', '--commit'])
+      r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+      r.write(WO_B, woMd('WO-01-002', 'IN_REVIEW', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+      r.git('commit', '-q', '-am', 'feat: WO-01-001 and WO-01-002 rebuilt')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', 'a rebuild stamped after the certified sha is not USABLE until its own verify certifies it again')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r } = setup()
+    try {
+      r.git('reset', '-q', '--hard', 'HEAD~1')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', 'no committed build_usable line → nothing is USABLE')
+      r.write('.pandacorp/track.jsonl', `${r.read('.pandacorp/track.jsonl')}{"kind":"build_usable","frd":"frd-01-alpha","sha":"0123456789ab","at":"2026-10-01T00:00:00Z"}\n`)
+      r.git('commit', '-q', '-am', 'chore: a line naming a sha that is not in the history')
+      ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', 'a build_usable line whose sha is not an ancestor of HEAD is ignored')
+    } finally { r.cleanup() }
+  }
+}
+
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

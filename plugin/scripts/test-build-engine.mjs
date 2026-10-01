@@ -1094,6 +1094,39 @@ SCENARIOS.push({
   },
 })
 
+// K8 across runs: USABLE is derived from durable state (the precheck reads the committed build_usable lines), never
+// only from this run's memory — a defer, a paused-infra halt or an unlanded gate must not re-open the auto-discard.
+const inReviewPlan = (frds) => mkPlan(frds.map(({ frd, ids, deps = [] }) => ({ frd, deps, floor: false, workOrders: ids.map((id, i) => mkWo(id, 'IN_REVIEW', { frd, artifacts: [`src/${frd}/${i}/**`] })) })))
+SCENARIOS.push({
+  name: 'F39-12. fast-lane-usable-survives-the-run — run 1 defers at USABLE; run 2 (default budget) gates it: the precheck derives USABLE from the committed build_usable line, so a reject is needs-owner and nothing is reverted',
+  args: { mode: 'balanced', ...FAST, reviewBudget: 'defer' },
+  plan: fastPlan([{ frd: 'frd-x12', ids: ['wo-x12-001'] }, { frd: 'frd-y12', ids: ['wo-y12-001'], deps: ['frd-x12'] }]),
+  responses: [{ label: 'verify:frd-x12', response: { line: mechLine('verify', { status: 'green', frd: 'frd-x12', green: true, usable: true, floor: false, sha: 'abc000000012', scope: 'full' }) } }],
+  next: (first) => ({
+    args: { mode: 'balanced', ...FAST },
+    plan: inReviewPlan([{ frd: 'frd-x12', ids: ['wo-x12-001'] }, { frd: 'frd-y12', ids: ['wo-y12-001'], deps: ['frd-x12'] }]),
+    responses: [
+      { label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-x12-001', 'wo-y12-001'], usable: (first.result && first.result.usable) || [] }) },
+      { label: 'gate:frd-x12', response: { green: false, reopen: ['wo-x12-001'], findings: [{ wo: 'wo-x12-001', finding: 'AC-x12 not met', failingTest: 't.test.ts', files: ['src/x.ts'] }], failure: 'AC-x12 not met' } },
+      { label: 'patch:frd-x12', response: { green: false, failure: 'could not patch' } },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `run 1 threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'review-deferred' && (run.result.usable || []).some((u) => u.frd === 'frd-x12' && u.sha === 'abc000000012'), `run 1 stops at USABLE (got ${run.result && JSON.stringify([run.result.stopReason, run.result.usable])})`)
+    const two = run.next
+    t.ok(two && !two.error, `run 2 threw: ${two && two.error && (two.error.stack || two.error)}`)
+    t.ok(byLabel(two, /^fast-build:/).length === 0 && byLabel(two, 'gate:frd-x12').length === 1, 'run 2 rebuilds nothing and gates the USABLE FRD')
+    t.ok(byLabel(two, 'patch:frd-x12').length === 1, 'fix-forward first: the in-place patch runs')
+    t.ok(byLabel(two, /^(wo-revert|revert:)/).length === 0, `nothing is reverted in run 2 (got ${byLabel(two, /^(wo-revert|revert:)/).map((c) => c.label).join(', ') || 'none'})`)
+    t.ok(byLabel(two, /^(build|fast-retry):/).length === 0, 'no automatic rebuild over the USABLE code')
+    const b = byLabel(two, 'block-usable:frd-x12')
+    t.ok(b.length === 1 && /abc000000012/.test(b[0].prompt) && /frd-y12/.test(b[0].prompt), 'the needs-owner record names the certified sha and the dependent set')
+    t.ok(two.result && two.result.blockedReasons && two.result.blockedReasons['frd-x12'] === 'needs-owner', `BLOCKED needs-owner (got ${two.result && JSON.stringify(two.result.blockedReasons)})`)
+    t.ok(hasLog(two, /frd-x12.*USABLE.*earlier run|USABLE.*earlier run.*frd-x12/), 'run 2 logs the USABLE it derived from the earlier run')
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
   args: { mode: 'balanced', ...FAST },
@@ -1130,6 +1163,7 @@ let failed = 0
 for (const s of SCENARIOS) {
   if (process.env.ONLY_SCENARIO && !s.name.startsWith(process.env.ONLY_SCENARIO)) continue
   const run = await runEngine(s)
+  if (s.next) run.next = await runEngine(s.next(run))   // a two-run scenario: the second run starts from the first's durable outcome
   if (process.env.SHOW_CALLS) console.log(run.calls.map((c, i) => `${i}:${c.label}`).join(' '))
   const t = new T(s.name)
   try {
@@ -1138,6 +1172,7 @@ for (const s of SCENARIOS) {
     t.failures.push(`assertion block threw: ${e && e.stack ? e.stack.split('\n')[0] : e}`)
   }
   if (run.unmatched.length) t.failures.push(`unmatched agent labels: ${[...new Set(run.unmatched)].join(', ')}`)
+  if (run.next && run.next.unmatched.length) t.failures.push(`unmatched agent labels in run 2: ${[...new Set(run.next.unmatched)].join(', ')}`)
   if (t.failures.length === 0) {
     passed++
     console.log(`PASS  ${s.name}  (${t.count} assertions)`)

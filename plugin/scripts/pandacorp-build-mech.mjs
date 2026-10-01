@@ -12,6 +12,7 @@
 //                salvage ENGINE-owned dirt (WO markdown, the journals) to .pandacorp/run/salvage/ and reset it, then the C7
 //                stamp-anchored demotion (an IN_REVIEW with no flip commit after its last IN_PROGRESS stamp → PLANNED,
 //                one commit). Owner dirt and the lease projection (.pandacorp/status.yaml) are never touched, only reported.
+//                Also reports `usable`: the FRDs still USABLE from an earlier run (C6, durableUsable in build-mech-fast.mjs).
 //   commit-wo    --wo <id> --files <a,b,…> [--file <p>]… [--extra <p> --reason <r>]… [--ac <AC-id>]…
 //                [--fixup <id> [--for <id>]] [--main-branch main] [--lock-wait-ms N] [--test-timeout-ms N]
 //                [--events <f>] [--project-name <n>]
@@ -47,7 +48,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
 import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, woAcIds, woIdOf } from './build-mech-lib.mjs'
-import { FAST_OPS } from './build-mech-fast.mjs'
+import { FAST_OPS, durableUsable } from './build-mech-fast.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -285,7 +286,7 @@ function precheck(o) {
     const salvaged = onMain ? salvageAndReset(ctx, dirty.filter(engineOwned), path.join(ctx.project, salvageDir)) : []
     const demotion = demoteUnstamped(ctx, onMain, salvaged, salvageDir)
     const refused = reverts.filter((r) => r.exit !== 0).map((r) => r.frd)
-    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, salvaged, salvageDir: salvaged.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !engineOwned(e) || !onMain).map((e) => e.path), ...demotion } }
+    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, salvaged, salvageDir: salvaged.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !engineOwned(e) || !onMain).map((e) => e.path), ...demotion, usable: durableUsable(ctx) } }
   } finally { releaseLock(lock) }
 }
 
