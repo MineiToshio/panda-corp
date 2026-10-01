@@ -305,9 +305,62 @@ for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--revi
   ok(rejected && !leaseExists && /^phase: architecture$/m.test(status), `P39 launcher rejects ${bad.join(" ")} before taking the lease`);
   await rm(root, { recursive: true });
 }
+// Resume after a usage limit: the run was cut, its lease went stale under ITS run id. The launcher performs the fenced
+// reclaim itself (stale + same runtime + same run id, the preflight's checks) and prints the normal Workflow call with
+// the new token/epoch — the owner never runs `reclaim` or composes the args by hand.
+{
+  const leaseFile = (root) => path.join(root, ".pandacorp/run/build.lease/lease.json");
+  const staleLease = async ({ runtime = "claude", runId = "run-cut-1", stale = true } = {}) => {
+    const root = await fixture({ runtime, runId, phase: "implementation", running: "true" });
+    const held = JSON.parse((await exec("node", [leaseCli, "acquire", "--project", root, "--runtime", runtime, "--run-id", runId, "--ttl", "600"])).stdout);
+    if (stale) {
+      const lease = JSON.parse(await readFile(leaseFile(root), "utf8"));
+      lease.renewed_at = new Date(Date.now() - 3 * 3600 * 1000).toISOString();
+      await writeFile(leaseFile(root), `${JSON.stringify(lease)}\n`);
+    }
+    return { root, held, before: await readFile(leaseFile(root), "utf8") };
+  };
+  const launchCode = async (argv) => { try { return { code: 0, ...(await exec("bash", [claudeLauncherPath, ...argv])) }; } catch (error) { return { code: error.code, stdout: error.stdout || "", stderr: error.stderr || "" }; } };
+  for (const [form, argv] of [["--resume run-cut-1", ["powerful", "40", "--resume", "run-cut-1"]], ["the positional run arg naming the lease's own run", ["powerful", "40", "run-cut-1"]]]) {
+    const { root, held } = await staleLease();
+    const r = await launchCode([root, ...argv]);
+    const args = r.code === 0 ? workflowArgs(r.stdout) : {};
+    const lease = r.code === 0 ? JSON.parse(await readFile(leaseFile(root), "utf8")) : {};
+    ok(r.code === 0 && args.leaseEpoch === held.epoch + 1 && lease.run_id === "run-cut-1" && lease.runtime === "claude" && /reclaim/i.test(r.stdout), `resume-reclaims-own-stale-lease (${form}): the fenced reclaim takes the next epoch and the Workflow call carries it (code ${r.code}, epoch ${args.leaseEpoch} vs ${held.epoch}) ${r.stderr}`);
+    if (r.code === 0) {
+      const valid = await exec("node", [leaseCli, "validate", "--project", root, "--token", args.leaseToken, "--epoch", String(args.leaseEpoch)]).then(() => true, () => false);
+      const oldDead = await exec("node", [leaseCli, "validate", "--project", root, "--token", held.token, "--epoch", String(held.epoch)]).then(() => false, () => true);
+      ok(valid && oldDead, `resume-reclaims-own-stale-lease (${form}): the printed token/epoch is the live fence and the cut run's old fence is dead`);
+      await releaseLauncherLease(root, r.stdout);
+    }
+    await rm(root, { recursive: true });
+  }
+  {
+    const { root, before } = await staleLease({ stale: false });
+    const r = await launchCode([root, "powerful", "40", "--resume", "run-cut-1"]);
+    ok(r.code === 2 && /fresh/i.test(r.stderr) && (await readFile(leaseFile(root), "utf8")) === before && !/Workflow\(/.test(r.stdout), `resume-refuses-fresh-lease: a live run's lease is never reclaimed (code ${r.code}) ${r.stderr}`);
+    await rm(root, { recursive: true });
+  }
+  for (const [what, opts, argv] of [
+    ["another run id", {}, ["--resume", "run-other-9"]],
+    ["another runtime's run", { runtime: "codex" }, ["--resume", "run-cut-1"]],
+  ]) {
+    const { root, before } = await staleLease(opts);
+    const r = await launchCode([root, "powerful", "40", ...argv]);
+    ok(r.code === 2 && /foreign|not this run|another/i.test(r.stderr) && (await readFile(leaseFile(root), "utf8")) === before && !/Workflow\(/.test(r.stdout), `resume-refuses-foreign-run (${what}): the stale lease is left untouched (code ${r.code}) ${r.stderr}`);
+    await rm(root, { recursive: true });
+  }
+  {
+    const root = await fixture({ phase: "architecture", running: "false" });
+    const r = await launchCode([root, "powerful", "40", "new", "--resume", "run-cut-1"]);
+    ok(r.code === 3, "--resume contradicting the positional run arg is rejected before any lease work");
+    await rm(root, { recursive: true });
+  }
+}
 const repo = path.resolve(path.dirname(resolver), "../..");
 const [preflight, skill] = await Promise.all([readFile(path.join(repo, "plugin/scripts/preflight-implement.sh"), "utf8"), readFile(path.join(repo, "plugin/skills/implement/SKILL.md"), "utf8")]);
 ok(preflight.includes("resolve-build-run-id.mjs") && preflight.includes("--target-runtime"), "preflight reports the shared automatic run-intent classification");
 ok(skill.includes("--target-runtime claude --run-mode auto") && skill.includes("owner never copies or chooses that ID"), "implement skill makes automatic continuation the owner-free default");
+ok(/--resume <run-id>/.test(skill) && /usage limit/i.test(skill), "the implement skill documents resuming a run cut by a usage limit with --resume <run-id> (both lanes)");
 ok(skill.includes("[--lane fast|classic]") && skill.includes("[--review-budget now|defer]") && /USABLE/.test(skill) && /paused-infra/.test(skill) && /review debt/i.test(skill), "P39: the implement skill documents the launcher's --lane/--review-budget flags, USABLE, review debt and the paused-infra resume");
 console.log(`RESULT: ${passed} passed, 0 failed`);

@@ -9,7 +9,7 @@
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
 #           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
-#           [--lane fast|classic] [--review-budget now|defer]
+#           [--lane fast|classic] [--review-budget now|defer] [--resume <run-id>]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
 #              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never
@@ -41,6 +41,12 @@
 #   --review-budget now|defer: engine args.reviewBudget, fast lane only (requires --lane fast). `defer` stops at
 #              all-USABLE and launches no FRD gate: the unreviewed FRDs stay review debt (derived, never stored) for a
 #              later run. Omitted → no key (the engine default `now` continues to VERIFIED).
+#   --resume <run-id>: resume a run cut short (a usage limit, a crash) whose atomic lease went STALE under that run
+#              id. The launcher performs the fenced reclaim itself — the lease must be stale (past its TTL and its
+#              BL-0153 grace window), held by runtime claude, under exactly <run-id> (the preflight's checks) — and then
+#              prints the normal Workflow call with the NEW token/epoch. A fresh lease, another run's or another
+#              runtime's is refused (exit 2) and left untouched. Passing the stale lease's own run id as the
+#              positional run argument does the same. Works for both lanes (pass the same --lane as the cut run).
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -49,7 +55,7 @@ set -uo pipefail
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
 FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
-GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""
+GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""; RESUME_RUN=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -73,6 +79,8 @@ while [ "$#" -gt 0 ]; do
       [ -z "$LANE" ] || { echo "ERROR: --lane given twice." >&2; exit 3; }; LANE="$2"; shift 2 ;;
     --review-budget) [ "$#" -ge 2 ] || { echo "ERROR: --review-budget requires a value (now|defer)." >&2; exit 3; }
       [ -z "$REVIEW_BUDGET" ] || { echo "ERROR: --review-budget given twice." >&2; exit 3; }; REVIEW_BUDGET="$2"; shift 2 ;;
+    --resume) [ "$#" -ge 2 ] || { echo "ERROR: --resume requires the run id of the cut run." >&2; exit 3; }
+      [ -z "$RESUME_RUN" ] || { echo "ERROR: --resume given twice." >&2; exit 3; }; RESUME_RUN="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
   esac
 done
@@ -94,6 +102,13 @@ case "$LANE" in ""|fast|classic) ;; *) echo "ERROR: --lane must be fast or class
 case "$REVIEW_BUDGET" in ""|now|defer) ;; *) echo "ERROR: --review-budget must be now or defer." >&2; exit 3 ;; esac
 # reviewBudget is read by the fast lane only: on any other lane the engine would silently ignore it.
 [ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget requires --lane fast." >&2; exit 3; }
+if [ -n "$RESUME_RUN" ]; then
+  [[ "$RESUME_RUN" =~ ^[A-Za-z0-9._:-]{1,160}$ ]] && [ "$RESUME_RUN" != "auto" ] && [ "$RESUME_RUN" != "new" ] \
+    || { echo "ERROR: invalid --resume run id." >&2; exit 3; }
+  [ "$RUN_MODE" = "auto" ] || [ "$RUN_MODE" = "$RESUME_RUN" ] \
+    || { echo "ERROR: --resume $RESUME_RUN contradicts the positional run argument $RUN_MODE." >&2; exit 3; }
+  RUN_MODE="$RESUME_RUN"
+fi
 if [ -n "$FRDS" ]; then
   IFS=',' read -r -a FRD_ITEMS <<< "$FRDS"
   for item in "${FRD_ITEMS[@]}"; do
@@ -130,6 +145,27 @@ NODE
 # ANY cwd is then safe (the engine cds every subagent to projectDir and stamps events with `project`).
 PROJECT_DIR=$(cd "$PROJ" && pwd -P)
 PROJECT=$(basename "$PROJECT_DIR")
+
+# Resume after a cut (usage limit, crash): when the run named by --resume (or by the positional run argument) still
+# holds a STALE lease, reclaim it here, fenced, with the preflight's checks: stale, runtime claude, the same run id.
+# A fresh lease or another run's/runtime's is refused and never touched. No lease → an ordinary (cold) continuation.
+RECLAIM=0
+if [ "$RUN_MODE" != "auto" ] && [ "$RUN_MODE" != "new" ] && [ -d "$PROJECT_DIR/.pandacorp/run/build.lease" ]; then
+  LEASE_STATUS=$(node "$STATE_CLI" status --project "$PROJECT_DIR") \
+    || { echo "ERROR: cannot read the atomic build lease; nothing was reclaimed." >&2; exit 2; }
+  LEASE_FRESH=$(printf '%s' "$LEASE_STATUS" | jq -r 'if (.fresh | type) == "boolean" then .fresh else true end' 2>/dev/null || echo true)
+  LEASE_RUNTIME=$(printf '%s' "$LEASE_STATUS" | jq -r '.lease.runtime // "unknown"' 2>/dev/null || echo unknown)
+  LEASE_RUN=$(printf '%s' "$LEASE_STATUS" | jq -r '.lease.run_id // "unknown"' 2>/dev/null || echo unknown)
+  if [ "$LEASE_FRESH" != "false" ]; then
+    echo "ERROR: the atomic lease is still fresh (runtime=$LEASE_RUNTIME run=$LEASE_RUN): a live run owns it — refusing to resume over it." >&2
+    exit 2
+  elif [ "$LEASE_RUNTIME" = "claude" ] && [ "$LEASE_RUN" = "$RUN_MODE" ]; then
+    RECLAIM=1
+  elif [ -n "$RESUME_RUN" ]; then
+    echo "ERROR: the stale lease is foreign (runtime=$LEASE_RUNTIME run=$LEASE_RUN), not this run's (claude $RESUME_RUN) — refusing to reclaim it; it is left untouched." >&2
+    exit 2
+  fi
+fi
 NEW_RUN_ID="run_$(date -u +%Y%m%dT%H%M%SZ)_$$"
 RESOLUTION=$(node "$SCRIPT_DIR/resolve-build-run-id.mjs" --project "$PROJECT_DIR" --runtime claude --mode "$RUN_MODE" --new-id "$NEW_RUN_ID") || exit $?
 RUN_ID=$(node -e 'const v=JSON.parse(process.argv[1]);if(!v.run_id)process.exit(3);process.stdout.write(v.run_id)' "$RESOLUTION") || exit $?
@@ -142,8 +178,13 @@ if [ "${PANDACORP_TEST_FAIL_PHASE_WRITE:-0}" = "1" ]; then
   echo "ERROR: simulated fenced projection failure before lease acquisition." >&2
   exit 2
 fi
-LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl "$TTL") \
-  || { echo "ERROR: atomic build lease acquisition failed." >&2; exit 2; }
+if [ "$RECLAIM" = "1" ]; then
+  LEASE=$(node "$LEASE_CLI" reclaim --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl "$TTL") \
+    || { echo "ERROR: the fenced reclaim of run $RUN_ID's stale lease was refused (still inside its BL-0153 grace window, or another writer moved it) — nothing changed." >&2; exit 2; }
+else
+  LEASE=$(node "$LEASE_CLI" acquire --project "$PROJECT_DIR" --runtime claude --run-id "$RUN_ID" --ttl "$TTL") \
+    || { echo "ERROR: atomic build lease acquisition failed." >&2; exit 2; }
+fi
 LEASE_TOKEN=$(printf '%s' "$LEASE" | jq -r '.token // empty')
 LEASE_EPOCH=$(printf '%s' "$LEASE" | jq -r '.epoch // empty')
 [ -n "$LEASE_TOKEN" ] && [ -n "$LEASE_EPOCH" ] || { echo "ERROR: lease receipt malformed." >&2; exit 2; }
@@ -163,6 +204,7 @@ touch "$PROJECT_DIR/.pandacorp/run/build.lock"
 echo "== launch prepared for $PROJECT =="
 echo "status.yaml: phase=implementation running=true runtime=claude epoch=$LEASE_EPOCH"
 echo "logical run: $RUN_ID ($(node -e 'process.stdout.write(JSON.parse(process.argv[1]).reason)' "$RESOLUTION"))"
+[ "$RECLAIM" = "1" ] && echo "lease:       reclaimed run $RUN_ID's stale lease (fenced; new epoch $LEASE_EPOCH — the cut run's old token is dead)"
 echo "build lock:  $PROJECT_DIR/.pandacorp/run/build.lock (touched)"
 echo
 
