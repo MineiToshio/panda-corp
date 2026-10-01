@@ -22,6 +22,8 @@
 //   - otherwise → revert the attempt's commits on that file: no other commit touched it since → restore the
 //     content before the attempt's first touch; another commit did (a shared file) → a sequential 3-way reverse
 //     merge (`git merge-file`), newest first, which keeps the other commit's edit.
+// A USABLE FRD (proposal 39 C6: its latest committed build_usable line still holds) is refused before anything else
+// (status `usable`): its landed code is the owner's call, never an automatic discard, in every lane.
 // Any conflict, an uncommitted change on a target path (unless the file on disk already is what the revert commits),
 // a mixed commit (it flips a selected work order AND another one, with code: its files cannot be attributed), or a
 // work order in the wrong state refuses the WHOLE plan: nothing is written (never a partial revert), exit 4, and a
@@ -31,7 +33,7 @@
 // naming the FRD and the work orders, so the next revert attributes it too); `replay` re-prints a stored line;
 // `recover` finishes a discard an interrupted run left behind (BL-0215, below).
 // Output: ONE sealed JSON line (drift-seal.mjs) — the engine reads it through a model and verifies the seal.
-// Exit: 0 reverted/nothing · 4 refused (conflict | dirty | refused) · 2 unusable input or a git failure.
+// Exit: 0 reverted/nothing · 4 refused (conflict | dirty | refused | usable) · 2 unusable input or a git failure.
 //
 // Interrupted discards (BL-0215). The engine discards in two steps — the state flip commit (PLANNED / BLOCKED), then
 // `apply` — and a run cut between them (the supervisor's external brake, a crash) leaves the flipped work order over
@@ -55,6 +57,8 @@ import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readd
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { durableUsable } from './build-mech-fast.mjs'
+import { projectCtx } from './build-mech-lib.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const PROTECTED_RE = /^(\.pandacorp\/|docs\/frds\/)/
@@ -65,6 +69,8 @@ const PIN_RE = /^last_green_sha:\s*["']?([0-9a-f]{7,40})["']?\s*(?:#.*)?$/m
 const REFUSED_EXIT = 4
 const INTENT_STATUSES = new Set(['PLANNED', 'BLOCKED'])
 const INPUT_EXIT = 2
+/** Statuses that discard nothing and exit 4 (a RevertRefused event): `usable` is proposal 39 C6's guard. */
+const REFUSED_STATUSES = new Set(['conflict', 'dirty', 'refused', 'usable'])
 
 /** An input the script cannot act on — exit 2, never a quiet success. */
 class InputError extends Error {}
@@ -179,6 +185,13 @@ export function computePlan(opts) {
     const text = blob(head, md)
     return { id, md, headStatus: frontmatterStatus(text ? text.toString('utf8') : null) }
   })
+
+  // Proposal 39 C6: a USABLE FRD (its latest committed build_usable line still holds, durableUsable) keeps its landed
+  // code whatever lane asks for the discard (the classic lane has no precheck of its own): the owner decides, set-wide.
+  const usable = durableUsable(projectCtx(opts.project), { frd: opts.frd })[0]
+  if (usable) {
+    return { status: 'usable', reason: `${opts.frd} is USABLE since ${usable.sha} (a committed build_usable line: its work orders landed and verify.sh was green on that clean sha, proposal 39 C6): its landed code is never discarded automatically — fix it forward, or the owner decides the discard of the whole dependent set; nothing was reverted`, usableSha: usable.sha, head, pinSha, pinValid, wos: wos.map((w) => ({ id: w.id, status: w.headStatus })), files: [], _writes: [] }
+  }
 
   // State gate: strict (--require-status refuses) or filter (--only-status keeps the matching ones).
   const wrongState = opts.requireStatus ? wos.filter((w) => w.headStatus !== opts.requireStatus) : []
@@ -412,7 +425,7 @@ function recover(opts) {
   const committed = plan.status === 'reverted' ? applyWrites({ ...opts, mode: 'recover' }, plan) : null
   clearIntent(opts)
   const { _writes, _top, head, ...rest } = plan
-  const refused = ['conflict', 'dirty', 'refused'].includes(plan.status)
+  const refused = REFUSED_STATUSES.has(plan.status)
   if (refused) emit(opts, 'RevertRefused', { status: plan.status, wos: marker.wos, reason: plan.reason })
   else if (committed) emit(opts, 'RevertRecovered', { wos: marker.wos, committed: committed.slice(0, 12), reason: 'a run cut between the state flip and the discard left the rejected code on main (BL-0215)' })
   finish(opts, receipt({ ...rest, head: head ? head.slice(0, 8) : null, pinSha: plan.pinSha ? plan.pinSha.slice(0, 8) : null, changed: Boolean(committed), committed: committed ? committed.slice(0, 12) : null, recovery: committed ? 'recovered' : refused ? 'refused' : 'applied' }))
@@ -439,7 +452,7 @@ export function main(argv) {
     if (opts.recordIntent && plan.status === 'reverted') writeIntent(opts, plan)
     const { _writes, _top, head, ...rest } = plan
     const body = { ok: true, version: 1, mode: opts.mode, frd: opts.frd, ...rest, head: head ? head.slice(0, 8) : null, pinSha: plan.pinSha ? plan.pinSha.slice(0, 8) : null, changed: plan.status === 'reverted', committed: committed ? committed.slice(0, 12) : null }
-    const refused = ['conflict', 'dirty', 'refused'].includes(plan.status)
+    const refused = REFUSED_STATUSES.has(plan.status)
     if (refused) emit(opts, 'RevertRefused', { status: plan.status, wos: opts.wos, reason: plan.reason })
     else if (opts.mode === 'apply' && opts.expectChange && !body.changed) emit(opts, 'RevertNoop', { wos: opts.wos, reason: plan.reason })
     finish(opts, body)

@@ -1245,6 +1245,55 @@ SCENARIOS.push({
   },
 })
 
+// The verifier's case: run 1 (fast + defer) makes frd-x16 USABLE; run 2 pays the debt in the CLASSIC lane, which has no
+// precheck. Its gate rejects and the ladder wants a revert: wo-revert.mjs derives USABLE from the committed build_usable
+// line and refuses (status usable), so the classic lane blocks needs-owner and discards nothing.
+const usableRefusal = (frd, sha) => ({ output: sealLine({ ok: true, version: 1, frd, mode: 'plan', status: 'usable', reason: `${frd} is USABLE since ${sha} (a committed build_usable line, proposal 39 C6): its landed code is never discarded automatically`, usableSha: sha, changed: false, wos: [], files: [] }) })
+const rejectGate = (frd) => ({ green: false, reopen: [`wo-${frd.slice(4)}-001`], findings: [{ wo: `wo-${frd.slice(4)}-001`, finding: 'AC not met', failingTest: 't.test.ts', files: ['src/x.ts'] }], failure: 'AC not met' })
+SCENARIOS.push({
+  name: 'F39-16. classic-lane-pays-the-debt-keeps-usable — run 1 fast+defer makes an FRD USABLE; run 2 is the classic lane: its gate rejects, the revert refuses the USABLE FRD, so it is BLOCKED needs-owner and nothing is discarded',
+  args: { mode: 'balanced', ...FAST, reviewBudget: 'defer' },
+  plan: fastPlan([{ frd: 'frd-x16', ids: ['wo-x16-001'] }, { frd: 'frd-y16', ids: ['wo-y16-001'], deps: ['frd-x16'] }]),
+  responses: [{ label: 'verify:frd-x16', response: { line: mechLine('verify', { status: 'green', frd: 'frd-x16', green: true, usable: true, floor: false, sha: 'abc000000016', scope: 'full' }) } }],
+  next: () => ({
+    args: { mode: 'balanced' },
+    plan: inReviewPlan([{ frd: 'frd-x16', ids: ['wo-x16-001'] }, { frd: 'frd-y16', ids: ['wo-y16-001'], deps: ['frd-x16'] }]),
+    responses: [
+      { label: 'gate:frd-x16', response: rejectGate('frd-x16') },
+      { label: 'patch:frd-x16', response: { green: false, failure: 'could not patch' } },
+      { label: 'wo-revert-plan:frd-x16', response: usableRefusal('frd-x16', 'abc000000016') },
+      { label: 'block-revert-refused:frd-x16', response: { green: false, blocked_reason: 'needs-owner' } },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error && run.result && run.result.stopReason === 'review-deferred', `run 1 stops at USABLE (got ${run.error || (run.result && run.result.stopReason)})`)
+    const two = run.next
+    t.ok(two && !two.error, `run 2 threw: ${two && two.error && (two.error.stack || two.error)}`)
+    t.ok(byLabel(two, 'patch:frd-x16').length === 1, 'fix-forward first: the in-place patch runs')
+    t.ok(byLabel(two, /^wo-revert-(apply|recover):/).length === 0 && byLabel(two, 'revert:frd-x16').length === 0, `no discard and no reopen flip over the USABLE code (got ${byLabel(two, /^(wo-revert|revert:)/).map((c) => c.label).join(', ') || 'none'})`)
+    t.ok(byLabel(two, /^(build|fast-build|fast-retry):/).length === 0, 'no automatic rebuild over the USABLE code')
+    const rec = byLabel(two, 'block-revert-refused:frd-x16')
+    t.ok(rec.length === 1 && /USABLE/.test(rec[0].prompt) && /abc000000016/.test(rec[0].prompt) && /frd-y16/.test(rec[0].prompt) && /decisions\.md/.test(rec[0].prompt), 'the needs-owner record says the FRD was USABLE (its sha) and names the dependent set')
+    t.ok(two.result && two.result.blockedReasons && two.result.blockedReasons['frd-x16'] === 'needs-owner', `BLOCKED needs-owner (got ${two.result && JSON.stringify(two.result.blockedReasons)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'F39-16b. classic-lane-mechscript-derives-usable — classic + mechScript: the precheck\'s durable USABLE list guards the classic ladder too (needs-owner, no revert spawn at all)',
+  args: { mode: 'balanced', mechScript: true },
+  plan: inReviewPlan([{ frd: 'frd-x16b', ids: ['wo-x16b-001'] }]),
+  responses: [
+    { label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-x16b-001'], usable: [{ frd: 'frd-x16b', sha: 'abc00000016b' }] }) },
+    { label: 'gate:frd-x16b', response: rejectGate('frd-x16b') },
+    { label: 'patch:frd-x16b', response: { green: false, failure: 'could not patch' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(hasLog(run, /frd-x16b.*USABLE.*earlier run/), 'the classic run logs the USABLE it derived')
+    t.ok(byLabel(run, /^(wo-revert|revert:)/).length === 0, `nothing is reverted (got ${byLabel(run, /^(wo-revert|revert:)/).map((c) => c.label).join(', ') || 'none'})`)
+    t.ok(byLabel(run, 'block-usable:frd-x16b').length === 1 && run.result.blockedReasons['frd-x16b'] === 'needs-owner', 'BLOCKED needs-owner through the USABLE hold')
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
   args: { mode: 'balanced', ...FAST },

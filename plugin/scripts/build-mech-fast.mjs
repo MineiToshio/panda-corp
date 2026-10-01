@@ -273,10 +273,12 @@ export function verifyOp(o) {
  * VERIFIED, IN_REVIEW or BLOCKED (one is not VERIFIED), and none was stamped IN_PROGRESS after that sha (a rebuild is
  * not USABLE until its own verify certifies it). The engine seeds its never-auto-discard guard from this list, so a
  * later run (after a defer, a paused-infra halt, an unlanded gate) keeps fix-forward only.
+ * Also read by wo-revert.mjs, so a discard requested by ANY lane (the classic lane has no precheck) refuses it.
  * @param {object} ctx the projectCtx of the project
+ * @param {{ frd?: string }} [only] restrict the derivation to one FRD folder
  * @returns {Array<{ frd: string, sha: string }>} in FRD folder order
  */
-export function durableUsable(ctx) {
+export function durableUsable(ctx, only = {}) {
   const latest = new Map()
   for (const line of String(blobAt(ctx, 'HEAD', TRACK) || '').split('\n')) {
     let j = null
@@ -285,7 +287,7 @@ export function durableUsable(ctx) {
   }
   const isAncestor = (a, b) => ctx.g.run(['merge-base', '--is-ancestor', a, b]).ok
   const out = []
-  for (const f of readFrds(ctx)) {
+  for (const f of readFrds(ctx).filter((x) => !only.frd || x.frd === only.frd)) {
     const sha = latest.get(f.frd)
     if (!sha || !ctx.g.run(['rev-parse', '--verify', '-q', `${sha}^{commit}`]).ok || !isAncestor(sha, 'HEAD')) continue
     const atHead = f.wos.map((w) => ({ rel: w.rel, status: frontmatterStatus(blobAt(ctx, 'HEAD', w.rel)) }))

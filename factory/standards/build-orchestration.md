@@ -981,7 +981,10 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   FRD becomes `BLOCKED: needs-owner` with a decision record naming the whole dependent set and a push; the engine reverts
   nothing. This holds across runs: the `precheck` derives the FRDs still USABLE from the committed `build_usable` lines
   (the latest line's SHA is an ancestor of `HEAD`, every WO is VERIFIED, `IN_REVIEW` or `BLOCKED`, none re-stamped after
-  that SHA), so a run after a defer, a `paused-infra` halt or an unlanded gate keeps the same guard.
+  that SHA), so a run after a defer, a `paused-infra` halt or an unlanded gate keeps the same guard. It holds in the
+  classic lane too: a classic run under `mechScript` reads the same precheck list, and `wo-revert.mjs` derives it again
+  before every `plan`/`apply`/`recover` and refuses a USABLE FRD (exit 4, status `usable`), so a classic run paying a
+  fast run's review debt blocks it `needs-owner` with the same record instead of reverting it.
 - **Security (DR-085).** The audit starts read-only on the first gate's pin; the close-out audits only the delta since
   that pin, fail-closed to the full audit when the early verdict is unusable.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's

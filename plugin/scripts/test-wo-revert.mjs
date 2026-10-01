@@ -481,6 +481,46 @@ console.log('(q) the normal two-step discard consumes the marker; a refusal is r
   } finally { r.cleanup() }
 }
 
+// ── (r) proposal 39 C6: a USABLE FRD's landed code is never discarded automatically, whatever lane asks ─────────
+// Run 1 (fast lane, reviewBudget defer) committed every work order IN_REVIEW and a build_usable line; run 2 is the
+// classic lane, which has no precheck of its own: the script itself derives USABLE from the committed line and refuses.
+console.log('(r) a durably USABLE FRD (committed build_usable line) → plan and apply refuse, nothing is discarded')
+{
+  const usableFixture = () => {
+    const r = mkRepo()
+    r.commit('chore(build): dispatch WO-01-001, WO-01-002 (IN_PROGRESS)', { [WO_A]: woMd('WO-01-001', 'IN_PROGRESS'), [WO_A2]: woMd('WO-01-002', 'IN_PROGRESS') })
+    r.commit('feat(frd-01-alpha): WO-01-001 alpha', { 'src/alpha.ts': 'export const alpha = 1\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+    const built = r.commit('feat(frd-01-alpha): WO-01-002 alpha two', { 'src/alpha2.ts': 'export const alpha2 = 1\n', [WO_A2]: woMd('WO-01-002', 'IN_REVIEW') })
+    r.commit('chore(build): frd-01-alpha usable', { '.pandacorp/track.jsonl': `${JSON.stringify({ kind: 'build_usable', frd: 'frd-01-alpha', sha: built.slice(0, 12), at: '2026-10-01T00:00:00Z' })}\n` })
+    return { r, built }
+  }
+  {
+    const { r, built } = usableFixture()
+    try {
+      const before = r.head()
+      const plan = r.run('plan', ...args(r, '--wo', 'WO-01-001', '--record-intent', 'PLANNED'))
+      ok(plan.code === 4 && plan.receipt && plan.receipt.status === 'usable' && plan.receipt.changed === false && verifySealedLine(plan.line).ok, `plan refuses a USABLE FRD (exit 4, status usable; got ${plan.code} ${plan.line.slice(0, 200)})`)
+      ok(new RegExp(built.slice(0, 12)).test(plan.receipt.reason || '') && /owner/i.test(plan.receipt.reason || ''), 'the reason names the certified sha and the owner\'s call')
+      ok(r.read('.pandacorp/run/wo-revert/pending-frd-01-alpha.json') === null, 'no discard intent is recorded for it')
+      ok(r.events().some((e) => e.event === 'RevertRefused' && e.status === 'usable'), 'a RevertRefused event names the reason')
+      r.commit('chore(frd-01-alpha): repair gave up, WO-01-001 BLOCKED', { [WO_A]: woMd('WO-01-001', 'BLOCKED') })
+      const apply = r.run('apply', ...args(r, '--wo', 'WO-01-001', '--only-status', 'BLOCKED'))
+      ok(apply.code === 4 && apply.receipt.status === 'usable' && r.read('src/alpha.ts') === 'export const alpha = 1\n', `apply (the repair path's discard) refuses too and the code stays (got ${apply.line.slice(0, 160)})`)
+      ok(r.status() === '' && r.git('log', '-1', '--format=%s') === 'chore(frd-01-alpha): repair gave up, WO-01-001 BLOCKED' && r.head() !== before, 'nothing was written or committed by the refusals')
+    } finally { r.cleanup() }
+  }
+  {
+    // A rebuild stamped after the certified sha is not USABLE any more: the discard of THAT attempt proceeds as before.
+    const { r } = usableFixture()
+    try {
+      r.commit('chore(build): dispatch WO-01-001 (IN_PROGRESS)', { [WO_A]: woMd('WO-01-001', 'IN_PROGRESS') })
+      r.commit('feat(frd-01-alpha): WO-01-001 alpha rebuilt', { 'src/alpha.ts': 'export const alpha = "rebuilt"\n', [WO_A]: woMd('WO-01-001', 'IN_REVIEW') })
+      const plan = r.run('plan', ...args(r, '--wo', 'WO-01-001'))
+      ok(plan.code === 0 && plan.receipt.status === 'reverted', `a rebuild stamped after the build_usable sha is discardable (got ${plan.line.slice(0, 160)})`)
+    } finally { r.cleanup() }
+  }
+}
+
 // ── fail-closed inputs ────────────────────────────────────────────────────────────────────────────
 console.log('fail-closed inputs')
 {

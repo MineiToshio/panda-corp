@@ -980,10 +980,8 @@ if (MECH_SCRIPT) {
  if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
  if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
  if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
- if (FAST) {
-  for (const u of Array.isArray(p.usable) ? p.usable : []) if (u && typeof u.frd === 'string' && typeof u.sha === 'string') priorUsable.push({ frd: u.frd, sha: u.sha })
-  if (priorUsable.length) log(`✓ resume: ${priorUsable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')} USABLE since an earlier run (committed build_usable, proposal 39 C6) — fix-forward only, never auto-discarded`)
- }
+ for (const u of Array.isArray(p.usable) ? p.usable : []) if (u && typeof u.frd === 'string' && typeof u.sha === 'string') priorUsable.push({ frd: u.frd, sha: u.sha })
+ if (priorUsable.length) log(`✓ resume: ${priorUsable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')} USABLE since an earlier run (committed build_usable, proposal 39 C6) — fix-forward only, never auto-discarded`)
 }
 agentSpawned++
 const precheck = await preLoopGuarded(() => agent(
@@ -2340,13 +2338,18 @@ function noteRevert(frd, ids, receipt, expectChange) {
 async function refuseRevert(frd, ids, rv, { flip = false, blocked = false, emit = true } = {}) {
  const why = rv.error || 'unknown'
  const conflicts = rv.receipt && Array.isArray(rv.receipt.conflicts) && rv.receipt.conflicts.length ? ` Conflicting file(s): ${rv.receipt.conflicts.join(', ')}.` : ''
- log(`⛔ RevertRefused ${frd}: the rejected code of ${ids.join(', ')} could NOT be discarded without touching other work (${why}) — nothing was reverted; BLOCKED needs-owner (BL-0212)`)
+ const usableSha = rv.receipt && rv.receipt.status === 'usable' ? String(rv.receipt.usableSha || '?') : null
+ log(usableSha
+  ? `⛔ ${frd}: USABLE since ${usableSha} (a committed build_usable line) — the discard of ${ids.join(', ')} is refused; fix-forward only: BLOCKED needs-owner, nothing reverted (proposal 39 C6)`
+  : `⛔ RevertRefused ${frd}: the rejected code of ${ids.join(', ')} could NOT be discarded without touching other work (${why}) — nothing was reverted; BLOCKED needs-owner (BL-0212)`)
  agentSpawned++
- const record = `No pude descartar el código rechazado de ${ids.join(', ')} (${frd}) sin tocar trabajo de otras features: ${why}.${conflicts} Ese código sigue en main y puede romper el gate de otras FRDs. Decide cómo resolverlo (revertir a mano los commits de esas órdenes resolviendo el conflicto, o conservar el código y corregirlo).`
+ const record = usableSha
+  ? usableHoldRecord(frd, usableSha, ids, 'el revert de wo-revert.mjs')
+  : `No pude descartar el código rechazado de ${ids.join(', ')} (${frd}) sin tocar trabajo de otras features: ${why}.${conflicts} Ese código sigue en main y puede romper el gate de otras FRDs. Decide cómo resolverlo (revertir a mano los commits de esas órdenes resolviendo el conflicto, o conservar el código y corregirlo).`
  await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}BL-0212 REVERT REFUSED for ${frd}. The engine's deterministic revert of the rejected work orders (${ids.join(', ')}) refused: ${why}.${conflicts} NOTHING was reverted and nothing may be: do NOT \`git checkout\`/\`restore\`/\`rm\`/\`revert\` any code file, never hand-resolve anything.
   1) ${blocked ? 'For EACH of these work orders that is BLOCKED' : `For EACH of these work orders${flip ? ' (just set PLANNED — their rejected code is still on main)' : ''}`}: set \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   2) Append this owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH): ${record}
-  3) COMMIT (Conventional Commits, scope, the subject naming ${frd}) staging ONLY those frontmatter/rollup files, decisions.md and status.yaml.${emit ? emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`) : ''}${NOTIFY('FRD ' + frd + ': no pude descartar el codigo rechazado sin tocar otras features — necesita tu decision')}
+  3) COMMIT (Conventional Commits, scope, the subject naming ${frd}) staging ONLY those frontmatter/rollup files, decisions.md and status.yaml.${emit ? emitGateOutcome(frd, 'blocked', `,"blocked_reason":"needs-owner"`) : ''}${NOTIFY(usableSha ? 'FRD ' + frd + ' USABLE rechazado por su gate: descartarlo necesita tu decision' : 'FRD ' + frd + ': no pude descartar el codigo rechazado sin tocar otras features — necesita tu decision')}
   Return { green: false, blocked_reason: 'needs-owner' }.`,
   { label: `block-revert-refused:${frd}`, phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: REPAIR_SCHEMA })
 }
@@ -3339,7 +3342,7 @@ async function drainParallelGates() {
  }
 }
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
-const isUsable = (frd) => FAST && Boolean(usableOf(frd))
+const isUsable = (frd) => Boolean(usableOf(frd))
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
 const FAST_BUILD_SCHEMA = { type: 'object', required: ['wos'], properties: { wos: { type: 'array', items: { type: 'object', required: ['id', 'line'], properties: { id: { type: 'string' }, line: { type: 'string', description: "the LAST line this work order's final commit or park command printed, copied character for character" } } } } } }
 const SEC_AUDIT_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, findings: { type: 'array', items: { type: 'object' } } } }
@@ -3548,11 +3551,14 @@ async function securityDeltaAudit(fullAudit) {
  return await agent(`DR-085 HARDENING 1a/3 — the security DELTA audit (proposal 39 C6, fail-closed). A read-only audit of commit ${pin} ran alongside the first gate: its report is ${PROJECT_DIR}/.pandacorp/run/security-early/${pin}.md, its open Critical/High items: ${JSON.stringify(early.findings).slice(0, 1500)}. You are READ-ONLY on code. Audit EVERY source change since that commit (\`git -C ${PROJECT_DIR} diff ${pin}..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'\`) with the same checklist (OWASP Top-10, secrets, headers + CSP, authz on every mutating route, dependency risk), and re-check that each early item still holds at HEAD. Write docs/reviews/security-<YYYY-MM-DD>.md merging both (each finding: severity, file:line, remediation, early or delta) and commit it (Conventional Commits, e.g. \`docs(security): audit report\`). Return { done: true, findings } ALWAYS once the report exists: findings = the Critical/High items still open at HEAD ([] when none).${HARDENING_EVENT_IF_NO_FINDINGS('security')}`,
   { label: 'hardening:security-delta', phase: 'Hardening', model: P.judge, effort: 'high', agentType: 'pandacorp:security-auditor', schema: SEC_AUDIT_SCHEMA })
 }
+function usableHoldRecord(frd, sha, ids, what) {
+ const set = [frd, ...[...frdState.keys()].filter((x) => x !== frd && frdUpstream(x).has(frd))]
+ return `${frd} ya era USABLE (en main, verify.sh verde en ${sha}) y su gate lo rechaza; la escalera quiere descartar ${ids.join(', ')} (${what}). El motor no revierte codigo USABLE solo. Decide: corregirlo encima (fix-forward) o descartarlo; si apruebas el descarte se revierte de una vez todo el conjunto dependiente: ${set.join(', ')}.`
+}
 async function holdUsableDiscard(frd, ids, what) {
  const sha = (usableOf(frd) || {}).sha
- const set = [frd, ...[...frdState.keys()].filter((x) => x !== frd && frdUpstream(x).has(frd))]
  log(`⛔ ${frd}: USABLE since ${sha} — ${what} would discard landed code; fix-forward only: BLOCKED needs-owner, nothing reverted (proposal 39 C6)`)
- const record = `${frd} ya era USABLE (en main, verify.sh verde en ${sha}) y su gate lo rechaza; la escalera quiere descartar ${ids.join(', ')} (${what}). El motor no revierte codigo USABLE solo. Decide: corregirlo encima (fix-forward) o descartarlo; si apruebas el descarte se revierte de una vez todo el conjunto dependiente: ${set.join(', ')}.`
+ const record = usableHoldRecord(frd, sha, ids, what)
  agentSpawned++
  await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}USABLE CODE IS NEVER AUTO-DISCARDED (proposal 39 C6) for ${frd}: the recovery ladder wants ${what} of ${ids.join(', ')}, but ${frd} was USABLE (committed, verify.sh green on ${sha}) and other work may build on it. Do NOT \`git checkout\`/\`restore\`/\`rm\`/\`revert\` any code file.
   1) For EACH of ${ids.join(', ')}: set \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
