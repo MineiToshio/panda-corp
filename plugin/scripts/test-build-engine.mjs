@@ -1312,6 +1312,36 @@ SCENARIOS.push({
   },
 })
 
+// Across runs, an all-IN_REVIEW upstream that was built but never USABLE (its verify stayed red, then the run paused or
+// deferred) is exactly the in-run "verify not green" case: its dependents wait for its VERIFIED. One that IS still
+// USABLE (the precheck's durable list) satisfies them once landed, as in-run.
+const resumePlan = (upUsable) => ({
+  args: { mode: 'balanced', ...FAST },
+  plan: mkPlan([
+    { frd: 'frd-a18', deps: [], floor: false, workOrders: [mkWo('wo-a18-001', 'IN_REVIEW', { frd: 'frd-a18', artifacts: ['src/a18/**'] })] },
+    { frd: 'frd-b18', deps: ['frd-a18'], floor: false, workOrders: [{ ...mkWo('wo-b18-001', 'PLANNED', { frd: 'frd-b18', artifacts: ['src/b18/**'] }), acText: '- **AC-wo-b18-001.1** WHEN it runs, the system SHALL do its thing.' }] },
+  ]),
+  responses: [{ label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-a18-001'], usable: upUsable ? [{ frd: 'frd-a18', sha: 'abc000000018' }] : [] }) }],
+})
+SCENARIOS.push({
+  name: 'F39-18. fast-lane-resume-built-never-usable-upstream-waits — an all-IN_REVIEW non-floor upstream NOT in the durable USABLE list makes its dependent wait for its VERIFIED; a still-USABLE one does not',
+  ...resumePlan(false),
+  next: () => resumePlan(true),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const applyA = labelIdx(run, /^apply-gate:frd-a18$/)
+    const buildB = labelIdx(run, /^fast-build:frd-b18$/)
+    t.ok(applyA >= 0 && buildB > applyA, `frd-b18 builds only after frd-a18 is VERIFIED (apply ${applyA}, build ${buildB})`)
+    t.ok(hasLog(run, /frd-b18 waits for frd-a18/), 'the wait is logged')
+    t.ok(hasLog(run, /frd-a18.*never USABLE|frd-a18.*not USABLE/), 'the enrollment says why frd-a18 counts as not USABLE')
+    const two = run.next
+    t.ok(two && !two.error, `run 2 threw: ${two && two.error && (two.error.stack || two.error)}`)
+    const applyA2 = labelIdx(two, /^apply-gate:frd-a18$/)
+    const buildB2 = labelIdx(two, /^fast-build:frd-b18$/)
+    t.ok(buildB2 >= 0 && applyA2 > buildB2, `a still-USABLE upstream satisfies its dependent once landed: frd-b18 builds before frd-a18's gate lands (build ${buildB2}, apply ${applyA2})`)
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
   args: { mode: 'balanced', ...FAST },

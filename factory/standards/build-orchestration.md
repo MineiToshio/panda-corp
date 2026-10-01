@@ -980,7 +980,8 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   (BL-0066) and nothing stores it.
 - **Gates overlap the next build.** The FRD's unchanged opus gate (DR-015) is pinned to the landed SHA and runs in a
   parallel gate slot (§5c) while the next FRD builds. A floor FRD is USABLE only at VERIFIED, and a dependent of a floor
-  FRD (or of an FRD whose verify stayed red) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
+  FRD (or of an FRD whose verify stayed red, in this run or an earlier one: an all-`IN_REVIEW` FRD the precheck does not
+  list as still USABLE) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
 - **Fix-forward after USABLE.** A gate rejection is patched and certified (DR-073 ladder unchanged). A discard of a USABLE
   FRD becomes `BLOCKED: needs-owner` with a decision record naming the whole dependent set and a push; the engine reverts
   nothing. This holds across runs: the `precheck` derives the FRDs still USABLE from the committed `build_usable` lines

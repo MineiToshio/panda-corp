@@ -4905,6 +4905,13 @@ function enrollFrd(f) {
   for (const w of toBuild) globalQueue.set(w.id, { wo: w, frd: f.frd })
   frdState.set(f.frd, { f, reviewIds: pending.map((w) => w.id), toBuildIds: new Set(toBuild.map((w) => w.id)), failed: false, enqueued: false, gateAttempts: 0 })   // gateAttempts: 1-based gate-attempt counter per FRD this run (B8 event field + C1a serial-first gate)
   log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
+  // Proposal 39 C6 across runs: an FRD built in an earlier run (nothing left to build, all IN_REVIEW) that the precheck
+  // does not list as still USABLE never certified USABLE (its verify stayed red, then a pause or a defer): exactly the
+  // in-run "not USABLE" case, so its dependents wait for its VERIFIED, like a floor's.
+  if (FAST && toBuild.length === 0 && pending.length > 0 && !priorUsable.some((u) => u.frd === f.frd) && !fastFloor.has(f.frd)) {
+    fastFloor.add(f.frd)
+    log(`◦ ${f.frd}: built in an earlier run but never USABLE (no committed build_usable line holds) — its dependents wait for its VERIFIED (proposal 39 C6)`)
+  }
   enqueueGateIfComplete(f.frd)   // resume / drained bug-fix: an all-IN_REVIEW FRD goes straight to the gate
   // BL-0171: if excluding the DRAFT WO(s) above left NOTHING pending for this FRD (its only non-VERIFIED
   // work WAS the ungated WO), it would otherwise silently vanish from both the schedule AND the close-out

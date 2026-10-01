@@ -2969,6 +2969,10 @@ function enrollFrd(f) {
  for (const w of toBuild) globalQueue.set(w.id, { wo: w, frd: f.frd })
  frdState.set(f.frd, { f, reviewIds: pending.map((w) => w.id), toBuildIds: new Set(toBuild.map((w) => w.id)), failed: false, enqueued: false, gateAttempts: 0 })
  log(`▶ ${f.frd}: ${toBuild.length} to build${pending.length - toBuild.length ? ` · ${pending.length - toBuild.length} already in review` : ''}`)
+ if (FAST && toBuild.length === 0 && pending.length > 0 && !priorUsable.some((u) => u.frd === f.frd) && !fastFloor.has(f.frd)) {
+  fastFloor.add(f.frd)
+  log(`◦ ${f.frd}: built in an earlier run but never USABLE (no committed build_usable line holds) — its dependents wait for its VERIFIED (proposal 39 C6)`)
+ }
  enqueueGateIfComplete(f.frd)
  if (draftIds.size && pending.length === 0 && f.workOrders.some((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED')) {
   blockFrdInSchedule(f.frd, 'needs-owner')
