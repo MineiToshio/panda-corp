@@ -339,6 +339,165 @@ SCENARIOS.push({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// A-1 bench changes (DR-123): maxAgents 'auto', foundation-wave un-deferral, lean security tail
+// ─────────────────────────────────────────────────────────────────────────────
+const sizeLogs = (run) => run.logs.filter((l) => /maxAgents auto: projected/.test(l))
+const capOf = (line) => Number((/→ cap (\d+)/.exec(line) || [])[1])
+const threeWoPlan = (frd = 'frd-a1') => mkPlan([{
+  frd,
+  deps: [],
+  workOrders: [
+    mkWo('wo-a1-001', 'PLANNED', { frd, artifacts: ['src/lib/a/**'] }),
+    mkWo('wo-a1-002', 'PLANNED', { frd, artifacts: ['src/lib/b/**'] }),
+    mkWo('wo-a1-003', 'PLANNED', { frd, artifacts: ['src/lib/c/**'] }),
+  ],
+}])
+
+SCENARIOS.push({
+  name: "A1-a. auto-sizes-1frd-3wo — maxAgents:'auto' sizes the cap from the post-plan projection (1 FRD / 3 WOs ≈ 40 units x1.25) and the run never stops on the agent ceiling",
+  args: { mode: 'powerful', maxAgents: 'auto' },
+  plan: threeWoPlan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(hasLog(run, /maxAgents auto \(se dimensiona tras el plan\)/), 'the arg-echo line says auto (not OFF, not a number)')
+    const sized = sizeLogs(run)
+    t.ok(sized.length === 1, `exactly one sizing log after the plan (got ${sized.length})`)
+    const cap = capOf(sized[0] || '')
+    t.ok(cap >= 45 && cap <= 65, `the auto cap is in [45, 65] (got ${cap})`)
+    t.ok(/projected ~40 cost units \(≈ 20 USD aprox\.\)/.test(sized[0] || ''), `the log carries the projected units and an approximate USD (got ${sized[0]})`)
+    t.ok(!hasLog(run, /Agent ceiling reached/), 'no stop=agents: the run never hit the agent ceiling')
+    t.ok(byLabel(run, /^build:/).length === 3, 'all three WOs were built')
+    t.ok(run.result && run.result.builtFrds.includes('frd-a1'), 'the FRD verified')
+  },
+})
+
+SCENARIOS.push({
+  name: 'A1-b. plan-growth-recomputes — a change drained mid-run that adds an FRD raises the auto cap by the added FRD\'s own projection (never lowers it)',
+  args: { mode: 'powerful', maxAgents: 'auto' },
+  plan: threeWoPlan(),
+  responses: [
+    { label: 'safe-point', times: 1, response: { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: ['change-grow'], unblocked: [] } },
+    { label: 'process-change:change-grow', response: { done: true, affectedFrds: ['frd-a2'] } },
+    { label: 'gate-change-wos:frd-a2', response: { results: [{ frd: 'frd-a2', gated: true }] } },
+    { label: 'plan-drained:change-grow', response: { frds: [{ frd: 'frd-a2', deps: [], workOrders: [mkWo('wo-a2-001', 'PLANNED', { frd: 'frd-a2', artifacts: ['src/lib/d/**'] }), mkWo('wo-a2-002', 'PLANNED', { frd: 'frd-a2', artifacts: ['src/lib/e/**'] })] }] } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const sized = sizeLogs(run)
+    t.ok(sized.length === 2, `the cap is sized twice: after the plan and after the drained FRD (got ${sized.length})`)
+    t.ok(capOf(sized[1] || '') > capOf(sized[0] || ''), `the grown plan raised the cap (${capOf(sized[0] || '')} → ${capOf(sized[1] || '')})`)
+    t.ok(/for the FRDs just added/.test(sized[1] || ''), 'the second sizing log names that it covers the added FRDs')
+    t.ok(!hasLog(run, /Agent ceiling reached/), 'the drained FRD did not re-introduce an agent stop')
+    t.ok(byLabel(run, /^build:wo-a2-/).length === 2, 'the drained FRD\'s WOs were built')
+  },
+})
+
+SCENARIOS.push({
+  name: 'A1-c. explicit-below-is-advisory — an explicit numeric maxAgents below the projection is NEVER overridden and NEVER fails fast; it only gets an advisory log',
+  args: { mode: 'powerful', maxAgents: 30 },
+  plan: threeWoPlan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(hasLog(run, /maxAgents 30 ·/), 'the arg-echo line keeps the explicit 30')
+    t.ok(hasLog(run, /AgentBudgetAdvisory: explicit maxAgents 30 is below the projected run cost of ~40 units/), 'the advisory names the explicit value and the projection')
+    t.ok(sizeLogs(run).length === 0, 'no auto-sizing happened (the explicit value is not overridden)')
+    t.ok(!hasLog(run, /agents-preflight/), 'no preflight stop reason exists')
+    t.ok(byLabel(run, /^build:/).length >= 1, 'the run started building (no fail-fast)')
+  },
+})
+
+SCENARIOS.push({
+  name: 'A1-d. explicit-above-is-silent — an explicit maxAgents at/above the projection prints no advisory and no auto log',
+  args: { mode: 'powerful', maxAgents: 200 },
+  plan: threeWoPlan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(!hasLog(run, /AgentBudgetAdvisory: explicit maxAgents/) && sizeLogs(run).length === 0, 'no advisory, no auto sizing')
+  },
+})
+
+SCENARIOS.push({
+  name: 'A1-e. omitted-maxAgents-unchanged — an omitted maxAgents stays unbounded and logs no sizing',
+  args: { mode: 'powerful' },
+  plan: threeWoPlan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(hasLog(run, /maxAgents OFF/), 'still the OFF echo')
+    t.ok(sizeLogs(run).length === 0 && !hasLog(run, /AgentBudgetAdvisory: explicit/), 'no sizing, no advisory')
+  },
+})
+
+// ── (e) un-defer dependency-free non-UI WOs from the foundation wave (DR-123, amends DR-057's deferral) ──
+const foundationPlan = (second) => mkPlan([{
+  frd: 'frd-f1',
+  deps: [],
+  workOrders: [
+    mkWo('wo-f1-001', 'PLANNED', { frd: 'frd-f1', artifacts: ['src/components/ui/button.tsx'], foundation: true }),
+    mkWo('wo-f1-002', 'PLANNED', { frd: 'frd-f1', ...second }),
+  ],
+}], { hasFrontend: true })
+const firstWave = (run) => (run.logs.find((l) => /⚒ wave:/.test(l)) || '')
+const deferredLine = (run) => (run.logs.find((l) => /↻ deferred:/.test(l)) || '')
+
+SCENARIOS.push({
+  name: 'F-a. lib-only-wo-builds-with-foundation — a dependency-free WO with lib-only artifacts joins the foundation wave',
+  args: { mode: 'powerful' },
+  plan: foundationPlan({ artifacts: ['src/lib/slug/**'] }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(/wo-f1-001/.test(firstWave(run)) && /wo-f1-002/.test(firstWave(run)), `the first wave holds the foundation WO AND the lib-only WO (got "${firstWave(run)}")`)
+    t.ok(!/blocked:foundation-pending/.test(deferredLine(run)), 'nothing is deferred as foundation-pending')
+  },
+})
+for (const [slug, second, why] of [
+  ['wo-touching-package-json-still-deferred', { artifacts: ['package.json', 'src/lib/slug/**'] }, 'package.json'],
+  ['wo-touching-lockfile-still-deferred', { artifacts: ['pnpm-lock.yaml'] }, 'a lockfile'],
+  ['wo-touching-messages-still-deferred', { artifacts: ['messages/en.json'] }, 'messages/**'],
+  ['undeclared-still-deferred', { artifacts: undefined }, 'undeclared artifacts'],
+  ['ui-wo-still-deferred', { artifacts: ['src/components/forms/Form.tsx'] }, 'UI artifacts'],
+  ['wo-with-deps-still-deferred', { artifacts: ['src/lib/slug/**'], deps: ['wo-f1-001'] }, 'a dependency'],
+]) {
+  SCENARIOS.push({
+    name: `F-b. ${slug} — a WO with ${why} keeps the foundation-first deferral`,
+    args: { mode: 'powerful' },
+    plan: foundationPlan(second),
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(/wo-f1-001/.test(firstWave(run)) && !/wo-f1-002/.test(firstWave(run)), `the first wave is the foundation WO alone (got "${firstWave(run)}")`)
+      t.ok(slug === 'wo-with-deps-still-deferred' || /wo-f1-002\(blocked:foundation-pending\)/.test(deferredLine(run)), `the WO is logged as blocked:foundation-pending (got "${deferredLine(run)}")`)
+    },
+  })
+}
+
+// ── (b) lean tail: skip security-fix on an explicit empty findings array; FAIL-CLOSED otherwise ──
+const doneFrdPlan = () => mkPlan([{ frd: 'frd-s1', deps: [], workOrders: [mkWo('wo-s1-001', 'IN_REVIEW', { frd: 'frd-s1', artifacts: ['src/lib/s/**'] })] }])
+for (const [slug, audit, expectFix] of [
+  ['security-fix-skipped-on-empty-findings', { done: true, findings: [] }, false],
+  ['security-fix-runs-on-missing-findings', { done: true }, true],
+  ['security-fix-runs-on-null-findings', { done: true, findings: null }, true],
+  ['security-fix-runs-on-garbled-findings', { done: true, findings: 'none found' }, true],
+  ['security-fix-runs-on-nonempty-findings', { done: true, findings: [{ severity: 'high', summary: 'x' }] }, true],
+  ['security-fix-runs-when-audit-not-done', { done: false, findings: [] }, true],
+]) {
+  SCENARIOS.push({
+    name: `S. ${slug}`,
+    args: { mode: 'balanced' },
+    plan: doneFrdPlan(),
+    responses: [{ label: 'hardening:security-audit', response: audit }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'hardening:security-audit').length === 1, 'the opus audit always runs (DR-085 independent evidence)')
+      t.ok(byLabel(run, 'hardening:security-fix').length === (expectFix ? 1 : 0), `security-fix ${expectFix ? 'runs' : 'is skipped'} (got ${byLabel(run, 'hardening:security-fix').length})`)
+      t.ok(byLabel(run, 'hardening:telemetry').length === 1, 'telemetry still runs (not skipped, not made N/A by the engine)')
+      const aud = byLabel(run, 'hardening:security-audit')[0]
+      t.ok(aud && /If \(and ONLY if\) your `findings` array is EMPTY, ALSO append the Hardening event/.test(aud.prompt), 'the audit prompt carries the conditional security Hardening event (the fix spawn is not there to emit it)')
+      t.ok(hasLog(run, /security-fix not applicable, skipped/) === !expectFix, 'the skip is logged iff it happened')
+      if (!expectFix) t.ok(run.result && run.result.hardened !== false, 'hardening still counts as done with the skipped fix')
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0

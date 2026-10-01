@@ -268,7 +268,12 @@ const DRAIN_ON_EMPTY_PLAN = !(args && args.drainOnEmptyPlan === false)
 const MAX_FRDS = (args && args.maxFrds) || Infinity   // counts features PROCESSED (built+blocked+reopened); no cap unless set
 const LOW_BUDGET = (args && args.lowBudget) || 80000  // margin to leave when budget.total IS set (a +Nk turn directive)
 const MAX_SPEND = (args && args.maxSpend) || null      // output-token ceiling via budget.spent() — UNRELIABLE alone (under-counts subagent work; unenforced if the supervisor dies). Secondary.
-const MAX_AGENTS = (args && args.maxAgents) || null     // hard cap on subagents spawned this run — the RELIABLE spend brake (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine, independent of budget.spent AND of the supervisor surviving. THE real guardrail.
+// A-1 bench (2026-10-01): `args.maxAgents:'auto'` is OPT-IN — the cap is sized from projectedRunCost(plan) once the plan
+// exists (and again whenever it grows). An explicit numeric value is NEVER overridden and NEVER fails fast (a deliberately
+// partial, resumable run is legitimate, DR-050/070): below the projection it only gets an advisory log. Omitted stays
+// unbounded, exactly as before. Until the first projection an auto run has no cap (null), like an omitted one.
+const MAX_AGENTS_AUTO = Boolean(args && args.maxAgents === 'auto')
+let MAX_AGENTS = MAX_AGENTS_AUTO ? null : ((args && args.maxAgents) || null)     // hard cap on subagents spawned this run — the RELIABLE spend brake (each implementer/reviewer ≈ work ≈ tokens), counted INSIDE the engine, independent of budget.spent AND of the supervisor surviving. THE real guardrail.
 const MAX_CONSECUTIVE_BLOCKS = (args && args.maxConsecutiveBlocks) || 3   // health breaker: N non-external blocks in a row → stop (something is systemically wrong)
 const FOUNDATION_REPAIR_CAP = (args && args.foundationRepairCap) || 2   // DR-065: bounded auto-repair of an incomplete foundation — after N failed auto-repairs of the SAME class, escalate to the owner instead of looping/burning budget
 const FOUNDATION_GATE_NULL_CAP = (args && args.foundationGateNullCap) || 2   // WS-D/D5: a SEPARATE cap for null/garbled foundation-completeness gate verdicts (a dead gate agent) — counted on its OWN counter so a couple of dead gates never eat the real repair budget (FOUNDATION_REPAIR_CAP), and vice-versa
@@ -441,7 +446,7 @@ if (args === undefined || args === null) {
   log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
 }
 if (!LEASE_TOKEN || !LEASE_EPOCH) throw new Error('FATAL: atomic lease token/epoch missing — launch only through launch-implement.sh')
-log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS || 'OFF (sin freno de presupuesto!)'} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
+log(`Mode ${MODE} · wave ≤${P.wave} · maxFrds ${MAX_FRDS === Infinity ? 'sin tope' : MAX_FRDS} · maxAgents ${MAX_AGENTS_AUTO ? 'auto (se dimensiona tras el plan)' : (MAX_AGENTS || 'OFF (sin freno de presupuesto!)')} · workers ${P.worker} · judge ${P.judge}${CHANGE ? ' · change ' + CHANGE : ONLY ? ' · frds ' + ONLY.join(',') : ''}`)
 
 // Party telemetry. `ctx` enriches the event so the Party views can be faithful to the run
 // WITHOUT inventing anything: frd (which feature), phase ('build'|'review'), activity (the
@@ -556,6 +561,10 @@ const PREVIEW_SMOKE = (frd) =>
   ` PREVIEW SMOKE EVENT (UI FRDs only): if ${frd} exposes a UI surface, right after the verify.sh browser/Playwright layer append the PreviewSmoke event with the REAL numbers from that Playwright output (fire-and-forget): printf '{"event":"PreviewSmoke","at":"%s","project":"%s","frd":"${frd}","pass":%s,"routes":%s,"failed":%s}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<true if every route rendered clean, else false>" "<number of routes exercised>" "<number of routes that failed>" >> ~/.claude/dashboard-events.ndjson. If ${frd} has NO UI surface, SKIP this event entirely (do not emit it).`
 
 // B6 — a hardening-stage result (security folds audit+fix into one; telemetry; the close-out integration).
+// A-1 bench: the security stage normally folds audit + fix into ONE event emitted by the fix spawn; when the engine skips the
+// fix (an explicit empty findings array) the audit spawn has to emit it, and ONLY then — conditional on its own verdict.
+const HARDENING_EVENT_IF_NO_FINDINGS = (stage) =>
+  ` If (and ONLY if) your \`findings\` array is EMPTY, ALSO append the Hardening event for the ${stage} stage now, because no fix spawn will follow to emit it (fire-and-forget): printf '{"event":"Hardening","at":"%s","project":"%s","stage":"${stage}","status":"ok"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson. If \`findings\` is non-empty, do NOT emit it.`
 const HARDENING_EVENT = (stage) =>
   ` Also append the Hardening event for the ${stage} stage (fire-and-forget): printf '{"event":"Hardening","at":"%s","project":"%s","stage":"${stage}","status":"%s"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<ok if this stage passed, else fail>" >> ~/.claude/dashboard-events.ndjson.`
 
@@ -3850,6 +3859,13 @@ const UI_ARTIFACT_RE = /(^|\/)(src\/app\/|src\/components\/|src\/styles\/|public
  * silently skipped). An empty `wos` list is vacuously false (nothing ready/built to protect).
  */
 const artifactsTouchUi = (wos) => wos.some((w) => !(w.artifacts && w.artifacts.length) || w.artifacts.some((a) => UI_ARTIFACT_RE.test(a)))
+// A-1 bench (DR-123): a dependency-free WO may build in the foundation wave when its DECLARED artifacts provably cannot
+// interact with the foundation: not UI (artifactsTouchUi, fail-closed on undeclared), and not an IMPLICIT shared surface that
+// declared artifacts do not capture — package.json / any lockfile (a dependency change the foundation's own install must
+// see) or messages/** (the i18n catalogs the foundation's keys live in). DR-057 guards exactly those implicit couplings, so
+// anything that touches them (or declares nothing) keeps the deferral; artifacts stay disjoint per DR-060 via pickDisjointWave.
+const FOUNDATION_SHARED_RE = /(^|\/)(package\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|npm-shrinkwrap\.json)$|(^|\/)messages\//
+const joinsFoundationWave = (w) => (w.deps || []).length === 0 && Boolean(w.artifacts && w.artifacts.length) && !artifactsTouchUi([w]) && !w.artifacts.some((a) => FOUNDATION_SHARED_RE.test(a))
 // REV-D6: artifactsTouchUi's own "empty list is vacuously false" is correct FOR IT (nothing ready/built
 // to protect, in isolation) — but its two call sites derive `builtWos` from `frdState.get(frd)`, and an
 // EMPTY result there is ambiguous: it means either "this FRD genuinely has no work orders" (fine, vacuous)
@@ -3889,6 +3905,48 @@ const pickDisjointWave = (ready, max, costBudget = Infinity, costOf = () => 1) =
 const woWaveCost = (w) => {
   const m = pickWorkerModel(w)
   return (P.split && plan.hasFrontend) ? 3 * COST(m) + 2 : COST(m) + 1
+}
+
+// ── A-1 bench: evidence-based run projection (replaces the launcher's old "15 x FRDs" rule of thumb) ──────────────
+// Cost units follow the engine's own weights (opus 3, every MECH step 1). Fixed overhead ~8 (baseline precheck + plan + the
+// first safe-point + a UI build's foundation-gate); per WO to build 3 MECH steps (dispatch share, commit, self-test relay) +
+// the builder's weight; ~20 per FRD for its gate link (~6), PASS landing (~2-3), one reopen ladder (~7-9 at the canaries' ~50 %
+// first-gate reopen rate) and the tail share. Measured case: 1 FRD / 3 WOs / one reopen ≈ 48 units (bench A-1). The projection
+// is deliberately a bit LOW for the raw sum (3 sonnet WOs = 40); AUTO_HEADROOM covers the reopen.
+const AUTO_FIXED_COST = 8
+const AUTO_WO_MECH_COST = 3
+const AUTO_FRD_COST = 20
+const AUTO_HEADROOM = 1.25
+const AUTO_USD_PER_UNIT = 0.5   // APPROXIMATE: A-1 spent ≈25 USD for ≈48 units. Log-only, never a decision input.
+const projectedFrdsCost = (frds) => {
+  let units = 0
+  for (const f of frds || []) {
+    units += AUTO_FRD_COST
+    for (const w of f.workOrders || []) {
+      if (w.status === 'VERIFIED' || w.status === 'BLOCKED' || w.status === 'IN_REVIEW' || w.docStatus === 'DRAFT') continue   // nothing to build (IN_REVIEW goes straight to the gate, which the FRD share already prices)
+      units += AUTO_WO_MECH_COST + COST(pickWorkerModel(w))
+    }
+  }
+  return units
+}
+/** Projected cost-weighted units of the whole run for `pl` (fixed overhead + every FRD in it). */
+const projectedRunCost = (pl) => AUTO_FIXED_COST + projectedFrdsCost(pl.frds)
+// Sizes MAX_AGENTS for an opt-in 'auto' run: the first call (after the plan) sets ceil(1.25 x projection); a later call for
+// FRDs ADDED to the plan (a drained change) raises the cap by the added FRDs' own projection — it never lowers it, so a
+// grown plan cannot re-introduce a stop=agents. With an EXPLICIT numeric cap it only logs an advisory when the cap sits below
+// the projection (never overrides, never stops: partial resumable runs are legitimate).
+function sizeAgentBudget(addedFrds) {
+  if (!MAX_AGENTS_AUTO && !MAX_AGENTS) return
+  const first = addedFrds === undefined
+  const units = first ? projectedRunCost(plan) : projectedFrdsCost(addedFrds)
+  const usd = (n) => `≈ ${(n * AUTO_USD_PER_UNIT).toFixed(0)} USD aprox.`
+  if (!MAX_AGENTS_AUTO) {
+    if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate. Not overridden (an explicit value is never changed, partial resumable runs are legitimate); pass maxAgents:'auto' to size it from the plan.`)
+    return
+  }
+  const cap = first ? Math.ceil(AUTO_HEADROOM * units) : (MAX_AGENTS || 0) + Math.ceil(AUTO_HEADROOM * units)
+  MAX_AGENTS = Math.max(MAX_AGENTS || 0, cap)
+  log(`⚖ maxAgents auto: projected ~${units} cost units${first ? '' : ' for the FRDs just added'} (${usd(units)}) → cap ${MAX_AGENTS} (x${AUTO_HEADROOM} headroom, plan of ${plan.frds.length} FRD(s))`)
 }
 
 // ── DR-069 SAFE-POINT (in-engine, audit-20 P0-3): every WAVE boundary IS a safe point (BL-0021: was every
@@ -3963,7 +4021,7 @@ async function safePoint() {
           `Re-plan ONLY these FRD folders (they were just created/updated by a drained change): ${newFolders.join(', ')}. Same contract as the main build planner: read each folder's frd.md + blueprint.md Build Plan + the frontmatter ONLY of every work-orders/wo-*.md, and return { frds: [{ frd, deps, workOrders: [{ id, status, docStatus (the LITERAL \`status:\` frontmatter field, DRAFT|ACTIVE — DR-100/BL-0171; omit when the WO has none), path, acText (the EARS AC lines this WO owns, verbatim from frd.md — DR-108), difficulty, reopen_count, deps, artifacts, foundation, priorAttempts (A4 — if \`${JOURNAL_PATH}\` exists, a bounded digest [{attempt, classification, findingKey, tried, why}] of the last 2 attempts on this WO; [] otherwise), summary }] }] } in Build Plan order. Read-only.`,
           { label: `plan-drained:${slug}`, phase: 'Build', model: P.judge, agentType: 'pandacorp:architect', schema: PLAN_SCHEMA },
         )
-        if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) { plan.frds.push(nf); enrollFrd(nf) } detectCycles(); log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
+        if (extra && extra.frds && extra.frds.length) { for (const nf of extra.frds) { plan.frds.push(nf); enrollFrd(nf) } sizeAgentBudget(extra.frds); detectCycles(); log(`＋ FRDs de la change añadidos a esta corrida: ${extra.frds.map((x) => x.frd).join(', ')}`) }
       }
     }
   }
@@ -4503,6 +4561,7 @@ function enrollFrd(f) {
   }
 }
 for (const f of plan.frds) enrollFrd(f)
+sizeAgentBudget()
 detectCycles()   // WS-D/D13: fail LOUD on a dependency cycle up front, before it surfaces late as a generic stall
 await preLoopGuarded(() => recoverPendingReverts())   // BL-0215: finish a discard a previous run was cut in the middle of, before any wave
 
@@ -5210,7 +5269,7 @@ while (true) {
   let candidates = ready
   let uiPassSkipEvent = ''   // WP-01: set below when this iteration skips a UI-gated pass; appended to whichever agent runs next
   if (foundationReady.length) {
-    candidates = foundationReady
+    candidates = [...foundationReady, ...ready.filter((w) => !w.foundation && joinsFoundationWave(w))]   // DR-123: lib-only, dependency-free WOs ride the foundation wave
   } else if (plan.hasFrontend && !foundationVerified && ready.some((w) => !w.foundation)) {
     const nonFoundationReady = ready.filter((w) => !w.foundation)
     // WP-01: the gate only protects a UI surface (DR-057) — pointless work when every non-foundation
@@ -5427,10 +5486,16 @@ const runHardeningChain = async () => {
   // a Write/Edit-capable implementer then APPLIES the Critical/High fixes. Merging the two would
   // deadlock: a read-only agent can never reach done:true on a real Critical/High finding.
   agentSpawned += COST(P.judge)
-  const audit = await agent(`DR-085 HARDENING 1a/3 — the security AUDIT, construction's last step (BL-0012). You are READ-ONLY: audit and report, do NOT edit code (that is the next spawn's job). Audit the WHOLE project: OWASP Top-10 for this stack, secrets in code/config/history, security headers + CSP (e.g. next.config), auth/authz on every mutating route, dependency risk; if the product has an agentic/LLM component, also ASI01–ASI10 (e.g. path traversal via model-chosen paths). Write the durable evidence report to docs/reviews/security-<YYYY-MM-DD>.md: for EACH finding record severity (critical/high/medium/low), file:line evidence, and concrete remediation. Commit the report (Conventional Commits, e.g. \`docs(security): audit report\`). Return { done: true, findings } ALWAYS once the report file exists — do NOT condition done on fixing anything (fixing is the next spawn). \`findings\` is a short array of { severity, summary } for the Critical/High items the fix spawn must clear (empty if none).`,
+  const audit = await agent(`DR-085 HARDENING 1a/3 — the security AUDIT, construction's last step (BL-0012). You are READ-ONLY: audit and report, do NOT edit code (that is the next spawn's job). Audit the WHOLE project: OWASP Top-10 for this stack, secrets in code/config/history, security headers + CSP (e.g. next.config), auth/authz on every mutating route, dependency risk; if the product has an agentic/LLM component, also ASI01–ASI10 (e.g. path traversal via model-chosen paths). Write the durable evidence report to docs/reviews/security-<YYYY-MM-DD>.md: for EACH finding record severity (critical/high/medium/low), file:line evidence, and concrete remediation. Commit the report (Conventional Commits, e.g. \`docs(security): audit report\`). Return { done: true, findings } ALWAYS once the report file exists — do NOT condition done on fixing anything (fixing is the next spawn). \`findings\` is a short array of { severity, summary } for the Critical/High items the fix spawn must clear (empty if none).${HARDENING_EVENT_IF_NO_FINDINGS('security')}`,
     { label: 'hardening:security-audit', phase: 'Hardening', model: P.judge, effort: 'high', agentType: 'pandacorp:security-auditor', schema: { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, findings: { type: 'array', items: { type: 'object' } } } } })
-  agentSpawned++
-  const fix = await agent(`DR-085 HARDENING 1b/3 — apply the security FIXES (BL-0012). The read-only auditor just wrote docs/reviews/security-<YYYY-MM-DD>.md with each finding + severity + remediation${audit && Array.isArray(audit.findings) ? ` (it flagged ${audit.findings.length} Critical/High item(s))` : ''}. Read that report. FIX every Critical AND High finding directly in production code (TDD — write the failing test first, then the fix; never weaken a test), then re-run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` until green (DR-106 — the close-out right after runs the FULL suite once; don't pay it twice here). Append to the SAME report, per finding: fixed | accepted-with-reason, and the final verify result. Commit (Conventional Commits).${HARDENING_EVENT('security')} (This one Hardening event folds the audit + fix into the single SECURITY stage result — status ok iff no Critical/High remains open, else fail; the read-only auditor does NOT emit its own.) Return { done: true } ONLY when no Critical/High remains open AND the report reflects it; otherwise { done: false, failure }. If the report lists NO Critical/High findings, there is nothing to fix — return { done: true } immediately.`,
+  // A-1 bench (lean tail, DR-123): the fix spawn only exists to clear Critical/High items, so an audit that returned an
+  // EXPLICIT empty findings array has nothing for it to do (its own prompt already says "return done:true immediately").
+  // FAIL-CLOSED: anything but a real empty array (done not true, findings missing/null/non-array/garbled) runs the fix as
+  // before — a dead or malformed audit never reads as "clean". The audit then emitted the security Hardening event itself.
+  const securityFixSkippable = Boolean(audit && audit.done === true && Array.isArray(audit.findings) && audit.findings.length === 0)
+  if (securityFixSkippable) log('✓ security audit returned an explicit empty findings array — security-fix not applicable, skipped (DR-123)')
+  if (!securityFixSkippable) agentSpawned++
+  const fix = securityFixSkippable ? { done: true } : await agent(`DR-085 HARDENING 1b/3 — apply the security FIXES (BL-0012). The read-only auditor just wrote docs/reviews/security-<YYYY-MM-DD>.md with each finding + severity + remediation${audit && Array.isArray(audit.findings) ? ` (it flagged ${audit.findings.length} Critical/High item(s))` : ''}. Read that report. FIX every Critical AND High finding directly in production code (TDD — write the failing test first, then the fix; never weaken a test), then re-run the FOCUSED \`bash .pandacorp/verify.sh --since <last_green_sha from .pandacorp/status.yaml>\` until green (DR-106 — the close-out right after runs the FULL suite once; don't pay it twice here). Append to the SAME report, per finding: fixed | accepted-with-reason, and the final verify result. Commit (Conventional Commits).${HARDENING_EVENT('security')} (This one Hardening event folds the audit + fix into the single SECURITY stage result — status ok iff no Critical/High remains open, else fail; the read-only auditor does NOT emit its own.) Return { done: true } ONLY when no Critical/High remains open AND the report reflects it; otherwise { done: false, failure }. If the report lists NO Critical/High findings, there is nothing to fix — return { done: true } immediately.`,
     { label: 'hardening:security-fix', phase: 'Hardening', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   const sec = { done: Boolean(audit && audit.done === true && fix && fix.done === true), failure: (fix && fix.failure) || (audit && audit.failure) }
   agentSpawned++
