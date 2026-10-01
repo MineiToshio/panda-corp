@@ -40,6 +40,7 @@
 //      the explanatory log line.
 //
 // Exit 0 green / non-zero on any assertion failure. One PASS line per scenario.
+// Focus: ONLY_SCENARIO=<name prefix> runs the matching scenarios only; SHOW_CALLS=1 prints each run's spawn labels in order.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { readFileSync } from 'node:fs'
@@ -73,7 +74,17 @@ const engine = new AsyncFunction('args', 'budget', 'agent', 'parallel', 'pipelin
 const validTraceability = ['requirement', 'acceptance-criterion', 'invariant', 'edge-case', 'limit', 'error', 'exclusion'].map((contractClass) => ({ contract: `${contractClass} fixture`, contractClass, status: ['edge-case', 'limit'].includes(contractClass) ? 'pass' : 'not-applicable', tests: ['edge-case', 'limit'].includes(contractClass) ? [`tests/${contractClass}.test.ts`] : [] }))
 // proposal 39 C1 (mechScript): a MECH op answers with its sealed line; the classic shape keeps reading the other keys.
 const mechLine = (op, body = {}) => sealLine({ version: 1, op, ok: true, ...body })
-function defaultResponse(label) {
+const FAST_BUILT_IDS = (prompt) => [...String(prompt).matchAll(/### WORK ORDER (\S+)/g)].map((m) => m[1])
+const commitLine = (wo, sha = 'c0ffee000000') => mechLine('commit-wo', { status: 'committed', wo, sha })
+const parkLine = (wo) => mechLine('park-wo', { status: 'parked', wo, parked: [] })
+function defaultResponse(label, call = {}) {
+  if (label === 'mech-plan') return null   // a fast-lane scenario gets its plan line from runEngine (scenario.plan)
+  if (/^fast-(build|retry):/.test(label)) return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
+  if (label.startsWith('verify:')) return { line: mechLine('verify', { status: 'green', frd: label.slice(7), green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full' }) }
+  if (label.startsWith('fix:')) return { done: true }
+  if (/^hardening:security-(audit-early|delta)$/.test(label)) return { done: true, findings: [] }
+  if (label.startsWith('block-usable:')) return { green: false, blocked_reason: 'needs-owner' }
+  if (label.startsWith('stale-pin:')) return { count: 0 }   // D1 stale-pin guard: main gained no code commit since the gate's pin
   if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
   if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
   if (label.startsWith('infra-pause:')) return { done: true }
@@ -85,7 +96,8 @@ function defaultResponse(label) {
   if (label === 'safe-point') return { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: [], unblocked: [] } // SAFE_POINT_SCHEMA
   if (label === 'foundation-gate') return { complete: true }            // FOUNDATION_SCHEMA
   if (label === 'visual-qa') return { done: true }
-  if (label.startsWith('dispatch:')) return { line: mechLine('dispatch', { status: 'stamped', stamped: [], committed: 'd15pa7c' }) }
+  if (label.startsWith('dispatch:')) return { line: mechLine('dispatch', { status: 'stamped', stamped: [], committed: 'd15pa7c', base: 'd15pa7cbase0' }) }
+  if (label.startsWith('floor:')) return { line: mechLine('classify-frd', { status: 'classified', frds: [...String(call.prompt).matchAll(/--frd '([^']+)'/g)].map((m) => ({ frd: m[1], floor: false })) }) }
   if (/^gate-worktree(:\d+)?$/.test(label)) return { ok: true, created: true, line: mechLine('gate-prepare', { created: true, sha: 'pinsha0' }) }   // D1: bare (serial) or pooled 'gate-worktree:<slot>' (parallelGates, now the v9.116.0 default)
   if (label.startsWith('pin:')) return { sha: 'pinsha0' }
   if (label.startsWith('apply-gate:')) return { done: true }
@@ -112,6 +124,7 @@ async function runEngine(scenario) {
   const unmatched = []
   const responses = [...(scenario.responses || [])]
   if (scenario.plan) responses.unshift({ label: 'plan', response: scenario.plan })
+  if (scenario.plan && scenario.args && scenario.args.lane === 'fast' && !scenario.noPlanLine) responses.push({ label: 'mech-plan', response: { line: mechLine('plan', { status: 'planned', unsatisfiedDeps: [], ...scenario.plan }) } })
 
   const agentStub = async (prompt, opts = {}) => {
     const call = {
@@ -131,10 +144,10 @@ async function runEngine(scenario) {
         (typeof r.prefix === 'string' && call.label.startsWith(r.prefix))
       if (!m) continue
       if (r.times !== undefined) r.times--
-      const answer = typeof r.response === 'function' ? r.response(call) : r.response
+      const answer = await (typeof r.response === 'function' ? r.response(call) : r.response)
       return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
     }
-    const def = defaultResponse(call.label)
+    const def = defaultResponse(call.label, call)
     if (def === null) {
       unmatched.push(call.label || call.prompt.slice(0, 80))
       return {}
@@ -655,6 +668,7 @@ const MECH_SCRIPT_RE = /pandacorp-build-mech\.mjs' (\S+) --project/
 const literalOp = (call) => (MECH_SCRIPT_RE.exec(call.prompt) || [])[1] || null
 const isLiteral = (call) => Boolean(literalOp(call)) && /return its last line/i.test(call.prompt)
 const indexOf = (run, re) => run.calls.findIndex((c) => re.test(c.label))
+const SAFETY = { mechScript: true, infraGuard: true }   // stage 2's contracts, reachable alone in the classic wave lane
 const infraPlan = (frd, ids, status = 'PLANNED') => mkPlan([{ frd, deps: [], workOrders: ids.map((id, i) => mkWo(id, status, { frd, artifacts: [`src/${frd}/${i}/**`] })) }])
 const throwing = (message) => () => { throw new Error(message) }
 const noRepairPath = (t, run) => {
@@ -665,7 +679,7 @@ const noRepairPath = (t, run) => {
 
 SCENARIOS.push({
   name: 'P39-a. infra-throw-is-not-a-repair — a builder whose agent() throws is infra: one pause + one retry, never attemptRepair, never BLOCKED, never wo-revert',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-i1', ['wo-i1-001', 'wo-i1-002']),
   responses: [{ label: 'build:wo-i1-001', times: 1, response: throwing('socket hang up') }],
   assert(t, run) {
@@ -682,7 +696,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-a2. infra-null-twice-halts — a builder that returns no output twice (infra, then infra again) halts the run instead of repairing it',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-i2', ['wo-i2-001']),
   responses: [{ label: 'build:wo-i2-001', response: null }],
   assert(t, run) {
@@ -696,7 +710,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-b. infra-429-halts-cleanly — a 429/usage-limit signature halts at once: no pause, no new dispatch, a build_paused event (dashboard + track.jsonl), stopReason paused-infra + a resume hint, no close-out',
-  args: { mode: 'pro', lane: 'fast' },
+  args: { mode: 'pro', ...SAFETY },
   plan: infraPlan('frd-q', ['wo-q-001', 'wo-q-002', 'wo-q-003']),
   responses: [{ label: 'build:wo-q-001', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }],
   assert(t, run) {
@@ -721,7 +735,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-b2. infra-limit-before-the-loop — a limit at the baseline pre-check pauses the run (no pre-loop failure, no ensure-stopped crash path)',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-p', ['wo-p-001']),
   responses: [{ label: 'baseline-precheck', response: throwing('Overloaded') }],
   assert(t, run) {
@@ -733,7 +747,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-b3. infra-limit-in-the-close-out — a limit during hardening pauses the run instead of closing it',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-h', ['wo-h-001']),
   responses: [{ label: 'hardening:security-audit', response: throwing('API Error: 429 Too Many Requests') }],
   assert(t, run) {
@@ -746,7 +760,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-c. infra-in-flight-results-accepted — after a halt, in-flight builders land: a green one is committed, a failed one and the infra one are parked (never repaired), an in-flight gate is never landed',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: mkPlan([
     { frd: 'frd-g', deps: [], workOrders: [mkWo('wo-g-001', 'IN_REVIEW', { frd: 'frd-g', artifacts: ['src/g/**'] })] },
     { frd: 'frd-c', deps: [], workOrders: [
@@ -773,7 +787,7 @@ SCENARIOS.push({
 const precheckLine = (body) => ({ line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [], ...body }) })
 SCENARIOS.push({
   name: 'P39-d. resume-demotes-unstamped-in-review — the mech precheck runs (literally) before the planner reads anything; a demoted WO is logged and rebuilt',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-r', ['wo-r-001']),
   responses: [{ label: 'mech-precheck', response: precheckLine({ demoted: [{ wo: 'wo-r-001', rel: 'docs/frds/frd-r/work-orders/wo-r-001.md', from: 'IN_REVIEW', to: 'PLANNED', why: 'no-flip-after-stamp', applied: true, committed: true }], demotionCommit: 'abc123456789' }) }],
   assert(t, run) {
@@ -788,7 +802,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-e. resume-keeps-committed-in-review — a WO the precheck keeps IN_REVIEW is never rebuilt: it goes straight to its gate',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-k', ['wo-k-001'], 'IN_REVIEW'),
   responses: [{ label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-k-001'] }) }],
   assert(t, run) {
@@ -800,7 +814,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-e2. resume-precheck-unverifiable-stops — a precheck line that fails its seal stops the run before planning (fail-closed)',
-  args: { mode: 'balanced', lane: 'fast' },
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-u', ['wo-u-001']),
   responses: [{ label: 'mech-precheck', response: { line: mechLine('precheck', { status: 'ok' }).replace('"ok"', '"OK"') } }],
   assert(t, run) {
@@ -812,8 +826,8 @@ SCENARIOS.push({
 })
 
 SCENARIOS.push({
-  name: 'P39-f. mechscript-prompts-are-literal — under the fast lane every scripted MECH op is "run exactly <cmd>, return its last line"',
-  args: { mode: 'balanced', lane: 'fast' },
+  name: 'P39-f. mechscript-prompts-are-literal — under mechScript every scripted MECH op is "run exactly <cmd>, return its last line"',
+  args: { mode: 'balanced', ...SAFETY },
   plan: infraPlan('frd-m', ['wo-m-001']),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -868,13 +882,255 @@ SCENARIOS.push({
   },
 })
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 39 stage 3 — the fast lane (C3 floor, C4 S0 solo FRD builder, C6 USABLE + review, §11 sequential FRDs)
+// ─────────────────────────────────────────────────────────────────────────────
+const FAST = { lane: 'fast', parallelGates: true }
+const fastPlan = (frds) => mkPlan(frds.map(({ frd, ids, deps = [], floor = false, extra = {} }) => ({
+  frd, deps, floor,
+  workOrders: ids.map((id, i) => ({ ...mkWo(id, 'PLANNED', { frd, artifacts: [`src/${frd}/${i}/**`], ...(extra[id] || {}) }), acText: `- **AC-${id}.1** WHEN ${id} runs, the system SHALL do its thing.` })),
+})))
+const labelIdx = (run, re) => run.calls.findIndex((c) => re.test(c.label))
+const lastIdx = (run, re) => run.calls.map((c) => c.label).reduce((acc, l, i) => (re.test(l) ? i : acc), -1)
+const parkedVia = (ids) => ({ wos: ids.map((id) => ({ id, line: parkLine(id) })) })
+
+SCENARIOS.push({
+  name: 'F39-1. fast-lane-no-plan-agent — the plan is the scripted Build Plan reader (with the floor classification), never the opus planner',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-n1', ids: ['wo-n1-001', 'wo-n1-002'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'plan').length === 0, 'no plan agent spawn')
+    const mp = byLabel(run, 'mech-plan')
+    t.ok(mp.length === 1 && isLiteral(mp[0]) && literalOp(mp[0]) === 'plan' && /--classify/.test(mp[0].prompt), 'one literal `plan --classify` op')
+    t.ok(labelIdx(run, /^mech-plan$/) < labelIdx(run, /^dispatch:/), 'the plan is read before the first dispatch')
+    t.ok(hasLog(run, /no plan agent/i), 'the log says why no plan agent ran')
+    t.ok(run.result && run.result.builtFrds.includes('frd-n1'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-1b. fast-lane-plan-fallback — a missing/drifted Build Plan falls back to the plan agent (fail-safe, never a guess)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-n2', ids: ['wo-n2-001'] }]),
+  noPlanLine: true,
+  responses: [{ label: 'mech-plan', response: { line: mechLine('plan', { status: 'no-build-plan', reason: 'frd-n2: blueprint.md has no Build Plan table' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'plan').length === 1 && labelIdx(run, /^mech-plan$/) < labelIdx(run, /^plan$/), 'the plan agent runs after the scripted reader declined')
+    t.ok(hasLog(run, /no Build Plan table/), 'the reason is logged')
+    t.ok(byLabel(run, /^fast-build:frd-n2$/).length === 1, 'the fast lane still builds it (one FRD builder)')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-2. fast-lane-single-frd-usable-then-verified — one sonnet builder, verify on the clean SHA → USABLE (pushed), then the unchanged opus gate → VERIFIED; security starts with the gate',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-u', ids: ['wo-u-001', 'wo-u-002', 'wo-u-003'] }]),
+  responses: [{ label: 'verify:frd-u', response: { line: mechLine('verify', { status: 'green', frd: 'frd-u', green: true, usable: true, floor: false, sha: 'abc123def456', scope: 'full' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, /^fast-build:/)
+    t.ok(b.length === 1 && b[0].label === 'fast-build:frd-u' && b[0].model === 'sonnet' && b[0].agentType === 'pandacorp:implementer', `ONE sonnet pandacorp:implementer builder for the FRD (got ${b.map((c) => `${c.label}/${c.model}`).join(', ')})`)
+    t.ok(byLabel(run, /^(build|commit|selftest|test|be|fe):/).length === 0, 'no per-WO build or commit spawns')
+    const d = byLabel(run, /^dispatch:/)
+    t.ok(d.length === 1 && ['wo-u-001', 'wo-u-002', 'wo-u-003'].every((id) => d[0].prompt.includes(`--wo '${id}'`)) && /--commit/.test(d[0].prompt), 'one committed dispatch stamp for every WO of the FRD')
+    const v = byLabel(run, 'verify:frd-u')
+    t.ok(v.length === 1 && isLiteral(v[0]) && literalOp(v[0]) === 'verify' && /--since 'd15pa7cbase0'/.test(v[0].prompt) && ['wo-u-001', 'wo-u-002', 'wo-u-003'].every((id) => v[0].prompt.includes(`--wo '${id}'`)), 'one literal verify op over the FRD\'s landed range and its WOs')
+    t.ok(labelIdx(run, /^fast-build:/) < labelIdx(run, /^verify:/) && labelIdx(run, /^verify:/) < labelIdx(run, /^gate:frd-u$/), 'build → verify → gate')
+    t.ok(hasLog(run, /USABLE.*frd-u.*abc123def456/), 'USABLE is logged with the SHA')
+    t.ok(run.result && JSON.stringify(run.result.usable) === JSON.stringify([{ frd: 'frd-u', sha: 'abc123def456' }]), `result.usable carries {frd, sha} (got ${run.result && JSON.stringify(run.result.usable)})`)
+    t.ok(run.result && /frd-u/.test(run.result.pushHint || '') && /PushNotification/.test(run.result.pushHint || ''), 'the final summary carries the PushNotification hint')
+    t.ok(byLabel(run, /^pin:/).length === 0 && byLabel(run, /^gate-worktree:1$/).some((c) => /abc123def456/.test(c.prompt)), 'the gate is pinned at the USABLE SHA without a pin spawn')
+    const g = byLabel(run, /^gate:frd-u$/)
+    t.ok(g.length === 1 && g[0].model === 'opus' && g[0].agentType === 'pandacorp:reviewer', 'the unchanged opus FRD gate')
+    t.ok(run.result.builtFrds.includes('frd-u') && byLabel(run, 'apply-gate:frd-u').length === 1, 'VERIFIED through apply-gate')
+    const early = byLabel(run, 'hardening:security-audit-early')
+    t.ok(early.length === 1 && early[0].model === 'opus' && early[0].agentType === 'pandacorp:security-auditor' && labelIdx(run, /^hardening:security-audit-early$/) < labelIdx(run, /^apply-gate:/), 'the security audit starts alongside the first gate (opus, read-only auditor)')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 0 && byLabel(run, 'hardening:security-delta').length === 1, 'the hardening runs the fail-closed security delta instead of a second full audit')
+    t.ok(byLabel(run, 'close-out').length === 1, 'the close-out runs once per build')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-3. fast-lane-commit-per-wo-by-builder — the builder commits each WO itself with the literal commit-wo command; the engine trusts only sealed receipts',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-c3', ids: ['wo-c3-001', 'wo-c3-002'], extra: { 'wo-c3-002': { deps: ['wo-c3-001'] } } }]),
+  responses: [{ label: 'fast-build:frd-c3', response: { wos: [{ id: 'wo-c3-001', line: commitLine('wo-c3-001') }, { id: 'wo-c3-002', line: commitLine('wo-c3-002').replace('committed', 'COMMITTED') }] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, 'fast-build:frd-c3')[0]
+    t.ok(b && /pandacorp-build-mech\.mjs' commit-wo --project '\.' --wo 'wo-c3-001' --file 'src\/frd-c3\/0\/\*\*'/.test(b.prompt) && /--wo 'wo-c3-002' --file 'src\/frd-c3\/1\/\*\*'/.test(b.prompt), 'each WO carries its own literal commit-wo command with its declared files')
+    t.ok(b && /park-wo --project '\.' --wo 'wo-c3-001'/.test(b.prompt), 'and its park-wo command for a give-up')
+    t.ok(b && b.prompt.indexOf('### WORK ORDER wo-c3-001') < b.prompt.indexOf('### WORK ORDER wo-c3-002') && /AC-wo-c3-001\.1/.test(b.prompt), 'the WO briefs are inline, in Build Plan order, with their ACs (LESSON-0147)')
+    t.ok(b && /never call git/i.test(b.prompt) && /implementation_status/.test(b.prompt), 'the builder never calls git and never stamps the status itself')
+    t.ok(hasLog(run, /wo-c3-002.*(seal|unverified)/i), 'a receipt that fails its seal is not trusted (logged)')
+    const r = byLabel(run, /^fast-retry:frd-c3$/)
+    t.ok(r.length === 1 && /### WORK ORDER wo-c3-002/.test(r[0].prompt) && !/### WORK ORDER wo-c3-001/.test(r[0].prompt), 'only the unproven WO goes to the retry rung')
+    t.ok(byLabel(run, 'park:wo-c3-002').length === 1, 'the unproven WO is parked by the engine before the retry (its files never leak into the next commit)')
+    t.ok(run.result.builtFrds.includes('frd-c3'), 'the FRD still verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-4. fast-lane-park-on-failure — a WO the builder parks (and its dependent) is rebuilt once on opus; no attemptRepair, no per-WO spawns',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-p4', ids: ['wo-p4-001', 'wo-p4-002', 'wo-p4-003'], extra: { 'wo-p4-003': { deps: ['wo-p4-002'] } } }]),
+  responses: [{ label: 'fast-build:frd-p4', response: { wos: [{ id: 'wo-p4-001', line: commitLine('wo-p4-001') }, { id: 'wo-p4-002', line: parkLine('wo-p4-002') }, { id: 'wo-p4-003', line: parkLine('wo-p4-003') }] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const r = byLabel(run, /^fast-retry:frd-p4$/)
+    t.ok(r.length === 1 && r[0].model === 'opus' && /### WORK ORDER wo-p4-002/.test(r[0].prompt) && /### WORK ORDER wo-p4-003/.test(r[0].prompt) && !/### WORK ORDER wo-p4-001/.test(r[0].prompt), 'one opus retry over the parked WOs only')
+    t.ok(byLabel(run, /^park:/).length === 0, 'the builder already parked them: the engine parks nothing twice')
+    t.ok(byLabel(run, /^(repair|build):/).length === 0, 'no attemptRepair and no per-WO builder')
+    t.ok(labelIdx(run, /^fast-retry:/) < labelIdx(run, /^verify:/), 'verify runs after every WO landed')
+    t.ok(run.result.builtFrds.includes('frd-p4'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-4b. fast-lane-park-twice-goes-to-repair — still parked after the opus retry: the classic bounded repair decides (block, discard: the FRD was never USABLE)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-p5', ids: ['wo-p5-001'] }]),
+  responses: [
+    { label: 'fast-build:frd-p5', response: parkedVia(['wo-p5-001']) },
+    { label: 'fast-retry:frd-p5', response: parkedVia(['wo-p5-001']) },
+    { label: 'repair:frd-p5', response: { green: false, blocked_reason: 'error', failure: 'cannot build it' } },
+    { label: 'wo-revert-plan:frd-p5', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-p5', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) } },
+    { label: 'wo-revert-apply:frd-p5', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-p5', mode: 'apply', status: 'nothing', changed: false, wos: [], files: [] }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'repair:frd-p5').length === 1 && byLabel(run, /^verify:/).length === 0, 'the bounded repair runs; nothing is verified')
+    t.ok(run.result.blockedFrds.includes('frd-p5') && run.result.blockedReasons['frd-p5'] === 'error', 'BLOCKED with the repair\'s reason')
+    t.ok(!(run.result.usable || []).length, 'never USABLE')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-5. fast-lane-floor-frd-waits-verified — a floor FRD (plan-time or landed) is never USABLE: no push until its gate VERIFIES it',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-fl', ids: ['wo-fl-001'], floor: true }, { frd: 'frd-lf', ids: ['wo-lf-001'] }]),
+  responses: [{ label: 'verify:frd-lf', response: { line: mechLine('verify', { status: 'green', frd: 'frd-lf', green: true, usable: false, floor: true, floorChanged: true, sha: 'f100r0000002', scope: 'full' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(!(run.result.usable || []).length, `no FRD is USABLE (got ${JSON.stringify(run.result.usable)})`)
+    t.ok(hasLog(run, /frd-fl.*floor/i) && hasLog(run, /frd-lf.*floor/i), 'both are logged as floor (plan-time and landed)')
+    t.ok(!hasLog(run, /USABLE: frd-(fl|lf)/), 'no USABLE line for a floor FRD')
+    t.ok(byLabel(run, 'gate:frd-fl').length === 1 && byLabel(run, 'gate:frd-lf').length === 1 && run.result.builtFrds.includes('frd-fl') && run.result.builtFrds.includes('frd-lf'), 'both are gated and VERIFIED')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-6. fast-lane-dependent-of-floor-waits — an FRD that depends on a floor FRD builds only after that FRD is VERIFIED',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-a6', ids: ['wo-a6-001'], floor: true }, { frd: 'frd-b6', ids: ['wo-b6-001'], deps: ['frd-a6'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const applyA = labelIdx(run, /^apply-gate:frd-a6$/)
+    t.ok(applyA >= 0 && labelIdx(run, /^fast-build:frd-b6$/) > applyA, `frd-b6 builds after frd-a6 is VERIFIED (apply ${applyA}, build ${labelIdx(run, /^fast-build:frd-b6$/)})`)
+    t.ok(hasLog(run, /frd-b6.*waits.*frd-a6/), 'the wait is logged')
+    t.ok(run.result.builtFrds.includes('frd-a6') && run.result.builtFrds.includes('frd-b6'), 'both verify')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-7. fast-lane-gate-overlaps-next-build — FRD A\'s gate reviews in a slot WHILE FRD B (which depends on the USABLE A) builds',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-a7', ids: ['wo-a7-001'] }, { frd: 'frd-b7', ids: ['wo-b7-001'], deps: ['frd-a7'] }]),
+  responses: (() => {
+    let started
+    const bStarted = new Promise((res) => { started = res })
+    const state = { overlapped: false }
+    return [
+      { label: 'gate:frd-a7', response: async () => { state.overlapped = await Promise.race([bStarted.then(() => true), new Promise((res) => setTimeout(() => res(false), 1500))]); return { green: true, overlapped: state.overlapped } } },
+      { label: 'fast-build:frd-b7', response: (call) => { started(); return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) } } },
+    ]
+  })(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const slotA = labelIdx(run, /^gate-worktree:1$/)
+    const gA = labelIdx(run, /^gate:frd-a7$/)
+    const bB = labelIdx(run, /^fast-build:frd-b7$/)
+    const applyA = labelIdx(run, /^apply-gate:frd-a7$/)
+    t.ok(slotA >= 0 && slotA < labelIdx(run, /^dispatch:frd-b7$/) && bB > slotA && applyA > bB, `A's gate takes its slot before B is dispatched and lands only after B built (slot ${slotA}, build B ${bB}, apply A ${applyA})`)
+    t.ok(gA > slotA && gA < labelIdx(run, /^verify:frd-b7$/), 'A\'s reviewer works while B is still building (before B\'s verify)')
+    t.ok(hasLog(run, /gate frd-a7 → slot/), 'A\'s gate runs in a parallel gate slot (DR-118)')
+    t.ok(run.result.builtFrds.includes('frd-a7') && run.result.builtFrds.includes('frd-b7'), 'both verify')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-8. fast-lane-defer-stops-at-usable — reviewBudget defer: build every FRD to USABLE, launch no gate, close without hardening; the review debt is derived, never stored',
+  args: { mode: 'balanced', ...FAST, reviewBudget: 'defer' },
+  plan: fastPlan([{ frd: 'frd-d1', ids: ['wo-d1-001'] }, { frd: 'frd-d2', ids: ['wo-d2-001'], deps: ['frd-d1'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^fast-build:/).length === 2 && byLabel(run, /^verify:/).length === 2, 'both FRDs build and verify')
+    t.ok(byLabel(run, /^(gate|gate-worktree|apply-gate|find|evidence|hardening):/).length === 0 && byLabel(run, /^(gate-worktree(:\d+)?|close-out)$/).length === 0, 'no gate, no hardening, no close-out review')
+    t.ok(byLabel(run, 'notify-end').length === 1, 'the run closes through notify-end (lease released)')
+    t.ok(run.result && JSON.stringify((run.result.usable || []).map((u) => u.frd)) === JSON.stringify(['frd-d1', 'frd-d2']), 'both are USABLE')
+    t.ok(run.result && JSON.stringify(run.result.reviewDebt) === JSON.stringify(['frd-d1', 'frd-d2']) && run.result.stopReason === 'review-deferred', `the derived review debt + stopReason review-deferred (got ${run.result && JSON.stringify([run.result.reviewDebt, run.result.stopReason])})`)
+    const notify = byLabel(run, 'notify-end')[0]
+    t.ok(notify && !/review_debt/.test(notify.prompt), 'no stored review_debt field is written (DR-115)')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-9. fast-lane-discard-after-usable-is-needs-owner — once USABLE, a gate reject is fix-forward only: a discard becomes needs-owner, nothing is reverted',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-x9', ids: ['wo-x9-001'] }, { frd: 'frd-y9', ids: ['wo-y9-001'], deps: ['frd-x9'] }]),
+  responses: [
+    { label: 'gate:frd-x9', response: { green: false, reopen: ['wo-x9-001'], findings: [{ wo: 'wo-x9-001', finding: 'AC-x9 not met', failingTest: 't.test.ts', files: ['src/x.ts'] }], failure: 'AC-x9 not met' } },
+    { label: 'patch:frd-x9', response: { green: false, failure: 'could not patch' } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'patch:frd-x9').length === 1, 'fix-forward first: the in-place patch runs (DR-073 ladder unchanged)')
+    t.ok(byLabel(run, /^(wo-revert|revert:)/).length === 0, `nothing is reverted (got ${byLabel(run, /^(wo-revert|revert:)/).map((c) => c.label).join(', ') || 'none'})`)
+    const b = byLabel(run, 'block-usable:frd-x9')
+    t.ok(b.length === 1 && /needs-owner/.test(b[0].prompt) && /frd-y9/.test(b[0].prompt) && /decisions\.md/.test(b[0].prompt), 'a needs-owner decision record names the dependent set (set-wide discard on approval)')
+    t.ok(run.result.blockedReasons['frd-x9'] === 'needs-owner', 'BLOCKED needs-owner')
+    t.ok(byLabel(run, /^build:wo-x9/).length === 0 && byLabel(run, /^fast-retry:frd-x9/).length === 0, 'no in-run rebuild over the USABLE code')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-l', ids: ['wo-l-001', 'wo-l-002'] }]),
+  responses: [{ label: 'fast-build:frd-l', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'park:wo-l-001').length === 1 && byLabel(run, 'park:wo-l-002').length === 1, 'both unlanded WOs are parked through the literal park-wo op')
+    noRepairPath(t, run)
+    t.ok(byLabel(run, /^(verify|fast-retry|fix):/).length === 0 && byLabel(run, 'build-paused').length === 1, 'no verify, no retry, one paused close')
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `stopReason paused-infra (got ${run.result && run.result.stopReason})`)
+  },
+})
+
+SCENARIOS.push({
+  name: 'F39-10. classic-unchanged — without lane:fast the plan agent, per-WO builders and commits, and the classic result shape are untouched',
+  args: { mode: 'balanced' },
+  plan: fastPlan([{ frd: 'frd-cl2', ids: ['wo-cl2-001', 'wo-cl2-002'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'plan').length === 1 && byLabel(run, 'mech-plan').length === 0, 'the plan agent runs, never the scripted reader')
+    t.ok(byLabel(run, /^build:/).length === 2 && byLabel(run, /^commit:/).length === 2, 'per-WO builders and commits')
+    t.ok(byLabel(run, /^(fast-build|fast-retry|verify|fix|block-usable):/).length === 0 && byLabel(run, /^hardening:security-(audit-early|delta)$/).length === 0, 'no fast-lane spawn')
+    t.ok(byLabel(run, 'hardening:security-audit').length === 1, 'the classic full security audit')
+    t.ok(run.result && !('usable' in run.result) && !('reviewDebt' in run.result) && !('pushHint' in run.result), 'the classic result shape')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
 let failed = 0
 for (const s of SCENARIOS) {
+  if (process.env.ONLY_SCENARIO && !s.name.startsWith(process.env.ONLY_SCENARIO)) continue
   const run = await runEngine(s)
+  if (process.env.SHOW_CALLS) console.log(run.calls.map((c, i) => `${i}:${c.label}`).join(' '))
   const t = new T(s.name)
   try {
     s.assert(t, run)
