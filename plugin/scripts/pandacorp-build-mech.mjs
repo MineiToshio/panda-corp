@@ -30,6 +30,12 @@
 //                `work`. The engine spawns the LLM drain only when `work` is true.
 //   reuse-check  [--max-age 900]   BL-0147: may the close-out reuse .pandacorp/run/gate-report.json?
 //   gate-prepare --path <wt> --sha <sha> [--port N]   C2: a frozen detached gate worktree at <sha>, bootstrapped.
+//   plan         [--frd <folder>]… [--classify]   the fast lane's plan without a plan agent: the blueprints' Build Plan
+//                order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan. --classify also
+//                writes the deterministic floor (C3). See build-mech-fast.mjs.
+//   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone FRD floor (classify-change.mjs), frontmatter `floor:`.
+//   verify       --frd <folder> --since <base> [--wo <id>]…   the USABLE check (C6): clean tree, committed WOs, landed
+//                floor, verify.sh on the clean SHA; green + not floor → build_usable (track.jsonl commit + dashboard).
 //   gate-release --path <wt> --dir <evidence-dir>   BL-0182: salvage every dirty path of the gate worktree (+ its
 //                gitignored gate report) to <dir>, then clean exactly those paths.
 
@@ -40,7 +46,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, woIdOf } from './build-mech-lib.mjs'
+import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { FAST_OPS } from './build-mech-fast.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -56,15 +63,14 @@ const SCHEMA_PATHS = [
 const TEST_FILE_RE = /(^|\/)(_tests|__tests__|tests?|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$/
 const TRACK = JOURNALS[0]
 const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
-const AC_ID_RE = /\bAC-\d+-\d+\.\d+(?![0-9])/g
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted'])
-const LISTS = new Set(['file', 'wo', 'ac'])
+const FLAGS = new Set(['commit', 'targeted', 'classify'])
+const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
 function parseArgs(argv) {
   const op = argv[0]
-  const o = { op, files: [], extras: [], wos: [], acs: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
+  const o = { op, files: [], extras: [], wos: [], acs: [], frds: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i]
     if (!k.startsWith('--')) throw new InputError(`unexpected argument ${JSON.stringify(k)}`)
@@ -76,8 +82,8 @@ function parseArgs(argv) {
     else if (name === 'extra') o.extras.push({ path: v.replace(/^\.\//, ''), reason: null })
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
-    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')
@@ -87,14 +93,6 @@ function parseArgs(argv) {
 }
 
 // ── commit-wo ──────────────────────────────────────────────────────────────────────────────────
-/** The AC ids a work order owns: its "Acceptance criteria" section, else its body before the Status Note. */
-function woAcIds(text) {
-  const body = String(text).replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
-  const sec = /^##[^\n]*acceptance criteria[^\n]*$/im.exec(body)
-  let scope = body
-  if (sec) { const rest = body.slice(sec.index + sec[0].length); const end = rest.search(/^##\s/m); scope = end < 0 ? rest : rest.slice(0, end) } else { const sn = body.search(/^##\s+Status Note/im); if (sn >= 0) scope = body.slice(0, sn) }
-  return unique(scope.match(AC_ID_RE) || [])
-}
 /** S3 floor: each AC of the WO is cited by at least one test file, unless the WO says `tests: none` with a reason. */
 function acCitation(ctx, woText, extraAcs, stagedPaths) {
   if (fmGet(woText, 'tests').toLowerCase() === 'none') {
@@ -301,6 +299,7 @@ function dispatch(o) {
     const texts = wos.map((w) => readFileSync(path.join(ctx.project, w.rel), 'utf8'))
     const wrong = wos.filter((w, i) => ['VERIFIED', 'BLOCKED'].includes(frontmatterStatus(texts[i])))
     if (wrong.length) return { code: REFUSED_EXIT, body: { status: 'refused', reason: `${wrong.map((w) => w.id).join(', ')}: a VERIFIED or BLOCKED work order is never dispatched — nothing was stamped` } }
+    const base = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
     const stamped = []
     wos.forEach((w, i) => { if (frontmatterStatus(texts[i]) !== 'IN_PROGRESS') { writeFileSync(path.join(ctx.project, w.rel), setFrontmatterStatus(texts[i], 'IN_PROGRESS')); stamped.push(w) } })
     let committed = null
@@ -311,7 +310,7 @@ function dispatch(o) {
       if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); stamped.forEach((w) => writeFileSync(path.join(ctx.project, w.rel), texts[wos.indexOf(w)])); throw new Refusal('commit-failed', `the dispatch commit failed and the stamps were restored: ${c.err || 'no output'}`) }
       committed = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
     }
-    return { code: 0, body: { status: stamped.length ? 'stamped' : 'nothing', stamped: stamped.map((w) => w.id), unchanged: wos.filter((w) => !stamped.includes(w)).map((w) => w.id), committed } }
+    return { code: 0, body: { status: stamped.length ? 'stamped' : 'nothing', stamped: stamped.map((w) => w.id), unchanged: wos.filter((w) => !stamped.includes(w)).map((w) => w.id), committed, base } }
   } finally { releaseLock(lock) }
 }
 
@@ -445,7 +444,7 @@ function gateRelease(o) {
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────────────────
-const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease }
+const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, ...FAST_OPS }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
 export async function main(argv) {

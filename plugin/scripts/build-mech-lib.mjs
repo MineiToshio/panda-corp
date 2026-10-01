@@ -123,6 +123,15 @@ export function findWo(ctx, id) {
 }
 
 /** A work order's id: its frontmatter `id:`, else the `wo-NN-MMM` prefix of its file name. */
+const AC_ID_RE = /\bAC-\d+-\d+\.\d+(?![0-9])/g
+/** The AC ids a work order owns: its "Acceptance criteria" section, else its body before the Status Note. */
+export function woAcIds(text) {
+  const body = String(text).replace(/^---\r?\n[\s\S]*?\r?\n---/, '')
+  const sec = /^##[^\n]*acceptance criteria[^\n]*$/im.exec(body)
+  let scope = body
+  if (sec) { const rest = body.slice(sec.index + sec[0].length); const end = rest.search(/^##\s/m); scope = end < 0 ? rest : rest.slice(0, end) } else { const sn = body.search(/^##\s+Status Note/im); if (sn >= 0) scope = body.slice(0, sn) }
+  return unique(scope.match(AC_ID_RE) || [])
+}
 export const woIdOf = (rel, text) => fmGet(text, 'id') || (/^(wo-[0-9a-z]+-\d+)/i.exec(path.basename(rel)) || [])[1]?.toUpperCase() || path.basename(rel, '.md')
 
 /**

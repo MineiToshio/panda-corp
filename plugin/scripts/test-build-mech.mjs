@@ -67,7 +67,7 @@ function mkRepo() {
   const installVitest = () => { write('node_modules/.bin/vitest', FAKE_VITEST); chmodSync(abs('node_modules/.bin/vitest'), 0o755) }
   const hook = (body) => { const h = path.join(root, '.git', 'hooks', 'pre-commit'); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755) }
   const run = (op, args = [], env = {}) => {
-    const evArgs = ['commit-wo', 'precheck'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
+    const evArgs = ['commit-wo', 'precheck', 'verify'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
     const r = spawnSync(process.execPath, [SCRIPT, op, '--project', proj, ...args, ...evArgs], { cwd: root, encoding: 'utf8', env: { ...process.env, FAKE_VITEST_LOG: vitestLog, ...env } })
     const lines = (r.stdout || '').trim().split('\n')
     const line = lines.pop() || ''
@@ -421,6 +421,7 @@ console.log('dispatch: the IN_PROGRESS stamp, frontmatter only, optionally commi
     ok(d.code === 0 && d.sealed && d.receipt.stamped.includes('WO-01-002') && /^implementation_status: IN_PROGRESS$/m.test(r.read(WO_B)) && /implementation_status: prose mention/.test(r.read(WO_B)) && r.head() === before, 'stamps the frontmatter only, no commit by default')
     const c = r.run('dispatch', ['--wo', 'WO-02-001', '--commit'])
     ok(c.code === 0 && c.receipt.committed && /WO-02-001/.test(r.subject()) && r.filesAt().join() === `proj/${WO_C}`, '--commit makes one stamp commit of exactly that WO file')
+    ok(c.receipt.base && r.git('rev-parse', `${c.receipt.committed}^`).startsWith(c.receipt.base), 'the receipt names the base: HEAD before the stamp commit (the landed-diff anchor, proposal 39 C3)')
     r.git('checkout', '-q', '--', `proj/${WO_B}`)
     r.write(WO_B, woMd('WO-01-002', 'VERIFIED'))
     r.git('commit', '-q', '-am', 'verified')
@@ -513,6 +514,168 @@ console.log('gate-prepare / gate-release: the gate worktree lifecycle, determini
     ok(readFileSync(path.join(ev, 'proj/src/_tests/adversarial.test.ts'), 'utf8') === 'it("x", () => {})\n' && readFileSync(path.join(ev, 'gate-report.json'), 'utf8') === '{"green":false}\n', 'the evidence dir holds the copies and the gitignored gate report')
     ok(readFileSync(path.join(wt, 'proj/src/existing.ts'), 'utf8') === 'export const existing = 1\n' && !existsSync(path.join(wt, 'proj/src/_tests/adversarial.test.ts')), 'the worktree paths are cleaned exactly')
   } finally { r.cleanup() }
+}
+
+
+// ── plan / classify-frd / verify: the fast lane's deterministic plan, floor and USABLE check (proposal 39 C3/C4/C6) ──
+const FRD_A = 'docs/frds/frd-01-alpha'
+const FRD_C = 'docs/frds/frd-02-gamma'
+const frdMd = (id, extra = '', body = '') => `---\nid: ${id}\ntype: frd\nimplementation_status: PLANNED\n${extra}---\n# ${id}\n\n## Acceptance criteria\n- **AC-01-001.1** WHEN the list loads, the system SHALL show the cards.\n- **AC-01-001.2** WHEN the list is empty, the system SHALL show the empty state.\n- **AC-01-002.1** The system SHALL sort the cards by date.\n- **AC-02-001.1** The system SHALL show the gamma panel.\n${body}`
+const blueprint = (rows) => `---\nid: BP\n---\n# Blueprint\n\n## 7. Build Plan\n\n| WO | Depends on | Artifacts (globs) |\n|---|---|---|\n${rows.map(([id, deps]) => `| ${id} | ${deps} | x |`).join('\n')}\n\n- **Order:** as the table says.\n\n## 8. Risks\n`
+const fmA = 'title: Alpha cards\ndifficulty: high\nartifacts: [src/alpha.ts, "src/_tests/**"]\ndependsOn: []\nsource_requirements: []\n'
+const fmB = (deps = '[WO-01-001]') => `title: Beta sort\nartifacts: [src/beta.ts]\ndependsOn: ${deps}\n`
+const fmC = (art = 'src/app/api/gamma/**') => `title: Gamma panel\nartifacts: [${art}]\ndependsOn: [WO-01-002]\n`
+function planFixture(r, { statusA = 'PLANNED', statusC = 'PLANNED', depsB, artC } = {}) {
+  r.write('package.json', '{"name":"proj","dependencies":{"next":"16.0.0","react":"19.0.0"}}\n')
+  r.write(`${FRD_A}/frd.md`, frdMd('FRD-01'))
+  r.write(`${FRD_A}/blueprint.md`, blueprint([['WO-01-001', 'none'], ['WO-01-002', 'WO-01-001']]))
+  r.write(`${FRD_C}/frd.md`, frdMd('FRD-02', 'dependsOn: [FRD-01]\n'))
+  r.write(`${FRD_C}/blueprint.md`, blueprint([['WO-02-001', 'WO-01-002']]))
+  r.write(WO_A, woMd('WO-01-001', statusA, { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+  r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: fmB(depsB) }))
+  r.write(WO_C, woMd('WO-02-001', statusC, { acs: ['AC-02-001.1'], extraFm: fmC(artC) }))
+  r.git('add', '-A'); r.git('commit', '-q', '-m', 'docs: plan fixture')
+}
+const byFrd = (p) => Object.fromEntries(((p.receipt && p.receipt.frds) || []).map((f) => [f.frd, f]))
+
+console.log('plan: the Build Plan order and the frontmatter, read without a plan agent')
+{
+  const r = mkRepo()
+  try {
+    planFixture(r)
+    const head = r.head()
+    const p = r.run('plan')
+    ok(p.code === 0 && p.sealed && p.receipt.status === 'planned', `status planned (got ${p.code} ${p.receipt && p.receipt.status} ${p.receipt && p.receipt.reason})`)
+    ok(p.receipt.hasFrontend === true, 'a next/react package.json is a web stack (hasFrontend)')
+    ok(JSON.stringify(p.receipt.frds.map((f) => f.frd)) === JSON.stringify(['frd-01-alpha', 'frd-02-gamma']), 'FRDs come in dependency order')
+    const a = byFrd(p)['frd-01-alpha']
+    const c = byFrd(p)['frd-02-gamma']
+    ok(c.deps.includes('frd-01-alpha') && a.deps.length === 0, `FRD deps: the frontmatter dependsOn and the cross-FRD WO deps (got ${JSON.stringify(c.deps)})`)
+    ok(JSON.stringify(a.workOrders.map((w) => w.id)) === JSON.stringify(['WO-01-001', 'WO-01-002']), 'work orders in Build Plan order')
+    const w1 = a.workOrders[0]
+    ok(w1.status === 'PLANNED' && w1.path === WO_A && w1.difficulty === 'high' && w1.summary === 'Alpha cards' && JSON.stringify(w1.artifacts) === JSON.stringify(['src/alpha.ts', 'src/_tests/**']) && w1.deps.length === 0, `each WO carries its frontmatter (got ${JSON.stringify(w1)})`)
+    ok(JSON.stringify(a.workOrders[1].deps) === JSON.stringify(['WO-01-001']) && JSON.stringify(c.workOrders[0].deps) === JSON.stringify(['WO-01-002']), 'intra- and cross-FRD WO deps')
+    ok(/AC-01-001\.1/.test(w1.acText) && /AC-01-001\.2/.test(w1.acText) && !/AC-01-002\.1/.test(w1.acText), 'acText: the frd.md lines of the ACs this WO owns, verbatim, and only those')
+    ok(r.head() === head && r.status() === '', 'plan writes nothing')
+    const t = r.run('plan', ['--frd', 'frd-02-gamma'])
+    ok(t.receipt.status === 'planned' && t.receipt.frds.length === 1 && JSON.stringify(t.receipt.unsatisfiedDeps) === JSON.stringify([{ frd: 'frd-02-gamma', dep: 'frd-01-alpha' }]), `a targeted plan reports an unverified FRD dep (got ${JSON.stringify(t.receipt.unsatisfiedDeps)})`)
+    r.write(WO_C, woMd('WO-02-001', 'VERIFIED', { acs: ['AC-02-001.1'], extraFm: fmC() }))
+    r.git('commit', '-q', '-am', 'gamma verified')
+    ok(JSON.stringify(r.run('plan').receipt.frds.map((f) => f.frd)) === JSON.stringify(['frd-01-alpha']), 'an all-VERIFIED FRD is not planned')
+    r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: fmB('[]') }))
+    const d = r.run('plan')
+    ok(d.code === 0 && d.receipt.status === 'no-build-plan' && /WO-01-002/.test(d.receipt.reason), `a frontmatter/Build Plan dependency drift falls back to the plan agent (got ${d.receipt.status}: ${d.receipt.reason})`)
+    r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+    r.write(`${FRD_A}/blueprint.md`, '---\nid: BP\n---\n# Blueprint without a plan\n')
+    const n = r.run('plan')
+    ok(n.receipt.status === 'no-build-plan' && /frd-01-alpha/.test(n.receipt.reason), 'a blueprint with no Build Plan table falls back to the plan agent')
+  } finally { r.cleanup() }
+}
+
+console.log('plan --classify / classify-frd: the deterministic floor, written to the FRD frontmatter, monotone')
+{
+  const r = mkRepo()
+  try {
+    planFixture(r)
+    const head = r.head()
+    const p = r.run('plan', ['--classify'])
+    ok(p.code === 0 && p.receipt.status === 'planned', `plan --classify runs (got ${p.receipt && p.receipt.status} ${p.receipt && p.receipt.reason})`)
+    ok(byFrd(p)['frd-01-alpha'].floor === false && byFrd(p)['frd-02-gamma'].floor === true, 'a plain FRD is not floor; an FRD declaring app/api is floor')
+    ok((byFrd(p)['frd-02-gamma'].floorHits || []).some((h) => /app\/api/.test(h)), 'the floor hit is named')
+    ok(r.head() !== head && /floor/.test(r.subject()) && r.filesAt().sort().join() === [`proj/${FRD_A}/frd.md`, `proj/${FRD_C}/frd.md`].join(), 'one commit writes floor: into exactly the two frd.md')
+    ok(/^floor: false$/m.test(r.atHead(`${FRD_A}/frd.md`)) && /^floor: true$/m.test(r.atHead(`${FRD_C}/frd.md`)), 'the frontmatter carries floor: false / floor: true')
+    const h2 = r.head()
+    r.run('plan', ['--classify'])
+    ok(r.head() === h2, 'an unchanged classification commits nothing')
+    r.write(WO_C, woMd('WO-02-001', 'PLANNED', { acs: ['AC-02-001.1'], extraFm: fmC('src/gamma.ts') }))
+    r.git('commit', '-q', '-am', 'gamma moves out of app/api')
+    const m = r.run('classify-frd', ['--frd', 'frd-02-gamma'])
+    ok(m.code === 0 && m.sealed && m.receipt.frds[0].floor === true && /^floor: true$/m.test(r.read(`${FRD_C}/frd.md`)), 'floor is monotone: a later non-floor verdict never lowers it')
+    r.write(`${FRD_A}/frd.md`, frdMd('FRD-01', 'floor: false\n', '- The system SHALL check the password before showing private cards.\n'))
+    r.git('commit', '-q', '-am', 'alpha spec mentions credentials')
+    const t = r.run('classify-frd', ['--frd', 'frd-01-alpha'])
+    ok(t.receipt.frds[0].floor === true && t.receipt.frds[0].changed === true, 'the FRD text alone can raise the floor (S5 content via --text)')
+    const base = r.head()
+    r.write('src/lib/auth/session.ts', 'export const s = 1\n')
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'auth helper')
+    r.write(`${FRD_A}/frd.md`, frdMd('FRD-01', 'floor: false\n'))
+    r.git('commit', '-q', '-am', 'reset alpha floor for the landed case')
+    const l = r.run('classify-frd', ['--frd', 'frd-01-alpha', '--range', `${base}..HEAD`])
+    ok(l.receipt.frds[0].floor === true && /^floor: true$/m.test(r.atHead(`${FRD_A}/frd.md`)), 'the landed diff (--range) classifies too: an auth path lands → floor')
+    const bad = r.run('classify-frd', ['--frd', 'frd-01-alpha', '--range', 'nope..HEAD'])
+    ok(bad.receipt.frds && bad.receipt.frds[0].floor === true, 'an unreadable range fails closed to floor')
+  } finally { r.cleanup() }
+}
+
+console.log('verify: the USABLE check — clean tree, committed WOs, landed floor, verify.sh on the clean landed SHA')
+{
+  const VERIFY_SH = ({ green = true, sha = '$(git rev-parse HEAD)' } = {}) => `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"2026-10-01T00:00:00Z","scope":"full","green":${green},"sha":"%s","subgates":[{"name":"biome","exit":0,"failures":[]},{"name":"tsc","exit":${green ? 0 : 2},"failures":[${green ? '' : '"src/a.ts: TS2345"'}]}]}\\n' "${sha}" > .pandacorp/run/gate-report.json\nexit ${green ? 0 : 1}\n`
+  const setup = (opts) => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write('.pandacorp/verify.sh', VERIFY_SH(opts)); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: the project gate')
+    const base = r.head()
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001')
+    return { r, base }
+  }
+  const args = (base) => ['--frd', 'frd-01-alpha', '--since', base, '--wo', 'WO-01-001']
+  const ran = (r) => existsSync(r.abs('.pandacorp/run/verify-ran'))
+  {
+    const { r, base } = setup()
+    try {
+      const v = r.run('verify', args(base))
+      ok(v.code === 0 && v.sealed && v.receipt.status === 'green' && v.receipt.green === true && v.receipt.usable === true && v.receipt.floor === false, `green, non-floor → USABLE (got ${v.code} ${JSON.stringify(v.receipt && { s: v.receipt.status, f: v.receipt.floor, u: v.receipt.usable, r: v.receipt.reason })})`)
+      ok(ran(r) && v.receipt.scope === 'full', 'verify.sh ran, the report scope is carried')
+      ok(/^floor: false$/m.test(r.atHead(`${FRD_A}/frd.md`)), 'the landed classification is written to the frontmatter')
+      ok(/usable/.test(r.subject()) && r.filesAt().join() === 'proj/.pandacorp/track.jsonl' && r.git('rev-parse', 'HEAD^').startsWith(v.receipt.sha), 'the build_usable timeline line is committed on its own, right after the verified SHA')
+      const track = r.atHead('.pandacorp/track.jsonl').trim().split('\n').map((x) => JSON.parse(x))
+      ok(track.some((x) => x.kind === 'build_usable' && x.frd === 'frd-01-alpha' && x.sha === v.receipt.sha), 'track.jsonl: build_usable {frd, sha}')
+      const evs = existsSync(r.events) ? readFileSync(r.events, 'utf8').trim().split('\n').map((x) => JSON.parse(x)) : []
+      ok(evs.some((x) => x.event === 'build_usable' && x.frd === 'frd-01-alpha' && x.sha === v.receipt.sha), 'the dashboard build_usable event is appended')
+      ok(r.status() === '', 'the tree is clean afterwards')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup({ green: false })
+    try {
+      const head = r.head()
+      const v = r.run('verify', args(base))
+      ok(v.code === 0 && v.receipt.status === 'red' && v.receipt.green === false && v.receipt.usable === false && /tsc/.test(v.receipt.failure) && /TS2345/.test(v.receipt.failure), `red names the first failing sub-gate (got ${v.receipt && v.receipt.failure})`)
+      ok(!r.git('log', '--format=%s', `${head}..HEAD`).includes('usable'), 'no usable commit on red')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup({ sha: 'deadbeef' })
+    try {
+      const v = r.run('verify', args(base))
+      ok(v.receipt.status === 'red' && v.receipt.usable === false && /stale|sha/i.test(v.receipt.failure), 'a report of another SHA is red (fail-closed)')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      r.write('src/stray.ts', 'export const stray = 1\n')
+      const v = r.run('verify', args(base))
+      ok(v.code === 4 && v.receipt.status === 'dirty' && v.receipt.paths.includes('src/stray.ts') && !ran(r), 'a dirty tree is refused before verify.sh runs')
+      rmSync(r.abs('src/stray.ts'))
+      const u = r.run('verify', ['--frd', 'frd-01-alpha', '--since', base, '--wo', 'WO-01-001', '--wo', 'WO-01-002'])
+      ok(u.code === 4 && u.receipt.status === 'uncommitted' && /WO-01-002/.test(u.receipt.reason) && !ran(r), 'a WO not IN_REVIEW at HEAD is refused')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      r.write('src/app/api/alpha/route.ts', 'export async function GET() { return new Response("ok") }\n')
+      r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001 route')
+      const v = r.run('verify', args(base))
+      ok(v.receipt.status === 'green' && v.receipt.floor === true && v.receipt.usable === false && /^floor: true$/m.test(r.atHead(`${FRD_A}/frd.md`)), 'a landed floor path makes it floor: green but NOT usable')
+      const track = r.atHead('.pandacorp/track.jsonl')
+      ok(!/build_usable/.test(track), 'no build_usable for a floor FRD')
+    } finally { r.cleanup() }
+  }
 }
 
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`)
