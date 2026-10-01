@@ -1809,7 +1809,7 @@ async function parkWorkOrders(wos) {
     let r = null
     try { r = await runMechOp('park-wo', parkWoFlags(w), { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
     if (r.body && r.body.ok === true) { parkedWos.push(w.id); log(`⇣ ${w.id} parked (${r.body.status}${r.body.dir ? ` → ${r.body.dir}` : ''}) — rebuilt on resume`) }
-    else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — the resume precheck salvages it`)
+    else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — ${FAST ? 'its dirty paths stay; the next fast run stops before dispatch and lists them (needs-owner)' : 'the resume precheck salvages it'}`)
   }
 }
 const PAUSED = Object.freeze({ paused: true })
@@ -1874,6 +1874,8 @@ phase('Baseline')
 // escalate. The precheck decides greenfield from status.yaml and the work-order frontmatter (never model prose); the
 // fast lane then spends no judge baseline on it and never stops there: each FRD's own verify certifies what it builds.
 let mechGreenfield = null
+// The precheck already leaves these out of ownerDirt (the lease projection, the append-only journals); kept here too.
+const FAST_SHARED_PATHS = new Set(['.pandacorp/status.yaml', '.pandacorp/track.jsonl', '.pandacorp/build-journal.jsonl'])
 if (MECH_SCRIPT) {
   agentSpawned++
   const pre = await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
@@ -1887,6 +1889,15 @@ if (MECH_SCRIPT) {
   }
   const demoted = Array.isArray(p.demoted) ? p.demoted : []
   for (const d of demoted) log(`↓ resume: ${d.wo} demoted ${d.from}→${d.to} (${d.why}${d.applied === false ? ', reported only: not on main' : ''}) — rebuilt this run (proposal 39 C7)`)
+  // Fast lane: a builder commits on main and undoes an undeclared edit, so it must never start over an owner's edit (the
+  // precheck keeps every one and reports it). Stop BEFORE any dispatch, needs-owner, naming the paths — the judge
+  // baseline's DR-067 reconciliation (classic) is not this lane's, and the greenfield path would skip it anyway.
+  const ownerDirt = FAST && Array.isArray(p.ownerDirt) ? p.ownerDirt.filter((x) => typeof x === 'string' && x && !FAST_SHARED_PATHS.has(x)) : []
+  if (ownerDirt.length) {
+    log(`⊘ fast lane: el árbol del proyecto tiene ${ownerDirt.length} cambio(s) del owner sin commitear — el motor NO construye encima (un builder desharía un cambio que no es suyo). Commitea, guarda o descarta estas rutas y relanza: ${ownerDirt.join(', ')}`)
+    await ensureStopped('owner dirt')
+    return { mode: MODE, builtFrds: [], blockedFrds: ['owner-dirt'], blockedReasons: { 'owner-dirt': 'needs-owner' }, ownerDirt, note: `owner dirt (needs-owner): the fast lane never builds over uncommitted owner edits — commit, stash or discard, then relaunch: ${ownerDirt.join(', ')}` }
+  }
   if (FAST && p.greenfield && p.greenfield.greenfield === true) mechGreenfield = { reason: String(p.greenfield.reason || 'greenfield') }
   if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
   if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
@@ -5559,7 +5570,7 @@ ${wos.map((w) => fastWoBrief(w, frd)).join('\n')}
 HOW TO RUN each work order, in order:
  1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Read the ## Status Note of the work orders it depends on and build against those interfaces.
  2) Implement it until its own tests pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.
- 3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → undo the stray edit, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's: drop that --extra, run the park command of the work order it names, then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
+ 3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → the tree held no owner edit at dispatch (the engine never builds over one), so an undeclared path is a stray edit of this build: undo it, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's, whether it came in through --files or --extra: run the park command of the work order it names (it salvages the leftover), then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
 // The engine trusts only a sealed commit-wo (or park-wo) receipt naming the work order; anything else did not land.

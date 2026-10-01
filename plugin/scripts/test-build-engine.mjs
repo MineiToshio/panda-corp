@@ -1398,6 +1398,44 @@ SCENARIOS.push({
   },
 })
 
+// A dirty owner tree: the precheck keeps every owner edit (it never resets one) and reports it as ownerDirt. The fast
+// lane's builders commit on main and are told to undo an undeclared edit, so a run dispatched over owner dirt would ask
+// a builder to undo the owner's work. It stops BEFORE any dispatch instead, needs-owner, listing the paths.
+const OWNER_DIRT = ['src/owner-draft.ts', 'docs/frds/frd-o22/frd.md']
+SCENARIOS.push({
+  name: 'F39-22. fast-lane-dirty-owner-tree-stops-before-dispatch — owner dirt reported by the precheck stops the fast run before any dispatch, needs-owner, with the paths',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-o22', ids: ['wo-o22-001'] }]),
+  responses: [{ label: 'mech-precheck', response: precheckLine({ ownerDirt: OWNER_DIRT }) }],
+  next: () => ({
+    args: { mode: 'balanced', ...SAFETY },
+    plan: infraPlan('frd-o22', ['wo-o22-001']),
+    responses: [{ label: 'mech-precheck', response: precheckLine({ ownerDirt: OWNER_DIRT }) }],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^(dispatch|fast-build|build|plan|baseline-precheck|baseline)(:|$)/).length === 0, `nothing after the precheck: no pre-check agent, plan, dispatch or builder (got ${run.calls.map((c) => c.label).join(', ')})`)
+    t.ok(byLabel(run, 'ensure-stopped').length === 1, 'the run closes through ensure-stopped (lease released, running:false)')
+    const r = run.result || {}
+    t.ok((r.blockedFrds || []).includes('owner-dirt') && r.blockedReasons && r.blockedReasons['owner-dirt'] === 'needs-owner', `a needs-owner record (got ${JSON.stringify(r.blockedReasons)})`)
+    t.ok(JSON.stringify(r.ownerDirt) === JSON.stringify(OWNER_DIRT) && OWNER_DIRT.every((p) => (r.note || '').includes(p)), `the record lists every owner path (got ${JSON.stringify(r.ownerDirt)} / ${r.note})`)
+    t.ok(hasLog(run, /src\/owner-draft\.ts/), 'the log names the paths')
+    const two = run.next
+    t.ok(two && !two.error && byLabel(two, /^dispatch:/).length >= 1 && !((two.result && two.result.blockedFrds) || []).includes('owner-dirt'), 'the classic lane (mechScript alone) is unchanged: its judge-baseline reconciliation handles owner dirt')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-22b. fast-lane builder prompt: an undeclared path is the builder\'s own (the tree had no owner edit at dispatch)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-o23', ids: ['wo-o23-001'] }]),
+  responses: [],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, /^fast-build:frd-o23/)[0]
+    t.ok(b && /no owner edit/i.test(b.prompt) && /--files/.test(b.prompt), 'the builder is told the dirty tree at dispatch held no owner edit and that a parked leftover is refused in --files too')
+  },
+})
+
 // A model sometimes returns its structured answer wrapped as ONE string-valued key ({"parameter": "<json>"}) instead of
 // the schema's own fields. The seal covers the inner line, never the wrapper: the engine unwraps once, then checks it.
 const wrapped = (answer) => ({ parameter: typeof answer === 'string' ? answer : JSON.stringify(answer) })
