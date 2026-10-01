@@ -1,5 +1,18 @@
 # Decision Log — Mission Control
 
+## 2026-10-01 — Pandacorp overlay upgraded 8.94.0 -> 8.95.0
+
+**What:** compatible (same MAJOR) bump. Gate-config conformance (DR-059): `e2e/visual.spec.ts` drifted only by the
+template's new `gotoHydrated(..., { optional: true })` navigation and was regenerated; the hydration helper
+`e2e/_hydration.ts` and its fixture-only self-test `e2e/hydration.spec.ts` were installed for the first time;
+`docs/rules/quality-and-testing.md` re-synced (form specs use `gotoHydrated` + keep one pre-hydration privacy test).
+The build engine was already byte-identical (previous entry); `verify.sh`, `canary.sh`, `biome.json`, `knip.json`,
+`playwright.config.ts` and the other e2e files matched; managed `guide.md`/`README.md`/`AGENTS.md` templates unchanged;
+toolchain (devDependencies, scripts, strict tsconfig) already conformant. `verify.sh --canary` 10/10 and a full
+`verify.sh` baseline both green; the new hydration self-test passes (10/10).
+
+**Why:** carry plugin 9.118.0's hydration-safe e2e machinery (bench A-1 visual/hydration race) into this project.
+
 ## 2026-10-01 — Manual: measured `maxAgents` rule; build engine copy follows plugin 9.118.0
 
 **What:** the Manual's "Desatendida" detail and the parallel-gates note replace the "at least 15 per FRD" rule of thumb with the measured one (≈8 base + 4-6 per work order + ≈20 per reviewed FRD, 24 with the drift finder; ≈48 units for 1 FRD / 3 WOs / one reopen) and mention the opt-in `maxAgents auto`. `.claude/engines/pandacorp-build.js` is copied byte-identical from the plugin template (9.118.0). `overlay_version` stays 8.94.0: the other 8.95.0 template changes (stack-a e2e hydration helper, `docs/rules/quality-and-testing.md`) arrive with `/pandacorp:upgrade`.

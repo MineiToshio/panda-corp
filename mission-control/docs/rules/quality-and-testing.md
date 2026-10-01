@@ -40,6 +40,8 @@ source: Pandacorp standard — quality
 
 ## E2E & independent verification
 - E2E only on critical flows; select by `data-testid`, not brittle text/CSS; leave NO persistent test data (deterministic teardown or an ephemeral DB).
+- **Hydration-safe e2e (web UI).** Every e2e spec that fills or submits a form starts with `gotoHydrated(page, path)` from `e2e/_hydration.ts` — never a bare `page.goto` followed by `fill`. `goto` resolves before React hydrates, so typed input reaches only the DOM and the submit falls back to a native GET (a flaky test, and form data in the URL). The helper waits on the page's FORM (not `main`); a product that needs a stricter signal sets `data-hydrated` on the form or an ancestor from a client effect and the helper honors it first.
+- **Keep ONE pre-hydration privacy test per form-bearing product.** With `test.use({ javaScriptEnabled: false })` call `assertPreHydrationSubmitIsInert(page, path, { field })` from `e2e/_hydration.ts`: a native submit before hydration must send nothing and leave the URL unchanged (an unguarded client-handled form leaks what was typed, a name, an email, a message, into the URL and the server log). Guard the form in the product (`method="dialog"` for a client-handled form, or a Server Action that posts) — never delete the test to make it green. The template's `e2e/hydration.spec.ts` proves the helper itself goes RED on an unguarded fixture.
 - Generator ≠ verifier: re-run the evidence; never trust a claim of "tests pass".
 
 ## Owner-attended live attempts
