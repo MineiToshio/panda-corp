@@ -1342,6 +1342,93 @@ SCENARIOS.push({
   },
 })
 
+// A freshly architected project: verify.sh is red BY CONSTRUCTION (knip flags the deps the WOs will import, vitest finds
+// no tests) and last_green_sha is empty, so the cheap pre-check can only escalate. The fast lane reads the precheck's
+// deterministic greenfield verdict and builds: no judge baseline, no stop.
+const GREENFIELD = { greenfield: true, reason: 'no published last_green_sha and none of the 2 work order(s) built yet' }
+SCENARIOS.push({
+  name: 'F39-19. fast-lane-greenfield-starts — a freshly architected project (no last_green_sha, every WO PLANNED) builds: no judge baseline is spent and the run never stops on the red-by-construction verify.sh',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-g19', ids: ['wo-g19-001', 'wo-g19-002'] }]),
+  responses: [
+    { label: 'mech-precheck', response: precheckLine({ greenfield: GREENFIELD }) },
+    { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+    { label: 'baseline', response: { green: false, failure: 'knip: unused dependencies; vitest: no test files found' } },
+  ],
+  next: () => ({
+    args: { mode: 'balanced', ...FAST },
+    plan: fastPlan([{ frd: 'frd-g19', ids: ['wo-g19-001'] }]),
+    responses: [
+      { label: 'mech-precheck', response: precheckLine({ greenfield: { greenfield: false, reason: 'last_green_sha is "abc": a published pin' } }) },
+      { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+      { label: 'baseline', response: { green: false, failure: 'a real regression' } },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no judge baseline is spent on a greenfield project')
+    t.ok(byLabel(run, 'baseline-precheck').length === 1, 'the cheap pre-check still runs (launch event, owner stop, rethink)')
+    t.ok(byLabel(run, 'ensure-stopped').length === 0 && !(run.result.blockedFrds || []).includes('baseline'), 'the run does not stop at the baseline')
+    t.ok(hasLog(run, /greenfield/i) && hasLog(run, /red by construction|none of the 2 work order/), 'the log says why (the precheck\'s deterministic verdict)')
+    t.ok(byLabel(run, 'fast-build:frd-g19').length === 1 && run.result.builtFrds.includes('frd-g19'), 'it builds and verifies')
+    const two = run.next
+    t.ok(two && !two.error && byLabel(two, 'baseline').length === 1 && (two.result.blockedFrds || []).includes('baseline'), 'not greenfield: the judge baseline runs and a red baseline still stops the run (unchanged)')
+  },
+})
+
+// A model sometimes returns its structured answer wrapped as ONE string-valued key ({"parameter": "<json>"}) instead of
+// the schema's own fields. The seal covers the inner line, never the wrapper: the engine unwraps once, then checks it.
+const wrapped = (answer) => ({ parameter: typeof answer === 'string' ? answer : JSON.stringify(answer) })
+SCENARIOS.push({
+  name: 'F39-20. fast-lane-mech-answers-wrapped-in-one-key — every scripted receipt the fast lane consumes is read through a {"parameter": "<json>"} wrapper (the object or the bare sealed line), and the seal still decides',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-w20', ids: ['wo-w20-001', 'wo-w20-002'] }]),
+  noPlanLine: true,
+  responses: [
+    { label: 'mech-precheck', response: wrapped(precheckLine({ greenfield: GREENFIELD })) },
+    { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+    { label: 'mech-plan', response: wrapped(mechLine('plan', { status: 'planned', unsatisfiedDeps: [], ...fastPlan([{ frd: 'frd-w20', ids: ['wo-w20-001', 'wo-w20-002'] }]) })) },
+    { label: 'dispatch:frd-w20', response: wrapped({ line: mechLine('dispatch', { status: 'stamped', stamped: ['wo-w20-001', 'wo-w20-002'], committed: 'd15pa7c', base: 'd15pa7cbase0' }) }) },
+    { label: 'fast-build:frd-w20', response: wrapped({ wos: [{ id: 'wo-w20-001', line: commitLine('wo-w20-001') }, { id: 'wo-w20-002', line: commitLine('wo-w20-002') }] }) },
+    { label: 'verify:frd-w20', response: wrapped(mechLine('verify', { status: 'green', frd: 'frd-w20', green: true, usable: true, floor: false, sha: 'abc000000020', scope: 'full' })) },
+    { label: 'safe-point-probe', response: wrapped({ line: mechLine('safe-point', { status: 'quiet', stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, rethink_pending: false, renewed: true, ready: [], unreadable: [], blockedNeedsOwner: [], answeredDecisions: 0, work: false }) }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'baseline').length === 0 && byLabel(run, 'ensure-stopped').length === 0, 'the wrapped precheck receipt is read (greenfield): no judge baseline, no stop')
+    t.ok(byLabel(run, 'plan').length === 0, 'the wrapped plan receipt is read: no plan agent fallback')
+    t.ok(byLabel(run, /^fast-retry:/).length === 0 && byLabel(run, /^park:/).length === 0 && !hasLog(run, /no valid sealed commit-wo/), 'the wrapped builder answer lands both work orders')
+    t.ok(run.result && JSON.stringify(run.result.usable) === JSON.stringify([{ frd: 'frd-w20', sha: 'abc000000020' }]), `the wrapped verify receipt makes it USABLE (got ${run.result && JSON.stringify(run.result.usable)})`)
+    t.ok(byLabel(run, 'safe-point').length === 0, 'the wrapped safe-point probe is read: no LLM drain fallback')
+    t.ok(run.result.builtFrds.includes('frd-w20'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-20b. fast-lane-wrapped-answer-still-sealed — a wrapped line whose seal no longer holds is still refused (fail-closed), and a wrapped revert receipt is read',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-w20b', ids: ['wo-w20b-001'] }]),
+  responses: [
+    { label: 'mech-precheck', response: wrapped({ line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }).replace('"onMain":true', '"onMain":false') }) },
+  ],
+  next: () => ({
+    args: { mode: 'balanced', ...FAST },
+    plan: fastPlan([{ frd: 'frd-p20', ids: ['wo-p20-001'] }]),
+    responses: [
+      { label: 'fast-build:frd-p20', response: parkedVia(['wo-p20-001']) },
+      { label: 'fast-retry:frd-p20', response: parkedVia(['wo-p20-001']) },
+      { label: 'repair:frd-p20', response: { green: false, blocked_reason: 'error', failure: 'cannot build it' } },
+      { label: 'wo-revert-plan:frd-p20', response: wrapped({ output: sealLine({ ok: true, version: 1, frd: 'frd-p20', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) }) },
+      { label: 'wo-revert-apply:frd-p20', response: wrapped(sealLine({ ok: true, version: 1, frd: 'frd-p20', mode: 'apply', status: 'nothing', changed: false, wos: [], files: [] })) },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error && (run.result.blockedFrds || []).includes('precheck') && byLabel(run, /^fast-build:/).length === 0, 'a wrapped line that fails its seal stops the run before planning, exactly like an unwrapped one')
+    const two = run.next
+    t.ok(two && !two.error && byLabel(two, /^wo-revert-replay:/).length === 0 && byLabel(two, /^block-revert-refused:/).length === 0, 'the wrapped revert receipts are read (no replay, no refusal)')
+    t.ok(two.result.blockedReasons['frd-p20'] === 'error', `the repair's own reason stands (got ${JSON.stringify(two.result.blockedReasons)})`)
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-11. fast-lane-builder-hits-the-limit — a usage limit inside the FRD builder pauses the run: its unlanded WOs are parked, nothing is repaired or blocked',
   args: { mode: 'balanced', ...FAST },

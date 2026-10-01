@@ -956,6 +956,15 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   flip to `IN_REVIEW` is not committed on `HEAD` after its last `IN_PROGRESS` dispatch stamp (the `wo-revert.mjs`
   window, history walked with `--full-history`). `run_started_at` is not used, so a resume never rebuilds a previous
   run's committed work. Off `main` the demotion is report-only.
+- **Greenfield start.** A freshly architected project has `verify.sh` red by construction (knip flags the dependencies
+  the work orders will import, vitest finds no tests) and no `last_green_sha`, so the baseline pre-check can only
+  escalate. The `precheck` reports `greenfield` from durable state only: no published `last_green_sha` (absent, empty,
+  `null`, `~`) and every work order `PLANNED`/`DRAFT` or only dispatched (`IN_PROGRESS`), none built or `BLOCKED`. The
+  fast lane then spends no judge baseline and never stops there; each FRD's own `verify` certifies what it builds. Any
+  other state keeps the unchanged baseline.
+- **Wrapped relay answers.** A model may return a structured answer as one string-valued key (`{"parameter":
+  "<json>"}`). Every sealed-receipt reader unwraps it once (the inner object carrying the expected key, or the bare
+  sealed line) before its seal check, which still decides.
 
 **The fast build shape (needs `mechScript`; `lane:'fast'` with `mechScript:false` builds classic waves).**
 - **Sequential FRD lanes on `main` (§11).** One FRD at a time in dependency order; no worktree lanes, no landing train,

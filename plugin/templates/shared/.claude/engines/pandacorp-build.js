@@ -606,7 +606,8 @@ const driftSealHolds = (text) => {
  const m = DRIFT_SEAL_RE.exec(text)
  return Boolean(m) && cyrb53(`${text.slice(0, m.index)}}`).toString(16).padStart(14, '0') === m[1]
 }
-function parseDriftProof(raw) {
+function parseDriftProof(answer) {
+ const raw = unwrapAnswer(answer, 'output')
  const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
  if (!text) return { proof: null, error: 'the drift-proof runner returned no output', transport: true }
  let j
@@ -702,6 +703,7 @@ async function recordDrift(frd, confirmed) {
    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
     { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
   } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
+  raw = unwrapAnswer(raw, 'output')
   try { res = raw && typeof raw.output === 'string' ? JSON.parse(raw.output.trim().split('\n').pop()) : null } catch { res = null }
   if (!res && attempt === 1) log(`⚠ ${frd}: the drift-record result was unreadable — running the idempotent command once more (BL-0206)`)
  }
@@ -905,7 +907,21 @@ const FOUNDATION_SCHEMA = {
   } },
  },
 }
-function parseMechLine(raw, op) {
+function unwrapAnswer(raw, key) {
+ const fromText = (text) => {
+  let j = null
+  try { j = JSON.parse(text) } catch { return null }
+  if (!j || typeof j !== 'object' || Array.isArray(j)) return null
+  if (key in j) return j
+  return typeof j.sum === 'string' ? { [key]: text.trim() } : null
+ }
+ if (typeof raw === 'string') return fromText(raw) || raw
+ if (!raw || typeof raw !== 'object' || Array.isArray(raw) || key in raw) return raw
+ const keys = Object.keys(raw)
+ return keys.length === 1 && typeof raw[keys[0]] === 'string' ? (fromText(raw[keys[0]]) || raw) : raw
+}
+function parseMechLine(answer, op) {
+ const raw = unwrapAnswer(answer, 'line')
  const text = raw && typeof raw.line === 'string' ? raw.line.trim().split('\n').pop().trim() : ''
  if (!text) return { body: null, error: `the ${op} runner returned no line` }
  let j
@@ -965,6 +981,7 @@ async function preLoopGuarded(fn) {
  }
 }
 phase('Baseline')
+let mechGreenfield = null
 if (MECH_SCRIPT) {
  agentSpawned++
  const pre = await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
@@ -978,6 +995,7 @@ if (MECH_SCRIPT) {
  }
  const demoted = Array.isArray(p.demoted) ? p.demoted : []
  for (const d of demoted) log(`↓ resume: ${d.wo} demoted ${d.from}→${d.to} (${d.why}${d.applied === false ? ', reported only: not on main' : ''}) — rebuilt this run (proposal 39 C7)`)
+ if (FAST && p.greenfield && p.greenfield.greenfield === true) mechGreenfield = { reason: String(p.greenfield.reason || 'greenfield') }
  if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
  if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
  if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
@@ -1039,6 +1057,9 @@ if (precheck && precheck.green === true) {
 } else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
  baseline = { green: true }
  log('Baseline verde (fast path BL-0124: el único diff sucio es el status.yaml propio bajo un lease ya probado válido) — no se corrió verify.sh.')
+} else if (mechGreenfield) {
+ baseline = { green: true }
+ log(`Baseline: greenfield (${mechGreenfield.reason}) — sin juez de baseline: verify.sh es rojo por construcción hasta que se construyan; cada FRD lo certifica en su propio verify (proposal 39, fast lane).${precheck && precheck.dirty ? ` Rutas sucias del proyecto que el motor NO toca: ${(projectDirtyPaths || []).slice(0, 10).join(', ') || '(sin lista)'}.` : ''}`)
 } else if (!STRICT_BASELINE && isGreenfield(greenfieldFacts)) {
  baseline = { green: true }
  baselineGreenfield = greenfieldFacts
@@ -1417,6 +1438,7 @@ async function verifyEvidenceSeal(frd, raw, pinSha) {
    again = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 evidence re-read for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${SEAL_REPORT_CLI_COMMAND} reread --file "${gateSealedReportPath(frd)}"\`. It only prints a line the collector stored earlier, so it is instant. Do not inspect, edit, fix, summarize, re-format or re-indent its output: it is ONE sealed JSON line and the engine verifies its checksum character by character.`,
     { label: `evidence-reread:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
   } catch (e) { log(`⚠ ${frd}: the evidence re-read runner threw (${(e && e.message) || e})`) }
+  again = unwrapAnswer(again, 'output')
   read = readSealedReport(again && typeof again.output === 'string' ? again.output : '', frd, pinSha)
  }
  if (!read.report) return { report: null, reason: `${read.error}${read.transport ? ` after ${EVIDENCE_REREADS} re-read(s)` : ''}` }
@@ -1515,7 +1537,8 @@ const finderCitedFile = (file, pinDir) => {
  }
  return f
 }
-function parseSnippetCheck(raw, pinSha, rows) {
+function parseSnippetCheck(answer, pinSha, rows) {
+ const raw = unwrapAnswer(answer, 'output')
  const line = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
  if (!line) return { error: 'the snippet checker returned no output' }
  let j = null
@@ -1712,6 +1735,7 @@ async function resolveInventoryCache(frd, pinSha) {
   raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0189 inventory-cache check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It only READS (git objects and one gitignored file) and prints ONE JSON line. Do not inspect, edit, fix, summarize or reformat anything.`,
    { label: `gate-inventory:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
  } catch (e) { log(`⚠ ${frd}: the inventory-cache check threw (${(e && e.message) || e}) — full whole-FRD inventory this gate`); return { hit: false, reason: 'check threw' } }
+ raw = unwrapAnswer(raw, 'output')
  const line = (raw && typeof raw.output === 'string') ? raw.output.trim().split('\n').pop() : ''
  let j = null
  try { j = JSON.parse(line) } catch { j = null }
@@ -2290,7 +2314,8 @@ async function certifyPatched(frd, reviewIds, verdict) {
  return link.then((r) => Boolean(r && r.done === true), (e) => { log(`certify-patch failed for ${frd}: ${(e && e.message) || e}`); return false })
 }
 const WO_REVERT_OK = new Set(['reverted', 'nothing'])
-function parseWoRevert(raw, frd, mode) {
+function parseWoRevert(answer, frd, mode) {
+ const raw = unwrapAnswer(answer, 'output')
  const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
  if (!text) return { receipt: null, error: 'the revert runner returned no output', transport: true }
  let j
@@ -3429,7 +3454,8 @@ HOW TO RUN each work order, in order:
  3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → undo the stray edit, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's: drop that --extra, run the park command of the work order it names, then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
-function fastLanded(wos, answer) {
+function fastLanded(wos, wrappedAnswer) {
+ const answer = unwrapAnswer(wrappedAnswer, 'wos')
  const rows = answer && Array.isArray(answer.wos) ? answer.wos : []
  const out = { committed: [], parked: [], unproven: [] }
  for (const w of wos) {

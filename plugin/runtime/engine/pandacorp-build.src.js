@@ -1366,7 +1366,8 @@ const driftSealHolds = (text) => {
 // the claim, so the caller never turns it into a verdict (a cycle fault / reopen, BL-0206) — it re-reads the
 // stored proof and, failing that, leaves the claim UNPROVEN. A script REFUSAL (`ok:false`, an intact line) and a
 // shape violation in a sealed line stay what they always were: fail-closed cycle faults.
-function parseDriftProof(raw) {
+function parseDriftProof(answer) {
+  const raw = unwrapAnswer(answer, 'output')
   const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
   if (!text) return { proof: null, error: 'the drift-proof runner returned no output', transport: true }
   let j
@@ -1476,6 +1477,7 @@ async function recordDrift(frd, confirmed) {
       raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
         { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
+    raw = unwrapAnswer(raw, 'output')
     try { res = raw && typeof raw.output === 'string' ? JSON.parse(raw.output.trim().split('\n').pop()) : null } catch { res = null }
     if (!res && attempt === 1) log(`⚠ ${frd}: the drift-record result was unreadable — running the idempotent command once more (BL-0206)`)
   }
@@ -1758,8 +1760,25 @@ const FOUNDATION_SCHEMA = {
 // Mission Control showing a phantom running build until the next launch. ensureStopped() is a single cheap
 // MECH spawn that guarantees running:false (and NEVER touches `phase`) — awaited before every such return.
 // ── Proposal 39: scripted MECH ops (C1) and the paused-infra exit (C7) ─────────────────────────────
+// A model sometimes returns its structured answer wrapped as ONE string-valued key ({"parameter": "<json>"}) instead of
+// the schema's own `key`. Unwrapped once, before any check: the inner JSON object when it carries `key`, or the bare
+// sealed line itself (an object with its "sum") as `key`. Nothing else is guessed; the seal check still decides.
+function unwrapAnswer(raw, key) {
+  const fromText = (text) => {
+    let j = null
+    try { j = JSON.parse(text) } catch { return null }
+    if (!j || typeof j !== 'object' || Array.isArray(j)) return null
+    if (key in j) return j
+    return typeof j.sum === 'string' ? { [key]: text.trim() } : null
+  }
+  if (typeof raw === 'string') return fromText(raw) || raw
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || key in raw) return raw
+  const keys = Object.keys(raw)
+  return keys.length === 1 && typeof raw[keys[0]] === 'string' ? (fromText(raw[keys[0]]) || raw) : raw
+}
 // The relay is a model, never a lossless copy channel: the line must carry a valid seal and name its own op.
-function parseMechLine(raw, op) {
+function parseMechLine(answer, op) {
+  const raw = unwrapAnswer(answer, 'line')
   const text = raw && typeof raw.line === 'string' ? raw.line.trim().split('\n').pop().trim() : ''
   if (!text) return { body: null, error: `the ${op} runner returned no line` }
   let j
@@ -1846,6 +1865,11 @@ phase('Baseline')
 // discards, commits the journals' pending lines (never resets them), salvages engine-owned dirt (a WO file whose diff is
 // only the engine's frontmatter keys; an owner-edited WO keeps every byte but its status) and demotes every IN_REVIEW without a flip commit
 // after its last IN_PROGRESS stamp, so the planner below reads only committed truth. Unverifiable = fail-closed stop.
+// Greenfield (fast lane): a freshly architected project's verify.sh is red BY CONSTRUCTION (knip flags the dependencies
+// the work orders will import, vitest finds no tests) and it has no last_green_sha, so the cheap pre-check can only
+// escalate. The precheck decides greenfield from status.yaml and the work-order frontmatter (never model prose); the
+// fast lane then spends no judge baseline on it and never stops there: each FRD's own verify certifies what it builds.
+let mechGreenfield = null
 if (MECH_SCRIPT) {
   agentSpawned++
   const pre = await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
@@ -1859,6 +1883,7 @@ if (MECH_SCRIPT) {
   }
   const demoted = Array.isArray(p.demoted) ? p.demoted : []
   for (const d of demoted) log(`↓ resume: ${d.wo} demoted ${d.from}→${d.to} (${d.why}${d.applied === false ? ', reported only: not on main' : ''}) — rebuilt this run (proposal 39 C7)`)
+  if (FAST && p.greenfield && p.greenfield.greenfield === true) mechGreenfield = { reason: String(p.greenfield.reason || 'greenfield') }
   if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
   if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
   if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
@@ -1951,6 +1976,9 @@ if (precheck && precheck.green === true) {
 } else if (!STRICT_BASELINE && precheck && precheck.leaseValid === true && leasedStatusOnly) {
   baseline = { green: true }
   log('Baseline verde (fast path BL-0124: el único diff sucio es el status.yaml propio bajo un lease ya probado válido) — no se corrió verify.sh.')
+} else if (mechGreenfield) {
+  baseline = { green: true }
+  log(`Baseline: greenfield (${mechGreenfield.reason}) — sin juez de baseline: verify.sh es rojo por construcción hasta que se construyan; cada FRD lo certifica en su propio verify (proposal 39, fast lane).${precheck && precheck.dirty ? ` Rutas sucias del proyecto que el motor NO toca: ${(projectDirtyPaths || []).slice(0, 10).join(', ') || '(sin lista)'}.` : ''}`)
 } else if (!STRICT_BASELINE && isGreenfield(greenfieldFacts)) {
   baseline = { green: true }
   baselineGreenfield = greenfieldFacts
@@ -2585,6 +2613,7 @@ async function verifyEvidenceSeal(frd, raw, pinSha) {
       again = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 evidence re-read for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${SEAL_REPORT_CLI_COMMAND} reread --file "${gateSealedReportPath(frd)}"\`. It only prints a line the collector stored earlier, so it is instant. Do not inspect, edit, fix, summarize, re-format or re-indent its output: it is ONE sealed JSON line and the engine verifies its checksum character by character.`,
         { label: `evidence-reread:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) { log(`⚠ ${frd}: the evidence re-read runner threw (${(e && e.message) || e})`) }
+    again = unwrapAnswer(again, 'output')
     read = readSealedReport(again && typeof again.output === 'string' ? again.output : '', frd, pinSha)
   }
   if (!read.report) return { report: null, reason: `${read.error}${read.transport ? ` after ${EVIDENCE_REREADS} re-read(s)` : ''}` }
@@ -2729,7 +2758,8 @@ const finderCitedFile = (file, pinDir) => {
   return f
 }
 // → { results: Map<rowIndex,status> } | { error } — the line must verify, name this pin and answer every row asked.
-function parseSnippetCheck(raw, pinSha, rows) {
+function parseSnippetCheck(answer, pinSha, rows) {
+  const raw = unwrapAnswer(answer, 'output')
   const line = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
   if (!line) return { error: 'the snippet checker returned no output' }
   let j = null
@@ -2979,6 +3009,7 @@ async function resolveInventoryCache(frd, pinSha) {
     raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0189 inventory-cache check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It only READS (git objects and one gitignored file) and prints ONE JSON line. Do not inspect, edit, fix, summarize or reformat anything.`,
       { label: `gate-inventory:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
   } catch (e) { log(`⚠ ${frd}: the inventory-cache check threw (${(e && e.message) || e}) — full whole-FRD inventory this gate`); return { hit: false, reason: 'check threw' } }
+  raw = unwrapAnswer(raw, 'output')
   const line = (raw && typeof raw.output === 'string') ? raw.output.trim().split('\n').pop() : ''
   let j = null
   try { j = JSON.parse(line) } catch { j = null }
@@ -3873,7 +3904,8 @@ async function certifyPatched(frd, reviewIds, verdict) {
 const WO_REVERT_OK = new Set(['reverted', 'nothing'])
 // `frd`/`mode`: the receipt must be THIS request's (red-team 2026-09-30) — a sealed line of another FRD or mode is a
 // misdirected or stale copy (a plan's "reverted" read as the apply's would report a discard that never ran).
-function parseWoRevert(raw, frd, mode) {
+function parseWoRevert(answer, frd, mode) {
+  const raw = unwrapAnswer(answer, 'output')
   const text = raw && typeof raw.output === 'string' ? raw.output.trim().split('\n').pop() : ''
   if (!text) return { receipt: null, error: 'the revert runner returned no output', transport: true }
   let j
@@ -5535,7 +5567,8 @@ HOW TO RUN each work order, in order:
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
 // The engine trusts only a sealed commit-wo (or park-wo) receipt naming the work order; anything else did not land.
-function fastLanded(wos, answer) {
+function fastLanded(wos, wrappedAnswer) {
+  const answer = unwrapAnswer(wrappedAnswer, 'wos')
   const rows = answer && Array.isArray(answer.wos) ? answer.wos : []
   const out = { committed: [], parked: [], unproven: [] }
   for (const w of wos) {

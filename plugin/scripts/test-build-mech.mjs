@@ -463,6 +463,50 @@ console.log('precheck: an IN_REVIEW counts only with a flip commit after its las
   } finally { o.cleanup() }
 }
 
+// A freshly architected project has verify.sh red BY CONSTRUCTION (knip flags the deps the WOs will import, vitest finds
+// no tests): the precheck says so deterministically, from status.yaml and the work-order frontmatter, never model prose.
+console.log('precheck: greenfield = no last_green_sha and every work order PLANNED/DRAFT or only dispatched (none built, none BLOCKED)')
+{
+  const fresh = (statusYaml, statuses) => {
+    const r = mkRepo()
+    r.write('.pandacorp/status.yaml', statusYaml)
+    r.write(WO_A, woMd('WO-01-001', statuses[0]))
+    r.write(WO_B, woMd('WO-01-002', statuses[1]))
+    r.write(WO_C, woMd('WO-02-001', statuses[2]))
+    r.git('add', '-A')
+    r.git('commit', '-q', '-m', 'docs: architecture')
+    return r
+  }
+  const gf = (r) => { const p = r.run('precheck'); return { p, g: p.receipt && p.receipt.greenfield } }
+  const cases = [
+    ['no last_green_sha, every WO PLANNED', 'phase: implementation\n', ['PLANNED', 'PLANNED', 'PLANNED'], true],
+    ['an empty last_green_sha, PLANNED + DRAFT', 'phase: implementation\nlast_green_sha: ""\n', ['PLANNED', 'DRAFT', 'PLANNED'], true],
+    ['last_green_sha: null', 'phase: implementation\nlast_green_sha: null # never published\n', ['PLANNED', 'PLANNED', 'PLANNED'], true],
+    ['a published last_green_sha', 'phase: implementation\nlast_green_sha: 0123456789abcdef0123456789abcdef01234567\n', ['PLANNED', 'PLANNED', 'PLANNED'], false],
+    ['an unreadable last_green_sha value', 'phase: implementation\nlast_green_sha: TBD\n', ['PLANNED', 'PLANNED', 'PLANNED'], false],
+    ['one WO already IN_REVIEW', 'phase: implementation\n', ['PLANNED', 'IN_REVIEW', 'PLANNED'], false],
+    // A fast run paused before its first commit-wo left only committed dispatch stamps: still nothing built.
+    ['a committed dispatch stamp (IN_PROGRESS), nothing committed IN_REVIEW', 'phase: implementation\n', ['IN_PROGRESS', 'IN_PROGRESS', 'PLANNED'], true],
+    ['IN_PROGRESS next to a WO already IN_REVIEW', 'phase: implementation\n', ['IN_PROGRESS', 'IN_REVIEW', 'PLANNED'], false],
+    ['one WO VERIFIED', 'phase: implementation\n', ['VERIFIED', 'PLANNED', 'PLANNED'], false],
+    ['one WO BLOCKED', 'phase: implementation\n', ['PLANNED', 'PLANNED', 'BLOCKED'], false],
+  ]
+  for (const [what, yaml, statuses, want] of cases) {
+    const r = fresh(yaml, statuses)
+    try {
+      const { p, g } = gf(r)
+      ok(p.code === 0 && p.sealed && g && g.greenfield === want && typeof g.reason === 'string' && g.reason.length > 0, `${what} → greenfield ${want} (got ${JSON.stringify(g)})`)
+    } finally { r.cleanup() }
+  }
+  const empty = mkRepo()
+  try {
+    empty.git('rm', '-q', '-r', '--', 'proj/docs')
+    empty.git('commit', '-q', '-m', 'chore: no work orders')
+    const { g } = gf(empty)
+    ok(g && g.greenfield === false, `no work order at all is not greenfield (nothing to build) (got ${JSON.stringify(g)})`)
+  } finally { empty.cleanup() }
+}
+
 // ── dispatch ─────────────────────────────────────────────────────────────────────────────────────
 console.log('dispatch: the IN_PROGRESS stamp, frontmatter only, optionally committed')
 {
