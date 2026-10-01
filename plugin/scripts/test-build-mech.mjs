@@ -312,7 +312,7 @@ console.log('park-wo: a failed WO\'s dirty paths move to salvage and are reset')
 }
 
 // ── precheck ─────────────────────────────────────────────────────────────────────────────────────
-console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, owner dirt untouched')
+console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, the journals committed, owner dirt untouched')
 {
   const r = mkRepo()
   try {
@@ -323,16 +323,19 @@ console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, ow
     r.write(WO_A, WO_A_TEXT('PLANNED'))
     r.git('commit', '-q', '-am', 'chore(frd-01-alpha): reopen WO-01-001')
     r.write('.pandacorp/run/wo-revert/pending-frd-01-alpha.json', `${JSON.stringify({ version: 1, frd: 'frd-01-alpha', wos: ['WO-01-001'], expectStatus: 'PLANNED', seam: [], head: 'x', at: new Date().toISOString() })}\n`)
-    // A crash residue: dirty WO frontmatter + journal (engine-owned) next to owner edits.
+    // A crash residue: dirty WO frontmatter (engine-owned) + a paused run's journal lines, next to owner edits.
     r.write(WO_B, woMd('WO-01-002', 'IN_REVIEW', { acs: ['AC-01-002.1'] }))
-    r.write('.pandacorp/track.jsonl', '{"kind":"start"}\n{"kind":"crash"}\n')
+    r.write('.pandacorp/track.jsonl', '{"kind":"start"}\n{"kind":"build_paused","reason":"limit"}\n')
+    r.write('.pandacorp/build-journal.jsonl', '{"kind":"attempt","wo":"WO-01-002"}\n')
     r.write('src/owner.ts', 'owner work in progress\n')
     r.write('.pandacorp/status.yaml', 'phase: implementation\nrunning: true\n')
     const p = r.run('precheck', ['--events', r.events])
     ok(p.code === 0 && p.sealed && p.receipt.onMain === true, 'precheck exits 0 with one sealed line, on main')
     ok(p.receipt.reverts.length === 1 && p.receipt.reverts[0].frd === 'frd-01-alpha' && p.receipt.reverts[0].recovery === 'recovered' && r.read('src/alpha.ts') === null, 'the interrupted discard is finished first (wo-revert recover)')
     const salvaged = p.receipt.salvaged.map((x) => x.path).sort()
-    ok(JSON.stringify(salvaged) === JSON.stringify(['.pandacorp/track.jsonl', WO_B].sort()), `engine-owned dirt is salvaged (${salvaged.join(', ')})`)
+    ok(JSON.stringify(salvaged) === JSON.stringify([WO_B]), `only the engine-owned WO frontmatter is salvaged, never a journal (${salvaged.join(', ')})`)
+    ok(/build_paused/.test(r.atHead('.pandacorp/track.jsonl') || '') && /"attempt"/.test(r.atHead('.pandacorp/build-journal.jsonl') || '') && p.receipt.journalsCommit && r.git('log', '--format=%s', '-20').split('\n').some((x) => /journals/.test(x)), `the append-only journals are committed (the build_paused line survives into the timeline), never reset (got ${p.receipt.journalsCommit})`)
+    ok(!r.status().split('\n').some((l) => /\.pandacorp\/(track|build-journal)\.jsonl$/.test(l)), 'no journal is left dirty')
     ok(r.read(WO_B) === woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'] }) && /IN_REVIEW/.test(readFileSync(path.join(r.proj, p.receipt.salvageDir, WO_B), 'utf8')), 'the WO frontmatter is reset to HEAD and its dirty copy kept in salvage')
     ok(r.read('src/owner.ts') === 'owner work in progress\n' && /running: true/.test(r.read('.pandacorp/status.yaml')) && p.receipt.ownerDirt.includes('src/owner.ts'), 'owner dirt and the lease projection are never touched (owner dirt reported)')
   } finally { r.cleanup() }
@@ -340,8 +343,11 @@ console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, ow
   try {
     b.git('checkout', '-q', '-b', 'build/x')
     b.write(WO_B, woMd('WO-01-002', 'IN_REVIEW'))
+    b.write('.pandacorp/track.jsonl', '{"kind":"start"}\n{"kind":"build_paused"}\n')
+    const head = b.head()
     const p = b.run('precheck', ['--events', b.events])
     ok(p.code === 0 && p.receipt.onMain === false && p.receipt.salvaged.length === 0 && /IN_REVIEW/.test(b.read(WO_B)), 'off main: nothing is salvaged or reset')
+    ok(b.head() === head && /build_paused/.test(b.read('.pandacorp/track.jsonl')) && !p.receipt.journalsCommit, 'off main: the journals are neither committed nor reset')
   } finally { b.cleanup() }
 }
 
@@ -734,6 +740,136 @@ console.log('precheck: USABLE is derived from the committed build_usable lines, 
       r.write('.pandacorp/track.jsonl', `${r.read('.pandacorp/track.jsonl')}{"kind":"build_usable","frd":"frd-01-alpha","sha":"0123456789ab","at":"2026-10-01T00:00:00Z"}\n`)
       r.git('commit', '-q', '-am', 'chore: a line naming a sha that is not in the history')
       ok(JSON.stringify(usableOf(r.run('precheck'))) === '[]', 'a build_usable line whose sha is not an ancestor of HEAD is ignored')
+    } finally { r.cleanup() }
+  }
+}
+
+// ── the shared journals are append-only and written by concurrent writers (a gate in a parallel slot, F39-7) ──
+const GATE_LINE = '{"kind":"review_start","frd":"frd-02-gamma","at":"2026-10-01T00:00:00Z"}'
+const postCommitHook = (r, body) => { const h = path.join(r.root, '.git', 'hooks', 'post-commit'); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755) }
+console.log('commit-wo: a gate journal line landing around the commit never undoes it and is never erased')
+{
+  const r = mkRepo()
+  try {
+    buildAlpha(r)
+    postCommitHook(r, `printf '%s\\n' '${GATE_LINE}' >> "${r.abs('.pandacorp/track.jsonl')}"`)
+    const before = r.head()
+    const c = r.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 0 && c.receipt.status === 'committed' && r.head() !== before, `a journal line appended right after the commit is tolerated (got ${c.code} ${c.receipt && c.receipt.status} ${c.receipt && c.receipt.reason})`)
+    ok(/implementation_status: IN_REVIEW/.test(r.atHead(WO_A)) && r.read('.pandacorp/track.jsonl').includes(GATE_LINE), 'the WO stays committed IN_REVIEW and the gate line is kept for the next committer')
+  } finally { r.cleanup() }
+  const f = mkRepo()
+  try {
+    buildAlpha(f)
+    f.hook(`printf '%s\\n' '${GATE_LINE}' >> "${f.abs('.pandacorp/track.jsonl')}"; exit 1`)
+    const c = f.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 4 && c.receipt.status === 'commit-failed', 'fixture: the commit fails')
+    ok(f.read('.pandacorp/track.jsonl') === `{"kind":"start"}\n${GATE_LINE}\n`, `the restore withdraws only its own wo_end line, never a concurrent writer's line (got ${JSON.stringify(f.read('.pandacorp/track.jsonl'))})`)
+  } finally { f.cleanup() }
+  const d = mkRepo()
+  try {
+    buildAlpha(d)
+    d.hook(`printf '%s\\n' '${GATE_LINE}' >> "${d.abs('.pandacorp/track.jsonl')}"; echo stray > "${d.abs('stray.txt')}"`)
+    const c = d.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 4 && c.receipt.status === 'dirty-after-commit' && JSON.stringify(c.receipt.paths) === JSON.stringify(['stray.txt']), `real dirt after the commit still refuses, naming only the non-journal path (got ${c.receipt && JSON.stringify(c.receipt.paths)})`)
+    ok(d.read('.pandacorp/track.jsonl') === `{"kind":"start"}\n${GATE_LINE}\n` && /IN_PROGRESS/.test(d.read(WO_A)), 'the undo keeps the gate line and restores the stamp')
+  } finally { d.cleanup() }
+}
+
+console.log('commit-wo: Extra-Path trailers name only the extras the commit actually staged')
+{
+  const r = mkRepo()
+  try {
+    buildAlpha(r)
+    r.write('docs/design/components.md', '# Components\n')
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'docs: inventory')
+    buildAlpha(r)
+    r.write('src/alpha.ts', 'export const alpha = 2\n')
+    const c = r.run('commit-wo', [...ALPHA_FILES, '--extra', 'docs/design/components.md', '--reason', 'DR-057 shared component inventory', '--extra', 'src/helper.ts', '--reason', 'shared helper'])
+    ok(c.code === 0 && c.receipt.status === 'committed', `fixture: committed (got ${c.receipt && c.receipt.status} ${c.receipt && c.receipt.reason})`)
+    ok(!/Extra-Path/.test(r.body()), `an untouched --extra is not claimed in a trailer (body: ${JSON.stringify(r.body())})`)
+    ok(Array.isArray(c.receipt.extras) && c.receipt.extras.length === 0, 'and not reported as staged in the receipt')
+    r.write('src/alpha.ts', 'export const alpha = 3\n')
+    r.write('docs/design/components.md', '# Components\n- Alpha\n')
+    const fx = r.run('commit-wo', ['--fixup', 'WO-01-001', '--files', 'src/alpha.ts', '--extra', 'docs/design/components.md', '--reason', 'DR-057 shared component inventory', '--extra', 'src/helper.ts', '--reason', 'shared helper'])
+    ok(fx.code === 0 && /Extra-Path: docs\/design\/components\.md \(DR-057 shared component inventory\)/.test(r.body()) && !/src\/helper\.ts/.test(r.body()), `a touched extra is claimed, the untouched one is not (body: ${JSON.stringify(r.body())})`)
+  } finally { r.cleanup() }
+}
+
+console.log('precheck: a WO file is reset only when its diff is the engine\'s own frontmatter; owner edits are never reset')
+{
+  const r = mkRepo()
+  try {
+    planFixture(r)
+    const headB = r.atHead(WO_B)
+    const headC = r.atHead(WO_C)
+    // WO-01-001: the engine's stamp + reopen_count only → engine-owned, reset.
+    r.write(WO_A, r.atHead(WO_A).replace('implementation_status: PLANNED', 'implementation_status: IN_REVIEW').replace('reopen_count: 0', 'reopen_count: 1'))
+    // WO-01-002: a crash left IN_REVIEW, and the owner (or iterate) edited the body → only the status line goes back.
+    r.write(WO_B, `${headB.replace('implementation_status: PLANNED', 'implementation_status: IN_REVIEW')}\nOwner note: keep the sort stable.\n`)
+    // WO-02-001: an owner body edit only → never touched.
+    r.write(WO_C, `${headC}\nOwner note: gamma later.\n`)
+    const p = r.run('precheck', ['--events', r.events])
+    ok(p.code === 0 && p.sealed, `precheck exits 0 (got ${p.code} ${p.line.slice(0, 200)})`)
+    ok(r.read(WO_A) === r.atHead(WO_A) && (p.receipt.salvaged || []).some((x) => x.path === WO_A), 'an engine-keys-only diff is salvaged and reset to HEAD')
+    ok(r.read(WO_B) === `${headB}\nOwner note: keep the sort stable.\n`, `a mixed diff keeps every owner byte and only restores implementation_status to HEAD (got ${JSON.stringify(r.read(WO_B))})`)
+    ok(!(p.receipt.salvaged || []).some((x) => x.path === WO_B) && (p.receipt.statusRestored || []).some((x) => x.path === WO_B && x.from === 'IN_REVIEW' && x.to === 'PLANNED'), `the mixed WO is reported statusRestored, not reset (got ${JSON.stringify(p.receipt.statusRestored)})`)
+    ok(existsSync(path.join(r.proj, p.receipt.salvageDir || 'none', WO_B)) && /Owner note/.test(readFileSync(path.join(r.proj, p.receipt.salvageDir, WO_B), 'utf8')), 'the mixed WO\'s full dirty copy is kept in salvage too')
+    ok((p.receipt.demoted || []).some((x) => x.wo === 'WO-01-002' && x.why === 'uncommitted-flip') && (p.receipt.demoted || []).some((x) => x.wo === 'WO-01-001' && x.why === 'uncommitted-flip'), `both uncommitted IN_REVIEW flips are demoted (got ${JSON.stringify(p.receipt.demoted)})`)
+    ok(r.read(WO_C) === `${headC}\nOwner note: gamma later.\n` && !(p.receipt.salvaged || []).some((x) => x.path === WO_C), 'an owner body edit is never touched')
+    ok(p.receipt.ownerDirt.includes(WO_B) && p.receipt.ownerDirt.includes(WO_C) && !p.receipt.ownerDirt.includes(WO_A), `the owner-edited WOs are reported as owner dirt (got ${JSON.stringify(p.receipt.ownerDirt)})`)
+  } finally { r.cleanup() }
+}
+
+console.log('verify: the shared journals are not dirt; a gate line before or during verify.sh is committed with build_usable')
+{
+  const VERIFY_SH = (during = '') => `#!/bin/sh\nmkdir -p .pandacorp/run\n${during}printf '{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n`
+  const setup = (during = '') => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write('.pandacorp/verify.sh', VERIFY_SH(during)); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: the project gate')
+    const base = r.head()
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001')
+    return { r, base }
+  }
+  const args = (base) => ['--frd', 'frd-01-alpha', '--since', base, '--wo', 'WO-01-001']
+  {
+    const { r, base } = setup()
+    try {
+      r.write('.pandacorp/track.jsonl', `${r.read('.pandacorp/track.jsonl')}${GATE_LINE}\n`)
+      r.write('.pandacorp/build-journal.jsonl', '{"kind":"review","frd":"frd-02-gamma"}\n')
+      const v = r.run('verify', args(base))
+      ok(v.code === 0 && v.receipt.status === 'green' && v.receipt.usable === true && v.receipt.usableCommit, `a gate line before verify is not a dirty tree (got ${v.code} ${v.receipt && v.receipt.status} ${v.receipt && v.receipt.reason})`)
+      ok((r.atHead('.pandacorp/track.jsonl') || '').includes(GATE_LINE) && /build_usable/.test(r.atHead('.pandacorp/track.jsonl') || '') && /"review"/.test(r.atHead('.pandacorp/build-journal.jsonl') || ''), 'the usable commit sweeps both journals (the gate lines are kept)')
+      ok(r.status() === '', `the tree is clean afterwards (got ${JSON.stringify(r.status())})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup(`printf '%s\\n' '${GATE_LINE}' >> .pandacorp/track.jsonl\n`)
+    try {
+      const v = r.run('verify', args(base))
+      ok(v.receipt.status === 'green' && v.receipt.usable === true && (r.atHead('.pandacorp/track.jsonl') || '').includes(GATE_LINE), `a gate line written while verify.sh runs is committed with build_usable (got ${v.receipt && v.receipt.status} ${v.receipt && v.receipt.failure})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      const head = r.head()
+      const v = r.run('verify', [...args(base), '--floor'])
+      ok(v.code === 0 && v.receipt.green === true && v.receipt.floor === true && v.receipt.usable === false && !v.receipt.usableCommit, `--floor (the engine's fail-closed verdict) is never USABLE (got ${JSON.stringify(v.receipt && { f: v.receipt.floor, u: v.receipt.usable })})`)
+      ok(!/build_usable/.test(r.atHead('.pandacorp/track.jsonl') || '') && !r.git('log', '--format=%s', `${head}..HEAD`).includes('usable') && !(existsSync(r.events) && /build_usable/.test(readFileSync(r.events, 'utf8'))), 'no build_usable line, commit or event')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      const h = path.join(r.root, '.git', 'hooks', 'commit-msg'); writeFileSync(h, '#!/bin/sh\ngrep -q usable "$1" && exit 1\nexit 0\n'); chmodSync(h, 0o755)   // only the build_usable commit fails
+      const v = r.run('verify', args(base))
+      ok(v.receipt.green === true && v.receipt.usable === false && v.receipt.usableCommit === null && /usable/i.test(v.receipt.usableFailure || ''), `a build_usable line that could not be committed is not USABLE (got ${JSON.stringify(v.receipt && { u: v.receipt.usable, c: v.receipt.usableCommit, f: v.receipt.usableFailure })})`)
+      ok(!(existsSync(r.events) && /build_usable/.test(readFileSync(r.events, 'utf8'))) && !/build_usable/.test(r.read('.pandacorp/track.jsonl')), 'no dashboard event, and the uncommitted line is withdrawn')
     } finally { r.cleanup() }
   }
 }

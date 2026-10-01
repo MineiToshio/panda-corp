@@ -11,8 +11,14 @@ export const REFUSED_EXIT = 4
 export const INPUT_EXIT = 2
 /** A main-writer lock older than this is a crashed writer's residue (proposal 39 §2 C2). */
 export const LOCK_STALE_MS = 10 * 60 * 1000
-/** Append-only journals every commit sweeps in (shared, never a WO's own artifact). */
+/**
+ * Append-only journals every commit sweeps in (shared, never a WO's own artifact). Concurrent writers append to them
+ * at any time (a gate in a parallel slot writes its review lines to the MAIN tree), so a journal line is never dirt
+ * that refuses an op, and no op ever rewrites a journal wholesale: it appends, commits, or withdraws its OWN line.
+ */
 export const JOURNALS = Object.freeze(['.pandacorp/track.jsonl', '.pandacorp/build-journal.jsonl'])
+/** The work-order frontmatter keys only the engine writes (stamps, the reopen counter, the block reason). */
+export const ENGINE_FM_KEYS = Object.freeze(['implementation_status', 'reopen_count', 'blocked_reason'])
 /** The lease projection: written by the fenced state CLI while a run holds the lease, committed by that writer only. */
 export const PROJECTION = '.pandacorp/status.yaml'
 export const WO_FILE_RE = /^docs\/frds\/[^/]+\/work-orders\/(?!README\.md$)[^/]+\.md$/i
@@ -99,6 +105,33 @@ export function setFrontmatterStatus(text, status) {
   if (!m || !/^implementation_status:/m.test(m[1])) throw new InputError('work order has no frontmatter implementation_status field')
   const fm = m[1].replace(/^implementation_status:[^\n]*/m, `implementation_status: ${status}`)
   return `${text.slice(0, m.index)}---\n${fm}\n---${text.slice(m.index + m[0].length)}`
+}
+
+/** The frontmatter as key → its line(s) (a YAML continuation line stays with its key), plus the body after it. */
+function fmEntries(text) {
+  const m = FM_RE.exec(String(text))
+  if (!m) return null
+  const entries = new Map()
+  let key = ''
+  for (const line of m[1].split('\n')) {
+    const k = /^([A-Za-z_][\w-]*):/.exec(line)
+    if (k) { key = k[1]; entries.set(key, line) } else entries.set(key, `${entries.has(key) ? `${entries.get(key)}\n` : ''}${line}`)
+  }
+  return { entries, body: String(text).slice(m.index + m[0].length) }
+}
+/**
+ * Is the only difference between two versions of a work order the engine's own frontmatter keys (ENGINE_FM_KEYS)?
+ * Anything else (the body, the Status Note, another key) may be an owner's or iterate's edit, never reset.
+ * @param {string|null} headText the work order at HEAD
+ * @param {string|null} workText the work order in the working tree
+ * @returns {boolean}
+ */
+export function engineOnlyDiff(headText, workText) {
+  if (headText === null || headText === undefined || workText === null || workText === undefined) return false
+  const a = fmEntries(headText)
+  const b = fmEntries(workText)
+  if (!a || !b || a.body !== b.body) return false
+  return [...new Set([...a.entries.keys(), ...b.entries.keys()])].every((k) => a.entries.get(k) === b.entries.get(k) || ENGINE_FM_KEYS.includes(k))
 }
 
 /**
@@ -214,6 +247,37 @@ export function releaseLock(lock) {
     const cur = JSON.parse(readFileSync(path.join(lock.dir, 'owner.json'), 'utf8'))
     if (cur.owner === lock.owner) rmSync(lock.dir, { recursive: true, force: true })
   } catch { /* already gone */ }
+}
+
+// ── the shared journals ────────────────────────────────────────────────────────────────────────
+/**
+ * Withdraw the LAST copy of one line this process appended, keeping every other writer's line (never a wholesale
+ * rewrite from a snapshot, which would erase a concurrent writer's lines). A file this process created and that is
+ * empty again is removed.
+ * @param {string} abs the journal's absolute path
+ * @param {string} line the exact line (no newline) this process appended
+ * @param {boolean} existedBefore whether the file existed before the append
+ */
+export function withdrawLine(abs, line, existedBefore) {
+  if (!existsSync(abs)) return
+  const text = readFileSync(abs, 'utf8')
+  const at = text.lastIndexOf(`${line}\n`)
+  if (at < 0) return
+  const rest = text.slice(0, at) + text.slice(at + line.length + 1)
+  if (!rest && !existedBefore) rmSync(abs, { force: true }); else writeFileSync(abs, rest)
+}
+/**
+ * Commit whatever the journals hold right now, as their own commit (the "next committer stages it" rule, done by an
+ * op that would otherwise leave them dirty). A failed commit unstages them and leaves the lines in place.
+ * @returns {{ sha: string|null, paths: string[], error?: string }}
+ */
+export function commitJournals(ctx, message) {
+  const paths = dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)
+  if (!paths.length) return { sha: null, paths }
+  const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+  const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', message, '--', ...paths]) : add
+  if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); return { sha: null, paths, error: c.err || 'no output' } }
+  return { sha: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), paths }
 }
 
 // ── salvage then reset ─────────────────────────────────────────────────────────────────────────

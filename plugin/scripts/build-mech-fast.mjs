@@ -4,8 +4,10 @@
 //                 engine falls back to the plan agent);
 //   classify-frd  the deterministic floor of an FRD (classify-change.mjs over its declared artifacts + its frd.md text,
 //                 or over a landed range), written to the FRD frontmatter `floor:` — monotone, never lowered;
-//   verify        the USABLE check of one built FRD: clean tree, every work order committed IN_REVIEW, the landed floor,
-//                 then `verify.sh` on that clean SHA; green and not floor → a build_usable line (track + dashboard).
+//   verify        the USABLE check of one built FRD: clean tree (the shared append-only journals excepted: a gate in a
+//                 parallel slot appends to them at any time), every work order committed IN_REVIEW, the landed floor (or
+//                 the engine's own `--floor` verdict), then `verify.sh` on that clean SHA; green and not floor → ONE
+//                 committed build_usable line (it sweeps the journals' pending lines) and only then `usable` + the event.
 // Every op returns { code, body } for the CLI's one sealed line; nothing here prints.
 
 import { spawnSync } from 'node:child_process'
@@ -13,7 +15,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
 const TRACK = JOURNALS[0]
@@ -225,30 +227,43 @@ export function verifyOp(o) {
   const ctx = projectCtx(o.project)
   const f = readFrds(ctx).find((x) => x.frd === frd)
   if (!f) throw new InputError(`no FRD folder with work orders named ${frd}`)
-  const dirty = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
+  const dirty = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION && !JOURNALS.includes(e.path)).map((e) => e.path)
   if (dirty.length) throw new Refusal('dirty', `the tree is not clean (${dirty.join(', ')}): USABLE is certified only on a clean landed SHA`, { paths: dirty })
   const notIn = o.wos.map((id) => findWo(ctx, id)).filter((w) => frontmatterStatus(blobAt(ctx, 'HEAD', w.rel)) !== 'IN_REVIEW').map((w) => w.id)
   if (notIn.length) throw new Refusal('uncommitted', `${notIn.join(', ')} not committed IN_REVIEW at HEAD — nothing to certify`, { wos: notIn })
   const landed = o.since ? classifyFrds(ctx, [f], { range: `${o.since}..HEAD`, lockWaitMs: o.lockWaitMs }).results[0] : { floor: true, changed: false, floorHits: ['no --since: the landed range is unknown — fail-closed'] }
-  const floor = landed.floor
+  // The engine's verdict is fail-closed and in memory (an unreadable plan-time classification): it can only add floor.
+  const floor = landed.floor || o.floor === true
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
   const sha = headFull.slice(0, 12)
   const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
   const rep = readReport(ctx, r.status, headFull)
   const green = rep.green && rep.scope !== 'partial'
-  const usable = green && !floor
+  // USABLE has ONE writer (DR-115): the committed build_usable line. No commit, no USABLE, no event.
   let usableCommit = null
-  if (usable) {
+  let usableFailure = ''
+  if (green && !floor) {
     const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'verify' })
     try {
-      appendFileSync(path.join(ctx.project, TRACK), `${JSON.stringify({ kind: 'build_usable', frd, sha, at: new Date().toISOString() })}\n`)
-      const c = ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\nProposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.`, '--', TRACK])
+      const trackAbs = path.join(ctx.project, TRACK)
+      const existed = existsSync(trackAbs)
+      const line = JSON.stringify({ kind: 'build_usable', frd, sha, at: new Date().toISOString() })
+      appendFileSync(trackAbs, `${line}\n`)
+      const paths = unique([TRACK, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
+      const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+      const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\nProposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.`, '--', ...paths]) : add
       if (c.ok) usableCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
+      else {
+        ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
+        withdrawLine(trackAbs, line, existed)
+        usableFailure = `the build_usable commit failed, so ${frd} is not USABLE: ${(c.err || 'no output').split('\n').slice(-3).join(' | ')}`
+      }
     } finally { releaseLock(lock) }
-    emit(o, { event: 'build_usable', frd, sha })
+    if (usableCommit) emit(o, { event: 'build_usable', frd, sha })
   }
+  const usable = Boolean(usableCommit)
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
-  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, dirtyAfter: after, exit: r.status } }
+  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
 }
 
 // ── USABLE across runs (C6) ────────────────────────────────────────────────────────────────────

@@ -9,9 +9,12 @@
 //
 // Ops (all take --project <dir>; exit 0 done/nothing · 4 refused · 2 unusable input or a git failure):
 //   precheck     [--main-branch main] [--events <f>]   finish interrupted discards (wo-revert recover), then on main
-//                salvage ENGINE-owned dirt (WO markdown, the journals) to .pandacorp/run/salvage/ and reset it, then the C7
-//                stamp-anchored demotion (an IN_REVIEW with no flip commit after its last IN_PROGRESS stamp → PLANNED,
-//                one commit). Owner dirt and the lease projection (.pandacorp/status.yaml) are never touched, only reported.
+//                commit the append-only journals' pending lines (never reset them), salvage ENGINE-owned dirt (a WO file
+//                whose diff from HEAD is only ENGINE_FM_KEYS) to .pandacorp/run/salvage/ and reset it, put back only the
+//                implementation_status of a WO file that also carries an owner edit (every other byte kept, reported as
+//                owner dirt), then the C7 stamp-anchored demotion (an IN_REVIEW with no flip commit after its last
+//                IN_PROGRESS stamp → PLANNED, one commit). Owner dirt and the lease projection (.pandacorp/status.yaml)
+//                are never touched, only reported.
 //                Also reports `usable`: the FRDs still USABLE from an earlier run (C6, durableUsable in build-mech-fast.mjs).
 //   commit-wo    --wo <id> --files <a,b,…> [--file <p>]… [--extra <p> --reason <r>]… [--ac <AC-id>]…
 //                [--fixup <id> [--for <id>]] [--main-branch main] [--lock-wait-ms N] [--test-timeout-ms N]
@@ -35,8 +38,9 @@
 //                order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan. --classify also
 //                writes the deterministic floor (C3). See build-mech-fast.mjs.
 //   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone FRD floor (classify-change.mjs), frontmatter `floor:`.
-//   verify       --frd <folder> --since <base> [--wo <id>]…   the USABLE check (C6): clean tree, committed WOs, landed
-//                floor, verify.sh on the clean SHA; green + not floor → build_usable (track.jsonl commit + dashboard).
+//   verify       --frd <folder> --since <base> [--wo <id>]… [--floor]   the USABLE check (C6): clean tree (journals
+//                excepted), committed WOs, landed floor (or the engine's --floor), verify.sh on the clean SHA; green + not
+//                floor → build_usable (track.jsonl commit + dashboard); `usable` only once that line is committed.
 //   gate-release --path <wt> --dir <evidence-dir>   BL-0182: salvage every dirty path of the gate worktree (+ its
 //                gitignored gate report) to <dir>, then clean exactly those paths.
 
@@ -47,7 +51,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable } from './build-mech-fast.mjs'
 import { sealLine } from './drift-seal.mjs'
 
@@ -67,7 +71,7 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor'])
 const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
 function parseArgs(argv) {
   const op = argv[0]
@@ -130,9 +134,10 @@ function emitEvent(o, fields) {
     appendFileSync(file, `${JSON.stringify({ event: fields.event, at: new Date().toISOString(), project: o.projectName || path.basename(o.project), ...fields })}\n`)
   } catch (e) { process.stderr.write(`pandacorp-build-mech: could not append the ${fields.event} event (${e.message})\n`) }
 }
-function commitMessage(wo, woText, o) {
+/** The commit message; `extras` are only the --extra paths this commit actually stages (an untouched one is not claimed). */
+function commitMessage(wo, woText, o, extras) {
   const subject = o.fixup ? `fix(${wo.frd}): fixup ${wo.id}${o.for ? ` (found while building ${o.for})` : ''}` : `feat(${wo.frd}): ${wo.id} ${fmGet(woText, 'slug') || 'build'}`
-  const trailers = o.extras.map((x) => `Extra-Path: ${x.path} (${x.reason.replace(/\s+/g, ' ')})`)
+  const trailers = extras.map((x) => `Extra-Path: ${x.path} (${x.reason.replace(/\s+/g, ' ')})`)
   return `${subject}\n\n${o.fixup ? `Fix to ${wo.id}'s committed work, its own commit (proposal 39 C2).` : `Work order ${wo.id} committed by commit-wo (proposal 39 C2).`}${trailers.length ? `\n\n${trailers.join('\n')}` : ''}`
 }
 function commitWo(o) {
@@ -154,6 +159,7 @@ function commitWo(o) {
     const undeclared = dirty.filter((e) => !auto(e.path) && !matchesDeclared(allowed, e.path)).map((e) => e.path)
     if (undeclared.length) throw new Refusal('undeclared', `modified path(s) outside the declared files: ${undeclared.join(', ')} — declare them, pass --extra <path> --reason <why>, or park them`, { paths: undeclared })
     const stage = dirty.map((e) => e.path)
+    const stagedExtras = o.extras.filter((x) => stage.some((p) => matchesDeclared([x.path], p)))
     const schema = stage.filter((p) => SCHEMA_PATHS.some((re) => re.test(p)))
     if (schema.length && !isOnMain(ctx, o.mainBranch)) throw new Refusal('schema-off-main', `schema/migration path(s) ${schema.join(', ')} may only be committed on ${o.mainBranch} (on ${ctx.branch || 'a detached HEAD'}${ctx.linked ? ', a linked worktree' : ''})`, { paths: schema })
     if (!stage.length && (o.fixup || headStatus === 'IN_REVIEW')) return { code: 0, body: { status: 'nothing', wo: wo.id, reason: o.fixup ? 'nothing to commit' : `${wo.id} is already committed IN_REVIEW and the tree is clean` } }
@@ -163,29 +169,32 @@ function commitWo(o) {
     const tests = relatedTests(ctx, stage.filter((p) => !auto(p)), o.testTimeoutMs)
     if (!tests.ok) throw new Refusal('tests-red', `related unit tests failed (exit ${tests.exit}${tests.signal ? `, ${tests.signal}` : ''}) — nothing was stamped or committed`, { tests })
     const trackAbs = path.join(ctx.project, TRACK)
-    const trackBefore = existsSync(trackAbs) ? readFileSync(trackAbs) : null
+    const trackExisted = existsSync(trackAbs)
+    const woEnd = o.fixup ? null : JSON.stringify({ kind: 'wo_end', frd: wo.frd, wo: wo.id, state: 'in_review', at: new Date().toISOString() })
     if (!o.fixup) {
       if (frontmatterStatus(original) !== 'IN_REVIEW') writeFileSync(woAbs, setFrontmatterStatus(original, 'IN_REVIEW'))
-      appendFileSync(trackAbs, `${JSON.stringify({ kind: 'wo_end', frd: wo.frd, wo: wo.id, state: 'in_review', at: new Date().toISOString() })}\n`)
+      appendFileSync(trackAbs, `${woEnd}\n`)
     }
     const paths = unique([...stage, ...(o.fixup ? [] : [wo.rel, TRACK])])
+    // Only this op's own wo_end line is withdrawn: a gate in a parallel slot may have appended its lines meanwhile.
     const restore = () => {
       ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
       writeFileSync(woAbs, original)
-      if (trackBefore === null) rmSync(trackAbs, { force: true }); else writeFileSync(trackAbs, trackBefore)
+      if (woEnd) withdrawLine(trackAbs, woEnd, trackExisted)
     }
     const add = ctx.g.run(['--literal-pathspecs', 'add', '-A', '--', ...paths])
-    const commit = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', commitMessage(wo, original, o), '--', ...paths]) : add
+    const commit = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', commitMessage(wo, original, o, stagedExtras), '--', ...paths]) : add
     if (!commit.ok) { restore(); throw new Refusal('commit-failed', `the commit failed and the stamp was restored: ${commit.err.split('\n').slice(-3).join(' | ') || 'no output'}`) }
     const sha = ctx.g.must(['rev-parse', 'HEAD']).trim()
-    const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
+    // A journal line appended after the commit is a concurrent writer's (the next committer sweeps it), never dirt.
+    const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION && !JOURNALS.includes(e.path)).map((e) => e.path)
     if (after.length) {
       ctx.g.must(['reset', '-q', '--soft', headBefore])
       restore()
       throw new Refusal('dirty-after-commit', `the tree was not clean after the commit (${after.join(', ')}) — the commit was undone and the stamp restored`, { paths: after })
     }
     if (!o.fixup) emitEvent(o, { event: 'wo_commit', frd: wo.frd, wo: wo.id, state: 'IN_REVIEW' })
-    return { code: 0, body: { status: 'committed', wo: wo.id, frd: wo.frd, sha: sha.slice(0, 12), fixup: Boolean(o.fixup), paths, codePaths: paths.filter((p) => !auto(p) && p !== TRACK), extras: o.extras, acs, tests, lock: { reclaimed: lock.reclaimed } } }
+    return { code: 0, body: { status: 'committed', wo: wo.id, frd: wo.frd, sha: sha.slice(0, 12), fixup: Boolean(o.fixup), paths, codePaths: paths.filter((p) => !auto(p) && p !== TRACK), extras: stagedExtras, acs, tests, lock: { reclaimed: lock.reclaimed } } }
   } finally { releaseLock(lock) }
 }
 
@@ -274,19 +283,48 @@ function demoteUnstamped(ctx, onMain, salvaged, salvageDir) {
   }
   return { demoted, keptInReview, demotionCommit }
 }
+/**
+ * A dirty work order with an owner edit in it (body, Status Note, another key): keep every byte, salvage a copy, and
+ * put only `implementation_status` back to HEAD's value (the engine's stamp; an uncommitted IN_REVIEW must not survive).
+ * @returns {{ path: string, from: string, to: string }|null} null when the status already matches HEAD
+ */
+function restoreStatusOnly(ctx, rel, headText, salvageAbs) {
+  const abs = path.join(ctx.project, rel)
+  const work = readFileSync(abs, 'utf8')
+  mkdirSync(path.dirname(path.join(salvageAbs, rel)), { recursive: true })
+  copyFileSync(abs, path.join(salvageAbs, rel))
+  const from = frontmatterStatus(work)
+  const to = frontmatterStatus(headText)
+  if (from === to || ['ABSENT', 'UNKNOWN'].includes(to) || !/^implementation_status:/m.test(((/^---\r?\n([\s\S]*?)\r?\n---/.exec(work)) || [])[1] || '')) return null
+  writeFileSync(abs, setFrontmatterStatus(work, to))
+  return { path: rel, from, to }
+}
 function precheck(o) {
   const ctx = projectCtx(o.project)
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'precheck' })
   try {
     const reverts = recoverPendingReverts(o)
     const onMain = isOnMain(ctx, o.mainBranch)
+    // The journals are append-only and durable: their uncommitted lines (a paused run's build_paused, a gate's review
+    // lines) are committed, never reset — the "next committer stages them" rule, applied before anything reads state.
+    const journals = onMain ? commitJournals(ctx, 'chore(build): commit the pending lines of the journals before the resume\n\nProposal 39 C7: the append-only journals are durable; the resume precheck commits them, never resets them.') : { sha: null, paths: [] }
     const dirty = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION)
-    const engineOwned = (e) => e.code !== '??' && (WO_FILE_RE.test(e.path) || JOURNALS.includes(e.path))
+    const woDirt = dirty.filter((e) => e.code !== '??' && WO_FILE_RE.test(e.path)).map((e) => {
+      const headText = blobAt(ctx, 'HEAD', e.path)
+      const abs = path.join(ctx.project, e.path)
+      const work = existsSync(abs) ? readFileSync(abs, 'utf8') : null
+      return { e, headText, work, engine: engineOnlyDiff(headText, work) }
+    })
     const salvageDir = `.pandacorp/run/salvage/precheck/${utcStamp()}`
-    const salvaged = onMain ? salvageAndReset(ctx, dirty.filter(engineOwned), path.join(ctx.project, salvageDir)) : []
-    const demotion = demoteUnstamped(ctx, onMain, salvaged, salvageDir)
+    const salvageAbs = path.join(ctx.project, salvageDir)
+    const engineReset = onMain ? woDirt.filter((x) => x.engine).map((x) => x.e) : []
+    const salvaged = salvageAndReset(ctx, engineReset, salvageAbs)
+    const mixed = onMain ? woDirt.filter((x) => !x.engine && x.work !== null && x.headText !== null) : []
+    const statusRestored = mixed.map((x) => restoreStatusOnly(ctx, x.e.path, x.headText, salvageAbs)).filter(Boolean)
+    const demotion = demoteUnstamped(ctx, onMain, [...salvaged, ...statusRestored], salvageDir)
     const refused = reverts.filter((r) => r.exit !== 0).map((r) => r.frd)
-    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, salvaged, salvageDir: salvaged.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !engineOwned(e) || !onMain).map((e) => e.path), ...demotion, usable: durableUsable(ctx) } }
+    const reset = new Set(salvaged.map((x) => x.path))
+    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, journalsCommit: journals.sha, journalsLeft: journals.sha ? [] : dirty.filter((e) => JOURNALS.includes(e.path)).map((e) => e.path), ...(journals.error ? { journalsError: journals.error } : {}), salvaged, statusRestored, salvageDir: salvaged.length || mixed.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !reset.has(e.path) && !JOURNALS.includes(e.path)).map((e) => e.path), ...demotion, usable: durableUsable(ctx) } }
   } finally { releaseLock(lock) }
 }
 
