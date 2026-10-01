@@ -345,6 +345,12 @@ other's work, so given the same need they reinvent slightly-different versions o
   and while any foundation WO is still pending the engine's wave is **foundation-only** — features
   cannot fan out before the primitives exist, regardless of whether the blueprint author threaded the
   dependency to every feature WO.
+  **Un-deferral of lib-only, dependency-free WOs (DR-123, amends DR-057's deferral).** The foundation-only wave
+  used to defer EVERY non-foundation WO. A WO with `dependsOn: []` whose DECLARED artifacts are provably non-UI
+  (`artifactsTouchUi` false, fail-closed on undeclared) AND do not touch `package.json`, a lockfile or `messages/**`
+  (the implicit couplings declared artifacts do not capture, which is what DR-057 guards) may now build in the same wave
+  as the foundation WO; artifacts must still be disjoint (DR-060). Everything else — UI, undeclared, dependent, or touching
+  those shared files — keeps the deferral exactly as before.
 - **The foundation must be COMPLETE, not a subset — a foundation-completeness GATE (DR-057, extended).**
   Foundation-first only works if the foundation is the **UNION of every shared primitive that ANY
   surface's mock/FDD references** — derived from `docs/design/components.md` (+ each per-FRD `mocks/`/
@@ -859,10 +865,7 @@ section `D1 parallelGates`, BL-0186), not a guideline:
   reserving what the in-flight gates are expected to spend (reserved at launch, released at settle —
   conservative in between; the wave picker subtracts the same reservation). A landing in progress reserves its own
   remaining cost too (a reopen ladder ~7 units), so a gate launched during it cannot starve it. Otherwise the engine logs
-  `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ 15 × the FRDs to gate (canary E: 40 for 4 FRDs
-  ran out after 2 gates; canary F2 at 60 for 4 FRDs saturated the ceiling exactly as the run finished — the
-  drift finder is one more sonnet unit per gate link and again on each re-gate, and BL-0214 adds one MECH snippet-check
-  unit beside it, so the floor is **19 × the FRDs** whenever the finder is on, BL-0207/BL-0214; `launch-implement.sh` warns below it whenever parallel gates is not
+  `gate deferred: agent budget`. Size the run for it: `maxAgents` ≥ **8 + 20 × the FRDs to gate** (24 per FRD whenever the drift finder is on, BL-0207/BL-0214), **plus ~4-6 per work order to build** — fixed pre-wave overhead ~8, per WO 3 MECH steps + the builder's weight (opus 3), per FRD ~20 for gate link + landing + one reopen ladder + the tail share. Measured (bench A-1, 2026-10-01): ONE FRD / 3 WOs / one reopen needed ~48 units, so the former "15 × the FRDs" floor (canary E: 40 for 4 FRDs ran out after 2 gates; canary F2 at 60 saturated the ceiling) omitted the fixed overhead, per-WO plumbing and opus weight. `maxAgents:'auto'` is the OPT-IN alternative: after the plan the engine sets ⌈1.25 × `projectedRunCost(plan)`⌉, logs the units and an approximate USD, and recomputes whenever the plan grows (never lowering the cap); an explicit integer is NEVER overridden and NEVER fails fast (it only gets an advisory when below the projection), and `auto` does not count as an owner-chosen budget for the overnight-run warning. `launch-implement.sh` warns below the floor whenever parallel gates is not
   explicitly off — the default, since v9.116.0 — and the engine logs a one-shot `AgentBudgetAdvisory` when 80 % of
   `maxAgents` is spent with work pending, and another when less than one reopen ladder remains). With nothing in flight the first eligible gate always starts (progress
   guarantee); the loop-top brake is still what stops the run.
