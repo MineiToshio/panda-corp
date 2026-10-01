@@ -9,8 +9,9 @@
 //
 // Ops (all take --project <dir>; exit 0 done/nothing · 4 refused · 2 unusable input or a git failure):
 //   precheck     [--main-branch main] [--events <f>]   finish interrupted discards (wo-revert recover), then on main
-//                salvage ENGINE-owned dirt (WO markdown, the journals) to .pandacorp/run/salvage/ and reset it. Owner
-//                dirt and the lease projection (.pandacorp/status.yaml) are never touched, only reported.
+//                salvage ENGINE-owned dirt (WO markdown, the journals) to .pandacorp/run/salvage/ and reset it, then the C7
+//                stamp-anchored demotion (an IN_REVIEW with no flip commit after its last IN_PROGRESS stamp → PLANNED,
+//                one commit). Owner dirt and the lease projection (.pandacorp/status.yaml) are never touched, only reported.
 //   commit-wo    --wo <id> --files <a,b,…> [--file <p>]… [--extra <p> --reason <r>]… [--ac <AC-id>]…
 //                [--fixup <id> [--for <id>]] [--main-branch main] [--lock-wait-ms N] [--test-timeout-ms N]
 //                [--events <f>] [--project-name <n>]
@@ -39,7 +40,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp } from './build-mech-lib.mjs'
+import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, woIdOf } from './build-mech-lib.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -217,6 +218,63 @@ function recoverPendingReverts(o) {
     return { frd, exit: r.status, recovery: receipt ? receipt.recovery || null : null, status: receipt ? receipt.status || null : null, committed: receipt ? receipt.committed || null : null, reason: receipt ? receipt.reason || receipt.error || '' : `unreadable wo-revert output: ${String(r.stderr || '').trim().slice(0, 300)}` }
   })
 }
+/**
+ * Proposal 39 §2 C7 — stamp-anchored resume demotion. A work order counts as IN_REVIEW only when HEAD holds a commit
+ * flipping it to IN_REVIEW after its last IN_PROGRESS stamp commit (inReviewWindow). Two ways to fail it:
+ * - `uncommitted-flip`: the working tree says IN_REVIEW, HEAD does not (a builder stamped, its commit never ran). On
+ *   main the salvage step has already reset the file to HEAD (pending → rebuilt); off main it is only reported.
+ * - `no-flip-after-stamp`: HEAD says IN_REVIEW but no flip commit follows the last stamp. On main it is set PLANNED
+ *   in ONE commit naming the work orders; off main it is only reported. Its code is never touched here.
+ * `run_started_at` is never used, so a resume never rebuilds the previous run's committed work.
+ */
+function demoteUnstamped(ctx, onMain, salvaged, salvageDir) {
+  const demoted = []
+  const keptInReview = []
+  const headStatus = (rel) => frontmatterStatus(blobAt(ctx, 'HEAD', rel))
+  for (const s of salvaged.filter((x) => WO_FILE_RE.test(x.path))) {
+    let copy = null
+    try { copy = readFileSync(path.join(ctx.project, salvageDir, s.path), 'utf8') } catch { copy = null }
+    const from = frontmatterStatus(copy)
+    const to = headStatus(s.path)
+    if (from === 'IN_REVIEW' && to !== 'IN_REVIEW') demoted.push({ wo: woIdOf(s.path, copy), rel: s.path, from, to, why: 'uncommitted-flip', applied: true, committed: false })
+  }
+  if (!onMain) {
+    for (const e of dirtyEntries(ctx).filter((x) => WO_FILE_RE.test(x.path))) {
+      const abs = path.join(ctx.project, e.path)
+      const text = existsSync(abs) ? readFileSync(abs, 'utf8') : null
+      const to = headStatus(e.path)
+      if (frontmatterStatus(text) === 'IN_REVIEW' && to !== 'IN_REVIEW') demoted.push({ wo: woIdOf(e.path, text), rel: e.path, from: 'IN_REVIEW', to, why: 'uncommitted-flip', applied: false, committed: false })
+    }
+  }
+  const atHead = ctx.g.must(['ls-tree', '-r', '-z', '--name-only', 'HEAD', '--', 'docs/frds']).split('\0').filter((p) => WO_FILE_RE.test(p))
+  const toPlanned = []
+  for (const rel of atHead) {
+    if (headStatus(rel) !== 'IN_REVIEW') continue
+    const id = woIdOf(rel, blobAt(ctx, 'HEAD', rel))
+    const w = inReviewWindow(ctx, rel)
+    if (w.qualifies) { keptInReview.push(id); continue }
+    const entry = { wo: id, rel, from: 'IN_REVIEW', to: 'PLANNED', why: 'no-flip-after-stamp', stamp: w.stamps[0] ? w.stamps[0].slice(0, 12) : null, applied: onMain, committed: false }
+    demoted.push(entry)
+    if (onMain) toPlanned.push(entry)
+  }
+  let demotionCommit = null
+  if (toPlanned.length) {
+    const originals = toPlanned.map((d) => readFileSync(path.join(ctx.project, d.rel), 'utf8'))
+    toPlanned.forEach((d, i) => writeFileSync(path.join(ctx.project, d.rel), setFrontmatterStatus(originals[i], 'PLANNED')))
+    const paths = toPlanned.map((d) => d.rel)
+    const ids = toPlanned.map((d) => d.wo).join(', ')
+    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+    const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): demote ${ids} to PLANNED (no IN_REVIEW commit after the last IN_PROGRESS stamp)\n\nProposal 39 C7 stamp-anchored resume: the work order is rebuilt.`, '--', ...paths]) : add
+    if (!c.ok) {
+      ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
+      toPlanned.forEach((d, i) => writeFileSync(path.join(ctx.project, d.rel), originals[i]))
+      throw new Refusal('commit-failed', `the demotion commit failed and the work orders were restored: ${c.err || 'no output'}`)
+    }
+    demotionCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
+    toPlanned.forEach((d) => { d.committed = true })
+  }
+  return { demoted, keptInReview, demotionCommit }
+}
 function precheck(o) {
   const ctx = projectCtx(o.project)
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'precheck' })
@@ -227,8 +285,9 @@ function precheck(o) {
     const engineOwned = (e) => e.code !== '??' && (WO_FILE_RE.test(e.path) || JOURNALS.includes(e.path))
     const salvageDir = `.pandacorp/run/salvage/precheck/${utcStamp()}`
     const salvaged = onMain ? salvageAndReset(ctx, dirty.filter(engineOwned), path.join(ctx.project, salvageDir)) : []
+    const demotion = demoteUnstamped(ctx, onMain, salvaged, salvageDir)
     const refused = reverts.filter((r) => r.exit !== 0).map((r) => r.frd)
-    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, salvaged, salvageDir: salvaged.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !engineOwned(e) || !onMain).map((e) => e.path) } }
+    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, salvaged, salvageDir: salvaged.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !engineOwned(e) || !onMain).map((e) => e.path), ...demotion } }
   } finally { releaseLock(lock) }
 }
 

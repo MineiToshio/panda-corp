@@ -122,6 +122,35 @@ export function findWo(ctx, id) {
   return hits[0]
 }
 
+/** A work order's id: its frontmatter `id:`, else the `wo-NN-MMM` prefix of its file name. */
+export const woIdOf = (rel, text) => fmGet(text, 'id') || (/^(wo-[0-9a-z]+-\d+)/i.exec(path.basename(rel)) || [])[1]?.toUpperCase() || path.basename(rel, '.md')
+
+/**
+ * Proposal 39 §2 C7, the stamp-commit window: does HEAD hold a commit that flips this work order to IN_REVIEW
+ * AFTER its last IN_PROGRESS stamp commit? History rules (`--no-merges`, ancestry decides, never timestamps, like wo-revert.mjs; plus
+ * `--full-history`, so a merge that kept one side's blob cannot prune the other side's stamp out of the walk): a stamp is a commit whose blob reads IN_PROGRESS and whose parent's does not; a flip, the same
+ * for IN_REVIEW. With no stamp at all (a classic history, where the dispatch stamp was never committed) any flip
+ * counts. A flip that only reached HEAD through a merge of a branch older than the stamp does not.
+ * @returns {{ qualifies: boolean, flip: string|null, stamps: string[] }}
+ */
+export function inReviewWindow(ctx, rel) {
+  const shas = ctx.g.must(['rev-list', '--full-history', '--no-merges', 'HEAD', '--', rel]).split('\n').filter(Boolean)
+  const at = (rev) => frontmatterStatus(blobAt(ctx, rev, rel))
+  const parentAt = (sha) => { const p = ctx.g.run(['rev-parse', '--verify', '-q', `${sha}^`]); return p.ok ? at(p.out.trim()) : 'ABSENT' }
+  const stamps = []
+  const flips = []
+  for (const sha of shas) {
+    const now = at(sha)
+    if (now !== 'IN_PROGRESS' && now !== 'IN_REVIEW') continue
+    if (parentAt(sha) === now) continue
+    ;(now === 'IN_PROGRESS' ? stamps : flips).push(sha)
+  }
+  const after = (a, b) => a !== b && ctx.g.run(['merge-base', '--is-ancestor', a, b]).ok
+  const latest = stamps.filter((s) => !stamps.some((o) => after(s, o)))
+  const flip = flips.find((f) => latest.every((s) => after(s, f))) || null
+  return { qualifies: Boolean(flip), flip, stamps: latest }
+}
+
 // ── declared paths ─────────────────────────────────────────────────────────────────────────────
 const globRe = (g) => new RegExp(`^${g.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*\//g, '\u0000').replace(/\*\*/g, '.*').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\u0000/g, '(?:.*/)?')}$`)
 /** Does a project-relative path fall under one declared entry (exact file, a directory, or a glob)? */

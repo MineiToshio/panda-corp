@@ -345,6 +345,72 @@ console.log('precheck: pending reverts recovered, engine-owned dirt salvaged, ow
   } finally { b.cleanup() }
 }
 
+// ── precheck: stamp-anchored resume demotion (proposal 39 §2 C7) ────────────────────────────────
+console.log('precheck: an IN_REVIEW counts only with a flip commit after its last IN_PROGRESS stamp commit')
+{
+  const r = mkRepo()
+  try {
+    // WO-01-001: dispatched (IN_PROGRESS in the init commit = its stamp), then its own commit flips it IN_REVIEW → kept.
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write(WO_A, WO_A_TEXT('IN_REVIEW'))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat(frd-01-alpha): WO-01-001 alpha')
+    // WO-02-001: a classic history, no IN_PROGRESS stamp ever committed, the flip committed → kept (no stamp, no window).
+    r.write('src/gamma.ts', 'export const gamma = 1\n')
+    r.write(WO_C, woMd('WO-02-001', 'IN_REVIEW', { acs: ['AC-02-001.1'] }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat(frd-02-gamma): WO-02-001 gamma')
+    // WO-01-002: its IN_REVIEW reached HEAD only through a merge of a flip that predates its last stamp (not after it).
+    r.git('checkout', '-q', '-b', 'side')
+    r.write('src/beta.ts', 'export const beta = 1\n')
+    r.write(WO_B, woMd('WO-01-002', 'IN_REVIEW', { acs: ['AC-01-002.1'] }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat(frd-01-alpha): WO-01-002 beta')
+    r.git('checkout', '-q', 'main')
+    const d = r.run('dispatch', ['--wo', 'WO-01-002', '--commit'])
+    ok(d.code === 0 && d.receipt.committed, 'fixture: WO-01-002 IN_PROGRESS stamp committed on main')
+    r.git('merge', '-q', '--no-ff', '--no-edit', '-X', 'theirs', 'side')
+    ok(/implementation_status: IN_REVIEW/.test(r.atHead(WO_B)), 'fixture: HEAD reads WO-01-002 IN_REVIEW')
+    const before = r.head()
+    const p = r.run('precheck', ['--events', r.events])
+    ok(p.code === 0 && p.sealed, `precheck exits 0 with one sealed line (got ${p.code} ${p.line.slice(0, 160)})`)
+    const demoted = (p.receipt.demoted || []).map((x) => x.wo)
+    ok(JSON.stringify(demoted) === JSON.stringify(['WO-01-002']), `only the unstamped IN_REVIEW is demoted (got ${JSON.stringify(demoted)})`)
+    ok(JSON.stringify([...(p.receipt.keptInReview || [])].sort()) === JSON.stringify(['WO-01-001', 'WO-02-001']), `the stamped and the classic IN_REVIEW are kept (got ${JSON.stringify(p.receipt.keptInReview)})`)
+    ok(/^implementation_status: PLANNED$/m.test(r.atHead(WO_B)) && r.head() !== before && /WO-01-002/.test(r.subject()) && /demote/i.test(r.subject()), `the demotion to PLANNED is ONE commit naming the WO (${r.subject()})`)
+    ok(r.filesAt().join() === `proj/${WO_B}`, `the demotion commit holds exactly that WO file (${r.filesAt().join(', ')})`)
+    ok(r.read('src/beta.ts') === 'export const beta = 1\n', 'the demoted WO\'s code is not touched (it is rebuilt over, never discarded here)')
+    ok(/implementation_status: IN_REVIEW/.test(r.atHead(WO_A)) && /implementation_status: IN_REVIEW/.test(r.atHead(WO_C)), 'the kept WOs stay IN_REVIEW at HEAD')
+    ok(r.status().split('\n').filter(Boolean).length === 0, 'the tree is clean after the demotion')
+    const headAfter = r.head()
+    const again = r.run('precheck', ['--events', r.events])
+    ok(again.code === 0 && (again.receipt.demoted || []).length === 0 && r.head() === headAfter, 'a second precheck demotes nothing and commits nothing (idempotent)')
+  } finally { r.cleanup() }
+  // A builder stamped IN_REVIEW but its commit never ran (a crash, an infra halt): HEAD holds only the stamp.
+  const u = mkRepo()
+  try {
+    u.run('dispatch', ['--wo', 'WO-01-002', '--commit'])
+    u.write('src/beta.ts', 'export const beta = "uncommitted"\n')
+    u.write(WO_B, woMd('WO-01-002', 'IN_REVIEW', { acs: ['AC-01-002.1'] }))
+    const p = u.run('precheck', ['--events', u.events])
+    const d = (p.receipt.demoted || []).find((x) => x.wo === 'WO-01-002')
+    ok(p.code === 0 && d && d.why === 'uncommitted-flip' && d.to === 'IN_PROGRESS', `an uncommitted IN_REVIEW flip is reported demoted to its HEAD state (got ${JSON.stringify(p.receipt.demoted)})`)
+    ok(/^implementation_status: IN_PROGRESS$/m.test(u.read(WO_B)), 'the WO file is back at its committed IN_PROGRESS stamp (pending → rebuilt)')
+  } finally { u.cleanup() }
+  // Off main nothing is written: the demotion is reported, never applied.
+  const o = mkRepo()
+  try {
+    o.git('checkout', '-q', '-b', 'side')
+    o.write(WO_B, woMd('WO-01-002', 'IN_REVIEW'))
+    o.git('commit', '-q', '-am', 'flip on side')
+    o.git('checkout', '-q', 'main')
+    o.run('dispatch', ['--wo', 'WO-01-002', '--commit'])
+    o.git('merge', '-q', '--no-ff', '--no-edit', '-X', 'theirs', 'side')
+    o.git('checkout', '-q', '-b', 'build/x')
+    const before = o.head()
+    const p = o.run('precheck', ['--events', o.events])
+    const d = (p.receipt.demoted || []).find((x) => x.wo === 'WO-01-002')
+    ok(p.code === 0 && d && d.applied === false && o.head() === before && /IN_REVIEW/.test(o.read(WO_B)), 'off main the demotion is reported (applied:false) and nothing is written')
+  } finally { o.cleanup() }
+}
+
 // ── dispatch ─────────────────────────────────────────────────────────────────────────────────────
 console.log('dispatch: the IN_PROGRESS stamp, frontmatter only, optionally committed')
 {
