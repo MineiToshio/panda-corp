@@ -914,6 +914,70 @@ covers only verified FRDs (X5) exists (`audit-last-green.mjs`, BL-0190) and show
 the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
 shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 
+## 5d. The fast lane (opt-in flag, DR-124)
+
+`docs/proposals/39-fast-lane-implement.md` (its §11 orchestrator decision overrides §2 C4 S1/C5). **`args.lane`**
+(`'classic'` default, byte-identical; `'fast'` opt-in; launcher `--lane fast|classic`) and **`args.reviewBudget`**
+(`'now'` default | `'defer'`, fast lane only; launcher `--review-budget now|defer`, which requires `--lane fast`).
+The default flips to `fast` only after the pre-registered §9 measurement passes (small bench T_usable ≤ 2× the vanilla
+median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Each condition below is a tested behaviour
+(`test-build-engine.mjs` scenarios P39-* and F39-*, `test-build-mech.mjs`, `test-classify-change.mjs` case 15b,
+`test-build-run-id.mjs` P39 launcher), not a guideline.
+
+**Two safety flags, each reachable alone in either lane** (both on under `lane:'fast'`):
+- **`args.mechScript` (C1/C2).** Every MECH op is one literal command of `plugin/scripts/pandacorp-build-mech.mjs`
+  (`precheck`, `dispatch`, `commit-wo`, `park-wo`, `safe-point`, `reuse-check`, `gate-prepare`, `gate-release`, `plan`,
+  `classify-frd`, `verify`): the haiku relay runs it and returns its last line, a sealed JSON receipt the engine checks.
+  `commit-wo` takes `.pandacorp/run/main-writer.lock`, refuses a modified path that is neither declared nor `--extra`
+  with a reason, a schema/migration path off `main`, another WO's frontmatter, and an AC id no test cites (`tests: none`
+  needs `tests_reason:`); it re-runs the related unit tests, stamps `IN_REVIEW` and commits code + stamp as ONE commit
+  naming the WO, then asserts a clean tree (a failure restores the stamp). `park-wo` moves a failed WO's dirty paths to
+  `.pandacorp/run/salvage/<wo>/<ts>/` and resets them.
+- **`args.infraGuard` (C7).** An agent that throws, returns nothing, or carries a usage-limit/429/overloaded signature is
+  `infra`: no repair try, never `BLOCKED`, never a `wo-revert`. One retry after 60 s; a second `infra` or any limit
+  signature halts: no new dispatch, in-flight results accepted or parked, in-flight gate verdicts not landed (they
+  re-gate next run), ONE allowlisted close records `build_paused` and releases the lease; `stopReason: 'paused-infra'`
+  plus a `resumeHint`. Committed work is never reverted.
+- **Resume (C7).** Under `mechScript` the `precheck` runs before anything reads state: finish interrupted reverts, salvage
+  engine-owned dirt (WO frontmatter, `.pandacorp/run`) and reset it to `HEAD`, then demote every `IN_REVIEW` WO whose
+  flip to `IN_REVIEW` is not committed on `HEAD` after its last `IN_PROGRESS` dispatch stamp (the `wo-revert.mjs`
+  window, history walked with `--full-history`). `run_started_at` is not used, so a resume never rebuilds a previous
+  run's committed work. Off `main` the demotion is report-only.
+
+**The fast build shape (needs `mechScript`; `lane:'fast'` with `mechScript:false` builds classic waves).**
+- **Sequential FRD lanes on `main` (§11).** One FRD at a time in dependency order; no worktree lanes, no landing train,
+  no foundation split, no plan agent (`plan` reads the Build Plan order; a missing or drifted plan falls back to the
+  plan agent). One committed `IN_PROGRESS` dispatch stamp per FRD; ONE worker-tier builder holds every WO brief and
+  commits each WO itself through `commit-wo` (or parks it); a `difficulty: high` or reopened WO gets its own opus builder
+  in sequence. A WO without a sealed receipt is treated as not landed and parked; the missed WOs get one opus rebuild,
+  then the classic bounded repair.
+- **Floor (C3).** `classify-change.mjs` over the declared paths plus the FRD text (`--text`), at plan time and again on
+  the landed diff; monotone, fail-closed (unreadable = floor); the engine is the single writer of FRD frontmatter
+  `floor:`.
+- **USABLE (C6).** `verify` refuses unless the tree is clean and every WO is committed `IN_REVIEW` at `HEAD`, then runs
+  `verify.sh` on that SHA. Green and non-floor → `build_usable` (track.jsonl line committed on its own + dashboard event)
+  and a push hint. Red → one sonnet fix-forward (`commit-wo --fixup`), then the classic repair. USABLE is an event; it
+  never advances `last_green_sha` (BL-0066) and nothing stores it.
+- **Gates overlap the next build.** The FRD's unchanged opus gate (DR-015) is pinned to the landed SHA and runs in a
+  parallel gate slot (§5c) while the next FRD builds. A floor FRD is USABLE only at VERIFIED, and a dependent of a floor
+  FRD (or of an FRD whose verify stayed red) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
+- **Fix-forward after USABLE.** A gate rejection is patched and certified (DR-073 ladder unchanged). A discard of a USABLE
+  FRD becomes `BLOCKED: needs-owner` with a decision record naming the whole dependent set and a push; the engine reverts
+  nothing.
+- **Security (DR-085).** The audit starts read-only on the first gate's pin; the close-out audits only the delta since
+  that pin, fail-closed to the full audit when the early verdict is unusable.
+- **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
+  `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
+  'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
+
+**Not built in this release (recorded, not promised):** parallel worktree lanes, the landing train, the serial schema
+step, attributed relock and bisect (C4 S1/C5, deferred by §11 until §9.2 shows the build half, not usage, is the
+bottleneck); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
+refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: a bench FRD touching `package.json`,
+`next.config`, `e2e/` or `tsconfig` classifies as floor (then USABLE = VERIFIED); `commit-wo` runs only for single-WO
+waves in a mechScript classic run (a parallel wave would refuse its siblings' files); under a real usage limit the
+pause close may fail too, and the lease then expires by its TTL.
+
 ## 5b. The phase model & `deploy_target` (DR-085)
 
 The project lifecycle (the `phase` in `.pandacorp/status.yaml`) has **six phases**, matching Mission
