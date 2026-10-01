@@ -1031,7 +1031,6 @@ const projectDirtyPaths = precheckDirty ? precheckDirty.filter(isInProject) : nu
 const outsideDirtyPaths = [...new Set([...((precheck && Array.isArray(precheck.outsideDirtyPaths)) ? precheck.outsideDirtyPaths : []), ...(precheckDirty || []).filter((p) => !isInProject(p))].filter((p) => typeof p === 'string' && p))]
 if (outsideDirtyPaths.length) log(`ℹ BL-0202: ${outsideDirtyPaths.length} ruta(s) sucia(s) FUERA del proyecto${PRECHECK_PREFIX ? ` (${PRECHECK_PREFIX})` : ''}, de otra sesión — informativo: no escalan el baseline y el motor no las toca: ${outsideDirtyPaths.slice(0, 10).join(', ')}${outsideDirtyPaths.length > 10 ? ', …' : ''}`)
 const leasedStatusOnly = Array.isArray(projectDirtyPaths) && projectDirtyPaths.length === 1 && projectRelativeDirtyPath(projectDirtyPaths[0]) === '.pandacorp/status.yaml'
-const GREENFIELD_NOT_BUILT = new Set(['PLANNED', 'DRAFT'])
 const readGreenfieldFacts = (line) => {
  if (typeof line !== 'string') return null
  const text = line.trim()
@@ -1040,15 +1039,7 @@ const readGreenfieldFacts = (line) => {
  try { facts = JSON.parse(text) } catch { return null }
  return facts && facts.ok === true && facts.probe === 'greenfield' ? facts : null
 }
-const isGreenfield = (facts) => {
- if (!facts || facts.lastGreenSha !== '' || facts.missing !== 0) return false
- if (!Number.isInteger(facts.workOrders) || facts.workOrders < 1) return false
- const byStatus = facts.byStatus && typeof facts.byStatus === 'object' ? facts.byStatus : null
- if (!byStatus) return false
- const statuses = Object.keys(byStatus)
- const counted = statuses.reduce((n, k) => n + (Number.isInteger(byStatus[k]) ? byStatus[k] : Number.NaN), 0)
- return counted === facts.workOrders && statuses.every((k) => GREENFIELD_NOT_BUILT.has(k))
-}
+const isGreenfield = (facts) => Boolean(facts) && facts.greenfield === true
 const greenfieldFacts = readGreenfieldFacts(precheck && precheck.greenfieldProbe)
 let baselineGreenfield = null
 if (precheck && precheck.green === true) {

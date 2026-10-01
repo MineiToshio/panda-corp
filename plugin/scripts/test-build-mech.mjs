@@ -490,6 +490,9 @@ console.log('precheck: greenfield = no last_green_sha and every work order PLANN
     ['IN_PROGRESS next to a WO already IN_REVIEW', 'phase: implementation\n', ['IN_PROGRESS', 'IN_REVIEW', 'PLANNED'], false],
     ['one WO VERIFIED', 'phase: implementation\n', ['VERIFIED', 'PLANNED', 'PLANNED'], false],
     ['one WO BLOCKED', 'phase: implementation\n', ['PLANNED', 'PLANNED', 'BLOCKED'], false],
+    // adopted-brownfield-is-not-greenfield: /pandacorp:adopt writes `created_via: adopt` and leaves last_green_sha empty
+    // and the reconstructed WOs PLANNED, but its code exists: its verify.sh is not red by construction.
+    ['adopted-brownfield-is-not-greenfield (created_via: adopt, every WO PLANNED)', 'phase: implementation\ncreated_via: adopt\nlast_green_sha: ""\n', ['PLANNED', 'PLANNED', 'PLANNED'], false],
   ]
   for (const [what, yaml, statuses, want] of cases) {
     const r = fresh(yaml, statuses)
@@ -498,6 +501,18 @@ console.log('precheck: greenfield = no last_green_sha and every work order PLANN
       ok(p.code === 0 && p.sealed && g && g.greenfield === want && typeof g.reason === 'string' && g.reason.length > 0, `${what} → greenfield ${want} (got ${JSON.stringify(g)})`)
     } finally { r.cleanup() }
   }
+  // A WO committed IN_REVIEW once and demoted back to PLANNED (a resume demotion) left its code: never greenfield again.
+  const once = fresh('phase: implementation\n', ['PLANNED', 'PLANNED', 'PLANNED'])
+  try {
+    once.write(WO_B, woMd('WO-01-002', 'IN_REVIEW'))
+    once.write('src/beta.ts', 'export const beta = 1\n')
+    once.git('add', '-A')
+    once.git('commit', '-q', '-m', 'feat: WO-01-002')
+    once.write(WO_B, woMd('WO-01-002', 'PLANNED'))
+    once.git('commit', '-q', '-am', 'chore(build): demote WO-01-002')
+    const { g } = gf(once)
+    ok(g && g.greenfield === false && /git history/.test(g.reason || ''), `a WO EVER IN_REVIEW in the history is not greenfield, even demoted (got ${JSON.stringify(g)})`)
+  } finally { once.cleanup() }
   const empty = mkRepo()
   try {
     empty.git('rm', '-q', '-r', '--', 'proj/docs')

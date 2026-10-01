@@ -1947,11 +1947,11 @@ const leasedStatusOnly = Array.isArray(projectDirtyPaths) && projectDirtyPaths.l
 // the work orders will import, vitest has no test files yet). The judge baseline rightly refuses to "fix" that tree,
 // so the build stopped `baseline red (needs manual fix)` before building anything: a new project could never start
 // implement. On greenfield the baseline is NOT APPLICABLE — the red tree is the work orders' job (per-WO self-tests,
-// then the FRD gate). Decided HERE from greenfield-probe.mjs's SEALED facts (status.yaml + WO frontmatter), never
-// from a model's prose; an unsealed/garbled/refused line, a WO without implementation_status, no WOs, any WO
-// IN_PROGRESS/IN_REVIEW/VERIFIED/BLOCKED, or a set last_green_sha all leave the behavior unchanged (judge baseline).
-// args.strictBaseline keeps the judge baseline unconditionally.
-const GREENFIELD_NOT_BUILT = new Set(['PLANNED', 'DRAFT'])
+// then the FRD gate). Decided by greenfield-probe.mjs's SEALED verdict — decideGreenfield, the ONE greenfield
+// definition (DR-115), also the fast lane's precheck verdict: no published last_green_sha, not adopted (created_via:
+// adopt), no work order ever IN_REVIEW/VERIFIED in git history, every work order PLANNED/DRAFT. The engine never
+// re-derives it from the facts; an unsealed/garbled/refused line or any other verdict leaves the behavior unchanged
+// (judge baseline). args.strictBaseline keeps the judge baseline unconditionally.
 const readGreenfieldFacts = (line) => {
   if (typeof line !== 'string') return null
   const text = line.trim()
@@ -1960,15 +1960,7 @@ const readGreenfieldFacts = (line) => {
   try { facts = JSON.parse(text) } catch { return null }   // a sealed but unparseable line proves nothing: not greenfield
   return facts && facts.ok === true && facts.probe === 'greenfield' ? facts : null
 }
-const isGreenfield = (facts) => {
-  if (!facts || facts.lastGreenSha !== '' || facts.missing !== 0) return false
-  if (!Number.isInteger(facts.workOrders) || facts.workOrders < 1) return false
-  const byStatus = facts.byStatus && typeof facts.byStatus === 'object' ? facts.byStatus : null
-  if (!byStatus) return false
-  const statuses = Object.keys(byStatus)
-  const counted = statuses.reduce((n, k) => n + (Number.isInteger(byStatus[k]) ? byStatus[k] : Number.NaN), 0)
-  return counted === facts.workOrders && statuses.every((k) => GREENFIELD_NOT_BUILT.has(k))
-}
+const isGreenfield = (facts) => Boolean(facts) && facts.greenfield === true
 const greenfieldFacts = readGreenfieldFacts(precheck && precheck.greenfieldProbe)
 let baselineGreenfield = null   // the facts, when the engine took the greenfield path — the planner records the event
 

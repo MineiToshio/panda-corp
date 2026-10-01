@@ -9,6 +9,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { verifySealedLine } from './drift-seal.mjs'
+import { decideGreenfield } from './greenfield-probe.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(__dirname, 'greenfield-probe.mjs')
@@ -32,6 +33,30 @@ function mkProject({ statusYaml, wos = {} }) {
   }
   return dir
 }
+
+// A real git repository with the project NESTED under proj/ (the Mission Control shape): `commits` is a list of
+// { files: { rel: content }, message } applied in order, so a work order's history is real git history.
+function mkGitProject(commits) {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'greenfield-probe-git-'))
+  const git = (...args) => { const r = spawnSync('git', args, { cwd: root, encoding: 'utf8' }); if (r.status !== 0) throw new Error(`git ${args.join(' ')}: ${r.stderr}`) }
+  git('init', '-q', '-b', 'main')
+  git('config', 'user.email', 't@example.com')
+  git('config', 'user.name', 'T')
+  git('config', 'commit.gpgsign', 'false')
+  for (const { files, message } of commits) {
+    for (const [rel, content] of Object.entries(files)) {
+      const p = path.join(root, 'proj', rel)
+      mkdirSync(path.dirname(p), { recursive: true })
+      writeFileSync(p, content)
+    }
+    git('add', '-A')
+    git('commit', '-q', '-m', message)
+  }
+  return { root, dir: path.join(root, 'proj') }
+}
+const WO_A = 'docs/frds/frd-01-a/work-orders/wo-01-001-x.md'
+const WO_B = 'docs/frds/frd-01-a/work-orders/wo-01-002-y.md'
+const FRESH = 'phase: implementation\nlast_green_sha: ""\n'
 
 function run(dir) {
   const r = spawnSync(process.execPath, [SCRIPT, '--project', dir], { encoding: 'utf8' })
@@ -84,6 +109,57 @@ const cases = [
     const r = run(dir)
     ok(r.status === 2 && r.sealed && r.parsed && r.parsed.ok === false && /not found/.test(r.parsed.error), 'exit 2, ok:false, error names the file')
     rmSync(dir, { recursive: true, force: true })
+  }],
+  ['adopted-brownfield-is-not-greenfield: adopt leaves last_green_sha empty and its WOs PLANNED, but it was never red by construction', () => {
+    const { root, dir } = mkGitProject([{ message: 'chore: adopt', files: { '.pandacorp/status.yaml': 'phase: implementation\ncreated_via: adopt\nlast_green_sha: ""\n', [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_B]: woMd('WO-01-002', 'PLANNED') } }])
+    const r = run(dir)
+    ok(r.sealed && r.parsed && r.parsed.adopted === true && r.parsed.everBuilt === false, `the facts say adopted, never built (got ${r.line})`)
+    ok(r.parsed && r.parsed.greenfield === false && /adopt/.test(r.parsed.reason || ''), `the sealed verdict is NOT greenfield and names the adoption (got ${r.parsed && r.parsed.reason})`)
+    ok(decideGreenfield(r.parsed, { allowDispatched: true }).greenfield === false, 'the fast lane reads the same verdict (one definition)')
+    rmSync(root, { recursive: true, force: true })
+  }],
+  ['a work order that was EVER IN_REVIEW in git history is not greenfield, even demoted back to PLANNED', () => {
+    const { root, dir } = mkGitProject([
+      { message: 'docs: architecture', files: { '.pandacorp/status.yaml': FRESH, [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_B]: woMd('WO-01-002', 'PLANNED') } },
+      { message: 'feat: WO-01-001', files: { [WO_A]: woMd('WO-01-001', 'IN_REVIEW'), 'src/a.ts': 'export const a = 1\n' } },
+      { message: 'chore: demote', files: { [WO_A]: woMd('WO-01-001', 'PLANNED') } },
+    ])
+    const r = run(dir)
+    ok(r.sealed && r.parsed && r.parsed.everBuilt === true && r.parsed.byStatus.PLANNED === 2, `the history shows a built WO while every WO reads PLANNED now (got ${r.line})`)
+    ok(r.parsed && r.parsed.greenfield === false && decideGreenfield(r.parsed, { allowDispatched: true }).greenfield === false, 'neither lane reads it as greenfield')
+    rmSync(root, { recursive: true, force: true })
+  }],
+  ['a prose mention of VERIFIED in a work order body is not history of a build', () => {
+    const { root, dir } = mkGitProject([
+      { message: 'docs: architecture', files: { '.pandacorp/status.yaml': FRESH, [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_B]: woMd('WO-01-002', 'DRAFT') } },
+    ])
+    const r = run(dir)
+    ok(r.sealed && r.parsed && r.parsed.everBuilt === false && r.parsed.adopted === false, `the body's 'implementation_status: VERIFIED (prose…)' line is not a frontmatter state (got ${r.line})`)
+    ok(r.parsed && r.parsed.greenfield === true, `a freshly architected project is greenfield (got ${r.parsed && r.parsed.reason})`)
+    rmSync(root, { recursive: true, force: true })
+  }],
+  ['a committed dispatch stamp (IN_PROGRESS) is greenfield for the fast lane only; the classic verdict keeps it unbuilt-but-not-greenfield', () => {
+    const { root, dir } = mkGitProject([
+      { message: 'docs: architecture', files: { '.pandacorp/status.yaml': FRESH, [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_B]: woMd('WO-01-002', 'PLANNED') } },
+      { message: 'chore(build): dispatch', files: { [WO_A]: woMd('WO-01-001', 'IN_PROGRESS') } },
+    ])
+    const r = run(dir)
+    ok(r.parsed && r.parsed.greenfield === false, 'the sealed (classic) verdict: IN_PROGRESS is not greenfield')
+    ok(decideGreenfield(r.parsed, { allowDispatched: true }).greenfield === true, 'the fast lane (its precheck already restored any uncommitted work) reads a dispatch-only project as greenfield')
+    rmSync(root, { recursive: true, force: true })
+  }],
+  ['no git history to read fails safe: not greenfield', () => {
+    const dir = mkProject({ statusYaml: FRESH, wos: { 'frd-01-a/work-orders/wo-01-001-x.md': woMd('WO-01-001', 'PLANNED') } })
+    const r = run(dir)
+    ok(r.sealed && r.parsed && r.parsed.everBuilt === null && r.parsed.greenfield === false, `an unreadable history proves nothing (got ${r.line})`)
+    rmSync(dir, { recursive: true, force: true })
+  }],
+  ['decideGreenfield refuses incomplete facts', () => {
+    const base = { ok: true, probe: 'greenfield', lastGreenSha: '', workOrders: 2, byStatus: { PLANNED: 2 }, missing: 0, adopted: false, everBuilt: false }
+    ok(decideGreenfield(base).greenfield === true, 'complete greenfield facts → greenfield')
+    for (const [what, patch] of [['adopted unknown', { adopted: undefined }], ['history unknown', { everBuilt: undefined }], ['a set pin', { lastGreenSha: 'abc' }], ['a missing status', { missing: 1, byStatus: { PLANNED: 1 } }], ['no work orders', { workOrders: 0, byStatus: {} }], ['a refusal', { ok: false }], ['BLOCKED', { byStatus: { PLANNED: 1, BLOCKED: 1 } }]]) {
+      ok(decideGreenfield({ ...base, ...patch }).greenfield === false, `${what} → not greenfield`)
+    }
   }],
 ]
 

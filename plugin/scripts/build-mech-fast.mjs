@@ -16,6 +16,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
 const TRACK = JOURNALS[0]
@@ -299,28 +300,16 @@ export function durableUsable(ctx, only = {}) {
 }
 
 // ── greenfield (the precheck's start verdict) ─────────────────────────────────────────────────
-const UNPUBLISHED_PIN = new Set(['', 'null', '~'])
-const UNBUILT = new Set(['PLANNED', 'DRAFT', 'IN_PROGRESS'])
 /**
- * Is this a freshly architected project, whose verify.sh is red BY CONSTRUCTION (knip flags the dependencies the work
- * orders will import, vitest finds no tests)? Decided from durable state only, never from a model's prose: status.yaml
- * has no published `last_green_sha` (absent, empty, null or ~) and every work order's `implementation_status` is
- * PLANNED or DRAFT, or IN_PROGRESS (a committed dispatch stamp of a run paused before its first commit-wo: nothing was
- * built) — at least one, none IN_REVIEW, VERIFIED or BLOCKED. Any other pin value is not greenfield.
+ * Is this a freshly architected project, whose verify.sh is red BY CONSTRUCTION? The ONE definition lives in
+ * greenfield-probe.mjs (DR-115: the classic baseline reads the same verdict, sealed); the fast lane's precheck asks it
+ * with `allowDispatched`, since that precheck has already restored every uncommitted stamp and the engine stops on
+ * any owner edit, so a committed dispatch stamp (IN_PROGRESS) carries no work.
  * @param {object} ctx the projectCtx of the project
  * @returns {{ greenfield: boolean, reason: string }}
  */
 export function greenfieldOf(ctx) {
-  const sy = readText(path.join(ctx.project, PROJECTION))
-  if (sy === null) return { greenfield: false, reason: `no ${PROJECTION}` }
-  const m = /^last_green_sha:[ \t]*(.*)$/m.exec(sy)
-  const pin = m ? m[1].replace(/\s+#.*$/, '').trim().replace(/^['"]|['"]$/g, '') : ''
-  if (!UNPUBLISHED_PIN.has(pin)) return { greenfield: false, reason: `last_green_sha is ${JSON.stringify(pin.slice(0, 40))}: a published (or unreadable) pin is never greenfield` }
-  const wos = readFrds(ctx).flatMap((f) => f.wos)
-  if (!wos.length) return { greenfield: false, reason: 'no work order to build' }
-  const built = wos.filter((w) => !UNBUILT.has(w.status))
-  if (built.length) return { greenfield: false, reason: `${built.length} work order(s) built or blocked: ${built.slice(0, 3).map((w) => `${w.id} ${w.status}`).join(', ')}` }
-  return { greenfield: true, reason: `no published last_green_sha and none of the ${wos.length} work order(s) built yet (PLANNED/DRAFT, or only dispatched): verify.sh is red by construction until they are` }
+  return decideGreenfield(probeGreenfield(ctx.project), { allowDispatched: true })
 }
 
 export const FAST_OPS = { plan: planOp, 'classify-frd': classifyFrdOp, verify: verifyOp }

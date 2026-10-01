@@ -47,6 +47,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sealLine } from './drift-seal.mjs'
+import { decideGreenfield } from './greenfield-probe.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // BL-0204: the readable SOURCE (the deployable artifact is generated from it; PANDACORP_ENGINE_RUN=artifact
@@ -585,8 +586,9 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^baseline$/).length === 1, 'the judge baseline ran (nothing usable to unwrap)')
   },
 })
-// The greenfield probe line, sealed exactly as greenfield-probe.mjs prints it.
-const greenfieldLine = (facts) => sealLine({ ok: true, probe: 'greenfield', ...facts })
+// The greenfield probe line, sealed exactly as greenfield-probe.mjs prints it: the facts plus THE verdict
+// (decideGreenfield, the one definition). The facts default to a never-adopted project with no build in its history.
+const greenfieldLine = (facts) => { const f = { ok: true, probe: 'greenfield', adopted: false, everBuilt: false, ...facts }; return sealLine({ ...f, ...decideGreenfield(f) }) }
 const redTreePrecheck = (probe) => ({ escalate: true, dirty: true, dirtyPaths: ['.pandacorp/status.yaml', 'package.json'], outsideDirtyPaths: [], leaseValid: true, projectPrefix: '', greenfieldProbe: probe })
 const proceedsWithJudgeBaseline = (t, run) => {
   t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -645,6 +647,26 @@ for (const [slug, probe] of [
     assert: proceedsWithJudgeBaseline,
   })
 }
+// adopted-brownfield-is-not-greenfield: /pandacorp:adopt leaves last_green_sha empty and its reconstructed WOs PLANNED,
+// but the code exists — and a WO once IN_REVIEW (demoted on a resume) left its code too. Neither is red by construction.
+for (const [slug, facts] of [
+  ['adopted (created_via: adopt)', { lastGreenSha: '', workOrders: 6, byStatus: { PLANNED: 6 }, missing: 0, adopted: true }],
+  ['a WO IN_REVIEW once in the git history', { lastGreenSha: '', workOrders: 6, byStatus: { PLANNED: 6 }, missing: 0, everBuilt: true }],
+  ['the history could not be read', { lastGreenSha: '', workOrders: 6, byStatus: { PLANNED: 6 }, missing: 0, everBuilt: null }],
+]) {
+  SCENARIOS.push({
+    name: `F39-21. adopted-brownfield-is-not-greenfield (${slug}): the sealed verdict decides, the judge baseline runs`,
+    args: { mode: 'powerful' },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine(facts)) }],
+    assert: proceedsWithJudgeBaseline,
+  })
+}
+SCENARIOS.push({
+  name: 'F39-21b. a sealed line whose facts look greenfield but whose verdict says not (the one definition decides): judge baseline',
+  args: { mode: 'powerful' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(sealLine({ ok: true, probe: 'greenfield', lastGreenSha: '', workOrders: 3, byStatus: { PLANNED: 3 }, missing: 0, greenfield: false, reason: 'an adopted project (created_via: adopt)' })) }],
+  assert: proceedsWithJudgeBaseline,
+})
 SCENARIOS.push({
   name: '9.118.2-f. args.strictBaseline keeps the judge baseline even on a greenfield project',
   args: { mode: 'powerful', strictBaseline: true },
