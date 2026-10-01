@@ -379,7 +379,7 @@ const anyMatch = (patterns, value) => patterns.some((re) => re.test(value));
 // ---------------------------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const opts = { repo: null, mode: null, range: null, files: null, card: null, wo: null, attempts: null };
+  const opts = { repo: null, mode: null, range: null, files: null, card: null, wo: null, attempts: null, texts: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const need = () => {
@@ -395,6 +395,7 @@ function parseArgs(argv) {
       case "--files": opts.files = need(); opts.mode = setMode(opts.mode, "files"); break;
       case "--card": opts.card = need(); break;
       case "--wo": opts.wo = need(); break;
+      case "--text": opts.texts.push(need()); break;
       case "--attempts": opts.attempts = need(); break;
       default: throw new FailClosed(`unknown argument: ${a}`);
     }
@@ -487,6 +488,22 @@ function collectFromFileList(opts) {
     addedByFile: new Map(),
     linesKnown: false,
   };
+}
+
+/**
+ * `--text <file>` (repeatable): a document whose WHOLE body is read as added content, so the content
+ * signals (S5-S8) see it, while it is never counted as a changed file (it changes no size, path or new-file
+ * signal). Proposal 39 C3 feeds a feature's spec this way at plan time, before any code exists. Monotone: it
+ * can only add signals. An unreadable text fails closed like any other unreadable input.
+ */
+function addTexts(opts, ctx) {
+  for (const t of opts.texts) {
+    const abs = path.isAbsolute(t) ? t : path.join(opts.repo, t);
+    let body;
+    try { body = readFileSync(abs, "utf8"); } catch (e) { throw new FailClosed(`--text ${t} is unreadable: ${String(e.message || e).split("\n")[0]}`); }
+    const rel = normalizePath(path.relative(realOrResolved(ctx.repoRoot), realOrResolved(abs)));
+    ctx.addedByFile.set(rel, [...(ctx.addedByFile.get(rel) || []), ...body.split("\n")]);
+  }
 }
 
 const normalizePath = (p) => (p || "").trim().replace(/^"|"$/g, "").replace(/^\.\//, "");
@@ -882,6 +899,7 @@ function main() {
   // graph nodes onto the repoRoot-relative paths `ctx.files` already carries (git diff's frame).
   ctx.projectRoot = realOrResolved(opts.repo);
   ctx.projectPrefix = normalizePath(path.relative(realOrResolved(ctx.repoRoot), ctx.projectRoot));
+  addTexts(opts, ctx);
   process.stdout.write(`${JSON.stringify(classify(opts, ctx))}\n`);
 }
 

@@ -11,7 +11,7 @@
 # This wrapper owns the contract: arguments, the JSON on stdout, and the exit code.
 #
 # Usage:
-#   classify-change.sh --repo <path> (--range <base>..<head> | --staged | --worktree | --files <list>)
+#   classify-change.sh --repo <path> (--range <base>..<head> | --staged | --worktree | --files <list>) [--text <file>]…
 #                      [--card <path.md>] [--wo <path.md>] [--attempts <n>]
 #
 #   --range     classify a committed range
