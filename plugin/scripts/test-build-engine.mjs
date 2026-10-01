@@ -784,6 +784,56 @@ SCENARIOS.push({
   },
 })
 
+// The answer-text limit check reads only the provider's own envelopes: product prose about quotas is a verdict, not infra.
+SCENARIOS.push({
+  name: 'P39-i. infra-guard-ignores-product-prose — a builder verdict that talks about a product\'s usage limit is a work-order failure (repaired), never paused-infra',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-qp', ['wo-qp-001']),
+  responses: [
+    { label: 'build:wo-qp-001', times: 1, response: { green: false, failure: 'AC-03: the usage limit exceeded banner is missing; the "usage limit reached" toast and the "your limit will reset at midnight" copy are absent' } },
+    { label: 'wo-revert-plan:frd-qp', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-qp', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason !== 'paused-infra' && byLabel(run, 'build-paused').length === 0, `not paused-infra (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, 'repair:frd-qp').length === 1, 'the failed verdict goes to the bounded repair')
+    t.ok(!hasLog(run, /INFRA HALT/), 'no infra halt is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-i2. infra-guard-reads-provider-envelopes — a verdict carrying the provider\'s own limit envelope still halts',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-qe', ['wo-qe-001']),
+  responses: [{ label: 'build:wo-qe-001', response: { green: false, failure: 'API Error: 529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'paused-infra' && byLabel(run, 'build-paused').length === 1, `paused-infra (got ${run.result && run.result.stopReason})`)
+    noRepairPath(t, run)
+  },
+})
+SCENARIOS.push({
+  name: 'P39-i3. infra-guard-bare-limit-reply-halts — a bare-text answer that IS the runtime\'s limit reply halts the run',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-qb', ['wo-qb-001']),
+  responses: [{ label: 'build:wo-qb-001', response: "You've hit your limit · resets 3pm (Europe/Madrid)" }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `paused-infra (got ${run.result && run.result.stopReason})`)
+    noRepairPath(t, run)
+  },
+})
+SCENARIOS.push({
+  name: 'P39-i4. infra-guard-epoch-limit-reply-halts — the runtime\'s "Claude AI usage limit reached|<epoch>" reply halts the run',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-qc', ['wo-qc-001']),
+  responses: [{ label: 'build:wo-qc-001', response: 'Claude AI usage limit reached|1759363200' }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'paused-infra', `paused-infra (got ${run.result && run.result.stopReason})`)
+    noRepairPath(t, run)
+  },
+})
+
 const precheckLine = (body) => ({ line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [], ...body }) })
 SCENARIOS.push({
   name: 'P39-d. resume-demotes-unstamped-in-review — the mech precheck runs (literally) before the planner reads anything; a demoted WO is logged and rebuilt',

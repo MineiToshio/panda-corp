@@ -265,7 +265,8 @@ let infraHalt = null
 const parkedWos = []
 const acceptedWos = []
 const THROWN_LIMIT_RE = /\b(?:429|529)\b|overloaded|rate[ _-]?limit|usage limit|quota|too many requests/i
-const ANSWER_LIMIT_RE = /usage limit (?:reached|exceeded)|(?:you've|you have) (?:hit|reached) your (?:usage )?limit|rate_limit_error|overloaded_error|API Error:?\s*(?:429|529)|limit will reset/i
+const PROVIDER_ENVELOPE_RE = /"type"\s*:\s*"(?:rate_limit_error|overloaded_error)"|\bAPI Error:?\s*(?:429|529)\b|Claude(?: AI)? usage limit reached\|\d{9,}/i
+const LIMIT_REPLY_RE = /^\s*(?:Claude(?: AI)? usage limit reached\b|(?:you've|you have) (?:hit|reached) your (?:usage )?limit\b)/i
 const INFRA_ALLOWED_AFTER_HALT = /^(?:commit:|park:|gate-release:|build-paused$)/
 function infraSignal(answer, err, opts) {
  if (err) {
@@ -275,12 +276,12 @@ function infraSignal(answer, err, opts) {
  if (answer === null || answer === undefined) return { kind: 'infra', detail: 'returned no output' }
  if (typeof answer === 'string') {
   if (!answer.trim()) return { kind: 'infra', detail: 'returned empty text' }
-  return ANSWER_LIMIT_RE.test(answer) ? { kind: 'limit', detail: 'its text carries a usage-limit signature' } : null
+  return PROVIDER_ENVELOPE_RE.test(answer) || LIMIT_REPLY_RE.test(answer) ? { kind: 'limit', detail: 'its text is a usage-limit reply' } : null
  }
  if (typeof answer === 'object') {
   if (opts && opts.schema && !Array.isArray(answer) && Object.keys(answer).length === 0) return { kind: 'infra', detail: 'returned an empty object' }
   const text = ['failure', 'reason', 'error'].map((k) => answer[k]).filter((v) => typeof v === 'string').join(' ')
-  if (ANSWER_LIMIT_RE.test(text)) return { kind: 'limit', detail: 'its text carries a usage-limit signature' }
+  if (PROVIDER_ENVELOPE_RE.test(text)) return { kind: 'limit', detail: 'its text carries the provider\'s usage-limit envelope' }
  }
  return null
 }
