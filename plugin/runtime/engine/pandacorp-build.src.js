@@ -4268,7 +4268,26 @@ function sizeAgentBudget(addedFrds) {
 // rethink stop — instead of leaving the drain to supervisor prose (a supervisor may not exist, and its own
 // safe points are only between passes; an expedite change used to wait a whole multi-hour pass).
 // Returns 'stop' when the owner re-planned (rethink_pending), else null.
+// Proposal 39 C1 (mechScript): the scripted probe runs first (fenced lease renewal, the lstat stop receipt, rethink,
+// ready changes, answered needs-owner decisions); the LLM drain below, the judgment part, runs only when the probe
+// finds work or cannot be verified (fail-safe). A probe stop stops here, like the LLM's own.
+async function safePointProbe() {
+  agentSpawned++
+  const r = await runMechOp('safe-point', `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${TARGETED ? ' --targeted' : ''}`, { label: 'safe-point-probe' })
+  const b = r.body
+  if (!b || b.ok !== true) { log(`⚠ safe-point probe unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — running the full safe point (fail-safe, proposal 39 C1)`); return 'work' }
+  if (b.stop === true || (b.stop_receipt && b.stop_receipt.stop === true)) { log(`⏸ safe-point probe: stop (${b.reason || (b.rethink_pending ? 'rethink_pending' : 'owner stop file')}) — el motor para en este safe point (proposal 39 C1)`); return 'stop' }
+  const rc = b.stop_receipt
+  if (!rc || rc.status_exists !== true || rc.stop !== false || rc.method !== 'node-lstat') { log('⚠ safe-point probe returned no valid stop receipt — running the full safe point (fail-safe, proposal 39 C1)'); return 'work' }
+  if (b.work === true) { log(`◦ safe-point probe found work (ready: ${(b.ready || []).join(', ') || 'none'}; unreadable: ${(b.unreadable || []).length}; answered decisions: ${b.answeredDecisions || 0}) — the full safe point drains it`); return 'work' }
+  return 'quiet'
+}
 async function safePoint() {
+  if (MECH_SCRIPT) {
+    const probe = await safePointProbe()
+    if (probe === 'stop') return 'stop'
+    if (probe === 'quiet') return null
+  }
   agentSpawned++
   const sp = await agent(
     `${RENEW_LEASE} Safe-point check (DR-069/BL-0073) — read the owner's signals; change ONLY what is specified:

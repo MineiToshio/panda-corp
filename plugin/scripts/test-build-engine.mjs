@@ -85,6 +85,7 @@ function defaultResponse(label, call = {}) {
   if (/^hardening:security-(audit-early|delta)$/.test(label)) return { done: true, findings: [] }
   if (label.startsWith('block-usable:')) return { green: false, blocked_reason: 'needs-owner' }
   if (label.startsWith('stale-pin:')) return { count: 0 }   // D1 stale-pin guard: main gained no code commit since the gate's pin
+  if (label === 'safe-point-probe') return { line: mechLine('safe-point', { status: 'quiet', stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, rethink_pending: false, renewed: true, ready: [], unreadable: [], blockedNeedsOwner: [], answeredDecisions: 0, work: false }) }
   if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
   if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
   if (label.startsWith('infra-pause:')) return { done: true }
@@ -831,6 +832,70 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     t.ok(run.result && run.result.stopReason === 'paused-infra', `paused-infra (got ${run.result && run.result.stopReason})`)
     noRepairPath(t, run)
+  },
+})
+
+// C1: under mechScript the safe point is the scripted probe first; the LLM drain (judgment) runs only when it finds work.
+const probeLine = (body) => ({ line: mechLine('safe-point', { status: 'quiet', stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, rethink_pending: false, renewed: true, ready: [], unreadable: [], blockedNeedsOwner: [], answeredDecisions: 0, work: false, ...body }) })
+SCENARIOS.push({
+  name: 'P39-j. safe-point-probe-quiet — under mechScript the literal, fenced safe-point probe runs and a quiet probe spawns no LLM safe point',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-sp', ['wo-sp-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const probes = byLabel(run, 'safe-point-probe')
+    t.ok(probes.length >= 1 && probes.every((c) => isLiteral(c) && literalOp(c) === 'safe-point' && /--token 'test-lease-token' --epoch '1'/.test(c.prompt) && !/--targeted/.test(c.prompt)), `every safe point is the literal fenced probe (got ${probes.map((c) => literalOp(c)).join(', ') || 'no probe'})`)
+    t.ok(byLabel(run, 'safe-point').length === 0, `a quiet probe spawns no LLM safe point (got ${byLabel(run, 'safe-point').length})`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-sp'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-j2. safe-point-probe-work — a probe that finds work (a ready change, an answered decision) spawns the LLM drain right after it',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-sw', ['wo-sw-001']),
+  responses: [{ label: 'safe-point-probe', times: 1, response: probeLine({ status: 'work', work: true, ready: ['change-a'] }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const probe = indexOf(run, /^safe-point-probe$/)
+    const sp = indexOf(run, /^safe-point$/)
+    t.ok(probe >= 0 && sp === probe + 1, `the LLM safe point follows the probe that found work (probe ${probe}, safe-point ${sp})`)
+    t.ok(byLabel(run, 'safe-point').length === 1, 'only that boundary runs the LLM drain')
+    t.ok(hasLog(run, /probe.*work/i), 'the probe verdict is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-j3. safe-point-probe-stop — a probe stop (owner stop file, rethink, a failed lease renewal) stops the run with no LLM safe point',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-ss', ['wo-ss-001']),
+  responses: [{ label: 'safe-point-probe', response: probeLine({ status: 'stop', stop: true, stop_receipt: { status_exists: true, stop: true, method: 'node-lstat' } }) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result && run.result.stopReason === 'rethink', `stopReason rethink (got ${run.result && run.result.stopReason})`)
+    t.ok(byLabel(run, 'safe-point').length === 0 && byLabel(run, /^build:/).length === 0, 'no LLM safe point, nothing built')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-j4. safe-point-probe-unverifiable — a probe line that fails its seal falls back to the full LLM safe point (fail-safe)',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-su', ['wo-su-001']),
+  responses: [{ label: 'safe-point-probe', times: 1, response: { line: probeLine({}).line.replace('"quiet"', '"QUIET"') } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(indexOf(run, /^safe-point$/) === indexOf(run, /^safe-point-probe$/) + 1, 'the full safe point runs right after the unverifiable probe')
+    t.ok(hasLog(run, /probe.*(seal|unverifiable)/i), 'the fallback is logged')
+    t.ok(run.result && run.result.builtFrds.includes('frd-su'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'P39-j5. safe-point-probe-targeted — a targeted run passes --targeted (the probe lists no ready change); the classic lane never probes',
+  args: { mode: 'balanced', ...SAFETY, frds: ['frd-st'], safePointEveryWave: true },
+  plan: infraPlan('frd-st', ['wo-st-001']),
+  next: () => ({ args: { mode: 'balanced' }, plan: infraPlan('frd-sc', ['wo-sc-001']) }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const probes = byLabel(run, 'safe-point-probe')
+    t.ok(probes.length >= 1 && probes.every((c) => /--targeted/.test(c.prompt)), 'the targeted probe carries --targeted')
+    t.ok(run.next && byLabel(run.next, 'safe-point-probe').length === 0 && byLabel(run.next, 'safe-point').length >= 1, 'classic (no mechScript): the LLM safe point exactly as before, no probe')
   },
 })
 

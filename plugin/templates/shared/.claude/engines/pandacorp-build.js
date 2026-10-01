@@ -2538,7 +2538,23 @@ function sizeAgentBudget(addedFrds) {
  MAX_AGENTS = Math.max(MAX_AGENTS || 0, cap)
  log(`⚖ maxAgents auto: projected ~${units} cost units${first ? '' : ' for the FRDs just added'} (${usd(units)}) → cap ${MAX_AGENTS} (x${AUTO_HEADROOM} headroom, plan of ${plan.frds.length} FRD(s))`)
 }
+async function safePointProbe() {
+ agentSpawned++
+ const r = await runMechOp('safe-point', `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${TARGETED ? ' --targeted' : ''}`, { label: 'safe-point-probe' })
+ const b = r.body
+ if (!b || b.ok !== true) { log(`⚠ safe-point probe unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — running the full safe point (fail-safe, proposal 39 C1)`); return 'work' }
+ if (b.stop === true || (b.stop_receipt && b.stop_receipt.stop === true)) { log(`⏸ safe-point probe: stop (${b.reason || (b.rethink_pending ? 'rethink_pending' : 'owner stop file')}) — el motor para en este safe point (proposal 39 C1)`); return 'stop' }
+ const rc = b.stop_receipt
+ if (!rc || rc.status_exists !== true || rc.stop !== false || rc.method !== 'node-lstat') { log('⚠ safe-point probe returned no valid stop receipt — running the full safe point (fail-safe, proposal 39 C1)'); return 'work' }
+ if (b.work === true) { log(`◦ safe-point probe found work (ready: ${(b.ready || []).join(', ') || 'none'}; unreadable: ${(b.unreadable || []).length}; answered decisions: ${b.answeredDecisions || 0}) — the full safe point drains it`); return 'work' }
+ return 'quiet'
+}
 async function safePoint() {
+ if (MECH_SCRIPT) {
+  const probe = await safePointProbe()
+  if (probe === 'stop') return 'stop'
+  if (probe === 'quiet') return null
+ }
  agentSpawned++
  const sp = await agent(
   `${RENEW_LEASE} Safe-point check (DR-069/BL-0073) — read the owner's signals; change ONLY what is specified:
