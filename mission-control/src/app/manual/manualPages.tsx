@@ -3136,10 +3136,13 @@ function WorkflowBuild(): React.JSX.Element {
       </Body>
       <NotePanel icon="ti-scale" iconColor="var(--color-warn)">
         Este paralelismo cuesta agentes, no tiempo extra por gate: si vas a revisar varios FRDs a la
-        vez, dale presupuesto de sobra. Regla práctica: <Code>maxAgents</Code> al menos 15 veces el
-        número de FRDs que el run va a revisar (el conteo pesa por costo, no por cuántos agentes
-        corren en simultáneo; un agente opus pesa unas 3 unidades). Con poco margen, el segundo gate
-        simplemente espera turno en vez de fallar.
+        vez, dale presupuesto de sobra. Regla práctica medida: <Code>maxAgents</Code> ≈ 8 de base,
+        más 4 a 6 por work order, más unas 20 por cada FRD a revisar (24 con el buscador de deriva);
+        un FRD con 3 work orders y una reapertura gastó unas 48 unidades. El conteo pesa por costo,
+        no por cuántos agentes corren en simultáneo (un agente opus pesa unas 3 unidades). Si no
+        quieres calcularlo, <Code>maxAgents auto</Code> lo dimensiona tras el plan; para una noche
+        desatendida pasa igualmente un número tuyo. Con poco margen, el segundo gate simplemente
+        espera turno en vez de fallar.
       </NotePanel>
 
       <DocH title="Cuando el código ya se movió (deriva, DR-122)" />

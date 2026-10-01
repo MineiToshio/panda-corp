@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-01 — Manual: measured `maxAgents` rule; build engine copy follows plugin 9.118.0
+
+**What:** the Manual's "Desatendida" detail and the parallel-gates note replace the "at least 15 per FRD" rule of thumb with the measured one (≈8 base + 4-6 per work order + ≈20 per reviewed FRD, 24 with the drift finder; ≈48 units for 1 FRD / 3 WOs / one reopen) and mention the opt-in `maxAgents auto`. `.claude/engines/pandacorp-build.js` is copied byte-identical from the plugin template (9.118.0). `overlay_version` stays 8.94.0: the other 8.95.0 template changes (stack-a e2e hydration helper, `docs/rules/quality-and-testing.md`) arrive with `/pandacorp:upgrade`.
+
+**Why:** the factory's bench-form benchmark (run A-1) exhausted `maxAgents 20` on a single FRD before its gate; the old rule undercounted fixed overhead and per-WO plumbing. Plugin decision log v9.118.0 holds the evidence (DR-123 for the scheduling change).
+
 ## 2026-09-30 — Pandacorp overlay upgraded 8.93.0 -> 8.94.0
 
 **What:** compatible (same MAJOR) bump. The only template that changed between the two overlays is the build engine

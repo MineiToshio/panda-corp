@@ -101,7 +101,7 @@ const ENGINE_ARGS_ROWS: readonly (readonly string[])[] = [
     "gateSlots",
     "2",
     "Cuántos gates pueden correr a la vez cuando parallelGates está activo.",
-    "Súbelo solo en una máquina con más memoria que la de referencia (16 GB); si lo subes, sube también maxAgents (regla práctica: al menos 15 por FRD a revisar).",
+    "Súbelo solo en una máquina con más memoria que la de referencia (16 GB); si lo subes, sube también maxAgents (regla práctica medida: unas 8 de base, 4 a 6 por work order y unas 20 por FRD a revisar).",
   ],
   [
     "driftPolicy",
