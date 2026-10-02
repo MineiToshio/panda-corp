@@ -1023,7 +1023,9 @@ SCENARIOS.push({
 // ─────────────────────────────────────────────────────────────────────────────
 // Proposal 39 stage 3 — the fast lane (C3 floor, C4 S0 solo FRD builder, C6 USABLE + review, §11 sequential FRDs)
 // ─────────────────────────────────────────────────────────────────────────────
-const FAST = { lane: 'fast', parallelGates: true }
+// fusedStart:false: these scenarios specify the separate start steps (the fused start's fallback path); the fused start
+// itself (the default) is specified by the F39-3x scenarios below.
+const FAST = { lane: 'fast', parallelGates: true, fusedStart: false }
 const fastPlan = (frds) => mkPlan(frds.map(({ frd, ids, deps = [], floor = false, extra = {} }) => ({
   frd, deps, floor,
   workOrders: ids.map((id, i) => ({ ...mkWo(id, 'PLANNED', { frd, artifacts: [`src/${frd}/${i}/**`], ...(extra[id] || {}) }), acText: `- **AC-${id}.1** WHEN ${id} runs, the system SHALL do its thing.` })),
@@ -1653,6 +1655,166 @@ SCENARIOS.push({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bench F-1 round (T_usable ≤ 2× vanilla): the FUSED start, no plan agent, one builder per FRD, builder self-verify
+// ─────────────────────────────────────────────────────────────────────────────
+const FUSED = { lane: 'fast', parallelGates: true }   // the fast lane's default: fusedStart on
+const QUIET_PROBE = { ok: true, status: 'quiet', stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, rethink_pending: false, renewed: true, ready: [], unreadable: [], blockedNeedsOwner: [], answeredDecisions: 0, work: false }
+const FUSED_PRE = { ok: true, status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [], ownerDirt: [], usable: [], greenfield: { greenfield: true, reason: 'none of the work orders built yet: verify.sh is red by construction' } }
+// The compact plan the script relays: each pending WO's AC lines are a context file, never line content.
+const compactPlan = (plan) => ({ ...plan, frds: plan.frds.map((f) => ({ ...f, workOrders: f.workOrders.map(({ acText, ...w }) => ({ ...w, acFile: `.pandacorp/run/context/${w.id}.md` })) })) })
+const fusedBody = (plan, over = {}) => {
+  const f = plan.frds[0]
+  const ids = f.workOrders.filter((w) => ['PLANNED', 'IN_PROGRESS'].includes(w.status)).map((w) => w.id)
+  return { status: 'dispatched', launchEvent: true, precheck: FUSED_PRE, probe: QUIET_PROBE, baseline: 'greenfield', plan: { ok: true, status: 'planned', unsatisfiedDeps: [], ...compactPlan(plan) }, synced: { ok: true, corrected: 0, commit: '5ync00000000' }, dispatch: { ok: true, frd: f.frd, wos: ids, status: 'stamped', stamped: ids, unchanged: [], committed: 'd15pa7c00002', base: 'f5base000001' }, ...over }
+}
+const fusedStart = (plan, over = {}) => ({ label: 'fast-start', response: { line: mechLine('fast-start', fusedBody(plan, over)) } })
+const BEFORE_BUILD = (run) => run.calls.slice(0, Math.max(0, labelIdx(run, /^fast-build:/))).map((c) => c.label)
+const SELF_VERIFY_RE = /bash \.pandacorp\/verify\.sh/
+
+const F30_PLAN = fastPlan([{ frd: 'frd-f1', ids: ['WO-01-001', 'WO-01-002', 'WO-01-003'], extra: { 'WO-01-003': { deps: ['WO-01-001', 'WO-01-002'], difficulty: 'high' } } }])
+SCENARIOS.push({
+  name: 'F39-30. fast-lane-fused-start-one-relay — bench F-1: precheck, baseline, plan, floor, probe and dispatch are ONE scripted op relayed by ONE haiku spawn; the build starts right after it',
+  args: { mode: 'balanced', ...FUSED, project: 'bench' },
+  plan: F30_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F30_PLAN)],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(JSON.stringify(BEFORE_BUILD(run)) === JSON.stringify(['fast-start']), `the ONLY spawn before the builder is fast-start (got ${BEFORE_BUILD(run).join(', ')})`)
+    const fs = byLabel(run, 'fast-start')[0]
+    t.ok(fs && isLiteral(fs) && literalOp(fs) === 'fast-start' && fs.model === 'haiku', 'one literal, haiku-relayed fast-start op')
+    t.ok(fs && /--token 'test-lease-token' --epoch '1'/.test(fs.prompt) && /--launch-event --mode 'balanced'/.test(fs.prompt) && /--project-name 'bench'/.test(fs.prompt), 'it carries the lease fence and the BuildLaunch fields (the script emits B1 itself)')
+    t.ok(byLabel(run, /^(mech-precheck|baseline-precheck|baseline|mech-plan|plan|floor:.*|dispatch:.*)$/).length === 0, 'no separate precheck, pre-check, judge baseline, plan, floor or dispatch spawn in the whole run (the later probes are the gates\' safe points)')
+    const v = byLabel(run, 'verify:frd-f1')[0]
+    t.ok(v && /--since 'f5base000001'/.test(v.prompt), 'verify reads the landed range from the fused dispatch base')
+    t.ok(hasLog(run, /fast-start/) && hasLog(run, /greenfield/i), 'the log names the fused start and its baseline verdict')
+    t.ok(run.result && run.result.builtFrds.includes('frd-f1'), 'the FRD builds, verifies and is gated as before')
+  },
+})
+
+const F31_PLAN = fastPlan([{ frd: 'frd-es', ids: ['WO-01-001', 'WO-01-002'] }])
+SCENARIOS.push({
+  name: 'F39-31. fast-lane-build-plan-skips-plan-agent — bench F-1: the scripted plan succeeded but its relayed line failed its seal (the relay decoded \\u00f3), so an opus plan agent ran; the compact plan carries no free text and no plan agent spawns',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F31_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F31_PLAN)],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F31_PLAN,
+    noPlanLine: true,
+    responses: [fusedStart(F31_PLAN, { status: 'handoff', stage: 'plan', plan: { ok: true, status: 'no-build-plan', reason: 'frd-es: blueprint.md has no Build Plan table' }, synced: undefined, dispatch: undefined })],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'plan').length === 0 && byLabel(run, 'mech-plan').length === 0, `zero plan agent spawns and no second plan read (got ${run.calls.map((c) => c.label).join(', ')})`)
+    const b = byLabel(run, /^fast-build:frd-es$/)[0]
+    t.ok(b && /\.pandacorp\/run\/context\/WO-01-001\.md/.test(b.prompt) && /\.pandacorp\/run\/context\/WO-01-002\.md/.test(b.prompt), 'the builder is pointed at each WO\'s verbatim AC context file')
+    t.ok(hasLog(run, /no plan agent/i), 'the log says why no plan agent ran')
+    const two = run.next
+    t.ok(two && !two.error && byLabel(two, 'plan').length === 1 && byLabel(two, 'mech-plan').length === 0 && hasLog(two, /no Build Plan table/), 'a Build Plan the script declined runs the plan agent ONCE, without re-reading the declined plan')
+    t.ok(two && byLabel(two, /^dispatch:frd-es$/).length === 1 && labelIdx(two, /^safe-point-probe$/) >= 0 && labelIdx(two, /^safe-point-probe$/) < labelIdx(two, /^dispatch:frd-es$/), 'after a plan handoff the engine probes afresh (the fused probe is not reused) and dispatches itself')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-31b. fast-lane-fallback-plan-is-compact — without the fused start the scripted plan read is compact too (the relay never copies AC text)',
+  args: { mode: 'balanced', ...FAST },
+  plan: F31_PLAN,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const mp = byLabel(run, 'mech-plan')[0]
+    t.ok(mp && /--classify --compact/.test(mp.prompt), 'the scripted plan read passes --compact')
+    t.ok(byLabel(run, 'plan').length === 0, 'no plan agent')
+  },
+})
+
+const F32_PLAN = fastPlan([{ frd: 'frd-h', ids: ['WO-01-001'] }])
+SCENARIOS.push({
+  name: 'F39-32. fast-lane-fused-owner-dirt-and-stop — owner dirt still stops needs-owner before any dispatch; the owner stop file stops before planning',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F32_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F32_PLAN, { status: 'owner-dirt', precheck: { ...FUSED_PRE, ownerDirt: ['src/owner-draft.ts'] }, probe: undefined, baseline: undefined, plan: undefined, synced: undefined, dispatch: undefined })],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F32_PLAN,
+    noPlanLine: true,
+    responses: [fusedStart(F32_PLAN, { status: 'stop', probe: { ...QUIET_PROBE, status: 'stop', stop: true, stop_receipt: { status_exists: true, stop: true, method: 'node-lstat' } }, baseline: undefined, plan: undefined, synced: undefined, dispatch: undefined })],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^(dispatch|fast-build|plan|mech-plan|baseline-precheck|baseline)(:|$)/).length === 0 && byLabel(run, 'ensure-stopped').length === 1, `owner dirt: nothing after the fused start but the close (got ${run.calls.map((c) => c.label).join(', ')})`)
+    t.ok(run.result && (run.result.blockedFrds || []).includes('owner-dirt') && JSON.stringify(run.result.ownerDirt) === JSON.stringify(['src/owner-draft.ts']), 'the needs-owner record lists the path')
+    const two = run.next
+    t.ok(two && !two.error && two.result && two.result.note === 'owner stop signal' && byLabel(two, 'ensure-stopped').length === 1 && byLabel(two, /^(dispatch|fast-build|plan|mech-plan|baseline-precheck)(:|$)/).length === 0, 'the owner stop file: a clean stop before planning')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-33. fast-lane-fused-baseline-handoff — an escalated baseline hands back: the pre-check (without a second BuildLaunch) and the judge baseline run, then the separate plan read, probe and dispatch',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F32_PLAN,
+  responses: [
+    fusedStart(F32_PLAN, { status: 'handoff', stage: 'baseline', baseline: 'escalate', precheck: { ...FUSED_PRE, greenfield: { greenfield: false, reason: 'a published pin' } }, plan: undefined, synced: undefined, dispatch: undefined }),
+    { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+  ],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F32_PLAN,
+    responses: [{ label: 'fast-start', response: { line: mechLine('fast-start', fusedBody(F32_PLAN)).replace('"greenfield"', '"greenfielt"') } }],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const pc = byLabel(run, 'baseline-precheck')[0]
+    t.ok(pc && !/BuildLaunch/.test(pc.prompt) && byLabel(run, 'baseline').length === 1, 'the pre-check runs without re-emitting BuildLaunch, then the judge baseline')
+    t.ok(byLabel(run, 'mech-precheck').length === 0, 'the fused precheck is not re-run')
+    t.ok(labelIdx(run, /^baseline$/) < labelIdx(run, /^mech-plan$/) && byLabel(run, 'safe-point-probe').length >= 1 && byLabel(run, /^dispatch:frd-h$/).length === 1, 'then the separate plan read, a fresh probe and the engine\'s own dispatch')
+    const two = run.next
+    t.ok(two && !two.error && hasLog(two, /fast-start.*(seal|unverifiable)/i) && ['mech-precheck', 'baseline-precheck', 'mech-plan', 'safe-point-probe'].every((l) => byLabel(two, l).length >= 1) && byLabel(two, /^dispatch:frd-h$/).length === 1, 'an unverifiable fused line runs every separate start step (fail-safe)')
+    t.ok(two && byLabel(two, 'baseline-precheck').every((c) => !/BuildLaunch/.test(c.prompt)), 'the script already emitted BuildLaunch: never twice')
+  },
+})
+SCENARIOS.push({
+  name: 'F39-34. fast-lane-fused-probe-work-and-engine-dispatch — drainable work: the fused probe is the first safe point (no second probe), the drain runs, the engine dispatches with the rollup sync; a quiet start the script could not dispatch keeps its probe',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F32_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F32_PLAN, { status: 'planned', probe: { ...QUIET_PROBE, status: 'work', work: true, ready: ['a-fix'] }, synced: undefined, dispatch: undefined })],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F32_PLAN,
+    noPlanLine: true,
+    responses: [fusedStart(F32_PLAN, { status: 'planned', synced: undefined, dispatch: undefined })],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'safe-point-probe').length === 0 || labelIdx(run, /^safe-point-probe$/) > labelIdx(run, /^fast-build:/), 'no probe spawn before the build: the fused probe is the first safe point')
+    t.ok(labelIdx(run, /^safe-point$/) >= 0 && labelIdx(run, /^safe-point$/) < labelIdx(run, /^dispatch:frd-h$/), 'the LLM drain runs before the engine\'s own dispatch')
+    FUSED_DISPATCH_OK(t, byLabel(run, 'dispatch:frd-h')[0], 'not synced by the script')
+    const two = run.next
+    t.ok(two && !two.error && BEFORE_BUILD(two).join() === 'fast-start,dispatch:frd-h', `a quiet start without a scripted dispatch: only the engine's dispatch follows (got ${two && BEFORE_BUILD(two).join(', ')})`)
+  },
+})
+SCENARIOS.push({
+  name: 'F39-35. fast-lane-fused-dispatch-only-for-its-frd — a scripted dispatch the engine would not schedule first is ignored (the engine dispatches what it builds); a limit at the fused start pauses',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F32_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F32_PLAN, { dispatch: { ok: true, frd: 'frd-h', wos: ['WO-01-001', 'WO-09-999'], status: 'stamped', stamped: ['WO-01-001'], committed: 'd15pa7c00002', base: 'f5base000001' } })],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F32_PLAN,
+    noPlanLine: true,
+    responses: [{ label: 'fast-start', response: throwing('rate_limit_error: 429') }],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^dispatch:frd-h$/).length === 1, 'a fused dispatch for another WO set is not trusted: the engine dispatches')
+    const two = run.next
+    t.ok(two && !two.error && two.result && two.result.stopReason === 'paused-infra' && byLabel(two, /^(dispatch|fast-build):/).length === 0, 'a usage limit at the fused start is paused-infra, nothing dispatched')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
@@ -1662,6 +1824,7 @@ for (const s of SCENARIOS) {
   const run = await runEngine(s)
   if (s.next) run.next = await runEngine(s.next(run))   // a two-run scenario: the second run starts from the first's durable outcome
   if (process.env.SHOW_CALLS) console.log(run.calls.map((c, i) => `${i}:${c.label}`).join(' '))
+  if (process.env.SHOW_CALLS && run.next) console.log(`run 2: ${run.next.calls.map((c, i) => `${i}:${c.label}`).join(' ')}`)
   const t = new T(s.name)
   try {
     s.assert(t, run)

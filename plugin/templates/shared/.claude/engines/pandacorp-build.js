@@ -182,6 +182,7 @@ const MECH_SCRIPT = argFlag('mechScript', LANE === 'fast')
 const INFRA_GUARD = argFlag('infraGuard', LANE === 'fast')
 const INFRA_PAUSE_SECONDS = 60
 const FAST = LANE === 'fast' && MECH_SCRIPT
+const FUSED_START = FAST && argFlag('fusedStart', true) && !CHANGE && !STRICT_BASELINE
 const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
@@ -985,9 +986,22 @@ async function preLoopGuarded(fn) {
 phase('Baseline')
 let mechGreenfield = null
 const FAST_SHARED_PATHS = new Set(['.pandacorp/status.yaml', '.pandacorp/track.jsonl', '.pandacorp/build-journal.jsonl'])
-if (MECH_SCRIPT) {
+let fused = null
+if (FUSED_START) {
  agentSpawned++
- const pre = await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
+ const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
+  `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : [])]
+ const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
+ if (r === PAUSED) return await pausedExit()
+ const b = r.body
+ if (b && b.ok === true && b.precheck && b.precheck.ok === true) { fused = b; log(`▶ fast-start (one scripted op): ${b.status}${b.stage ? ` at ${b.stage}` : ''}${b.baseline ? ` · baseline ${b.baseline}` : ''}`) }
+ else log(`⚠ fast-start unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — the separate start steps run (fail-safe)`)
+}
+let fusedProbe = fused && ['planned', 'dispatched'].includes(fused.status) && fused.probe ? fused.probe : null
+let fusedDispatch = fused && fused.status === 'dispatched' && fused.dispatch && fused.dispatch.ok === true ? fused.dispatch : null
+if (MECH_SCRIPT) {
+ if (!fused) agentSpawned++
+ const pre = fused ? { body: fused.precheck } : await preLoopGuarded(() => runMechOp('precheck', '', { label: 'mech-precheck', phase: 'Baseline' }))
  if (pre === PAUSED) return await pausedExit()
  const p = pre.body
  if (!p || p.ok !== true) {
@@ -1011,10 +1025,16 @@ if (MECH_SCRIPT) {
  for (const u of Array.isArray(p.usable) ? p.usable : []) if (u && typeof u.frd === 'string' && typeof u.sha === 'string') priorUsable.push({ frd: u.frd, sha: u.sha })
  if (priorUsable.length) log(`✓ resume: ${priorUsable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')} USABLE since an earlier run (committed build_usable, proposal 39 C6) — fix-forward only, never auto-discarded`)
 }
-agentSpawned++
-const precheck = await preLoopGuarded(() => agent(
+if (fused && fused.status === 'stop') {
+ log('⏸ owner stop signal (.pandacorp/run/stop, fast-start) — el motor para limpio antes de planificar')
+ await ensureStopped('owner stop signal')
+ return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
+}
+const FUSED_BASELINE = fused && ['green', 'leased-status-only', 'greenfield'].includes(fused.baseline) ? fused.baseline : null
+if (!FUSED_BASELINE) agentSpawned++
+const precheck = FUSED_BASELINE ? null : await preLoopGuarded(() => agent(
  `You are the Pandacorp baseline PRE-CHECK (mechanical — cheap; do NOT run verify.sh, do NOT fix code, just return a verdict). Do these steps IN ORDER:
-  **STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}
+  ${FUSED_START ? '' : `**STEP L — record the launch (B1):** as your very FIRST action, emit the build-launch event so the dashboard knows this run started.${BUILD_LAUNCH_EVENT}`}
   **STEP 0 — deterministic root + owner-stop receipt (BL-0068):** execute exactly \`${INSPECT_STOP}\` with Node (NEVER shell \`test\`, \`[\` or an alias-sensitive builtin). If it fails, STOP and return { green: false, failure: "BL-0022: deterministic project/lease inspection failed" }. Preserve its JSON receipt. If receipt.stop is true, return { stop: true } immediately; if false, continue. Never infer stop from a command exit code.
   **STEP W — preserve gate-worktree crash evidence (BL-0067):** NEVER delete, recreate, prune, reset, clean, or force-remove ${GATE_WORKTREE}. Its contents may be the only evidence left by a crashed gate. Leave it untouched here; the lazy gate-worktree probe below will reuse it only when Git records that exact path as a worktree and its tree is clean. Any dirty, orphaned, unregistered, locked, or ambiguous state falls back to the synchronous gate without mutation.${PARALLEL_GATES ? ` The SAME protection covers every parallel gate slot ${gateSlotPath('<k>')} (D1, args.parallelGates): never delete, recreate, prune, reset, clean or force-remove any of them — a dirty slot is dropped from the pool by its own probe, never cleaned.` : ''}
   **STEP 1 — consume the rethink stop:** if ${PROJECT_DIR}/.pandacorp/status.yaml has \`rethink_pending: true\`, set it to \`false\` and commit that one-line change (this run STARTS from the re-planned docs, so the stop signal is consumed — DR-069).
@@ -1049,7 +1069,10 @@ const readGreenfieldFacts = (line) => {
 const isGreenfield = (facts) => Boolean(facts) && facts.greenfield === true
 const greenfieldFacts = readGreenfieldFacts(precheck && precheck.greenfieldProbe)
 let baselineGreenfield = null
-if (precheck && precheck.green === true) {
+if (FUSED_BASELINE) {
+ baseline = { green: true }
+ log(`Baseline ${FUSED_BASELINE} (fast-start, scripted: ${FUSED_BASELINE === 'greenfield' ? `${(mechGreenfield && mechGreenfield.reason) || 'greenfield'} — red by construction, each FRD's verify certifies it` : FUSED_BASELINE === 'green' ? 'clean tree at last_green_sha or its BL-0066 pointer commit' : 'the only dirty path is the leased status.yaml, BL-0124'}) — no verify.sh, no judge.`)
+} else if (precheck && precheck.green === true) {
  baseline = { green: true }
  log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
 } else if (precheck && precheck.green === false && optionalText(precheck.failure)) {
@@ -1166,8 +1189,9 @@ async function runPlanner(label) {
  )
 }
 async function fastPlan() {
- agentSpawned++
- const r = await runMechOp('plan', `--classify${ONLY ? ONLY.map((f) => ` --frd ${shellQuote(f)}`).join('') : ''}`, { label: 'mech-plan', phase: 'Plan' })
+ const fp = fused && fused.plan
+ if (!fp) agentSpawned++
+ const r = fp ? { body: fp } : await runMechOp('plan', `--classify --compact${ONLY ? ONLY.map((f) => ` --frd ${shellQuote(f)}`).join('') : ''}`, { label: 'mech-plan', phase: 'Plan' })
  const b = r.body
  if (b && b.ok === true && b.status === 'planned' && Array.isArray(b.frds)) {
   for (const f of b.frds) { fastClassified.add(f.frd); if (f.floor !== false) fastFloor.add(f.frd) }
@@ -1229,7 +1253,8 @@ const reuseRef = (frd) => plan.hasFrontend
  ? ` REUSE & COHERENCE (DR-057): before creating ANY UI component, READ the component inventory \`docs/design/components.md\` (if it doesn't exist yet you're early in the build — create it and list your component as the first row) and scan \`src/components/core\` + \`src/components/modules\`. REUSE an existing component if one fits; ADAPT/extend it (add a prop/variant) if it is close — do NOT fork a near-duplicate for a small difference; CREATE a new shared component only if none fits, and when you do, APPEND it to \`docs/design/components.md\` so the next agent reuses it. A component that re-implements an existing pattern (a second banner/card/modal) is a defect the gate rejects.`
  : ''
 let pendingSyncRollups = null
-if (MECH_LEAN) {
+if (fused && fused.synced && fused.synced.ok === true) log(`✓ rollups synced by fast-start${fused.synced.commit ? ` (${fused.synced.commit})` : ''}`)
+else if (MECH_LEAN) {
  pendingSyncRollups = SYNC_ROLLUPS + ' Stage only the rollup documents and .pandacorp/status.yaml changed by the command, then commit them together (Conventional Commits, scope).' + (MECH_SCRIPT ? '' : ' THEN, as a SEPARATE step (do not commit this part — see below):\n  ')
 } else {
  agentSpawned++
@@ -1273,7 +1298,7 @@ const priorAttemptsCtx = (wo) => (wo.priorAttempts && wo.priorAttempts.length)
 const priorDiagnosisCtx = (wo) => wo._priorDiagnosis
  ? ` DIAGNOSIS FROM THE LAST FAILED PATCH (A3 — a hypothesis to VERIFY against the CURRENT code, not gospel): classification=${wo._priorDiagnosis.classification || 'point'}; seam=${wo._priorDiagnosis.seam ? ((wo._priorDiagnosis.seam.files || []).join(', ') + (wo._priorDiagnosis.seam.symbol ? ' @ ' + wo._priorDiagnosis.seam.symbol : '')) : 'n/a'}${wo._priorDiagnosis.seam && wo._priorDiagnosis.seam.why ? ' — ' + wo._priorDiagnosis.seam.why : ''}. Rebuild focusing on that seam; if the diagnosis does not match what you see, follow the code.` : ''
 const woCtx = (wo, frd) =>
- `${wo.path ? ` Your work-order file: \`${wo.path}\` — open it and follow it in full.` : ''}${wo.acText ? ` The EARS acceptance criteria THIS work order must satisfy (verbatim from FRD ${frd} — the gate will assert exactly these):\n  ${wo.acText}\n ` : ''}${priorAttemptsCtx(wo)}${priorDiagnosisCtx(wo)}`
+ `${wo.path ? ` Your work-order file: \`${wo.path}\` — open it and follow it in full.` : ''}${wo.acText ? ` The EARS acceptance criteria THIS work order must satisfy (verbatim from FRD ${frd} — the gate will assert exactly these):\n  ${wo.acText}\n ` : wo.acFile ? ` The EARS acceptance criteria THIS work order must satisfy are in \`${wo.acFile}\` (verbatim from FRD ${frd} — the gate will assert exactly these): read it first.` : ''}${priorAttemptsCtx(wo)}${priorDiagnosisCtx(wo)}`
 const SELFTEST = (woId) => ` THEN run your fast SELECTIVE self-test (NOT the whole suite): \`pnpm biome check .\`, \`pnpm tsc --noEmit\`, and \`pnpm vitest run\` limited to THIS work order's own test files. If green: set the WO's frontmatter **\`implementation_status: IN_REVIEW\`** and fill its **\`## Status Note\`** hand-off (what it built; the interfaces/contracts exposed with signatures; the integration seams; **the implicit DECISIONS & ASSUMPTIONS you made — naming, data shapes, formats, units, error/empty conventions — so the consumer inherits them instead of re-deciding incompatibly**; which test files cover it). **Do NOT call git — the engine commits THIS work order the INSTANT your self-test passes, via a serialized single writer (Option B, DR-060), so there is no index.lock race.** Return green=true. If red after honest attempts, return green=false with the reason.`
 const retryAttemptJournal = (wo, frd) => wo._isRetry
  ? JOURNAL(`"wo":"${wo.id}","frd":"${frd}","attempt":${(wo.reopen_count || 0) + 1},"reopen_count":${wo.reopen_count || 0},"rung":"retry","role":"builder","kind":"attempt","classification":"","seam":null,"findingKey":"","tried":"%s","verdict":"","why":"%s","confidence":"%s"`,
@@ -2573,8 +2598,10 @@ function sizeAgentBudget(addedFrds) {
  log(`⚖ maxAgents auto: projected ~${units} cost units${first ? '' : ' for the FRDs just added'} (${usd(units)}) → cap ${MAX_AGENTS} (x${AUTO_HEADROOM} headroom, plan of ${plan.frds.length} FRD(s))`)
 }
 async function safePointProbe() {
- agentSpawned++
- const r = await runMechOp('safe-point', `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${TARGETED ? ' --targeted' : ''}`, { label: 'safe-point-probe' })
+ const reuse = fusedProbe
+ fusedProbe = null
+ if (!reuse) agentSpawned++
+ const r = reuse ? { body: reuse } : await runMechOp('safe-point', `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${TARGETED ? ' --targeted' : ''}`, { label: 'safe-point-probe' })
  const b = r.body
  if (!b || b.ok !== true) { log(`⚠ safe-point probe unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — running the full safe point (fail-safe, proposal 39 C1)`); return 'work' }
  if (b.stop === true || (b.stop_receipt && b.stop_receipt.stop === true)) { log(`⏸ safe-point probe: stop (${b.reason || (b.rethink_pending ? 'rethink_pending' : 'owner stop file')}) — el motor para en este safe point (proposal 39 C1)`); return 'stop' }
@@ -3511,10 +3538,12 @@ async function fastBuildFrd(frd) {
  const wos = st.f.workOrders.filter((w) => st.toBuildIds.has(w.id))
  const ids = wos.map((w) => w.id)
  log(`⚒ fast lane: ${frd} — ${wos.length} work order(s), one builder per worker-tier run (C4): ${ids.join(', ')}`)
- agentSpawned++
+ const pre = fusedDispatch && fusedDispatch.frd === frd && JSON.stringify([...fusedDispatch.wos].sort()) === JSON.stringify([...ids].sort()) ? fusedDispatch : null
+ fusedDispatch = null
+ if (!pre) agentSpawned++
  const prefix = pendingSyncRollups || ''
  pendingSyncRollups = null
- const d = await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
+ const d = pre ? { body: pre } : await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
  if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; the landed floor is then fail-closed`)
  const since = (d.body && d.body.ok === true && d.body.base) || null
  try {
