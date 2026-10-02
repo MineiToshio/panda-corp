@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 bench FM-4 fixes
+
+**Why.** Bench FM-4 (journal lines 56-66): (1) `verify --patch` spawned `node_modules/.bin/playwright` with the inherited PATH, the project's webServer (a bare `next dev`) exited 127 and a correct patch counted RED, so the FRD went BLOCKED needs-owner; (2) a haiku MECH relay whose op crossed the Bash default 120 s backgrounded it and polled to 600 s (10 min lost).
+
+**What.** (1) Project-binary spawns in the mech scripts (`runPinned`, `commit-wo`'s related tests) run with `<project>/node_modules/.bin` first on PATH (`projectBinEnv`); a runner that cannot start (spawn error, exit 127, "command not found") is the `runner-refused` refusal, so the engine falls back to the agent verifier, never red; `tests[].ok` reflects the run. (2) One shared fragment (`MECH_FG`: the Bash tool's `timeout: 600000`, foreground, no `run_in_background`/`&`/polling) is in every MECH relay prompt in both lanes: `MECH_LITERAL`, `MECH_FUSED`, the `MCR` prefix, the landing re-verify; the gate's evidence run reuses it (the artifact shrank 7 bytes).
+
+**Tests:** `test-build-mech.mjs`: `patch-verify-runner-path` (+ `tests[].ok` false on a red run). `test-build-engine.mjs`: `P40-fg`/`P40-fg2 mech-relay-foreground-timeout`. All RED before their fix.
+
 ## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 review fix round 2
 
 **Why.** The second review failed the branch on two ship-blocking defects: (1) the production smoke judged the commit at the close-out's start, alongside visual-qa, while the hardening chain (the security-fix agent, the telemetry agent) and visual-qa commit product code after it, and nothing compared the smoked SHA with the released HEAD: a CSP added by the security fix (the ppv2 f4ed29a shape) could ship with the smoke green on the pre-fix commit; (2) the security delta and the gate's injection scan reused the product floor's out-of-scope filter, which drops `.mdx` (compiled to a component), any `docs/` segment and any `test/` directory, so an MDX injection sink or a route under `src/app/docs/` skipped the delta audit and kept its gate at `high`.
