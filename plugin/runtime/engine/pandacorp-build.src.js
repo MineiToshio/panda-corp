@@ -361,6 +361,12 @@ const PATCH_ATTEMPT_CAP = (args && args.patchAttemptCap) || 2   // A3/A6: at mos
 // bare relaunch from the project folder still works (back-compat). PROJECT is a literal (no shell
 // substitution when provided); PROJECT_DIR is the absolute root every relative path / event anchors to.
 const PROJECT = (args && args.project) || '$(basename "$PWD")'   // event key — the folder basename; literal when provided, shell fallback otherwise
+// The shared tail of every dashboard printf (its timestamp, the project key, the append): one copy, byte-identical prompts.
+const EV_END = `\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+const MCR = 'MECHANICAL COMMAND RUNNER — '
+const RUN_ONCE = 'Your SOLE action is to execute this exact command ONCE'
+const VERBATIM_AS = '(no command before or after it) and return its stdout VERBATIM as `'
+const UI_SKIP_NOTE = '(fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre'
 const PROJECT_DIR = (args && args.projectDir) || '.'              // absolute project root; '.' = session cwd (back-compat)
 const LEASE_TOKEN = (args && args.leaseToken) || ''
 const LEASE_EPOCH = (args && args.leaseEpoch) || 0
@@ -456,7 +462,7 @@ const COST = (m) => (m === 'opus' ? 3 : 1)
 //     no args; a bounded/overnight/change run ALWAYS passes them, so surface it and let the
 //     supervisor (which knows what was passed) decide whether to kill.
 if (args === undefined || args === null) {
-  log(`⚠⚠ args arrived ${args === null ? 'null' : 'undefined'} — if you launched this run WITH args (mode/maxAgents/maxFrds/change), they were DROPPED (DR-072 R2 / BL-0024) and this run is UNBOUNDED in powerful mode. Supervisor: verify against what you passed; if args were intended, TaskStop and relaunch.`)
+  log(`⚠⚠ args arrived ${args === null ? 'null' : 'undefined'} — any args passed at launch were DROPPED (BL-0024): this run is UNBOUNDED, powerful mode; if args were intended, TaskStop and relaunch.`)
 } else if (typeof args !== 'object') {
   log(`⚠⚠ args arrived as a ${typeof args}, NOT an object — mode/maxAgents/maxFrds were DROPPED. This run is UNBOUNDED. Stop and relaunch passing args as a JSON object (DR-072 R2).`)
 }
@@ -520,7 +526,7 @@ const JOURNAL_GOLD = ` BUILD-JOURNAL GOLD (A5, DR-047): read ${JOURNAL_PATH} (if
 // frdState.gateAttempts) so the tribunal view can show the review load + whether this is a re-gate. Both
 // are engine-known integers, injected as literals.
 const GATE_EVENT = (frd, wos, attempt) =>
-  ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}","wos":${wos},"attempt":${attempt}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the Party gate-open event (fire-and-forget — the tribunal lights up, BL-0020): printf '{"event":"gate","at":"%s","project":"%s","frd":"${frd}","wos":${wos},"attempt":${attempt}}${EV_END}`
 const ACHIEVEMENT = (frd) =>
   ` For EACH work order you just set VERIFIED, ALSO append its Party achievement event (one line per WO, fire-and-forget — the Bóveda trophy shelf + unlock toast read exactly this event, BL-0020): printf '{"event":"achievement","at":"%s","project":"%s","workOrder":"%s","wo":"%s","frd":"${frd}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<the-wo-id>" "<the-wo-id>" >> ~/.claude/dashboard-events.ndjson.`
 // Per-WO commit event (2026-07-01): Mission Control's Party refreshes its frontmatter read when a
@@ -538,7 +544,7 @@ const ACHIEVEMENT = (frd) =>
 
 // B1 — the build launched (emitted by the baseline-precheck agent, the very first spawn).
 const BUILD_LAUNCH_EVENT =
-  ` Also append the BuildLaunch event, ONCE, right away (fire-and-forget): printf '{"event":"BuildLaunch","at":"%s","project":"%s","mode":"${MODE}","maxAgents":${MAX_AGENTS || 0},"targeted":${TARGETED}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the BuildLaunch event, ONCE, right away (fire-and-forget): printf '{"event":"BuildLaunch","at":"%s","project":"%s","mode":"${MODE}","maxAgents":${MAX_AGENTS || 0},"targeted":${TARGETED}}${EV_END}`
 
 // B2 — the gate's verdict at EVERY exit branch (COUNTS only, never id arrays). `fields` is a JSON fragment
 // (engine-known counts injected literally); `args` supplies extra printf args for agent-filled values.
@@ -568,7 +574,7 @@ const WO_REOPEN_EVENT = (frd, reason = 'gate-reject') =>
 
 // B4 — the outcome of an in-place patch attempt (green when independently verified; the two give-up causes).
 const PATCH_RESULT = (frd, outcome) =>
-  ` Also append the PatchResult event (fire-and-forget): printf '{"event":"PatchResult","at":"%s","project":"%s","frd":"${frd}","outcome":"${outcome}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the PatchResult event (fire-and-forget): printf '{"event":"PatchResult","at":"%s","project":"%s","frd":"${frd}","outcome":"${outcome}"}${EV_END}`
 
 // B5 — the Preview Smoke Gate result for a UI FRD (real numbers from the Playwright run). Skipped entirely
 // when the FRD has no UI surface.
@@ -579,7 +585,7 @@ const PREVIEW_SMOKE = (frd) =>
 // A-1 bench: the security stage normally folds audit + fix into ONE event emitted by the fix spawn; when the engine skips the
 // fix (an explicit empty findings array) the audit spawn has to emit it, and ONLY then — conditional on its own verdict.
 const HARDENING_EVENT_IF_NO_FINDINGS = (stage) =>
-  ` If (and ONLY if) your \`findings\` array is EMPTY, ALSO append the Hardening event for the ${stage} stage now, because no fix spawn will follow to emit it (fire-and-forget): printf '{"event":"Hardening","at":"%s","project":"%s","stage":"${stage}","status":"ok"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson. If \`findings\` is non-empty, do NOT emit it.`
+  ` If (and ONLY if) your \`findings\` array is EMPTY, ALSO append the Hardening event for the ${stage} stage now, because no fix spawn will follow to emit it (fire-and-forget): printf '{"event":"Hardening","at":"%s","project":"%s","stage":"${stage}","status":"ok"}${EV_END} If \`findings\` is non-empty, do NOT emit it.`
 const HARDENING_EVENT = (stage) =>
   ` Also append the Hardening event for the ${stage} stage (fire-and-forget): printf '{"event":"Hardening","at":"%s","project":"%s","stage":"${stage}","status":"%s"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" "<ok if this stage passed, else fail>" >> ~/.claude/dashboard-events.ndjson.`
 
@@ -594,7 +600,7 @@ const BUILD_COMPLETE = (verdict, frdsDoneTotal) =>
 // dropped". Same fire-and-forget contract as the other dashboard events; embedded in whichever agent
 // prompt already runs at that point in the loop (the engine itself has no shell/fs access).
 const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
-  ` Also append the UiPassSkipped event (fire-and-forget): printf '{"event":"UiPassSkipped","at":"%s","project":"%s","pass":"${pass}","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the UiPassSkipped event (fire-and-forget): printf '{"event":"UiPassSkipped","at":"%s","project":"%s","pass":"${pass}","frd":"${frd}","reason":"${reason}"}${EV_END}`
 
 // WP-06 — the digested-evidence collector for THIS gate produced nothing usable (null verdict, a `report`
 // that is not valid JSON, or a non-boolean `green`), so the gate fell back to EXPLORE mode and collects its
@@ -602,7 +608,7 @@ const UI_PASS_SKIPPED_EVENT = (pass, frd, reason) =>
 // visible in the stream instead of only showing up as a cost regression. Same fire-and-forget contract as
 // the events above; embedded in the gate prompt that actually ran (the engine has no shell of its own).
 const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
-  ` Also append the GateEvidenceFallback event (fire-and-forget — WP-06: the pre-collected evidence pack was unusable, so THIS gate ran in explore mode): printf '{"event":"GateEvidenceFallback","at":"%s","project":"%s","frd":"${frd}","reason":"${reason}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the GateEvidenceFallback event (fire-and-forget — WP-06: the pre-collected evidence pack was unusable, so THIS gate ran in explore mode): printf '{"event":"GateEvidenceFallback","at":"%s","project":"%s","frd":"${frd}","reason":"${reason}"}${EV_END}`
 
 // BL-0141 — the ONE-TIME dashboard record of a runtime/plugin agentType skew (a session still running an
 // OLDER plugin than the engine version it launched, e.g. plugin 9.102.3 resident while the 9.103.0 engine
@@ -612,7 +618,7 @@ const GATE_EVIDENCE_FALLBACK_EVENT = (frd, reason) =>
 // the same skew hit a non-mech type — canary F2's `pandacorp:drift-finder` — and only a log line said so;
 // the event is the visible, dashboard-side signal for EVERY type, not just mech).
 const MECH_FALLBACK_EVENT = (requestedType, fallbackType) =>
-  ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141/BL-0168: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.\n`
+  ` Also append the MechFallback event, ONCE (fire-and-forget — BL-0141/BL-0168: the runtime rejected agentType '${requestedType}', this run falls back to '${fallbackType}'): printf '{"event":"MechFallback","at":"%s","project":"%s","requestedType":"${requestedType}","fallbackType":"${fallbackType}"}${EV_END}\n`
 
 // DR-108: mechanical steps — a serialized git commit, a frontmatter stamp, a rollup sync, an archive
 // move, a run-summary write — don't need the worker model; they run on the cheap tier. The trust
@@ -1124,7 +1130,7 @@ const MISSING_FOUNDATION = { type: 'array', items: { type: 'string' }, descripti
 // reviewer wrote for a LOCALIZED reject, so the engine can attempt an in-place patch BEFORE reverting.
 const FINDINGS = { type: 'array', description: 'DR-073: the specific fixable fault(s) of the rejected WO(s) + the RED-proven failing test(s) the reviewer wrote — fed to attemptPatch for an in-place repair before any revert', items: {
   type: 'object', required: ['wo', 'finding'],
-  properties: { wo: { type: 'string' }, finding: { type: 'string', description: 'the specific bounded fault, with file:line' }, failingTest: { type: 'string', description: 'the RED-proven test (path / describe-it / a snippet) that fails without the fix and passes with it' }, files: { type: 'array', items: { type: 'string' }, description: 'the file(s) the fix should touch' } },
+  properties: { wo: { type: 'string' }, finding: { type: 'string', description: 'the specific bounded fault, with file:line' }, failingTest: { type: 'string', description: 'the RED-proven test (path / describe-it / a snippet) that fails without the fix and passes with it' }, files: { type: 'array', items: { type: 'string' }, description: 'the file(s) the fix should touch' }, fixLines: { type: 'integer', description: 'your estimate of the fix size in changed lines' } },
 } }
 // BL-0211: every finding the gate noticed but did NOT record as a fail/finding because a WO, change card or the FRD scopes
 // it out. Only `finding` is schema-required: the ENGINE validates source/quote (enforceWholeFrdTraceability) and re-asks, so a
@@ -1456,7 +1462,7 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
   const relay = async (label, cmd, what) => {
     agentSpawned++
     try {
-      return await agent(`MECHANICAL COMMAND RUNNER — BL-0178 ${what} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. ${label.startsWith('drift-proof-replay:') ? 'It only prints a line it stored earlier, so it is instant.' : "It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix."} The line is machine JSON ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize, re-format or re-type the output.`,
+      return await agent(`${MCR}BL-0178 ${what} for ${frd}. ${RUN_ONCE} from the project root ${VERBATIM_AS}output\`: \`${cmd}\`. ${label.startsWith('drift-proof-replay:') ? 'It only prints a line it stored earlier, so it is instant.' : "It checks the reviewer's probe(s) out at the gate pin and at that pin's last_green_sha in throwaway worktrees it creates and removes itself, runs them, and prints ONE JSON line; it can take several minutes and exits 0 even when probes fail — that is data, not a problem for you to fix."} The line is machine JSON ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. Do not inspect, edit, test, fix, stage or commit anything yourself, and do not summarize, re-format or re-type the output.`,
         { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) {
       if (isInfraError(e)) throw e   // proposal 39 C7: an infra halt is never read as a missing receipt
@@ -1471,7 +1477,7 @@ async function runDriftProof(frd, reviewIds, claims, pinSha, sourceDir) {
   }
   const { proof, error } = parsed
   if (!proof && parsed.transport) {
-    log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the differential proof could not be READ, so every drift claim of this gate stays UNPROVEN: no reopen, no card, no drift: entry — and an open fail, so nothing is certified on it (DR-122: what is not proven never reopens and never waives; BL-0206). Re-running the gate proves it`)
+    log(`⚠⚠ DriftProofUnreadable ${frd}: ${error} after ${DRIFT_PROOF_REPLAYS} re-read(s) — the proof is unreadable: every drift claim stays UNPROVEN: no reopen, no card, no drift: entry; an open fail (DR-122, BL-0206); re-running the gate proves it`)
     return { proof: null, owned: null, error, unreadable: true }
   }
   if (!proof) { log(`⚠ ${frd}: ${error} — every drift claim stays a cycle fault (BL-0178 fail-closed)`); return { proof: null, owned: null, error } }
@@ -1495,7 +1501,7 @@ async function recordDrift(frd, confirmed) {
     agentSpawned++
     let raw = null
     try {
-      raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0178 drift record for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
+      raw = await agent(`${MCR}BL-0178 drift record for ${frd}. ${RUN_ONCE} from the project root and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It writes draft change card(s) into .pandacorp/inbox/changes/ (gitignored owner channel, idempotent) and appends one GateDriftRecorded event. Do not edit, stage or commit anything yourself.`,
         { label: `drift-record:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) { raw = null; log(`⚠ ${frd}: the drift-record runner threw (${(e && e.message) || e})`) }
     raw = unwrapAnswer(raw, 'output')
@@ -1503,7 +1509,7 @@ async function recordDrift(frd, confirmed) {
     if (!res && attempt === 1) log(`⚠ ${frd}: the drift-record result was unreadable — running the idempotent command once more (BL-0206)`)
   }
   if (!res || res.ok !== true) {
-    log(`⚠⚠ ${frd}: drift ${fresh.map((d) => d.id).join(', ')} is PROVEN but its draft card could NOT be written (${(res && res.error) || 'no ok:true output'}) — it still lands in the FRD's committed \`drift:\` frontmatter; file the card by hand (BL-0178)`)
+    log(`⚠⚠ ${frd}: drift ${fresh.map((d) => d.id).join(', ')} is PROVEN but its draft card could NOT be written (${(res && res.error) || 'no ok:true output'}) — file the card by hand (BL-0178)`)
     return
   }
   if (st) for (const d of fresh) st.recordedDrift.add(d.id)
@@ -1550,7 +1556,7 @@ async function adjudicateDrift(frd, reviewIds, gate, pinSha, sourceDir) {
       if (!fromFinder) {
         // Red-team of BL-0206: an unread proof is not evidence FOR the claim either, so the reviewer's `fail` stays an
         // OPEN fail (it never waives a green, DR-015/DR-122) — only its routing changes: no reopen, no card (below).
-        log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — the proof could not be read, so the claim is neither drift nor a cycle fault: it stays an OPEN fail, no reopen, no card (DR-122, BL-0206)`)
+        log(`⚖ ${frd}: drift claim on ${id || e.contract} is UNPROVEN (${c.why}) — unreadable proof: an OPEN fail, no reopen, no card (DR-122, BL-0206)`)
         const { claim, ...open } = claimEntry
         return { ...open, driftVerdict: 'unproven', driftWhy: c.why }
       }
@@ -1826,7 +1832,7 @@ async function parkWorkOrders(wos) {
     let r = null
     try { r = await runMechOp('park-wo', parkWoFlags(w), { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
     if (r.body && r.body.ok === true) { parkedWos.push(w.id); log(`⇣ ${w.id} parked (${r.body.status}${r.body.dir ? ` → ${r.body.dir}` : ''}) — rebuilt on resume`) }
-    else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — ${FAST ? 'its dirty paths stay; the next fast run stops before dispatch and lists them (needs-owner)' : 'the resume precheck salvages it'}`)
+    else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — ${FAST ? 'its dirty paths stay (the next fast run stops on them)' : 'the resume precheck salvages it'}`)
   }
 }
 const PAUSED = Object.freeze({ paused: true })
@@ -1841,7 +1847,7 @@ async function pausedExit(st = {}) {
   agentSpawned++
   let closed = null
   try {
-    closed = await agent(`BUILD PAUSED (paused-infra, proposal 39 C7): the run halted on an infrastructure failure (${jsonSafe(h.kind)} at ${jsonSafe(h.label)}). Record it and release the run, nothing else (no verify, no fix, no commit beyond the lease release). Append the dashboard event (fire-and-forget): printf '{"event":"build_paused","at":"%s","project":"%s","reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.${TRACK('build_paused', `,"reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"`)} Then: ${RELEASE_LEASE} Return done:true once the lease release succeeded.`,
+    closed = await agent(`BUILD PAUSED (paused-infra, proposal 39 C7): the run halted on an infrastructure failure (${jsonSafe(h.kind)} at ${jsonSafe(h.label)}). Record it and release the run, nothing else (no verify, no fix, no commit beyond the lease release). Append the dashboard event (fire-and-forget): printf '{"event":"build_paused","at":"%s","project":"%s","reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"}${EV_END}${TRACK('build_paused', `,"reason":"${jsonSafe(h.kind)}","label":"${jsonSafe(h.label)}"`)} Then: ${RELEASE_LEASE} Return done:true once the lease release succeeded.`,
       { label: 'build-paused', phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STOP_SCHEMA })
   } catch (e) { log(`⚠ the build-paused close could not run (${(e && e.message) || e}) — build_paused is not recorded and the lease expires by its TTL`) }
   log(`⏸ Run ended: paused-infra (${h.kind} at ${h.label || '?'}). ${INFRA_RESUME_HINT}`)
@@ -1851,7 +1857,7 @@ async function pausedExit(st = {}) {
 
 async function ensureStopped(reason) {
   agentSpawned++
-  const receipt = await agent(`MECHANICAL COMMAND RUNNER — your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`${STATE_CLI_COMMAND} close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
+  const receipt = await agent(`${MCR}your SOLE action is to execute this exact command once, with no command before or after it, and return its JSON stdout verbatim: \`${STATE_CLI_COMMAND} close-preloop --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --reason "${reason}"\`. Do not inspect, edit, test, build, stage or commit anything yourself. The CLI owns the fenced two-phase close and rejects every diff outside .pandacorp/status.yaml.`,
     { label: 'ensure-stopped', phase: 'Baseline', model: MECH, agentType: MECH_AGENT('pandacorp:devops'), effort: MECH_EFFORT, schema: CLOSE_RECEIPT_SCHEMA })
   if (!receipt || receipt.done !== true || receipt.lease_released !== true || JSON.stringify(receipt.allowed_paths) !== JSON.stringify(['.pandacorp/status.yaml'])) throw new Error('FATAL: bounded pre-loop close returned an invalid receipt')
 }
@@ -1928,7 +1934,7 @@ if (MECH_SCRIPT) {
   // baseline's DR-067 reconciliation (classic) is not this lane's, and the greenfield path would skip it anyway.
   const ownerDirt = FAST && Array.isArray(p.ownerDirt) ? p.ownerDirt.filter((x) => typeof x === 'string' && x && !FAST_SHARED_PATHS.has(x)) : []
   if (ownerDirt.length) {
-    log(`⊘ fast lane: el árbol del proyecto tiene ${ownerDirt.length} cambio(s) del owner sin commitear — el motor NO construye encima (un builder desharía un cambio que no es suyo). Commitea, guarda o descarta estas rutas y relanza: ${ownerDirt.join(', ')}`)
+    log(`⊘ fast lane: el árbol del proyecto tiene ${ownerDirt.length} cambio(s) del owner sin commitear — el motor NO construye encima. Commitea, guarda o descarta y relanza: ${ownerDirt.join(', ')}`)
     await ensureStopped('owner dirt')
     return { mode: MODE, builtFrds: [], blockedFrds: ['owner-dirt'], blockedReasons: { 'owner-dirt': 'needs-owner' }, ownerDirt, note: `owner dirt (needs-owner): the fast lane never builds over uncommitted owner edits — commit, stash or discard, then relaunch: ${ownerDirt.join(', ')}` }
   }
@@ -2033,7 +2039,7 @@ if (FUSED_BASELINE) {
 } else if (!STRICT_BASELINE && isGreenfield(greenfieldFacts)) {
   baseline = { green: true }
   baselineGreenfield = greenfieldFacts
-  log(`Baseline no aplicable (greenfield 9.118.2): last_green_sha vacío y los ${greenfieldFacts.workOrders} work orders siguen PLANNED/DRAFT — el árbol rojo por construcción es trabajo de los WOs (self-tests + gate de FRD); no se corrió el judge baseline.`)
+  log(`Baseline no aplicable (greenfield 9.118.2): last_green_sha vacío y los ${greenfieldFacts.workOrders} work orders siguen PLANNED/DRAFT — rojo por construcción; sin judge baseline.`)
 } else {
   // (b) ESCALATE → the judge baseline: DR-067 reconciliation (the SKILL promised it; the prompt never had it)
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
@@ -2499,6 +2505,8 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
 // Proposal 40 §2 (Close-out engine fixes, DR-080): the gate blesses a new route's baseline at green, never the builder and
 // never the close-out (bench F-1/F-2: the gate in its slot did not bless, so the opus close-out blessed by hand). The gate
 // leaves the bless uncommitted in its slot; the scripted gate-land commits it on main with the provenance trailers.
+// Proposal 40 §2 (Patch): the patch tier reads each finding's size; an unestimated one is never bounded (opus).
+const GATE_FIX_LINES = '; give each finding `fixLines`, the changed lines its fix needs'
 const GATE_BLESS = ` **Bless at green (DR-080, only you):** bless each still-unblessed surface of this FRD you judged right, as your agent definition says; never change an existing baseline. Leave the bless uncommitted and list its paths in \`testFiles\`.`
 const GATE_PASS_RETURN = ` **If CORRECTION passes (visual nits, if any, APPEND to the punch-list at the MAIN tree \`${PROJECT_DIR}/.pandacorp/comms/visual-punch-list.md\` — absolute path, they do NOT block):** you are a REVIEW-ONLY gate — do NOT set any work order VERIFIED, do NOT reset reopen_count, do NOT recompute the FRD rollup, do NOT edit .pandacorp/status.yaml, do NOT advance last_green_sha, and do NOT \`git commit\` (you may be running in a FROZEN worktree; a separate serialized apply step on the MAIN tree performs every one of those writes). Just make sure the adversarial test files you wrote this cycle are SAVED in your working tree, and return { green: true, testFiles: [the repo-relative path of EACH new or changed test file you wrote this gate] } so the apply step can port them to the main tree.${FAST ? GATE_BLESS : ''}`
 
@@ -2670,7 +2678,7 @@ async function verifyEvidenceSeal(frd, raw, pinSha) {
     agentSpawned++
     let again = null
     try {
-      again = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 evidence re-read for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${SEAL_REPORT_CLI_COMMAND} reread --file "${gateSealedReportPath(frd)}"\`. It only prints a line the collector stored earlier, so it is instant. Do not inspect, edit, fix, summarize, re-format or re-indent its output: it is ONE sealed JSON line and the engine verifies its checksum character by character.`,
+      again = await agent(`${MCR}BL-0214 evidence re-read for ${frd}. ${RUN_ONCE} ${VERBATIM_AS}output\`: \`${SEAL_REPORT_CLI_COMMAND} reread --file "${gateSealedReportPath(frd)}"\`. It only prints a line the collector stored earlier, so it is instant. Do not inspect, edit, fix, summarize, re-format or re-indent its output: it is ONE sealed JSON line and the engine verifies its checksum character by character.`,
         { label: `evidence-reread:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) { log(`⚠ ${frd}: the evidence re-read runner threw (${(e && e.message) || e})`) }
     again = unwrapAnswer(again, 'output')
@@ -2844,14 +2852,14 @@ async function verifyFinderSnippets(frd, finding, pin) {
     agentSpawned++
     let raw = null
     try {
-      raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0214 drift-finder snippet check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. The JSON after --rows is ONE argument: copy it character for character, never re-format it (the script refuses a copy whose checksum differs). It only READS committed git objects and prints ONE sealed JSON line: do not inspect, edit, fix, summarize, re-format or re-indent anything.`,
+      raw = await agent(`${MCR}BL-0214 drift-finder snippet check for ${frd}. ${RUN_ONCE} ${VERBATIM_AS}output\`: \`${cmd}\`. The JSON after --rows is ONE argument: copy it character for character, never re-format it (the script refuses a copy whose checksum differs). It only READS committed git objects and prints ONE sealed JSON line: do not inspect, edit, fix, summarize, re-format or re-indent anything.`,
         { label: `finder-snippets:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) { why = `the snippet-check runner threw (${(e && e.message) || e})`; continue }
     const parsed = parseSnippetCheck(raw, pin.sha, asked)
     if (parsed.results) results = parsed.results
     else why = parsed.error
   }
-  if (!results) log(`⚠⚠ DriftFinderSnippetsUnavailable ${frd}: ${why} after ${FINDER_SNIPPET_RETRIES} re-run(s) — none of the finder's ${targets.length} "implemented" rows could be checked against the pin, so none is trusted: each is handed to the judge as UNKNOWN (BL-0214)`)
+  if (!results) log(`⚠⚠ DriftFinderSnippetsUnavailable ${frd}: ${why} after ${FINDER_SNIPPET_RETRIES} re-run(s) — none is trusted: its ${targets.length} "implemented" rows go to the judge as UNKNOWN (BL-0214)`)
   let misses = 0
   const cited = []
   const rows = finding.rows.map((r, at) => {
@@ -2863,7 +2871,7 @@ async function verifyFinderSnippets(frd, finding, pin) {
     return { ...r, status: 'unknown', snippetCheck: status }
   })
   if (misses >= FINDER_SNIPPET_MISS_LIMIT) return { finding: null, reason: `WRONG TREE (snippets): ${misses} of the finder's ${targets.length} implemented citations are not in the tree at the gate pin ${String(pin.sha).slice(0, 8)} — it read something other than the pinned commit (BL-0214)` }
-  if (results && cited.length) log(`⚠ DriftFinderSnippets ${frd}: ${cited.length} of ${targets.length} "implemented" row(s) cite a snippet that cannot be verified at the pin (${cited.join(', ')}) — downgraded to UNKNOWN: the judge must open that code itself (BL-0214)`)
+  if (results && cited.length) log(`⚠ DriftFinderSnippets ${frd}: ${cited.length} of ${targets.length} "implemented" row(s) cite a snippet that cannot be verified at the pin (${cited.join(', ')}) — UNKNOWN (BL-0214)`)
   return { finding: { ...finding, rows } }
 }
 /**
@@ -3066,7 +3074,7 @@ async function resolveInventoryCache(frd, pinSha) {
   agentSpawned++
   let raw = null
   try {
-    raw = await agent(`MECHANICAL COMMAND RUNNER — BL-0189 inventory-cache check for ${frd}. Your SOLE action is to execute this exact command ONCE (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${cmd}\`. It only READS (git objects and one gitignored file) and prints ONE JSON line. Do not inspect, edit, fix, summarize or reformat anything.`,
+    raw = await agent(`${MCR}BL-0189 inventory-cache check for ${frd}. ${RUN_ONCE} ${VERBATIM_AS}output\`: \`${cmd}\`. It only READS (git objects and one gitignored file) and prints ONE JSON line. Do not inspect, edit, fix, summarize or reformat anything.`,
       { label: `gate-inventory:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
   } catch (e) { log(`⚠ ${frd}: the inventory-cache check threw (${(e && e.message) || e}) — full whole-FRD inventory this gate`); return { hit: false, reason: 'check threw' } }
   raw = unwrapAnswer(raw, 'output')
@@ -3091,12 +3099,12 @@ async function resolveInventoryCache(frd, pinSha) {
   try { inv = JSON.parse(j.inventory) } catch { defect = 'not valid JSON' }
   if (!defect) defect = inventoryError(inv, frd)
   if (defect) {
-    log(`⊘ ${frd}: MALFORMED cached contract inventory (${j.inventoryPath || 'inventory.json'}: ${defect}) — IGNORED, never read as an empty or partial inventory (DR-078); this gate re-derives the whole-FRD inventory and its green landing rewrites the cache`)
+    log(`⊘ ${frd}: MALFORMED cached contract inventory (${j.inventoryPath || 'inventory.json'}: ${defect}) — IGNORED (DR-078); the gate re-derives it`)
     return { hit: false, reason: 'malformed', malformed: true }
   }
   const changed = [inv.sources.frd !== j.sources.frd ? 'frd.md' : '', (inv.sources.blueprint || null) !== (j.sources.blueprint || null) ? 'blueprint.md' : ''].filter(Boolean)
   if (changed.length) { log(`↻ ${frd}: cached contract inventory is STALE — ${changed.join(' + ')} changed normatively since ${inv.gatedAt} — full whole-FRD inventory this gate`); return { hit: false, reason: 'stale' } }
-  log(`⚡ ${frd}: cached contract inventory HIT (gated at ${inv.gatedAt}, ${inv.contracts.length} contracts, frd.md/blueprint.md unchanged) — the reviewer deep-reviews this cycle's contracts and re-runs the rest's evidence`)
+  log(`⚡ ${frd}: cached contract inventory HIT (gated at ${inv.gatedAt}, ${inv.contracts.length} contracts, frd.md/blueprint.md unchanged)`)
   return { hit: true, inventory: inv }
 }
 // The cached inventory, injected into the gate prompt on a HIT only. Compact rows, not JSON: it rides in
@@ -3127,7 +3135,7 @@ function enforceInventoryCoverage(frd, result) {
   const seen = new Set((Array.isArray(result.traceability) ? result.traceability : []).map((e) => contractIdOf(e && e.contract)).filter(Boolean))
   const dropped = [...new Set(c.inventory.contracts.map((e) => contractIdOf(e.contract)).filter((id) => id && !seen.has(id)))]
   if (!dropped.length) return result
-  log(`⚠ ${frd}: the green verdict DROPPED ${dropped.length} cached contract(s) from its traceability (${dropped.join(', ')}) — refused (BL-0189: a cache never shrinks the oracle); re-asking with the full whole-FRD inventory`)
+  log(`⚠ ${frd}: the green verdict DROPPED ${dropped.length} cached contract(s) from its traceability (${dropped.join(', ')}) — refused (BL-0189); re-asking with the full inventory`)
   if (st) st.inventoryCandidate = null
   return { ...result, green: false, traceabilityDeficient: true, missingClasses: dropped.map((id) => `cached contract ${id}`), failure: `whole-FRD traceability dropped cached contract(s): ${dropped.join(', ')}` }
 }
@@ -3188,7 +3196,7 @@ ${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
 
-  **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
+  **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }${FAST ? GATE_FIX_LINES : ''}. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   ${GATE_BROKEN_CLAUSE(frd)}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
@@ -3312,7 +3320,7 @@ ${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
 
-  **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }.
+  **If a SPECIFIC reviewed work order fails CORRECTION (a confirmed real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again:** you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH BEFORE any revert. **FIX-FORWARD MANDATE (DR-073): a BOUNDED fault you can name at file:line with a fix of ≤ ~30 lines MUST take this findings exit.** For EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (fails WITHOUT the fix, passes WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }${FAST ? GATE_FIX_LINES : ''}.
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built, do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   ${GATE_BROKEN_CLAUSE(frd)}`,
     { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'high', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })   // C1d: the split closer drops xhigh→high — the finders already hunted; it adjudicates the survivors (the SERIAL gate keeps xhigh)
@@ -3479,7 +3487,7 @@ async function portReviewerTests(frd, gate) {
     { label: `port-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: REVIEWER_TEST_HASH_SCHEMA })
   const problems = compareReviewerHashes(ev.tests, r && r.hashes)
   if (problems.length) {
-    log(`⊘ ${frd} (BL-0184): could not port the reviewer's test files onto main (${problems.join('; ')}) — a patch would run without the tests that judge it (DR-080); re-gating ${frd} on the MAIN tree instead`)
+    log(`⊘ ${frd} (BL-0184): could not port the reviewer's test files onto main (${problems.join('; ')}) — re-gating ${frd} on the MAIN tree (DR-080)`)
     return false
   }
   reviewerTestsByFrd.set(frd, { dir: ev.dir, tests: ev.tests.map((t) => ({ path: t.path, sha256: t.sha256 })), rebless: false })
@@ -3825,12 +3833,16 @@ async function attemptRepair(frd, context, gateBlocked = false) {
 // downward"), the fix runs on SONNET at effort medium and its INTERNAL self-repair cycles re-gate with
 // the scoped `verify.sh --only=… --files=…` instead of a whole-project knip+biome+tsc each time. The
 // FINAL certification re-gate below is untouched in either case.
-async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mech = null) {
+// Proposal 40 §2 (Patch): `bounded` (fastPatchBounded) puts a fast-lane patch-1 on sonnet/high; it never applies to a
+// diagnosis-guided patch-2, and a red verify of it escalates to opus (gateConverge).
+async function attemptPatch(frd, findings, reviewIds, priorDiagnosis = null, mech = null, bounded = false) {
   const scoped = Boolean(SCOPED_REPAIR && mech && mech.mechanical && !priorDiagnosis)
-  const patchModel = scoped ? 'sonnet' : 'opus'
-  const patchEffort = scoped ? 'medium' : 'xhigh'
+  const onSonnet = scoped || (bounded && !priorDiagnosis)
+  const patchModel = onSonnet ? 'sonnet' : 'opus'
+  const patchEffort = scoped ? 'medium' : onSonnet ? 'high' : 'xhigh'
   agentSpawned += COST(patchModel)   // A6: patch-2 is weighted like patch-1 (opus=3); WP-08: a mechanical patch-1 is weighted as the sonnet it is
   if (scoped) log(`◦ ${frd}: gate-report classes ${mech.classes.join('+')} are MECHANICAL (${mech.subgates.join(', ')}) — patch-1 on sonnet/medium with a scoped inner loop instead of opus/xhigh (WP-08)`)
+  else if (onSonnet) log(`◦ ${frd}: bounded finding(s) off the floor — patch on sonnet`)
   const scopeFlags = scoped
     ? `--only=${mech.subgates.join(',')}${mech.files.length ? ` --files=${mech.files.join(',')}` : ''}`
     : ''
@@ -3899,6 +3911,8 @@ async function repairGateTest(frd, defectiveTests, reviewIds, deadlock) {
 // reaches certifyPatched — the same verify/apply split as the review-only gate + applyGate. Every caller keeps the
 // old contract: green:true = certified and stamped; anything else = red, nothing stamped.
 async function verifyPatched(frd, reviewIds) {
+  const scripted = FAST ? await scriptedVerifyPatched(frd, reviewIds) : null
+  if (scripted) return scripted
   const breach = await checkReviewerTestIntegrity(frd)   // BL-0184: never spawn the certifier over tampered/missing reviewer tests
   if (breach) return breach
   agentSpawned++
@@ -3933,12 +3947,35 @@ ${inheritedBlock}
     log(`⛔ ${frd}: the post-patch verifier claims GREEN but ${open.length} inherited fail contract(s) are not proven closed (${names}) — REFUSING to certify (BL-0178)`)
     return { ...verdict, green: false, failure: `BL-0178: inherited fail contract(s) not proven closed by a passing test: ${names}` }
   }
-  const stamped = await certifyPatched(frd, reviewIds, verdict)
-  if (!stamped) {
-    log(`⊘ ${frd}: the independent verification ACCEPTED the patch but the certify step did not confirm its stamp — NOT marking it verified and NOT reverting the verified code; it re-gates next pass (BL-0191)`)
-    return { ...verdict, green: false, unstamped: true, failure: 'BL-0191: the certify step did not confirm the stamp of an accepted post-patch verification' }
-  }
-  return verdict
+  return (await certifyPatched(frd, reviewIds, verdict)) ? verdict : unstampedPatch(frd, verdict)
+}
+function unstampedPatch(frd, verdict) {
+  log(`⊘ ${frd}: the independent verification ACCEPTED the patch but the certify step did not confirm its stamp — NOT marking it verified and NOT reverting the verified code; it re-gates next pass (BL-0191)`)
+  return { ...verdict, green: false, unstamped: true, failure: 'BL-0191: the certify step did not confirm the stamp of an accepted post-patch verification' }
+}
+// Proposal 40 §2 (verify-patch + certify, fast lane): the verify mech op checks the pinned reviewer-test hashes FIRST,
+// then runs those RED-proven tests and the full suite; certify-state stamps (WO VERIFIED, status.yaml, the last-green
+// snapshot). Same contract as verifyPatched. null → the agent path: nothing pinned, a re-bless (the engine holds no
+// hash for it), an inherited open contract no pinned test proves, or a verify that certified nothing either way.
+const PATCH_SONNET_MAX_LINES = 30
+const fastPatchBounded = (frd, findings) => FAST && !fastIsFloor(frd) && Array.isArray(findings) && findings.length > 0 && findings.every((x) => x && x.failingTest && Number.isInteger(x.fixLines) && x.fixLines > 0 && x.fixLines <= PATCH_SONNET_MAX_LINES)
+async function scriptedVerifyPatched(frd, reviewIds) {
+  const rt = reviewerTestsByFrd.get(frd)
+  if (!rt || !rt.tests.length || rt.rebless) return null
+  const pinned = (p) => rt.tests.some((t) => t.path === p || t.path.endsWith(`/${p}`))
+  if ((((frdState.get(frd) || {}).inheritedFails) || []).some((e) => !(Array.isArray(e.tests) && e.tests.length && e.tests.every(pinned)))) return null
+  const wos = (reviewIds || []).map((id) => ` --wo ${shellQuote(id)}`).join('')
+  const tests = rt.tests.map((t) => ` --test ${shellQuote(`${t.sha256}:${t.path}`)}`).join('')
+  agentSpawned++
+  const v = await runMechOp('verify', `--patch --frd ${shellQuote(frd)}${wos}${tests} --dir ${shellQuote(rt.dir)}`, { label: `patch-verify:${frd}`, phase: 'Review' })
+  const b = v.body
+  if (!b || b.ok !== true) { log(`⚠ ${frd}: patch verify refused (${v.error || (b && b.status)}) — agent verifier instead`); return null }
+  if (Array.isArray(b.breach) && b.breach.length) log(`⊘ ${frd}: DR-080 BREACH — ${b.failure}`)
+  if (b.green !== true || b.scope === 'partial') return { green: false, failure: b.failure || 'red' }
+  agentSpawned++
+  const drift = (((frdState.get(frd) || {}).landingDrift) || []).map((d) => ` --drift ${shellQuote(d.id)}`).join('')
+  const c = await runMechOp('certify-state', `--frd ${shellQuote(frd)}${wos}${tests}${drift} --token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, { label: `certify-state:${frd}`, phase: 'Review' })
+  return c.body && c.body.ok === true && c.body.status === 'certified' ? { green: true, report_scope: b.scope } : unstampedPatch(frd, {})
 }
 // BL-0191: the stamp of an ACCEPTED post-patch verification — the serialized main-tree writer that persists what the
 // independent verifier proved and the engine checked (the applyGate of the patch ladder). It judges nothing and
@@ -4003,7 +4040,7 @@ async function woRevert(frd, ids, mode, opts = {}) {
   const relay = async (label, command) => {
     agentSpawned++
     try {
-      return await agent(`MECHANICAL COMMAND RUNNER — BL-0212 ${mode === 'plan' ? 'revert plan (changes no tracked file)' : mode === 'recover' ? 'interrupted-revert recovery' : 'revert'} for ${frd}. Your SOLE action is to execute this exact command ONCE from the project root (no command before or after it) and return its stdout VERBATIM as \`output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
+      return await agent(`${MCR}BL-0212 ${mode === 'plan' ? 'revert plan (changes no tracked file)' : mode === 'recover' ? 'interrupted-revert recovery' : 'revert'} for ${frd}. ${RUN_ONCE} from the project root ${VERBATIM_AS}output\`: \`${command}\`. It prints ONE JSON line ending in an integrity checksum (\`"sum":"…"\`): copy it CHARACTER FOR CHARACTER — the engine rejects any altered copy. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, restore, stage, commit or revert anything yourself.`,
         { label, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: DRIFT_OUTPUT_SCHEMA })
     } catch (e) {
       if (isInfraError(e)) throw e   // proposal 39 C7: an infra halt is never read as a missing receipt
@@ -4373,7 +4410,7 @@ function sizeAgentBudget(addedFrds) {
   const units = first ? projectedRunCost(plan) : projectedFrdsCost(addedFrds)
   const usd = (n) => `≈ ${(n * AUTO_USD_PER_UNIT).toFixed(0)} USD aprox.`
   if (!MAX_AGENTS_AUTO) {
-    if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate; never overridden (maxAgents:'auto' sizes it).`)
+    if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — it may stop at the ceiling (maxAgents:'auto' sizes it).`)
     return
   }
   const cap = first ? Math.ceil(AUTO_HEADROOM * units) : (MAX_AGENTS || 0) + Math.ceil(AUTO_HEADROOM * units)
@@ -4592,7 +4629,7 @@ async function revertThenRetry(f, reopenIds, reviewIds, priorDiagnosis = null, o
 async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   const retryWos = f.workOrders.filter((w) => reopenIds.includes(w.id)).map((w) => ({ ...w, reopen_count: (w.reopen_count || 0) + 1, _isRetry: true, _priorDiagnosis: priorDiagnosis }))
   const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
-  if (!canRetry) { reopenedFrds.push(f.frd); return 'reopened' }
+  if (!canRetry) { return reopenFrd(f) }
   // D4: the in-run retry rebuilds EVERY reopened WO on OPUS (reopen_count>=1) — the single PRICIEST
   // rung of the recovery ladder (its true cost scales with retryWos.length, unlike the single-agent
   // patch/diagnose rungs), and EVERY branch above (gate-test-defective fallback, patch-2 failure,
@@ -4619,15 +4656,15 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   }
   if (budgetedRetry.length === 0) {
     log(`↩ ${f.frd}: in-run retry deferred — the reopened WO(s) don't fit the remaining agent budget (${MAX_AGENTS ? MAX_AGENTS - agentSpawned : '∞'}); they rebuild next pass (WS-D/D6)`)
-    reopenedFrds.push(f.frd); return 'reopened'
+    return reopenFrd(f)
   }
   if (budgetedRetry.length < retryWos.length) log(`↻ ${f.frd}: in-run retry trimmed to fit the agent budget — ${budgetedRetry.map((w) => w.id).join(', ')} now; the rest rebuild next pass (WS-D/D6)`)
-  log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''} instead of paying a whole extra pass`)
+  log(`↻ ${f.frd}: in-run retry (DR-107) — rebuilding ${budgetedRetry.map((w) => w.id).join(', ')} from the clean base now (opus)${priorDiagnosis ? ' with the diagnosis threaded (A3)' : ''}`)
   for (const w of budgetedRetry) await chargedRepair(f.frd, 'opus', () => buildWO(w, f.frd))
   const regate = await frdGate(f.frd, reviewIds)
   // WP-08 cage: the in-run retry's re-gate is a certification too — a partial one certifies nothing.
-  if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); reopenedFrds.push(f.frd); return 'reopened' }
-  if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+  if (regate && regate.green === true && isPartialReport(regate)) { refusePartial(f.frd, "the in-run retry's re-gate"); return reopenFrd(f) }
+  if (regate && regate.green === true) { await applyGate(f.frd, reviewIds, regate.testFiles, null); return verifiedBuilt(f, `in-run retry`) }
   if (regate && regate.reopen && regate.reopen.length) { if ((await revertAndReopen(f.frd, regate.reopen)).refused) return 'blocked' }
   // B2 (BL-0157): same rule as gateConverge — a deficient traceability inventory with no reopen is a
   // reviewer-paperwork gap, not a stall to silently defer forever. Re-ask ONCE, naming what's missing;
@@ -4640,9 +4677,9 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
     if (st) st.gateAttempts = attemptNo
     const directive = traceabilityReaskDirective(regate, 'with a COMPLETE traceability inventory this time.')
     const reregate = await finalizeGate(f.frd, reviewIds, await frdGateSerial(f.frd, reviewIds, attemptNo, undefined, undefined, directive))
-    if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); reopenedFrds.push(f.frd); return 'reopened' }
-    if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); log(`✓ ${f.frd} VERIFIED (in-run retry, traceability re-ask)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
-    if (reregate && reregate.reopen && reregate.reopen.length) { if ((await revertAndReopen(f.frd, reregate.reopen)).refused) return 'blocked'; reopenedFrds.push(f.frd); return 'reopened' }
+    if (reregate && reregate.green === true && isPartialReport(reregate)) { refusePartial(f.frd, "the in-run retry's traceability re-ask"); return reopenFrd(f) }
+    if (reregate && reregate.green === true) { await applyGate(f.frd, reviewIds, reregate.testFiles, null); return verifiedBuilt(f, `in-run retry, traceability re-ask`) }
+    if (reregate && reregate.reopen && reregate.reopen.length) { if ((await revertAndReopen(f.frd, reregate.reopen)).refused) return 'blocked'; return reopenFrd(f) }
     if (reregate && reregate.traceabilityDeficient) {
       const stillMissing = reregate.missingClasses || missingClasses
       logTraceabilityStillIncomplete(f, stillMissing)
@@ -4652,7 +4689,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
     }
   }
   log(`↻ ${f.frd}: in-run retry did not converge — deferred to the next pass`)
-  reopenedFrds.push(f.frd); return 'reopened'
+  return reopenFrd(f)
 }
 
 // ── FRD gate + convergence (DR-072/073/107, BL-0001) — one FRD, run on a QUIET tree ──────────────
@@ -4673,11 +4710,15 @@ async function gateAndConverge(f, reviewIds) {
 // BL-0191: an ACCEPTED post-patch verification whose certify step did not confirm the stamp. The code is
 // independently verified, so it is never reverted; the FRD stays IN_REVIEW and re-gates next pass (the same
 // fallback as a PASS whose apply-gate did not confirm).
-function deferUnstamped(f) { reopenedFrds.push(f.frd); return 'reopened' }
+// A certified FRD: logged with how it got there, counted built, the block streak reset.
+function verifiedBuilt(f, how) { log(`✓ ${f.frd} VERIFIED (${how})`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+function deferUnstamped(f) { return reopenFrd(f) }
+// The FRD stays IN_REVIEW and re-gates next pass.
+function reopenFrd(f) { reopenedFrds.push(f.frd); return 'reopened' }
 // BL-0206 (red-team): a green whose only red is an UNPROVEN drift claim (adjudicateDrift) — never certified, never
 // reopened, never reverted, never blocked: deferred IN_REVIEW for a fresh gate (and a fresh proof) next pass.
 const driftUnprovenDefer = (gate) => Boolean(gate && gate.__driftUnproven && !(gate.reopen && gate.reopen.length))
-function deferDriftUnproven(f) { log(`↩ ${f.frd}: deferred to the next pass — an unproven drift claim keeps it from certification, and nothing warrants a code change (BL-0206)`); reopenedFrds.push(f.frd); return 'reopened' }
+function deferDriftUnproven(f) { log(`↩ ${f.frd}: deferred to the next pass — an unproven drift claim keeps it from certification, and nothing warrants a code change (BL-0206)`); return reopenFrd(f) }
 async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   phase('Review')
   // WP-08 cage, at the certification boundary: a gate that ran `--only`/`--files` stamped its report
@@ -4685,7 +4726,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   // and defer the FRD for a full re-gate — never stamp, never advance last_green_sha.
   if (gate && gate.green === true && isPartialReport(gate)) {
     refusePartial(f.frd, 'the FRD gate')
-    reopenedFrds.push(f.frd); return 'reopened'
+    return reopenFrd(f)
   }
   if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
   if (gate && gate.green === true) {
@@ -4696,7 +4737,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     const applied = ev
       ? await applyGate(f.frd, reviewIds, ev.tests.map((x) => x.path), ev.dir)
       : await applyGate(f.frd, reviewIds, gate.testFiles, null)
-    if (!applied) { log(`↻ ${f.frd}: the serialized apply step did not confirm the stamp — NOT marking it verified; it re-gates next pass`); reopenedFrds.push(f.frd); return 'reopened' }
+    if (!applied) { log(`↻ ${f.frd}: the serialized apply step did not confirm the stamp — NOT marking it verified; it re-gates next pass`); return reopenFrd(f) }
     log(`✓ ${f.frd} VERIFIED`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built'
   }
   // DR-073 PATCH-FIRST: a localized reject defaults to an in-place patch on the EXISTING build (inject
@@ -4716,13 +4757,21 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     // is asked anything. This picks the fixer's MODEL and its inner-loop SCOPE — it never decides fault
     // (the patcher's own cause:'gate-test-defective' discrimination is untouched, LESSON-0002).
     const mech = SCOPED_REPAIR ? classifyGateFailure(gate) : null
-    const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds, null, mech)
+    const bounded = fastPatchBounded(f.frd, gate.findings)
+    const patched = await attemptPatch(f.frd, gate.findings || [], reviewIds, null, mech, bounded)
     patchesThisCycle = 1   // patch-1 spent (A3 PATCH_ATTEMPT_CAP counts patches THIS gate cycle)
     if (patched && patched.green === true) {
       // Constitution rule 4 (audit-20): the patcher claimed green — an INDEPENDENT agent re-runs the
       // gate and is the only one allowed to stamp VERIFIED + advance last_green_sha.
-      const iv = await verifyPatched(f.frd, reviewIds)
-      if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patched in place, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+      let iv = await verifyPatched(f.frd, reviewIds)
+      // Proposal 40 §2 (Patch): a sonnet patch the independent verify found red gets ONE opus patch on top of it.
+      if (bounded && iv && iv.green !== true && !iv.unstamped && !capHit() && canAffordRepair(f.frd, 'opus')) {
+        patchesThisCycle = 2
+        log(`↑ ${f.frd}: sonnet patch red (${iv.failure || 'red'}) — opus patch`)
+        const p2 = await attemptPatch(f.frd, [...(gate.findings || []), { wo: reviewIds[0], finding: `the previous patch did not hold: ${iv.failure || 'red'}` }], reviewIds)
+        iv = p2 && p2.green === true ? await verifyPatched(f.frd, reviewIds) : { green: false, failure: (p2 && p2.failure) || 'red' }
+      }
+      if (iv && iv.green === true) { return verifiedBuilt(f, `patched in place, independently verified`) }
       if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
       patchFailNote = `patch claimed green but the independent verification FAILED (${iv?.failure || 'red'})`
     } else if (patched && patched.cause === 'gate-test-defective' && (patched.defectiveTests || []).length) {
@@ -4732,7 +4781,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       const tr = await repairGateTest(f.frd, patched.defectiveTests, reviewIds)
       if (tr && tr.green === true) {
         const iv2 = await verifyPatched(f.frd, reviewIds)
-        if (iv2 && iv2.green === true) { log(`✓ ${f.frd} VERIFIED (defective gate test repaired, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+        if (iv2 && iv2.green === true) { return verifiedBuilt(f, `defective gate test repaired, independently verified`) }
         if (iv2 && iv2.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
         patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
       } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
@@ -4763,7 +4812,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         const tr = await repairGateTest(f.frd, defectiveTests, reviewIds)
         if (tr && tr.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
-          if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (diagnosed defective gate test repaired)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.green === true) { return verifiedBuilt(f, `diagnosed defective gate test repaired`) }
           if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
         }
         log(`↻ ${f.frd}: gate-test repair from diagnosis did not green — full revert + retry`)
@@ -4786,7 +4835,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         const tr = await repairGateTest(f.frd, blessedTests, reviewIds, diag)
         if (tr && tr.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
-          if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (deadlocked contract re-blessed by the independent reviewer, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.green === true) { return verifiedBuilt(f, `deadlocked contract re-blessed by the independent reviewer, independently verified`) }
           if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
           log(`⊘ ${f.frd}: the re-bless greened but the independent verification failed (${iv?.failure || 'red'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
         } else log(`⊘ ${f.frd}: the blessed test was UPHELD (${tr?.failure || 'no declared derogation'}) — BLOCK needs-owner (BL-0051 fail-closed)`)
@@ -4818,7 +4867,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
         const patched2 = await attemptPatch(f.frd, gate.findings || [], reviewIds, diag)
         if (patched2 && patched2.green === true) {
           const iv = await verifyPatched(f.frd, reviewIds)
-          if (iv && iv.green === true) { log(`✓ ${f.frd} VERIFIED (patch-2 diagnosis-guided, independently verified)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+          if (iv && iv.green === true) { return verifiedBuilt(f, `patch-2 diagnosis-guided, independently verified`) }
           if (iv && iv.unstamped) return deferUnstamped(f)   // BL-0191: verified but not stamped — keep the code, re-gate; never revert it
           log(`↻ ${f.frd}: patch-2 greened but the independent verification failed (${iv?.failure || 'red'}) — full revert + retry`)
         } else {
@@ -4881,7 +4930,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     if (fr && fr.green === true) {
       foundationVerified = false   // re-confirm completeness before the next surface fans out
       log(`✓ ${f.frd}: foundation repaired — its surfaces rebuild against real primitives next pass`)
-      reopenedFrds.push(f.frd); return 'reopened'   // the repair reset surfaces to the last green (→ PLANNED); next pass rebuilds them
+      return reopenFrd(f)   // the repair reset surfaces to the last green (→ PLANNED); next pass rebuilds them
     }
     log(`⊘ ${f.frd}: foundation auto-repair failed — falling through to block`)
   }
@@ -4905,8 +4954,8 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
   const discardRefused = !(fix && fix.green === true) && !(await discardBlockedCode(f.frd, reviewIds || []))
   if (fix && fix.green === true) {
     gate = await frdGate(f.frd, reviewIds)
-    if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); reopenedFrds.push(f.frd); return 'reopened' }   // WP-08 cage
-    if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); log(`✓ ${f.frd} VERIFIED (after repair)`); builtFrds.push(f.frd); consecutiveBlocks = 0; return 'built' }
+    if (gate && gate.green === true && isPartialReport(gate)) { refusePartial(f.frd, 'the post-repair re-gate'); return reopenFrd(f) }   // WP-08 cage
+    if (gate && gate.green === true) { await applyGate(f.frd, reviewIds, gate.testFiles, null); return verifiedBuilt(f, `after repair`) }
     if (driftUnprovenDefer(gate)) return deferDriftUnproven(f)
   }
   // BL-0159: the post-repair re-gate above is ALSO wrapped by enforceWholeFrdTraceability (frdGate wraps
@@ -4984,7 +5033,7 @@ function enrollFrd(f) {
   // other FRD's entry (last writer wins) and corrupt dep resolution. Refuse: block THIS FRD loudly.
   const dupes = (f.workOrders || []).filter((w) => globalQueue.has(w.id) || doneIds.has(w.id) || blockedIds.has(w.id))
   if (dupes.length) {
-    log(`⊘ ${f.frd}: WO id(s) ${dupes.map((w) => w.id).join(', ')} already belong to another FRD — duplicate ids across FRDs, refusing to enroll (would silently overwrite the schedule). Blocking ${f.frd} (error) — the owner must give these work orders unique ids.`)
+    log(`⊘ ${f.frd}: WO id(s) ${dupes.map((w) => w.id).join(', ')} already belong to another FRD — duplicate ids across FRDs: refusing to enroll; blocking ${f.frd} (error): give them unique ids.`)
     blockFrdInSchedule(f.frd, 'error')
     return
   }
@@ -4996,7 +5045,7 @@ function enrollFrd(f) {
   // own carve-out too: a DRAFT WO already VERIFIED is a stable foundation (built before this field
   // existed), not a problem — only a NOT-yet-VERIFIED DRAFT WO is refused.
   const draftWos = f.workOrders.filter((w) => w.docStatus === 'DRAFT' && w.status !== 'VERIFIED')
-  if (draftWos.length) log(`⊘ ${f.frd}: WO(s) ${draftWos.map((w) => w.id).join(', ')} are still \`status: DRAFT\` (never gated by /pandacorp:architecture's DR-100 readiness/grounding/consistency check) — refusing to build or gate them this run (needs-owner); route back to /pandacorp:architecture.`)
+  if (draftWos.length) log(`⊘ ${f.frd}: WO(s) ${draftWos.map((w) => w.id).join(', ')} are still \`status: DRAFT\` (never passed the DR-100 readiness check) — not built or gated (needs-owner); route back to /pandacorp:architecture.`)
   const draftIds = new Set(draftWos.map((w) => w.id))
   const pending = f.workOrders.filter((w) => w.status !== 'VERIFIED' && w.status !== 'BLOCKED' && !draftIds.has(w.id))
   const toBuild = pending.filter((w) => w.status !== 'IN_REVIEW')   // IN_REVIEW = built by a prior interrupted run → straight to the gate, don't rebuild
@@ -5412,7 +5461,7 @@ async function stalePinGuard(frd, reviewIds, gate, launchPin) {
     agentSpawned++
     let r = null
     try {
-      r = await agent(`MECHANICAL COMMAND RUNNER — D1 stale-pin guard for ${frd} (BL-0186). Execute exactly this command once, from anywhere, and return the integer it prints as \`count\`: \`git -C ${PROJECT_DIR} rev-list --count ${pin}..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'${FAST ? STALE_PIN_TEST_EXCLUDES : ''}\` — the MAIN-tree commits since the pin ${pin} that touched CODE (anything outside .pandacorp/ and docs/). Change nothing. If the command fails, return { count: -1, failure: "<its error>" }.`,
+      r = await agent(`${MCR}D1 stale-pin guard for ${frd} (BL-0186). Execute exactly this command once, from anywhere, and return the integer it prints as \`count\`: \`git -C ${PROJECT_DIR} rev-list --count ${pin}..HEAD -- . ':(exclude).pandacorp' ':(exclude)docs'${FAST ? STALE_PIN_TEST_EXCLUDES : ''}\` — the MAIN-tree commits since the pin ${pin} that touched CODE (anything outside .pandacorp/ and docs/). Change nothing. If the command fails, return { count: -1, failure: "<its error>" }.`,
         { label: `stale-pin:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: STALE_PIN_SCHEMA })
     } catch (e) { log(`⚠ D1: the stale-pin check for ${frd} threw (${(e && e.message) || e}) — re-verifying (fail-closed)`) }
     count = (r && Number.isInteger(r.count) && r.count >= 0) ? r.count : -1
@@ -5557,7 +5606,7 @@ async function unportReviewerTests(frd, ev) {
   agentSpawned++
   let r = null
   try {
-    r = await agent(`MECHANICAL COMMAND RUNNER — D1 lane cleanup for ${frd} (BL-0186). This landing did NOT certify ${frd}, so the reviewer's test copies ported onto the MAIN tree must not stay behind as untracked files (the next landing's \`verify.sh --since\` would run them). The originals stay in ${ev.dir}. First run \`${REPO_TOP_ASSIGN}\` (the repository root) in the same Bash call as the checks below. ${REPO_ROOT_PATHS_NOTE} For EACH entry of EXPECTED: if \`"$TOP"/'<path>'\` exists AND \`git -C "$TOP" --literal-pathspecs ls-files --error-unmatch -- '<path>'\` FAILS (it is untracked) AND \`shasum -a 256 "$TOP"/'<path>'\` equals its sha256, run \`git -C "$TOP" --literal-pathspecs clean -f -- '<path>'\` and add the path to \`removed\`; otherwise touch nothing and add it to \`kept\` (tracked, edited, or already gone). Never a blanket clean, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { removed, kept }.`,
+    r = await agent(`${MCR}D1 lane cleanup for ${frd} (BL-0186). This landing did NOT certify ${frd}, so the reviewer's test copies ported onto the MAIN tree must not stay behind as untracked files (the next landing's \`verify.sh --since\` would run them). The originals stay in ${ev.dir}. First run \`${REPO_TOP_ASSIGN}\` (the repository root) in the same Bash call as the checks below. ${REPO_ROOT_PATHS_NOTE} For EACH entry of EXPECTED: if \`"$TOP"/'<path>'\` exists AND \`git -C "$TOP" --literal-pathspecs ls-files --error-unmatch -- '<path>'\` FAILS (it is untracked) AND \`shasum -a 256 "$TOP"/'<path>'\` equals its sha256, run \`git -C "$TOP" --literal-pathspecs clean -f -- '<path>'\` and add the path to \`removed\`; otherwise touch nothing and add it to \`kept\` (tracked, edited, or already gone). Never a blanket clean, stage nothing, commit nothing. EXPECTED (JSON): ${JSON.stringify(ev.tests)}. Return { removed, kept }.`,
       { label: `unport-reviewer-tests:${frd}`, phase: 'Review', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: UNPORT_SCHEMA })
   } catch (e) { log(`⚠ D1: the lane cleanup for ${frd} threw (${(e && e.message) || e}) — untracked reviewer test copies may remain on main`) }
   const removed = (r && Array.isArray(r.removed)) ? r.removed : []
@@ -6019,7 +6068,7 @@ while (true) {
       const renewal = await agent(RENEW_LEASE,
         { label: 'renew-lease', phase: 'Build', model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: RENEW_LEASE_SCHEMA })
       if (renewal && renewal.stop === true) { stopReason = 'rethink'; log('⏸ renovación de lease falló en un safe point saltado — el motor para (fail closed, DR-069)'); break }
-      log(`⊘ safe point #${safePointChecks} saltado (build dirigido, no drena nada — WP-11: 1×/corrida + 1×/${SAFE_POINT_WAVE_THROTTLE} boundaries; args.safePointEveryWave:true restaura la cadencia por ola; lease renovada igual)`)
+      log(`⊘ safe point #${safePointChecks} saltado (build dirigido — WP-11: 1×/corrida + 1×/${SAFE_POINT_WAVE_THROTTLE} boundaries; lease renovada igual)`)
     }
   }
 
@@ -6134,7 +6183,7 @@ while (true) {
       }
     } else {
       const surfaceFrds = [...new Set(nonFoundationReady.map((w) => w._frd))].join(', ')
-      log(`⊘ foundation-gate omitido: ninguna WO no-fundación lista declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre — ${surfaceFrds}`)
+      log(`⊘ foundation-gate omitido: ninguna WO no-fundación lista declara artefactos de UI ${UI_SKIP_NOTE} — ${surfaceFrds}`)
       uiPassSkipEvent += UI_PASS_SKIPPED_EVENT('foundation-gate', surfaceFrds, 'no-ui-artifacts')
     }
   }
@@ -6159,7 +6208,7 @@ while (true) {
   // only 1 dispatched). Call it out loudly the moment it happens so the owner reads the REAL reason
   // instead of mis-diagnosing a scheduler/dependency bug.
   if (waveCutBy === 'agent-budget' && wave.length === 1 && candidates.length > 1) {
-    log(`⚠ oleada reducida a 1 WO por presupuesto de agentes agotado (agentSpawned=${agentSpawned} ≥ maxAgents=${MAX_AGENTS}, remainingAgents=${remainingAgents}) — ${candidates.length - 1} WO(s) más estaban listos y disjuntos pero no caben en el presupuesto restante. Esto NO es un recorte por dependencias/artefactos/tope de conteo (P.wave=${P.wave}).`)
+    log(`⚠ oleada reducida a 1 WO por presupuesto de agentes agotado (agentSpawned=${agentSpawned} ≥ maxAgents=${MAX_AGENTS}, remainingAgents=${remainingAgents}) — ${candidates.length - 1} WO(s) listos más no caben. Esto NO es un recorte por dependencias/artefactos/tope de conteo (P.wave=${P.wave}).`)
   }
   // WP-09: name WHY each non-elected candidate was deferred (deps pending / artifacts overlap / blocked
   // by the foundation gate or the wave cap) — reuses pickDisjointWave's own artifactsOverlap, unmodified,
@@ -6423,7 +6472,7 @@ const REUSE_CHECK_SCHEMA = { type: 'object', required: ['canReuse', 'reason'], p
 // B9 — BL-0147: close-out/notify-end reused a recent full-green gate-report instead of re-running the
 // whole suite. Fire-and-forget, same contract as the other dashboard events (engine has no shell/fs).
 const CLOSE_OUT_VERIFY_REUSED_EVENT = (sha, ageSeconds) =>
-  ` Also append the CloseOutVerifyReused event (fire-and-forget — BL-0147: this step reused a recent full green gate-report instead of re-running the whole-project suite): printf '{"event":"CloseOutVerifyReused","at":"%s","project":"%s","sha":"${sha}","ageSeconds":${Math.max(0, Math.round(ageSeconds || 0))}}\\n' "$(date -u +%FT%TZ)" "${PROJECT}" >> ~/.claude/dashboard-events.ndjson.`
+  ` Also append the CloseOutVerifyReused event (fire-and-forget — BL-0147: this step reused a recent full green gate-report instead of re-running the whole-project suite): printf '{"event":"CloseOutVerifyReused","at":"%s","project":"%s","sha":"${sha}","ageSeconds":${Math.max(0, Math.round(ageSeconds || 0))}}${EV_END}`
 // The reused report is always scope:"full" (checkFullVerifyReuse refuses anything else).
 const REUSE_REPORT_CLAUSE = (reuse) => `a FULL, GREEN run of this EXACT commit (sha ${reuse.headSha}, ~${Math.max(0, Math.round(reuse.ageSeconds || 0))}s ago, clean tree)`
 async function checkFullVerifyReuse() {
@@ -6467,8 +6516,8 @@ function runEndSummary(needsOwner) {
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
   return { blk, why, ownerMsg }
 }
-const logVisualQaSkipped = () => log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI (fail-closed si no declaran); el diff visual determinista sigue en el verify.sh completo del cierre`)
-const logChangesStillBuilding = () => log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' y se archivan en la corrida que verifique sus FRDs (DR-069 §7, durable cross-run)`)
+const logVisualQaSkipped = () => log(`⊘ visual-qa omitido: ninguna WO de los FRDs verificados esta corrida (${builtFrds.join(', ')}) declara artefactos de UI ${UI_SKIP_NOTE}`)
+const logChangesStillBuilding = () => log(`↷ ${integratedChanges.length} change(s) integradas pero este run no verificó FRDs — siguen 'building' hasta la corrida que verifique sus FRDs (DR-069 §7)`)
 // The run's last log line, shared by both close-out shapes (identical text).
 const logRunEnded = (hardened) => (hardened === false ? 'Run ended: all FRDs verified but hardening incomplete — NOT released (needs-owner).' : `Run ended: ${builtFrds.length} verified, ${reopenedFrds.length} reopened, ${blockedFrds.length} blocked${stopReason ? ' · stop=' + stopReason : ''}.`)
 const logReleaseOutcome = (r) => log(r && r.done === true

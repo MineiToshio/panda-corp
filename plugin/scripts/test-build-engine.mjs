@@ -2373,6 +2373,135 @@ const builtNow = (call) => ({ wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Proposal 40 Phase 3 (§2 rows Patch, verify-patch + certify; §7 row 3): the patch ladder's merge. The verify mech op
+// checks the reviewer-test hash first, then runs the RED-proven tests and the suite; certify-state stamps (no
+// verify-patch / certify-patch agent). The patch runs on sonnet for bounded findings off the floor, opus on the floor,
+// and one red verify escalates it to opus.
+// ─────────────────────────────────────────────────────────────────────────────
+const RT_PATH = (frd) => `src/_tests/${frd}.reviewer.test.ts`
+const RT_SHA = 'ab'.repeat(32)
+const rejectWith = (frd, wo, extra = {}) => ({ green: false, reopen: [wo], findings: [{ wo, finding: `the empty state is missing at src/${frd}.ts:4`, failingTest: RT_PATH(frd), files: [`src/${frd}.ts`], fixLines: 6, ...extra }], failure: 'AC not met' })
+const salvagedTest = (frd) => [
+  { label: `gate-release:${frd}`, response: { line: mechLine('gate-release', { salvaged: [{ path: RT_PATH(frd), status: 'untracked', sha256: RT_SHA }], remaining: [] }) } },
+  { label: `port-reviewer-tests:${frd}`, response: { hashes: [{ path: RT_PATH(frd), sha256: RT_SHA }] } },
+]
+const patchVerifyLine = (frd, body) => ({ line: mechLine('verify', { frd, sha: 'beef00000001', tests: [{ path: RT_PATH(frd), ok: body.green === true }], ...body }) })
+const certifiedLine = (frd, wo) => ({ line: mechLine('certify-state', { status: 'certified', frd, wos: [wo], snapshot: 'a11ce0000000', pointer: 'b0b000000000', tests: [RT_PATH(frd)], drift: [] }) })
+const NO_PATCH_AGENTS = /^(verify-patch|certify-patch|reviewer-test-hash):/
+SCENARIOS.push({
+  name: 'sonnet-patch-escalates-after-red — a bounded finding (fixLines ≤ 30) off the floor patches on sonnet; its scripted verify is red, so ONE opus patch follows; the next verify is green and certify-state stamps (no verify-patch/certify-patch agents)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-sp', ids: ['wo-sp-001'] }]),
+  responses: [
+    { label: 'gate:frd-sp', response: rejectWith('frd-sp', 'wo-sp-001') },
+    ...salvagedTest('frd-sp'),
+    { label: 'patch:frd-sp', response: { green: true } },
+    { label: 'patch-verify:frd-sp', times: 1, response: patchVerifyLine('frd-sp', { status: 'red', green: false, scope: 'full', failure: 'vitest: src/frd-sp.ts expected 2 got 1' }) },
+    { label: 'patch-verify:frd-sp', response: patchVerifyLine('frd-sp', { status: 'green', green: true, scope: 'full', failure: '' }) },
+    { label: 'certify-state:frd-sp', response: certifiedLine('frd-sp', 'wo-sp-001') },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const patches = byLabel(run, 'patch:frd-sp')
+    t.ok(patches.length === 2 && patches[0].model === 'sonnet' && patches[1].model === 'opus', `sonnet first, then ONE opus patch (got ${patches.map((c) => c.model).join(', ')})`)
+    t.ok(patches[0] && patches[0].opts.effort === 'high' && patches[1] && patches[1].opts.effort === 'xhigh', 'sonnet at high, the opus escalation at xhigh')
+    t.ok(patches[1] && /expected 2 got 1/.test(patches[1].prompt), 'the opus patch is told why the sonnet patch did not hold (the red verify)')
+    const verifies = byLabel(run, 'patch-verify:frd-sp')
+    t.ok(verifies.length === 2 && verifies.every((c) => /verify-mech|pandacorp-build-mech\.mjs' verify /.test(c.prompt) || / verify --project/.test(c.prompt)), `the scripted verify op ran after each patch (got ${verifies.length})`)
+    t.ok(verifies.every((c) => /--patch/.test(c.prompt) && c.prompt.includes(`--test '${RT_SHA}:${RT_PATH('frd-sp')}'`) && /--dir /.test(c.prompt) && /--wo 'wo-sp-001'/.test(c.prompt)), 'the verify carries the mandatory reviewer-test hash, the evidence dir and the work orders')
+    t.ok(verifies.every((c) => c.model === 'haiku' || c.opts.agentType !== 'pandacorp:reviewer'), 'the verify is a literal mech op, never a reviewer agent')
+    const cert = byLabel(run, 'certify-state:frd-sp')
+    t.ok(cert.length === 1 && /certify-state --project/.test(cert[0].prompt) && /--token 'test-lease-token' --epoch '1'/.test(cert[0].prompt) && cert[0].prompt.includes(`--test '${RT_SHA}:${RT_PATH('frd-sp')}'`), `one fenced certify-state op stamps (got ${cert.map((c) => c.prompt.slice(-300)).join(' | ')})`)
+    t.ok(byLabel(run, NO_PATCH_AGENTS).length === 0, `no verify-patch / certify-patch / hash agent (got ${byLabel(run, NO_PATCH_AGENTS).map((c) => c.label).join(', ') || 'none'})`)
+    t.ok(labelIdx(run, /^certify-state:frd-sp$/) > lastIdx(run, /^patch-verify:frd-sp$/), 'the stamp follows the green verify')
+    t.ok(run.result && run.result.builtFrds.includes('frd-sp'), 'VERIFIED')
+  },
+})
+SCENARIOS.push({
+  name: 'sonnet-patch-escalates-after-red (b) — opus on the floor; opus for an unbounded or unestimated finding; a green sonnet verify needs no opus',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-sf', ids: ['wo-sf-001'], floor: true }, { frd: 'frd-sb', ids: ['wo-sb-001'] }, { frd: 'frd-su', ids: ['wo-su-001'] }, { frd: 'frd-sn', ids: ['wo-sn-001'] }]),
+  responses: [
+    { label: 'gate:frd-sf', response: rejectWith('frd-sf', 'wo-sf-001') },
+    { label: 'gate:frd-sb', response: rejectWith('frd-sb', 'wo-sb-001') },
+    { label: 'gate:frd-su', response: rejectWith('frd-su', 'wo-su-001', { fixLines: 80 }) },
+    { label: 'gate:frd-sn', response: rejectWith('frd-sn', 'wo-sn-001', { fixLines: undefined }) },
+    ...['frd-sf', 'frd-sb', 'frd-su', 'frd-sn'].flatMap((f) => [...salvagedTest(f), { label: `patch-verify:${f}`, response: patchVerifyLine(f, { status: 'green', green: true, scope: 'full', failure: '' }) }, { label: `certify-state:${f}`, response: certifiedLine(f, `wo-${f.slice(4)}-001`) }]),
+    { label: /^patch:/, response: { green: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const models = (f) => byLabel(run, `patch:${f}`).map((c) => c.model).join(',')
+    t.ok(models('frd-sf') === 'opus', `a floor FRD patches on opus (got ${models('frd-sf')})`)
+    t.ok(models('frd-sb') === 'sonnet', `a bounded finding off the floor patches on sonnet, once: its verify is green (got ${models('frd-sb')})`)
+    t.ok(models('frd-su') === 'opus', `a finding estimated above 30 lines patches on opus (got ${models('frd-su')})`)
+    t.ok(models('frd-sn') === 'opus', `a finding with no size estimate patches on opus (fail-safe upward) (got ${models('frd-sn')})`)
+    t.ok(byLabel(run, NO_PATCH_AGENTS).length === 0 && byLabel(run, /^certify-state:/).length === 4, 'every patch is verified and stamped by script')
+    t.ok(run.result && ['frd-sf', 'frd-sb', 'frd-su', 'frd-sn'].every((f) => run.result.builtFrds.includes(f)), 'all VERIFIED')
+  },
+})
+SCENARIOS.push({
+  name: 'reviewer-test-hash-tamper-red (engine) — a scripted verify that reports a DR-080 breach is red: nothing is stamped, the opus escalation runs, and a USABLE FRD is held for the owner',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-th', ids: ['wo-th-001'] }]),
+  responses: [
+    { label: 'gate:frd-th', response: rejectWith('frd-th', 'wo-th-001') },
+    ...salvagedTest('frd-th'),
+    { label: 'patch:frd-th', response: { green: true } },
+    { label: 'unport-reviewer-tests:frd-th', response: { removed: [RT_PATH('frd-th')], kept: [] } },
+    { label: 'patch-verify:frd-th', response: patchVerifyLine('frd-th', { status: 'red', green: false, breach: [{ path: RT_PATH('frd-th'), expected: RT_SHA, observed: 'cd'.repeat(32), restored: true }], failure: `DR-080: the reviewer's test file(s) were modified or removed after the gate (${RT_PATH('frd-th')}: changed)` }) },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^certify-state:/).length === 0 && byLabel(run, NO_PATCH_AGENTS).length === 0, 'nothing is certified, by script or by agent')
+    t.ok(hasLog(run, /DR-080 BREACH/), 'the breach is logged')
+    t.ok(byLabel(run, 'patch:frd-th').map((c) => c.model).join() === 'sonnet,opus', 'a red verify of the sonnet patch (here: a breach) escalates once to opus over the restored originals')
+    t.ok(run.result && run.result.blockedReasons['frd-th'] === 'needs-owner' && !run.result.builtFrds.includes('frd-th'), `not VERIFIED; the USABLE code is held for the owner (got ${run.result && JSON.stringify(run.result.blockedReasons)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'patch-ladder-agent-fallback — nothing pinned (the gate salvaged no test) or a refused scripted verify: the independent agent verifier and the certify agent run exactly as before',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-fa', ids: ['wo-fa-001'] }, { frd: 'frd-fr', ids: ['wo-fr-001'] }]),
+  responses: [
+    { label: 'gate:frd-fa', response: rejectWith('frd-fa', 'wo-fa-001') },
+    { label: 'gate:frd-fr', response: rejectWith('frd-fr', 'wo-fr-001') },
+    ...salvagedTest('frd-fr'),
+    { label: 'reviewer-test-hash:frd-fr', response: { hashes: [{ path: RT_PATH('frd-fr'), sha256: RT_SHA }] } },
+    { label: 'patch-verify:frd-fr', response: { line: mechLine('verify', { ok: false, status: 'no-test-runner', reason: 'node_modules/.bin/vitest is absent' }) } },
+    { label: /^patch:/, response: { green: true } },
+    { label: /^certify-patch:/, response: { done: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'patch-verify:frd-fa').length === 0 && byLabel(run, 'verify-patch:frd-fa').length === 1 && byLabel(run, 'certify-patch:frd-fa').length === 1, 'nothing pinned → the agent verifier and the certify agent')
+    t.ok(byLabel(run, 'patch-verify:frd-fr').length === 1 && byLabel(run, 'verify-patch:frd-fr').length === 1 && byLabel(run, 'certify-patch:frd-fr').length === 1 && byLabel(run, /^certify-state:/).length === 0, 'a refused scripted verify certified nothing either way → the agent path')
+    t.ok(run.result && ['frd-fa', 'frd-fr'].every((f) => run.result.builtFrds.includes(f)), 'both VERIFIED')
+  },
+})
+SCENARIOS.push({
+  name: 'classic-patch-ladder-unchanged — lane:classic keeps the opus patch, the verify-patch agent and the certify-patch agent; no scripted op',
+  args: { mode: 'balanced', lane: 'classic', parallelGates: true },
+  plan: mkPlan([{ frd: 'frd-cl', deps: [], workOrders: [mkWo('wo-cl-001', 'IN_REVIEW', { frd: 'frd-cl', artifacts: ['src/cl/**'] })] }]),
+  responses: [
+    { label: 'gate:frd-cl', response: rejectWith('frd-cl', 'wo-cl-001') },
+    { label: `gate-release:frd-cl`, response: { salvaged: [{ path: RT_PATH('frd-cl'), status: 'untracked', sha256: RT_SHA }], remaining: [] } },
+    { label: 'port-reviewer-tests:frd-cl', response: { hashes: [{ path: RT_PATH('frd-cl'), sha256: RT_SHA }] } },
+    { label: 'reviewer-test-hash:frd-cl', response: { hashes: [{ path: RT_PATH('frd-cl'), sha256: RT_SHA }] } },
+    { label: 'patch:frd-cl', response: { green: true } },
+    { label: 'certify-patch:frd-cl', response: { done: true } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const p = byLabel(run, 'patch:frd-cl')
+    t.ok(p.length === 1 && p[0].model === 'opus', `the classic patch stays opus (got ${p.map((c) => c.model).join(',')})`)
+    t.ok(byLabel(run, 'verify-patch:frd-cl').length === 1 && byLabel(run, 'certify-patch:frd-cl').length === 1 && byLabel(run, 'reviewer-test-hash:frd-cl').length === 1, 'the hash agent, the verify-patch agent and the certify-patch agent run as before')
+    t.ok(byLabel(run, /^(patch-verify|certify-state):/).length === 0, 'no scripted patch op on the classic lane')
+    t.ok(!/fixLines/.test(byLabel(run, 'gate:frd-cl')[0].prompt), 'the classic gate prompt is unchanged (no fixLines clause)')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
