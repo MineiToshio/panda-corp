@@ -1152,13 +1152,39 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   designed scroll missing `data-scroll-x="intentional"`) is raised on the first pass as a finding with its fix; on the
   fast lane such a dismissal is refused even with a valid citation. The split closer keeps its own effort. Classic lane
   unchanged.
+- **Lanes, the mech layer (proposal 40 Phase 5 Stage A; `test-build-mech-lanes.mjs` `cyclic-frd-graph-sliced-by-ready-set`,
+  `auto-k1-on-narrow-dag`, `schema-chain-pauses-landings`, `land-chain-union-merges-track-journal`,
+  `lane-never-reuses-sibling-server`, `lane-bisect`).** Every lane decision a script can make is a mech op
+  (`build-mech-lanes.mjs`, `build-mech-lane-land.mjs`); the engine only orchestrates. `lane-plan` recomputes the ready
+  set from the WO DAG on main after every landing: a WO is ready when pending, in scope, not in a live or parked chain,
+  not below a parked or BLOCKED WO, and every dependency is done (IN_REVIEW in scope, VERIFIED outside it). Chains are
+  ≤ 3 WOs of one FRD in dependency order, longest downstream path first, so a cyclic FRD graph is built slice by slice
+  (FRD-01, FRD-05, FRD-01). A WO declaring `prisma/**`, a migration, `package.json` or a lockfile is a **barrier**: a
+  chain of its own, built on main (`lane-dispatch --barrier`; `commit-wo` still refuses schema paths off main), one at a
+  time; lane builds go on, `land-chain` refuses `landings-paused` until its WOs are committed on main. K is static:
+  `--lanes N`, else 2, capped by mode (pro 1, balanced 2, powerful/deep 4), and **1 whenever the ready width is ≤ 1**, so
+  a small build runs exactly as today. `lane-pool` creates K detached worktrees under `.pandacorp/run/lanes/`, each
+  bootstrapped on its own free port; `lane-dispatch` salvages a lane's dirt, resets it to main on `lane/<chain>` (a
+  re-dispatch of the same chain keeps its committed WOs, DR-086), re-runs the bootstrap only when the lockfile, the DB
+  paths or the port moved (and `prisma generate` when `prisma/**` did), and returns the lane env: `PORT`,
+  `PANDACORP_E2E_PORT` and `PANDACORP_LANE`, which makes the stack template's Playwright config refuse to reuse a
+  running server. `lane-mark --as built` checks one `feat` commit per WO before queueing. `land-chain` lands one chain at
+  a time (its own lock): rebase with `--empty=keep` (commit count and subjects re-checked: one commit per WO, DR-097),
+  the journals merged by `merge=union` through an attributes file passed by config, `messages/*.json` by a 3-way key
+  union (one key, two values → red); then tsc, biome and `vitest related` in the lane; then, under the main-writer
+  lock, the journals swept and `merge --ff-only` (main moved by journal lines only → rebase again without re-checking),
+  and one `lane_land` track line re-keying each WO id to its landed SHA. A conflict or a red check gets ONE rebase-fix
+  (`needs-rebase-fix`), then the chain parks and the blocked-FRD set (its DAG descendants only) is reported; main is
+  never touched by a failed landing. `lane-bisect` runs `verify.sh` on 1-3 landed chains in parallel snapshot worktrees
+  (the base before the first, then each tip) and names the first red tip; it never reverts. Lane state is gitignored
+  run state (`.pandacorp/run/lanes/state.json`), and git wins over it: a live chain whose WOs are committed on main is
+  landed.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
 
-**Not built in this release (recorded, not promised):** parallel worktree lanes, the landing train, the serial schema
-step, attributed relock and bisect (C4 S1/C5, deferred by §11 until §9.2 shows the build half, not usage, is the
-bottleneck); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
+**Not built in this release (recorded, not promised):** the engine's scheduling of lanes (the mech layer above ships;
+the event loop does not dispatch chains to worktrees yet) and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
 refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: the product floor is a path/content
 heuristic (~90 % by design, the owner's trade): an auth or payment flow written with no recognisable library, path name
 or header escapes it until the opus gate, and a feature domain named `session` or `price` is floor; `commit-wo` runs only for single-WO
