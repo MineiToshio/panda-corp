@@ -193,14 +193,16 @@ const FUSED_START = FAST && argFlag('fusedStart', true) && !CHANGE && !STRICT_BA
 const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
-if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
+const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
+if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K applies`)
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || 'auto'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
 const fastFloor = new Set()
 const fastClassified = new Set()
 const fastUsable = []
 const priorUsable = []
 let earlySecurity = null
 const MECH_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$/, 'pandacorp-build-mech.mjs'))}`
-const mechOpCommand = (op, flags = '') => `${MECH_CLI_COMMAND} ${op} --project ${shellQuote(PROJECT_DIR)}${flags ? ` ${flags}` : ''}`
+const mechOpCommand = (op, flags = '', dir = PROJECT_DIR) => `${MECH_CLI_COMMAND} ${op} --project ${shellQuote(dir)}${flags ? ` ${flags}` : ''}`
 const MECH_LINE_SCHEMA = { type: 'object', required: ['line'], properties: { line: { type: 'string', description: 'the LAST line the command printed, verbatim' } } }
 const MECH_LITERAL = (cmd) => `MECHANICAL COMMAND RUNNER (proposal 39 C1): run exactly \`${cmd}\` once, as ONE Bash call with no command before or after it, and return its last line VERBATIM as \`line\`. That line is ONE JSON object ending in an integrity checksum ("sum"): copy it character for character. A non-zero exit is data, not a problem for you to fix: do not inspect, edit, fix, stage, commit or revert anything yourself.`
 const MECH_FUSED = (cmd, before, after) => `MECHANICAL STEPS (proposal 39 C1): do them IN THIS ORDER, each exactly once, skipping none.\n${[before, `MECHANICAL COMMAND RUNNER: run exactly \`${cmd}\` once, as ONE Bash call of its own (nothing chained into that call), and return its last line VERBATIM as \`line\`. That line is ONE JSON object ending in an integrity checksum ("sum"): copy it character for character. Its exit code is data, not a problem for you to fix: whatever it is, do not inspect, edit, fix, stage, commit or revert anything because of it.`, after].map((x) => String(x || '').trim()).filter(Boolean).map((x, i) => `STEP ${i + 1}. ${x}`).join('\n')}\nReturn as \`line\` the last line of the MECHANICAL COMMAND RUNNER step, untouched by any other step.`
@@ -246,6 +248,8 @@ const ORACLE_TYPES = new Set(['pandacorp:reviewer', 'pandacorp:security-auditor'
 let oracleNoFallbackLogged = false
 let landingInFlight = null
 let mainWriter = null
+let LANED = null
+const lane = { k: 1, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
 const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
 const unwrapStructuredResult = (answer, schema) => {
  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
@@ -954,17 +958,17 @@ function parseMechLine(answer, op) {
  if (!j || j.op !== op) return { body: null, error: `the line is not a ${op} receipt` }
  return { body: j, error: '' }
 }
-async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffix = '' }) {
- const cmd = mechOpCommand(op, flags)
+async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffix = '', dir = PROJECT_DIR }) {
+ const cmd = mechOpCommand(op, flags, dir)
  const raw = await agent(prefix.trim() || suffix.trim() ? MECH_FUSED(cmd, prefix, suffix) : MECH_LITERAL(cmd), { label, phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA })
  return parseMechLine(raw, op)
 }
 const parkWoFlags = (w) => `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}${FAST ? ' --all-undeclared' : ''}`
-async function parkWorkOrders(wos) {
+async function parkWorkOrders(wos, dir = PROJECT_DIR) {
  for (const w of wos) {
   agentSpawned++
   let r = null
-  try { r = await runMechOp('park-wo', parkWoFlags(w), { label: `park:${w.id}` }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
+  try { r = await runMechOp('park-wo', parkWoFlags(w), { label: `park:${w.id}`, dir }) } catch (e) { r = { body: null, error: (e && e.message) || String(e) } }
   if (r.body && r.body.ok === true) { parkedWos.push(w.id); log(`⇣ ${w.id} parked (${r.body.status}${r.body.dir ? ` → ${r.body.dir}` : ''}) — rebuilt on resume`) }
   else log(`⚠ ${w.id} could not be parked (${r.error || (r.body && (r.body.reason || r.body.error)) || 'no receipt'}) — ${FAST ? 'its dirty paths stay (the next fast run stops on them)' : 'the resume precheck salvages it'}`)
  }
@@ -1011,7 +1015,8 @@ let fused = null
 if (FUSED_START) {
  agentSpawned++
  const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
-  `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : [])]
+  `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : []),
+  ...(LANES_ARG !== 1 ? [`--lane-plan${LANES_ARG ? ` --lanes ${LANES_ARG}` : ''}`] : [])]
  const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
  if (r === PAUSED) return await pausedExit()
  const b = r.body
@@ -3496,7 +3501,7 @@ function holdMain(who, fn) {
  h.p = fn().then((r) => { h.r = r }, (e) => { h.e = e }).then(() => { h.done = true })
 }
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
-const isUsable = (frd) => Boolean(usableOf(frd))
+const isUsable = (frd) => Boolean(usableOf(frd)) || lane.landed.has(frd)
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
 const fastGateEffort = (frd) => fastIsFloor(frd) || (frdState.get(frd) || {}).injection !== false ? 'xhigh' : 'high'
 const FAST_BUILD_SCHEMA = { type: 'object', required: ['wos'], properties: { wos: { type: 'array', items: { type: 'object', required: ['id', 'line'], properties: { id: { type: 'string' }, line: { type: 'string', description: "the LAST line this work order's final commit or park command printed, copied character for character" } } } } } }
@@ -3535,6 +3540,9 @@ function pickFastFrd() {
 async function fastLaneStep() {
  const frd = pickFastFrd()
  if (frd) { holdMain(`build:${frd}`, () => fastBuildFrd(frd)); return null }
+ return await fastIdle()
+}
+async function fastIdle() {
  if (gatesInFlight.size || gateResults.length || convergeQueue.length) {
   if (!PARALLEL_GATES) await settleGates(false)
   else if (gatesInFlight.size && nextLandingIndex() < 0) await Promise.race([...gatesInFlight.values()])
@@ -3567,21 +3575,21 @@ function fastSegments(wos) {
  }
  return segs
 }
-const fastWoBrief = (w, frd) => `### WORK ORDER ${w.id}${w.summary ? ` — ${w.summary}` : ''}
+const fastWoBrief = (w, frd, dir) => `### WORK ORDER ${w.id}${w.summary ? ` — ${w.summary}` : ''}
   owns: ${w.artifacts && w.artifacts.length ? w.artifacts.join(', ') : '(nothing declared: add one --file <path> per file you changed, only files this work order needs)'}; depends on: ${(w.deps || []).join(', ') || 'none'}.${woCtx(w, frd)}
-  commit: \`${mechOpCommand('commit-wo', commitWoFlags(w))}\`
-  park: \`${mechOpCommand('park-wo', parkWoFlags(w))}\``
+  commit: \`${mechOpCommand('commit-wo', commitWoFlags(w), dir)}\`
+  park: \`${mechOpCommand('park-wo', parkWoFlags(w), dir)}\``
 const fastSelfVerify = (since) => `run \`bash .pandacorp/verify.sh${since ? ` --since ${since}` : ''}\` ONCE, never after each work order (its commit already ran its related tests)${since ? '; the engine runs the FULL suite once before USABLE' : ''}`
 const FAST_TRAPS = 'KNOWN TRAPS (past gate catches; get them right the first time): a state update from the previous value uses the functional form (no stale closure); a length limit counts what the spec counts (`[...s].length` code points vs `s.length` UTF-16 units); compare ISO timestamps with `Date.parse`, never as strings; no interactive element inside another (a button in a link or a button); a dialog traps focus, closes on Escape and returns focus to its trigger; `cn()` (tailwind-merge) drops a class it reads as conflicting, so check the classes really render; numeric bounds hold at both ends, including 5+-digit years.'
-const fastBuilderPrompt = (frd, wos, retry, since = null) => `${EMIT('implementer', frd, { frd, activity: retry ? 'retry' : 'implement' })}FAST-LANE BUILDER (proposal 39 C4) for FRD ${frd}.${retry ? ' RETRY: these work orders did not land on the first attempt; find out why before you rebuild them.' : ''} Build its work orders below IN THIS ORDER, one at a time, each with TDD (RED → GREEN → refactor) against its EARS criteria. A work order's boundary is the files it owns: another work order's files and the .pandacorp state are not yours.
-${wos.map((w) => fastWoBrief(w, frd)).join('\n')}
+const fastBuilderPrompt = (frd, wos, retry, since = null, ln = null) => `${EMIT('implementer', frd, { frd, activity: retry ? 'retry' : 'implement' })}FAST-LANE BUILDER (proposal 39 C4) for FRD ${frd}.${retry ? ' RETRY: these work orders did not land on the first attempt; find out why before you rebuild them.' : ''} Build its work orders below IN THIS ORDER, one at a time, each with TDD (RED → GREEN → refactor) against its EARS criteria. A work order's boundary is the files it owns: another work order's files and the .pandacorp state are not yours.
+${wos.map((w) => fastWoBrief(w, frd, ln ? ln.path : PROJECT_DIR)).join('\n')}
 ${FAST_TRAPS}
 HOW TO RUN each work order, in order:
- 1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Read the ## Status Note of the work orders it depends on and build against those interfaces.
+ 1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${ln ? '.pandacorp/track.jsonl' : TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Read the ## Status Note of the work orders it depends on and build against those interfaces.
  2) Implement it until its own tests pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.
  3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → the tree held no owner edit at dispatch (the engine never builds over one), so an undeclared path is a stray edit of this build: undo it, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's, whether it came in through --files or --extra: run the park command of the work order it names (it salvages the leftover), then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).
- 5) SELF-VERIFY, once every work order committed (none parked): ${fastSelfVerify(since)}. If it is red, fix the PRODUCTION code it names here, in this same context (never weaken, skip or delete a test, never edit a blessed baseline), and commit each fix with \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>')}\`, naming the work order whose code you fixed; re-run until green or after two honest attempts. Leave the tree clean: the engine's own verify runs next.${designRef(frd)}${reuseRef(frd)}
+ 5) SELF-VERIFY, once every work order committed (none parked): ${fastSelfVerify(since)}${ln ? ' (static checks, the unit tests and this lane\'s own e2e on its port)' : ''}. If it is red, fix the PRODUCTION code it names here, in this same context (never weaken, skip or delete a test, never edit a blessed baseline), and commit each fix with \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>', ln ? ln.path : PROJECT_DIR)}\`, naming the work order whose code you fixed; re-run until green or after two honest attempts. Leave the tree clean: the engine's own verify runs next.${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
 function fastLanded(wos, wrappedAnswer) {
  const answer = unwrapAnswer(wrappedAnswer, 'wos')
@@ -3598,21 +3606,22 @@ function fastLanded(wos, wrappedAnswer) {
  }
  return out
 }
-async function fastBuilder(frd, wos, model, retry = false, since = null) {
+async function fastBuilder(frd, wos, model, retry = false, since = null, ln = null) {
  agentSpawned += COST(model)
- const label = retry ? `fast-retry:${frd}` : model !== P.worker ? `fast-build:${frd}:${wos[0].id}` : `fast-build:${frd}`
- const out = fastLanded(wos, await agent(fastBuilderPrompt(frd, wos, retry, since), { label, phase: 'Build', model, effort: model === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer', schema: FAST_BUILD_SCHEMA }))
- const recommitted = out.unproven.length ? await fastRecommit(out.unproven) : []
+ const label = ln ? `lane-build:${ln.chain}` : retry ? `fast-retry:${frd}` : model !== P.worker ? `fast-build:${frd}:${wos[0].id}` : `fast-build:${frd}`
+ const out = fastLanded(wos, await agent(fastBuilderPrompt(frd, wos, retry, since, ln), { label, phase: 'Build', model, effort: model === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer', schema: FAST_BUILD_SCHEMA, ...(ln ? { workFrom: laneWorkFrom(ln) } : {}) }))
+ const dir = ln ? ln.path : PROJECT_DIR
+ const recommitted = out.unproven.length ? await fastRecommit(out.unproven, dir) : []
  const unproven = out.unproven.filter((w) => !recommitted.includes(w))
- fastMarkLanded(frd, [...out.committed, ...recommitted].map((w) => w.id))
- if (unproven.length) await parkWorkOrders(unproven)
+ if (!ln) fastMarkLanded(frd, [...out.committed, ...recommitted].map((w) => w.id))
+ if (unproven.length) await parkWorkOrders(unproven, dir)
  return [...out.parked, ...unproven]
 }
-async function fastRecommit(wos) {
+async function fastRecommit(wos, dir = PROJECT_DIR) {
  const landed = []
  for (const w of wos) {
   agentSpawned++
-  const b = (await runMechOp('commit-wo', commitWoFlags(w), { label: `recommit:${w.id}` })).body
+  const b = (await runMechOp('commit-wo', commitWoFlags(w), { label: `recommit:${w.id}`, dir })).body
   const ok = b && b.ok === true && ['committed', 'nothing'].includes(b.status) && String(b.wo).toLowerCase() === w.id.toLowerCase()
   if (ok) landed.push(w)
   log(`◦ ${w.id}: ${ok ? 'commit-wo landed it' : 'not landed'} (${b && b.status})`)
@@ -3632,7 +3641,9 @@ async function fastRepairOrBlock(frd, context) {
 }
 async function fastVerify(frd, since, ids) {
  agentSpawned++
- const r = await runMechOp('verify', `--frd ${shellQuote(frd)}${since ? ` --since ${shellQuote(since)}` : ''}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `verify:${frd}` })
+ return fastVerdict(frd, await runMechOp('verify', `--frd ${shellQuote(frd)}${since ? ` --since ${shellQuote(since)}` : ''}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `verify:${frd}` }))
+}
+function fastVerdict(frd, r) {
  const b = r.body
  if (!b || b.ok !== true) return { refused: true, green: false, usable: false, failure: r.error || (b && `${b.status}: ${b.reason || b.error || ''}`) || 'no verify receipt' }
  if (b.floor === true) fastFloor.add(frd)
@@ -3640,7 +3651,7 @@ async function fastVerify(frd, since, ids) {
  if (st && st.injection !== true && Array.isArray(b.injection)) st.injection = b.injection.length > 0
  if (b.injection && b.injection.length) log(`◦ ${frd}: injection-style content (${b.injection.map((h) => h.detail).join('; ').slice(0, 200)}): its gate stays xhigh`)
  const green = b.green === true && b.scope !== 'partial'
- return { refused: false, green, usable: green && b.usable === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '' }
+ return { refused: false, green, usable: green && b.usable === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '', cls: b.class || null, candidates: Array.isArray(b.candidates) ? b.candidates : [] }
 }
 async function fastVerifyOrRetry(frd, since, ids) {
  const v = await fastVerify(frd, since, ids)
@@ -3656,29 +3667,9 @@ async function fastBuildFrd(frd) {
  const wos = st.f.workOrders.filter((w) => st.toBuildIds.has(w.id))
  const ids = wos.map((w) => w.id)
  log(`⚒ fast lane: ${frd} — ${wos.length} work order(s), one builder per worker-tier run (C4): ${ids.join(', ')}`)
- const pre = fusedDispatch && fusedDispatch.frd === frd && JSON.stringify([...fusedDispatch.wos].sort()) === JSON.stringify([...ids].sort()) ? fusedDispatch : null
- fusedDispatch = null
- if (!pre) agentSpawned++
- const prefix = pendingSyncRollups || ''
- pendingSyncRollups = null
- const d = pre ? { body: pre } : await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
- if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; verify derives the landed range from the dispatch history`)
- const since = (d.body && d.body.ok === true && d.body.base) || null
+ const since = await fastDispatch(frd, ids)
  try {
-  let missed = []
-  for (const seg of fastSegments(wos)) {
-   const waiting = seg.wos.filter((w) => (w.deps || []).some((dep) => missed.some((m) => m.id === dep)))
-   missed.push(...waiting)
-   const todo = seg.wos.filter((w) => !waiting.includes(w))
-   if (!todo.length) continue
-   buildCostByFrd.set(frd, (buildCostByFrd.get(frd) || 0) + COST(seg.model))
-   missed.push(...(await fastBuilder(frd, todo, seg.model, false, since)))
-  }
-  if (missed.length && !capHit() && canAffordRepair(frd, 'opus')) {
-   const again = wos.filter((w) => missed.includes(w))
-   log(`↻ ${frd}: ${again.map((w) => w.id).join(', ')} did not land — one opus rebuild (DR-073 escalation)`)
-   missed = await chargedRepair(frd, 'opus', () => fastBuilder(frd, again, 'opus', true, since))
-  }
+  const missed = await fastBuildWos(frd, wos, since)
   if (missed.length) {
    if (!(await fastRepairOrBlock(frd, `work order(s) ${missed.map((w) => w.id).join(', ')} could not be built and committed`))) return null
    fastMarkLanded(frd, ids)
@@ -3694,25 +3685,56 @@ async function fastBuildFrd(frd) {
    if (!(await fastRepairOrBlock(frd, `verify.sh is red on the clean landed tree after the fix-forward: ${v.failure}`))) return null
    v = await fastVerifyOrRetry(frd, since, ids)
   }
-  if (v.usable && !fastIsFloor(frd)) {
-   fastUsable.push({ frd, sha: v.sha })
-   log(`✅ USABLE: ${frd} @ ${v.sha} — committed, verify.sh green on the clean landed SHA (proposal 39 C6); its gate runs now, fix-forward only from here`)
-  } else if (v.refused) log(`⚠ ${frd}: verify refused again (${v.failure}) — not USABLE; nothing is repaired or discarded, its gate decides`)
-  else if (v.green && fastIsFloor(frd)) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
-  else if (v.green) log(`⚠ ${frd}: green on ${v.sha} but not USABLE (${v.failure || 'no committed build_usable line'}) — its gate decides`)
-  else log(`⚠ ${frd}: built but verify.sh is not green on the clean tree (${v.failure}) — not USABLE; its gate decides`)
-  if (!fastIsFloor(frd) && !v.usable) fastFloor.add(frd)
-  if (enqueueGateIfComplete(frd)) {
-   if (v.sha) st.pinSha = v.sha
-   else await capturePin([frd])
-   launchEvidence(frd)
-   startEarlySecurity(st.pinSha)
-  }
+  await fastCertified(frd, v)
   return null
  } catch (e) {
   if (!isInfraError(e)) throw e
   await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
   return 'paused'
+ }
+}
+async function fastDispatch(frd, ids) {
+ const pre = fusedDispatch && fusedDispatch.frd === frd && JSON.stringify([...fusedDispatch.wos].sort()) === JSON.stringify([...ids].sort()) ? fusedDispatch : null
+ fusedDispatch = null
+ if (!pre) agentSpawned++
+ const prefix = pendingSyncRollups || ''
+ pendingSyncRollups = null
+ const d = pre ? { body: pre } : await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
+ if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; verify derives the landed range from the dispatch history`)
+ return (d.body && d.body.ok === true && d.body.base) || null
+}
+async function fastBuildWos(frd, wos, since) {
+ let missed = []
+ for (const seg of fastSegments(wos)) {
+  const waiting = seg.wos.filter((w) => (w.deps || []).some((dep) => missed.some((m) => m.id === dep)))
+  missed.push(...waiting)
+  const todo = seg.wos.filter((w) => !waiting.includes(w))
+  if (!todo.length) continue
+  buildCostByFrd.set(frd, (buildCostByFrd.get(frd) || 0) + COST(seg.model))
+  missed.push(...(await fastBuilder(frd, todo, seg.model, false, since)))
+ }
+ if (missed.length && !capHit() && canAffordRepair(frd, 'opus')) {
+  const again = wos.filter((w) => missed.includes(w))
+  log(`↻ ${frd}: ${again.map((w) => w.id).join(', ')} did not land — one opus rebuild (DR-073 escalation)`)
+  missed = await chargedRepair(frd, 'opus', () => fastBuilder(frd, again, 'opus', true, since))
+ }
+ return missed
+}
+async function fastCertified(frd, v) {
+ const st = frdState.get(frd)
+ if (v.usable && !fastIsFloor(frd)) {
+  fastUsable.push({ frd, sha: v.sha })
+  log(`✅ USABLE: ${frd} @ ${v.sha} — committed, verify.sh green on the clean landed SHA (proposal 39 C6); its gate runs now, fix-forward only from here`)
+ } else if (v.refused) log(`⚠ ${frd}: verify refused again (${v.failure}) — not USABLE; nothing is repaired or discarded, its gate decides`)
+ else if (v.green && fastIsFloor(frd)) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
+ else if (v.green) log(`⚠ ${frd}: green on ${v.sha} but not USABLE (${v.failure || 'no committed build_usable line'}) — its gate decides`)
+ else log(`⚠ ${frd}: built but verify.sh is not green on the clean tree (${v.failure}) — not USABLE; its gate decides`)
+ if (!fastIsFloor(frd) && !v.usable) fastFloor.add(frd)
+ if (enqueueGateIfComplete(frd)) {
+  if (v.sha) st.pinSha = v.sha
+  else await capturePin([frd])
+  launchEvidence(frd)
+  startEarlySecurity(st.pinSha)
  }
 }
 function startEarlySecurity(pin) {
@@ -3736,14 +3758,14 @@ async function securityDeltaAudit(fullAudit) {
 }
 function usableHoldRecord(frd, sha, ids, what) {
  const set = [frd, ...[...frdState.keys()].filter((x) => x !== frd && frdUpstream(x).has(frd))]
- return `${frd} ya era USABLE (en main, verify.sh verde en ${sha}) y su gate lo rechaza; la escalera quiere descartar ${ids.join(', ')} (${what}). El motor no revierte codigo USABLE solo. Decide: corregirlo encima (fix-forward) o descartarlo; si apruebas el descarte se revierte de una vez todo el conjunto dependiente: ${set.join(', ')}.`
+ return `${frd} ${sha ? `ya era USABLE (en main, verify.sh verde en ${sha}) y su gate lo rechaza` : 'ya esta en main (aterrizado por un carril, con otro trabajo encima) y no se certifica'}; la escalera quiere descartar ${ids.join(', ')} (${what}). El motor no revierte codigo USABLE solo. Decide: corregirlo encima (fix-forward) o descartarlo; si apruebas el descarte se revierte de una vez todo el conjunto dependiente: ${set.join(', ')}.`
 }
 async function holdUsableDiscard(frd, ids, what) {
  const sha = (usableOf(frd) || {}).sha
- log(`⛔ ${frd}: USABLE since ${sha} — ${what} would discard landed code; fix-forward only: BLOCKED needs-owner, nothing reverted (proposal 39 C6)`)
+ log(`⛔ ${frd}: ${sha ? `USABLE since ${sha}` : 'landed by a lane'} — ${what} would discard landed code; fix-forward only: BLOCKED needs-owner, nothing reverted (proposal 39 C6)`)
  const record = usableHoldRecord(frd, sha, ids, what)
  agentSpawned++
- await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}USABLE CODE IS NEVER AUTO-DISCARDED (proposal 39 C6) for ${frd}: the recovery ladder wants ${what} of ${ids.join(', ')}, but ${frd} was USABLE (committed, verify.sh green on ${sha}) and other work may build on it. Do NOT \`git checkout\`/\`restore\`/\`rm\`/\`revert\` any code file.
+ await agent(`${EMIT('implementer', frd, { frd, phase: 'review', activity: 'block' })}USABLE CODE IS NEVER AUTO-DISCARDED (proposal 39 C6) for ${frd}: the recovery ladder wants ${what} of ${ids.join(', ')}, but ${frd} ${sha ? `was USABLE (committed, verify.sh green on ${sha})` : 'was landed by a lane (proposal 40)'} and other work may build on it. Do NOT \`git checkout\`/\`restore\`/\`rm\`/\`revert\` any code file.
   1) For EACH of ${ids.join(', ')}: set \`implementation_status: BLOCKED\` + \`blocked_reason: needs-owner\`; ${SYNC_ROLLUPS} Bump pending_decisions through its current owning transition.
   2) Append this owner-facing DECISION RECORD to .pandacorp/inbox/decisions.md (SPANISH): ${record}
   3) COMMIT (Conventional Commits, scope, the subject naming ${frd}) staging ONLY those frontmatter/rollup files, decisions.md and status.yaml.${emitGateOutcome(frd, 'blocked', ',"blocked_reason":"needs-owner"')}${NOTIFY('FRD ' + frd + ' USABLE rechazado por su gate: descartarlo necesita tu decision')}
@@ -3759,7 +3781,224 @@ function fastResult() {
  const usable = fastUsable.map((u) => ({ ...u }))
  const debt = fastReviewDebt()
  const pushHint = usable.length ? `PushNotification: USABLE on main — ${usable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')}${debt.length ? `; review pending for ${debt.join(', ')}` : ''}` : ''
- return { usable, reviewDebt: debt, pushHint }
+ return { usable, reviewDebt: debt, pushHint, ...(LANED ? { lanes: { k: lane.k, parked: lane.parked, blockedFrds: lane.blocked } } : {}) }
+}
+const LANE_MAX_ATTEMPTS = 3
+const laneBusy = () => Boolean(mainWriter || lane.next || lane.usable || lane.pool || lane.jobs.size || lane.land.length || lane.fixQ.length || lane.usableQ.length || lane.barrier)
+const laneMainWork = () => Boolean(lane.barrier || lane.fixQ.length || (lane.land.length && !lane.landHold))
+const laneWorkFrom = (ln) => `LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`
+const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f]) => `--frd ${shellQuote(f)}`), ...[...globalQueue.keys()].map((id) => `--build ${shellQuote(id)}`),
+ ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), ...(LANES_ARG ? [`--lanes ${LANES_ARG}`] : []), `--mode ${shellQuote(MODE)}`].join(' ')
+const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
+async function decideLanes() {
+ LANED = false
+ if (!FAST || LANES_ARG === 1 || globalQueue.size < 2) return
+ let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null
+ if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
+ if (!b || b.ok !== true || !(b.k >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
+ LANED = true
+ lane.k = b.k
+ log(`⚒ lanes: K = ${b.k} (${b.kReason}, ready width ${b.width}) — chains of ≤ 3 work orders build in ${b.k} worktree lanes and land on main one at a time (proposal 40 §3 Phase B)`)
+ agentSpawned++
+ lane.pool = runMechOp('lane-pool', `--size ${b.k}`, { label: 'lane-pool' }).then((r) => {
+  lane.ready = Boolean(r.body && r.body.ok === true)
+  log(lane.ready ? `▹ lane pool ready (${r.body.pool.length} lane(s))` : `⚠ the lane pool did not start (${r.error || (r.body && (r.body.reason || r.body.status))}) — barriers still build on main; the rest falls back to one FRD at a time`)
+ }, (e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.pool = null; lane.plan = true })
+}
+function laneNext() {
+ lane.plan = false
+ lane.next = (async () => {
+  const unc = [...frdState.keys()].filter((f) => !fastClassified.has(f))
+  if (unc.length) await fastClassify(unc)
+  const resume = lane.ready && !lane.resumed
+  const prefix = pendingSyncRollups || ''
+  pendingSyncRollups = null
+  agentSpawned++
+  const r = await runMechOp('lane-next', `${laneScope()}${resume ? ' --resume' : ''}`, { label: 'lane-next', prefix })
+  const b = r.body
+  if (!b || b.ok !== true) { lane.plan = ++lane.idle < 2; log(`⚠ lane-next unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — nothing dispatched this round`); return }
+  lane.idle = 0
+  if (resume) lane.resumed = true
+  lane.broken = (b.pool && b.pool.broken) || 0
+  for (const f of b.failed || []) log(`⚠ chain ${f.chain}: not dispatched (${f.status}: ${f.reason})`)
+  const known = (id) => lane.jobs.has(id) || lane.land.some((x) => x.chain === id) || (lane.barrier && lane.barrier.chain === id) || Boolean(mainWriter && mainWriter.who.endsWith(`:${id}`))
+  const track = (c) => { lane.live.set(c.chain, c); return true }
+  for (const c of b.dispatched || []) if (!known(c.chain) && track(c)) laneStart(c)
+  if (b.barrier && !known(b.barrier.chain) && track(b.barrier)) lane.barrier = b.barrier
+  for (const c of b.landQueue || []) if (!known(c.chain) && track(c)) lane.land.push(c)
+  for (const c of b.needsFix || []) if (!known(c.chain) && track(c)) laneStart({ ...c, fix: { kind: 'resumed needs-fix' } })
+  for (const f of b.landedFrds || []) lane.landed.add(f)
+  lane.parked = b.parked || []
+  if ((b.blockedFrds || []).join() !== lane.blocked.join()) { lane.blocked = b.blockedFrds || []; if (lane.blocked.length) log(`⊘ lanes: parked ${lane.parked.join(', ')} — only their DAG descendants wait: ${lane.blocked.join(', ')} (proposal 40 §3 B.9)`) }
+ })().catch((e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.next = null; lane.landHold = false })
+}
+function laneStart(c) {
+ const job = (c.fix ? laneFix(c) : laneBuild(c)).catch((e) => {
+  if (!isInfraError(e)) throw e
+  log(`⏸ chain ${c.chain}: paused with the run (${infraHalt ? infraHalt.kind : 'infra'}) — no attempt counted, nothing parked; the resume re-dispatches it (proposal 40 §3 B.8)`)
+ }).finally(() => lane.jobs.delete(c.chain))
+ lane.jobs.set(c.chain, job)
+}
+async function laneBuild(c) {
+ const st = frdState.get(c.frd)
+ const own = (id) => st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())
+ let todo = c.wos.filter((id) => !(c.committed || []).some((x) => x.toLowerCase() === id.toLowerCase())).map(own)
+ if (todo.some((w) => !w)) return lanePark(c, 'a work order outside this run\'s schedule')
+ log(`⚒ lane ${c.lane}: chain ${c.chain} (${c.frd}: ${c.wos.join(', ')})${c.resumed ? ` resumed${(c.committed || []).length ? `, ${c.committed.join(', ')} already committed (DR-086)` : ''}` : ''}`)
+ for (;;) {
+  if (todo.length) {
+   const n = (lane.attempts.get(c.chain) || 0) + 1
+   if (n > LANE_MAX_ATTEMPTS) return lanePark(c, `${todo.map((w) => w.id).join(', ')} not committed after ${LANE_MAX_ATTEMPTS} attempts`)
+   if (lane.stop || infraHalt) return
+   lane.attempts.set(c.chain, n)
+   const model = n > 1 || todo.some((w) => (w.reopen_count || 0) >= 1) ? 'opus' : P.worker
+   buildCostByFrd.set(c.frd, (buildCostByFrd.get(c.frd) || 0) + COST(model))
+   todo = await fastBuilder(c.frd, todo, model, n > 1, c.base, c)
+   continue
+  }
+  agentSpawned++
+  const m = await runMechOp('lane-mark', `--chain ${shellQuote(c.chain)} --as built`, { label: `lane-mark:${c.chain}` })
+  if (m.body && m.body.ok === true) { lane.land.push(c); log(`◦ chain ${c.chain} built in lane ${c.lane} — queued to land`); return }
+  todo = ((m.body && m.body.missing) || []).map(own).filter(Boolean)
+  if (!todo.length) return lanePark(c, `lane-mark refused it (${m.error || (m.body && (m.body.reason || m.body.status))})`)
+ }
+}
+const laneFixPrompt = (c) => `${EMIT('implementer', c.frd, { frd: c.frd, activity: 'repair' })}LANE REBASE-FIX (proposal 40 §3 B.5) for chain ${c.chain} (${c.wos.join(', ')}): land-chain could not land it on main (${c.fix.kind || 'unknown'}: ${JSON.stringify(c.fix.conflicts || c.fix.checks || c.fix.reason || '').slice(0, 800)}).
+ 1) Rebase the lane branch onto main's tip: \`git -c core.attributesFile=${PROJECT_DIR}/.pandacorp/run/lanes/union.gitattributes rebase --empty=keep $(git -C ${shellQuote(PROJECT_DIR)} rev-parse HEAD)\` (a no-op when it is already there). Resolve each conflict keeping BOTH sides' intent: main's code has landed, adapt this chain to it. Never squash, drop, reorder or reword a commit: one commit per work order (DR-097).
+ 2) Make tsc, biome and the related unit tests green by fixing PRODUCTION code (never weaken a test), committing each fix with \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>', c.path)}\`.
+ 3) Leave the lane tree clean. Return { done: true }, or { done: false, failure }.`
+async function laneFix(c) {
+ const n = (lane.attempts.get(c.chain) || 0) + 1
+ if (n > LANE_MAX_ATTEMPTS) return lanePark(c, `not landable after ${LANE_MAX_ATTEMPTS} attempts (${c.fix.kind})`)
+ if (lane.stop || infraHalt) return
+ lane.attempts.set(c.chain, n)
+ agentSpawned += COST('sonnet')
+ await agent(laneFixPrompt(c), { label: `lane-fix:${c.chain}`, phase: 'Build', model: 'sonnet', effort: 'high', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA, workFrom: laneWorkFrom(c) })
+ lane.land.push(c)
+}
+async function lanePark(c, why) {
+ agentSpawned++
+ const r = await runMechOp('lane-mark', `--chain ${shellQuote(c.chain)} --as parked --why ${shellQuote(why.slice(0, 200))}`, { label: `lane-park:${c.chain}` })
+ laneParked(c, why, r.body)
+}
+function laneParked(c, why, b) {
+ lane.plan = true
+ lane.live.delete(c.chain)
+ if (!lane.parked.includes(c.chain)) lane.parked.push(c.chain)
+ const blocked = (b && b.blockedFrds) || [c.frd]
+ lane.blocked = [...new Set([...lane.blocked, ...blocked])]
+ log(`⊘ chain ${c.chain} parked (${why}) — only its DAG descendants wait: ${blocked.join(', ')} (proposal 40 §3 B.9)`)
+}
+async function laneBarrier(c) {
+ const st = frdState.get(c.frd)
+ const ids = laneIds(c)
+ const wos = st ? st.f.workOrders.filter((w) => ids.includes(w.id) && st.toBuildIds.has(w.id)) : []
+ lane.plan = true
+ if (wos.length) {
+  log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
+  if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
+  const since = await fastDispatch(c.frd, wos.map((w) => w.id))
+  let missed
+  try { missed = await fastBuildWos(c.frd, wos, since) } catch (e) {
+   if (!isInfraError(e)) throw e
+   await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
+   return 'paused'
+  }
+  if (missed.length) { await lanePark(c, `${missed.map((w) => w.id).join(', ')} did not commit on main`); return null }
+ }
+ lane.landed.add(c.frd)
+ lane.live.delete(c.chain)
+ if (st && !st.failed && st.toBuildIds.size === 0) lane.usableQ.push({ frd: c.frd, rung: 0 })
+ return null
+}
+async function laneLand(c) {
+ agentSpawned++
+ const r = await runMechOp('land-chain', `--chain ${shellQuote(c.chain)}`, { label: `land-chain:${c.chain}` })
+ const b = r.body
+ lane.plan = true
+ if (b && b.ok === true && b.status === 'landed') {
+  fastMarkLanded(c.frd, laneIds(c))
+  lane.landed.add(c.frd)
+  lane.live.delete(c.chain)
+  lane.sp = true
+  log(`⇪ chain ${c.chain} landed on main at ${b.sha} (${c.wos.join(', ')}: one commit per work order)`)
+  const st = frdState.get(c.frd)
+  if (st && !st.failed && st.toBuildIds.size === 0) lane.usableQ.push({ frd: c.frd, rung: 0 })
+  return null
+ }
+ if (b && b.status === 'needs-rebase-fix') { log(`↻ chain ${c.chain}: ${b.kind} at landing — one rebase-fix in its lane`); laneStart({ ...c, fix: b }); return null }
+ if (b && b.status === 'parked') { laneParked(c, `${b.kind} after its rebase-fix`, b); return null }
+ const tries = (c.landTries || 0) + 1
+ lane.landHold = true
+ if (b && b.status === 'landings-paused') { lane.land.push(c); return null }
+ if (tries < 3) { log(`⚠ chain ${c.chain}: land-chain refused (${r.error || (b && (b.reason || b.status))}) — it stays queued`); lane.land.push({ ...c, landTries: tries }); return null }
+ await lanePark(c, `land-chain refused it ${tries} times (${r.error || (b && (b.reason || b.status))})`)
+ return null
+}
+function laneUsableStart(u) {
+ lane.usable = laneUsable(u).catch((e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.usable = null; lane.plan = true })
+}
+async function laneUsable({ frd, rung }) {
+ const ids = frdState.get(frd).reviewIds
+ let v = null
+ for (let i = 0; i < 2 && (!v || v.refused); i++) {
+  agentSpawned++
+  v = fastVerdict(frd, await runMechOp('lane-usable', `--frd ${shellQuote(frd)}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `usable:${frd}` }))
+  if (v.refused) log(`⚠ ${frd}: the snapshot verify was refused (${v.failure}) — it certified nothing either way`)
+ }
+ if (!v.refused && !v.green) {
+  log(`! ${frd}: verify.sh red on the pinned ${v.sha} (${v.failure}) — ${v.cls === 'cross' ? `other chains landed since the last green pin (${v.candidates.join(', ')}): bisect, then` : 'only its own chains since the last green pin:'} fix-forward, never a revert (proposal 40 §3 B.6)`)
+  lane.fixQ.push({ frd, ids, v, rung })
+  return
+ }
+ await fastCertified(frd, v)
+}
+async function laneFixForward({ frd, ids, v, rung }) {
+ lane.plan = true
+ const model = rung ? 'opus' : 'sonnet'
+ if (rung >= 2 || capHit() || !canAffordRepair(frd, model)) {
+  log(`⛔ ${frd}: verify.sh still red on ${v.sha} after the fix-forward ladder (${v.failure}) — nothing is reverted (other chains landed on top): needs-owner`)
+  await holdUsableDiscard(frd, ids, 'a revert of its landed chains')
+  blockFrdInSchedule(frd, 'needs-owner')
+  return null
+ }
+ let hint = ''
+ if (v.cls === 'cross' && v.candidates.length && !rung) {
+  agentSpawned++
+  const b = (await runMechOp('lane-bisect', `--sha ${shellQuote(v.sha)}${v.candidates.map((x) => ` --candidate ${shellQuote(x)}`).join('')}`, { label: `bisect:${frd}` })).body
+  log(`◦ ${frd}: bisect over ${v.candidates.join(', ')} → ${(b && (b.culprit || b.status)) || 'no verdict'}`)
+  hint = b && b.ok === true ? (b.status === 'culprit' ? ` A bisect over the chains landed since the last green pin names chain ${b.culprit} (its work orders' code) as the first red tip: start there.` : ` A bisect over the chains landed since the last green pin found: ${b.status}.`) : ''
+ }
+ log(`! ${frd}: fix-forward on main (${model})`)
+ agentSpawned += COST(model)
+ await chargedRepair(frd, model, () => agent(fastFixPrompt(frd, ids, v.failure) + hint, { label: `fix:${frd}`, phase: 'Build', model, effort: rung ? 'high' : 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
+ lane.usableQ.unshift({ frd, rung: rung + 1 })
+ return null
+}
+async function laneRound() {
+ const h = mainWriter
+ if (h && h.done) { mainWriter = null; lane.plan = true; if (h.e) throw h.e; if (h.r === 'paused') return 'paused' }
+ if (infraHalt) return 'paused'
+ const occupied = lane.jobs.size + lane.land.length + (mainWriter && mainWriter.who.startsWith('land-chain:') ? 1 : 0)
+ const held = new Set([...lane.live.values()].flatMap((c) => c.wos.map((w) => String(w).toLowerCase())))
+ const unheld = [...globalQueue.keys()].some((id) => !held.has(id.toLowerCase()))
+ if (lane.plan && !lane.next && ((unheld && occupied < lane.k) || (lane.ready && !lane.resumed) || lane.landHold)) laneNext()
+ if (!lane.usable && lane.usableQ.length) laneUsableStart(lane.usableQ.shift())
+ if (!mainWriter) {
+  if (lane.barrier) { const c = lane.barrier; lane.barrier = null; holdMain(`barrier:${c.chain}`, () => laneBarrier(c)) }
+  else if (lane.fixQ.length) { const f = lane.fixQ.shift(); holdMain(`fix:${f.frd}`, () => laneFixForward(f)) }
+  else if (lane.land.length && !lane.landHold) { lane.land.sort((a, b) => (b.downstream || 0) - (a.downstream || 0)); const c = lane.land.shift(); holdMain(`land-chain:${c.chain}`, () => laneLand(c)) }
+ }
+ const waits = [mainWriter && mainWriter.p, lane.next, lane.usable, lane.pool, ...lane.jobs.values(), ...gatesInFlight.values()].filter(Boolean)
+ if (waits.length) { await Promise.race(waits); return null }
+ if (lane.plan || lane.usableQ.length || laneMainWork()) return null
+ if (globalQueue.size && (!lane.ready || lane.broken >= lane.k || lane.idle >= 2)) { LANED = false; log(`↩ lanes unavailable (${!lane.ready ? 'no lane pool' : lane.idle >= 2 ? 'lane-next failed twice' : 'every lane is broken'}) — the rest builds one FRD at a time on main`); return null }
+ return await fastIdle()
+}
+async function laneSettle() {
+ lane.stop = true
+ const all = [mainWriter && mainWriter.p, lane.next, lane.usable, lane.pool, ...lane.jobs.values()].filter(Boolean)
+ if (all.length) { log(`⏸ lanes: waiting for ${all.length} in-flight lane task(s) to settle — built chains stay queued for the next run`); await Promise.allSettled(all) }
 }
 if (gateQueue.length && !REVIEW_DEFERRED) {
  if ((await infraPausable(() => capturePin([...gateQueue]))) === PAUSED) return await pausedExit({ builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })
@@ -3783,7 +4022,7 @@ function warnAgentBudgetNearExhaustion(workRemains) {
 }
 while (true) {
  try {
- if (mainWriter) {
+ if (mainWriter && !LANED) {
   const h = mainWriter
   if (!h.done) { await Promise.race([h.p, ...gatesInFlight.values()]); continue }
   mainWriter = null
@@ -3808,7 +4047,7 @@ while (true) {
    const idx = nextLandingIndex()
    const land = async () => { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx) }
    if (idx >= 0 && !FAST) { await land(); continue }
-   if (idx >= 0 && !pickFastFrd()) { holdMain(`land:${gateResults[idx].f.frd}`, land); continue }
+   if (idx >= 0 && (LANED ? !mainWriter && !laneMainWork() : !pickFastFrd())) { holdMain(`land:${gateResults[idx].f.frd}`, land); continue }
    logLandingHolds()
   }
  } else {
@@ -3820,10 +4059,13 @@ while (true) {
  }
  }
  const nothingInFlight = gatesInFlight.size === 0 && gateResults.length === 0 && convergeQueue.length === 0
- const wantSafePoint = globalQueue.size > 0
+ const wantSafePoint = LANED
+  ? !mainWriter && (lane.sp || (globalQueue.size === 0 && !laneBusy() && (nothingInFlight ? gateQueue.length === 0 : gateSettledSinceSafePoint)))
+  : globalQueue.size > 0
   || (nothingInFlight && gateQueue.length === 0)
   || (!nothingInFlight && globalQueue.size === 0 && gateSettledSinceSafePoint)
  if (wantSafePoint) {
+  if (LANED) { lane.sp = false; lane.plan = true }
   const throttled = TARGETED && !SAFE_POINT_EVERY_WAVE
   safePointChecks++
   const runSafePoint = !throttled || safePointChecks === 1 || safePointChecks % SAFE_POINT_WAVE_THROTTLE === 1
@@ -3863,7 +4105,7 @@ while (true) {
   }
  }
  if (consecutiveBlocks >= MAX_CONSECUTIVE_BLOCKS) { stopReason = 'blocks'; break }
- if (globalQueue.size === 0) {
+ if (globalQueue.size === 0 && !(LANED && laneBusy())) {
   if (PARALLEL_GATES && (gatesInFlight.size || gateResults.length)) {
    if (nextLandingIndex() < 0) await Promise.race([...gatesInFlight.values()])
    continue
@@ -3883,7 +4125,11 @@ while (true) {
   }
   break
  }
- if (FAST) { if ((await fastLaneStep()) === 'paused') { stopReason = 'paused-infra'; break } continue }
+ if (FAST) {
+  if (LANED === null) await decideLanes()
+  if ((await (LANED ? laneRound() : fastLaneStep())) === 'paused') { stopReason = 'paused-infra'; break }
+  continue
+ }
  const ready = [...globalQueue.values()]
   .filter(({ wo }) => (wo.deps || []).every((d) => doneIds.has(d) || (!globalQueue.has(d) && !blockedIds.has(d))))
   .map(({ wo, frd }) => ({ ...wo, _frd: frd }))
@@ -3997,6 +4243,7 @@ while (true) {
   throw loopErr
  }
 }
+if (LANED !== null && laneBusy()) await laneSettle()
 if (REVIEW_DEFERRED && !stopReason && fastReviewDebt().length) stopReason = 'review-deferred'
 if (stopReason === 'paused-infra') return await pausedExit({ inFlight: gatesInFlight, builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })
 try {

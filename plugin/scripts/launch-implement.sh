@@ -9,7 +9,7 @@
 #           [--max-frds <positive-int>] [--max-spend <positive-int>] [--ttl <positive-int-seconds>]
 #           [--parallel-gates | --no-parallel-gates] [--gate-slots <1-8>] [--gate-evidence explore|digested]
 #           [--gate-context-scope] [--drift-finder on|off] [--gate-inventory-cache]
-#           [--lane fast|classic] [--review-budget now|defer] [--resume <run-id>]
+#           [--lane fast|classic] [--review-budget now|defer] [--lanes <positive-int>] [--resume <run-id>]
 #   mode:      pro | balanced | powerful | deep   (default powerful)
 #   maxAgents: integer hard cap on subagents this run (the real overnight guardrail), or the literal `auto`
 #              (OPT-IN: the engine sizes a cap from its own post-plan projection; an explicit integer is never
@@ -43,6 +43,10 @@
 #   --review-budget now|defer: engine args.reviewBudget, fast lane only (refused with --lane classic). `defer` stops at
 #              all-USABLE and launches no FRD gate: the unreviewed FRDs stay review debt (derived, never stored) for a
 #              later run. Omitted → no key (the engine default `now` continues to VERIFIED).
+#   --lanes N: engine args.lanes, fast lane only (refused with --lane classic): the requested number of worktree lanes
+#              K (proposal 40 Phase B). Omitted → no key: the default K = 2, capped by mode (pro 1, balanced 2,
+#              powerful/deep 4) and dropped to 1 when the ready DAG is narrow or the gain is below the pool bootstrap,
+#              so a small build runs exactly as before. `--lanes 1` turns the lanes off.
 #   --resume <run-id>: resume a run cut short (a usage limit, a crash) whose atomic lease went STALE under that run
 #              id. The launcher performs the fenced reclaim itself — the lease must be stale (past its TTL and its
 #              BL-0153 grace window), held by runtime claude, under exactly <run-id> (the preflight's checks) — and then
@@ -57,7 +61,7 @@ set -uo pipefail
 PROJ="${1:-.}"; PROJ="${PROJ%/}"; [ "$#" -gt 0 ] && shift
 MODE="powerful"; MAX_AGENTS=""; RUN_MODE="auto"
 FRDS=""; CHANGE=""; MAX_FRDS=""; MAX_SPEND=""; TTL="3600"; PARALLEL_GATES=""; GATE_SLOTS=""; GATE_EVIDENCE=""
-GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""; RESUME_RUN=""
+GATE_CONTEXT_SCOPE=""; DRIFT_FINDER=""; GATE_INVENTORY_CACHE=""; LANE=""; REVIEW_BUDGET=""; RESUME_RUN=""; LANES=""
 
 # Preserve the historical four positional arguments, then parse additive named scope/options.
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then MODE="$1"; shift; fi
@@ -81,6 +85,8 @@ while [ "$#" -gt 0 ]; do
       [ -z "$LANE" ] || { echo "ERROR: --lane given twice." >&2; exit 3; }; LANE="$2"; shift 2 ;;
     --review-budget) [ "$#" -ge 2 ] || { echo "ERROR: --review-budget requires a value (now|defer)." >&2; exit 3; }
       [ -z "$REVIEW_BUDGET" ] || { echo "ERROR: --review-budget given twice." >&2; exit 3; }; REVIEW_BUDGET="$2"; shift 2 ;;
+    --lanes) [ "$#" -ge 2 ] || { echo "ERROR: --lanes requires a value (a positive integer)." >&2; exit 3; }
+      [ -z "$LANES" ] || { echo "ERROR: --lanes given twice." >&2; exit 3; }; LANES="$2"; shift 2 ;;
     --resume) [ "$#" -ge 2 ] || { echo "ERROR: --resume requires the run id of the cut run." >&2; exit 3; }
       [ -z "$RESUME_RUN" ] || { echo "ERROR: --resume given twice." >&2; exit 3; }; RESUME_RUN="$2"; shift 2 ;;
     *) echo "ERROR: unknown launcher argument: $1" >&2; exit 3 ;;
@@ -106,6 +112,11 @@ case "$REVIEW_BUDGET" in ""|now|defer) ;; *) echo "ERROR: --review-budget must b
 [ -n "$LANE" ] || LANE="fast"
 # reviewBudget is read by the fast lane only: on the classic lane the engine would silently ignore it.
 [ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget is fast-lane only (it contradicts --lane classic)." >&2; exit 3; }
+# The worktree lanes (proposal 40 Phase B) are a fast-lane schedule: the classic waves never read args.lanes.
+if [ -n "$LANES" ]; then
+  [[ "$LANES" =~ ^[1-9][0-9]?$ ]] || { echo "ERROR: --lanes must be a positive integer (1-99)." >&2; exit 3; }
+  [ "$LANE" = "fast" ] || { echo "ERROR: --lanes is fast-lane only (it contradicts --lane classic)." >&2; exit 3; }
+fi
 if [ -n "$RESUME_RUN" ]; then
   [[ "$RESUME_RUN" =~ ^[A-Za-z0-9._:-]{1,160}$ ]] && [ "$RESUME_RUN" != "auto" ] && [ "$RESUME_RUN" != "new" ] \
     || { echo "ERROR: invalid --resume run id." >&2; exit 3; }
@@ -220,8 +231,8 @@ ARGS_BUILD_RC=0
 if [ "${PANDACORP_TEST_FAIL_ARGS_JSON:-0}" = "1" ]; then
   ARGS_BUILD_RC=1
 else
-  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" "$LANE" "$REVIEW_BUDGET" <<'NODE'
-const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache, lane, reviewBudget] = process.argv.slice(2);
+  WORKFLOW_JSON=$(node - "$PROJECT_DIR/.claude/engines/pandacorp-build.js" "$MODE" "$MAX_AGENTS" "$PROJECT_DIR" "$PROJECT" "$LEASE_TOKEN" "$LEASE_EPOCH" "$FRDS" "$CHANGE" "$MAX_FRDS" "$MAX_SPEND" "$STATE_CLI" "$PARALLEL_GATES" "$GATE_SLOTS" "$GATE_EVIDENCE" "$GATE_CONTEXT_SCOPE" "$DRIFT_FINDER" "$GATE_INVENTORY_CACHE" "$LANE" "$REVIEW_BUDGET" "$LANES" <<'NODE'
+const [scriptPath, mode, maxAgents, projectDir, project, leaseToken, leaseEpoch, frds, change, maxFrds, maxSpend, stateCli, parallelGates, gateSlots, gateEvidence, gateContextScope, driftFinder, gateInventoryCache, lane, reviewBudget, lanes] = process.argv.slice(2);
 const args = { mode };
 if (maxAgents === "auto") args.maxAgents = "auto";
 else if (maxAgents) args.maxAgents = Number(maxAgents);
@@ -243,6 +254,7 @@ if (driftFinder) args.driftFinder = driftFinder === "on";
 if (gateInventoryCache) args.gateInventoryCache = true;
 if (lane) args.lane = lane;
 if (reviewBudget) args.reviewBudget = reviewBudget;
+if (lanes) args.lanes = Number(lanes);
 process.stdout.write(JSON.stringify({ scriptPath, args }));
 NODE
 ) || ARGS_BUILD_RC=$?
@@ -266,7 +278,7 @@ echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
 if [ "$LANE" = "fast" ]; then
-  echo "  FAST LANE (DR-124, the default): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now}  — a missing line means classic ran."
+  echo "  FAST LANE (DR-124, the default): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now} · lanes ${LANES:-auto}  — a missing line means classic ran."
   echo "  (Opt-out: relaunch with --lane classic for the classic plan-agent + global-waves build.)"
 else
   echo "  CLASSIC LANE (--lane classic): the engine must NOT log  lane fast  — if it does, the args were dropped: TaskStop and relaunch."

@@ -84,7 +84,9 @@ const REVIEWED_IDS = (prompt) => ((/THIS cycle: (.+?) \(all IN_REVIEW\)/.exec(St
 const withProbes = (call, answer) => answer && answer.green === true && !('probes' in answer) ? { ...answer, probes: REVIEWED_IDS(call.prompt).map((wo) => ({ wo, test: `src/_tests/${wo}.probe.test.ts` })) } : answer
 function defaultResponse(label, call = {}) {
   if (label === 'mech-plan') return null   // a fast-lane scenario gets its plan line from runEngine (scenario.plan)
-  if (/^fast-(build|retry):/.test(label)) return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
+  if (/^(fast-(build|retry)|lane-build):/.test(label)) return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
+  if (label.startsWith('usable:')) return { line: mechLine('lane-usable', { status: 'green', frd: label.slice(7), green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full', injection: [], class: null, candidates: [] }) }
+  if (label.startsWith('lane-fix:')) return { done: true }
   if (label.startsWith('verify:')) return { line: mechLine('verify', { status: 'green', frd: label.slice(7), green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full' }) }
   if (label.startsWith('fix:')) return { done: true }
   if (/^hardening:security-(audit-early|delta)$/.test(label)) return { done: true, findings: [] }
@@ -100,6 +102,9 @@ function defaultResponse(label, call = {}) {
   if (label === 'close-scripted') return { line: mechLine('close', { status: 'released', verify: 'ran', sha: 'c105ed000000', report: 'docs/reviews/security-2026-10-02.md', gold: 0 }) }
   if (label === 'prod-smoke') return { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'feed00000001' }) }
   if (label === 'cross-feature-review') return { done: true }
+  // proposal 40 Phase B: the lane planner answers K = 1 by default (a narrow DAG), so every scenario that is not about
+  // lanes runs the sequential fast lane exactly as before; a lane scenario scripts its own lane-plan line.
+  if (label === 'lane-plan') return { line: mechLine('lane-plan', { status: 'planned', k: 1, kReason: 'narrow-dag', width: 1, offPath: 0 }) }
   if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
   if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
   if (label.startsWith('infra-pause:')) return { done: true }
@@ -1681,7 +1686,7 @@ const compactPlan = (plan) => ({ ...plan, frds: plan.frds.map((f) => ({ ...f, wo
 const fusedBody = (plan, over = {}) => {
   const f = plan.frds[0]
   const ids = f.workOrders.filter((w) => ['PLANNED', 'IN_PROGRESS'].includes(w.status)).map((w) => w.id)
-  return { status: 'dispatched', launchEvent: true, precheck: FUSED_PRE, probe: QUIET_PROBE, baseline: 'greenfield', plan: { ok: true, status: 'planned', unsatisfiedDeps: [], ...compactPlan(plan) }, synced: { ok: true, corrected: 0, commit: '5ync00000000' }, dispatch: { ok: true, frd: f.frd, wos: ids, status: 'stamped', stamped: ids, unchanged: [], committed: 'd15pa7c00002', base: 'f5base000001' }, ...over }
+  return { status: 'dispatched', launchEvent: true, precheck: FUSED_PRE, probe: QUIET_PROBE, baseline: 'greenfield', plan: { ok: true, status: 'planned', unsatisfiedDeps: [], ...compactPlan(plan) }, synced: { ok: true, corrected: 0, commit: '5ync00000000' }, dispatch: { ok: true, frd: f.frd, wos: ids, status: 'stamped', stamped: ids, unchanged: [], committed: 'd15pa7c00002', base: 'f5base000001' }, lanes: { ok: true, k: 1, kReason: 'narrow-dag', width: 1, offPath: 0 }, ...over }
 }
 const fusedStart = (plan, over = {}) => ({ label: 'fast-start', response: { line: mechLine('fast-start', fusedBody(plan, over)) } })
 const BEFORE_BUILD = (run) => run.calls.slice(0, Math.max(0, labelIdx(run, /^fast-build:/))).map((c) => c.label)
@@ -1700,6 +1705,8 @@ SCENARIOS.push({
     const fs = byLabel(run, 'fast-start')[0]
     t.ok(fs && isLiteral(fs) && literalOp(fs) === 'fast-start' && fs.model === 'haiku', 'one literal, haiku-relayed fast-start op')
     t.ok(fs && /--token 'test-lease-token' --epoch '1'/.test(fs.prompt) && /--launch-event --mode 'balanced'/.test(fs.prompt) && /--project-name 'bench'/.test(fs.prompt), 'it carries the lease fence and the BuildLaunch fields (the script emits B1 itself)')
+    t.ok(fs && /--lane-plan(?! --lanes)/.test(fs.prompt), 'it asks for the lane K too (proposal 40 Phase B), so deciding K costs no extra spawn')
+    t.ok(byLabel(run, 'lane-plan').length === 0 && hasLog(run, /lanes: K = 1 \(narrow-dag\)/), 'the fused K = 1 runs the sequential lane with no lane-plan spawn')
     t.ok(byLabel(run, /^(mech-precheck|baseline-precheck|baseline|mech-plan|plan|floor:.*|dispatch:.*)$/).length === 0, 'no separate precheck, pre-check, judge baseline, plan, floor or dispatch spawn in the whole run (the later probes are the gates\' safe points)')
     const v = byLabel(run, 'verify:frd-f1')[0]
     t.ok(v && /--since 'f5base000001'/.test(v.prompt), 'verify reads the landed range from the fused dispatch base')
@@ -2693,6 +2700,214 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     t.ok(byLabel(run, 'gate:frd-hc').length === 1 && run.result && run.result.builtFrds.includes('frd-hc'), 'one gate, VERIFIED')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 40 Phase B (§3, §7 row 5): LANES. A lane simulator stands in for the lane mech ops (their git behaviour is
+// tested for real in test-build-mech-lanes.mjs): lane-next dispatches ready chains to free lanes (a chain is ready once
+// every chain it follows landed), a barrier counts as landed once its builder ran on main, lane-mark / land-chain move
+// a chain through built → landed. The engine is the system under test: concurrency, the main-writer holders, USABLE per
+// FRD, the fix-forward ladder, parking, the global pause and resume.
+// ─────────────────────────────────────────────────────────────────────────────
+const LANED_ARGS = { mode: 'balanced', ...FAST }
+function laneSim(chains, { k = 2, kReason = 'default', resumed = [] } = {}) {
+  const st = { status: Object.fromEntries(chains.map((c) => [c.chain, 'pending'])), lane: {}, landed: [], nextCalls: 0, committed: {} }
+  for (const r of resumed) { st.status[r.chain] = 'dispatched'; st.lane[r.chain] = r.lane; st.committed[r.chain] = r.committed }
+  const byId = (id) => chains.find((c) => c.chain === id)
+  const live = (id) => ['dispatched', 'built', 'needs-fix'].includes(st.status[id])
+  const free = () => Array.from({ length: k }, (_, i) => i + 1).filter((n) => !Object.keys(st.lane).some((id) => st.lane[id] === n && live(id)))
+  const ready = (c) => st.status[c.chain] === 'pending' && (c.after || []).every((d) => st.status[d] === 'landed')
+  const desc = (roots) => { const out = new Set(roots); let grew = true; while (grew) { grew = false; for (const c of chains) if (!out.has(c.chain) && (c.after || []).some((d) => out.has(d))) { out.add(c.chain); grew = true } } return out }
+  const blockedFrds = () => [...new Set([...desc(chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain))].map((id) => byId(id).frd))].sort()
+  const view = (c) => ({ chain: c.chain, frd: c.frd, wos: c.wos, lane: st.lane[c.chain] || null, downstream: c.downstream || 0, status: st.status[c.chain], fixes: 0, base: 'ba5e00000001', ...(st.lane[c.chain] ? { path: `/lanes/lane-${st.lane[c.chain]}/proj`, env: { PANDACORP_LANE: `lane-${st.lane[c.chain]}`, PORT: String(4100 + st.lane[c.chain]), PANDACORP_E2E_PORT: String(4100 + st.lane[c.chain]) } } : {}) })
+  const next = (call) => {
+    st.nextCalls++
+    const dispatched = []
+    if (/--resume/.test(call.prompt)) for (const r of resumed) if (st.status[r.chain] === 'dispatched') dispatched.push({ ...view(byId(r.chain)), resumed: true, committed: r.committed })
+    if (!chains.some((c) => c.barrier && st.status[c.chain] === 'dispatched')) { const b = chains.find((c) => c.barrier && ready(c)); if (b) st.status[b.chain] = 'dispatched' }
+    for (const n of free()) { const c = chains.find((x) => !x.barrier && ready(x)); if (!c) break; st.status[c.chain] = 'dispatched'; st.lane[c.chain] = n; dispatched.push({ ...view(c), resumed: false, committed: [] }) }
+    const barrier = chains.find((c) => c.barrier && st.status[c.chain] === 'dispatched')
+    return { line: mechLine('lane-next', { status: 'next', k, kReason, dispatched, failed: [], barrier: barrier ? view(barrier) : null, landingsPaused: Boolean(barrier), landQueue: chains.filter((c) => st.status[c.chain] === 'built').map(view), needsFix: [], inFlight: chains.filter((c) => live(c.chain)).map((c) => c.chain), parked: chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain), blockedFrds: blockedFrds(), blockedWos: [], landedFrds: [...new Set(chains.filter((c) => st.status[c.chain] === 'landed').map((c) => c.frd))], pool: { size: k, free: free().length, booting: 0, broken: 0 }, remaining: chains.filter((c) => st.status[c.chain] !== 'landed').length }) }
+  }
+  const responses = [
+    { label: 'lane-plan', response: { line: mechLine('lane-plan', { status: 'planned', k, kReason, width: 2, offPath: 2 }) } },
+    { label: 'lane-pool', response: { line: mechLine('lane-pool', { status: 'ready', pool: Array.from({ length: k }, (_, i) => ({ lane: i + 1 })) }) } },
+    { label: 'lane-next', response: next },
+    { label: /^lane-mark:/, response: (call) => { const id = call.label.slice(10); st.status[id] = 'built'; return { line: mechLine('lane-mark', { status: 'built', chain: id }) } } },
+    { label: /^lane-park:/, response: (call) => { const id = call.label.slice(10); st.status[id] = 'parked'; return { line: mechLine('lane-mark', { status: 'parked', chain: id, blockedFrds: blockedFrds() }) } } },
+    { label: /^land-chain:/, response: (call) => { const id = call.label.slice(11); st.status[id] = 'landed'; st.landed.push(id); return { line: mechLine('land-chain', { status: 'landed', chain: id, sha: `1a9d${String(st.landed.length).padStart(8, '0')}`, wos: byId(id).wos }) } } },
+    { label: /^fast-build:/, response: (call) => { for (const c of chains) if (c.barrier && FAST_BUILT_IDS(call.prompt).some((w) => c.wos.includes(w))) st.status[c.chain] = 'landed'; return builtNow(call) } },
+  ]
+  return { st, responses }
+}
+const chainOf = (frd, wos, extra = {}) => ({ chain: `c-${wos[0]}`, frd, wos, ...extra })
+const between = (run, re) => run.calls.filter((c) => re.test(c.label))
+{
+  // Two independent FRDs: their builders must be in flight AT THE SAME TIME, in their own lanes.
+  const sim = laneSim([chainOf('frd-pa', ['wo-pa-001']), chainOf('frd-pb', ['wo-pb-001'])])
+  const conc = { active: 0, peak: 0 }
+  const overlapping = async (call) => { conc.active++; conc.peak = Math.max(conc.peak, conc.active); await tick(25); conc.active--; return builtNow(call) }
+  SCENARIOS.push({
+    name: 'two-lanes-build-in-parallel — two independent FRDs build concurrently in two lanes, both land through land-chain (one per chain, never on main directly), each is USABLE on its snapshot verify and VERIFIED',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-pa', ids: ['wo-pa-001'] }, { frd: 'frd-pb', ids: ['wo-pb-001'] }]),
+    responses: [{ label: /^lane-build:/, response: overlapping }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(hasLog(run, /lanes: K = 2 \(default/) && byLabel(run, 'lane-pool').length === 1 && /--size 2/.test(byLabel(run, 'lane-pool')[0].prompt), 'K = 2: one pool of two lanes')
+      t.ok(conc.peak === 2, `both lane builders were in flight at once (peak ${conc.peak})`)
+      const builds = byLabel(run, /^lane-build:/)
+      t.ok(builds.length === 2 && builds.every((c) => /LANE \d \(proposal 40 Phase B\)/.test(c.prompt) && /\/lanes\/lane-\d\/proj/.test(c.prompt) && /lane\.env/.test(c.prompt)), 'each builder works in its own lane worktree with the lane env (its own port)')
+      t.ok(builds.every((c) => /commit-wo --project '\/lanes\/lane-\d\/proj'/.test(c.prompt)), 'its commit-wo targets the lane, not main')
+      t.ok(['wo-pa-001', 'wo-pb-001'].every((w) => builds.filter((c) => FAST_BUILT_IDS(c.prompt).includes(w)).length === 1), 'each work order is built by exactly one builder (one commit per WO)')
+      t.ok(byLabel(run, /^land-chain:/).length === 2 && byLabel(run, /^(fast-build|dispatch):/).length === 0, 'both chains land through land-chain; nothing is built or dispatched on main')
+      t.ok(byLabel(run, /^usable:/).length === 2 && byLabel(run, /^verify:/).length === 0, 'USABLE is the snapshot lane-usable op, once per FRD (never the on-main verify)')
+      t.ok(['frd-pa', 'frd-pb'].every((f) => labelIdx(run, new RegExp(`^usable:${f}$`)) > lastIdx(run, /^land-chain:/) || labelIdx(run, new RegExp(`^usable:${f}$`)) > labelIdx(run, /^land-chain:/)), 'an FRD is verified only after its chain landed')
+      t.ok(run.result && ['frd-pa', 'frd-pb'].every((f) => run.result.builtFrds.includes(f)) && run.result.usable.length === 2, `both USABLE and VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+      t.ok(run.result && run.result.lanes && run.result.lanes.k === 2, 'the result reports the lanes')
+    },
+  })
+}
+{
+  // A barrier (schema/package) chain builds on main while a lane chain builds; the lane chain lands only after it.
+  const sim = laneSim([chainOf('frd-ba', ['wo-ba-001'], { barrier: true }), chainOf('frd-bb', ['wo-bb-001'])])
+  SCENARIOS.push({
+    name: 'schema-chain-pauses-landings (engine) — the barrier builds on main as a main-writer holder (dispatch + builder), the lane chain builds meanwhile and lands only after it',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ba', ids: ['wo-ba-001'] }, { frd: 'frd-bb', ids: ['wo-bb-001'] }]),
+    responses: [{ label: /^fast-build:frd-ba/, response: async (call) => { await tick(40); for (const c of ['c-wo-ba-001']) sim.st.status[c] = 'landed'; return builtNow(call) } }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'dispatch:frd-ba').length === 1 && byLabel(run, /^fast-build:frd-ba/).length === 1 && byLabel(run, /^lane-build:/).length === 1, 'the barrier is dispatched and built on main; the other chain in a lane')
+      t.ok(labelIdx(run, /^lane-build:c-wo-bb-001$/) < lastIdx(run, /^fast-build:frd-ba/) + 1 && labelIdx(run, /^land-chain:c-wo-bb-001$/) > labelIdx(run, /^fast-build:frd-ba/), 'the lane build overlapped the barrier; its landing came after')
+      t.ok(run.result && ['frd-ba', 'frd-bb'].every((f) => run.result.builtFrds.includes(f)), 'both VERIFIED')
+    },
+  })
+}
+{
+  // Chain A fails three attempts → parked; B follows A (its DAG descendant) → waits; C is independent → lands and verifies.
+  const sim = laneSim([chainOf('frd-ka', ['wo-ka-001']), chainOf('frd-kb', ['wo-kb-001'], { after: ['c-wo-ka-001'] }), chainOf('frd-kc', ['wo-kc-001'])])
+  SCENARIOS.push({
+    name: 'lane-park-blocks-only-descendants — a lane chain still unbuilt after 3 attempts is parked; only its DAG descendant waits (reported at once), the independent chain lands and verifies; nothing is BLOCKED or reverted',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ka', ids: ['wo-ka-001'] }, { frd: 'frd-kb', ids: ['wo-kb-001'], deps: ['frd-ka'], extra: { 'wo-kb-001': { deps: ['wo-ka-001'] } } }, { frd: 'frd-kc', ids: ['wo-kc-001'] }]),
+    responses: [{ label: 'lane-build:c-wo-ka-001', response: { wos: [{ id: 'wo-ka-001', line: parkLine('wo-ka-001') }] } }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const a = byLabel(run, 'lane-build:c-wo-ka-001')
+      t.ok(a.length === 3 && a[0].model === 'sonnet' && a.slice(1).every((c) => c.model === 'opus'), `three attempts: the worker, then two opus rebuilds (got ${a.map((c) => c.model).join(', ')})`)
+      t.ok(byLabel(run, 'lane-park:c-wo-ka-001').length === 1 && hasLog(run, /chain c-wo-ka-001 parked .* only its DAG descendants wait: frd-ka, frd-kb/), 'parked once, the blocked set (its descendants) reported at once')
+      t.ok(byLabel(run, /^lane-build:c-wo-kb-001$/).length === 0, 'the descendant is never dispatched')
+      t.ok(run.result && run.result.builtFrds.includes('frd-kc'), 'the independent FRD lands and verifies')
+      t.ok(run.result && !run.result.blockedFrds.includes('frd-ka') && !run.result.blockedFrds.includes('frd-kb') && run.result.reopenedFrds.includes('frd-ka') && run.result.reopenedFrds.includes('frd-kb'), `parked and waiting FRDs are deferred to the next run, not BLOCKED (blocked ${run.result && JSON.stringify(run.result.blockedFrds)})`)
+      t.ok(run.result && run.result.lanes && JSON.stringify(run.result.lanes.blockedFrds) === '["frd-ka","frd-kb"]', 'the result names the blocked FRDs')
+      t.ok(byLabel(run, /^(revert|wo-revert|block-usable|repair):/).length === 0, 'no revert, no repair ladder on main, no needs-owner')
+    },
+  })
+}
+const LIMIT_429 = 'API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}'
+{
+  // Lane A hits the usage limit while lane B is still building: a global pause, never an attempt, a park or a revert.
+  const sim = laneSim([chainOf('frd-ua', ['wo-ua-001', 'wo-ua-002']), chainOf('frd-ub', ['wo-ub-001'])])
+  SCENARIOS.push({
+    name: 'usage-limit-global-pause-not-attempt — a usage limit in one lane pauses the whole run: no new dispatch or landing, the sibling lane settles, no attempt counted, nothing parked or reverted, stopReason paused-infra',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ua', ids: ['wo-ua-001', 'wo-ua-002'] }, { frd: 'frd-ub', ids: ['wo-ub-001'] }]),
+    responses: [
+      { label: 'lane-build:c-wo-ua-001', response: throwing(LIMIT_429) },
+      { label: 'lane-build:c-wo-ub-001', response: async (call) => { await tick(30); return builtNow(call) } },
+      ...sim.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(run.result && run.result.stopReason === 'paused-infra' && run.result.paused && run.result.paused.kind === 'limit', `paused-infra on the limit (got ${run.result && run.result.stopReason})`)
+      t.ok(byLabel(run, 'lane-build:c-wo-ua-001').length === 1, 'the limited lane is never retried (no second attempt)')
+      t.ok(byLabel(run, /^(lane-park|lane-fix|revert|wo-revert|block-usable|park):/).length === 0, 'nothing parked, re-fixed, reverted or blocked')
+      const halt = run.logs.findIndex((l) => /INFRA HALT/.test(l))
+      t.ok(halt >= 0 && hasLog(run, /chain c-wo-ua-001: paused with the run/), 'the halt is logged and the lane pause names no attempt')
+      t.ok(byLabel(run, /^land-chain:/).length === 0 && sim.st.nextCalls === 1, `no landing and no new lane round after the halt (lane-next calls ${sim.st.nextCalls})`)
+      t.ok(byLabel(run, 'build-paused').length === 1, 'one paused close')
+    },
+  })
+}
+{
+  // Resume after the pause: lane-next --resume hands the live chain back on its lane with WO-1 already committed.
+  const sim = laneSim([chainOf('frd-ra', ['wo-ra-001', 'wo-ra-002']), chainOf('frd-rb', ['wo-rb-001'])], { resumed: [{ chain: 'c-wo-ra-001', lane: 1, committed: ['WO-RA-001'] }] })
+  SCENARIOS.push({
+    name: 'lane-resume-after-pause — the first lane round passes --resume once the pool is up; the live chain comes back on its own lane and its builder gets only the WO not yet committed (DR-086)',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ra', ids: ['wo-ra-001', 'wo-ra-002'] }, { frd: 'frd-rb', ids: ['wo-rb-001'] }]),
+    responses: sim.responses,
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const nexts = byLabel(run, 'lane-next')
+      t.ok(nexts.filter((c) => /--resume/.test(c.prompt)).length === 1, `exactly one lane round resumes (got ${nexts.map((c) => /--resume/.test(c.prompt)).join(',')})`)
+      const a = byLabel(run, 'lane-build:c-wo-ra-001')
+      t.ok(a.length === 1 && JSON.stringify(FAST_BUILT_IDS(a[0].prompt)) === '["wo-ra-002"]', `the resumed builder builds only wo-ra-002 (got ${a.map((c) => FAST_BUILT_IDS(c.prompt)).join(' | ')})`)
+      t.ok(hasLog(run, /chain c-wo-ra-001 .*resumed, WO-RA-001 already committed/), 'the resume is logged with what it kept')
+      t.ok(run.result && ['frd-ra', 'frd-rb'].every((f) => run.result.builtFrds.includes(f)), 'both land and verify')
+    },
+  })
+}
+{
+  // FRD-RX's USABLE is red with other chains landed since the last green pin: bisect, sonnet fix-forward, green.
+  const sim = laneSim([chainOf('frd-xa', ['wo-xa-001']), chainOf('frd-xb', ['wo-xb-001'])])
+  const red = (frd) => ({ line: mechLine('lane-usable', { status: 'red', frd, green: false, usable: false, floor: false, sha: 're0d00000001', scope: 'full', failure: 'vitest: src/x.test.ts expected 2 got 1', injection: [], class: 'cross', candidates: ['c-wo-xb-001', 'c-wo-xa-001'] }) })
+  SCENARIOS.push({
+    name: 'usable-red-bisects-then-fixforward — a red snapshot verify with other chains landed since the last green pin is bisected, fixed forward on main (sonnet) with the culprit named, re-verified green: USABLE, nothing reverted',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-xa', ids: ['wo-xa-001'] }, { frd: 'frd-xb', ids: ['wo-xb-001'] }]),
+    responses: [
+      { label: 'usable:frd-xa', times: 1, response: red('frd-xa') },
+      { label: 'bisect:frd-xa', response: { line: mechLine('lane-bisect', { status: 'culprit', culprit: 'c-wo-xb-001', results: [] }) } },
+      ...sim.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const bis = byLabel(run, 'bisect:frd-xa')
+      t.ok(bis.length === 1 && /lane-bisect/.test(bis[0].prompt) && /--sha 're0d00000001'/.test(bis[0].prompt) && /--candidate 'c-wo-xb-001' --candidate 'c-wo-xa-001'/.test(bis[0].prompt), 'the bisect runs over the candidates on the red pin')
+      const fix = byLabel(run, 'fix:frd-xa')
+      t.ok(fix.length === 1 && fix[0].model === 'sonnet' && /chain c-wo-xb-001/.test(fix[0].prompt) && /expected 2 got 1/.test(fix[0].prompt), 'one sonnet fix-forward told the culprit and the failure')
+      t.ok(labelIdx(run, /^bisect:frd-xa$/) < labelIdx(run, /^fix:frd-xa$/) && labelIdx(run, /^fix:frd-xa$/) < lastIdx(run, /^usable:frd-xa$/), 'bisect → fix → re-verify')
+      t.ok(byLabel(run, /^usable:frd-xa$/).length === 2, 'the snapshot verify runs again after the fix')
+      t.ok(byLabel(run, /^(revert|wo-revert|block-usable|repair):/).length === 0, 'never a revert, never the discard ladder')
+      t.ok(run.result && run.result.usable.some((u) => u.frd === 'frd-xa') && ['frd-xa', 'frd-xb'].every((f) => run.result.builtFrds.includes(f)), 'USABLE after the fix-forward, then VERIFIED')
+    },
+  })
+}
+{
+  const sim = laneSim([chainOf('frd-ya', ['wo-ya-001']), chainOf('frd-yb', ['wo-yb-001'])])
+  const red = { line: mechLine('lane-usable', { status: 'red', frd: 'frd-ya', green: false, usable: false, floor: false, sha: 're0d00000002', scope: 'full', failure: 'tsc: src/ya.ts TS2322', injection: [], class: 'own', candidates: ['c-wo-ya-001'] }) }
+  SCENARIOS.push({
+    name: 'usable-red-bisects-then-fixforward (b) — class own: no bisect; sonnet, then opus fix-forward; still red → needs-owner with nothing reverted (other chains sit on top)',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ya', ids: ['wo-ya-001'] }, { frd: 'frd-yb', ids: ['wo-yb-001'] }]),
+    responses: [{ label: 'usable:frd-ya', response: red }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, /^bisect:/).length === 0, 'class own: nothing to bisect')
+      t.ok(byLabel(run, 'fix:frd-ya').map((c) => c.model).join() === 'sonnet,opus' && byLabel(run, 'usable:frd-ya').length === 3, 'sonnet, then opus, each re-verified')
+      const hold = byLabel(run, 'block-usable:frd-ya')
+      t.ok(hold.length === 1 && /landed by a lane/.test(hold[0].prompt) && /Do NOT `git checkout`/.test(hold[0].prompt) && !/green on undefined/.test(hold[0].prompt), 'needs-owner through the never-discard hold, worded for a lane landing')
+      t.ok(byLabel(run, /^(revert|wo-revert):/).length === 0, 'nothing reverted')
+      t.ok(run.result && run.result.blockedReasons['frd-ya'] === 'needs-owner' && run.result.builtFrds.includes('frd-yb'), 'the red FRD waits for the owner; the other one verifies')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'auto-k1-on-narrow-dag (engine) — the lane planner says K = 1: no pool, no lane round, the sequential fast lane on main exactly as before; --lanes 1 skips the planner; the scope, mode and --lanes reach it',
+  args: { ...LANED_ARGS, lanes: 3 },
+  plan: fastPlan([{ frd: 'frd-na', ids: ['wo-na-001'] }, { frd: 'frd-nb', ids: ['wo-nb-001'], deps: ['frd-na'], extra: { 'wo-nb-001': { deps: ['wo-na-001'] } } }]),
+  next: () => ({ args: { ...LANED_ARGS, lanes: 1 }, plan: fastPlan([{ frd: 'frd-nc', ids: ['wo-nc-001'] }, { frd: 'frd-nd', ids: ['wo-nd-001'] }]) }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const lp = byLabel(run, 'lane-plan')
+    t.ok(lp.length === 1 && /--frd 'frd-na' --frd 'frd-nb'/.test(lp[0].prompt) && /--build 'wo-na-001' --build 'wo-nb-001'/.test(lp[0].prompt) && /--lanes 3/.test(lp[0].prompt) && /--mode 'balanced'/.test(lp[0].prompt), 'one lane-plan over the engine\'s scope, its --lanes and mode')
+    t.ok(hasLog(run, /lanes: K = 1 \(narrow-dag\)/) && byLabel(run, /^(lane-pool|lane-next|lane-build:.*|land-chain:.*|usable:.*)$/).length === 0, 'K = 1: no pool, no lane op')
+    t.ok(byLabel(run, /^fast-build:/).length === 2 && byLabel(run, /^verify:/).length === 2, 'each FRD builds and verifies on main, one at a time')
+    t.ok(run.next && !run.next.error && byLabel(run.next, 'lane-plan').length === 0 && byLabel(run.next, /^lane-/).length === 0 && byLabel(run.next, /^fast-build:/).length === 2, '--lanes 1: no planner spawn at all')
+    t.ok(run.result && ['frd-na', 'frd-nb'].every((f) => run.result.builtFrds.includes(f)) && !('lanes' in run.result), 'both VERIFIED; no lanes in the result')
   },
 })
 

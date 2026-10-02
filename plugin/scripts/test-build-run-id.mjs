@@ -300,10 +300,14 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   const frds = ["--frds", "frd-02,frd-03,frd-04,frd-05"];
   const deferSized = await launch([...frds, "--lane", "fast", "--review-budget", "defer"], "40");
   ok(!/recommended\s+floor is 8/.test(deferSized) && /review-budget defer launches no FRD gate/.test(deferSized), "P39 launcher: --review-budget defer launches no gate, so the per-FRD gate sizing floor is replaced by a defer note");
+  const lanesOut = await launch(["--lanes", "3"]);
+  const lanesArgs = workflowArgs(lanesOut);
+  ok(lanesArgs.lanes === 3 && lanesArgs.lane === "fast" && /lanes 3/.test(lanesOut), "proposal 40 launcher: --lanes 3 reaches the engine as args.lanes:3 (a number) and the ARG-ECHO names it");
+  ok(!("lanes" in bare) && /lanes auto/.test(bareOut), "proposal 40 launcher: without --lanes no key is set (the engine's default K governs) and the ARG-ECHO says auto");
   const nowSized = await launch([...frds, "--lane", "fast"], "40");
   ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");
 }
-for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"]]) {
+for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"], ["--lanes"], ["--lanes", "0"], ["--lanes", "two"], ["--lanes", "-2"], ["--lanes", "2", "--lanes", "3"], ["--lanes", "2", "--lane", "classic"], ["--lane", "classic", "--lanes", "2"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }
