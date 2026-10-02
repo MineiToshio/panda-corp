@@ -291,7 +291,7 @@ export function failureText(row) {
   return text || JSON.stringify(row)
 }
 /** The verdict of the report verify.sh just wrote: green only when the run exited 0, the report is green and it is THIS sha's. */
-function readReport(ctx, exit, headFull) {
+export function readReport(ctx, exit, headFull) {
   let rep = null
   try { rep = JSON.parse(readFileSync(path.join(ctx.project, '.pandacorp', 'run', 'gate-report.json'), 'utf8')) } catch { rep = null }
   if (!rep) return { green: false, scope: '', failure: `verify.sh (exit ${exit}) left no readable gate-report.json` }

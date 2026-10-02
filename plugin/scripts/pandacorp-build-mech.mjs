@@ -63,6 +63,9 @@
 //                security delta and telemetry, the scripted release close, the production-build smoke): build-mech-close.mjs.
 //   gate-land    --dir <evidence-dir> --frd <folder> [--pin <sha>]   proposal 40: the gate's PASS lands its own
 //                reviewer tests and its new-route blesses on main as ONE commit with DR-080 provenance (build-mech-land.mjs).
+//   verify --patch / certify-state   proposal 40: the patch ladder's scripted check (the reviewer-test hash first, then
+//                those tests and the full suite) and its fenced stamp (WO VERIFIED, status.yaml, the last-green
+//                snapshot): build-mech-patch.mjs.
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -75,6 +78,7 @@ import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
+import { certifyStateOp, patchVerifyOp } from './build-mech-patch.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
 
@@ -94,11 +98,11 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na'])
-const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na', 'patch'])
+const LISTS = new Set(['file', 'wo', 'ac', 'frd', 'test', 'drift'])
 function parseArgs(argv) {
   const op = argv[0]
-  const o = { op, files: [], extras: [], wos: [], acs: [], frds: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
+  const o = { op, files: [], extras: [], wos: [], acs: [], frds: [], tests: [], drifts: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i]
     if (!k.startsWith('--')) throw new InputError(`unexpected argument ${JSON.stringify(k)}`)
@@ -600,6 +604,7 @@ function gateRelease(o) {
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────────────────
 const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, 'gate-land': gateLandOp, ...FAST_OPS,
+  verify: (o) => (o.patch ? patchVerifyOp(o) : FAST_OPS.verify(o)), 'certify-state': certifyStateOp,
   'security-scope': securityScopeOp, 'telemetry-scope': telemetryScopeOp, close: closeOp, 'prod-smoke': (o) => prodSmokeOp(o, { gatePrepare }),
   'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }) }
 

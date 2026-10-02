@@ -6,6 +6,7 @@
 // the script's own receipt alone — and every receipt must carry a valid integrity seal (drift-seal.mjs).
 
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -68,7 +69,7 @@ function mkRepo() {
   const installVitest = () => { write('node_modules/.bin/vitest', FAKE_VITEST); chmodSync(abs('node_modules/.bin/vitest'), 0o755) }
   const hook = (body) => { const h = path.join(root, '.git', 'hooks', 'pre-commit'); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755) }
   const run = (op, args = [], env = {}) => {
-    const evArgs = ['commit-wo', 'precheck', 'verify', 'fast-start', 'close', 'security-scope', 'telemetry-scope'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
+    const evArgs = ['commit-wo', 'precheck', 'verify', 'fast-start', 'close', 'security-scope', 'telemetry-scope', 'certify-state'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
     const r = spawnSync(process.execPath, [SCRIPT, op, '--project', proj, ...args, ...evArgs], { cwd: root, encoding: 'utf8', env: { ...process.env, FAKE_VITEST_LOG: vitestLog, ...env } })
     const lines = (r.stdout || '').trim().split('\n')
     const line = lines.pop() || ''
@@ -1557,6 +1558,112 @@ console.log('close: the scripted release — asserts, ONE full verify.sh, phase 
       ok(c.code === 4 && c.receipt.status === 'red' && /vitest/.test(c.receipt.failure) && !/^phase:\s*["']?release/m.test(r.atHead('.pandacorp/status.yaml')) && (await currentLease(r.proj)) !== null, 'a red full verify.sh never releases: phase unchanged, the lease still held for the fallback close')
     } finally { r.cleanup() }
   }
+}
+
+// ── proposal 40 Phase 3 (§2 rows Patch, verify-patch + certify): the patch ladder's scripted verify and stamp ─────────
+// After an in-place patch, `verify --patch` checks the reviewer's pinned test hashes FIRST (DR-080: a patch may not edit
+// the tests that judge it), then runs those RED-proven tests and the full suite; `certify-state` writes the stamp the
+// certify agent used to write (WO VERIFIED, status.yaml, the last-green snapshot), under the lease fence.
+const REVIEWER_TEST = 'src/_tests/alpha.reviewer.test.ts'
+const REVIEWER_TEST_BODY = "import { it } from 'vitest'\nit('AC-01-001.1 shows the empty state', () => {})\n"
+const sha256Of = (text) => createHash('sha256').update(text).digest('hex')
+const patchFixture = async (r, { verifyGreen = true, lease = false, reopen = 1 } = {}) => {
+  planFixture(r)
+  r.write('.pandacorp/verify.sh', `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"2026-10-02T00:00:00Z","scope":"full","green":${verifyGreen},"sha":"%s","subgates":[{"name":"vitest","exit":${verifyGreen ? 0 : 1},"failures":[${verifyGreen ? '' : '"src/alpha.ts: expected 2"'}]}]}\\n' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\nexit ${verifyGreen ? 0 : 1}\n`)
+  chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+  r.write('src/alpha.ts', 'export const alpha = 2\n')
+  r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: `${fmA}` }).replace('reopen_count: 0', `reopen_count: ${reopen}`))
+  r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'fix(frd-01-alpha): WO-01-001 patch the empty state')
+  const held = lease ? await acquire(r.proj, { runtime: 'claude', runId: 'patch-test', ttlSeconds: 120 }) : null
+  if (held) { r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'chore: lease projection') }
+  // The gate's RED test: salvaged into the evidence dir, then ported onto main UNTRACKED at its repo-root path.
+  const ev = path.join(r.proj, '.pandacorp', 'run', 'gate-evidence', 'frd-01-alpha')
+  mkdirSync(path.join(ev, 'proj', path.dirname(REVIEWER_TEST)), { recursive: true })
+  writeFileSync(path.join(ev, 'proj', REVIEWER_TEST), REVIEWER_TEST_BODY)
+  r.write(REVIEWER_TEST, REVIEWER_TEST_BODY)
+  r.installVitest()
+  return { ev, test: `${sha256Of(REVIEWER_TEST_BODY)}:proj/${REVIEWER_TEST}`, lease: held }
+}
+console.log('reviewer-test-hash-tamper-red: verify --patch checks the reviewer test hash first, then runs that test and the suite')
+{
+  const r = mkRepo()
+  try {
+    const { ev, test } = await patchFixture(r)
+    const head = r.head()
+    const args = ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--dir', ev]
+    const g = r.run('verify', args)
+    ok(g.code === 0 && g.sealed && g.receipt.status === 'green' && g.receipt.green === true && g.receipt.scope === 'full', `intact hash: green (got ${g.code} ${JSON.stringify(g.receipt && { s: g.receipt.status, f: g.receipt.failure, r: g.receipt.reason })})`)
+    const calls = r.vitestCalls()
+    ok(calls.length === 1 && calls[0].startsWith('run ') && calls[0].includes(path.join(r.root, 'proj', REVIEWER_TEST)), `the RED-proven reviewer test runs explicitly, by its absolute path (got ${JSON.stringify(calls)})`)
+    ok(existsSync(r.abs('.pandacorp/run/verify-ran')), 'then the full verify.sh runs')
+    ok(g.receipt.tests && g.receipt.tests.length === 1 && g.receipt.tests[0].ok === true && g.receipt.tests[0].path === `proj/${REVIEWER_TEST}`, 'the receipt names the reviewer test it checked')
+    ok(r.head() === head && !/build_usable/.test(r.atHead('.pandacorp/track.jsonl')), 'a patch verify commits nothing (no build_usable line: certification is certify-state\'s)')
+    rmSync(r.abs('.pandacorp/run/verify-ran'), { force: true })
+    rmSync(path.join(path.dirname(r.events), 'vitest.log'), { force: true })
+    r.write(REVIEWER_TEST, "import { it } from 'vitest'\nit.skip('AC-01-001.1 shows the empty state', () => {})\n")
+    const t = r.run('verify', args)
+    ok(t.code === 0 && t.sealed && t.receipt.status === 'red' && t.receipt.green === false && Array.isArray(t.receipt.breach) && t.receipt.breach.some((b) => b.path === `proj/${REVIEWER_TEST}`) && /DR-080/.test(t.receipt.failure), `a patched reviewer test is RED, a DR-080 breach (got ${JSON.stringify(t.receipt && { s: t.receipt.status, b: t.receipt.breach, f: t.receipt.failure })})`)
+    ok(r.vitestCalls().length === 0 && !existsSync(r.abs('.pandacorp/run/verify-ran')), 'the hash is checked FIRST: neither the reviewer test nor verify.sh ran over a tampered test')
+    ok(r.read(REVIEWER_TEST) === REVIEWER_TEST_BODY && t.receipt.breach[0].restored === true, 'the reviewer\'s original is restored from the evidence dir')
+    rmSync(r.abs(REVIEWER_TEST))
+    const m = r.run('verify', args)
+    ok(m.receipt.status === 'red' && m.receipt.breach.some((b) => b.observed === null), 'a deleted reviewer test is RED too (coverage is never deleted)')
+    const none = r.run('verify', ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001'])
+    ok(none.code === 2 && /reviewer/i.test(none.receipt.error || none.receipt.reason || ''), `the hash is mandatory: --patch with no --test is unusable input (got ${none.code} ${JSON.stringify(none.receipt)})`)
+    r.write('src/stray.ts', 'export const stray = 1\n')
+    const d = r.run('verify', args)
+    ok(d.code === 4 && d.receipt.status === 'dirty' && d.receipt.paths.includes('src/stray.ts') && !d.receipt.paths.includes(REVIEWER_TEST), 'a stray edit is refused; the ported reviewer test is not dirt')
+  } finally { r.cleanup() }
+  const red = mkRepo()
+  try {
+    const { ev, test } = await patchFixture(red)
+    const v = red.run('verify', ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--dir', ev], { FAKE_VITEST_EXIT: '1' })
+    ok(v.receipt.status === 'red' && /alpha\.reviewer\.test\.ts/.test(v.receipt.failure) && !existsSync(red.abs('.pandacorp/run/verify-ran')), `the RED-proven test still failing is red, before the suite (got ${v.receipt && v.receipt.failure})`)
+  } finally { red.cleanup() }
+  const suite = mkRepo()
+  try {
+    const { ev, test } = await patchFixture(suite, { verifyGreen: false })
+    const v = suite.run('verify', ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--dir', ev])
+    ok(v.receipt.status === 'red' && /vitest/.test(v.receipt.failure) && existsSync(suite.abs('.pandacorp/run/verify-ran')), 'a red suite is red, naming its sub-gate')
+  } finally { suite.cleanup() }
+}
+console.log('certify-state-writes-wo-and-status: the scripted stamp — WO VERIFIED, rollups, status.yaml and the two-commit last-green snapshot')
+{
+  const r = mkRepo()
+  try {
+    const { test, lease } = await patchFixture(r, { lease: true })
+    const fence = ['--token', lease.token, '--epoch', String(lease.epoch)]
+    const args = ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--drift', 'DRIFT-01-1', ...fence]
+    const before = r.head()
+    r.write(REVIEWER_TEST, "it.todo('weakened')\n")
+    const tam = r.run('certify-state', args)
+    ok(tam.code === 4 && tam.receipt.status === 'reviewer-test-changed' && r.head() === before && /implementation_status: IN_REVIEW/.test(r.read(WO_A)), `a reviewer test that changed since the verify is never committed: refused, nothing written (got ${tam.code} ${tam.receipt && tam.receipt.status})`)
+    r.write(REVIEWER_TEST, REVIEWER_TEST_BODY)
+    const foreign = r.run('certify-state', ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--token', 'not-the-token', '--epoch', String(lease.epoch)])
+    ok(foreign.code === 4 && foreign.receipt.status === 'fence' && r.head() === before && /implementation_status: IN_REVIEW/.test(r.read(WO_A)) && r.read(`${FRD_A}/frd.md`) === r.atHead(`${FRD_A}/frd.md`), `a foreign lease fence is refused and leaves nothing behind (got ${foreign.code} ${foreign.receipt && foreign.receipt.status})`)
+    const c = r.run('certify-state', args)
+    ok(c.code === 0 && c.sealed && c.receipt.status === 'certified', `certified (got ${c.code} ${JSON.stringify(c.receipt && { s: c.receipt.status, r: c.receipt.reason })})`)
+    const snap = r.git('rev-parse', 'HEAD^')
+    ok(c.receipt.snapshot && snap.startsWith(c.receipt.snapshot) && r.head().startsWith(c.receipt.pointer), 'two commits: the snapshot (A), then the pointer (B)')
+    const inA = r.filesAt('HEAD^')
+    ok([`proj/${WO_A}`, `proj/${REVIEWER_TEST}`, 'proj/.pandacorp/track.jsonl', 'proj/.pandacorp/build-journal.jsonl', 'proj/.pandacorp/status.yaml', `proj/${FRD_A}/frd.md`].every((f) => inA.includes(f)), `(A) holds the WO stamp, the reviewer's test, the journals, status.yaml and frd.md (got ${inA.join(', ')})`)
+    const woA = r.git('show', `HEAD^:proj/${WO_A}`)
+    ok(/^implementation_status: VERIFIED$/m.test(woA) && /^reopen_count: 0$/m.test(woA), 'the WO is VERIFIED with reopen_count reset to 0')
+    ok(/^drift: \[DRIFT-01-1\]$/m.test(r.atHead(`${FRD_A}/frd.md`)), 'the drift replica is written to frd.md')
+    ok(r.filesAt('HEAD').join() === 'proj/.pandacorp/status.yaml' && /publish last green snapshot/.test(r.subject()), '(B) is the metadata-only pointer commit')
+    const sy = r.atHead('.pandacorp/status.yaml')
+    ok(new RegExp(`^last_green_sha: "?${snap}"?$`, 'm').test(sy) && /^safe_to_test: true$/m.test(sy), `last_green_sha names the snapshot (A), never the pointer (got ${(/^last_green_sha:.*$/m.exec(sy) || [''])[0]})`)
+    ok(/^work_orders_verified: 1$/m.test(sy), 'the status.yaml counts are re-derived')
+    const track = r.atHead('.pandacorp/track.jsonl').trim().split('\n').map((x) => JSON.parse(x))
+    ok(track.some((x) => x.kind === 'review_end' && x.frd === 'frd-01-alpha' && x.verdict === 'pass') && track.some((x) => x.kind === 'frd_end' && x.frd === 'frd-01-alpha'), 'track.jsonl: review_end pass + frd_end')
+    const journal = r.atHead('.pandacorp/build-journal.jsonl').trim().split('\n').map((x) => JSON.parse(x))
+    ok(journal.some((x) => x.kind === 'resolution' && x.rung === 'verify' && x.role === 'verifier' && x.verdict === 'green' && x.wo === 'WO-01-001' && x.reopen_count === 1), 'the build journal records the verifier\'s green resolution (reopen_count before the reset)')
+    ok(r.git('status', '--porcelain', '--', 'proj/docs/frds', `proj/${REVIEWER_TEST}`) === '', 'nothing of the stamp is left uncommitted')
+    const evs = readFileSync(r.events, 'utf8').trim().split('\n').map((x) => JSON.parse(x))
+    ok(evs.some((x) => x.event === 'GateVerdict' && x.verdict === 'pass' && x.via === 'patch' && x.passed === 1) && evs.some((x) => x.event === 'PatchResult' && x.outcome === 'green') && evs.some((x) => x.event === 'achievement' && x.wo === 'WO-01-001' && x.frd === 'frd-01-alpha'), 'the dashboard gets GateVerdict pass (via patch), PatchResult green and the achievement')
+    const again = r.run('certify-state', args)
+    ok(again.code === 4 && again.receipt.status === 'not-in-review', 'a WO no longer IN_REVIEW is never stamped twice')
+  } finally { r.cleanup() }
 }
 
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`)
