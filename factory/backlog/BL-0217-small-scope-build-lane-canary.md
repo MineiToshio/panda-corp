@@ -3,12 +3,12 @@ id: BL-0217
 type: change
 area: build-engine
 title: "trial a small-scope build lane (one builder committing per WO + time-boxed opus FRD gate + mech close) as arm C against a vanilla single agent on a spec WITH a server surface"
-status: open
+status: done
 severity: p1
 opened: 2026-10-01
-closed:
+closed: 2026-10-02
 source: "pandacorp-bench-form benchmark 2026-10-01 (/Users/Shared/Proyectos/pandacorp-bench-form/runs/results.md, spec/redteam.md)"
-closes:
+closes: "DR-124 fast lane, default of /pandacorp:implement since plugin 9.119.0 (docs/proposals/39-fast-lane-implement.md)"
 links: [DR-015, DR-050, DR-057, DR-060, DR-097, BL-0218]
 ---
 
@@ -36,3 +36,6 @@ solo-lane-keeps-foundation-gate-on-ui. Benchmark: arm C wall clock ≤ 30 min wi
 
 ## Done when
 Arm C measured n ≥ 2 on two specs; decision recorded (DR) to adopt, keep opt-in or drop; decision-log entry.
+
+## Resolution (2026-10-02)
+Shipped as the fast lane (proposal 39, DR-124), default since 9.119.0. Measured: small bench USABLE 8.0 / 11.8 min (classic 51-59 min), oracle 151/151 at USABLE; medium bench (with a server surface: REST + SQLite) all FRDs USABLE 67.8 min with oracle 289/289 (classic ≈132 min active, one usage-limit resume, FRD-04 blocked). Gap to a single vanilla agent remains (2.6-5.5 / 11.5-12.1 min).
