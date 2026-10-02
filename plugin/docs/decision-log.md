@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 review fix round 1
+
+**Why.** The independent review of proposal 40 failed the branch on two ship-blocking defects: (1) the security delta's module-level triggers ('use server', an fs import) read only the ADDED lines, so a new action in an existing `'use server'` module or a new `path.join` in a module already importing fs left the delta quiet and the early audit stood as the build's report; Next 16's `proxy.*` (the renamed middleware) was not a trigger at all; (2) the production smoke read its verdict right after `load`, before hydration and before a lazy client chunk, so the ppv2 f4ed29a shape it exists for could pass.
+
+**What ([build-orchestration.md §5d](../../factory/standards/build-orchestration.md)):**
+1. `securityDeltaTriggers` reads the whole module at HEAD (`landedDiff` carries `readFile`, `git show HEAD:`); `_actions/**` and `actions.*` are server-action paths; the root/`src/` `proxy.*` counts as middleware (delta trigger and the P1 access-gating rule); a root `app/route.*` is a route. The variable-bound redirect/fetch miss is documented as accepted.
+2. `observeProdPage` (in the verbatim `_prod-smoke.ts`) waits for hydration (`data-hydrated`, else React's private keys; never hydrating is red) and a quiet settle window (no script load, console/page error or CSP event for 1.5 s, bounded at 10 s, no `networkidle`); the spec uses it.
+3. Non-blocking, taken: `gate-land` leaving a reviewer test unapplied now falls back to the apply agent's port instead of stamping VERIFIED without it (DR-080).
+
+**Deviations.** Not taken (non-blocking): the certify-state `--sha` self-check, the classic reuse/release relaxations, the probe-list re-ask, the version bump (release). The re-gate injection re-scan was examined: in the fast lane a patch is certified by script or blocks needs-owner (no re-gate) and a non-USABLE FRD already gates at xhigh, so no reachable path re-gates at high after a code change; no code was added for it.
+
+**Tests:** `test-product-floor.mjs`: `security-delta-server-action-existing-module`, `security-delta-fs-path-join-existing-import`, `security-delta-actions-path`, `security-delta-next16-proxy` (+ proxy floor, root route, no over-trigger). `test-build-mech.mjs`: `security-scope-reads-head` (real git range). `test-prod-smoke.mjs`: `prod-smoke-waits-for-hydration` (a real Chromium on a strict-CSP fixture; late violation, SSE-holding clean page, never-hydrating page). `test-build-engine.mjs`: `F40-3d gate-land-unapplied-test-keeps-the-agent-port`. All RED before their fix.
+
 ## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 4 — the gate trims
 
 **Why.** Proposal 40 §1/§2: the opus FRD gate is 38-62 % of a fast-lane build's cost and ran after every oracle result was already final; on FM-3 it wrote ~2,800 lines of reviewer tests and found 0 product defects, while its real catches (stale `errors`, UTF-16 length, the 390 px marker, the ppv2 JSON-LD XSS) were either builder-introduced traps or injection-style content. §9 (owner-delegated) ships the effort split without the replay harness: `xhigh` stays where a miss is costly (floor, injection content), `high` elsewhere.
