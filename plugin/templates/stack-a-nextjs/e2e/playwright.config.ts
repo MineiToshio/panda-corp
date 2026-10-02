@@ -36,6 +36,9 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 // Production-Build Smoke (proposal 40): the build engine sets PANDACORP_PROD_SMOKE in a detached worktree, so the
 // server is the production artifact (`next build && next start`, its real CSP), never a reused dev server.
 const PROD_SMOKE = Boolean(process.env.PANDACORP_PROD_SMOKE);
+// Build lanes (proposal 40 Phase B): the build engine sets PANDACORP_LANE in a lane worktree, on the lane's own PORT,
+// so a lane's e2e never reuses a server a sibling lane (or the main checkout) left running.
+const LANE = Boolean(process.env.PANDACORP_LANE);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -69,7 +72,7 @@ export default defineConfig({
       ? `next build && next start --hostname 127.0.0.1 --port ${PORT}`
       : `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !PROD_SMOKE && !isCI && Object.keys(serverEnv).length === 0,
+    reuseExistingServer: !PROD_SMOKE && !LANE && !isCI && Object.keys(serverEnv).length === 0,
     timeout: PROD_SMOKE ? 600_000 : 180_000,
     env: serverEnv,
   },

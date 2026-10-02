@@ -220,12 +220,13 @@ const lockAgeMs = (dir) => {
   try { return Date.now() - statSync(dir).mtimeMs } catch { return 0 }
 }
 /**
- * Take `.pandacorp/run/main-writer.lock` (mkdir lock). A lock older than LOCK_STALE_MS is reclaimed; a fresh one is
- * waited on for `waitMs`, then refused (`lock-busy`) — never silently skipped.
+ * Take `.pandacorp/run/main-writer.lock` (mkdir lock), or another named run lock (`name`, e.g. the lane pool's
+ * `lanes.lock`). A lock older than LOCK_STALE_MS is reclaimed; a fresh one is waited on for `waitMs`, then refused
+ * (`lock-busy`) — never silently skipped.
  * @returns {{ dir: string, owner: string, reclaimed: boolean }}
  */
-export function acquireLock(ctx, { waitMs, op }) {
-  const dir = path.join(ctx.project, '.pandacorp', 'run', 'main-writer.lock')
+export function acquireLock(ctx, { waitMs, op, name = 'main-writer.lock' }) {
+  const dir = path.join(ctx.project, '.pandacorp', 'run', name)
   mkdirSync(path.dirname(dir), { recursive: true })
   const owner = `${process.pid}-${randomBytes(8).toString('hex')}`
   const deadline = Date.now() + waitMs
@@ -242,7 +243,7 @@ export function acquireLock(ctx, { waitMs, op }) {
       try { renameSync(dir, tomb); rmSync(tomb, { recursive: true, force: true }); reclaimed = true } catch (e) { if (!['ENOENT', 'EEXIST', 'ENOTEMPTY'].includes(e.code)) throw e }
       continue
     }
-    if (Date.now() >= deadline) throw new Refusal('lock-busy', `the main-writer lock is held (age ${Math.round(age / 1000)}s, stale after ${LOCK_STALE_MS / 60000} min): another writer is on main`)
+    if (Date.now() >= deadline) throw new Refusal('lock-busy', `the ${name.replace(/\.lock$/, '')} lock is held (age ${Math.round(age / 1000)}s, stale after ${LOCK_STALE_MS / 60000} min): another writer ${name === 'main-writer.lock' ? 'is on main' : 'holds it'}`)
     sleepSync(200)
   }
 }

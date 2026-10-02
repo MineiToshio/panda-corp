@@ -66,6 +66,10 @@
 //   verify --patch / certify-state   proposal 40: the patch ladder's scripted check (the reviewer-test hash first, then
 //                those tests and the full suite) and its fenced stamp (WO VERIFIED, status.yaml, the last-green
 //                snapshot): build-mech-patch.mjs.
+//   lane-pool / lane-plan / lane-dispatch / lane-mark   proposal 40 Phase B (lanes): the worktree pool, the chain
+//                planner over the WO DAG, the per-dispatch reset/resync/port, the built/parked marks (build-mech-lanes.mjs).
+//   land-chain / lane-bisect   proposal 40 Phase B: a built chain's rebase (one commit per WO, union journals, i18n key
+//                union) + checks + ff-only landing, and the bisect of a red USABLE over 1-3 chains (build-mech-lane-land.mjs).
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -79,6 +83,8 @@ import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
 import { certifyStateOp, patchVerifyOp } from './build-mech-patch.mjs'
+import { LAND_OPS } from './build-mech-lane-land.mjs'
+import { LANE_OPS } from './build-mech-lanes.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
 
@@ -98,11 +104,11 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na', 'patch'])
-const LISTS = new Set(['file', 'wo', 'ac', 'frd', 'test', 'drift'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na', 'patch', 'barrier'])
+const LISTS = new Set(['file', 'wo', 'ac', 'frd', 'test', 'drift', 'candidate'])
 function parseArgs(argv) {
   const op = argv[0]
-  const o = { op, files: [], extras: [], wos: [], acs: [], frds: [], tests: [], drifts: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
+  const o = { op, files: [], extras: [], wos: [], acs: [], frds: [], tests: [], drifts: [], candidates: [], mainBranch: 'main', lockWaitMs: 120000, testTimeoutMs: 600000, maxAge: 900 }
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i]
     if (!k.startsWith('--')) throw new InputError(`unexpected argument ${JSON.stringify(k)}`)
@@ -114,8 +120,8 @@ function parseArgs(argv) {
     else if (name === 'extra') o.extras.push({ path: v.replace(/^\.\//, ''), reason: null })
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
-    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents', 'findings'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa', 'smoke-sha'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents', 'findings', 'lanes', 'size', 'lane'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa', 'smoke-sha', 'chain', 'as', 'why'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')
@@ -606,7 +612,7 @@ function gateRelease(o) {
 const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, 'gate-land': gateLandOp, ...FAST_OPS,
   verify: (o) => (o.patch ? patchVerifyOp(o) : FAST_OPS.verify(o)), 'certify-state': certifyStateOp,
   'security-scope': securityScopeOp, 'telemetry-scope': telemetryScopeOp, close: closeOp, 'prod-smoke': (o) => prodSmokeOp(o, { gatePrepare }),
-  'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }) }
+  'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }), ...LANE_OPS, ...LAND_OPS }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
 export async function main(argv) {

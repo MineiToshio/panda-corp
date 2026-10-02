@@ -96,8 +96,8 @@ export function parseBuildPlan(text) {
   return rows.size ? rows : null
 }
 
-/** Every FRD folder with work orders: its frd.md, its Build Plan and each work order's frontmatter. */
-function readFrds(ctx) {
+/** Every FRD folder with work orders: its frd.md, its Build Plan and each work order's frontmatter (the lane planner reads it too). */
+export function readFrds(ctx) {
   const base = path.join(ctx.project, 'docs', 'frds')
   const out = []
   for (const frd of (isDir(base) ? readdirSync(base) : []).sort()) {
