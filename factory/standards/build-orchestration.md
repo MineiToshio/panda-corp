@@ -1077,7 +1077,26 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   before every `plan`/`apply`/`recover` and refuses a USABLE FRD (exit 4, status `usable`), so a classic run paying a
   fast run's review debt blocks it `needs-owner` with the same record instead of reverting it.
 - **Security (DR-085).** The audit starts read-only on the first gate's pin; the close-out audits only the delta since
-  that pin, fail-closed to the full audit when the early verdict is unusable.
+  that pin, fail-closed to the full audit when the early verdict is unusable. The delta itself is conditional (proposal
+  40): `security-scope` reads the landed diff since the pin and runs the opus delta audit only on a deterministic trigger
+  (`securityDeltaTriggers`, next to the product floor in `product-floor.mjs`): a path trigger (routes, server actions,
+  middleware, `next.config`, headers, auth, dependencies, lockfile) or a content trigger on an added line
+  (`dangerouslySetInnerHTML`, `innerHTML`, `eval`/`new Function`, raw SQL, fs path joins, a redirect or fetch built from
+  input, cookies). With no trigger the early report becomes `docs/reviews/security-<local date>.md`; an unreadable range
+  or a missing early report runs the audit. The report is named and asserted by the LOCAL date (`date +%F`).
+- **The tail (proposal 40 Phase 1, `test-build-engine.mjs` F40-*, `test-build-mech.mjs`, `test-prod-smoke.mjs`).**
+  The builder's self-verify is `verify.sh --since <dispatch base>`, once (never per WO); the scripted verify runs the full
+  suite once before USABLE and seals the report it ran (`gate-report.provenance.json`), and `reuse-check` reuses only a
+  sealed report with intact bytes. A WO with no valid receipt gets one literal `commit-wo` before any park or rebuild. A
+  gate PASS lands through `gate-land`: the reviewer tests, the NEW baselines the gate blessed at green, the `routes.ts`
+  flip and the `fdd.md` provenance as ONE commit with `Gate-Pin`/`Blessed-By` trailers (DR-080); a changed existing
+  baseline never lands and `commit-wo` refuses a baseline from the builder. The stale-pin count ignores test-only
+  commits. Telemetry runs only with `docs/analytics/events.md` (a plan nothing emits fails loud). The release close is
+  scripted (`close`: the fail-closed asserts, one full `verify.sh`, phase release, the fenced two-phase lease release);
+  a sonnet cross-feature review runs first only when two or more built FRDs are linked, and anything the script cannot
+  release falls back to the opus close-out. The production-build smoke (`next build && next start` in a detached
+  worktree, `e2e/prod-smoke.spec.ts`) runs alongside visual-qa and blocks the release on a CSP violation, a rendered
+  error boundary or an empty `<main>`.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
