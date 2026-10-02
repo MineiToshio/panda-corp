@@ -1108,6 +1108,19 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   build is started before a settled verdict lands (FM-3: an apply delayed a dispatch 2.8 min); a verdict lands when no
   FRD is ready to build, which always includes the dependents that need its VERIFIED (floor). K stays 1 and there are
   no worktrees (Phase B extends the same loop to lanes). Classic lane unchanged.
+- **The patch ladder's merge (proposal 40 Phase 3, `test-build-mech.mjs` `reviewer-test-hash-tamper-red`,
+  `certify-state-writes-wo-and-status`; `test-build-engine.mjs` `sonnet-patch-escalates-after-red`).** After an in-place
+  patch the independent check is the literal `verify --patch` op, not a verify-patch agent: the reviewer's pinned test
+  hashes are MANDATORY and checked FIRST (a changed or missing reviewer test is red, a DR-080 breach, the original
+  restored from the gate evidence), then those RED-proven tests run by path, then the full `verify.sh`; it commits
+  nothing. The stamp is the fenced `certify-state` op, not a certify agent: each work order VERIFIED with
+  `reopen_count: 0` (build-state's transition re-derives the rollups and counts), the `drift:` replica, the verifier's
+  journal resolution, `review_end`/`frd_end`, then the BL-0066 two commits (the snapshot with the reviewer's tests, then
+  the `last_green_sha` pointer) and the pass events. Nothing pinned, a re-bless, an inherited open contract no pinned
+  test proves, or a refused op falls back to the agent verifier unchanged. Patch-1 runs on **sonnet/high** when the FRD
+  is off the floor and every finding is bounded (a RED-proven test and the gate's `fixLines` ≤ 30); **opus** on the
+  floor and for an unestimated or larger finding. A sonnet patch the verify finds red gets ONE opus patch on top of it
+  before the ladder's fallback. Classic lane unchanged.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.

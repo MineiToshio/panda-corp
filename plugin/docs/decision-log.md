@@ -4,6 +4,19 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 3 — the patch ladder's merge
+
+**Why.** Proposal 40 §1/§2: on the benches the verify-patch agent wrote nothing in 4 of 4 runs and the certify agent only wrote work-order and status files, so neither judged anything a script cannot decide; the opus patch also ran on findings the gate itself bounded at ≤ ~30 lines. The red-team (B) asked that a patcher can never weaken the RED test, hence the mandatory hash, and that a cheaper patcher escalate.
+
+**What (fast lane only; [build-orchestration.md §5d](../../factory/standards/build-orchestration.md)):**
+1. **`verify --patch`** (`build-mech-patch.mjs`): the reviewer-test hash is mandatory and checked first (a breach is red and restores the original from the gate evidence), then the RED-proven tests by path, then the full `verify.sh`. It commits nothing.
+2. **`certify-state`**: under the lease fence and the main-writer lock, WO VERIFIED + `reopen_count: 0`, rollups and counts, the `drift:` replica, the journal resolution and timeline lines, then the BL-0066 snapshot and pointer commits and the pass events. A failure before the snapshot restores every file it wrote.
+3. **Patch tier**: sonnet/high for bounded findings (a RED-proven test and `fixLines` ≤ 30) off the floor, opus on the floor and for an unestimated or larger finding; one red verify of a sonnet patch escalates to ONE opus patch. The fast gate prompt asks for `fixLines`; the findings schema carries it (classic ignores it).
+
+**Deviations.** (a) The scripted path is taken only when it can decide alone: nothing pinned (the gate salvaged no test), a gate-test re-bless (the engine holds no hash for it), an inherited open contract whose tests are not all pinned, or a refused op fall back to the agent verifier + certify agent, unchanged. (b) "Bounded" needs the gate's explicit `fixLines`; a finding without it patches on opus (fail-safe upward). (c) The WP-08 mechanical sonnet route is unchanged (lane-neutral). (d) To stay under the 450 KB artifact budget (449897), the dashboard printf tail, the mechanical-runner header/clauses and the verified/reopened/unstamped exits are shared (byte-identical prompts) and untested operator-log tails were condensed; the margin is ~100 bytes, so Phase 4 must trim first.
+
+**Tests:** `test-build-mech.mjs`: `reviewer-test-hash-tamper-red`, `certify-state-writes-wo-and-status` (both RED before). `test-build-engine.mjs`: `sonnet-patch-escalates-after-red` (+ floor/unbounded variants), `reviewer-test-hash-tamper-red (engine)`, `patch-ladder-agent-fallback`, `classic-patch-ladder-unchanged`.
+
 ## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 2 — the fast lane's event loop and main-writer mutex
 
 **Why.** Proposal 40 §1/§3 Phase A: on FM-3 an apply-gate delayed the next FRD's dispatch by 2.8 min, and FRD-03's gate started 23 min after a slot freed, because the scheduler awaited each build (and each landing) inline: a slot that freed mid-build stayed idle until the build returned. The red-team (B1) cut the honest gain to about 4-5 min of done time and asked for a mutex.
