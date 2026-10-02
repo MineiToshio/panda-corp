@@ -3458,11 +3458,12 @@ async function landGateEvidence(frd, ev, pin) {
  agentSpawned++
  const r = await runMechOp('gate-land', `--dir ${shellQuote(ev.dir)} --frd ${shellQuote(frd)}${pin ? ` --pin ${shellQuote(pin)}` : ''}`, { label: `gate-land:${frd}`, phase: 'Review' })
  const b = r.body
- if (b && b.ok === true && ['landed', 'nothing'].includes(b.status)) {
+ const lost = ((b && b.unapplied) || []).filter((u) => ev.tests.some((x) => x.path === (u && u.path)))
+ if (b && b.ok === true && !lost.length && ['landed', 'nothing'].includes(b.status)) {
   log(`▹ ${frd}: gate files landed (${b.status}) ${JSON.stringify([b.landed, b.unapplied, b.refused]).slice(0, 300)}`)
   return true
  }
- log(`⚠ ${frd}: gate landing did not land (${r.error || (b && b.status)}) — the apply step ports`)
+ log(`⚠ ${frd}: gate landing did not land (${lost.length ? `${lost.length} reviewer test(s) unapplied` : r.error || (b && b.status)}) — the apply step ports`)
  return false
 }
 const UNPORT_SCHEMA = { type: 'object', properties: { removed: { type: 'array', items: { type: 'string' } }, kept: { type: 'array', items: { type: 'string' } } } }

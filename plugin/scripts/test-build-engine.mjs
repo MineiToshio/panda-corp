@@ -2109,6 +2109,21 @@ SCENARIOS.push({
   },
 })
 SCENARIOS.push({
+  name: 'F40-3d. gate-land-unapplied-test-keeps-the-agent-port — a landing that leaves a reviewer test unapplied (its diff does not apply on a moved main) never stamps VERIFIED without it: the apply agent ports it (DR-080)',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [
+    { label: /^gate-release:/, response: { line: mechLine('gate-release', { salvaged: [{ path: 'src/_tests/q.reviewer.test.ts', status: 'untracked', sha256: 'a'.repeat(64) }], remaining: [] }) } },
+    { label: 'gate-land:frd-q', response: { line: mechLine('gate-land', { status: 'nothing', frd: 'frd-q', landed: [], refused: [], unapplied: [{ path: 'src/_tests/q.reviewer.test.ts', why: 'the diff does not apply on main: conflict' }], kept: [], reason: 'every landable file is already on main' }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const apply = byLabel(run, 'apply-gate:frd-q')[0]
+    t.ok(apply && /port command/.test(apply.prompt) && /q\.reviewer\.test\.ts/.test(apply.prompt), 'the apply agent ports the unapplied reviewer test instead of stamping VERIFIED without it')
+    t.ok(hasLog(run, /reviewer test\(s\) unapplied/), 'the unapplied test is logged as the reason for the port')
+  },
+})
+SCENARIOS.push({
   name: 'F40-3c. classic-gate-never-blesses-here — the classic lane\'s gate prompt and landing are unchanged (no bless clause, no gate-land)',
   args: { mode: 'balanced', lane: 'classic' },
   plan: mkPlan([{ frd: 'frd-qk', deps: [], workOrders: [mkWo('wo-qk-001', 'IN_REVIEW', { frd: 'frd-qk', artifacts: ['src/qk/**'] })] }]),

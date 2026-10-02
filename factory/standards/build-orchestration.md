@@ -1094,7 +1094,9 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   sealed report with intact bytes. A WO with no valid receipt gets one literal `commit-wo` before any park or rebuild. A
   gate PASS lands through `gate-land`: the reviewer tests, the NEW baselines the gate blessed at green, the `routes.ts`
   flip and the `fdd.md` provenance as ONE commit with `Gate-Pin`/`Blessed-By` trailers (DR-080); a changed existing
-  baseline never lands and `commit-wo` refuses a baseline from the builder. The stale-pin count ignores test-only
+  baseline never lands and `commit-wo` refuses a baseline from the builder; a reviewer test the landing leaves
+  unapplied (its diff no longer applies on a moved main) sends the FRD to the apply agent's port, never to VERIFIED
+  without it. The stale-pin count ignores test-only
   commits. Telemetry runs only with `docs/analytics/events.md` (a plan nothing emits fails loud). The release close is
   scripted (`close`: the fail-closed asserts, one full `verify.sh`, phase release, the fenced two-phase lease release);
   a sonnet cross-feature review runs first only when two or more built FRDs are linked, and anything the script cannot

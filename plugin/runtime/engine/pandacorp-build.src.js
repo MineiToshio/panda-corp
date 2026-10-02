@@ -5615,11 +5615,13 @@ async function landGateEvidence(frd, ev, pin) {
   agentSpawned++
   const r = await runMechOp('gate-land', `--dir ${shellQuote(ev.dir)} --frd ${shellQuote(frd)}${pin ? ` --pin ${shellQuote(pin)}` : ''}`, { label: `gate-land:${frd}`, phase: 'Review' })
   const b = r.body
-  if (b && b.ok === true && ['landed', 'nothing'].includes(b.status)) {
+  // A reviewer test whose diff no longer applies on main is NOT on main: stamping VERIFIED would drop DR-080 evidence.
+  const lost = ((b && b.unapplied) || []).filter((u) => ev.tests.some((x) => x.path === (u && u.path)))
+  if (b && b.ok === true && !lost.length && ['landed', 'nothing'].includes(b.status)) {
     log(`▹ ${frd}: gate files landed (${b.status}) ${JSON.stringify([b.landed, b.unapplied, b.refused]).slice(0, 300)}`)
     return true
   }
-  log(`⚠ ${frd}: gate landing did not land (${r.error || (b && b.status)}) — the apply step ports`)
+  log(`⚠ ${frd}: gate landing did not land (${lost.length ? `${lost.length} reviewer test(s) unapplied` : r.error || (b && b.status)}) — the apply step ports`)
   return false
 }
 // Remove the reviewer's ported test copies that are still UNTRACKED on main and byte-identical to the salvaged
