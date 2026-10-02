@@ -817,6 +817,9 @@ let oracleNoFallbackLogged = false   // the explanatory log fires ONCE this run,
 // BL-0192: { frd, spawnedAt, reserve } while a (non-final) D1 landing runs, else null. Declared HERE, before the wrapper
 // below reads it through laneTopUp() at every agent boundary (the lane logic lives with landParallelVerdict).
 let landingInFlight = null
+// Proposal 40 Phase A: the fast lane's main-writer mutex — the ONE task that holds the main tree ({ who, p, done, r, e },
+// set by holdMain, cleared by the scheduler loop once it settled), else null. Declared here for the same reason as above.
+let mainWriter = null
 // 9.118.2 (bench-medium C-1, plugin 9.118.1): a MECH (haiku) agent sometimes returns its structured result
 // JSON-ENCODED inside one string field — `{ parameter: "{\"escalate\": true, \"dirtyPaths\": [...] …}" }` — so every
 // field the engine branches on read as absent (the pre-check skipped the BL-0124 fast path and paid an opus judge
@@ -894,7 +897,7 @@ function infraSignal(answer, err, opts) {
 function haltForInfra(sig, label) {
   if (!infraHalt) {
     infraHalt = { kind: sig.kind, label: label || '', detail: sig.detail }
-    log(`⏸ INFRA HALT (paused-infra, proposal 39 C7): ${sig.kind === 'limit' ? 'a usage-limit/429/overload signature' : 'a second infrastructure failure'} on ${label || 'an agent call'} (${sig.detail}) — no new dispatch from here; in-flight results land as they arrive, unlanded work orders are parked, nothing is blocked or reverted`)
+    log(`⏸ INFRA HALT (paused-infra, proposal 39 C7): ${sig.kind === 'limit' ? 'a usage-limit/429/overload signature' : 'a second infrastructure failure'} on ${label || 'an agent call'} (${sig.detail}) — no new dispatch; in-flight results land, unlanded work orders are parked`)
   }
   return new InfraError(`infra halt: ${sig.detail}`, { kind: sig.kind, label })
 }
@@ -3372,12 +3375,14 @@ async function ensureGateWorktree(sha, slot = LEGACY_SLOT) {
     slot.state = 'failed'; slot.lastSha = null; slot.clean = false
     const dirty = (r && Array.isArray(r.dirty)) ? r.dirty.filter(Boolean) : []
     if (pooled) slot.failedOnDirt = dirty.length > 0   // D1: dirt is slot-specific (another slot may be clean); any other failure is not
+    // The same BL-0183 refusal text for a pool slot and the legacy worktree (shared, so the two cannot drift).
+    const refuseDirty = (tag, what) => dirty.length && log(`⊘ ${tag} (BL-0183): REFUSING to gate over a DIRTY gate ${what} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
     if (pooled) {
-      if (dirty.length) log(`⊘ D1 (BL-0183): REFUSING to gate over a DIRTY gate slot ${slot.id} (${slot.path}) — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
+      refuseDirty('D1', `slot ${slot.id} (${slot.path})`)
       log(`⚠ D1: gate slot ${slot.id} (${slot.path}) could not be prepared (${(r && r.failure) || 'no verdict'}) — dropped from the parallel pool (${gatePool.filter((x) => x.state !== 'failed').length}/${gatePool.length} slot(s) left)`)
       return false
     }
-    if (dirty.length) log(`⊘ C2 (BL-0183): REFUSING to gate over a DIRTY gate worktree ${GATE_WORKTREE} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
+    refuseDirty('C2', `worktree ${GATE_WORKTREE}`)
     log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
     return false
   })()
@@ -3657,6 +3662,8 @@ const buildCostByFrd = new Map()    // frd -> COST()-weighted units spent BUILDI
 const repairCostByFrd = new Map()   // frd -> COST()-weighted units spent REPAIRING it this run
 const REPAIR_BUDGET_FLOOR = 9       // D4/BL-0138: absolute minimum, regardless of factor x base — see the block comment above
 const repairBudget = (frd) => Math.max(REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0), REPAIR_BUDGET_FLOOR)
+// The repair-budget refusal's shared tail (three call sites, one wording).
+const overRepairBudget = (frd) => ` > ${repairBudget(frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted`
 // ── BL-0138 path 1: a REAL-TOKEN second opinion on top of the agent-weight brake ───────────────────
 // agent() exposes no per-call usage (verified against the Workflow script API — there is no such field
 // on its return value); the ONLY live token signal is `budget.spent()`, ONE un-partitioned counter for
@@ -4366,7 +4373,7 @@ function sizeAgentBudget(addedFrds) {
   const units = first ? projectedRunCost(plan) : projectedFrdsCost(addedFrds)
   const usd = (n) => `≈ ${(n * AUTO_USD_PER_UNIT).toFixed(0)} USD aprox.`
   if (!MAX_AGENTS_AUTO) {
-    if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate. Not overridden (an explicit value is never changed, partial resumable runs are legitimate); pass maxAgents:'auto' to size it from the plan.`)
+    if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate; never overridden (maxAgents:'auto' sizes it).`)
     return
   }
   const cap = first ? Math.ceil(AUTO_HEADROOM * units) : (MAX_AGENTS || 0) + Math.ceil(AUTO_HEADROOM * units)
@@ -4594,7 +4601,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
   // spawning the rebuild when the FRD can no longer afford the FULL projected cost (never mid-rebuild —
   // see the per-WO chargeRepair below).
   if (!capHit() && !canAffordRepair(f.frd, 'opus', retryWos.length)) {
-    log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08/D4)`)
+    log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length}${overRepairBudget(f.frd)} (WP-08/D4)`)
     await blockRepairBudgetExhausted(f.frd, reopenIds, null)
     blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before the in-run retry rebuild')
     return 'blocked'
@@ -4732,7 +4739,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     } else if (patched && patched.cause === 'code' && !capHit() && !canAffordRepair(f.frd, P.judge)) {
       // WP-08 (d): patch-1 failed on real code and the repair budget is gone. Stopping HERE is the whole
       // point — one more diagnosis + patch-2 is exactly the spend the brake exists to refuse.
-      log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted, honest needs-owner exit with the work preserved (WP-08)`)
+      log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0}${overRepairBudget(f.frd)}, honest needs-owner exit with the work preserved (WP-08)`)
       await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
       blockFrd(f.frd, 'needs-owner', 'repair budget exhausted after patch-1 (WP-08)')
       return 'blocked'
@@ -4800,7 +4807,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
       // (c) point + NOT repeatsPrior + patch budget left → PATCH-2, diagnosis-guided.
       if (!repeats && patchesThisCycle < PATCH_ATTEMPT_CAP && !canAffordRepair(f.frd, 'opus')) {
         // WP-08 (d): the diagnosis fit the budget but patch-2 does not. Same honest exit.
-        log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08)`)
+        log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')}${overRepairBudget(f.frd)} (WP-08)`)
         await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
         blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before patch-2 (WP-08)')
         return 'blocked'
@@ -5438,7 +5445,7 @@ const landingCostOf = (gate) => (gate && gate.green !== true && Array.isArray(ga
 // The part of the in-flight landing's reserve it has not spent yet (conservative: any spawn counts against it).
 const laneReserveLeft = () => (landingInFlight ? Math.max(0, landingInFlight.reserve - (agentSpawned - landingInFlight.spawnedAt)) : 0)
 function laneTopUp() {
-  if (!landingInFlight || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
+  if (!(landingInFlight || mainWriter) || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
   try { launchParallelGates(false, true) } catch (e) { log(`⚠ D1: mid-landing slot refill failed (${(e && e.message) || e}) — the loop refills after the landing`) }
 }
 async function topUpBeforeLanding(idx = 0) {
@@ -5576,6 +5583,25 @@ async function drainParallelGates() {
 // USABLE the ladder is fix-forward only: a discard becomes needs-owner (holdUsableDiscard), nothing is reverted.
 // USABLE is this run's build_usable events plus the earlier runs' (priorUsable, derived by the precheck from the committed
 // track.jsonl lines): a defer, a paused-infra halt or an unlanded gate never re-opens the auto-discard in the next run.
+// ── Proposal 40 Phase A: THE EVENT LOOP (§3, K = 1, no worktrees) ─────────────────────────────────────────────────────
+// The main tree has ONE writer at a time: the main-writer mutex. Its holder is either a BUILD (dispatch → the FRD builder,
+// whose commit-wo / park-wo calls run inside it → the engine's own commit-wo (fastRecommit) → the scripted USABLE verify →
+// the fix-forward / repair) or a LANDING (the stale-pin guard and its re-verify → gate-land → apply-gate, or the patch
+// ladder). Both run verify.sh, write work-order files or stage `docs/frds` on the SAME tree, so they must never overlap:
+// a landing's re-verify over a builder's half-written work order is a false reopen, and its `git add -u -- docs/frds` would
+// sweep that builder's Status Note into the apply commit. The scripts keep taking main-writer.lock per op (the file lock);
+// this is the engine-side holder of that tree across a whole build or landing.
+// The scheduler loop starts a holder, then races it against the gates in flight (Promise.race): every gate settle wakes
+// it, and a slot freed while the holder runs is refilled at once (laneTopUp, also called at every agent boundary) — bench
+// FM-3's FRD-03 gate waited 23 min for a slot that had been free since mid-build. Gates never touch main (pinned slots).
+// ORDER: a ready build is started before a settled verdict lands (FM-3: an apply delayed a dispatch by 2.8 min). Builds
+// are on the done path; a VERIFIED stamp is not (its dependents that need it, floor FRDs, are not ready, so it lands
+// then). Phase B extends the same loop to K lanes in worktrees.
+function holdMain(who, fn) {
+  if (mainWriter) throw new Error(`main held by ${mainWriter.who}: ${who}`)
+  const h = mainWriter = { who, done: false }
+  h.p = fn().then((r) => { h.r = r }, (e) => { h.e = e }).then(() => { h.done = true })
+}
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
 const isUsable = (frd) => Boolean(usableOf(frd))   // both lanes: fastUsable is fast-only, priorUsable comes from any mechScript precheck
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
@@ -5619,7 +5645,7 @@ function pickFastFrd() {
 // gate what is queued, else defer what can only build after an FRD that will not verify this run.
 async function fastLaneStep() {
   const frd = pickFastFrd()
-  if (frd) return await fastBuildFrd(frd)
+  if (frd) { holdMain(`build:${frd}`, () => fastBuildFrd(frd)); return null }
   if (gatesInFlight.size || gateResults.length || convergeQueue.length) {
     if (!PARALLEL_GATES) await settleGates(false)
     else if (gatesInFlight.size && nextLandingIndex() < 0) await Promise.race([...gatesInFlight.values()])
@@ -5895,16 +5921,26 @@ function warnAgentBudgetNearExhaustion(workRemains) {
   const remaining = MAX_AGENTS - agentSpawned
   if (!agentBudget80Warned && agentSpawned >= AGENT_BUDGET_WARN_RATIO * MAX_AGENTS) {
     agentBudget80Warned = true
-    log(`⚠ AgentBudgetAdvisory: ${agentSpawned}/${MAX_AGENTS} cost-weighted agent units spent (${Math.round((100 * agentSpawned) / MAX_AGENTS)} %, threshold ${Math.round(AGENT_BUDGET_WARN_RATIO * 100)} %) with work still pending (${globalQueue.size} WO(s) to build, ${gateQueue.length + gatesInFlight.size + gateResults.length} gate(s) queued/in flight) — ${remaining} unit(s) left; the run stops at the agent ceiling if it is reached before the work finishes (BL-0207)`)
+    log(`⚠ AgentBudgetAdvisory: ${agentSpawned}/${MAX_AGENTS} cost-weighted agent units spent (${Math.round((100 * agentSpawned) / MAX_AGENTS)} %, threshold ${Math.round(AGENT_BUDGET_WARN_RATIO * 100)} %) with work still pending (${globalQueue.size} WO(s) to build, ${gateQueue.length + gatesInFlight.size + gateResults.length} gate(s) queued/in flight) — ${remaining} unit(s) left (BL-0207)`)
   }
   if (!agentBudgetLadderWarned && remaining < GATE_LADDER_COST) {
     agentBudgetLadderWarned = true
-    log(`⚠ AgentBudgetAdvisory: only ${remaining} cost-weighted unit(s) left of maxAgents ${MAX_AGENTS} — less than one reopen ladder (~${GATE_LADDER_COST}) with work still pending: a gate that reopens now cannot be patched inside this budget (BL-0207)`)
+    log(`⚠ AgentBudgetAdvisory: only ${remaining} cost-weighted unit(s) left of maxAgents ${MAX_AGENTS} — less than one reopen ladder (~${GATE_LADDER_COST}) with work still pending (BL-0207)`)
   }
 }
 
 while (true) {
   try {   // WS-D/D2: error boundary around the whole scheduler body — a throw must never leave running:true
+  // Proposal 40 Phase A: while a build or a landing holds main, only the gates move (their settles refill the slots);
+  // every brake, the safe point and the next dispatch wait for the holder, and its outcome is read here once it settled.
+  if (mainWriter) {
+    const h = mainWriter
+    if (!h.done) { await Promise.race([h.p, ...gatesInFlight.values()]); continue }
+    mainWriter = null
+    if (h.e) throw h.e
+    if (h.r === 'paused') { stopReason = 'paused-infra'; break }
+    continue
+  }
   if (infraHalt) { stopReason = 'paused-infra'; break }   // proposal 39 C7: no new dispatch after an infra halt
   // ── Brakes at every wave/gate boundary (same checks the per-FRD loop ran) ──
   if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
@@ -5931,7 +5967,11 @@ while (true) {
     // pool — no quiesce: the other slots keep reviewing; no wave dispatch overlaps a landing. ──
     if (gateResults.length) {
       const idx = nextLandingIndex()   // E2 finding 1: a verdict whose upstream has not landed waits; the loop goes on
-      if (idx >= 0) { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx); continue }   // BL-0192: refill free slots FIRST
+      // Proposal 40 Phase A: the fast lane lands only when no FRD is ready to build (build first), as a main-writer holder.
+      // BL-0192: refill free slots FIRST (topUpBeforeLanding).
+      const land = async () => { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx) }
+      if (idx >= 0 && !FAST) { await land(); continue }
+      if (idx >= 0 && !pickFastFrd()) { holdMain(`land:${gateResults[idx].f.frd}`, land); continue }
       logLandingHolds()
     }
   } else {

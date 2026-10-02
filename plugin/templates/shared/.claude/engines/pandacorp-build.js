@@ -240,6 +240,7 @@ const DEFAULT_AGENT_FALLBACK = 'pandacorp:implementer'
 const ORACLE_TYPES = new Set(['pandacorp:reviewer', 'pandacorp:security-auditor', 'pandacorp:test-writer'])
 let oracleNoFallbackLogged = false
 let landingInFlight = null
+let mainWriter = null
 const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
 const unwrapStructuredResult = (answer, schema) => {
  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
@@ -296,7 +297,7 @@ function infraSignal(answer, err, opts) {
 function haltForInfra(sig, label) {
  if (!infraHalt) {
   infraHalt = { kind: sig.kind, label: label || '', detail: sig.detail }
-  log(`⏸ INFRA HALT (paused-infra, proposal 39 C7): ${sig.kind === 'limit' ? 'a usage-limit/429/overload signature' : 'a second infrastructure failure'} on ${label || 'an agent call'} (${sig.detail}) — no new dispatch from here; in-flight results land as they arrive, unlanded work orders are parked, nothing is blocked or reverted`)
+  log(`⏸ INFRA HALT (paused-infra, proposal 39 C7): ${sig.kind === 'limit' ? 'a usage-limit/429/overload signature' : 'a second infrastructure failure'} on ${label || 'an agent call'} (${sig.detail}) — no new dispatch; in-flight results land, unlanded work orders are parked`)
  }
  return new InfraError(`infra halt: ${sig.detail}`, { kind: sig.kind, label })
 }
@@ -1991,12 +1992,13 @@ async function ensureGateWorktree(sha, slot = LEGACY_SLOT) {
   slot.state = 'failed'; slot.lastSha = null; slot.clean = false
   const dirty = (r && Array.isArray(r.dirty)) ? r.dirty.filter(Boolean) : []
   if (pooled) slot.failedOnDirt = dirty.length > 0
+  const refuseDirty = (tag, what) => dirty.length && log(`⊘ ${tag} (BL-0183): REFUSING to gate over a DIRTY gate ${what} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
   if (pooled) {
-   if (dirty.length) log(`⊘ D1 (BL-0183): REFUSING to gate over a DIRTY gate slot ${slot.id} (${slot.path}) — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
+   refuseDirty('D1', `slot ${slot.id} (${slot.path})`)
    log(`⚠ D1: gate slot ${slot.id} (${slot.path}) could not be prepared (${(r && r.failure) || 'no verdict'}) — dropped from the parallel pool (${gatePool.filter((x) => x.state !== 'failed').length}/${gatePool.length} slot(s) left)`)
    return false
   }
-  if (dirty.length) log(`⊘ C2 (BL-0183): REFUSING to gate over a DIRTY gate worktree ${GATE_WORKTREE} — uncommitted path(s) a gate would silently execute (vitest --changed runs untracked files): ${dirty.join(' | ')} — evidence preserved, inspect/salvage by hand`)
+  refuseDirty('C2', `worktree ${GATE_WORKTREE}`)
   log(`⚠ C2: gate worktree could not be prepared (${(r && r.failure) || 'no verdict'}) — falling back to the LEGACY synchronous gate path for the whole run`)
   return false
  })()
@@ -2171,6 +2173,7 @@ const buildCostByFrd = new Map()
 const repairCostByFrd = new Map()
 const REPAIR_BUDGET_FLOOR = 9
 const repairBudget = (frd) => Math.max(REPAIR_BUDGET_FACTOR * (buildCostByFrd.get(frd) || 0), REPAIR_BUDGET_FLOOR)
+const overRepairBudget = (frd) => ` > ${repairBudget(frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted`
 const buildTokensByFrd = new Map()
 const buildTokensReliable = new Map()
 const repairTokensByFrd = new Map()
@@ -2596,7 +2599,7 @@ function sizeAgentBudget(addedFrds) {
  const units = first ? projectedRunCost(plan) : projectedFrdsCost(addedFrds)
  const usd = (n) => `≈ ${(n * AUTO_USD_PER_UNIT).toFixed(0)} USD aprox.`
  if (!MAX_AGENTS_AUTO) {
-  if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate. Not overridden (an explicit value is never changed, partial resumable runs are legitimate); pass maxAgents:'auto' to size it from the plan.`)
+  if (first && MAX_AGENTS < units) log(`⚠ AgentBudgetAdvisory: explicit maxAgents ${MAX_AGENTS} is below the projected run cost of ~${units} units (${usd(units)}; fixed ~${AUTO_FIXED_COST} + per WO ${AUTO_WO_MECH_COST}+builder weight + ~${AUTO_FRD_COST} per FRD) — the run may stop at the agent ceiling before every gate; never overridden (maxAgents:'auto' sizes it).`)
   return
  }
  const cap = first ? Math.ceil(AUTO_HEADROOM * units) : (MAX_AGENTS || 0) + Math.ceil(AUTO_HEADROOM * units)
@@ -2765,7 +2768,7 @@ async function inRunRetry(f, reopenIds, reviewIds, priorDiagnosis = null) {
  const canRetry = !capHit() && retryWos.length > 0 && retryWos.every((w) => w.reopen_count < MAX_REOPENS)
  if (!canRetry) { reopenedFrds.push(f.frd); return 'reopened' }
  if (!capHit() && !canAffordRepair(f.frd, 'opus', retryWos.length)) {
-  log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08/D4)`)
+  log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del in-run retry (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus') * retryWos.length}${overRepairBudget(f.frd)} (WP-08/D4)`)
   await blockRepairBudgetExhausted(f.frd, reopenIds, null)
   blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before the in-run retry rebuild')
   return 'blocked'
@@ -2854,7 +2857,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     patchFailNote = `gate-test repair greened but the independent verification failed (${iv2?.failure || 'red'})`
    } else patchFailNote = `gate-test claim not upheld (${tr?.failure || 'test was right — the build is wrong'})`
   } else if (patched && patched.cause === 'code' && !capHit() && !canAffordRepair(f.frd, P.judge)) {
-   log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted, honest needs-owner exit with the work preserved (WP-08)`)
+   log(`⊘ ${f.frd}: presupuesto de reparación agotado (${repairCostByFrd.get(f.frd) || 0}${overRepairBudget(f.frd)}, honest needs-owner exit with the work preserved (WP-08)`)
    await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
    blockFrd(f.frd, 'needs-owner', 'repair budget exhausted after patch-1 (WP-08)')
    return 'blocked'
@@ -2902,7 +2905,7 @@ async function gateConverge(f, reviewIds, gate, traceabilityReasked = false) {
     return 'blocked'
    }
    if (!repeats && patchesThisCycle < PATCH_ATTEMPT_CAP && !canAffordRepair(f.frd, 'opus')) {
-    log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')} > ${repairBudget(f.frd)} unidades = ${REPAIR_BUDGET_FACTOR}× el coste de construirlo) — repair budget exhausted (WP-08)`)
+    log(`⊘ ${f.frd}: presupuesto de reparación agotado antes del patch-2 (${repairCostByFrd.get(f.frd) || 0} + ${COST('opus')}${overRepairBudget(f.frd)} (WP-08)`)
     await blockRepairBudgetExhausted(f.frd, gate.reopen, gate)
     blockFrd(f.frd, 'needs-owner', 'repair budget exhausted before patch-2 (WP-08)')
     return 'blocked'
@@ -3328,7 +3331,7 @@ async function stalePinGuard(frd, reviewIds, gate, launchPin) {
 const landingCostOf = (gate) => (gate && gate.green !== true && Array.isArray(gate.reopen) && gate.reopen.length ? GATE_LADDER_COST : GATE_LANDING_COST)
 const laneReserveLeft = () => (landingInFlight ? Math.max(0, landingInFlight.reserve - (agentSpawned - landingInFlight.spawnedAt)) : 0)
 function laneTopUp() {
- if (!landingInFlight || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
+ if (!(landingInFlight || mainWriter) || concurrentGates !== true || !gateQueue.length || !freeSlot()) return
  try { launchParallelGates(false, true) } catch (e) { log(`⚠ D1: mid-landing slot refill failed (${(e && e.message) || e}) — the loop refills after the landing`) }
 }
 async function topUpBeforeLanding(idx = 0) {
@@ -3429,6 +3432,11 @@ async function drainParallelGates() {
   else await landParallelVerdict(true, idx)
  }
 }
+function holdMain(who, fn) {
+ if (mainWriter) throw new Error(`main held by ${mainWriter.who}: ${who}`)
+ const h = mainWriter = { who, done: false }
+ h.p = fn().then((r) => { h.r = r }, (e) => { h.e = e }).then(() => { h.done = true })
+}
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
 const isUsable = (frd) => Boolean(usableOf(frd))
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
@@ -3467,7 +3475,7 @@ function pickFastFrd() {
 }
 async function fastLaneStep() {
  const frd = pickFastFrd()
- if (frd) return await fastBuildFrd(frd)
+ if (frd) { holdMain(`build:${frd}`, () => fastBuildFrd(frd)); return null }
  if (gatesInFlight.size || gateResults.length || convergeQueue.length) {
   if (!PARALLEL_GATES) await settleGates(false)
   else if (gatesInFlight.size && nextLandingIndex() < 0) await Promise.race([...gatesInFlight.values()])
@@ -3702,15 +3710,23 @@ function warnAgentBudgetNearExhaustion(workRemains) {
  const remaining = MAX_AGENTS - agentSpawned
  if (!agentBudget80Warned && agentSpawned >= AGENT_BUDGET_WARN_RATIO * MAX_AGENTS) {
   agentBudget80Warned = true
-  log(`⚠ AgentBudgetAdvisory: ${agentSpawned}/${MAX_AGENTS} cost-weighted agent units spent (${Math.round((100 * agentSpawned) / MAX_AGENTS)} %, threshold ${Math.round(AGENT_BUDGET_WARN_RATIO * 100)} %) with work still pending (${globalQueue.size} WO(s) to build, ${gateQueue.length + gatesInFlight.size + gateResults.length} gate(s) queued/in flight) — ${remaining} unit(s) left; the run stops at the agent ceiling if it is reached before the work finishes (BL-0207)`)
+  log(`⚠ AgentBudgetAdvisory: ${agentSpawned}/${MAX_AGENTS} cost-weighted agent units spent (${Math.round((100 * agentSpawned) / MAX_AGENTS)} %, threshold ${Math.round(AGENT_BUDGET_WARN_RATIO * 100)} %) with work still pending (${globalQueue.size} WO(s) to build, ${gateQueue.length + gatesInFlight.size + gateResults.length} gate(s) queued/in flight) — ${remaining} unit(s) left (BL-0207)`)
  }
  if (!agentBudgetLadderWarned && remaining < GATE_LADDER_COST) {
   agentBudgetLadderWarned = true
-  log(`⚠ AgentBudgetAdvisory: only ${remaining} cost-weighted unit(s) left of maxAgents ${MAX_AGENTS} — less than one reopen ladder (~${GATE_LADDER_COST}) with work still pending: a gate that reopens now cannot be patched inside this budget (BL-0207)`)
+  log(`⚠ AgentBudgetAdvisory: only ${remaining} cost-weighted unit(s) left of maxAgents ${MAX_AGENTS} — less than one reopen ladder (~${GATE_LADDER_COST}) with work still pending (BL-0207)`)
  }
 }
 while (true) {
  try {
+ if (mainWriter) {
+  const h = mainWriter
+  if (!h.done) { await Promise.race([h.p, ...gatesInFlight.values()]); continue }
+  mainWriter = null
+  if (h.e) throw h.e
+  if (h.r === 'paused') { stopReason = 'paused-infra'; break }
+  continue
+ }
  if (infraHalt) { stopReason = 'paused-infra'; break }
  if (budget.total && budget.remaining() < LOW_BUDGET) { stopReason = 'budget'; log('Circuit breaker: budget ceiling reached — stopping at a safe point'); break }
  const workRemains = globalQueue.size > 0 || gateQueue.length > 0 || gatesInFlight.size > 0 || gateResults.length > 0 || convergeQueue.length > 0
@@ -3726,7 +3742,9 @@ while (true) {
  if (PARALLEL_GATES) {
   if (gateResults.length) {
    const idx = nextLandingIndex()
-   if (idx >= 0) { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx); continue }
+   const land = async () => { await topUpBeforeLanding(idx); await landParallelVerdict(false, idx) }
+   if (idx >= 0 && !FAST) { await land(); continue }
+   if (idx >= 0 && !pickFastFrd()) { holdMain(`land:${gateResults[idx].f.frd}`, land); continue }
    logLandingHolds()
   }
  } else {

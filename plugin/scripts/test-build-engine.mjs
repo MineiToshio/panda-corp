@@ -2284,6 +2284,95 @@ SCENARIOS.push({
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Proposal 40 Phase A (§3, §7 row 2): the fast lane's event loop. One holder of the main tree at a time (a build or a
+// landing: the main-writer mutex), gates racing beside it in their slots; a ready build is dispatched before a settled
+// verdict lands; a slot freed while a build holds main is refilled at once.
+// ─────────────────────────────────────────────────────────────────────────────
+const tick = (ms) => new Promise((res) => setTimeout(res, ms))
+const threeFrds = (tag) => fastPlan(['a', 'b', 'c'].map((x) => ({ frd: `frd-${tag}${x}`, ids: [`wo-${tag}${x}-001`] })))
+const builtNow = (call) => ({ wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) })
+{
+  // A's gate settles while B builds; when B is done, A's verdict is landable AND C is ready to build.
+  let gateA
+  const gateASettled = new Promise((res) => { gateA = res })
+  SCENARIOS.push({
+    name: 'apply-gate-never-blocks-dispatch — a verdict that settled while a build held main lands AFTER the next ready FRD is dispatched (builds are on the done path; a landing waits for a free main tree)',
+    args: { mode: 'balanced', ...FAST },
+    plan: threeFrds('n'),
+    responses: [
+      { label: 'gate:frd-na', response: () => { setTimeout(gateA, 30); return { green: true } } },
+      { label: 'fast-build:frd-nb', response: async (call) => { await Promise.race([gateASettled, tick(1500)]); await tick(30); return builtNow(call) } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const applyA = labelIdx(run, /^apply-gate:frd-na$/)
+      const dispatchC = labelIdx(run, /^dispatch:frd-nc$/)
+      t.ok(labelIdx(run, /^gate:frd-na$/) < labelIdx(run, /^verify:frd-nb$/), 'A\'s gate reviewed while B built')
+      t.ok(dispatchC >= 0 && applyA > dispatchC, `C is dispatched before A's verdict is applied (dispatch C ${dispatchC}, apply A ${applyA}; calls: ${run.calls.map((c) => c.label).join(' ')})`)
+      t.ok(applyA > labelIdx(run, /^verify:frd-nc$/), 'A lands once C\'s build released main (after C\'s verify)')
+      t.ok(run.result && ['frd-na', 'frd-nb', 'frd-nc'].every((f) => run.result.builtFrds.includes(f)), `all three VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+{
+  // Every main-tree writer is timed; two of them in flight at once is a mutex breach. A's gate REJECTS while B builds
+  // (its patch ladder lands on main), C's builder loses a receipt (the engine's own commit-wo lands it).
+  const mw = { active: [], overlaps: [], gateDuringBuild: false }
+  const MAIN_WRITER_RE = /^(dispatch|fast-build|fast-retry|recommit|verify|fix|apply-gate|gate-land|patch|verify-patch|certify-patch|port-reviewer-tests|reverify|block-usable|park):/
+  const asMainWriter = (answer) => async (call) => {
+    if (mw.active.length) mw.overlaps.push(`${call.label} while ${mw.active.join('+')}`)
+    mw.active.push(call.label)
+    await tick(10)
+    mw.active.splice(mw.active.indexOf(call.label), 1)
+    return typeof answer === 'function' ? answer(call) : answer
+  }
+  SCENARIOS.push({
+    name: 'main-writer-mutex-serializes-apply-patch-commit — builds (their commit-wo), the engine\'s own commit-wo, applies and the patch ladder never hold the main tree at the same time, while gates review beside them',
+    args: { mode: 'balanced', ...FAST },
+    plan: threeFrds('m'),
+    responses: [
+      { label: 'gate:frd-ma', response: async () => { await tick(15); mw.gateDuringBuild = mw.active.some((l) => /^fast-build:/.test(l)); return { green: false, reopen: ['wo-ma-001'], findings: [{ wo: 'wo-ma-001', finding: 'AC-ma not met', failingTest: 't.test.ts', files: ['src/ma.ts'] }], failure: 'AC-ma not met' } } },
+      { label: 'patch:frd-ma', response: asMainWriter({ green: false, failure: 'could not patch' }) },
+      { label: 'fast-build:frd-mb', response: asMainWriter(async (call) => { await tick(60); return builtNow(call) }) },
+      { label: 'fast-build:frd-mc', response: asMainWriter({ wos: [{ id: 'wo-mc-001', line: commitLine('wo-mc-001').replace('committed', 'COMMITTED') }] }) },
+      { label: 'recommit:wo-mc-001', response: asMainWriter({ line: mechLine('commit-wo', { status: 'committed', wo: 'wo-mc-001', sha: 'c0ffee000001' }) }) },
+      { label: MAIN_WRITER_RE, response: asMainWriter((call) => defaultResponse(call.label, call)) },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(mw.overlaps.length === 0, `no two main writers overlap (breaches: ${mw.overlaps.join('; ')})`)
+      t.ok(mw.gateDuringBuild, 'a gate reviewed while a build held main (the gates race beside the mutex holder)')
+      t.ok(byLabel(run, 'patch:frd-ma').length === 1 && byLabel(run, 'recommit:wo-mc-001').length === 1 && byLabel(run, /^apply-gate:/).length >= 2, 'the patch ladder, the engine\'s commit-wo and the applies all ran')
+      t.ok(run.result && run.result.blockedReasons['frd-ma'] === 'needs-owner' && ['frd-mb', 'frd-mc'].every((f) => run.result.builtFrds.includes(f)), 'A is held for the owner (USABLE, never discarded); B and C verify')
+    },
+  })
+}
+{
+  // One gate slot. A's gate holds it until C is building; B's gate is queued meanwhile. When A's gate settles, B's gate
+  // must take the freed slot while C's builder still holds main (bench FM-3: FRD-03's gate started 23 min late).
+  const st = { bDuringC: null }
+  let cStarted
+  const cIsBuilding = new Promise((res) => { cStarted = res })
+  let gateB
+  const gateBStarted = new Promise((res) => { gateB = res })
+  SCENARIOS.push({
+    name: 'gate-launches-when-slot-frees — a slot freed while a build holds main takes the next queued gate at once, not after the build',
+    args: { mode: 'balanced', ...FAST, gateSlots: 1 },
+    plan: threeFrds('s'),
+    responses: [
+      { label: 'gate:frd-sa', response: async () => { await Promise.race([cIsBuilding, tick(1500)]); return { green: true } } },
+      { label: 'gate:frd-sb', response: () => { gateB(); return { green: true } } },
+      { label: 'fast-build:frd-sc', response: async (call) => { cStarted(); st.bDuringC = await Promise.race([gateBStarted.then(() => true), tick(1500).then(() => false)]); return builtNow(call) } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(st.bDuringC === true, `B's gate took the freed slot while C's builder was running (bDuringC: ${st.bDuringC}; calls: ${run.calls.map((c) => c.label).join(' ')})`)
+      t.ok(run.result && ['frd-sa', 'frd-sb', 'frd-sc'].every((f) => run.result.builtFrds.includes(f)), `all three VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
 let passed = 0
