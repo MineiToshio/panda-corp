@@ -1097,6 +1097,17 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   release falls back to the opus close-out. The production-build smoke (`next build && next start` in a detached
   worktree, `e2e/prod-smoke.spec.ts`) runs alongside visual-qa and blocks the release on a CSP violation, a rendered
   error boundary or an empty `<main>`.
+- **The event loop (proposal 40 Phase 2 / §3 Phase A, `test-build-engine.mjs` `apply-gate-never-blocks-dispatch`,
+  `main-writer-mutex-serializes-apply-patch-commit`, `gate-launches-when-slot-frees`).** The main tree has ONE holder at a
+  time, the engine-side **main-writer mutex** (the scripts still take `main-writer.lock` per op): a BUILD (dispatch →
+  the FRD builder with its `commit-wo`/`park-wo` → the engine's own `commit-wo` → the scripted USABLE verify →
+  fix-forward/repair) or a LANDING (stale-pin guard and re-verify → `gate-land` → `apply-gate`, or the patch ladder).
+  Both run `verify.sh`, write work-order files or stage `docs/frds` on that one tree, so they never overlap. The
+  scheduler starts a holder and `Promise.race`s it against the gates in flight: a gate settle wakes it, and a slot freed
+  while the holder runs takes the next pinned gate at once (FM-3: FRD-03's gate waited 23 min for a free slot). A ready
+  build is started before a settled verdict lands (FM-3: an apply delayed a dispatch 2.8 min); a verdict lands when no
+  FRD is ready to build, which always includes the dependents that need its VERIFIED (floor). K stays 1 and there are
+  no worktrees (Phase B extends the same loop to lanes). Classic lane unchanged.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.

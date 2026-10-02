@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 2 — the fast lane's event loop and main-writer mutex
+
+**Why.** Proposal 40 §1/§3 Phase A: on FM-3 an apply-gate delayed the next FRD's dispatch by 2.8 min, and FRD-03's gate started 23 min after a slot freed, because the scheduler awaited each build (and each landing) inline: a slot that freed mid-build stayed idle until the build returned. The red-team (B1) cut the honest gain to about 4-5 min of done time and asked for a mutex.
+
+**What (fast lane only; [build-orchestration.md §5d](../../factory/standards/build-orchestration.md)):**
+1. **Main-writer mutex.** `holdMain` makes a build (dispatch, the builder and its `commit-wo`/`park-wo`, the engine's own `commit-wo`, the USABLE verify, fix-forward/repair) or a landing (stale-pin guard, re-verify, `gate-land`, `apply-gate`, the patch ladder) the ONE holder of the main tree; a second holder throws. The scripts keep `main-writer.lock` per op.
+2. **Event loop.** The scheduler starts the holder in the background and `Promise.race`s it against the gates in flight; brakes, the safe point and the next dispatch wait for the holder, whose outcome (a pause, a crash) is read once it settles.
+3. **Eager gates.** `laneTopUp` also refills while a build holds main (at every gate settle and agent boundary), pinned FRDs only.
+4. **Build first.** A settled verdict lands only when no FRD is ready to build.
+
+**Deviation from §3.** A landing never overlaps a build: its re-verify (`verify.sh` on main) over a builder's half-written work order would be a false reopen, and `apply-gate` stages `git add -u -- docs/frds`, which would sweep the builder's Status Note into its commit. "Apply never blocks a dispatch" is therefore met by ordering (build first), not by running both at once; VERIFIED can come later than before, done time earlier. True overlap needs Phase B's snapshot worktrees. Telemetry stays serial after the security step (both commit from agents; out of this phase's scope). To stay under the 450 KB artifact budget, four log tails were shortened and two duplicated log texts were shared (identical wording).
+
+**Tests:** `test-build-engine.mjs`: `apply-gate-never-blocks-dispatch`, `gate-launches-when-slot-frees` (both RED before), `main-writer-mutex-serializes-apply-patch-commit` (an invariant guard: proven RED by a mutant that lands a verdict while a build holds main).
+
 ## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 1 — the fast lane's tail made cheaper and its engine bugs fixed
 
 **Why.** Proposal 40 §1: after USABLE nothing ever changed an oracle result, yet the tail cost ~30 min on the small bench and +40.4 min on FM-3, and the opus close-out spent part of it doing engine-bug work: a security report the checker could not find (local vs UTC date), reviewer tests left untracked on main, new-route baselines the gate never blessed, plus the builder running the full suite 14 times (FM-3) and an opus rebuild of a WO that was already committed (F-3). §9 ships Lever 1 without the replay harness; this is its row 1 (§7), the engine-bug and plumbing fixes. Gate effort, the trap checklist and the patch ladder are later phases.
