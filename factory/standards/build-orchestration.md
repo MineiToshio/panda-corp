@@ -914,15 +914,22 @@ covers only verified FRDs (X5) exists (`audit-last-green.mjs`, BL-0190) and show
 the pool loudly instead of cleaning them (BL-0067). Flip the default only after a canary shows the gate segment
 shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs-owner.
 
-## 5d. The fast lane (opt-in flag, DR-124)
+## 5d. The fast lane (the default since 9.119.0, DR-124)
 
 `docs/proposals/39-fast-lane-implement.md` (its §11 orchestrator decision overrides §2 C4 S1/C5). **`args.lane`**
-(`'classic'` default, byte-identical; `'fast'` opt-in; launcher `--lane fast|classic`) and **`args.reviewBudget`**
-(`'now'` default | `'defer'`, fast lane only; launcher `--review-budget now|defer`, which requires `--lane fast`).
-The default flips to `fast` only after the pre-registered §9 measurement passes (small bench T_usable ≤ 2× the vanilla
-median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Each condition below is a tested behaviour
-(`test-build-engine.mjs` scenarios P39-* and F39-*, `test-build-mech.mjs`, `test-classify-change.mjs` case 15b, `test-product-floor.mjs`,
-`test-build-run-id.mjs` P39 launcher), not a guideline.
+(`'fast'` **default since 9.119.0**; `'classic'` the opt-out, byte-identical classic behaviour; any other value runs the
+default with a loud log; launcher `--lane fast|classic`, which always passes the effective lane explicitly) and
+**`args.reviewBudget`** (`'now'` default | `'defer'`, fast lane only; launcher `--review-budget now|defer`, refused with
+`--lane classic`). The default flipped on the owner-delegated small-bench measurement (`pandacorp-bench-form`): the
+classic lane (9.117/9.118) took 84.3, 51.4 and 58.6 min to done (oracle 151/151); the fast lane (runs F-2/F-3) was
+USABLE at 8.0 / 11.8 min with the oracle at 151/151 both at the USABLE commit and at the final VERIFIED commit, reached
+VERIFIED + close-out at 40.3 / 43.8 min, for ~17-19 $-eq against ~24-30; a vanilla single agent took 2.6-5.5 min
+(unreviewed). Medium bench: <pending>. Choose `--lane classic` when most of the build is floor code (USABLE rarely
+applies), when many independent FRDs would build faster in the classic parallel waves and only time to all-VERIFIED
+matters, or when nothing may reach `main` before its gate. Each condition below is a tested behaviour
+(`test-build-engine.mjs` scenarios P39-*, F39-*, `default-lane-is-fast` and `explicit-classic-is-classic`,
+`test-build-mech.mjs`, `test-classify-change.mjs` case 15b, `test-product-floor.mjs`, `test-build-run-id.mjs` P39 and
+9.119.0 launcher; `test-pandacorp-build.mjs` is the classic lane's suite and pins `lane:'classic'`), not a guideline.
 
 **Two safety flags, each reachable alone in either lane** (both on under `lane:'fast'`):
 - **`args.mechScript` (C1/C2).** Every MECH op is one literal command of `plugin/scripts/pandacorp-build-mech.mjs`
