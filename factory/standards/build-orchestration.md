@@ -1016,8 +1016,8 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   FRD's WOs, else the dispatch snapshot's base; it fails closed to floor only when neither exists.
 
 **The fast build shape (needs `mechScript`; `lane:'fast'` with `mechScript:false` builds classic waves).**
-- **Sequential FRD lanes on `main` (§11).** One FRD at a time in dependency order; no worktree lanes, no landing train,
-  no foundation split, no plan agent (`plan` reads the Build Plan order; a missing or drifted plan falls back to the
+- **Sequential FRD lanes on `main` (§11), at K = 1.** One FRD at a time in dependency order; no worktree lanes (those
+  run only at K ≥ 2: **Lanes, the engine scheduler** below), no landing train, no foundation split, no plan agent (`plan` reads the Build Plan order; a missing or drifted plan falls back to the
   plan agent). One committed `IN_PROGRESS` dispatch stamp per FRD; ONE worker-tier builder holds every WO brief, a
   `difficulty: high` one included (bench F-1: its own opus builder was 4.9 of 16.4 min), and commits each WO itself
   through `commit-wo` (or parks it); only a WO that already failed once (`reopen_count`) gets its own opus builder in
@@ -1178,13 +1178,48 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   never touched by a failed landing. `lane-bisect` runs `verify.sh` on 1-3 landed chains in parallel snapshot worktrees
   (the base before the first, then each tip) and names the first red tip; it never reverts. Lane state is gitignored
   run state (`.pandacorp/run/lanes/state.json`), and git wins over it: a live chain whose WOs are committed on main is
-  landed.
+  landed (with its landed range read from its WO commits, so a barrier is bisectable too). Stage B added `lane-next`
+  and `lane-usable` (`build-mech-lane-next.mjs`, where `lane-dispatch` moved too) and moved the long steps out of `lanes.lock`: `lane-pool` and `lane-dispatch` claim
+  under the lock and bootstrap/resync outside it (a booting lane is never free; a failed resync marks the lane
+  `broken` and releases the chain). `lane-plan` takes the engine's schedule (`--build`) and `--wait-verified f` (f's
+  IN_REVIEW WOs satisfy only f's own WOs: a floor or red FRD's dependents wait for its VERIFIED), and drops to K = 1
+  when fewer than two WOs could build beside the longest pending path (`gain-below-bootstrap`, MIN_LANE_GAIN).
+  `lane-next` is one scheduling round (state read before the WO graph; `--resume` re-dispatches every live chain of an
+  earlier run on its own lane and retires its parks (a park holds for one run); the barrier, then every free lane, the resyncs in parallel); its receipt is the engine's
+  whole view (dispatched, barrier, landQueue, needsFix, parked, blockedFrds, landedFrds, pool health). `lane-usable`
+  is USABLE for a lane-built FRD: one full `verify.sh` on the pinned SHA in the one snapshot worktree, the floor and the
+  injection scan over the FRD's OWN commits (its chains are interleaved with others), the committed `build_usable` line
+  (the same writer as `verify`), and on red the class (`own` / `cross`) and the bisect candidates (the chains landed
+  since the last green pin, ≤ 3). `fast-start --lane-plan` carries the lane K and dispatches nothing on main at K ≥ 2.
+- **Lanes, the engine scheduler (proposal 40 Phase 5 Stage B; `test-build-engine.mjs` `two-lanes-build-in-parallel`,
+  `schema-chain-pauses-landings (engine)`, `lane-park-blocks-only-descendants`, `usage-limit-global-pause-not-attempt`,
+  `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`;
+  `test-build-mech-lanes.mjs` Stage B; `test-build-run-id.mjs` `--lanes`).** `args.lanes` (launcher `--lanes N`, fast
+  lane only). K is decided ONCE, at the first fast step, after the first safe point drained every ready card into the
+  schedule (bare `/implement`, `--frds` and `--change` share the scheduler): the fused start's `lanes` when its probe
+  found no work, else one `lane-plan` op; `--lanes 1` skips it. K = 1 is the sequential build above, untouched. At
+  K ≥ 2 `lane-pool` boots beside the first work and `laneRound` drives the run: a `lane-next` round only when a lane can
+  take a chain (or the resume is pending); a lane job per dispatched chain (the fast builder pointed at its worktree:
+  its lane env and port, `commit-wo`/`park-wo` on the lane project, its own self-verify; up to 3 attempts, worker then
+  opus; then `lane-mark --as built` or `--as parked`); the main-writer holders, one at a time, in this priority: the
+  barrier (dispatch + builder on main), the USABLE fix-forward, `land-chain` (longest downstream first), then a
+  settled gate verdict. A chain landing completes an FRD → `lane-usable` beside the landings (one at a time) → green:
+  USABLE and the gate exactly as before (pinned at the verified SHA); red: `lane-bisect` when the class is `cross`, a
+  sonnet fix-forward on main naming the culprit chain, re-verify, then opus, then `BLOCKED: needs-owner` through the
+  never-discard hold — never a revert (a lane-landed FRD counts as USABLE for every discard guard). `needs-rebase-fix`
+  → one sonnet rebase-fix in the lane (`merge=union` attributes, one commit per WO), then the chain re-queues; a second
+  failure parks it. A parked chain blocks only its DAG descendants: reported at once, deferred to the next run, never
+  BLOCKED. The safe point runs at chain landings, never while a holder writes main. A usage limit is the global pause
+  of infraGuard: every lane's next agent call is refused, no attempt counted, nothing parked or reverted; the jobs
+  settle before the paused close, and the resume's first round after the pool is up passes `--resume`. If the pool
+  never comes up, every lane breaks or `lane-next` fails twice, the rest falls back to K = 1 on main. The result carries
+  `lanes: { k, parked, blockedFrds }`. The artifact budget rose to 480 000 bytes for this scheduler (decision log).
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
 
-**Not built in this release (recorded, not promised):** the engine's scheduling of lanes (the mech layer above ships;
-the event loop does not dispatch chains to worktrees yet) and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
+**Not built in this release (recorded, not promised):** the third gate slot (proposal 40 Phase C), the lane canaries of
+§6.4 and the FM-5 bench that decides whether K = 2 stays the default, and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
 refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: the product floor is a path/content
 heuristic (~90 % by design, the owner's trade): an auth or payment flow written with no recognisable library, path name
 or header escapes it until the opus gate, and a feature domain named `session` or `price` is floor; `commit-wo` runs only for single-WO
