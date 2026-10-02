@@ -924,7 +924,7 @@ default with a loud log; launcher `--lane fast|classic`, which always passes the
 classic lane (9.117/9.118) took 84.3, 51.4 and 58.6 min to done (oracle 151/151); the fast lane (runs F-2/F-3) was
 USABLE at 8.0 / 11.8 min with the oracle at 151/151 both at the USABLE commit and at the final VERIFIED commit, reached
 VERIFIED + close-out at 40.3 / 43.8 min, for ~17-19 $-eq against ~24-30; a vanilla single agent took 2.6-5.5 min
-(unreviewed). Medium bench: <pending>. Choose `--lane classic` when most of the build is floor code (USABLE rarely
+(unreviewed). Medium bench (4 FRDs / 10 WOs / REST + SQLite, hidden 289-test oracle): fast lane FM-3 all FRDs USABLE at 67.8 min with oracle 289/289 at the USABLE commit (first FRD USABLE at 28.7 min); classic 9.118.2 C-1 ≈132 min active, cut once by a usage limit (manual resume) and ended with FRD-04 BLOCKED needs-owner, 289/289; vanilla single agent 11.5-12.1 min, 285-289/289. Choose `--lane classic` when most of the build is floor code (USABLE rarely
 applies), when many independent FRDs would build faster in the classic parallel waves and only time to all-VERIFIED
 matters, or when nothing may reach `main` before its gate. Each condition below is a tested behaviour
 (`test-build-engine.mjs` scenarios P39-*, F39-*, `default-lane-is-fast` and `explicit-classic-is-classic`,
