@@ -965,6 +965,61 @@ console.log('verify: the USABLE check — clean tree, committed WOs, landed floo
   }
 }
 
+console.log('verify without --since: the landed range is derived (dispatch stamp history, then the dispatch snapshot), fail-closed only when unknowable')
+{
+  // Bench FM-1: the relay truncated the dispatch line's checksum, the engine lost the base and called verify with no
+  // --since, so a green non-floor FRD was classified floor ("the landed range is unknown") and never USABLE.
+  const VERIFY_GREEN = '#!/bin/sh\nmkdir -p .pandacorp/run\nprintf \'{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n\' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n'
+  const setup = ({ commitDispatch = true } = {}) => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write('.pandacorp/verify.sh', VERIFY_GREEN); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: the project gate')
+    const base = r.head()
+    const d = r.run('dispatch', ['--wo', 'WO-01-001', ...(commitDispatch ? ['--commit'] : [])])
+    if (!d.receipt || d.receipt.ok !== true) throw new Error(`fixture dispatch failed: ${d.line}`)
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001')
+    return { r, base }
+  }
+  const snapshot = (r) => r.abs('.pandacorp/run/dispatch/frd-01-alpha.json')
+  {
+    const { r, base } = setup()
+    try {
+      rmSync(snapshot(r))
+      const v = r.run('verify', ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001'])
+      ok(v.code === 0 && v.sealed && v.receipt.green === true && v.receipt.floor === false && v.receipt.usable === true, `no --since, no snapshot: the base is the parent of the FRD's committed dispatch stamp → classified, USABLE (got ${JSON.stringify(v.receipt && { f: v.receipt.floor, u: v.receipt.usable, h: v.receipt.floorHits })})`)
+      ok(v.receipt.since && base.startsWith(v.receipt.since) && v.receipt.sinceSource === 'dispatch-history', `the receipt names the derived base and its source (got ${v.receipt.since} ${v.receipt.sinceSource})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r } = setup()
+    try {
+      rmSync(snapshot(r))
+      r.write('src/app/api/alpha/route.ts', 'import Stripe from "stripe"\nexport async function POST() { return new Response(String(Stripe)) }\n')
+      r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001 route')
+      const v = r.run('verify', ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001'])
+      ok(v.receipt.floor === true && v.receipt.usable === false && v.receipt.floorHits.some((h) => /^P2: payment SDK/.test(h)), `the derived range is really classified: a landed stripe import is floor (got ${JSON.stringify(v.receipt.floorHits)})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup({ commitDispatch: false })
+    try {
+      const v = r.run('verify', ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001'])
+      ok(v.receipt.floor === false && v.receipt.usable === true && base.startsWith(v.receipt.since) && v.receipt.sinceSource === 'dispatch-snapshot', `no committed stamp: the dispatch snapshot's base is the range (got ${JSON.stringify(v.receipt && { f: v.receipt.floor, s: v.receipt.since, src: v.receipt.sinceSource, h: v.receipt.floorHits })})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r } = setup({ commitDispatch: false })
+    try {
+      rmSync(snapshot(r))
+      const v = r.run('verify', ['--frd', 'frd-01-alpha', '--wo', 'WO-01-001'])
+      ok(v.receipt.green === true && v.receipt.floor === true && v.receipt.usable === false && v.receipt.floorHits.some((h) => /landed range is unknown/.test(h)), `no --since, no stamp, no snapshot: genuinely unknowable → fail-closed floor (got ${JSON.stringify(v.receipt && v.receipt.floorHits)})`)
+    } finally { r.cleanup() }
+  }
+}
+
 console.log('precheck: USABLE is derived from the committed build_usable lines, so a later run still never auto-discards it')
 {
   const VERIFY_GREEN = '#!/bin/sh\nmkdir -p .pandacorp/run\nprintf \'{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n\' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n'

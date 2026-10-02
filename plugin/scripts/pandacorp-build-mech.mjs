@@ -51,8 +51,9 @@
 //                --classify --compact → drainable work → rollup sync → the first FRD's committed dispatch, ONE line;
 //                anything but the quiet common case hands back at its step. See build-mech-start.mjs.
 //   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone product-risk FRD floor (classify-change.mjs --product-floor), frontmatter `floor:`.
-//   verify       --frd <folder> --since <base> [--wo <id>]… [--floor]   the USABLE check (C6): clean tree (journals
-//                excepted), committed WOs, landed floor (or the engine's --floor), verify.sh on the clean SHA; green + not
+//   verify       --frd <folder> [--since <base>] [--wo <id>]… [--floor]   the USABLE check (C6): clean tree (journals
+//                excepted), committed WOs, landed floor over <base>..HEAD (no --since: the base is derived from the
+//                dispatch stamp commits, then the dispatch snapshot; unknowable → floor), verify.sh on the clean SHA; green + not
 //                floor → build_usable (track.jsonl commit + dashboard); `usable` only once that line is committed.
 //   gate-release --path <wt> --dir <evidence-dir>   BL-0182: salvage every dirty path of the gate worktree (+ its
 //                gitignored gate report) to <dir>, then clean exactly those paths.
@@ -64,7 +65,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
@@ -112,7 +113,6 @@ function parseArgs(argv) {
 }
 
 // ── dispatch snapshots and park leftovers (gitignored run state) ──────────────────────────────────
-const dispatchSnapshotFile = (ctx, frd) => path.join(ctx.project, '.pandacorp', 'run', 'dispatch', `${frd}.json`)
 const parkedDir = (ctx) => path.join(ctx.project, '.pandacorp', 'run', 'parked')
 const parkedFile = (ctx, id) => path.join(parkedDir(ctx), `${id.toUpperCase()}.json`)
 /** The parked records are run state of one dispatch: the precheck and every dispatch clear them. */

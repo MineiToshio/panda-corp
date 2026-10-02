@@ -3545,7 +3545,7 @@ async function fastBuildFrd(frd) {
  const prefix = pendingSyncRollups || ''
  pendingSyncRollups = null
  const d = pre ? { body: pre } : await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
- if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; the landed floor is then fail-closed`)
+ if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; verify derives the landed range from the dispatch history`)
  const since = (d.body && d.body.ok === true && d.body.base) || null
  try {
   let missed = []

@@ -21,6 +21,8 @@ export const JOURNALS = Object.freeze(['.pandacorp/track.jsonl', '.pandacorp/bui
 export const ENGINE_FM_KEYS = Object.freeze(['implementation_status', 'reopen_count', 'blocked_reason'])
 /** The lease projection: written by the fenced state CLI while a run holds the lease, committed by that writer only. */
 export const PROJECTION = '.pandacorp/status.yaml'
+/** Where `dispatch` records an FRD's dispatch snapshot (its base, the dirt then present and its hashes): gitignored run state. */
+export const dispatchSnapshotFile = (ctx, frd) => path.join(ctx.project, '.pandacorp', 'run', 'dispatch', `${frd}.json`)
 export const WO_FILE_RE = /^docs\/frds\/[^/]+\/work-orders\/(?!README\.md$)[^/]+\.md$/i
 
 /** An input the script cannot act on: exit 2, never a quiet success. */

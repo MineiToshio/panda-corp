@@ -8,7 +8,8 @@
 //                 test fixtures, framework config or the factory's oracles) over its declared artifacts, or over a
 //                 landed range, written to the FRD frontmatter `floor:` — monotone, never lowered;
 //   verify        the USABLE check of one built FRD: clean tree (the shared append-only journals excepted: a gate in a
-//                 parallel slot appends to them at any time), every work order committed IN_REVIEW, the landed floor (or
+//                 parallel slot appends to them at any time), every work order committed IN_REVIEW, the landed floor over
+//                 `--since`..HEAD (absent: derived from the dispatch stamp history, then the dispatch snapshot) (or
 //                 the engine's own `--floor` verdict), then `verify.sh` on that clean SHA; green and not floor → ONE
 //                 committed build_usable line (it sweeps the journals' pending lines) and only then `usable` + the event.
 // Every op returns { code, body } for the CLI's one sealed line; nothing here prints.
@@ -18,7 +19,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
@@ -301,6 +302,27 @@ function readReport(ctx, exit, headFull) {
   const failure = red ? `${red.name}: ${rows.join(' | ') || `exit ${red.exit}`}` : (exit !== 0 ? `verify.sh exited ${exit}` : '')
   return { green: exit === 0 && rep.green === true, scope, failure }
 }
+/**
+ * The base of an FRD's landed range when the engine could not pass one (bench FM-1: the relay altered the dispatch
+ * receipt, so its `base` was lost). Derived from durable state only, oldest-first so the range never shrinks:
+ * (1) the parent of the oldest current IN_PROGRESS stamp commit of these work orders (every one must carry one);
+ * (2) the FRD's dispatch snapshot base, while it is an ancestor of HEAD. Null when neither exists: genuinely unknown.
+ * @returns {{ base: string, source: 'dispatch-history'|'dispatch-snapshot' }|null}
+ */
+export function landedBase(ctx, frd, rels) {
+  const isAncestor = (a, b) => ctx.g.run(['merge-base', '--is-ancestor', a, b]).ok
+  const stamps = rels.map((rel) => inReviewWindow(ctx, rel).stamps)
+  if (rels.length && stamps.every((x) => x.length)) {
+    const all = unique(stamps.flat())
+    const oldest = all.find((s) => all.every((o) => isAncestor(s, o)))
+    const parent = oldest ? ctx.g.run(['rev-parse', '--verify', '-q', `${oldest}^`]) : null
+    if (parent && parent.ok) return { base: parent.out.trim(), source: 'dispatch-history' }
+  }
+  let snap = null
+  try { snap = JSON.parse(readFileSync(dispatchSnapshotFile(ctx, frd), 'utf8')) } catch { snap = null }
+  if (snap && snap.frd === frd && typeof snap.base === 'string' && /^[0-9a-f]{7,40}$/i.test(snap.base) && isAncestor(snap.base, 'HEAD')) return { base: snap.base, source: 'dispatch-snapshot' }
+  return null
+}
 export function verifyOp(o) {
   if (o.frds.length !== 1) throw new InputError('verify needs exactly one --frd <folder>')
   const frd = o.frds[0]
@@ -311,7 +333,11 @@ export function verifyOp(o) {
   if (dirty.length) throw new Refusal('dirty', `the tree is not clean (${dirty.join(', ')}): USABLE is certified only on a clean landed SHA`, { paths: dirty })
   const notIn = o.wos.map((id) => findWo(ctx, id)).filter((w) => frontmatterStatus(blobAt(ctx, 'HEAD', w.rel)) !== 'IN_REVIEW').map((w) => w.id)
   if (notIn.length) throw new Refusal('uncommitted', `${notIn.join(', ')} not committed IN_REVIEW at HEAD — nothing to certify`, { wos: notIn })
-  const landed = o.since ? classifyFrds(ctx, [f], { range: `${o.since}..HEAD`, lockWaitMs: o.lockWaitMs }).results[0] : { floor: true, changed: false, floorHits: ['no --since: the landed range is unknown — fail-closed'] }
+  // Without --since the range is derived (landedBase); fail-closed to floor only when it is genuinely unknowable.
+  const derived = o.since ? null : landedBase(ctx, frd, (o.wos.length ? o.wos.map((id) => findWo(ctx, id).rel) : f.wos.map((w) => w.rel)))
+  const since = o.since || (derived && derived.base) || null
+  const sinceSource = o.since ? 'engine' : derived ? derived.source : null
+  const landed = since ? classifyFrds(ctx, [f], { range: `${since}..HEAD`, lockWaitMs: o.lockWaitMs }).results[0] : { floor: true, changed: false, floorHits: ['no --since and no dispatch stamp or snapshot: the landed range is unknown — fail-closed'] }
   // The engine's verdict is fail-closed and in memory (an unreadable plan-time classification): it can only add floor.
   const floor = landed.floor || o.floor === true
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
@@ -343,7 +369,7 @@ export function verifyOp(o) {
   }
   const usable = Boolean(usableCommit)
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
-  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
+  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
 }
 
 // ── USABLE across runs (C6) ────────────────────────────────────────────────────────────────────

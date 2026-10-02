@@ -5686,7 +5686,10 @@ async function fastBuildFrd(frd) {
   const prefix = pendingSyncRollups || ''
   pendingSyncRollups = null
   const d = pre ? { body: pre } : await runMechOp('dispatch', `${ids.map((id) => `--wo ${shellQuote(id)}`).join(' ')} --commit`, { label: `dispatch:${frd}`, prefix })
-  if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; the landed floor is then fail-closed`)
+  // The landed range's base: the dispatch receipt's. When that receipt is lost (bench FM-1: the relay altered its
+  // checksum) verify runs without --since and derives the base itself from the committed dispatch stamp (then the
+  // dispatch snapshot); it falls back to floor only when the range is genuinely unknowable.
+  if (!d.body || d.body.ok !== true) log(`⚠ ${frd}: dispatch stamp not confirmed (${d.error || (d.body && (d.body.reason || d.body.error))}) — building anyway; verify derives the landed range from the dispatch history`)
   const since = (d.body && d.body.ok === true && d.body.base) || null
   try {
     let missed = []

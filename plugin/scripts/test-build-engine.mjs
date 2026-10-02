@@ -1863,6 +1863,41 @@ SCENARIOS.push({
   },
 })
 
+const F38_PLAN = fastPlan([{ frd: 'frd-fb', ids: ['WO-01-001', 'WO-01-002'] }])
+const F38_HANDOFF = fusedStart(F38_PLAN, { status: 'handoff', stage: 'plan', plan: { ok: true, status: 'no-build-plan', reason: 'frd-fb: WO-01-001 dependency drift' }, synced: undefined, dispatch: undefined })
+// Bench FM-1: the relay dropped two digits of the dispatch line's checksum, so the receipt failed its seal and its base was lost.
+const truncatedSum = (line) => line.replace(/"sum":"([0-9a-f]{12})[0-9a-f]{2}"/, '"sum":"$1"')
+SCENARIOS.push({
+  name: 'F39-38. fast-lane-fallback-plan-still-usable — bench FM-1: the fused start hands off at the plan → the plan agent → build → verify gets the landed range → USABLE for a non-floor FRD; a lost dispatch receipt leaves the range to the verify op (derived from the dispatch history), never a blanket floor',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F38_PLAN,
+  noPlanLine: true,
+  responses: [F38_HANDOFF, { label: 'verify:frd-fb', response: { line: mechLine('verify', { status: 'green', frd: 'frd-fb', green: true, usable: true, floor: false, since: 'd15pa7cbase0', sinceSource: 'engine', sha: 'fb0000000001', scope: 'full' }) } }],
+  next: () => ({
+    args: { mode: 'balanced', ...FUSED },
+    plan: F38_PLAN,
+    noPlanLine: true,
+    responses: [
+      F38_HANDOFF,
+      { label: 'dispatch:frd-fb', response: { line: truncatedSum(mechLine('dispatch', { status: 'stamped', stamped: ['WO-01-001', 'WO-01-002'], committed: 'd15pa7c00036', base: 'd15pa7cbase6' })) } },
+      { label: 'verify:frd-fb', response: { line: mechLine('verify', { status: 'green', frd: 'frd-fb', green: true, usable: true, floor: false, since: 'd15pa7cbase6', sinceSource: 'dispatch-history', sha: 'fb0000000002', scope: 'full' }) } },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'plan').length === 1 && byLabel(run, /^floor:frd-fb$/).length === 1, 'the handoff runs the plan agent once, and the scripted floor classifies the FRD')
+    const v = byLabel(run, 'verify:frd-fb')
+    t.ok(v.length === 1 && /--since 'd15pa7cbase0'/.test(v[0].prompt) && !/--floor/.test(v[0].prompt), `the fallback path passes the dispatch base to verify, no blanket --floor (got ${v[0] && v[0].prompt.slice(v[0].prompt.indexOf(' verify '), v[0].prompt.indexOf(' verify ') + 160)})`)
+    t.ok(run.result && JSON.stringify(run.result.usable) === JSON.stringify([{ frd: 'frd-fb', sha: 'fb0000000001' }]), `USABLE (got ${run.result && JSON.stringify(run.result.usable)})`)
+    const two = run.next
+    t.ok(two && !two.error, `run 2 threw: ${two && two.error && (two.error.stack || two.error)}`)
+    const v2 = two ? byLabel(two, 'verify:frd-fb') : []
+    t.ok(v2.length === 1 && !/--since/.test(v2[0].prompt) && !/--floor/.test(v2[0].prompt), 'a lost dispatch receipt: verify runs without --since and without --floor (the script derives the base)')
+    t.ok(two && JSON.stringify(two.result && two.result.usable) === JSON.stringify([{ frd: 'frd-fb', sha: 'fb0000000002' }]), `still USABLE (got ${two && JSON.stringify(two.result && two.result.usable)})`)
+    t.ok(two && hasLog(two, /dispatch.*(not confirmed|unverifiable).*verify derives/i) && !hasLog(two, /landed floor is then fail-closed/), 'the log says the verify op derives the range, not that the floor is fail-closed')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
