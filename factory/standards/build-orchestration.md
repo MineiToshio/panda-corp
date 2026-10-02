@@ -1100,7 +1100,10 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   a sonnet cross-feature review runs first only when two or more built FRDs are linked, and anything the script cannot
   release falls back to the opus close-out. The production-build smoke (`next build && next start` in a detached
   worktree, `e2e/prod-smoke.spec.ts`) runs alongside visual-qa and blocks the release on a CSP violation, a rendered
-  error boundary or an empty `<main>`.
+  error boundary, an empty `<main>` or a page that never hydrates. It reads each route only once the page has
+  HYDRATED (`data-hydrated`, else React's private keys) and SETTLED (no script load, console/page error or CSP event
+  for 1.5 s, bounded at 10 s, never `networkidle`), so a client chunk that evaluates code after `load` is seen; the
+  observer (`observeProdPage`) is proven by a real Chromium on a strict-CSP fixture in `test-prod-smoke.mjs`.
 - **The event loop (proposal 40 Phase 2 / §3 Phase A, `test-build-engine.mjs` `apply-gate-never-blocks-dispatch`,
   `main-writer-mutex-serializes-apply-patch-commit`, `gate-launches-when-slot-frees`).** The main tree has ONE holder at a
   time, the engine-side **main-writer mutex** (the scripts still take `main-writer.lock` per op): a BUILD (dispatch →

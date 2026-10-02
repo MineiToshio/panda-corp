@@ -6,6 +6,8 @@
 // Run: node plugin/scripts/test-prod-smoke.mjs
 
 import { spawnSync } from 'node:child_process'
+import http from 'node:http'
+import { createRequire } from 'node:module'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,7 +17,7 @@ import { verifySealedLine } from './drift-seal.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TEMPLATE = path.resolve(__dirname, '../templates/stack-a-nextjs')
-const { judgeProdPage, NEXT_DEFAULT_ERROR } = await import(path.join(TEMPLATE, 'e2e/_prod-smoke.ts'))
+const { judgeProdPage, observeProdPage, NEXT_DEFAULT_ERROR } = await import(path.join(TEMPLATE, 'e2e/_prod-smoke.ts'))
 let pass = 0
 let fail = 0
 const ok = (cond, msg) => { if (cond) { pass++; console.log(`  ✓ ${msg}`) } else { fail++; console.log(`  ✗ ${msg}`) } }
@@ -41,7 +43,58 @@ console.log('prod smoke judge: error boundary, empty <main>, HTTP status; a clea
   ok(judgeProdPage(page({ errorBoundary: true })).reasons.includes('rendered an error boundary'), 'a rendered error boundary is red even with a clean console')
   ok(judgeProdPage(page({ status: 500 })).reasons.includes('HTTP 500') && judgeProdPage(page({ status: 0 })).green === false, 'HTTP ≥ 400 or no response is red')
   ok(judgeProdPage(page({ consoleErrors: ['Failed to load resource: favicon.ico 404'] })).green === true, 'an unrelated console error does not red the production smoke (the dev smoke owns those)')
+  ok(judgeProdPage(page({ hydrated: false })).reasons.includes('never hydrated') && judgeProdPage(page({ hydrated: true })).green === true, 'a page that never hydrated is red; a hydrated clean page is green')
   ok(NEXT_DEFAULT_ERROR.test('Application error: a client-side exception has occurred (see the browser console for more information).'), 'Next\'s default production error page is recognised as an error boundary')
+}
+// FIX ROUND 1 (review of proposal 40): the smoke read its verdict right after `load`, before hydration and before a
+// lazily loaded client chunk ran, so the ppv2 f4ed29a shape (a client component evaluating code under the production
+// CSP, falling to its error boundary) passed. A real browser against a strict-CSP fixture: the late violation must red.
+console.log('prod-smoke-waits-for-hydration: a CSP violation raised after hydration by a lazy client chunk is red (real browser)')
+{
+  // Playwright is not a plugin dependency: borrow the factory's own Mission Control install (or PANDACORP_PLAYWRIGHT_DIR).
+  const common = spawnSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: __dirname, encoding: 'utf8' }).stdout.trim()
+  const dirs = [process.env.PANDACORP_PLAYWRIGHT_DIR, path.resolve(__dirname, '../../mission-control'), common && path.resolve(common, '..', 'mission-control')].filter(Boolean)
+  let pw = null
+  for (const d of dirs) { try { pw = createRequire(path.join(d, 'package.json'))('@playwright/test'); break } catch { pw = null } }
+  ok(pw !== null, `@playwright/test resolvable for the real-browser fixture (looked in ${dirs.join(', ')})`)
+  if (pw) {
+    const CSP = "script-src 'self' 'nonce-pc1'; object-src 'none'"
+    const shell = (body) => `<!doctype html><html><head><meta charset="utf-8"></head><body><main>Hello world, the server-rendered post body.</main>${body}</body></html>`
+    const pages = {
+      // Hydration completes at ~100 ms; a lazily loaded client chunk then evaluates code (MDX compiled in the browser).
+      '/late-csp': shell(`<script nonce="pc1">setTimeout(() => { document.documentElement.setAttribute('data-hydrated', ''); setTimeout(() => { const s = document.createElement('script'); s.src = '/chunk-mdx.js'; document.head.append(s) }, 300) }, 100)</script>`),
+      // A clean page holding a never-ending SSE stream: the settle must not depend on network idle (DR-071).
+      '/clean-sse': shell(`<script nonce="pc1">setTimeout(() => { document.documentElement.setAttribute('data-hydrated', ''); new EventSource('/sse') }, 100)</script>`),
+      // A page whose client code never hydrates: fail-closed, never a silent green.
+      '/never-hydrates': shell(''),
+    }
+    const server = http.createServer((req, res) => {
+      if (req.url === '/chunk-mdx.js') {
+        setTimeout(() => { res.writeHead(200, { 'content-type': 'text/javascript' }); res.end("try { new Function('return 1')() } catch (e) { console.error(String(e)); document.querySelector('main').innerHTML = '<div data-error-boundary>Algo salió mal</div>' }") }, 300)
+        return
+      }
+      if (req.url === '/sse') { res.writeHead(200, { 'content-type': 'text/event-stream' }); res.write(': open\n\n'); return }
+      const html = pages[req.url]
+      res.writeHead(html ? 200 : 404, { 'content-type': 'text/html', 'content-security-policy': CSP })
+      res.end(html || 'not found')
+    })
+    await new Promise((r) => server.listen(0, '127.0.0.1', r))
+    const base = `http://127.0.0.1:${server.address().port}`
+    const browser = await pw.chromium.launch()
+    const visit = async (route) => {
+      const ctx = await browser.newContext({ baseURL: base })
+      const pg = await ctx.newPage()
+      try { const t0 = Date.now(); const o = await observeProdPage(pg, route, { hydrationTimeoutMs: 3000 }); return { o, v: judgeProdPage(o), ms: Date.now() - t0 } } finally { await ctx.close() }
+    }
+    try {
+      const late = await visit('/late-csp')
+      ok(late.v.green === false && late.v.reasons.some((r) => /^CSP violation/.test(r)) && late.v.reasons.includes('rendered an error boundary'), `the late CSP violation and its error boundary are seen (got ${JSON.stringify(late.v.reasons)})`)
+      const clean = await visit('/clean-sse')
+      ok(clean.v.green === true && clean.ms < 10000, `a clean hydrated page with an open SSE stream is green and settles in bounded time (got ${JSON.stringify(clean.v.reasons)} in ${clean.ms} ms)`)
+      const never = await visit('/never-hydrates')
+      ok(never.v.green === false && never.v.reasons.some((r) => /hydrat/.test(r)), `a page that never hydrates is red (got ${JSON.stringify(never.v.reasons)})`)
+    } finally { await browser.close(); server.closeAllConnections(); server.close() }
+  }
 }
 console.log('prod smoke report: the engine reads the spec\'s per-route lines, fail-closed')
 {
@@ -61,7 +114,8 @@ console.log('prod smoke harness: the production artifact under PANDACORP_PROD_SM
   ok(/reuseExistingServer:\s*!PROD_SMOKE &&/.test(cfg), 'the production smoke never reuses an already-running (dev) server')
   ok(/next dev --hostname 127\.0\.0\.1 --port \$\{PORT\}/.test(cfg), 'every other run still serves next dev')
   const spec = readFileSync(path.join(TEMPLATE, 'e2e/prod-smoke.spec.ts'), 'utf8')
-  ok(/test\.skip\(!process\.env\.PANDACORP_PROD_SMOKE/.test(spec) && /BLESSED/.test(spec) && /prod-samples\.json/.test(spec) && /securitypolicyviolation/.test(spec), 'the spec skips outside the prod smoke, visits the blessed routes + the dynamic samples, and listens for CSP violation events')
+  ok(/observeProdPage\(page, route\)/.test(spec) && !/waitUntil/.test(spec) && !/__pcCsp/.test(spec), 'the spec observes through the shared observeProdPage (hydration + settle), never its own load-time read')
+  ok(/test\.skip\(!process\.env\.PANDACORP_PROD_SMOKE/.test(spec) && /BLESSED/.test(spec) && /prod-samples\.json/.test(spec) && /securitypolicyviolation/.test(readFileSync(path.join(TEMPLATE, 'e2e/_prod-smoke.ts'), 'utf8')), 'the spec skips outside the prod smoke, visits the blessed routes + the dynamic samples, and (through its observer) listens for CSP violation events')
 }
 console.log('prod-smoke op: a project without the harness is red (fail-closed), never a skip')
 {
