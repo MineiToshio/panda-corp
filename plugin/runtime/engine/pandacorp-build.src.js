@@ -6570,16 +6570,19 @@ const NEEDS_HARDENING_OPTS = () => ({ label: 'close-needs-hardening', phase: 'Re
 // ── Proposal 40 §2: the fast lane's release tail ───────────────────────────────────────────────────────────────
 // The production-build smoke runs in its own detached worktree (never a gate slot, never the main tree) on a port outside
 // the slots' 3800 + 10·k and the bootstrap hash range. It never rejects: an infra error is carried to its await site, and
-// an unverifiable line is retried once, then red (fail-closed).
+// an unverifiable line is retried once, then red (fail-closed). It judges the commit at its start (`sha`); the hardening
+// and visual-qa may commit product code after it, so the scripted close certifies the release only on that commit
+// (`close --smoke-sha`, refused `stale-smoke` otherwise) and the engine re-smokes HEAD once.
 const PROD_SMOKE_WORKTREE = `${GATE_WORKTREE}-smoke`
+const PROD_SMOKE_FLAGS = () => `--path ${shellQuote(PROD_SMOKE_WORKTREE)} --port ${GATE_SLOT_PORT_BASE + 90}`
 async function runProdSmoke() {
   try {
     let r = null
-    for (let i = 0; i < 2 && !(r && r.body); i++) { agentSpawned++; r = await runMechOp('prod-smoke', `--path ${shellQuote(PROD_SMOKE_WORKTREE)} --port ${GATE_SLOT_PORT_BASE + 90}`, { label: 'prod-smoke', phase: 'Review' }) }
+    for (let i = 0; i < 2 && !(r && r.body); i++) { agentSpawned++; r = await runMechOp('prod-smoke', PROD_SMOKE_FLAGS(), { label: 'prod-smoke', phase: 'Review' }) }
     const b = r.body || {}
     const failure = b.green === true ? '' : b.failure || b.reason || r.error
     log(`◦ production-build smoke: ${failure || 'green'}`)
-    return { green: !failure, failure }
+    return { green: !failure, failure, sha: b.head || b.sha }
   } catch (e) { return { green: false, failure: String(e), infraError: isInfraError(e) ? e : null } }
 }
 // The cross-feature review runs only when two or more built FRDs are linked (sonnet, high); a seam it reopens makes the
@@ -6596,21 +6599,35 @@ async function crossFeatureReview() {
   return false
 }
 // The scripted release close: the fail-closed asserts, ONE full verify.sh, phase release, the fenced lease release — one
-// op. A building change card is archived first; anything else it cannot release falls back to the opus close-out.
-async function scriptedReleaseClose(vq, fallback) {
-  const flags = `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${vq ? ` --ui-skip ${shellQuote(vq.reason)} --ui-skip-frds ${shellQuote(builtFrds.join(','))}${vq.degraded ? ' --visual-qa degraded' : ''}` : ''}`
-  const closeOnce = async () => { agentSpawned++; return await runMechOp('close', flags, { label: 'close-scripted', phase: 'Review' }) }
+// op. A building change card is archived first; anything else it cannot release falls back to the opus close-out. With a
+// production smoke, the close is handed the SHA it judged: `stale-smoke` (product code moved past it) re-smokes HEAD once,
+// and a red re-smoke returns { smokeRed } so the caller takes the not-released close.
+async function scriptedReleaseClose(vq, smoke, fallback) {
+  let smokeSha = smoke && smoke.sha
+  const flags = () => `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${vq ? ` --ui-skip ${shellQuote(vq.reason)} --ui-skip-frds ${shellQuote(builtFrds.join(','))}${vq.degraded ? ' --visual-qa degraded' : ''}` : ''}${smokeSha ? ` --smoke-sha ${shellQuote(smokeSha)}` : ''}`
+  const closeOnce = async () => { agentSpawned++; return await runMechOp('close', flags(), { label: 'close-scripted', phase: 'Review' }) }
   let c = await closeOnce()
   if (c.body && c.body.status === 'archive-pending') {
     agentSpawned++
     await agent(`${archiveChangesBody}\nReturn { done: true }.`, { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
     c = await closeOnce()
   }
+  if (smoke && c.body && c.body.status === 'stale-smoke') {
+    log(`◦ ${c.body.reason}`)
+    const again = await runProdSmoke()
+    if (again.infraError) throw again.infraError
+    if (!again.green) return { smokeRed: again.failure }
+    smokeSha = again.sha
+    c = await closeOnce()
+  }
   const b = c.body
-  log(`◦ scripted close: ${c.error || `${b.status} ${b.failure || b.reason || b.verify}`}`)
+  log(`◦ scripted close: ${c.error || (b ? `${b.status} ${b.failure || b.reason || b.verify}` : 'no receipt')}`)
   if (b && b.ok === true && b.status === 'released') return { done: true }
-  return await fallback()
+  return await fallback(smokeSha)
 }
+// The opus fallback close's own smoke-currency assert (fast lane, frontend): it may commit fixes after the smoke judged
+// `sha`, so before phase release it re-smokes HEAD whenever product code moved past it (the scripted close's rule).
+const SMOKE_CURRENT_ASSERT = (sha) => ` PRODUCTION-BUILD SMOKE (fail-closed): it judged ${sha}. Last, before phase: release: if \`git -C ${shellQuote(PROJECT_DIR)} diff --name-only ${sha} HEAD -- . ':!.pandacorp' ':!docs'\` prints anything, run \`${mechOpCommand('prod-smoke', PROD_SMOKE_FLAGS())}\`; unless its line's status is "green", do NOT set phase: release and return done:false naming the smoke.`
 
 // The close-out prompts' shared text (both close-out shapes, lean and legacy, send these byte-for-byte).
 const crossCloseHead = (reuse) => `All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): ${SEAM_CHECK}${GATE_SKIP}${reuse.canReuse ? ` THEN — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuse)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuse.headSha, reuse.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
@@ -6706,23 +6723,29 @@ if (LEAN_CLOSE_OUT) {
     const { sec, telem, hardened } = await runHardeningChain()
     phase('Review')
     // The opus release close-out (the classic lane's, and the fast lane's fallback when its scripted close cannot release).
-    const llmReleaseClose = async () => {
+    const llmReleaseClose = async (smokeSha) => {
       agentSpawned += COST(P.judge)
       const reuseLeanCloseOut = await checkFullVerifyReuse()
-      const out = await agent(`${archiveStep}${crossCloseHead(reuseLeanCloseOut)} (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${crossCloseTail()}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${CROSS_CLOSE_NOTIFY}`,
+      const out = await agent(`${archiveStep}${crossCloseHead(reuseLeanCloseOut)} (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${crossCloseTail()}${smokeSha ? SMOKE_CURRENT_ASSERT(smokeSha) : ''}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${CROSS_CLOSE_NOTIFY}`,
         CLOSE_OUT_OPTS())
       // WS-A/D5: don't assert success the close-out did not confirm — a dead close-out returns done:false
       // (the fail-safe below then guarantees running:false); log honestly instead of a blanket "verified".
       logReleaseOutcome(out)
       return out
     }
-    if (hardened && !smokeRed) {
-      closed = FAST ? await scriptedReleaseClose(visualQaState, llmReleaseClose) : await llmReleaseClose()
-    } else {
+    // Not released: the hardening is incomplete or the production smoke is red (before the release or on its re-smoke).
+    const needsHardeningClose = async (red) => {
       agentSpawned++
-      closed = await agent(`${archiveStep}${hardeningIncompleteHead(sec, telem)}${smokeRed ? `; production-build smoke: RED — ${smokeRed}` : ''}${HARDENING_INCOMPLETE_MID}Do NOT touch \`phase\` (KEEP it implementation) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once status.yaml/decisions.md reflect the above AND this terminal lease release succeeded.${HARDENING_INCOMPLETE_NOTIFY}`,
+      const out = await agent(`${archiveStep}${hardeningIncompleteHead(sec, telem)}${red ? `; production-build smoke: RED — ${red}` : ''}${HARDENING_INCOMPLETE_MID}Do NOT touch \`phase\` (KEEP it implementation) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once status.yaml/decisions.md reflect the above AND this terminal lease release succeeded.${HARDENING_INCOMPLETE_NOTIFY}`,
         NEEDS_HARDENING_OPTS())
       logRunEnded(false)
+      return out
+    }
+    if (hardened && !smokeRed) {
+      closed = FAST ? await scriptedReleaseClose(visualQaState, smoke, llmReleaseClose) : await llmReleaseClose()
+      if (closed && closed.smokeRed) closed = await needsHardeningClose(closed.smokeRed)
+    } else {
+      closed = await needsHardeningClose(smokeRed)
     }
   } else {
     // BL-0159: carry the concrete failure TEXT alongside each blocked_reason code — the engine's OWN

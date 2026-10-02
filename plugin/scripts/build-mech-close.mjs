@@ -12,9 +12,11 @@
 //                   have NO emitter in the code fails loud (`no-emitters`). A plan with no events → not applicable (and
 //                   --write-na records its verification section when missing).
 //   close           --token T --epoch E [--max-age 900] [--ui-skip <reason> --ui-skip-frds <a,b>] [--visual-qa degraded]
+//                   [--smoke-sha <sha>]
 //                   the release close, scripted: the fail-closed release asserts (every FRD rollup VERIFIED, a fresh
 //                   security report, the telemetry verification when a plan exists, no building change card left to
-//                   archive), ONE full verify.sh (or a reusable script-sealed report of HEAD), the journal gold, phase
+//                   archive, and with --smoke-sha no product code past the commit the production smoke judged:
+//                   `stale-smoke` otherwise), ONE full verify.sh (or a reusable script-sealed report of HEAD), the journal gold, phase
 //                   release, then the fenced two-phase lease release. Refuses at the first failed assert; it never
 //                   judges a seam (that is the cross-feature review's job, spawned by the engine only when needed).
 //   prod-smoke      --path <worktree> [--port N] [--sha <sha>]
@@ -50,6 +52,24 @@ function commitPaths(ctx, o, paths, message) {
     if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...all]); throw new Refusal('commit-failed', `${message.split('\n')[0]}: the commit failed: ${(c.err || 'no output').split('\n').slice(-2).join(' | ')}`) }
     return ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
   } finally { releaseLock(lock) }
+}
+
+/**
+ * The paths no production build reads: the project's state layer and its root docs/ tree (the same pathspec the
+ * security delta excludes). A commit touching only these after the smoke leaves the smoked artifact current.
+ */
+const SMOKE_INERT_SPEC = ['--', '.', ':(exclude).pandacorp', ':(exclude)docs']
+/**
+ * Has product code moved past the commit the production smoke judged? Fail-closed: a smoked commit outside HEAD's
+ * history, or an unreadable diff, is stale.
+ * @returns {null | { reason: string, paths: string[] }} null when the smoke still judges HEAD's product code
+ */
+export function smokeDrift(ctx, sha) {
+  if (ctx.g.run(['merge-base', '--is-ancestor', sha, 'HEAD']).ok !== true) return { reason: `the smoked commit ${sha} is not in HEAD's history`, paths: [] }
+  const names = ctx.g.run(['diff', '--relative', '--name-only', '--no-renames', `${sha}..HEAD`, ...SMOKE_INERT_SPEC])
+  if (!names.ok) return { reason: `${sha}..HEAD could not be read`, paths: [] }
+  const paths = names.out.split('\n').map((p) => p.trim()).filter(Boolean)
+  return paths.length ? { reason: `product code moved past the smoked commit ${sha}: ${paths.slice(0, 5).join(', ')}${paths.length > 5 ? ` (+${paths.length - 5})` : ''}`, paths } : null
 }
 
 // ── security-scope ─────────────────────────────────────────────────────────────────────────────
@@ -204,6 +224,11 @@ export async function closeOp(o) {
   if (existsSync(events) && !/^## Verification/m.test(readFileSync(events, 'utf8'))) throw new Refusal('no-telemetry-evidence', `${EVENTS} has no "## Verification" section`)
   const cards = buildingChanges(ctx)
   if (cards.length) throw new Refusal('archive-pending', `change card(s) still building: ${cards.join(', ')} — the archive step runs first (DR-069 §7)`, { cards })
+  if (o.smokeSha !== undefined) {
+    if (!/^[0-9a-f]{7,40}$/i.test(o.smokeSha)) throw new InputError('--smoke-sha must be a commit id (7 to 40 hex digits)')
+    const drift = smokeDrift(ctx, o.smokeSha)
+    if (drift) throw new Refusal('stale-smoke', `${drift.reason}: the production smoke must judge the commit that is released (re-smoke HEAD first)`, { smoke: o.smokeSha, paths: drift.paths })
+  }
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
   const v = fullVerify(ctx, o, headFull)
   if (!v.green) return { code: 4, body: { status: 'red', verify: v.how, failure: v.failure, sha: headFull.slice(0, 12) } }
@@ -261,5 +286,5 @@ export function prodSmokeOp(o, { gatePrepare }) {
   try { text = readFileSync(reportFile, 'utf8') } catch { text = null }
   const v = readProdSmokeReport(text, r.status)
   const tail = v.green ? '' : `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-4).join(' | ')
-  return { code: v.green ? 0 : 4, body: { status: v.green ? 'green' : 'red', green: v.green, routes: v.routes, red: v.red, failure: v.failure, sha: sha.slice(0, 12), ...(tail ? { tail: tail.slice(0, 600) } : {}) } }
+  return { code: v.green ? 0 : 4, body: { status: v.green ? 'green' : 'red', green: v.green, routes: v.routes, red: v.red, failure: v.failure, sha: sha.slice(0, 12), head: sha, ...(tail ? { tail: tail.slice(0, 600) } : {}) } }
 }

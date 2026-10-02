@@ -115,7 +115,7 @@ function parseArgs(argv) {
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
     else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents', 'findings'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa', 'smoke-sha'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')

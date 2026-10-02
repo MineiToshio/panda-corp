@@ -1639,6 +1639,48 @@ console.log('close: the scripted release — asserts, ONE full verify.sh, phase 
       ok(c.code === 4 && c.receipt.status === 'red' && /vitest/.test(c.receipt.failure) && !/^phase:\s*["']?release/m.test(r.atHead('.pandacorp/status.yaml')) && (await currentLease(r.proj)) !== null, 'a red full verify.sh never releases: phase unchanged, the lease still held for the fallback close')
     } finally { r.cleanup() }
   }
+  // FIX ROUND 2 (review of proposal 40): the production smoke ran at the close-out's start, before the hardening's
+  // security-fix agent committed product code (the ppv2 f4ed29a CSP shape). The close certifies the release only on the
+  // SHA the smoke judged: product code past it refuses; state and docs commits (.pandacorp/, docs/) never ship in a build.
+  console.log('release-requires-current-smoke: --smoke-sha refuses a release whose product code moved past the smoked commit')
+  {
+    const { r, args } = await setup()
+    try {
+      const smoked = r.head()
+      r.write('next.config.ts', "export default { headers: async () => [{ source: '/(.*)', headers: [{ key: 'Content-Security-Policy', value: \"script-src 'self'\" }] }] }\n")
+      r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'fix(security): add a CSP')
+      const c = r.run('close', [...args, '--smoke-sha', smoked])
+      ok(c.code === 4 && c.sealed && c.receipt.status === 'stale-smoke' && Array.isArray(c.receipt.paths) && c.receipt.paths.includes('next.config.ts'), `a security fix committed after the smoke → stale-smoke naming the moved path (got ${JSON.stringify(c.receipt)})`)
+      ok(!existsSync(r.abs('.pandacorp/run/verify-ran')) && !/^phase:\s*["']?release/m.test(r.atHead('.pandacorp/status.yaml')) && (await currentLease(r.proj)) !== null, 'refused before verify.sh: phase unchanged, the lease still held for the re-smoke')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup()
+    try {
+      const smoked = r.head()
+      r.write('docs/reviews/security-notes.md', '# Notes\n')
+      r.write('.pandacorp/track.jsonl', '{"kind":"start"}\n{"kind":"archive"}\n')
+      r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'docs: hardening evidence + archive')
+      const c = r.run('close', [...args, '--smoke-sha', smoked.slice(0, 12)])
+      ok(c.code === 0 && c.receipt.status === 'released', `only docs/ and .pandacorp/ moved past the smoked commit → released (got ${JSON.stringify(c.receipt)})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup()
+    try {
+      const c = r.run('close', [...args, '--smoke-sha', 'deadbeefdead'])
+      ok(c.code === 4 && c.receipt.status === 'stale-smoke' && !existsSync(r.abs('.pandacorp/run/verify-ran')), `a smoked commit that is not in HEAD's history → stale-smoke (got ${JSON.stringify(c.receipt)})`)
+      const bad = r.run('close', [...args, '--smoke-sha', 'HEAD; rm -rf /'])
+      ok(bad.code !== 0 && bad.receipt && bad.receipt.ok === false && bad.receipt.status !== 'released', 'a --smoke-sha that is not a hex commit id is an input error')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup()
+    try {
+      const c = r.run('close', [...args, '--smoke-sha', r.head()])
+      ok(c.code === 0 && c.receipt.status === 'released', 'the smoked commit IS HEAD → released')
+    } finally { r.cleanup() }
+  }
 }
 
 // ── proposal 40 Phase 3 (§2 rows Patch, verify-patch + certify): the patch ladder's scripted verify and stamp ─────────

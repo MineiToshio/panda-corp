@@ -4125,14 +4125,15 @@ const logReleaseOutcome = (r) => log(r && r.done === true
 const CLOSE_OUT_OPTS = () => ({ label: 'close-out', phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: STOP_SCHEMA })
 const NEEDS_HARDENING_OPTS = () => ({ label: 'close-needs-hardening', phase: 'Review', model: P.worker, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
 const PROD_SMOKE_WORKTREE = `${GATE_WORKTREE}-smoke`
+const PROD_SMOKE_FLAGS = () => `--path ${shellQuote(PROD_SMOKE_WORKTREE)} --port ${GATE_SLOT_PORT_BASE + 90}`
 async function runProdSmoke() {
  try {
   let r = null
-  for (let i = 0; i < 2 && !(r && r.body); i++) { agentSpawned++; r = await runMechOp('prod-smoke', `--path ${shellQuote(PROD_SMOKE_WORKTREE)} --port ${GATE_SLOT_PORT_BASE + 90}`, { label: 'prod-smoke', phase: 'Review' }) }
+  for (let i = 0; i < 2 && !(r && r.body); i++) { agentSpawned++; r = await runMechOp('prod-smoke', PROD_SMOKE_FLAGS(), { label: 'prod-smoke', phase: 'Review' }) }
   const b = r.body || {}
   const failure = b.green === true ? '' : b.failure || b.reason || r.error
   log(`◦ production-build smoke: ${failure || 'green'}`)
-  return { green: !failure, failure }
+  return { green: !failure, failure, sha: b.head || b.sha }
  } catch (e) { return { green: false, failure: String(e), infraError: isInfraError(e) ? e : null } }
 }
 async function crossFeatureReview() {
@@ -4146,20 +4147,30 @@ async function crossFeatureReview() {
  reopenedFrds.push(...linked)
  return false
 }
-async function scriptedReleaseClose(vq, fallback) {
- const flags = `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${vq ? ` --ui-skip ${shellQuote(vq.reason)} --ui-skip-frds ${shellQuote(builtFrds.join(','))}${vq.degraded ? ' --visual-qa degraded' : ''}` : ''}`
- const closeOnce = async () => { agentSpawned++; return await runMechOp('close', flags, { label: 'close-scripted', phase: 'Review' }) }
+async function scriptedReleaseClose(vq, smoke, fallback) {
+ let smokeSha = smoke && smoke.sha
+ const flags = () => `--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}${vq ? ` --ui-skip ${shellQuote(vq.reason)} --ui-skip-frds ${shellQuote(builtFrds.join(','))}${vq.degraded ? ' --visual-qa degraded' : ''}` : ''}${smokeSha ? ` --smoke-sha ${shellQuote(smokeSha)}` : ''}`
+ const closeOnce = async () => { agentSpawned++; return await runMechOp('close', flags(), { label: 'close-scripted', phase: 'Review' }) }
  let c = await closeOnce()
  if (c.body && c.body.status === 'archive-pending') {
   agentSpawned++
   await agent(`${archiveChangesBody}\nReturn { done: true }.`, { label: 'archive-changes', phase: 'Review', model: MECH, agentType: 'pandacorp:implementer', schema: STOP_SCHEMA })
   c = await closeOnce()
  }
+ if (smoke && c.body && c.body.status === 'stale-smoke') {
+  log(`◦ ${c.body.reason}`)
+  const again = await runProdSmoke()
+  if (again.infraError) throw again.infraError
+  if (!again.green) return { smokeRed: again.failure }
+  smokeSha = again.sha
+  c = await closeOnce()
+ }
  const b = c.body
- log(`◦ scripted close: ${c.error || `${b.status} ${b.failure || b.reason || b.verify}`}`)
+ log(`◦ scripted close: ${c.error || (b ? `${b.status} ${b.failure || b.reason || b.verify}` : 'no receipt')}`)
  if (b && b.ok === true && b.status === 'released') return { done: true }
- return await fallback()
+ return await fallback(smokeSha)
 }
+const SMOKE_CURRENT_ASSERT = (sha) => ` PRODUCTION-BUILD SMOKE (fail-closed): it judged ${sha}. Last, before phase: release: if \`git -C ${shellQuote(PROJECT_DIR)} diff --name-only ${sha} HEAD -- . ':!.pandacorp' ':!docs'\` prints anything, run \`${mechOpCommand('prod-smoke', PROD_SMOKE_FLAGS())}\`; unless its line's status is "green", do NOT set phase: release and return done:false naming the smoke.`
 const crossCloseHead = (reuse) => `All FRDs are VERIFIED and the DR-085 hardening left its evidence — now the CROSS-FEATURE INTEGRATION REVIEW (DR-060): ${SEAM_CHECK}${GATE_SKIP}${reuse.canReuse ? ` THEN — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuse)} — treat that as this step's whole-project result (it already covers the smoke + visual gates).${CLOSE_OUT_VERIFY_REUSED_EVENT(reuse.headSha, reuse.ageSeconds)}` : ` THEN run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since — includes the smoke + visual gates)`} and kill any test dev servers with TaskStop. FINALLY, before you may declare release, assert ALL of these ON DISK (BL-0012 + WS-D/D4 fail-closed) — if ANY fails, do NOT set phase: release and return done:false naming exactly what failed:
     ${RELEASE_ASSERT_I}
     ${RELEASE_ASSERT_II}
@@ -4217,21 +4228,26 @@ if (LEAN_CLOSE_OUT) {
  if (allDone) {
   const { sec, telem, hardened } = await runHardeningChain()
   phase('Review')
-  const llmReleaseClose = async () => {
+  const llmReleaseClose = async (smokeSha) => {
    agentSpawned += COST(P.judge)
    const reuseLeanCloseOut = await checkFullVerifyReuse()
-   const out = await agent(`${archiveStep}${crossCloseHead(reuseLeanCloseOut)} (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${crossCloseTail()}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${CROSS_CLOSE_NOTIFY}`,
+   const out = await agent(`${archiveStep}${crossCloseHead(reuseLeanCloseOut)} (commit it as part of this step's own commit — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here).${crossCloseTail()}${smokeSha ? SMOKE_CURRENT_ASSERT(smokeSha) : ''}${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once every step above succeeded — phase:release committed, the terminal verdict recorded, AND this terminal lease release.${CROSS_CLOSE_NOTIFY}`,
     CLOSE_OUT_OPTS())
    logReleaseOutcome(out)
    return out
   }
-  if (hardened && !smokeRed) {
-   closed = FAST ? await scriptedReleaseClose(visualQaState, llmReleaseClose) : await llmReleaseClose()
-  } else {
+  const needsHardeningClose = async (red) => {
    agentSpawned++
-   closed = await agent(`${archiveStep}${hardeningIncompleteHead(sec, telem)}${smokeRed ? `; production-build smoke: RED — ${smokeRed}` : ''}${HARDENING_INCOMPLETE_MID}Do NOT touch \`phase\` (KEEP it implementation) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once status.yaml/decisions.md reflect the above AND this terminal lease release succeeded.${HARDENING_INCOMPLETE_NOTIFY}`,
+   const out = await agent(`${archiveStep}${hardeningIncompleteHead(sec, telem)}${red ? `; production-build smoke: RED — ${red}` : ''}${HARDENING_INCOMPLETE_MID}Do NOT touch \`phase\` (KEEP it implementation) — \`running\` is set to false by the terminal lease release at the very end of this prompt, NOT by hand here.${visualQaNote}${RELEASE_LEASE} Return done:true ONLY once status.yaml/decisions.md reflect the above AND this terminal lease release succeeded.${HARDENING_INCOMPLETE_NOTIFY}`,
     NEEDS_HARDENING_OPTS())
    logRunEnded(false)
+   return out
+  }
+  if (hardened && !smokeRed) {
+   closed = FAST ? await scriptedReleaseClose(visualQaState, smoke, llmReleaseClose) : await llmReleaseClose()
+   if (closed && closed.smokeRed) closed = await needsHardeningClose(closed.smokeRed)
+  } else {
+   closed = await needsHardeningClose(smokeRed)
   }
  } else {
   const { blk, why, ownerMsg } = runEndSummary(needsOwner)

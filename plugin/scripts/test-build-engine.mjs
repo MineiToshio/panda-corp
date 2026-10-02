@@ -2292,6 +2292,58 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'close-scripted').length === 0 && byLabel(run, 'close-out').length === 0, 'never released')
   },
 })
+// FIX ROUND 2 (review of proposal 40): the smoke judged the commit at the close-out's START; the hardening's
+// security-fix agent (and visual-qa) commit product code after it. The scripted close is handed the smoked SHA and
+// refuses `stale-smoke` when product code moved past it; the engine re-smokes HEAD once and closes on THAT verdict.
+const SMOKE_UI_PLAN = () => withFrontend(fastPlan([{ frd: 'frd-q', ids: ['wo-q-001'], extra: { 'wo-q-001': { artifacts: ['src/app/page.tsx'] } } }]))
+const staleSmokeClose = { line: mechLine('close', { ok: false, status: 'stale-smoke', reason: 'product code moved past the smoked commit feed00000001: next.config.ts', paths: ['next.config.ts'] }) }
+SCENARIOS.push({
+  name: 'F40-8d. release-requires-current-smoke — the scripted close carries the smoked SHA; a stale smoke re-smokes HEAD, and a red re-smoke blocks the release',
+  args: { mode: 'balanced', ...FAST },
+  plan: SMOKE_UI_PLAN(),
+  responses: [
+    { label: 'prod-smoke', times: 1, response: { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'feed00000001' }) } },
+    { label: 'prod-smoke', response: { line: mechLine('prod-smoke', { ok: false, status: 'red', green: false, routes: 2, red: [{ path: '/blog/a', reasons: ['CSP violation: EvalError'] }], failure: '/blog/a: CSP violation: EvalError', sha: 'beef00000002' }) } },
+    { label: 'close-scripted', response: staleSmokeClose },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const c = byLabel(run, 'close-scripted')
+    t.ok(c.length === 1 && /--smoke-sha 'feed00000001'/.test(c[0].prompt), 'the scripted close is handed the SHA the smoke judged')
+    const ps = byLabel(run, 'prod-smoke')
+    t.ok(ps.length === 2 && labelIdx(run, /^close-scripted$/) < lastIdx(run, /^prod-smoke$/) && isLiteral(ps[1]) && literalOp(ps[1]) === 'prod-smoke', 'stale-smoke → ONE re-smoke of HEAD, after the refused close')
+    const n = byLabel(run, 'close-needs-hardening')
+    t.ok(n.length === 1 && /production-build smoke: RED — \/blog\/a: CSP violation/.test(n[0].prompt) && byLabel(run, 'close-out').length === 0, 'the red re-smoke blocks the release: the needs-hardening close names it, no opus release close')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-8e. release-requires-current-smoke — a green re-smoke closes on the NEW smoked SHA',
+  args: { mode: 'balanced', ...FAST },
+  plan: SMOKE_UI_PLAN(),
+  responses: [
+    { label: 'prod-smoke', times: 1, response: { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'feed00000001' }) } },
+    { label: 'prod-smoke', response: { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'beef00000002' }) } },
+    { label: 'close-scripted', times: 1, response: staleSmokeClose },
+    { label: 'close-scripted', response: releasedClose() },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const c = byLabel(run, 'close-scripted')
+    t.ok(c.length === 2 && /--smoke-sha 'feed00000001'/.test(c[0].prompt) && /--smoke-sha 'beef00000002'/.test(c[1].prompt), 'the second close certifies the re-smoked SHA')
+    t.ok(byLabel(run, 'prod-smoke').length === 2 && byLabel(run, 'close-needs-hardening').length === 0 && byLabel(run, 'close-out').length === 0, 'released by the scripted close')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-8f. release-requires-current-smoke — the opus fallback close must re-check the smoke against HEAD before phase release',
+  args: { mode: 'balanced', ...FAST },
+  plan: SMOKE_UI_PLAN(),
+  responses: [{ label: 'close-scripted', response: { line: mechLine('close', { ok: false, status: 'red', verify: 'ran', failure: 'vitest red', sha: 'c105ed000000' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const o = byLabel(run, 'close-out')
+    t.ok(o.length === 1 && /production-build smoke/i.test(o[0].prompt) && /feed00000001/.test(o[0].prompt) && /prod-smoke --project/.test(o[0].prompt) && /do NOT set phase: release/.test(o[0].prompt), 'the fallback prompt names the smoked SHA, the re-smoke command and the refusal')
+  },
+})
 SCENARIOS.push({
   name: 'F40-8c. classic-never-runs-the-prod-smoke — the classic lane\'s close-out is unchanged',
   args: { mode: 'balanced', lane: 'classic' },
@@ -2299,6 +2351,7 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     t.ok(byLabel(run, 'prod-smoke').length === 0 && byLabel(run, 'close-out').length === 1, 'no smoke; the opus close-out')
+    t.ok(!/production-build smoke|prod-smoke --project/.test(byLabel(run, 'close-out')[0].prompt), 'the classic close-out prompt carries no smoke-currency clause')
   },
 })
 
