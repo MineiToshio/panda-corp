@@ -57,7 +57,10 @@
 //                dispatch stamp commits, then the dispatch snapshot; unknowable → floor), verify.sh on the clean SHA; green + not
 //                floor → build_usable (track.jsonl commit + dashboard); `usable` only once that line is committed.
 //   gate-release --path <wt> --dir <evidence-dir>   BL-0182: salvage every dirty path of the gate worktree (+ its
-//                gitignored gate report) to <dir>, then clean exactly those paths.
+//                gitignored gate report) to <dir>, then clean exactly those paths. Proposal 40: also records
+//                <dir>/gate-manifest.json (the pin, each path's status and sha256) and a patch per modified tracked file.
+//   gate-land    --dir <evidence-dir> --frd <folder> [--pin <sha>]   proposal 40: the gate's PASS lands its own
+//                reviewer tests and its new-route blesses on main as ONE commit with DR-080 provenance (build-mech-land.mjs).
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -66,8 +69,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, reportProvenance, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
+import { gateLandOp } from './build-mech-land.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
 
@@ -104,7 +108,7 @@ function parseArgs(argv) {
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
     else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')
@@ -219,6 +223,9 @@ function commitWo(o) {
     if (claimed.length) throw new Refusal('parked-leftover', `${claimed.map(([p, rec]) => `${p} (left by the parked ${rec.wo})`).join(', ')}: a parked work order's leftover is never committed with another one, through --files or --extra; run that work order's park command (it salvages the leftover), then re-run this commit`, { paths: claimed.map(([p]) => p), wos: unique(claimed.map(([, rec]) => rec.wo)) })
     const undeclared = dirty.filter((e) => !auto(e.path) && !matchesDeclared(allowed, e.path)).map((e) => e.path)
     if (undeclared.length) throw new Refusal('undeclared', `modified path(s) outside the declared files: ${undeclared.join(', ')} — declare them, pass --extra <path> --reason <why>, or park them`, { paths: undeclared })
+    // proposal 40 / DR-080: a visual baseline is blessed by the FRD gate at green, never by the code's author.
+    const baselines = dirty.filter((e) => BASELINE_RE.test(e.path)).map((e) => e.path)
+    if (baselines.length) throw new Refusal('builder-baseline', `visual baseline(s) ${baselines.join(', ')}: a baseline is blessed by the FRD gate at green, never by the builder (DR-080) — delete them; the gate blesses the route`, { paths: baselines })
     const stage = dirty.map((e) => e.path)
     const stagedExtras = o.extras.filter((x) => stage.some((p) => matchesDeclared([x.path], p)))
     const schema = stage.filter((p) => SCHEMA_PATHS.some((re) => re.test(p)))
@@ -555,19 +562,33 @@ function gateRelease(o) {
   const listZ = () => { const r = spawnSync('git', ['-C', wt, 'status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames'], { encoding: 'utf8' }); if (r.status !== 0) throw new InputError(`git status in ${wt} failed: ${String(r.stderr).trim()}`); return r.stdout.split('\0').filter(Boolean).map((e) => ({ code: e.slice(0, 2), path: e.slice(3) })) }
   const salvaged = []
   let failure = null
+  // proposal 40: a modified TRACKED file also keeps its diff against the pin, so gate-land can 3-way it onto a main that
+  // moved since (the gate's bless flip in e2e/routes.ts next to a surface another FRD appended meanwhile).
+  const pin = (gitIn2(wt, ['rev-parse', 'HEAD']) || [''])[0]
+  const patchDir = path.join(dir, '.gate-patches')
+  rmSync(patchDir, { recursive: true, force: true })
   for (const e of listZ()) {
     const status = e.code === '??' ? 'untracked' : e.code.includes('D') ? 'deleted' : 'modified'
     const src = path.join(wt, e.path)
     let sha256 = null
+    let patch = null
     if (status !== 'deleted') {
       try { mkdirSync(path.dirname(path.join(dir, e.path)), { recursive: true }); copyFileSync(src, path.join(dir, e.path)); sha256 = createHash('sha256').update(readFileSync(path.join(dir, e.path))).digest('hex') } catch (err) { failure = `could not salvage ${e.path}: ${err.message}`; break }
+    }
+    if (status === 'modified') {
+      const d = spawnSync('git', ['-C', wt, '--literal-pathspecs', 'diff', '--binary', 'HEAD', '--', e.path], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+      if (d.status !== 0) { failure = `could not record the diff of ${e.path}: ${String(d.stderr).trim()}`; break }
+      mkdirSync(patchDir, { recursive: true })
+      patch = path.join('.gate-patches', `${salvaged.length}.patch`)
+      writeFileSync(path.join(dir, patch), d.stdout)
     }
     const inHead = spawnSync('git', ['-C', wt, 'cat-file', '-e', `HEAD:${e.path}`]).status === 0
     const clean = inHead ? ['--literal-pathspecs', 'checkout', 'HEAD', '--', e.path] : ['--literal-pathspecs', 'rm', '-q', '--cached', '--ignore-unmatch', '--', e.path]
     if (spawnSync('git', ['-C', wt, ...clean]).status !== 0) { failure = `could not clean ${e.path}`; break }
     if (!inHead) rmSync(src, { force: true })
-    salvaged.push({ path: e.path, status, sha256 })
+    salvaged.push({ path: e.path, status, sha256, ...(patch ? { patch } : {}) })
   }
+  if (!failure) { mkdirSync(dir, { recursive: true }); writeFileSync(path.join(dir, 'gate-manifest.json'), `${JSON.stringify({ version: 1, pin, files: salvaged }, null, 1)}\n`) }
   const report = path.join(wt, ctx.prefix, '.pandacorp', 'run', 'gate-report.json')
   if (!failure && existsSync(report)) { mkdirSync(dir, { recursive: true }); copyFileSync(report, path.join(dir, 'gate-report.json')) }
   const remaining = gitIn2(wt, ['status', '--porcelain=v1', '--untracked-files=all']) || ['<git status failed>']
@@ -575,7 +596,7 @@ function gateRelease(o) {
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────────────────
-const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, ...FAST_OPS,
+const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, 'gate-land': gateLandOp, ...FAST_OPS,
   'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }) }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */

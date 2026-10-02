@@ -24,6 +24,8 @@ export const ENGINE_FM_KEYS = Object.freeze(['implementation_status', 'reopen_co
 export const PROJECTION = '.pandacorp/status.yaml'
 /** Where `dispatch` records an FRD's dispatch snapshot (its base, the dirt then present and its hashes): gitignored run state. */
 export const dispatchSnapshotFile = (ctx, frd) => path.join(ctx.project, '.pandacorp', 'run', 'dispatch', `${frd}.json`)
+/** A Playwright visual baseline (`<spec>-snapshots/<name>.png`): blessed by the FRD gate only, never its builder (DR-080). */
+export const BASELINE_RE = /(^|\/)[^/]+-snapshots\/.+\.png$/i
 export const WO_FILE_RE = /^docs\/frds\/[^/]+\/work-orders\/(?!README\.md$)[^/]+\.md$/i
 
 /** An input the script cannot act on: exit 2, never a quiet success. */

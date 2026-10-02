@@ -756,6 +756,77 @@ console.log('gate-prepare / gate-release: the gate worktree lifecycle, determini
 }
 
 
+// ── proposal 40 §2 Close-out engine fixes: the gate lands its own reviewer tests and blesses new-route baselines at
+// green, with DR-080 provenance; the builder never blesses. gate-release records a manifest (+ a patch per modified
+// tracked file) next to the salvaged copies; gate-land puts them on main as ONE commit naming the gate and its pin.
+console.log('gate-blesses-new-route-with-provenance: gate-release + gate-land commit the reviewer tests and the new-route bless')
+{
+  const r = mkRepo()
+  try {
+    r.write('e2e/routes.ts', 'export const SURFACES = [\n  { id: "home", frd: "frd-01-alpha", path: "/", name: "Home", blessed: false },\n] as const;\n')
+    r.write('docs/frds/frd-01-alpha/fdd.md', '---\nid: FDD-01\nprototype_blessed_at: \'\'\n---\n# FDD\n')
+    r.write('e2e/visual.spec.ts-snapshots/old-desktop.png', 'OLD-PNG')
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: surfaces')
+    const pin = r.head()
+    const wt = path.join(r.root, '.wt-gate-land')
+    ok(r.run('gate-prepare', ['--path', wt, '--sha', pin]).receipt.ok === true, 'setup: the gate slot at the pin')
+    const W = (rel, body) => { mkdirSync(path.dirname(path.join(wt, 'proj', rel)), { recursive: true }); writeFileSync(path.join(wt, 'proj', rel), body) }
+    W('src/_tests/alpha.reviewer.test.ts', 'it("AC-01-001.1 reviewer", () => {})\n')
+    W('e2e/visual.spec.ts-snapshots/home-desktop.png', 'NEW-PNG')
+    W('e2e/visual.spec.ts-snapshots/old-desktop.png', 'CHANGED-OLD-PNG')
+    W('e2e/routes.ts', 'export const SURFACES = [\n  { id: "home", frd: "frd-01-alpha", path: "/", name: "Home", blessed: true },\n] as const;\n')
+    W('docs/frds/frd-01-alpha/fdd.md', '---\nid: FDD-01\nprototype_blessed_at: \'abc1234\'\n---\n# FDD\n\nBlessed against docs/design/prototype/home.html (Layer-B sign-off).\n')
+    W('scratch/notes.txt', 'reviewer scratch\n')
+    const ev = path.join(r.root, 'evidence-land')
+    const rel = r.run('gate-release', ['--path', wt, '--dir', ev])
+    ok(rel.code === 0 && rel.receipt.remaining.length === 0 && existsSync(path.join(ev, 'gate-manifest.json')), 'release cleans the slot and records a manifest next to the copies')
+    // main moved since the pin: another FRD appended a surface to routes.ts and the builder has WIP elsewhere.
+    r.write('e2e/routes.ts', 'export const SURFACES = [\n  { id: "home", frd: "frd-01-alpha", path: "/", name: "Home", blessed: false },\n  { id: "gamma", frd: "frd-02-gamma", path: "/gamma", name: "Gamma", blessed: false },\n] as const;\n')
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: gamma surface')
+    r.write('src/gamma-wip.ts', 'export const wip = 1\n')
+    const before = r.head()
+    const land = r.run('gate-land', ['--dir', ev, '--frd', 'frd-01-alpha', '--pin', pin])
+    ok(land.code === 0 && land.sealed && land.receipt.status === 'landed' && r.head() !== before, `gate-land commits on main (got ${land.code} ${JSON.stringify(land.receipt && { s: land.receipt.status, r: land.receipt.reason || land.receipt.error })})`)
+    const files = r.filesAt()
+    ok(['proj/src/_tests/alpha.reviewer.test.ts', 'proj/e2e/visual.spec.ts-snapshots/home-desktop.png', 'proj/e2e/routes.ts', 'proj/docs/frds/frd-01-alpha/fdd.md'].every((f) => files.includes(f)) && files.length === 4, `ONE commit: the reviewer test, the NEW baseline, the bless flip and its fdd provenance (got ${files.join(', ')})`)
+    ok(/blessed: true/.test(r.atHead('e2e/routes.ts')) && /gamma/.test(r.atHead('e2e/routes.ts')), 'the bless is a 3-way patch: main\'s newer surface is kept, the gate\'s flip applied')
+    ok(r.atHead('e2e/visual.spec.ts-snapshots/old-desktop.png') === 'OLD-PNG' && land.receipt.refused.some((x) => /old-desktop\.png/.test(x.path) && x.why === 'changed-baseline'), 'a CHANGED existing baseline is never landed (a blessed baseline change is a regression, not a bless)')
+    ok(land.receipt.kept.some((x) => /scratch\/notes\.txt/.test(x)) && !files.includes('proj/scratch/notes.txt'), 'gate scratch stays evidence only')
+    ok(/\(DR-080\)/.test(r.body()) && new RegExp(`Gate-Pin: ${pin.slice(0, 12)}`).test(r.body()) && /Blessed-By: frd-gate frd-01-alpha/.test(r.body()) && /^test\(frd-01-alpha\):/.test(r.subject()), `the commit carries the DR-080 provenance: the gate, its FRD and pin (got ${JSON.stringify(r.body())})`)
+    ok(r.status().split('\n').filter((l) => / proj\//.test(l)).join() === '?? proj/src/gamma-wip.ts', 'the builder\'s WIP on main is untouched and uncommitted')
+    const again = r.run('gate-land', ['--dir', ev, '--frd', 'frd-01-alpha', '--pin', pin])
+    ok(again.code === 0 && again.receipt.status === 'nothing', 'a second landing of the same evidence is an idempotent no-op')
+  } finally { r.cleanup() }
+}
+console.log('gate-land: a conflicting copy on main refuses before writing anything; no manifest refuses')
+{
+  const r = mkRepo()
+  try {
+    const ev = path.join(r.root, 'ev-none')
+    const none = r.run('gate-land', ['--dir', ev, '--frd', 'frd-01-alpha'])
+    ok(none.code === 4 && none.receipt.status === 'no-manifest', 'no manifest → refused (the engine falls back to the apply agent)')
+    const wt = path.join(r.root, '.wt-gate-c')
+    r.run('gate-prepare', ['--path', wt, '--sha', r.head()])
+    mkdirSync(path.join(wt, 'proj/src/_tests'), { recursive: true })
+    writeFileSync(path.join(wt, 'proj/src/_tests/x.reviewer.test.ts'), 'reviewer\n')
+    r.run('gate-release', ['--path', wt, '--dir', ev])
+    r.write('src/_tests/x.reviewer.test.ts', 'someone else\n')
+    const before = r.head()
+    const c = r.run('gate-land', ['--dir', ev, '--frd', 'frd-01-alpha'])
+    ok(c.code === 4 && c.receipt.status === 'conflict' && r.head() === before && r.read('src/_tests/x.reviewer.test.ts') === 'someone else\n', 'a different file already at the path → conflict, nothing written or committed')
+  } finally { r.cleanup() }
+}
+console.log('commit-wo: the builder never blesses a visual baseline (DR-080)')
+{
+  const r = mkRepo()
+  try {
+    buildAlpha(r)
+    r.write('e2e/visual.spec.ts-snapshots/home-desktop.png', 'PNG')
+    const c = r.run('commit-wo', [...ALPHA_FILES, '--extra', 'e2e/visual.spec.ts-snapshots/home-desktop.png', '--reason', 'the visual gate wrote it'])
+    ok(c.code === 4 && c.receipt.status === 'builder-baseline' && /DR-080/.test(c.receipt.reason) && /implementation_status: IN_PROGRESS/.test(r.read(WO_A)), `a baseline PNG in a builder commit is refused, nothing stamped (got ${c.receipt && c.receipt.status})`)
+  } finally { r.cleanup() }
+}
+
 // ── plan / classify-frd / verify: the fast lane's deterministic plan, floor and USABLE check (proposal 39 C3/C4/C6) ──
 const FRD_A = 'docs/frds/frd-01-alpha'
 const FRD_C = 'docs/frds/frd-02-gamma'
