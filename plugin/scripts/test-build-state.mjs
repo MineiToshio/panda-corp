@@ -4,7 +4,7 @@ import { execFileSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, isReclaimable, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
+import { acquire, applyChangePlan, assertFence, currentLease, finalizeRelease, isFresh, isReclaimable, localDay, quiesce, reclaim, reconcileBuildingChange, recoverChangeTransactions, release, renew, reserveDispatch, setHealth, setProjectPhase, stampChangeIntegration, stampLastGreen, syncRollups, transitionWorkOrder, withFence } from "../runtime/build-state.mjs";
 
 let passed = 0; let failed = 0;
 const test = async (name, fn) => { try { await fn(); console.log(`PASS  ${name}`); passed++; } catch (e) { console.error(`FAIL  ${name}: ${e.stack || e}`); failed++; } };
@@ -66,7 +66,7 @@ await test("release phase in the fenced lease is never downgraded by renew or ro
   await writeFile(path.join(frd, "blueprint.md"), "---\nimplementation_status: VERIFIED\n---\n");
   await writeFile(path.join(frd, "work-orders/wo-01.md"), "---\nimplementation_status: VERIFIED\n---\n");
   await mkdir(path.join(p, "docs/reviews"), { recursive: true }); await mkdir(path.join(p, "docs/analytics"), { recursive: true });
-  await writeFile(path.join(p, "docs/reviews", `security-${new Date().toISOString().slice(0,10)}.md`), "green\n");
+  await writeFile(path.join(p, "docs/reviews", `security-${localDay()}.md`), "green\n");
   await writeFile(path.join(p, "docs/analytics/events.md"), "## Verification\n\ngreen\n");
   const l = await acquire(p, { runtime: "codex", runId: "release-run", ttlSeconds: 30 });
   await Promise.all([setProjectPhase(p, l.token, l.epoch, "release"), renew(p, l.token, l.epoch)]); await syncRollups(p, l.token, l.epoch);
@@ -74,6 +74,40 @@ await test("release phase in the fenced lease is never downgraded by renew or ro
   ok(/^phase:\s*["']?release["']?$/m.test(status), "active projection downgraded release");
   ok((await currentLease(p))?.project_phase === "release", "lease did not retain the canonical release projection");
   await rm(p, { recursive: true });
+});
+// proposal 40 §2 (Close-out engine fixes): the security report is named with the LOCAL date (`date +%F`, what the
+// auditor writes); the checker read the UTC date, so an evening run (local and UTC on different days) failed release.
+await test("closeout-security-report-local-date: release finds the report named with the local date when UTC is another day", async () => {
+  const savedTz = process.env.TZ;
+  const utcHour = new Date().getUTCHours();
+  process.env.TZ = utcHour >= 10 ? "Etc/GMT-14" : "Etc/GMT+12";   // UTC+14 / UTC-12: the local date is not the UTC date right now
+  try {
+    const utcDay = new Date().toISOString().slice(0, 10);
+    ok(localDay() !== utcDay, `fixture: the local day ${localDay()} must differ from the UTC day ${utcDay}`);
+    const releaseFixture = async (reportDay, events) => {
+      const p = await fixture();
+      const frd = path.join(p, "docs/frds/frd-01"); await mkdir(path.join(frd, "work-orders"), { recursive: true });
+      await writeFile(path.join(frd, "frd.md"), "---\nimplementation_status: VERIFIED\n---\n");
+      await mkdir(path.join(p, "docs/reviews"), { recursive: true });
+      await writeFile(path.join(p, "docs/reviews", `security-${reportDay}.md`), "green\n");
+      if (events !== null) { await mkdir(path.join(p, "docs/analytics"), { recursive: true }); await writeFile(path.join(p, "docs/analytics/events.md"), events); }
+      return { p, l: await acquire(p, { runtime: "claude", runId: "local-date", ttlSeconds: 30 }) };
+    };
+    const a = await releaseFixture(localDay(), "## Verification\n\ngreen\n");
+    ok((await setProjectPhase(a.p, a.l.token, a.l.epoch, "release")).phase === "release", "the local-date report did not satisfy release");
+    await rm(a.p, { recursive: true });
+    const b = await releaseFixture("1999-01-01", "## Verification\n\ngreen\n");
+    await rejects(() => setProjectPhase(b.p, b.l.token, b.l.epoch, "release"), "INVALID_STATE");
+    await rm(b.p, { recursive: true });
+    // proposal 40 §2 (Telemetry, conditional): no event plan, no telemetry evidence to require; a plan without its
+    // verification section still blocks release.
+    const c = await releaseFixture(localDay(), null);
+    ok((await setProjectPhase(c.p, c.l.token, c.l.epoch, "release")).phase === "release", "a project with no docs/analytics/events.md was refused release");
+    await rm(c.p, { recursive: true });
+    const d = await releaseFixture(localDay(), "# Event plan\n\n### 1. `page_viewed`\n");
+    await rejects(() => setProjectPhase(d.p, d.l.token, d.l.epoch, "release"), "INVALID_STATE");
+    await rm(d.p, { recursive: true });
+  } finally { if (savedTz === undefined) delete process.env.TZ; else process.env.TZ = savedTz; }
 });
 await test("two-phase release keeps fencing through the committed quiesce window", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "two-phase", ttlSeconds: 30 }); await quiesce(p, l.token, l.epoch); const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/running: false/.test(status), "quiesce projection missing"); ok(Boolean(await currentLease(p)), "quiesce dropped ownership before commit"); await rejects(() => renew(p, l.token, l.epoch), "QUIESCED"); await rejects(() => finalizeRelease(p, "foreign", l.epoch), "FENCE"); await finalizeRelease(p, l.token, l.epoch); ok(!(await currentLease(p)), "finalize retained lease"); await rm(p, { recursive: true });
