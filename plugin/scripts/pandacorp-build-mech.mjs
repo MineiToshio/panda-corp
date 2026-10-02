@@ -502,7 +502,8 @@ function reuseCheck(o) {
 }
 
 // ── gate worktree: prepare / release (C2, BL-0149/0182/0183) ───────────────────────────────────
-const realOr = (p) => { try { return realpathSync(p) } catch { return path.resolve(p) } }
+// A missing path (a pruned-away slot) resolves through its nearest existing ancestor, so /var vs /private/var still match git's list.
+const realOr = (p) => { try { return realpathSync(p) } catch { const abs = path.resolve(p); const up = path.dirname(abs); return up === abs ? abs : path.join(realOr(up), path.basename(abs)) } }
 function registeredWorktrees(ctx) {
   return ctx.g.must(['worktree', 'list', '--porcelain']).split('\n').filter((l) => l.startsWith('worktree ')).map((l) => realOr(l.slice(9)))
 }
@@ -519,7 +520,12 @@ function gatePrepare(o) {
   if (!ctx.g.run(['rev-parse', '--verify', '-q', `${o.sha}^{commit}`]).ok) return fail(`unreachable sha ${o.sha}`)
   const registered = registeredWorktrees(ctx).includes(realOr(wt))
   if (!existsSync(wt)) {
-    if (registered) return fail('a worktree is registered at that path but the directory is missing; evidence preserved')
+    // Bench FM-2: an admin entry whose directory is gone (git lists it prunable) blocks `worktree add`. `prune --expire=now`
+    // removes ONLY entries whose directory is missing and skips locked ones — no file is touched (BL-0067 holds).
+    if (registered) {
+      const pr = ctx.g.run(['worktree', 'prune', '--expire=now'])
+      if (!pr.ok || registeredWorktrees(ctx).includes(realOr(wt))) return fail(`a worktree is registered at that path but the directory is missing${pr.ok ? ' and the entry is locked (prune kept it)' : ` (git worktree prune failed: ${pr.err})`}; evidence preserved`)
+    }
     const add = ctx.g.run(['worktree', 'add', '--detach', wt, o.sha])
     if (!add.ok) return fail(`git worktree add failed: ${add.err}`)
     const b = bootstrap(ctx, wt, o.port)

@@ -704,6 +704,31 @@ console.log('gate-prepare / gate-release: the gate worktree lifecycle, determini
     ok(readFileSync(path.join(wt, 'proj/src/existing.ts'), 'utf8') === 'export const existing = 1\n' && !existsSync(path.join(wt, 'proj/src/_tests/adversarial.test.ts')), 'the worktree paths are cleaned exactly')
   } finally { r.cleanup() }
 }
+// Bench FM-2: a slot registered in git whose directory is gone (`git worktree list` marks it prunable) — the stale
+// admin entry is pruned and the slot recreated; a LOCKED missing entry is never pruned (it stays refused).
+{
+  const r = mkRepo()
+  try {
+    const wt = path.join(r.root, '.wt-gate-2')
+    ok(r.run('gate-prepare', ['--path', wt, '--sha', r.head()]).receipt.ok === true, 'setup: the slot exists')
+    rmSync(wt, { recursive: true, force: true })
+    ok(/prunable/.test(r.git('worktree', 'list', '--porcelain')), 'setup: git still registers the slot, marked prunable')
+    const again = r.run('gate-prepare', ['--path', wt, '--sha', r.head()])
+    ok(again.code === 0 && again.sealed && again.receipt.ok === true && again.receipt.created === true && existsSync(path.join(wt, 'proj/.pandacorp/run/bootstrapped')), `a registered-but-missing slot is pruned and recreated (got ${again.code} ${JSON.stringify(again.receipt)})`)
+    ok(!/prunable/.test(r.git('worktree', 'list', '--porcelain')), 'no prunable entry remains after the recreate')
+    const locked = path.join(r.root, '.wt-gate-3')
+    ok(r.run('gate-prepare', ['--path', locked, '--sha', r.head()]).receipt.ok === true, 'setup: a second slot exists')
+    r.git('worktree', 'lock', locked)
+    rmSync(locked, { recursive: true, force: true })
+    const refused = r.run('gate-prepare', ['--path', locked, '--sha', r.head()])
+    ok(refused.code === 4 && refused.receipt.ok === false && /missing/.test(refused.receipt.failure) && /locked/.test(r.git('worktree', 'list', '--porcelain')), 'a LOCKED missing slot is never pruned: refused, its entry kept')
+    const dirtyWt = path.join(r.root, '.wt-gate-1')
+    ok(r.run('gate-prepare', ['--path', dirtyWt, '--sha', r.head()]).receipt.ok === true, 'setup: a third slot exists')
+    writeFileSync(path.join(dirtyWt, 'proj/src/stray.ts'), 'evidence\n')
+    const dirty = r.run('gate-prepare', ['--path', dirtyWt, '--sha', r.head()])
+    ok(dirty.code === 4 && dirty.receipt.dirty.length === 1 && existsSync(path.join(dirtyWt, 'proj/src/stray.ts')), 'the prune path never touches an existing dirty slot (BL-0067 evidence kept)')
+  } finally { r.cleanup() }
+}
 
 
 // ── plan / classify-frd / verify: the fast lane's deterministic plan, floor and USABLE check (proposal 39 C3/C4/C6) ──
