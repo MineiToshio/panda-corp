@@ -53,7 +53,11 @@ function commitPaths(ctx, o, paths, message) {
 }
 
 // ── security-scope ─────────────────────────────────────────────────────────────────────────────
-/** The landed diff of the project since `since`, as the floor's input shape: changed paths + added lines per file. */
+/**
+ * The landed diff of the project since `since`, as the floor's input shape: changed paths + added lines per file,
+ * plus `readFile(path)` — the file's body at HEAD (null when deleted or unreadable), which the module-level security
+ * triggers ('use server', an fs import) need beyond the added lines.
+ */
 export function landedDiff(ctx, since) {
   const spec = ['--', '.', ':(exclude).pandacorp', ':(exclude)docs']
   const names = ctx.g.run(['diff', '--relative', '--name-only', '--no-renames', `${since}..HEAD`, ...spec])
@@ -65,7 +69,8 @@ export function landedDiff(ctx, since) {
     if (line.startsWith('+++ ')) { cur = line === '+++ /dev/null' ? null : line.replace(/^\+\+\+ b\//, ''); if (cur && !addedByFile.has(cur)) addedByFile.set(cur, []); continue }
     if (cur && line.startsWith('+')) addedByFile.get(cur).push(line.slice(1))
   }
-  return { files: names.out.split('\n').filter(Boolean).map((p) => ({ path: p })), addedByFile, linesKnown: true }
+  const readFile = (p) => { const r = ctx.g.run(['show', `HEAD:./${p}`]); return r.ok ? r.out : null }
+  return { files: names.out.split('\n').filter(Boolean).map((p) => ({ path: p })), addedByFile, linesKnown: true, readFile }
 }
 export function securityScopeOp(o) {
   if (!o.since) throw new InputError('security-scope needs --since <the early audit pin>')

@@ -68,8 +68,11 @@ const P1_CONTENT = [
   /\.get\(\s*['"]authorization['"]\s*\)/i,
   /['"]?\bAuthorization['"]?\s*:\s*[`'"]?(?:Bearer|Basic)\b/i,
 ];
-/** middleware.* is floor when it GATES access; an i18n/headers middleware is not. */
-const MIDDLEWARE = /(^|\/)middleware\.(ts|tsx|js|mjs|cjs|mts)$/;
+/**
+ * middleware.* is floor when it GATES access; an i18n/headers middleware is not. Next 16 renamed the file to proxy.*,
+ * which Next only loads from the project root or src/ (a lib module merely named proxy.ts is not it).
+ */
+const MIDDLEWARE = /(^|\/)middleware\.(ts|tsx|js|mjs|cjs|mts)$|(^|\/src\/|^src\/)proxy\.(ts|tsx|js|mjs|cjs|mts)$/;
 const MIDDLEWARE_GATE = /\b(auth\w*|session|token|jwt|login|sign-?in|unauthori[sz]ed|forbidden|authorization)\b|\bstatus\s*:\s*40[13]\b|cookies\.get\(/i;
 
 // ── P2 · payments / money ─────────────────────────────────────────────────────────────────────
@@ -249,7 +252,8 @@ export function productFloor(ctx) {
 // the dependency set) or a content trigger on an ADDED line (the injection sinks). Prose and test surfaces never
 // trigger. Bounded by the early full audit (always on) and the product floor; a client-only bug outside these
 // triggers is the accepted miss (proposal 40 §5 F).
-const ROUTE_FILE = /(^|\/)(app\/.*\/route|pages\/api\/.*)\.[cm]?[jt]sx?$/;
+const ROUTE_FILE = /(^|\/)(app\/(?:.*\/)?route|pages\/api\/.*)\.[cm]?[jt]sx?$/;
+const ACTIONS_FILE = /(^|\/)(_actions\/.+|actions)\.[cm]?[jt]sx?$/;
 const NEXT_CONFIG = /(^|\/)next\.config\.[cm]?[jt]s$/;
 const HEADERS_FILE = /(^|\/)(_headers|vercel\.json|netlify\.toml|headers\.[cm]?[jt]s)$/;
 const DEPENDENCY_FILE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|npm-shrinkwrap\.json)$/;
@@ -271,18 +275,23 @@ const CONTENT_TRIGGERS = [
 /** The trigger table, for the docs and the tests: one row per trigger. */
 export const SECURITY_DELTA_TRIGGERS = Object.freeze([
   { trigger: "route", kind: "path", when: "an app/**/route.* or pages/api/** handler" },
-  { trigger: "server-action", kind: "path", when: "a module that declares 'use server'" },
-  { trigger: "middleware", kind: "path", when: "a middleware.* file" },
+  { trigger: "server-action", kind: "path", when: "a module under _actions/, an actions.* module, or a module whose body at HEAD declares 'use server'" },
+  { trigger: "middleware", kind: "path", when: "a middleware.* file, or Next 16's proxy.* at the project root or src/" },
   { trigger: "next-config", kind: "path", when: "next.config.* (security headers and the CSP live there)" },
   { trigger: "headers", kind: "path", when: "_headers, vercel.json, netlify.toml or a headers.* module" },
   { trigger: "auth", kind: "path", when: "a file or directory named for auth/session/login/password/credential (the P1 path tokens)" },
   { trigger: "dependencies", kind: "path", when: "package.json or a lockfile" },
   ...CONTENT_TRIGGERS.map((c) => ({ trigger: c.trigger, kind: "content", when: `an added line matching ${c.re}` })),
-  { trigger: "fs-path-join", kind: "content", when: "an added path.join/path.resolve in a module that imports fs" },
+  { trigger: "fs-path-join", kind: "content", when: "an added path.join/path.resolve in a module that imports fs (its body at HEAD, not only the added lines)" },
 ]);
 /**
  * Does a landed diff touch an attack surface the security DELTA audit must re-read?
- * @param {{ files: Array<{path: string}>, addedByFile: Map<string, string[]> }} ctx the diff (repo-relative paths; added lines per file)
+ * The server-action and fs-path-join triggers are properties of the whole MODULE, not of the added lines: a new
+ * action in an existing 'use server' file, or a new path.join in a file that already imports fs, is the delta. So
+ * `ctx.readFile(path)` (the file's body at HEAD, or null when deleted/unreadable) is consulted; without it the added
+ * lines alone decide. A redirect/fetch whose input is first bound to a variable (`const n = sp.get("next");
+ * redirect(n)`) is an accepted heuristic miss of the content triggers, bounded by the early full audit.
+ * @param {{ files: Array<{path: string}>, addedByFile: Map<string, string[]>, readFile?: (path: string) => string|null }} ctx the diff (repo-relative paths; added lines per file; the HEAD body reader)
  * @returns {{ triggered: boolean, hits: Array<{trigger: string, kind: 'path'|'content', detail: string}> }}
  */
 export function securityDeltaTriggers(ctx) {
@@ -298,12 +307,14 @@ export function securityDeltaTriggers(ctx) {
     if (p1Path(p)) hit("auth", "path", p);
     const lines = ctx.addedByFile.get(p) || [];
     const joined = lines.join("\n");
-    if (USE_SERVER.test(joined)) hit("server-action", "path", p);
+    const head = typeof ctx.readFile === "function" ? ctx.readFile(p) : null;
+    const moduleText = typeof head === "string" ? `${head}\n${joined}` : joined;
+    if (ACTIONS_FILE.test(p) || USE_SERVER.test(moduleText)) hit("server-action", "path", p);
     for (const c of CONTENT_TRIGGERS) {
       const line = lines.find((l) => c.re.test(l));
       if (line) hit(c.trigger, "content", `${p}: '${line.trim().slice(0, 80)}'`);
     }
-    if (FS_IMPORT.test(joined)) {
+    if (FS_IMPORT.test(moduleText)) {
       const line = lines.find((l) => PATH_JOIN.test(l));
       if (line) hit("fs-path-join", "content", `${p}: '${line.trim().slice(0, 80)}'`);
     }

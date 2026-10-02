@@ -1526,6 +1526,27 @@ console.log('security-scope: the delta audit is conditional on deterministic tri
     ok(r2.code === 4 && r2.receipt.status === 'no-early-report', 'quiet but no early report → refused: the delta audit runs instead')
   } finally { r.cleanup() }
 }
+console.log('security-scope-reads-head: a new action in an existing \'use server\' module, or a new path.join in a module that already imports fs, triggers the delta (fix round 1)')
+{
+  const r = mkRepo()
+  try {
+    r.write('src/app/notes/data.ts', "'use server'\nimport { db } from '@/server/db'\nexport async function saveNote() {}\n")
+    r.write('src/server/files.ts', "import { readFile } from 'node:fs/promises'\nimport path from 'node:path'\nexport const ROOT = 'content'\n")
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: base modules')
+    const pin = r.head().slice(0, 12)
+    r.write(`.pandacorp/run/security-early/${pin}.md`, '# Early audit\n\nNo Critical/High findings.\n')
+    r.write('src/app/notes/data.ts', "'use server'\nimport { db } from '@/server/db'\nexport async function saveNote() {}\nexport async function deleteNote(id) {\n  await db.note.delete({ where: { id } })\n}\n")
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: delete action')
+    const a = r.run('security-scope', ['--since', pin, '--write-report'])
+    ok(a.code === 0 && a.receipt.status === 'triggered' && a.receipt.hits.some((h) => h.trigger === 'server-action'), `a new export in an existing 'use server' module triggers (nothing written) (got ${JSON.stringify(a.receipt)})`)
+    const pin2 = r.head().slice(0, 12)
+    r.write(`.pandacorp/run/security-early/${pin2}.md`, '# Early audit\n\nNo Critical/High findings.\n')
+    r.write('src/server/files.ts', "import { readFile } from 'node:fs/promises'\nimport path from 'node:path'\nexport const ROOT = 'content'\nexport const readPost = (slug) => readFile(path.join(ROOT, slug))\n")
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: read post')
+    const b = r.run('security-scope', ['--since', pin2, '--write-report'])
+    ok(b.code === 0 && b.receipt.status === 'triggered' && b.receipt.hits.some((h) => h.trigger === 'fs-path-join'), `a new path.join in a module already importing fs triggers (got ${JSON.stringify(b.receipt)})`)
+  } finally { r.cleanup() }
+}
 console.log('telemetry-plan-without-emitter-fails-loud: telemetry is conditional on an event plan, and a plan nothing emits fails loud')
 {
   const r = mkRepo()

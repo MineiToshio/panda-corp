@@ -164,6 +164,24 @@ console.log('security delta triggers (proposal 40): path + content, deterministi
   ok(trig({ 'src/lib/prefs.ts': "cookies().set('theme', value)\n" }).hits.some((h) => h.trigger === 'cookies'), 'cookies trigger')
   ok(trig({ 'src/lib/_tests/html.test.ts': 'el.innerHTML = "<b>x</b>"\n', 'docs/reviews/x.md': 'dangerouslySetInnerHTML\n', 'e2e/x.spec.ts': 'eval(1)\n' }).triggered === false, 'prose and test surfaces never trigger')
   ok(trig({ 'src/lib/fetcher.ts': "await fetch('/api/v1/tasks', { signal })\n", 'src/lib/nav.ts': "redirect('/projects')\n" }).triggered === false, 'a literal fetch/redirect target is not built from input')
+  // FIX ROUND 1 (review of proposal 40): the server-action and fs-path-join triggers read the WHOLE file at HEAD
+  // (ctx.readFile), not only the lines the diff added — a new action in an existing 'use server' module, or a new
+  // path.join in a module that already imports fs, must trigger.
+  const trigHead = (added, heads) => securityDeltaTriggers({ ...landed(added), readFile: (p) => (p in heads ? heads[p] : null) })
+  const newAction = "export async function deleteNote(id) {\n  await db.note.delete({ where: { id } })\n}\n"
+  const actionHead = trigHead({ 'src/app/notes/data.ts': newAction }, { 'src/app/notes/data.ts': `'use server'\nimport { db } from '@/server/db'\nexport async function saveNote() {}\n${newAction}` })
+  ok(actionHead.hits.some((h) => h.trigger === 'server-action'), `security-delta-server-action-existing-module: a new export added to an existing 'use server' module triggers (got ${JSON.stringify(actionHead.hits)})`)
+  const joinHead = trigHead({ 'src/server/files.ts': 'export const readPost = (slug) => readFile(path.join(ROOT, slug))\n' }, { 'src/server/files.ts': "import { readFile } from 'node:fs/promises'\nimport path from 'node:path'\nexport const readPost = (slug) => readFile(path.join(ROOT, slug))\n" })
+  ok(joinHead.hits.some((h) => h.trigger === 'fs-path-join' && /path\.join\(ROOT, slug\)/.test(h.detail)), `security-delta-fs-path-join-existing-import: a new path.join in a module that already imports fs triggers (got ${JSON.stringify(joinHead.hits)})`)
+  ok(trigHead({ 'src/lib/paths.ts': 'export const p = (s) => path.join(BASE, s)\n' }, { 'src/lib/paths.ts': "import path from 'node:path'\nexport const p = (s) => path.join(BASE, s)\n" }).triggered === false, 'a path.join in a module that never imports fs stays quiet (the HEAD read does not over-trigger)')
+  ok(trigHead({ 'src/server/files.ts': 'export const n = 1\n' }, { 'src/server/files.ts': "import { readFile } from 'node:fs'\nexport const r = (s) => readFile(path.join(ROOT, s))\nexport const n = 1\n" }).hits.every((h) => h.trigger !== 'fs-path-join'), 'an fs module whose ADDED lines join no path does not trigger fs-path-join (only the added join is the delta)')
+  ok(trigHead({ 'src/app/notes/data.ts': newAction }, {}).hits.every((h) => h.trigger !== 'server-action'), 'without a HEAD body (deleted/unreadable) the added lines alone decide')
+  ok(trig({ 'src/app/notes/_actions/deleteNote.ts': newAction }).hits.some((h) => h.trigger === 'server-action'), 'security-delta-actions-path: a file under _actions/ is a server-action trigger by path')
+  ok(trig({ 'src/app/notes/actions.ts': newAction }).hits.some((h) => h.trigger === 'server-action') && trig({ 'src/app/notes/actions.js': newAction }).hits.some((h) => h.trigger === 'server-action'), 'security-delta-actions-path: an actions.[jt]s module is a server-action trigger by path')
+  ok(trig({ 'proxy.ts': 'export function proxy(req) { return NextResponse.next() }\n' }).hits.some((h) => h.trigger === 'middleware') && trig({ 'src/proxy.js': 'export function proxy() {}\n' }).hits.some((h) => h.trigger === 'middleware'), 'security-delta-next16-proxy: Next 16 proxy.ts (the renamed middleware) at the root or src/ is a middleware trigger')
+  ok(trig({ 'src/lib/upstream/proxy.ts': 'export const base = 1\n' }).hits.every((h) => h.trigger !== 'middleware'), 'a lib module merely named proxy.ts is not the Next middleware file')
+  ok(sig(productFloor(landed({ 'src/proxy.ts': "import { NextResponse } from 'next/server'\nexport function proxy(req) {\n  if (!req.cookies.get('session')) return NextResponse.redirect(new URL('/login', req.url))\n}\n" }))) === 'P1', 'a Next 16 proxy.ts that gates access is floor P1, like middleware.ts')
+  ok(trig({ 'src/app/route.ts': 'export async function GET() { return Response.json({}) }\n' }).hits.some((h) => h.trigger === 'route'), 'a root app/route.ts handler is a route trigger')
   ok(Array.isArray(SECURITY_DELTA_TRIGGERS) && SECURITY_DELTA_TRIGGERS.length >= 10 && SECURITY_DELTA_TRIGGERS.every((r) => r.trigger && r.kind && r.when), 'the trigger table is exported for the docs and the tests')
 }
 

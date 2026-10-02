@@ -1079,10 +1079,14 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
 - **Security (DR-085).** The audit starts read-only on the first gate's pin; the close-out audits only the delta since
   that pin, fail-closed to the full audit when the early verdict is unusable. The delta itself is conditional (proposal
   40): `security-scope` reads the landed diff since the pin and runs the opus delta audit only on a deterministic trigger
-  (`securityDeltaTriggers`, next to the product floor in `product-floor.mjs`): a path trigger (routes, server actions,
-  middleware, `next.config`, headers, auth, dependencies, lockfile) or a content trigger on an added line
-  (`dangerouslySetInnerHTML`, `innerHTML`, `eval`/`new Function`, raw SQL, fs path joins, a redirect or fetch built from
-  input, cookies). With no trigger the early report becomes `docs/reviews/security-<local date>.md`; an unreadable range
+  (`securityDeltaTriggers`, next to the product floor in `product-floor.mjs`): a path trigger (routes incl. a root
+  `app/route.*`, server actions — `_actions/**`, `actions.*`, or a module whose body AT HEAD declares `'use server'` —,
+  middleware incl. Next 16's root/`src/` `proxy.*`, `next.config`, headers, auth, dependencies, lockfile) or a content
+  trigger on an added line (`dangerouslySetInnerHTML`, `innerHTML`, `eval`/`new Function`, raw SQL, an added path join
+  in a module whose body at HEAD imports fs, a redirect or fetch built inline from input, cookies). Module-level facts
+  are read from the whole file at HEAD, never the added lines alone (a new action in an existing `'use server'` file is
+  the delta). Accepted heuristic miss: input bound to a variable first (`const n = sp.get("next"); redirect(n)`) does
+  not match the redirect/fetch triggers; the early full audit bounds it. With no trigger the early report becomes `docs/reviews/security-<local date>.md`; an unreadable range
   or a missing early report runs the audit. The report is named and asserted by the LOCAL date (`date +%F`).
 - **The tail (proposal 40 Phase 1, `test-build-engine.mjs` F40-*, `test-build-mech.mjs`, `test-prod-smoke.mjs`).**
   The builder's self-verify is `verify.sh --since <dispatch base>`, once (never per WO); the scripted verify runs the full
