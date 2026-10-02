@@ -4,6 +4,20 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 4 — the gate trims
+
+**Why.** Proposal 40 §1/§2: the opus FRD gate is 38-62 % of a fast-lane build's cost and ran after every oracle result was already final; on FM-3 it wrote ~2,800 lines of reviewer tests and found 0 product defects, while its real catches (stale `errors`, UTF-16 length, the 390 px marker, the ppv2 JSON-LD XSS) were either builder-introduced traps or injection-style content. §9 (owner-delegated) ships the effort split without the replay harness: `xhigh` stays where a miss is costly (floor, injection content), `high` elsewhere.
+
+**What (fast lane only; [build-orchestration.md §5d](../../factory/standards/build-orchestration.md)):**
+1. **Builder trap checklist**: the FRD builder's prompt lists the traps the gate caught before (DR-124).
+2. **Gate effort**: the `verify` op reports `injection` (the security delta's content triggers on the FRD's landed range, `securityDeltaTriggers` content kind). The serial opus gate runs at `high` off the floor and `xhigh` on the floor, on an injection hit, or when the scan is unknown (DR-072(5), DR-015: still opus).
+3. **Findings + probes**: a regression test per finding plus 1-5 adversarial probes per reviewed WO, returned as `probes`; an unprobed WO on a green verdict is a deficient verdict (one re-ask, then needs-owner) (DR-015 / DR-080).
+4. **Harness markers, first pass**: a prompt rule, plus the fast lane's dismissal check refuses a harness-marker / opt-out dismissal even with a citation (it was the BL-0211 re-ask that caught FM-3's FRD-04 marker on the second pass).
+
+**Deviations.** (a) The §7 row 4 "only after §6.3 passes" gate is dropped per §9; the benches' oracle plus a blind judge are the check. (b) The probe cap (5) is a prompt rule; the engine enforces only the floor (≥ 1 per WO), because it cannot un-write a test. (c) The split closer (re-gates in powerful/deep) keeps its `high`; the probe mandate and marker rule reach it through the shared pass clause. (d) A probe-deficient re-ask reuses the traceability re-ask text (it names the missing `probes` entry). (e) Conditional cross-feature review already shipped in Phase 1. (f) To fit the 450 KB artifact budget, the lean and legacy close-out prompts now share their identical text (separate `refactor` commit; every prompt of both engine suites diffed byte-identical); artifact 449,730 bytes.
+
+**Tests:** `test-build-engine.mjs`: `builder-prompt-carries-trap-checklist` (+ classic guard), `gate-effort-xhigh-on-injection-content`, `probe-mandate-min-one-per-wo` (+ needs-owner and classic variants), `harness-marker-raised-first-pass` (+ classic variant). `test-build-mech.mjs`: `gate-effort-xhigh-on-injection-content` (the verify op's scan). All RED before the change except the classic guards.
+
 ## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 3 — the patch ladder's merge
 
 **Why.** Proposal 40 §1/§2: on the benches the verify-patch agent wrote nothing in 4 of 4 runs and the certify agent only wrote work-order and status files, so neither judged anything a script cannot decide; the opus patch also ran on findings the gate itself bounded at ≤ ~30 lines. The red-team (B) asked that a patcher can never weaken the RED test, hence the mandatory hash, and that a cheaper patcher escalate.

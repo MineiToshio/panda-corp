@@ -1121,6 +1121,20 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   is off the floor and every finding is bounded (a RED-proven test and the gate's `fixLines` ≤ 30); **opus** on the
   floor and for an unestimated or larger finding. A sonnet patch the verify finds red gets ONE opus patch on top of it
   before the ladder's fallback. Classic lane unchanged.
+- **The gate trims (proposal 40 Phase 4 per its §9 decision; `test-build-engine.mjs` `builder-prompt-carries-trap-checklist`,
+  `gate-effort-xhigh-on-injection-content`, `probe-mandate-min-one-per-wo`, `harness-marker-raised-first-pass`;
+  `test-build-mech.mjs` `gate-effort-xhigh-on-injection-content`).** The FRD builder's prompt carries the KNOWN TRAPS the
+  gate caught before (functional state updates, the spec's length unit, `Date.parse` for ISO timestamps, no nested
+  interactive elements, dialog focus, `cn()` merge drops, numeric bounds with 5+-digit years). The scripted verify also
+  reports `injection`: the security delta's CONTENT triggers on the FRD's landed range (test surfaces never count; null
+  when the range is unknowable). The serial opus gate runs at effort **high** off the floor, and **xhigh** on a floor FRD,
+  on an FRD with an injection hit, and whenever the scan is unknown; it stays opus (DR-015). The gate writes a regression
+  test for each finding plus 1-5 adversarial probes per reviewed work order (interaction, async, boundary edges), never a
+  blanket suite, and returns them as `probes`; a green verdict that leaves a reviewed work order unprobed takes the
+  deficient-verdict path (one re-ask, then needs-owner, never certified). A harness-marker or opt-out finding (e.g. a
+  designed scroll missing `data-scroll-x="intentional"`) is raised on the first pass as a finding with its fix; on the
+  fast lane such a dismissal is refused even with a valid citation. The split closer keeps its own effort. Classic lane
+  unchanged.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
