@@ -927,7 +927,7 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
 **Two safety flags, each reachable alone in either lane** (both on under `lane:'fast'`):
 - **`args.mechScript` (C1/C2).** Every MECH op is one literal command of `plugin/scripts/pandacorp-build-mech.mjs`
   (`precheck`, `dispatch`, `commit-wo`, `park-wo`, `safe-point`, `reuse-check`, `gate-prepare`, `gate-release`, `plan`,
-  `classify-frd`, `verify`): the haiku relay runs it and returns its last line, a sealed JSON receipt the engine checks.
+  `classify-frd`, `verify`, `fast-start`): the haiku relay runs it and returns its last line, a sealed JSON receipt the engine checks.
   `commit-wo` takes `.pandacorp/run/main-writer.lock`, refuses a modified path that is neither declared nor `--extra`
   with a reason, a schema/migration path off `main`, another WO's frontmatter, and an AC id no test cites (`tests: none`
   needs `tests_reason:`); it re-runs the related unit tests, stamps `IN_REVIEW` and commits code + stamp as ONE commit
@@ -980,6 +980,23 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   stamp (`IN_PROGRESS`), since its precheck already restored every uncommitted stamp and owner dirt stops it. The fast
   lane then spends no judge baseline and never stops there; each FRD's own `verify` certifies what it builds. Any other
   state keeps the unchanged baseline.
+- **Fused start (fast lane, `args.fusedStart`, default on; never a change build or `strictBaseline`).** Bench F-1 spent
+  3.5 min before its first builder on six relay spawns. ONE haiku relay runs `fast-start`: the BuildLaunch event, the
+  `precheck`, the owner stop/rethink probe (fenced lease renewal), the baseline verdict made deterministic (`green` = a
+  clean tree at `last_green_sha` or its BL-0066 pointer commit, `leased-status-only` = BL-0124 under the lease it just
+  renewed, `greenfield` = the precheck's verdict, else `escalate`), `plan --classify --compact`, the drainable-work
+  check, the rollup sync and the first FRD's committed dispatch. Only the quiet common case runs through; every other
+  start stops at its step and the engine's separate steps take over unchanged: `owner-dirt` (needs-owner stop),
+  `stop` (stop before planning), `handoff` at `precheck`/`rethink`/`probe`/`baseline` (the pre-check agent and, on
+  escalate, the judge baseline) or `plan` (the plan agent once, the declined plan never re-read), `planned` without a
+  dispatch (drainable work, no lease token, a first FRD with an upstream in the plan or a BLOCKED, DRAFT or reopened WO,
+  a failed sync or dispatch). Its quiet or working probe is the run's first safe point, and its dispatch is used only by
+  the FRD the engine builds first with the same work orders. An unverifiable line runs every separate step. The script
+  emits BuildLaunch itself, so the pre-check never emits it twice.
+- **Compact plan line.** Bench F-1's scripted plan succeeded, but the haiku relay decoded the `\u00f3` escapes of its
+  Spanish AC text, the seal failed and an opus plan agent ran. The fast lane reads the plan with `--compact`: each WO's
+  AC lines go to `.pandacorp/run/context/<WO>.md` (the builder is pointed at it), labels are folded to ASCII, and the
+  line a relay copies holds no free text. The seal is unchanged.
 - **Wrapped relay answers.** A model may return a structured answer as one string-valued key (`{"parameter":
   "<json>"}`). Every sealed-receipt reader unwraps it once (the inner object carrying the expected key, or the bare
   sealed line) before its seal check, which still decides.
@@ -987,9 +1004,11 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
 **The fast build shape (needs `mechScript`; `lane:'fast'` with `mechScript:false` builds classic waves).**
 - **Sequential FRD lanes on `main` (§11).** One FRD at a time in dependency order; no worktree lanes, no landing train,
   no foundation split, no plan agent (`plan` reads the Build Plan order; a missing or drifted plan falls back to the
-  plan agent). One committed `IN_PROGRESS` dispatch stamp per FRD; ONE worker-tier builder holds every WO brief and
-  commits each WO itself through `commit-wo` (or parks it); a `difficulty: high` or reopened WO gets its own opus builder
-  in sequence. A WO without a sealed receipt is treated as not landed and parked; the missed WOs get one opus rebuild,
+  plan agent). One committed `IN_PROGRESS` dispatch stamp per FRD; ONE worker-tier builder holds every WO brief, a
+  `difficulty: high` one included (bench F-1: its own opus builder was 4.9 of 16.4 min), and commits each WO itself
+  through `commit-wo` (or parks it); only a WO that already failed once (`reopen_count`) gets its own opus builder in
+  sequence. Once every WO is committed the builder runs `verify.sh` itself and fixes its own reds with
+  `commit-wo --fixup` in the same context (never weakening a test); the scripted `verify` below still certifies. A WO without a sealed receipt is treated as not landed and parked; the missed WOs get one opus rebuild,
   then the classic bounded repair.
 - **Floor (C3) = PRODUCT risk, not /change rigor.** `classify-change.mjs --product-floor` (`product-floor.mjs`) over
   the declared artifact paths at plan time and again over the landed diff; monotone (never lowered), fail-closed
