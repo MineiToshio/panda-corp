@@ -182,6 +182,16 @@ console.log('security delta triggers (proposal 40): path + content, deterministi
   ok(trig({ 'src/lib/upstream/proxy.ts': 'export const base = 1\n' }).hits.every((h) => h.trigger !== 'middleware'), 'a lib module merely named proxy.ts is not the Next middleware file')
   ok(sig(productFloor(landed({ 'src/proxy.ts': "import { NextResponse } from 'next/server'\nexport function proxy(req) {\n  if (!req.cookies.get('session')) return NextResponse.redirect(new URL('/login', req.url))\n}\n" }))) === 'P1', 'a Next 16 proxy.ts that gates access is floor P1, like middleware.ts')
   ok(trig({ 'src/app/route.ts': 'export async function GET() { return Response.json({}) }\n' }).hits.some((h) => h.trigger === 'route'), 'a root app/route.ts handler is a route trigger')
+  // FIX ROUND 2 (review of proposal 40): the security scan reused the product floor's out-of-scope filter, which drops
+  // `.mdx` (compiled to code), any `docs/` segment and any `test/` directory — so an MDX page with an injection sink, or
+  // a route under src/app/docs/ or src/app/test/, never triggered the delta audit or the xhigh gate effort.
+  const mdxXss = trig({ 'content/blog/post.mdx': '# Post\n\n<script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(data)}} />\n' })
+  ok(mdxXss.hits.some((h) => h.trigger === 'dangerouslySetInnerHTML' && /post\.mdx/.test(h.detail)), `security-delta-mdx-is-code: an MDX page rendering raw HTML triggers (got ${JSON.stringify(mdxXss.hits)})`)
+  ok(trig({ 'src/app/blog/intro.mdx': 'export const x = eval(input)\n' }).hits.some((h) => h.trigger === 'eval'), 'security-delta-mdx-is-code: an MDX module calling eval triggers')
+  ok(trig({ 'src/app/docs/[slug]/route.ts': 'export async function GET() { return Response.json({}) }\n' }).hits.some((h) => h.trigger === 'route'), 'security-delta-app-docs-segment: a route handler under src/app/docs/ is a route trigger')
+  ok(trig({ 'src/app/test/page.tsx': '<div dangerouslySetInnerHTML={{ __html: html }} />\n' }).hits.some((h) => h.trigger === 'dangerouslySetInnerHTML'), 'security-delta-app-test-segment: a page under src/app/test/ is scanned')
+  ok(trig({ 'src/app/tests/page.tsx': 'el.innerHTML = html\n' }).hits.some((h) => h.trigger === 'innerHTML') && trig({ 'src/app/e2e/page.tsx': 'eval(code)\n' }).hits.some((h) => h.trigger === 'eval'), 'security-delta-app-segments: app segments named tests/ or e2e/ below the root are product code')
+  ok(trig({ 'docs/guide.mdx': 'dangerouslySetInnerHTML\n', 'src/components/__tests__/Card.tsx': 'eval(1)\n', 'src/lib/_tests/helpers.ts': 'el.innerHTML = x\n', 'src/lib/html.spec.tsx': 'eval(1)\n', 'e2e/helpers.ts': 'eval(1)\n', 'README.md': 'dangerouslySetInnerHTML\n' }).triggered === false, 'security-delta-real-tests-only: root docs/, real test files (*.test/*.spec, _tests/, __tests__/, root e2e/) and markdown prose stay out')
   ok(Array.isArray(SECURITY_DELTA_TRIGGERS) && SECURITY_DELTA_TRIGGERS.length >= 10 && SECURITY_DELTA_TRIGGERS.every((r) => r.trigger && r.kind && r.when), 'the trigger table is exported for the docs and the tests')
 }
 

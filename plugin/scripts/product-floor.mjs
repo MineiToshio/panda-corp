@@ -249,14 +249,31 @@ export function productFloor(ctx) {
 // is the only security review of FRDs 2..N, so it stays whenever the landed diff touches an attack surface; when the
 // diff touches none it is skipped and the early audit's report stands. Deterministic, like P1-P5: a path trigger
 // (the surfaces where an attack enters: routes, server actions, middleware, next.config with its headers/CSP, auth,
-// the dependency set) or a content trigger on an ADDED line (the injection sinks). Prose and test surfaces never
-// trigger. Bounded by the early full audit (always on) and the product floor; a client-only bug outside these
-// triggers is the accepted miss (proposal 40 §5 F).
+// the dependency set) or a content trigger on an ADDED line (the injection sinks). Markdown prose, the root docs/ tree
+// and real test files never trigger (SECURITY_SKIP — narrower than the floor's filter: .mdx is code). Bounded by the
+// early full audit (always on) and the product floor; a client-only bug outside these triggers is the accepted miss
+// (proposal 40 §5 F).
 const ROUTE_FILE = /(^|\/)(app\/(?:.*\/)?route|pages\/api\/.*)\.[cm]?[jt]sx?$/;
 const ACTIONS_FILE = /(^|\/)(_actions\/.+|actions)\.[cm]?[jt]sx?$/;
 const NEXT_CONFIG = /(^|\/)next\.config\.[cm]?[jt]s$/;
 const HEADERS_FILE = /(^|\/)(_headers|vercel\.json|netlify\.toml|headers\.[cm]?[jt]s)$/;
 const DEPENDENCY_FILE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|npm-shrinkwrap\.json)$/;
+/**
+ * The security scan's OWN out-of-scope filter, narrower than the floor's: an attack enters through anything that ships.
+ * `.mdx` compiles to a component (the ppv2 JSON-LD XSS shape fits in a blog post), and an app segment named docs/,
+ * test/ or e2e/ below the root is a route. Only markdown prose, the root docs/ tree, the coding agents' config and
+ * REAL test files stay out (*.test.* / *.spec.*, _tests/, __tests__/, the root e2e/ suite).
+ */
+const SECURITY_SKIP = [
+  /\.(md|mdc|txt|rst|adoc)$/i,
+  /^docs\//,
+  /(^|\/)\.(agents|claude|cursor|codex)\//,
+  /\.(test|spec)\.[cm]?[jt]sx?$/,
+  /(^|\/)_tests\//,
+  /(^|\/)__tests__\//,
+  /^e2e\//,
+];
+const isSecurityOutOfScope = (p) => anyMatch(SECURITY_SKIP, p);
 const USE_SERVER = /^\s*['"]use server['"]/m;
 const FS_IMPORT = /(?:from\s*|require\s*\(\s*|import\s*\(\s*)['"](?:node:)?fs(?:\/promises)?['"]/;
 const PATH_JOIN = /\bpath\s*\.\s*(?:join|resolve)\s*\(/;
@@ -297,7 +314,7 @@ export const SECURITY_DELTA_TRIGGERS = Object.freeze([
 export function securityDeltaTriggers(ctx) {
   const hits = [];
   const hit = (trigger, kind, detail) => { if (!hits.some((h) => h.trigger === trigger)) hits.push({ trigger, kind, detail }); };
-  const paths = [...new Set([...ctx.files.map((f) => f.path), ...ctx.addedByFile.keys()])].filter((p) => !isOutOfScope(p));
+  const paths = [...new Set([...ctx.files.map((f) => f.path), ...ctx.addedByFile.keys()])].filter((p) => !isSecurityOutOfScope(p));
   for (const p of paths) {
     if (ROUTE_FILE.test(p)) hit("route", "path", p);
     if (MIDDLEWARE.test(p)) hit("middleware", "path", p);

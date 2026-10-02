@@ -1189,6 +1189,18 @@ console.log('gate-effort-xhigh-on-injection-content: verify scans the landed ran
     } finally { r.cleanup() }
   }
   {
+    // FIX ROUND 2: an MDX page is code (compiled to a component) and an app segment named docs/ is a route, not prose.
+    const { r, base } = setup({
+      'content/blog/post.mdx': '# Post\n\n<script type="application/ld+json" dangerouslySetInnerHTML={{__html: JSON.stringify(data)}} />\n',
+      'src/app/docs/page.tsx': 'export default function Docs({ html }) { return <main ref={(el) => { if (el) el.innerHTML = html }} /> }\n',
+    })
+    try {
+      const v = verify(r, base)
+      const inj = (v.receipt && v.receipt.injection) || []
+      ok(inj.some((h) => h.trigger === 'dangerouslySetInnerHTML' && /post\.mdx/.test(h.detail)) && inj.some((h) => h.trigger === 'innerHTML' && /src\/app\/docs\/page\.tsx/.test(h.detail)), `gate-effort-injection-mdx-and-app-docs: an MDX sink and a sink under src/app/docs/ keep the gate at xhigh (got ${JSON.stringify(inj)})`)
+    } finally { r.cleanup() }
+  }
+  {
     const { r } = setup()
     try {
       rmSync(r.abs('.pandacorp/run/dispatch/frd-01-alpha.json'), { force: true })
