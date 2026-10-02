@@ -74,7 +74,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
@@ -189,7 +189,7 @@ function relatedTests(ctx, paths, timeoutMs) {
   if (!existsSync(bin)) return { ran: false, ok: true, reason: 'no-vitest: node_modules/.bin/vitest is absent in the project, related tests skipped' }
   const files = paths.filter((p) => CODE_FILE_RE.test(p) && !/^e2e\//.test(p) && existsSync(path.join(ctx.project, p)))
   if (!files.length) return { ran: false, ok: true, reason: 'no-code-files: nothing staged that vitest could relate' }
-  const r = spawnSync(bin, ['related', '--run', '--passWithNoTests', ...files], { cwd: ctx.project, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
+  const r = spawnSync(bin, ['related', '--run', '--passWithNoTests', ...files], { cwd: ctx.project, env: projectBinEnv(ctx.project), encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
   const tail = `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-15).join('\n')
   return { ran: true, ok: r.status === 0, files, exit: r.status, signal: r.signal || null, tail: r.status === 0 ? '' : tail }
 }
