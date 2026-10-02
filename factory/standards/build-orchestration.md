@@ -1085,7 +1085,10 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   trigger on an added line (`dangerouslySetInnerHTML`, `innerHTML`, `eval`/`new Function`, raw SQL, an added path join
   in a module whose body at HEAD imports fs, a redirect or fetch built inline from input, cookies). Module-level facts
   are read from the whole file at HEAD, never the added lines alone (a new action in an existing `'use server'` file is
-  the delta). Accepted heuristic miss: input bound to a variable first (`const n = sp.get("next"); redirect(n)`) does
+  the delta). The scan has its OWN skip list, narrower than the floor's: `.mdx` is code (it compiles to a component)
+  and an app segment named `docs/`, `test/` or `e2e/` below the root is a route; only markdown prose, the root `docs/`,
+  the agents' config and real test files (`*.test.*`, `*.spec.*`, `_tests/`, `__tests__/`, the root `e2e/`) are
+  skipped. Accepted heuristic miss: input bound to a variable first (`const n = sp.get("next"); redirect(n)`) does
   not match the redirect/fetch triggers; the early full audit bounds it. With no trigger the early report becomes `docs/reviews/security-<local date>.md`; an unreadable range
   or a missing early report runs the audit. The report is named and asserted by the LOCAL date (`date +%F`).
 - **The tail (proposal 40 Phase 1, `test-build-engine.mjs` F40-*, `test-build-mech.mjs`, `test-prod-smoke.mjs`).**
@@ -1105,7 +1108,12 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   error boundary, an empty `<main>` or a page that never hydrates. It reads each route only once the page has
   HYDRATED (`data-hydrated`, else React's private keys) and SETTLED (no script load, console/page error or CSP event
   for 1.5 s, bounded at 10 s, never `networkidle`), so a client chunk that evaluates code after `load` is seen; the
-  observer (`observeProdPage`) is proven by a real Chromium on a strict-CSP fixture in `test-prod-smoke.mjs`.
+  observer (`observeProdPage`) is proven by a real Chromium on a strict-CSP fixture in `test-prod-smoke.mjs`. The smoke
+  judges the commit at its start, and the hardening (the security-fix and telemetry agents) and visual-qa may commit
+  product code after it, so the release is certified only on the smoked commit: the scripted close takes `--smoke-sha`
+  and refuses `stale-smoke` when anything outside `.pandacorp/` and the root `docs/` moved past it (or the commit left
+  HEAD's history); the engine re-smokes HEAD once and closes on the new SHA, a red re-smoke blocks the release, and
+  the opus fallback close runs the same diff and re-smokes before it may set phase release.
 - **The event loop (proposal 40 Phase 2 / §3 Phase A, `test-build-engine.mjs` `apply-gate-never-blocks-dispatch`,
   `main-writer-mutex-serializes-apply-patch-commit`, `gate-launches-when-slot-frees`).** The main tree has ONE holder at a
   time, the engine-side **main-writer mutex** (the scripts still take `main-writer.lock` per op): a BUILD (dispatch →
@@ -1135,8 +1143,8 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   `test-build-mech.mjs` `gate-effort-xhigh-on-injection-content`).** The FRD builder's prompt carries the KNOWN TRAPS the
   gate caught before (functional state updates, the spec's length unit, `Date.parse` for ISO timestamps, no nested
   interactive elements, dialog focus, `cn()` merge drops, numeric bounds with 5+-digit years). The scripted verify also
-  reports `injection`: the security delta's CONTENT triggers on the FRD's landed range (test surfaces never count; null
-  when the range is unknowable). The serial opus gate runs at effort **high** off the floor, and **xhigh** on a floor FRD,
+  reports `injection`: the security delta's CONTENT triggers on the FRD's landed range (its skip list: real test files
+  never count, `.mdx` does; null when the range is unknowable). The serial opus gate runs at effort **high** off the floor, and **xhigh** on a floor FRD,
   on an FRD with an injection hit, and whenever the scan is unknown; it stays opus (DR-015). The gate writes a regression
   test for each finding plus 1-5 adversarial probes per reviewed work order (interaction, async, boundary edges), never a
   blanket suite, and returns them as `probes`; a green verdict that leaves a reviewed work order unprobed takes the
