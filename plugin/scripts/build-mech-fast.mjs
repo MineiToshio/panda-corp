@@ -19,7 +19,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statS
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
@@ -344,6 +344,7 @@ export function verifyOp(o) {
   const sha = headFull.slice(0, 12)
   const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
   const rep = readReport(ctx, r.status, headFull)
+  sealReportProvenance(ctx, 'verify')   // proposal 40: the close may reuse only a report a script ran
   const green = rep.green && rep.scope !== 'partial'
   // USABLE has ONE writer (DR-115): the committed build_usable line. No commit, no USABLE, no event.
   let usableCommit = null

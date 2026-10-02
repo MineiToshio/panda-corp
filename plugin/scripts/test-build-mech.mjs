@@ -12,6 +12,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { acquire } from '../runtime/build-state.mjs'
 import { verifySealedLine } from './drift-seal.mjs'
+import { projectCtx, sealReportProvenance } from './build-mech-lib.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(__dirname, 'pandacorp-build-mech.mjs')
@@ -666,13 +667,37 @@ console.log('reuse-check: a fresh, full, green report of HEAD over a clean tree 
     const report = (over) => r.write('.pandacorp/run/gate-report.json', JSON.stringify({ scope: 'full', green: true, sha: r.git('rev-parse', 'HEAD'), at: new Date().toISOString(), ...over }))
     ok(r.run('reuse-check').receipt.reason === 'no-report', 'no report → no-report')
     report({})
+    sealReportProvenance(projectCtx(r.proj), 'verify')   // proposal 40: only a script-written report is reusable
     const yes = r.run('reuse-check')
-    ok(yes.code === 0 && yes.sealed && yes.receipt.canReuse === true && yes.receipt.reason === 'reused', 'full + green + HEAD + clean + fresh → reused')
+    ok(yes.code === 0 && yes.sealed && yes.receipt.canReuse === true && yes.receipt.reason === 'reused', 'full + green + HEAD + clean + fresh + script-written → reused')
     report({ scope: 'since' }); ok(r.run('reuse-check').receipt.reason === 'scope-not-eligible', 'since scope never counts')
     report({ green: false }); ok(r.run('reuse-check').receipt.reason === 'not-green', 'red never counts')
     report({ sha: 'deadbeef' }); ok(r.run('reuse-check').receipt.reason === 'sha-mismatch', 'another sha never counts')
     report({ at: new Date(Date.now() - 3600 * 1000).toISOString() }); ok(r.run('reuse-check').receipt.reason === 'stale-report', 'an old report never counts')
     report({}); r.write('src/existing.ts', 'dirty\n'); ok(r.run('reuse-check').receipt.reason === 'dirty-tree', 'a dirty tree never counts')
+  } finally { r.cleanup() }
+}
+
+// proposal 40 §2 (Self-verify / scripted verify): a report the builder wrote (it ran verify.sh by hand) is never reused;
+// only the report the scripted verify wrote, its content hash intact, of exactly HEAD.
+console.log('reuse-check-rejects-builder-written-report: only the script-written report, hash intact, is reusable')
+{
+  const r = mkRepo()
+  try {
+    const headSha = r.git('rev-parse', 'HEAD')
+    const report = (over) => r.write('.pandacorp/run/gate-report.json', JSON.stringify({ scope: 'full', green: true, sha: headSha, at: new Date().toISOString(), ...over }))
+    report({})
+    const builder = r.run('reuse-check')
+    ok(builder.receipt.canReuse === false && builder.receipt.reason === 'not-script-written', `a full green report of HEAD with no script provenance (the builder ran verify.sh) → not-script-written (got ${builder.receipt.reason})`)
+    sealReportProvenance(projectCtx(r.proj), 'verify')
+    ok(r.run('reuse-check').receipt.reason === 'reused', 'the same report sealed by the scripted verify → reused')
+    report({ by: 'the builder, by hand' })
+    const rewritten = r.run('reuse-check')
+    ok(rewritten.receipt.canReuse === false && rewritten.receipt.reason === 'report-hash-mismatch', `a report rewritten after the seal (same verdict, new bytes) → report-hash-mismatch (got ${rewritten.receipt.reason})`)
+    sealReportProvenance(projectCtx(r.proj), 'verify')
+    const prov = r.abs('.pandacorp/run/gate-report.provenance.json')
+    writeFileSync(prov, readFileSync(prov, 'utf8').replace('"writer":"verify"', '"writer":"builder"'))
+    ok(r.run('reuse-check').receipt.reason === 'not-script-written', 'a provenance line whose seal no longer holds → not-script-written')
   } finally { r.cleanup() }
 }
 
@@ -929,6 +954,14 @@ console.log('verify: the USABLE check — clean tree, committed WOs, landed floo
       const evs = existsSync(r.events) ? readFileSync(r.events, 'utf8').trim().split('\n').map((x) => JSON.parse(x)) : []
       ok(evs.some((x) => x.event === 'build_usable' && x.frd === 'frd-01-alpha' && x.sha === v.receipt.sha), 'the dashboard build_usable event is appended')
       ok(r.status() === '', 'the tree is clean afterwards')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      const v = r.run('verify', [...args(base), '--floor'])
+      const reuse = r.run('reuse-check', ['--max-age', '999999999'])
+      ok(v.receipt.status === 'green' && existsSync(r.abs('.pandacorp/run/gate-report.provenance.json')) && reuse.receipt.reason === 'reused', `the scripted verify seals the report it ran (provenance), so the close can reuse it at the same HEAD (got ${reuse.receipt.reason})`)
     } finally { r.cleanup() }
   }
   {

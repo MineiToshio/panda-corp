@@ -40,7 +40,8 @@
 //   safe-point   [--token T --epoch E] [--targeted]   the probe: renew the lease (fenced), the owner stop receipt
 //                (lstat), rethink_pending, ready change cards, needs-owner blocks with an answered decision →
 //                `work`. The engine spawns the LLM drain only when `work` is true.
-//   reuse-check  [--max-age 900]   BL-0147: may the close-out reuse .pandacorp/run/gate-report.json?
+//   reuse-check  [--max-age 900]   BL-0147: may the close-out reuse .pandacorp/run/gate-report.json? Only a report a
+//                scripted op sealed (gate-report.provenance.json), its bytes intact (proposal 40).
 //   gate-prepare --path <wt> --sha <sha> [--port N]   C2: a frozen detached gate worktree at <sha>, bootstrapped.
 //   plan         [--frd <folder>]… [--classify] [--compact]   the fast lane's plan without a plan agent: the blueprints'
 //                Build Plan order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan.
@@ -65,7 +66,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, reportProvenance, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
@@ -497,8 +498,11 @@ function reuseCheck(o) {
   try { report = JSON.parse(readFileSync(path.join(o.project, '.pandacorp', 'run', 'gate-report.json'), 'utf8')) } catch { return { code: 0, body: { ...base, reason: 'no-report' } } }
   const at = Date.parse(report && report.at)
   const fields = { reportScope: String(report.scope ?? ''), reportGreen: report.green === true, reportSha: String(report.sha ?? ''), reportSince: String(report.since ?? ''), ageSeconds: Number.isFinite(at) ? Math.floor((Date.now() - at) / 1000) : -1 }
-  const reason = fields.reportScope !== 'full' ? 'scope-not-eligible' : !fields.reportGreen ? 'not-green' : !fields.reportSha ? 'sha-missing' : fields.reportSha !== headSha ? 'sha-mismatch' : dirty ? 'dirty-tree' : !(fields.ageSeconds >= 0 && fields.ageSeconds <= o.maxAge) ? 'stale-report' : 'reused'
-  return { code: 0, body: { ...base, ...fields, canReuse: reason === 'reused', reason } }
+  // proposal 40: last, only a report a scripted op wrote (and sealed), its bytes unchanged since — never one the builder
+  // produced by running verify.sh by hand (a builder-written report may be green over a tree no script certified).
+  const prov = reportProvenance(ctx)
+  const reason = fields.reportScope !== 'full' ? 'scope-not-eligible' : !fields.reportGreen ? 'not-green' : !fields.reportSha ? 'sha-missing' : fields.reportSha !== headSha ? 'sha-mismatch' : dirty ? 'dirty-tree' : !(fields.ageSeconds >= 0 && fields.ageSeconds <= o.maxAge) ? 'stale-report' : !prov.ok ? prov.reason : 'reused'
+  return { code: 0, body: { ...base, ...fields, provenance: prov.reason, canReuse: reason === 'reused', reason } }
 }
 
 // ── gate worktree: prepare / release (C2, BL-0149/0182/0183) ───────────────────────────────────

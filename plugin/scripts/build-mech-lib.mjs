@@ -3,9 +3,10 @@
 // No CLI here; every function either returns a value or throws a typed error the CLI turns into one sealed line.
 
 import { spawnSync } from 'node:child_process'
-import { randomBytes } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { sealLine, verifySealedLine } from './drift-seal.mjs'
 
 export const REFUSED_EXIT = 4
 export const INPUT_EXIT = 2
@@ -303,4 +304,41 @@ export function salvageAndReset(ctx, entries, dir) {
     out.push({ path: e.path, status: labelOf(e.code) })
   }
   return out
+}
+
+// ── gate-report provenance (proposal 40 §2: reuse only a script-written report) ─────────────────
+/** The whole-project report verify.sh writes, and the seal the scripted ops write next to it. */
+export const REPORT_REL = '.pandacorp/run/gate-report.json'
+export const PROVENANCE_REL = '.pandacorp/run/gate-report.provenance.json'
+const sha256Of = (buf) => createHash('sha256').update(buf).digest('hex')
+/**
+ * Seal the report a SCRIPTED op just ran (the `verify` USABLE check, the scripted `close`): its content hash, its sha
+ * and verdict, the writer. A builder that runs verify.sh by hand rewrites the report and leaves this seal stale, so the
+ * close never reuses a report no script produced. The seal detects a rewrite, it is not a security primitive.
+ * @param {object} ctx the projectCtx
+ * @param {string} writer the op that ran verify.sh
+ * @returns {boolean} false when there is no readable report to seal
+ */
+export function sealReportProvenance(ctx, writer) {
+  let bytes
+  try { bytes = readFileSync(path.join(ctx.project, REPORT_REL)) } catch { return false }
+  let rep = null
+  try { rep = JSON.parse(bytes.toString('utf8')) } catch { return false }
+  writeFileSync(path.join(ctx.project, PROVENANCE_REL), `${sealLine({ version: 1, op: 'report-provenance', writer, sha: String(rep.sha || ''), scope: String(rep.scope || ''), green: rep.green === true, reportSha256: sha256Of(bytes) })}\n`)
+  return true
+}
+/**
+ * Was the report on disk written by a scripted op, byte for byte?
+ * @returns {{ ok: boolean, reason: 'script-written'|'not-script-written'|'report-hash-mismatch', writer?: string }}
+ */
+export function reportProvenance(ctx) {
+  let line = ''
+  try { line = readFileSync(path.join(ctx.project, PROVENANCE_REL), 'utf8').trim() } catch { return { ok: false, reason: 'not-script-written' } }
+  if (!verifySealedLine(line).ok) return { ok: false, reason: 'not-script-written' }
+  let prov = null
+  try { prov = JSON.parse(line) } catch { return { ok: false, reason: 'not-script-written' } }
+  if (!prov || prov.op !== 'report-provenance' || !prov.writer) return { ok: false, reason: 'not-script-written' }
+  let bytes
+  try { bytes = readFileSync(path.join(ctx.project, REPORT_REL)) } catch { return { ok: false, reason: 'not-script-written' } }
+  return sha256Of(bytes) === prov.reportSha256 ? { ok: true, reason: 'script-written', writer: prov.writer } : { ok: false, reason: 'report-hash-mismatch', writer: prov.writer }
 }
