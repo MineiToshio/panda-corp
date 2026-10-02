@@ -11,7 +11,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { PRODUCT_FLOOR_RULES, pathTokens, productFloor } from './product-floor.mjs'
+import { PRODUCT_FLOOR_RULES, SECURITY_DELTA_TRIGGERS, pathTokens, productFloor, securityDeltaTriggers } from './product-floor.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CLASSIFIER = path.join(__dirname, 'classify-change.mjs')
@@ -133,6 +133,38 @@ console.log('CLI: classify-change.mjs --product-floor on a real git range (and /
     const empty = cli('--range', 'HEAD..HEAD', '--product-floor')
     ok(empty.code !== 0 && empty.v && empty.v.floor_hits.some((h) => h.signal === 'FAILCLOSED'), 'an empty range fails closed')
   } finally { rmSync(dir, { recursive: true, force: true }) }
+}
+
+// ── proposal 40 §2 (Security delta, conditional): the deterministic triggers that decide whether the close-out's
+// security DELTA audit runs at all. Path triggers (routes, server actions, middleware, next.config, headers, auth,
+// dependencies, lockfile) and content triggers on ADDED lines (dangerouslySetInnerHTML, innerHTML, eval/new Function,
+// $queryRaw, fs path joins, a redirect or fetch built from input, cookies). Prose and test surfaces never trigger.
+console.log('security delta triggers (proposal 40): path + content, deterministic, every hit explained')
+{
+  const trig = (files) => securityDeltaTriggers(landed(files))
+  const kinds = (v) => v.hits.map((h) => h.trigger).sort().join(',')
+  // security-delta-content-trigger-dangerouslySetInnerHTML — the ppv2 JSON-LD XSS shape, in a PAGE (not floor).
+  const xss = trig({ 'src/app/[locale]/blog/[slug]/_components/JsonLd.tsx': "export function JsonLd({ data }) {\n  return <script type=\"application/ld+json\" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />\n}\n" })
+  ok(xss.triggered === true && kinds(xss) === 'dangerouslySetInnerHTML' && /JsonLd\.tsx/.test(xss.hits[0].detail), `security-delta-content-trigger-dangerouslySetInnerHTML: a page rendering raw HTML triggers the delta (got ${JSON.stringify(xss.hits)})`)
+  ok(productFloor(landed({ 'src/app/[locale]/blog/[slug]/_components/JsonLd.tsx': 'dangerouslySetInnerHTML={{ __html: x }}\n' })).floor === false, 'the same page is NOT product floor: the delta trigger is the only net for it (the ppv2 XSS was off the floor)')
+  const quiet = trig({ 'src/app/_components/RegistrationForm.tsx': F1_FORM, 'src/lib/registration/rules.ts': 'export const isValid = (s) => s.length > 0\n', 'messages/es.json': '{"a":"b"}\n' })
+  ok(quiet.triggered === false && quiet.hits.length === 0, `a client-only form with pure helpers triggers nothing (got ${JSON.stringify(quiet.hits)})`)
+  ok(trig({ 'src/app/api/v1/tasks/route.ts': 'export async function GET() { return Response.json([]) }\n' }).hits.some((h) => h.trigger === 'route'), 'a route handler is a path trigger')
+  ok(trig({ 'src/app/actions.ts': "'use server'\nexport async function save() {}\n" }).hits.some((h) => h.trigger === 'server-action'), 'a "use server" module is a server-action trigger')
+  ok(trig({ 'middleware.ts': 'export const config = { matcher: [] }\n' }).hits.some((h) => h.trigger === 'middleware'), 'middleware is a path trigger')
+  ok(trig({ 'next.config.ts': 'export default {}\n' }).hits.some((h) => h.trigger === 'next-config'), 'next.config is a path trigger (headers + CSP live there)')
+  ok(trig({ 'package.json': '{"dependencies":{"left-pad":"1.0.0"}}\n' }).hits.some((h) => h.trigger === 'dependencies') && trig({ 'pnpm-lock.yaml': 'lockfileVersion: 9\n' }).hits.some((h) => h.trigger === 'dependencies'), 'package.json and the lockfile are dependency triggers')
+  ok(trig({ 'src/lib/auth/session.ts': 'export const x = 1\n' }).hits.some((h) => h.trigger === 'auth'), 'an auth-named path is a trigger')
+  ok(trig({ 'src/lib/html.ts': 'el.innerHTML = value\n' }).hits.some((h) => h.trigger === 'innerHTML'), 'innerHTML assignment triggers')
+  ok(trig({ 'src/lib/run.ts': 'const f = new Function("a", body)\n' }).hits.some((h) => h.trigger === 'eval') && trig({ 'src/lib/run.ts': 'eval(code)\n' }).hits.some((h) => h.trigger === 'eval'), 'eval / new Function trigger')
+  ok(trig({ 'src/server/queries/task.ts': 'await prisma.$queryRaw`SELECT 1`\n' }).hits.some((h) => h.trigger === 'raw-sql'), '$queryRaw triggers')
+  ok(trig({ 'src/server/files.ts': "import { readFile } from 'node:fs/promises'\nexport const read = (name) => readFile(path.join(ROOT, name))\n" }).hits.some((h) => h.trigger === 'fs-path-join'), 'an fs read through a path join triggers')
+  ok(trig({ 'src/app/go/page.tsx': "redirect(searchParams.get('next'))\n" }).hits.some((h) => h.trigger === 'redirect-from-input'), 'a redirect built from input triggers')
+  ok(trig({ 'src/lib/proxy.ts': 'await fetch(`${base}/${req.query.path}`)\n' }).hits.some((h) => h.trigger === 'fetch-from-input'), 'a fetch built from input triggers')
+  ok(trig({ 'src/lib/prefs.ts': "cookies().set('theme', value)\n" }).hits.some((h) => h.trigger === 'cookies'), 'cookies trigger')
+  ok(trig({ 'src/lib/_tests/html.test.ts': 'el.innerHTML = "<b>x</b>"\n', 'docs/reviews/x.md': 'dangerouslySetInnerHTML\n', 'e2e/x.spec.ts': 'eval(1)\n' }).triggered === false, 'prose and test surfaces never trigger')
+  ok(trig({ 'src/lib/fetcher.ts': "await fetch('/api/v1/tasks', { signal })\n", 'src/lib/nav.ts': "redirect('/projects')\n" }).triggered === false, 'a literal fetch/redirect target is not built from input')
+  ok(Array.isArray(SECURITY_DELTA_TRIGGERS) && SECURITY_DELTA_TRIGGERS.length >= 10 && SECURITY_DELTA_TRIGGERS.every((r) => r.trigger && r.kind && r.when), 'the trigger table is exported for the docs and the tests')
 }
 
 console.log(`\npassed: ${pass}   failed: ${fail}`)

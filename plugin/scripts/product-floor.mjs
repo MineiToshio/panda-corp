@@ -240,3 +240,73 @@ export function productFloor(ctx) {
   if (skipped) notes.push(`product floor: ${skipped} prose/test path(s) out of scope`);
   return { floor: hits.length > 0, floor_hits: hits, notes };
 }
+
+// ── Security DELTA triggers (proposal 40 §2) ──────────────────────────────────────────────────
+// The close-out's security DELTA audit (an opus agent) re-reads every source change since the early audit's pin. It
+// is the only security review of FRDs 2..N, so it stays whenever the landed diff touches an attack surface; when the
+// diff touches none it is skipped and the early audit's report stands. Deterministic, like P1-P5: a path trigger
+// (the surfaces where an attack enters: routes, server actions, middleware, next.config with its headers/CSP, auth,
+// the dependency set) or a content trigger on an ADDED line (the injection sinks). Prose and test surfaces never
+// trigger. Bounded by the early full audit (always on) and the product floor; a client-only bug outside these
+// triggers is the accepted miss (proposal 40 §5 F).
+const ROUTE_FILE = /(^|\/)(app\/.*\/route|pages\/api\/.*)\.[cm]?[jt]sx?$/;
+const NEXT_CONFIG = /(^|\/)next\.config\.[cm]?[jt]s$/;
+const HEADERS_FILE = /(^|\/)(_headers|vercel\.json|netlify\.toml|headers\.[cm]?[jt]s)$/;
+const DEPENDENCY_FILE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|yarn\.lock|bun\.lockb?|npm-shrinkwrap\.json)$/;
+const USE_SERVER = /^\s*['"]use server['"]/m;
+const FS_IMPORT = /(?:from\s*|require\s*\(\s*|import\s*\(\s*)['"](?:node:)?fs(?:\/promises)?['"]/;
+const PATH_JOIN = /\bpath\s*\.\s*(?:join|resolve)\s*\(/;
+// Input that reaches a request: a template literal or a concatenation carrying a request/route/form value.
+const INPUT = String.raw`(?:searchParams|params|query|req(?:uest)?\.|body|formData|headers\(\)|\bargs\b)`;
+const BUILT_FROM_INPUT = (sink) => new RegExp(String.raw`\b${sink}\s*\(\s*(?:[^)'"]*\b${INPUT}|\x60[^\x60]*\$\{[^}]*${INPUT})`);
+const CONTENT_TRIGGERS = [
+  { trigger: "dangerouslySetInnerHTML", re: /\bdangerouslySetInnerHTML\b/ },
+  { trigger: "innerHTML", re: /\.(?:inner|outer)HTML\s*=|\binsertAdjacentHTML\s*\(/ },
+  { trigger: "eval", re: /(?<![\w.])eval\s*\(|\bnew\s+Function\s*\(/ },
+  { trigger: "raw-sql", re: /\$(?:queryRaw|executeRaw)(?:Unsafe)?\b|\bsql\.raw\s*\(|\.raw\s*\(\s*\x60/ },
+  { trigger: "redirect-from-input", re: BUILT_FROM_INPUT("(?:redirect|permanentRedirect|NextResponse\\.redirect|res\\.redirect)") },
+  { trigger: "fetch-from-input", re: BUILT_FROM_INPUT("fetch") },
+  { trigger: "cookies", re: /\bcookies\s*\(\s*\)|\bdocument\.cookie\b|\bSet-Cookie\b|\.cookies\.(?:set|delete)\s*\(/i },
+];
+/** The trigger table, for the docs and the tests: one row per trigger. */
+export const SECURITY_DELTA_TRIGGERS = Object.freeze([
+  { trigger: "route", kind: "path", when: "an app/**/route.* or pages/api/** handler" },
+  { trigger: "server-action", kind: "path", when: "a module that declares 'use server'" },
+  { trigger: "middleware", kind: "path", when: "a middleware.* file" },
+  { trigger: "next-config", kind: "path", when: "next.config.* (security headers and the CSP live there)" },
+  { trigger: "headers", kind: "path", when: "_headers, vercel.json, netlify.toml or a headers.* module" },
+  { trigger: "auth", kind: "path", when: "a file or directory named for auth/session/login/password/credential (the P1 path tokens)" },
+  { trigger: "dependencies", kind: "path", when: "package.json or a lockfile" },
+  ...CONTENT_TRIGGERS.map((c) => ({ trigger: c.trigger, kind: "content", when: `an added line matching ${c.re}` })),
+  { trigger: "fs-path-join", kind: "content", when: "an added path.join/path.resolve in a module that imports fs" },
+]);
+/**
+ * Does a landed diff touch an attack surface the security DELTA audit must re-read?
+ * @param {{ files: Array<{path: string}>, addedByFile: Map<string, string[]> }} ctx the diff (repo-relative paths; added lines per file)
+ * @returns {{ triggered: boolean, hits: Array<{trigger: string, kind: 'path'|'content', detail: string}> }}
+ */
+export function securityDeltaTriggers(ctx) {
+  const hits = [];
+  const hit = (trigger, kind, detail) => { if (!hits.some((h) => h.trigger === trigger)) hits.push({ trigger, kind, detail }); };
+  const paths = [...new Set([...ctx.files.map((f) => f.path), ...ctx.addedByFile.keys()])].filter((p) => !isOutOfScope(p));
+  for (const p of paths) {
+    if (ROUTE_FILE.test(p)) hit("route", "path", p);
+    if (MIDDLEWARE.test(p)) hit("middleware", "path", p);
+    if (NEXT_CONFIG.test(p)) hit("next-config", "path", p);
+    if (HEADERS_FILE.test(p)) hit("headers", "path", p);
+    if (DEPENDENCY_FILE.test(p)) hit("dependencies", "path", p);
+    if (p1Path(p)) hit("auth", "path", p);
+    const lines = ctx.addedByFile.get(p) || [];
+    const joined = lines.join("\n");
+    if (USE_SERVER.test(joined)) hit("server-action", "path", p);
+    for (const c of CONTENT_TRIGGERS) {
+      const line = lines.find((l) => c.re.test(l));
+      if (line) hit(c.trigger, "content", `${p}: '${line.trim().slice(0, 80)}'`);
+    }
+    if (FS_IMPORT.test(joined)) {
+      const line = lines.find((l) => PATH_JOIN.test(l));
+      if (line) hit("fs-path-join", "content", `${p}: '${line.trim().slice(0, 80)}'`);
+    }
+  }
+  return { triggered: hits.length > 0, hits };
+}
