@@ -761,6 +761,79 @@ console.log('plan: the Build Plan order and the frontmatter, read without a plan
   } finally { r.cleanup() }
 }
 
+console.log('plan: real bench Build Plan tables (columns by header name, cross-FRD rows, `none`) plan with no plan agent')
+{
+  // Bench FM-1: the medium bench's FRD-01 table carries an `FRD` column before `Depends on` and repeats every FRD's rows
+  // (a cross-FRD DAG); the positional parser read `01` as WO-01-001's dependency and the run fell back to the plan agent.
+  const FIX = path.join(__dirname, 'fixtures', 'build-plan')
+  const fixture = (name) => readFileSync(path.join(FIX, name), 'utf8')
+  const woFile = (frd, id, deps) => `docs/frds/${frd}/work-orders/${id.toLowerCase()}-x.md`
+  const benchRepo = (frds) => {
+    const r = mkRepo()
+    for (const rel of [WO_A, WO_B, WO_C]) rmSync(r.abs(rel))
+    r.write('package.json', '{"name":"proj","dependencies":{"next":"16.0.0","react":"19.0.0"}}\n')
+    for (const { frd, blueprint: bp, wos } of frds) {
+      r.write(`docs/frds/${frd}/frd.md`, frdMd(frd.slice(0, 6).toUpperCase()))
+      r.write(`docs/frds/${frd}/blueprint.md`, fixture(bp))
+      for (const [id, deps] of wos) r.write(woFile(frd, id, deps), woMd(id, 'PLANNED', { extraFm: `title: ${id}\nartifacts: [src/${id.toLowerCase()}.ts]\ndependsOn: ${JSON.stringify(deps)}\n` }))
+    }
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'docs: bench plan fixture')
+    return r
+  }
+  const MEDIUM = [
+    { frd: 'frd-01-projects', blueprint: 'medium-frd-01-projects.md', wos: [['WO-01-001', []], ['WO-01-002', ['WO-01-001']], ['WO-01-003', ['WO-01-001']], ['WO-01-004', ['WO-01-003']], ['WO-01-005', ['WO-01-001', 'WO-01-002', 'WO-01-004']]] },
+    { frd: 'frd-02-tasks', blueprint: 'medium-frd-02-tasks.md', wos: [['WO-02-001', ['WO-01-004']], ['WO-02-002', ['WO-01-001', 'WO-01-002', 'WO-01-004', 'WO-02-001']]] },
+    { frd: 'frd-03-search-filters', blueprint: 'medium-frd-03-search-filters.md', wos: [['WO-03-001', ['WO-02-001']], ['WO-03-002', ['WO-02-002', 'WO-03-001']]] },
+    { frd: 'frd-04-dashboard', blueprint: 'medium-frd-04-dashboard.md', wos: [['WO-04-001', ['WO-01-001', 'WO-01-002', 'WO-01-003']]] },
+  ]
+  {
+    const r = benchRepo(MEDIUM)
+    try {
+      const p = r.run('plan', ['--compact'])
+      ok(p.code === 0 && p.sealed && p.receipt.status === 'planned', `the medium bench (FRD column, cross-FRD table, \`none\`) plans with no plan agent (got ${p.receipt && p.receipt.status}: ${p.receipt && p.receipt.reason})`)
+      const f = byFrd(p)
+      ok(f['frd-01-projects'] && JSON.stringify(f['frd-01-projects'].workOrders.map((w) => w.id)) === JSON.stringify(['WO-01-001', 'WO-01-002', 'WO-01-003', 'WO-01-004', 'WO-01-005']), 'FRD-01 in its Build Plan order')
+      ok(f['frd-01-projects'] && f['frd-01-projects'].workOrders[0].deps.length === 0, 'WO-01-001 has no dependency (the FRD column `01` is not read as one)')
+      ok(JSON.stringify((p.receipt.frds || []).map((x) => x.frd)) === JSON.stringify(['frd-01-projects', 'frd-02-tasks', 'frd-03-search-filters', 'frd-04-dashboard']), `FRDs in dependency order (got ${JSON.stringify((p.receipt.frds || []).map((x) => x.frd))})`)
+      const lease = await acquire(r.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+      const fs = r.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--project-name', 'proj'])
+      ok(fs.receipt && fs.receipt.status === 'dispatched' && fs.receipt.plan && fs.receipt.plan.status === 'planned' && fs.receipt.dispatch && fs.receipt.dispatch.frd === 'frd-01-projects', `the fused start plans and dispatches FRD-01: no handoff at the plan (got ${fs.receipt && fs.receipt.status} ${fs.receipt && fs.receipt.stage} ${fs.receipt && fs.receipt.plan && fs.receipt.plan.reason})`)
+    } finally { r.cleanup() }
+  }
+  {
+    // A real drift in the cross-FRD table is still drift: the FRD's own row disagreeing with its frontmatter.
+    const r = benchRepo(MEDIUM)
+    try {
+      r.write(woFile('frd-01-projects', 'WO-01-004'), woMd('WO-01-004', 'PLANNED', { extraFm: 'title: x\nartifacts: [src/x.ts]\ndependsOn: ["WO-01-002"]\n' }))
+      r.git('commit', '-q', '-am', 'drift')
+      const d = r.run('plan')
+      ok(d.receipt.status === 'no-build-plan' && /WO-01-004 dependency drift/.test(d.receipt.reason), `a real drift of an own row still falls back (got ${d.receipt.status}: ${d.receipt.reason})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const r = benchRepo([{ frd: 'frd-01-registration-form', blueprint: 'form-frd-01-registration-form.md', wos: [['WO-01-001', []], ['WO-01-002', []], ['WO-01-003', ['WO-01-001', 'WO-01-002']]] }])
+    try {
+      const p = r.run('plan', ['--compact'])
+      ok(p.code === 0 && p.sealed && p.receipt.status === 'planned' && JSON.stringify((p.receipt.frds || [{ workOrders: [] }])[0].workOrders.map((w) => [w.id, w.deps])) === JSON.stringify([['WO-01-001', []], ['WO-01-002', []], ['WO-01-003', ['WO-01-001', 'WO-01-002']]]), `the small bench (\`## Build Plan\`, WO | Depends on) plans with no plan agent (got ${p.receipt && p.receipt.status}: ${p.receipt && p.receipt.reason})`)
+    } finally { r.cleanup() }
+  }
+  {
+    // Header aliases, empty and dash cells, an unpadded id, a backticked id: all name the same plan.
+    const r = mkRepo()
+    try {
+      planFixture(r)
+      r.write(`${FRD_A}/blueprint.md`, '---\nid: BP\n---\n# B\n\n## Build Plan\n\n| Foundation | Deps | Work order |\n|---|---|---|\n| true | — | `WO-01-001` |\n| false | wo-1-1 | WO-01-002 |\n\n## Next\n')
+      r.git('commit', '-q', '-am', 'aliases')
+      const p = r.run('plan')
+      ok(p.receipt.status === 'planned' && JSON.stringify((byFrd(p)['frd-01-alpha'] || { workOrders: [] }).workOrders.map((w) => w.id)) === JSON.stringify(['WO-01-001', 'WO-01-002']), `columns found by header alias (Deps, Work order), \`—\` is none, ids normalized (got ${p.receipt.status}: ${p.receipt.reason})`)
+      r.write(`${FRD_A}/blueprint.md`, '---\nid: BP\n---\n# B\n\n## Build Plan\n\n| WO | Artifacts |\n|---|---|\n| WO-01-001 | x |\n| WO-01-002 | y |\n\n## Next\n')
+      r.git('commit', '-q', '-am', 'no deps column')
+      const n = r.run('plan')
+      ok(n.receipt.status === 'no-build-plan' && /frd-01-alpha/.test(n.receipt.reason), `a table with no dependency column is no Build Plan (got ${n.receipt.status}: ${n.receipt.reason})`)
+    } finally { r.cleanup() }
+  }
+}
+
 console.log('plan --classify / classify-frd: the deterministic floor, written to the FRD frontmatter, monotone')
 {
   const r = mkRepo()

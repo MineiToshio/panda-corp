@@ -41,19 +41,52 @@ export function fmList(text, key) {
     : fm.slice(m.index + m[0].length).split('\n').slice(1).map((l) => /^\s+-\s+(.*)$/.exec(l)).filter(Boolean).map((x) => x[1])
   return items.map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter((x) => !noneLike(x))
 }
-const listCell = (cell) => String(cell || '').replace(/^\[|\]$/g, '').split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter((x) => !noneLike(x))
+/** A work-order id in one canonical spelling: upper case, no quotes/backticks, numeric parts padded (`wo-1-1` → `WO-01-001`). */
+export function normWoId(id) {
+  const x = String(id || '').trim().replace(/^[`'"[]+|[`'"\]]+$/g, '').toUpperCase()
+  const m = /^WO-(\d+)-(\d+)$/.exec(x)
+  return m ? `WO-${m[1].padStart(2, '0')}-${m[2].padStart(3, '0')}` : x
+}
+const WO_ID_RE = /\bWO-[A-Za-z0-9]+-[A-Za-z0-9]+\b/gi
+/** A dependency cell: every work-order id it names; `none`/`—`/`-`/empty is none; any other text is kept (→ drift, fail-closed). */
+function depsCell(cell) {
+  const text = String(cell || '').replace(/`/g, '').trim()
+  if (noneLike(text)) return []
+  const ids = (text.match(WO_ID_RE) || []).map(normWoId)
+  return ids.length ? unique(ids) : [text]
+}
+const headerCell = (c) => c.toLowerCase().replace(/[`*_]/g, '').replace(/[\s-]+/g, ' ').trim()
+const WO_HEADERS = new Set(['wo', 'work order', 'workorder', 'wo id', 'id'])
+const DEPS_HEADERS = new Set(['depends on', 'depends', 'dependson', 'depends_on', 'deps', 'dependencies'])
+const FRD_HEADERS = new Set(['frd'])
+const cellsOf = (line) => line.split('|').slice(1, -1).map((c) => c.trim())
 
-/** The blueprint's `## Build Plan` table: WO id → { deps, order }, or null when the section or its rows are absent. */
+/**
+ * The blueprint's `## Build Plan` table: WO id → { deps, order, frd }, or null when the section, a dependency column or
+ * its rows are absent. Columns are found by their HEADER name (bench FM-1: an `FRD` column before `Depends on` was read
+ * as the dependencies); a table with no recognisable header keeps the legacy positional read (WO, then deps).
+ * `frd` is the row's FRD column ('' when there is none): a cross-FRD table repeats other FRDs' rows.
+ */
 export function parseBuildPlan(text) {
   const heading = /^##(?:\s+\d+\.)?\s+Build Plan[^\n]*$/mi.exec(String(text || ''))
   if (!heading) return null
   const rest = text.slice(heading.index + heading[0].length)
   const end = rest.search(/^##\s/m)
   const rows = new Map()
+  let cols = { wo: 0, deps: 1, frd: -1 }
   for (const line of (end < 0 ? rest : rest.slice(0, end)).split('\n')) {
-    if (!/^\|\s*`?WO-[A-Za-z0-9-]+`?\s*\|/i.test(line)) continue
-    const cells = line.split('|').slice(1, -1).map((c) => c.trim().replace(/`/g, ''))
-    rows.set(cells[0].toUpperCase(), { deps: listCell(cells[1]).map((d) => d.toUpperCase()), order: rows.size })
+    if (!/^\s*\|/.test(line) || /^\s*\|[\s:|-]*$/.test(line)) continue
+    const cells = cellsOf(line.trim())
+    const names = cells.map(headerCell)
+    const wo = names.findIndex((n) => WO_HEADERS.has(n))
+    if (wo >= 0 && !cells.some((c) => /^`?WO-[A-Za-z0-9-]+`?$/i.test(c))) {
+      cols = { wo, deps: names.findIndex((n) => DEPS_HEADERS.has(n)), frd: names.findIndex((n) => FRD_HEADERS.has(n)) }
+      continue
+    }
+    const id = normWoId(String(cells[cols.wo] || '').replace(/`/g, ''))
+    if (!/^WO-[A-Z0-9-]+$/.test(id)) continue
+    if (cols.deps < 0) return null
+    rows.set(id, { deps: depsCell(cells[cols.deps]), order: rows.size, frd: cols.frd >= 0 ? String(cells[cols.frd] || '').replace(/`/g, '').trim() : '' })
   }
   return rows.size ? rows : null
 }
@@ -68,7 +101,7 @@ function readFrds(ctx) {
     const wos = readdirSync(woDir).filter((n) => /^wo-.*\.md$/i.test(n)).sort().map((n) => {
       const rel = `docs/frds/${frd}/work-orders/${n}`
       const text = readFileSync(path.join(ctx.project, rel), 'utf8')
-      return { rel, text, id: String(woIdOf(rel, text)).toUpperCase(), status: frontmatterStatus(text), deps: unique([...fmList(text, 'dependsOn'), ...fmList(text, 'depends_on')].map((d) => d.toUpperCase())) }
+      return { rel, text, id: String(woIdOf(rel, text)).toUpperCase(), status: frontmatterStatus(text), deps: unique([...fmList(text, 'dependsOn'), ...fmList(text, 'depends_on')].map(normWoId)) }
     })
     if (!wos.length) continue
     const frdText = readText(path.join(base, frd, 'frd.md')) || ''
@@ -77,15 +110,32 @@ function readFrds(ctx) {
   return out
 }
 const sameDeps = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort())
+/**
+ * The Build Plan row of a work order: its own FRD's table first, else a cross-FRD table of another blueprint (bench
+ * FM-1: FRD-01's table is the whole product's DAG and the others "reference it").
+ */
+function planRow(f, id, all = []) {
+  const key = normWoId(id)
+  if (f.plan && f.plan.has(key)) return f.plan.get(key)
+  for (const o of all) if (o !== f && o.plan && o.plan.has(key)) return o.plan.get(key)
+  return null
+}
+/** Is this Build Plan row another FRD's (a cross-FRD table), so its absence from this folder is not drift? */
+function foreignRow(f, id, row, all) {
+  if (all.some((o) => o !== f && o.wos.some((w) => normWoId(w.id) === id))) return true
+  const num = (/^frd-0*(\d+)/i.exec(f.frd) || [])[1]
+  const cell = (/^(?:frd-?)?0*(\d+)/i.exec(row.frd || '') || [])[1]
+  return Boolean(num && cell && num !== cell)
+}
 /** Why this FRD's Build Plan cannot be trusted as the order (the engine then runs the plan agent), or null. */
-function planDrift(f) {
-  if (!f.plan) return `${f.frd}: blueprint.md has no Build Plan table`
+function planDrift(f, all = []) {
+  if (!f.plan && !f.wos.every((w) => planRow(f, w.id, all))) return `${f.frd}: blueprint.md has no Build Plan table`
   for (const w of f.wos) {
-    const row = f.plan.get(w.id)
+    const row = planRow(f, w.id, all)
     if (!row) return `${f.frd}: ${w.id} is missing from the Build Plan`
     if (!sameDeps(row.deps, w.deps)) return `${f.frd}: ${w.id} dependency drift (frontmatter [${w.deps}] vs Build Plan [${row.deps}])`
   }
-  for (const id of f.plan.keys()) if (!f.wos.some((w) => w.id === id)) return `${f.frd}: the Build Plan names ${id}, which has no work-order file`
+  for (const [id, row] of f.plan || []) if (!f.wos.some((w) => normWoId(w.id) === id) && !foreignRow(f, id, row, all)) return `${f.frd}: the Build Plan names ${id}, which has no work-order file`
   return null
 }
 /** Stable topological order: `order` breaks ties, a cycle keeps its remaining nodes in tie order (the engine names it). */
@@ -185,13 +235,13 @@ export function classifyFrdOp(o) {
 export function planOp(o) {
   const ctx = projectCtx(o.project)
   const all = readFrds(ctx)
-  const owner = new Map(all.flatMap((f) => f.wos.map((w) => [w.id, f.frd])))
+  const owner = new Map(all.flatMap((f) => f.wos.map((w) => [normWoId(w.id), f.frd])))
   const resolveFrd = (d) => all.find((f) => f.frd === d || f.frd.toLowerCase().startsWith(`${d.toLowerCase()}-`) || (/^FRD-\d+$/i.test(d) && f.frd.toLowerCase().startsWith(`frd-${d.split('-')[1]}-`)))
   const depsOf = (f) => unique([...f.fmDeps.map((d) => (resolveFrd(d) || { frd: d }).frd), ...f.wos.flatMap((w) => w.deps.map((d) => owner.get(d)).filter(Boolean))]).filter((d) => d !== f.frd)
   const unknown = o.frds.filter((x) => !all.some((f) => f.frd === x))
   if (unknown.length) return { code: 0, body: { status: 'no-build-plan', reason: `requested FRD(s) without work orders: ${unknown.join(', ')}` } }
   const scope = all.filter((f) => (!o.frds.length || o.frds.includes(f.frd)) && f.wos.some((w) => w.status !== 'VERIFIED'))
-  for (const f of scope) { const why = planDrift(f); if (why) return { code: 0, body: { status: 'no-build-plan', reason: why } } }
+  for (const f of scope) { const why = planDrift(f, all); if (why) return { code: 0, body: { status: 'no-build-plan', reason: why } } }
   const pendingFrd = (name) => { const f = all.find((x) => x.frd === name); return Boolean(f && f.wos.some((w) => w.status !== 'VERIFIED')) }
   const unsatisfiedDeps = o.frds.length ? scope.flatMap((f) => depsOf(f).filter((d) => !o.frds.includes(d) && pendingFrd(d)).map((dep) => ({ frd: f.frd, dep }))) : []
   const ordered = topo(scope, depsOf, (f) => f.frd)
@@ -209,7 +259,7 @@ export function planOp(o) {
     return { acFile: rel }
   }
   const frds = ordered.map((f) => {
-    const woOrder = topo([...f.wos].sort((a, b) => f.plan.get(a.id).order - f.plan.get(b.id).order), (w) => w.deps, (w) => w.id)
+    const woOrder = topo([...f.wos].sort((a, b) => planRow(f, a.id, all).order - planRow(f, b.id, all).order), (w) => w.deps, (w) => normWoId(w.id))
     const fl = floorOf(f)
     return {
       frd: f.frd, deps: depsOf(f), floor: fl.floor, floorHits: (fl.floorHits || []).map(label),
