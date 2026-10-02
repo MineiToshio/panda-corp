@@ -10,7 +10,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { acquire } from '../runtime/build-state.mjs'
+import { acquire, currentLease } from '../runtime/build-state.mjs'
 import { verifySealedLine } from './drift-seal.mjs'
 import { projectCtx, sealReportProvenance } from './build-mech-lib.mjs'
 
@@ -68,7 +68,7 @@ function mkRepo() {
   const installVitest = () => { write('node_modules/.bin/vitest', FAKE_VITEST); chmodSync(abs('node_modules/.bin/vitest'), 0o755) }
   const hook = (body) => { const h = path.join(root, '.git', 'hooks', 'pre-commit'); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755) }
   const run = (op, args = [], env = {}) => {
-    const evArgs = ['commit-wo', 'precheck', 'verify', 'fast-start'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
+    const evArgs = ['commit-wo', 'precheck', 'verify', 'fast-start', 'close', 'security-scope', 'telemetry-scope'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
     const r = spawnSync(process.execPath, [SCRIPT, op, '--project', proj, ...args, ...evArgs], { cwd: root, encoding: 'utf8', env: { ...process.env, FAKE_VITEST_LOG: vitestLog, ...env } })
     const lines = (r.stdout || '').trim().split('\n')
     const line = lines.pop() || ''
@@ -1449,6 +1449,114 @@ console.log('fast-start: the scripted baseline verdict — known-green, escalate
     const x = b.run('fast-start', startArgs(lease))
     ok(x.receipt.status === 'planned' && !x.receipt.dispatch && stampOf(b, WO_A) === 'PLANNED', `a first FRD with a BLOCKED work order is left to the engine's own dispatch (got ${x.receipt.status})`)
   } finally { b.cleanup() }
+}
+
+// ── proposal 40 §2: the conditional security delta, the conditional telemetry, the scripted release close ─────────────
+console.log('security-scope: the delta audit is conditional on deterministic triggers; quiet → the early report becomes the evidence')
+{
+  const r = mkRepo()
+  try {
+    const pin = r.head().slice(0, 12)
+    r.write(`.pandacorp/run/security-early/${pin}.md`, '# Early audit\n\nNo Critical/High findings.\n')
+    r.write('src/lib/rules.ts', 'export const isValid = (s) => s.length > 0\n')
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: pure rules')
+    const q = r.run('security-scope', ['--since', pin])
+    ok(q.code === 0 && q.sealed && q.receipt.status === 'quiet' && q.receipt.triggered === false, `a pure helper since the pin triggers nothing (got ${JSON.stringify(q.receipt)})`)
+    const before = r.head()
+    const w = r.run('security-scope', ['--since', pin, '--write-report', '--findings', '0'])
+    const day = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
+    ok(w.code === 0 && w.receipt.status === 'written' && w.receipt.report === `docs/reviews/security-${day}.md` && r.head() !== before && r.filesAt().includes(`proj/docs/reviews/security-${day}.md`), `quiet + --write-report commits the early audit as docs/reviews/security-<LOCAL date>.md (got ${JSON.stringify(w.receipt)})`)
+    ok(/No Critical\/High findings/.test(r.atHead(`docs/reviews/security-${day}.md`)) && /delta audit ran|no delta audit ran/.test(r.atHead(`docs/reviews/security-${day}.md`)), 'the report carries the early audit and says why no delta audit ran')
+    r.write('src/app/post/JsonLd.tsx', 'export const J = ({ d }) => <script dangerouslySetInnerHTML={{ __html: d }} />\n')
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: json-ld')
+    const t = r.run('security-scope', ['--since', pin, '--write-report'])
+    ok(t.code === 0 && t.receipt.status === 'triggered' && t.receipt.hits.some((h) => h.trigger === 'dangerouslySetInnerHTML'), 'a landed dangerouslySetInnerHTML triggers the delta audit (nothing written)')
+    const bad = r.run('security-scope', ['--since', 'nope'])
+    ok(bad.receipt.triggered === true && bad.receipt.hits[0].trigger === 'unreadable', 'an unreadable range is triggered (fail-closed)')
+    const r2 = r.run('security-scope', ['--since', r.head().slice(0, 12), '--write-report'])
+    ok(r2.code === 4 && r2.receipt.status === 'no-early-report', 'quiet but no early report → refused: the delta audit runs instead')
+  } finally { r.cleanup() }
+}
+console.log('telemetry-plan-without-emitter-fails-loud: telemetry is conditional on an event plan, and a plan nothing emits fails loud')
+{
+  const r = mkRepo()
+  try {
+    const a = r.run('telemetry-scope')
+    ok(a.code === 0 && a.receipt.status === 'absent' && a.receipt.applicable === false, 'no docs/analytics/events.md → not applicable')
+    r.write('docs/analytics/events.md', '# Event plan\n\n## Event catalog\n\n### 1. `page_viewed`\n\n### 2. `contact_form_submitted`\n\n### 3. `contact_mailto_clicked` *(retired)*\n')
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'docs: event plan')
+    const loud = r.run('telemetry-scope')
+    ok(loud.code === 4 && loud.receipt.ok === false && loud.receipt.status === 'no-emitters' && loud.receipt.planned.join() === 'page_viewed,contact_form_submitted', `a plan with no emitter anywhere fails loud, retired events skipped (got ${JSON.stringify(loud.receipt)})`)
+    r.write('src/lib/analytics.ts', "export const EVENTS = { pageViewed: 'page_viewed' } as const\n")
+    r.write('src/lib/_tests/analytics.test.ts', "capture('contact_form_submitted')\n")
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'feat: one emitter')
+    const some = r.run('telemetry-scope')
+    ok(some.code === 0 && some.receipt.status === 'applicable' && some.receipt.missing.join() === 'contact_form_submitted', 'one emitter → applicable; an event named only in a test is still missing (the agent verifies)')
+    const n = mkRepo()
+    try {
+      n.write('docs/analytics/events.md', '# Event plan\n\nNo analytics: the product brief excludes them.\n')
+      n.git('add', '-A', '--', 'proj'); n.git('commit', '-q', '-m', 'docs: empty plan')
+      const before = n.head()
+      const na = n.run('telemetry-scope', ['--write-na'])
+      ok(na.code === 0 && na.receipt.status === 'no-events' && na.receipt.verified === true && n.head() !== before && /^## Verification/m.test(n.atHead('docs/analytics/events.md')), 'a plan with no events records its verification section (not applicable), committed')
+    } finally { n.cleanup() }
+  } finally { r.cleanup() }
+}
+console.log('close: the scripted release — asserts, ONE full verify.sh, phase release, the fenced lease release')
+{
+  const VERIFY = (green = true) => `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"%s","scope":"full","green":${green},"sha":"%s","subgates":[{"name":"vitest","exit":${green ? 0 : 1},"failures":[]}]}\\n' "$(date -u +%FT%TZ)" "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\nexit ${green ? 0 : 1}\n`
+  const setup = async ({ green = true, verified = true, card = false, report = true } = {}) => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write(`${FRD_A}/frd.md`, frdMd('FRD-01').replace('implementation_status: PLANNED', `implementation_status: ${verified ? 'VERIFIED' : 'IN_REVIEW'}`))
+    r.write(`${FRD_C}/frd.md`, frdMd('FRD-02').replace('implementation_status: PLANNED', 'implementation_status: VERIFIED'))
+    r.write('.pandacorp/verify.sh', VERIFY(green)); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.write('.pandacorp/build-journal.jsonl', '{"wo":"WO-01-002","reopen_count":2,"classification":"point","why":"the sort comparator was inverted twice"}\n')
+    r.write('.gitignore', 'node_modules/\n.pandacorp/run/\n.pandacorp/inbox/\n')   // the owner-facing inbox is gitignored in every project
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'chore: verified project')
+    const lease = await acquire(r.proj, { runtime: 'claude', runId: 'close-test', ttlSeconds: 120 })
+    r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'chore: lease projection')
+    await new Promise((res) => setTimeout(res, 20))
+    if (report) {
+      const d = new Date()
+      r.write(`docs/reviews/security-${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}.md`, '# Security\n')
+      r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'docs(security): audit report')
+    }
+    if (card) r.write('.pandacorp/inbox/changes/add-x.md', '---\ntype: feature\nstatus: building\n---\n')
+    return { r, args: ['--token', lease.token, '--epoch', String(lease.epoch)] }
+  }
+  {
+    const { r, args } = await setup()
+    try {
+      const c = r.run('close', args)
+      ok(c.code === 0 && c.sealed && c.receipt.status === 'released' && c.receipt.verify === 'ran', `a verified, hardened project releases through ONE full verify.sh (got ${JSON.stringify(c.receipt)})`)
+      ok(/^phase:\s*["']?release["']?$/m.test(r.atHead('.pandacorp/status.yaml')) && /running: false/.test(r.atHead('.pandacorp/status.yaml')), 'phase release and running:false are committed')
+      ok((await currentLease(r.proj)) === null, 'the lease is finally released (two-phase)')
+      ok(r.git('log', '--format=%s', '-3').includes('chore(release): phase release') && r.status().split('\n').filter((l) => / proj\//.test(l)).length === 0, 'the release and quiesce commits leave the project clean')
+      const evs = readFileSync(r.events, 'utf8')
+      ok(/"event":"BuildComplete"[^\n]*"verdict":"released"/.test(evs) && /"stage":"integration"/.test(evs), 'BuildComplete released + the integration Hardening event')
+      ok(/WO-01-002: point|reopened|inverted twice/.test(readFileSync(r.abs('.pandacorp/run/lessons.md'), 'utf8')), 'the journal gold (reopen_count ≥ 2) is distilled to .pandacorp/run/lessons.md')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup({ verified: false })
+    try { const c = r.run('close', args); ok(c.code === 4 && c.receipt.status === 'not-verified' && !existsSync(r.abs('.pandacorp/run/verify-ran')), 'an FRD rollup not VERIFIED refuses before verify.sh runs') } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup({ report: false })
+    try { const c = r.run('close', args); ok(c.code === 4 && c.receipt.status === 'no-security-evidence', 'no security report → refused') } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup({ card: true })
+    try { const c = r.run('close', args); ok(c.code === 4 && c.receipt.status === 'archive-pending' && c.receipt.cards.includes('add-x.md'), 'a change card still building → archive-pending (the archive step runs first)') } finally { r.cleanup() }
+  }
+  {
+    const { r, args } = await setup({ green: false })
+    try {
+      const c = r.run('close', args)
+      ok(c.code === 4 && c.receipt.status === 'red' && /vitest/.test(c.receipt.failure) && !/^phase:\s*["']?release/m.test(r.atHead('.pandacorp/status.yaml')) && (await currentLease(r.proj)) !== null, 'a red full verify.sh never releases: phase unchanged, the lease still held for the fallback close')
+    } finally { r.cleanup() }
+  }
 }
 
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`)

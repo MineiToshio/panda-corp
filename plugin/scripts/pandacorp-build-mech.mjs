@@ -59,6 +59,8 @@
 //   gate-release --path <wt> --dir <evidence-dir>   BL-0182: salvage every dirty path of the gate worktree (+ its
 //                gitignored gate report) to <dir>, then clean exactly those paths. Proposal 40: also records
 //                <dir>/gate-manifest.json (the pin, each path's status and sha256) and a patch per modified tracked file.
+//   security-scope / telemetry-scope / close / prod-smoke   proposal 40: the tail's deterministic steps (the conditional
+//                security delta and telemetry, the scripted release close, the production-build smoke): build-mech-close.mjs.
 //   gate-land    --dir <evidence-dir> --frd <folder> [--pin <sha>]   proposal 40: the gate's PASS lands its own
 //                reviewer tests and its new-route blesses on main as ONE commit with DR-080 provenance (build-mech-land.mjs).
 
@@ -71,6 +73,7 @@ import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
 import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
+import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
 import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
@@ -91,7 +94,7 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na'])
 const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
 function parseArgs(argv) {
   const op = argv[0]
@@ -107,8 +110,8 @@ function parseArgs(argv) {
     else if (name === 'extra') o.extras.push({ path: v.replace(/^\.\//, ''), reason: null })
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
-    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents', 'findings'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')
@@ -597,6 +600,7 @@ function gateRelease(o) {
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────────────────
 const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, 'gate-land': gateLandOp, ...FAST_OPS,
+  'security-scope': securityScopeOp, 'telemetry-scope': telemetryScopeOp, close: closeOp, 'prod-smoke': (o) => prodSmokeOp(o, { gatePrepare }),
   'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }) }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
