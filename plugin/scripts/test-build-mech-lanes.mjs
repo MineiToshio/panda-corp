@@ -5,7 +5,7 @@
 // lane with the real `commit-wo` op. The oracle is git (main's history, its files, the lane branches) — never the
 // receipt alone — and every receipt must carry a valid integrity seal.
 
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
@@ -23,8 +23,8 @@ let failed = 0
 const ok = (cond, msg) => { if (cond) { passed++; console.log(`  ✓ ${msg}`) } else { failed++; console.log(`  ✗ ${msg}`) } }
 
 const FAKE_TOOL = '#!/bin/sh\necho "$(basename "$0") $*" >> "$LANE_TOOL_LOG"\ncase " $FAIL_TOOLS " in *" $(basename "$0") "*) exit 1;; esac\nexit 0\n'
-const BOOTSTRAP = '#!/bin/sh\nmkdir -p node_modules/.bin .pandacorp/run\necho "${PANDACORP_LANE:-none} ${PANDACORP_E2E_PORT:-none}" >> "$BOOT_LOG"\nfor t in tsc biome vitest; do cp "$FAKE_TOOL" node_modules/.bin/$t; chmod +x node_modules/.bin/$t; done\n'
-const VERIFY = '#!/bin/sh\n[ -f src/bad.ts ] && { echo "bad.ts present"; exit 1; }\nexit 0\n'
+const BOOTSTRAP = '#!/bin/sh\nsleep "${BOOT_SLEEP:-0}"\n[ -n "$BOOT_FAIL" ] && { echo "npm ci: network unreachable"; exit 1; }\nmkdir -p node_modules/.bin .pandacorp/run\necho "${PANDACORP_LANE:-none} ${PANDACORP_E2E_PORT:-none}" >> "$BOOT_LOG"\nfor t in tsc biome vitest; do cp "$FAKE_TOOL" node_modules/.bin/$t; chmod +x node_modules/.bin/$t; done\n'
+const VERIFY = '#!/bin/sh\nmkdir -p .pandacorp/run\nsha=$(git rev-parse HEAD)\nif [ -f src/bad.ts ]; then printf \'{"sha":"%s","green":false,"scope":"full","subgates":[{"name":"vitest","exit":1,"failures":["src/bad.ts: bad"]}]}\' "$sha" > .pandacorp/run/gate-report.json; echo "bad.ts present"; exit 1; fi\nprintf \'{"sha":"%s","green":true,"scope":"full","subgates":[]}\' "$sha" > .pandacorp/run/gate-report.json\nexit 0\n'
 const woMd = (id, { deps = [], artifacts = [], status = 'PLANNED' } = {}) => `---\nid: ${id}\ntype: work-order\nslug: ${id.toLowerCase()}\nimplementation_status: ${status}\nreopen_count: 0\ndependsOn: [${deps.join(', ')}]\nartifacts: [${artifacts.join(', ')}]\ntests: none\ntests_reason: lane fixture\n---\n# ${id}\n\n## Status Note\n`
 const woRel = (frd, id) => `docs/frds/${frd}/work-orders/${id.toLowerCase()}-x.md`
 
@@ -89,7 +89,14 @@ function mkRepo(wos) {
     rmSync(root, { recursive: true, force: true })
     rmSync(scratch, { recursive: true, force: true })
   }
-  return { root, proj, git, gitAt, write, read, run, runIn, laneProj, buildIn, commitMain, subjects, toolCalls, bootCalls, portBase: Number(portBase), cleanup }
+  /** The op run in the background (its own process), resolved with the same shape as run(). */
+  const runBg = (op, args = [], env = {}) => new Promise((resolve) => {
+    const p = spawn(process.execPath, [SCRIPT, op, '--project', proj, ...args], { cwd: root, env: { ...process.env, ...baseEnv, ...env } })
+    let out = ''
+    p.stdout.on('data', (b) => { out += b })
+    p.on('close', (code) => { const line = out.trim().split('\n').pop() || ''; let receipt = null; try { receipt = JSON.parse(line) } catch { receipt = null } resolve({ code, receipt: receipt || {}, sealed: verifySealedLine(line).ok, line }) })
+  })
+  return { root, proj, git, gitAt, write, read, run, runIn, runBg, laneProj, buildIn, commitMain, subjects, toolCalls, bootCalls, portBase: Number(portBase), cleanup }
 }
 const chainWos = (plan) => plan.receipt.chains.map((c) => c.wos)
 /** dispatch → build each WO → mark built → land: the happy path of one chain on lane n. */
@@ -330,6 +337,168 @@ console.log('lane-bisect: the first red tip after a green base is the culprit, i
     ok(bis.receipt.results.length === 4 && bis.receipt.results[0].green === true, 'the base before the first candidate is checked green')
     ok(r.git('rev-parse', 'HEAD') === red, 'bisect never reverts anything')
     ok(r.git('worktree', 'list').split('\n').filter((l) => l.includes('bisect-')).length === 0, 'its snapshot worktrees are removed')
+  } finally { r.cleanup() }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// Stage B: the ops the engine's lane scheduler drives (lane-next, lane-usable) and the planner's engine scope.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// ── auto-k1-on-narrow-dag: the gain below the bootstrap ─────────────────────────────────────────
+console.log('auto-k1-on-narrow-dag (gain): K = 1 when fewer than two WOs could build beside the longest path')
+{
+  const two = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }])
+  try {
+    const p = two.run('lane-plan')
+    ok(p.receipt.width === 2 && p.receipt.k === 1 && p.receipt.kReason === 'gain-below-bootstrap' && p.receipt.offPath === 1, `two independent WOs: one off the path, K = 1 (${p.receipt.k} ${p.receipt.kReason} offPath ${p.receipt.offPath})`)
+  } finally { two.cleanup() }
+  const three = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }])
+  try {
+    const p = three.run('lane-plan')
+    ok(p.receipt.k === 2 && p.receipt.kReason === 'default' && p.receipt.offPath === 2, `three independent WOs: K = 2 (${p.receipt.k} ${p.receipt.kReason})`)
+  } finally { three.cleanup() }
+}
+
+// ── the engine's scope: --build and --wait-verified ─────────────────────────────────────────────
+console.log('lane-plan --build / --wait-verified: only the engine\'s schedule dispatches; a floor FRD\'s dependents wait for its VERIFIED')
+{
+  const r = mkRepo([
+    { frd: 'frd-01-a', id: 'WO-01-001', status: 'IN_REVIEW' }, { frd: 'frd-01-a', id: 'WO-01-002', deps: ['WO-01-001'] },
+    { frd: 'frd-02-b', id: 'WO-02-001', deps: ['WO-01-001'] }, { frd: 'frd-03-c', id: 'WO-03-001' },
+  ])
+  try {
+    const ids = (p) => p.receipt.chains.flatMap((c) => c.wos).sort().join(',')
+    ok(ids(r.run('lane-plan')) === 'WO-01-002,WO-02-001,WO-03-001', 'an IN_REVIEW upstream in scope satisfies its dependents')
+    const w = r.run('lane-plan', ['--wait-verified', 'frd-01-a'])
+    ok(ids(w) === 'WO-01-002,WO-03-001', `--wait-verified frd-01-a: its own next WO goes on, the other FRD's dependent waits (${ids(w)})`)
+    const b = r.run('lane-plan', ['--build', 'WO-01-002', '--build', 'WO-02-001'])
+    ok(ids(b) === 'WO-01-002,WO-02-001', `--build: a WO outside the engine's schedule is never dispatched (${ids(b)})`)
+  } finally { r.cleanup() }
+}
+
+// ── lane-pool boots outside lanes.lock ──────────────────────────────────────────────────────────
+console.log('lane-pool: the bootstrap runs outside lanes.lock; a booting lane is never free')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001', artifacts: ['package.json'] }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }, { frd: 'frd-04-d', id: 'WO-04-001' }])
+  try {
+    const t0 = Date.now()
+    const pool = r.runBg('lane-pool', ['--size', '2'], { BOOT_SLEEP: '4' })
+    let during = null
+    for (let i = 0; i < 60 && !during; i++) {
+      await new Promise((res) => setTimeout(res, 200))
+      const st = r.read('.pandacorp/run/lanes/state.json')
+      if (st && JSON.parse(st).pool.length === 2) during = r.run('lane-next')
+    }
+    ok(during && during.code === 0 && Date.now() - t0 < 4000, `lane-next ran while the pool booted (not blocked by lanes.lock: ${Date.now() - t0} ms)`)
+    ok(during && during.receipt.pool.booting === 2 && during.receipt.dispatched.length === 0, 'both lanes are booting: no chain is dispatched to them')
+    ok(during && during.receipt.barrier && JSON.stringify(during.receipt.barrier.wos) === '["WO-01-001"]' && during.receipt.landingsPaused === true, 'the barrier is dispatched to main meanwhile (it needs no lane)')
+    const done = await pool
+    ok(done.code === 0 && done.receipt.status === 'ready' && done.receipt.pool.every((l) => !l.broken), 'the pool comes up ready')
+    const after = r.run('lane-next')
+    ok(after.receipt.dispatched.length === 2 && after.receipt.pool.free === 0, `once booted, both lanes take a chain (${after.receipt.dispatched.map((d) => d.chain).join(', ')})`)
+  } finally { r.cleanup() }
+}
+
+// ── lane-next: one round dispatches the barrier and every free lane ─────────────────────────────
+console.log('lane-next: barrier to main + one chain per free lane; built chains queue; the barrier\'s commit resumes landings')
+{
+  const r = mkRepo([
+    { frd: 'frd-01-a', id: 'WO-01-001', artifacts: ['prisma/schema.prisma'] },
+    { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }, { frd: 'frd-04-d', id: 'WO-04-001', deps: ['WO-02-001'] },
+  ])
+  try {
+    r.run('lane-pool', ['--size', '2'])
+    const n = r.run('lane-next', ['--mode', 'balanced'])
+    ok(n.code === 0 && n.sealed && n.receipt.k === 2, `one sealed round at K = 2 (${n.receipt.k} ${n.receipt.kReason})`)
+    ok(n.receipt.barrier && n.receipt.barrier.chain === 'c-wo-01-001' && n.receipt.landingsPaused === true, 'the schema chain is the barrier, building on main')
+    const ds = n.receipt.dispatched
+    ok(ds.length === 2 && ds.every((d) => d.path && d.env && d.env.PANDACORP_LANE && d.frd && d.wos.length === 1 && Number.isInteger(d.downstream)), `both lanes dispatched with their path, env, FRD and WOs (${JSON.stringify(ds.map((d) => [d.chain, d.lane]))})`)
+    ok(ds[0].wos[0] === 'WO-02-001', 'the chain with the longest downstream path goes first')
+    for (const d of ds) { r.buildIn(d.lane, d.wos[0], fileFor(d.wos[0])); r.run('lane-mark', ['--chain', d.chain, '--as', 'built']) }
+    const q = r.run('lane-next')
+    ok(q.receipt.landQueue.length === 2 && q.receipt.landQueue[0].chain === 'c-wo-02-001' && q.receipt.dispatched.length === 0 && q.receipt.landingsPaused === true, 'built chains queue (longest downstream first); WO-04-001 waits for WO-02-001 to land')
+    r.write('prisma/schema.prisma', 'model A { id Int @id }\n')
+    ok(r.run('commit-wo', ['--wo', 'WO-01-001', '--files', 'prisma/schema.prisma']).code === 0, 'the barrier commits on main')
+    const after = r.run('lane-next')
+    ok(after.receipt.landingsPaused === false && after.receipt.barrier === null && after.receipt.landedFrds.includes('frd-01-a'), 'git wins: the barrier is landed, landings resume')
+    const st = JSON.parse(r.read('.pandacorp/run/lanes/state.json'))
+    ok(st.chains['c-wo-01-001'].landedSha && r.git('log', '-1', '--format=%s', st.chains['c-wo-01-001'].landedSha).includes('WO-01-001'), 'the barrier landed by its main commit records its landed SHA (bisectable)')
+  } finally { r.cleanup() }
+}
+
+// ── lane-resume-after-pause (mech) ──────────────────────────────────────────────────────────────
+console.log('lane-resume-after-pause: --resume re-dispatches a live chain on its own lane from its last committed WO')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-01-a', id: 'WO-01-002', deps: ['WO-01-001'] }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }])
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const d = r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-01-001', '--wo', 'WO-01-002'])
+    ok(r.buildIn(1, 'WO-01-001', fileFor('WO-01-001')).code === 0, 'the first WO committed in the lane before the pause')
+    writeFileSync(path.join(r.laneProj(1), 'src/wo-01-002.ts'), 'export const half = 1\n')   // the killed builder's half-written file
+    const plain = r.run('lane-next')
+    ok(plain.receipt.dispatched.length === 0 && plain.receipt.inFlight.includes(d.receipt.chain), 'without --resume a live chain is only reported in flight')
+    const res = r.run('lane-next', ['--resume'])
+    const back = res.receipt.dispatched.find((x) => x.chain === d.receipt.chain)
+    ok(back && back.resumed === true && back.lane === 1 && JSON.stringify(back.committed) === '["WO-01-001"]', `the chain is re-dispatched on lane 1 keeping WO-01-001 (${JSON.stringify(back && { r: back.resumed, c: back.committed })})`)
+    ok(back && back.salvaged && back.salvaged.paths.some((p) => /wo-01-002\.ts$/.test(p.path || p)), 'the half-written file is salvaged, never built on')
+    ok(!existsSync(path.join(r.laneProj(1), 'src/wo-01-002.ts')), 'and the lane is clean for the rebuild of WO-01-002')
+  } finally { r.cleanup() }
+}
+
+// ── a resync that fails breaks the lane, never the chain ────────────────────────────────────────
+console.log('lane-next: a failed resync marks the lane broken and releases the chain for a healthy lane')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }])
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    r.commitMain({ 'package-lock.json': '{"lockfileVersion":3}\n' }, 'chore: a lockfile landed on main')
+    const n = r.run('lane-next', [], { BOOT_FAIL: '1' })
+    ok(n.code === 0 && n.receipt.dispatched.length === 0 && n.receipt.failed.length === 1 && n.receipt.failed[0].status === 'resync-failed', `the resync failure is reported (${JSON.stringify(n.receipt.failed)})`)
+    ok(n.receipt.pool.broken === 1 && n.receipt.pool.free === 0 && n.receipt.inFlight.length === 0, 'the lane is broken; no chain stays claimed')
+  } finally { r.cleanup() }
+}
+
+// ── usable-red-bisects-then-fixforward (mech half): lane-usable in the snapshot worktree ────────
+console.log('lane-usable: verify.sh on the pinned SHA in the snapshot worktree; own-commit floor; red → class + bisect candidates')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }, { frd: 'frd-04-d', id: 'WO-04-001' }])
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const a = landOne(r, 1, ['WO-01-001'], fileFor)
+    const auth = landOne(r, 1, ['WO-04-001'], () => ({ 'src/auth/session.ts': 'export const session = 1\n' }))
+    ok(a.land.code === 0 && auth.land.code === 0, 'two chains landed')
+    const head = r.git('rev-parse', 'HEAD')
+    const u = r.run('lane-usable', ['--frd', 'frd-01-a', '--wo', 'WO-01-001'])
+    ok(u.code === 0 && u.sealed && u.receipt.green === true && u.receipt.usable === true && u.receipt.sha === head.slice(0, 12), `green and USABLE on the pinned SHA (${u.receipt.status} ${u.receipt.failure || ''} ${u.receipt.reason || ''})`)
+    ok(u.receipt.floor === false && u.receipt.commits.length === 1, `the floor reads only frd-01's own commit, not the auth chain landed after it (floor ${u.receipt.floor}, hits ${JSON.stringify(u.receipt.floorHits)})`)
+    ok(/\/lanes\/snapshot\//.test(u.receipt.snapshot.path) && r.bootCalls().some((c) => c.startsWith('snapshot ')), 'verify.sh ran in the bootstrapped snapshot worktree')
+    const track = r.read('.pandacorp/track.jsonl')
+    ok(track.includes(`"kind":"build_usable","frd":"frd-01-a","sha":"${head.slice(0, 12)}"`) && r.git('log', '-1', '--format=%s').includes('usable'), 'the build_usable line names the pinned SHA and is committed on main')
+    const fl = r.run('lane-usable', ['--frd', 'frd-04-d', '--wo', 'WO-04-001'])
+    ok(fl.receipt.green === true && fl.receipt.floor === true && fl.receipt.usable === false, `the auth chain's FRD is floor: green but never USABLE (${fl.receipt.floor})`)
+    const bad = landOne(r, 1, ['WO-02-001'], () => ({ 'src/bad.ts': 'export const bad = 1\n' }))
+    const c = landOne(r, 1, ['WO-03-001'], fileFor)
+    ok(bad.land.code === 0 && c.land.code === 0, 'a breaking chain and an innocent one landed after the green pin')
+    const red = r.run('lane-usable', ['--frd', 'frd-03-c', '--wo', 'WO-03-001'])
+    ok(red.code === 0 && red.receipt.green === false && red.receipt.usable === false && red.receipt.class === 'cross', `red, and other FRDs' chains landed since the last green: class cross (${red.receipt.class})`)
+    ok(JSON.stringify(red.receipt.candidates) === JSON.stringify([bad.d.receipt.chain, c.d.receipt.chain]), `the candidates are the chains landed since the green pin (${JSON.stringify(red.receipt.candidates)})`)
+    const bis = r.run('lane-bisect', ['--sha', r.git('rev-parse', 'HEAD'), ...red.receipt.candidates.flatMap((x) => ['--candidate', x])])
+    ok(bis.receipt.status === 'culprit' && bis.receipt.culprit === bad.d.receipt.chain, `the bisect names the breaking chain (${bis.receipt.culprit})`)
+    ok(!r.read('.pandacorp/track.jsonl').includes('"frd":"frd-03-c"') || !/build_usable","frd":"frd-03-c/.test(r.read('.pandacorp/track.jsonl')), 'a red FRD gets no build_usable line')
+    const notYet = r.run('lane-usable', ['--frd', 'frd-03-c', '--wo', 'WO-03-001', '--sha', a.land.receipt.sha])
+    ok(notYet.code === 4 && notYet.receipt.status === 'uncommitted', 'a pin where the WO is not IN_REVIEW certifies nothing')
+  } finally { r.cleanup() }
+}
+console.log('lane-usable: a red caused only by the FRD\'s own chains is class own')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }])
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    landOne(r, 1, ['WO-01-001'], fileFor)
+    ok(r.run('lane-usable', ['--frd', 'frd-01-a', '--wo', 'WO-01-001']).receipt.green === true, 'a green pin')
+    const own = landOne(r, 1, ['WO-02-001'], () => ({ 'src/bad.ts': 'export const bad = 1\n' }))
+    const red = r.run('lane-usable', ['--frd', 'frd-02-b', '--wo', 'WO-02-001'])
+    ok(red.receipt.green === false && red.receipt.class === 'own' && JSON.stringify(red.receipt.candidates) === JSON.stringify([own.d.receipt.chain]), `only its own chain since the green pin: class own (${red.receipt.class} ${JSON.stringify(red.receipt.candidates)})`)
   } finally { r.cleanup() }
 }
 

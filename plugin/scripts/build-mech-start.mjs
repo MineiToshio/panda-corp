@@ -17,6 +17,9 @@
 //               lease token, a first FRD the engine must schedule itself (an upstream in the plan, a BLOCKED, DRAFT or
 //               reopened work order), or a sync/dispatch that failed (`syncError`/`dispatch.ok:false`);
 //   dispatched  the first FRD's work orders are stamped and committed; the engine builds them without another spawn.
+// With `--lane-plan` [--lanes N] (proposal 40 Phase B) the line also carries `lanes`: the lane planner's K over the
+// planned scope (k, kReason, width, offPath), so the engine decides its static K with no extra spawn; when K ≥ 2 the
+// first FRD is NOT dispatched on main (status `planned`): the lane scheduler dispatches every chain itself.
 // The baseline verdict is the engine's own rule, made deterministic: `green` = a clean tree at last_green_sha or on its
 // BL-0066 pointer commit; `leased-status-only` = the only dirty path is this run's own status.yaml under a lease this op
 // just renewed (BL-0124); `greenfield` = the precheck's decideGreenfield verdict; anything else `escalate`.
@@ -25,6 +28,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { syncRollups } from '../runtime/build-state.mjs'
 import { planOp } from './build-mech-fast.mjs'
+import { lanePlanOp } from './build-mech-lanes.mjs'
 import { PROJECTION, acquireLock, dirtyEntries, projectCtx, releaseLock } from './build-mech-lib.mjs'
 
 const ROLLUP_DOC_RE = /^docs\/frds\/[^/]+\/(frd|blueprint)\.md$/
@@ -105,8 +109,11 @@ export async function fastStartOp(o, ops) {
   if (out.baseline === 'escalate') return done('handoff', { stage: 'baseline' })
   try { out.plan = { ok: true, ...planOp({ ...o, classify: true, compact: true }).body } } catch (e) { out.plan = { ok: false, status: 'error', reason: e.message } }
   if (out.plan.status !== 'planned') return done('handoff', { stage: 'plan' })
+  if (o.lanePlan) {
+    try { const l = lanePlanOp(o).body; out.lanes = { ok: true, k: l.k, kReason: l.kReason, width: l.width, offPath: l.offPath } } catch (e) { out.lanes = { ok: false, reason: `${e.status || e.name}: ${e.message}` } }
+  }
   const first = firstDispatch(out.plan)
-  if (probe.work || !first || o.token === undefined) return done('planned')
+  if (probe.work || !first || o.token === undefined || (out.lanes && out.lanes.k >= 2)) return done('planned')
   try { out.synced = await syncAndCommit(ctx, o) } catch (e) { return done('planned', { syncError: `${e.code || e.name}: ${e.message}` }) }
   let d
   try { d = ops.dispatch({ ...o, wos: first.ids, commit: true }) } catch (e) { d = { code: 4, body: { status: e.status || 'error', reason: e.message } } }

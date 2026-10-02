@@ -1443,6 +1443,37 @@ console.log('fast-start: the quiet common case — one sealed line through the f
   } finally { r.cleanup() }
 }
 
+console.log('fast-start --lane-plan (proposal 40 Phase B): the lane K rides in the line; K >= 2 dispatches nothing on main')
+{
+  const narrow = mkRepo()
+  try {
+    startFixture(narrow)
+    const lease = await acquire(narrow.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const s = narrow.run('fast-start', startArgs(lease, ['--lane-plan']))
+    ok(s.receipt.lanes && s.receipt.lanes.ok === true && s.receipt.lanes.k === 1 && s.receipt.lanes.kReason === 'narrow-dag', `a linear plan: K = 1 (${JSON.stringify(s.receipt.lanes)})`)
+    ok(s.receipt.status === 'dispatched' && stampOf(narrow, WO_A) === 'IN_PROGRESS', 'K = 1 dispatches the first FRD on main exactly as before')
+  } finally { narrow.cleanup() }
+  const wide = mkRepo()
+  try {
+    startFixture(wide)
+    planFixture(wide, { depsB: '[]' })
+    wide.write('docs/frds/frd-02-gamma/work-orders/wo-02-002-delta.md', woMd('WO-02-002', 'PLANNED', { acs: ['AC-02-001.1'], extraFm: 'title: Delta\nartifacts: [src/delta.ts]\ndependsOn: []\n' }))
+    wide.write(`${FRD_A}/blueprint.md`, blueprint([['WO-01-001', 'none'], ['WO-01-002', 'none']]))
+    wide.write(`${FRD_C}/blueprint.md`, blueprint([['WO-02-001', 'WO-01-002'], ['WO-02-002', 'none']]))
+    wide.git('add', '-A'); wide.git('commit', '-q', '-m', 'docs: a wider DAG')
+    const lease = await acquire(wide.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const head = wide.head()
+    const s = wide.run('fast-start', startArgs(lease, ['--lane-plan']))
+    ok(s.receipt.lanes && s.receipt.lanes.k === 2 && s.receipt.lanes.kReason === 'default', `a wide plan at balanced: K = 2 (${JSON.stringify(s.receipt.lanes)})`)
+    ok(s.receipt.status === 'planned' && !s.receipt.dispatch && stampOf(wide, WO_A) === 'PLANNED', `K = 2: nothing dispatched on main, the lane scheduler dispatches (got ${s.receipt.status} ${s.receipt.stage} ${s.receipt.baseline} ${JSON.stringify(s.receipt.plan && (s.receipt.plan.reason || s.receipt.plan.status))})`)
+    ok(wide.git('log', '--format=%s', `${head}..HEAD`).split('\n').every((x) => !/dispatch/.test(x)), 'no dispatch commit')
+    const capped = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'pro', '--lane-plan'])
+    ok(capped.receipt.lanes && capped.receipt.lanes.k === 1 && capped.receipt.lanes.kReason === 'mode-cap-pro', `pro never lanes (${JSON.stringify(capped.receipt.lanes)})`)
+    const none = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'balanced'])
+    ok(!('lanes' in none.receipt), 'without --lane-plan the line carries no lanes (classic callers unchanged)')
+  } finally { wide.cleanup() }
+}
+
 console.log('fast-start: every unusual start hands back before planning or dispatching')
 {
   const r = mkRepo()

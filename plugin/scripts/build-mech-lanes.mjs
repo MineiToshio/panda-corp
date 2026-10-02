@@ -1,10 +1,17 @@
 // build-mech-lanes.mjs — proposal 40 §3 Phase B (Lever 2): the lane pool and the chain planner of pandacorp-build-mech.mjs.
 // The engine only orchestrates; every lane decision that a script can make is made here, deterministically:
-//   lane-pool     --size K                      create/reuse K detached worktrees under .pandacorp/run/lanes/lane-<n>,
-//                                               each bootstrapped (worktree-bootstrap.sh) on its OWN port
-//   lane-plan     [--frd f]… [--lanes N] [--mode M]   the ready set recomputed from the WO DAG (dependsOn, DR-087) on
-//                                               main: chains of ≤ 3 WOs of one FRD in dependency order, barriers, K,
-//                                               the landing queue, the parked/blocked sets. Read-only.
+//   lane-pool     --size K                      create/reuse K detached worktrees under .pandacorp/run/lanes/lane-<n>
+//                                               (more when a live chain of an earlier run sits on a higher lane), each
+//                                               bootstrapped (worktree-bootstrap.sh) on its OWN port. The bootstrap
+//                                               runs OUTSIDE lanes.lock (it takes minutes): a lane is `booting` until
+//                                               it is done, `broken` when it failed, and only a ready lane is free.
+//   lane-plan     [--frd f]… [--build wo]… [--wait-verified f]… [--lanes N] [--mode M]   the ready set recomputed
+//                                               from the WO DAG (dependsOn, DR-087) on main: chains of ≤ 3 WOs of one
+//                                               FRD in dependency order, barriers, K, the landing queue, the
+//                                               parked/blocked sets. `--build` limits what may be dispatched to the
+//                                               engine's own schedule; `--wait-verified f` makes f's IN_REVIEW work
+//                                               orders satisfy only f's own WOs (a floor FRD's dependents wait for its
+//                                               VERIFIED). Read-only.
 //   lane-dispatch --chain c --wo a [--wo b…] (--lane n | --barrier)   a lane chain: salvage the lane's dirt, reset it
 //                                               to main's HEAD on `lane/<c>` (a re-dispatch of the SAME chain keeps
 //                                               its committed WOs, DR-086), resync when the lockfile, prisma/** or the
@@ -15,7 +22,8 @@
 //                                               only recorded here, and lane landings pause until it commits.
 //   lane-mark     --chain c --as built|parked [--why text]   a built chain joins the landing queue (one commit per
 //                                               WO checked); a parked one blocks only its DAG descendants.
-// land-chain and lane-bisect live in build-mech-lane-land.mjs. Lane state is gitignored run state
+// land-chain and lane-bisect live in build-mech-lane-land.mjs; lane-next and lane-usable (the engine's scheduling round
+// and the snapshot USABLE check) in build-mech-lane-next.mjs. Lane state is gitignored run state
 // (.pandacorp/run/lanes/state.json, under its own lanes.lock); git stays the truth: a chain whose WOs are committed on
 // main is landed whatever the state file says.
 
@@ -30,6 +38,12 @@ import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 export const MODE_CAPS = Object.freeze({ pro: 1, balanced: 2, powerful: 4, deep: 4 })
 export const DEFAULT_LANES = 2
 export const CHAIN_MAX = 3
+/**
+ * Auto K = 1 when the work off the critical path is below this many work orders: the pool bootstrap (~2.5 min) and a
+ * landing cost about one work order's build, so a DAG that can run fewer than two WOs beside its longest path gains
+ * nothing from a second lane (proposal 40 §3 B.7, "gain below the bootstrap").
+ */
+export const MIN_LANE_GAIN = 2
 /** A chain touching any of these builds on main and pauses lane landings until it commits (§3 B.2). */
 export const BARRIER_PATHS = Object.freeze([
   /(^|\/)prisma\//, /\.(sql|prisma)$/i, /(^|\/)migrations?\//, /(^|\/)drizzle\//,
@@ -38,7 +52,7 @@ export const BARRIER_PATHS = Object.freeze([
 const INSTALL_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$/
 const PRISMA_RE = /(^|\/)prisma\/|\.prisma$/i
 const DB_RE = /(^|\/)(prisma|migrations?|drizzle)\/|\.sql$/i
-const LIVE = new Set(['dispatched', 'built', 'needs-fix'])
+export const LIVE = new Set(['dispatched', 'built', 'needs-fix'])
 const DONE_STATUSES = new Set(['IN_REVIEW', 'VERIFIED'])
 const isBarrierPath = (p) => BARRIER_PATHS.some((re) => re.test(String(p).replace(/^\.\//, '')))
 
@@ -60,15 +74,22 @@ function writeState(ctx, s) {
   writeFileSync(tmp, `${JSON.stringify(s, null, 1)}\n`)
   renameSync(tmp, stateFile(ctx))
 }
-/** Read-modify-write the state under lanes.lock; `fn` may be async and returns the op's result. */
-export async function withState(ctx, o, fn) {
-  const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: o.op, name: 'lanes.lock' })
-  try {
-    const s = readState(ctx)
-    const out = await fn(s)
-    writeState(ctx, s)
-    return out
-  } finally { releaseLock(lock) }
+// acquireLock waits synchronously: two read-modify-writes of ONE process (lane-next's parallel dispatches) must queue
+// here first, or the second would block the event loop the first needs to finish.
+let stateQueue = Promise.resolve()
+/** Read-modify-write the state under lanes.lock; `fn` may be async and returns the op's result. Never nest it. */
+export function withState(ctx, o, fn) {
+  const run = stateQueue.then(async () => {
+    const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: o.op, name: 'lanes.lock' })
+    try {
+      const s = readState(ctx)
+      const out = await fn(s)
+      writeState(ctx, s)
+      return out
+    } finally { releaseLock(lock) }
+  })
+  stateQueue = run.catch(() => {})
+  return run
 }
 
 // ── the WO DAG on main ─────────────────────────────────────────────────────────────────────────
@@ -117,12 +138,29 @@ const descendants = (children, roots) => {
   return out
 }
 
-/** Bring the state in line with git: a live chain whose work orders are all committed on main is landed. */
-export function refreshFromMain(state, nodes) {
+/** The newest commit on main's HEAD history that builds or fixes one of `wos` (commit-wo's subjects), or null. */
+export function lastWoCommit(ctx, wos) {
+  const r = ctx.g.run(['log', '-n', '500', '--format=%H%x09%s', 'HEAD'])
+  if (!r.ok) return null
+  const re = new RegExp(`^(feat|fix)\\([^)]*\\): (fixup )?(${wos.map((w) => w.replace(/[^A-Za-z0-9-]/g, '')).join('|')})\\b`, 'i')
+  const hit = r.out.split('\n').find((l) => re.test(l.split('\t')[1] || ''))
+  return hit ? hit.split('\t')[0] : null
+}
+/**
+ * Bring the state in line with git: a live chain whose work orders are all committed on main is landed. With `ctx`,
+ * a chain landed by its commits on main (a barrier, or a landing killed between the ff and the state write) also gets
+ * its landed range (base → its newest WO commit), so a bisect can test it like any landed chain.
+ */
+export function refreshFromMain(state, nodes, ctx = null) {
   const landedNow = []
   for (const c of Object.values(state.chains)) {
     if (!LIVE.has(c.status)) continue
-    if (c.wos.every((id) => nodes.has(id) && DONE_STATUSES.has(nodes.get(id).status))) { c.status = 'landed'; c.landedBy = c.barrier ? 'main-commit' : 'git'; landedNow.push(c.id) }
+    if (c.wos.every((id) => nodes.has(id) && DONE_STATUSES.has(nodes.get(id).status))) {
+      Object.assign(c, { status: 'landed', landedBy: c.barrier ? 'main-commit' : 'git' })
+      const tip = ctx && !c.landedSha ? lastWoCommit(ctx, c.wos) : null
+      if (tip) Object.assign(c, { landedSha: tip, landedBase: c.base, landedAt: new Date().toISOString() })
+      landedNow.push(c.id)
+    }
   }
   for (const l of state.pool) if (l.chain && state.chains[l.chain] && !LIVE.has(state.chains[l.chain].status)) l.chain = null
   return landedNow
@@ -136,21 +174,25 @@ export const activeBarrier = (state) => Object.values(state.chains).find((c) => 
  * chain starts at a ready WO (longest downstream first) and grows with same-FRD WOs that depend on it and whose other
  * deps are done, up to CHAIN_MAX; a barrier WO is always a chain of its own.
  */
-export function planChains(graph, state, { scope = [], lanes, mode }) {
+export function planChains(graph, state, { scope = [], lanes, mode, build = [], waitVerified = [] }) {
   const { nodes } = graph
   const { depth, children } = downstreamOf(nodes)
   const inScope = (n) => !scope.length || scope.includes(n.frd)
+  const buildIds = new Set(build.map(normWoId))
+  const buildable = (n) => !buildIds.size || buildIds.has(n.id)
   const live = Object.values(state.chains).filter((c) => LIVE.has(c.status))
   const inFlight = new Set(live.flatMap((c) => c.wos))
   const parkedChains = Object.values(state.chains).filter((c) => c.status === 'parked')
   const roots = unique([...parkedChains.flatMap((c) => c.wos), ...[...nodes.values()].filter((n) => n.status === 'BLOCKED').map((n) => n.id)])
   const blocked = new Set([...roots, ...descendants(children, roots)])
-  const done = (id) => { const n = nodes.get(id); return Boolean(n) && (n.status === 'VERIFIED' || (n.status === 'IN_REVIEW' && inScope(n))) }
+  // A dependency is done when VERIFIED, or IN_REVIEW in scope; an FRD the engine waits to see VERIFIED (floor, or a red
+  // USABLE) satisfies only its own work orders while IN_REVIEW.
+  const done = (id, of = null) => { const n = nodes.get(id); return Boolean(n) && (n.status === 'VERIFIED' || (n.status === 'IN_REVIEW' && inScope(n) && (!of || n.frd === of.frd || !waitVerified.includes(n.frd)))) }
   const pending = (n) => !DONE_STATUSES.has(n.status) && n.status !== 'BLOCKED'
   const unsatisfiedDeps = []
   const ready = [...nodes.values()].filter((n) => {
-    if (!pending(n) || !inScope(n) || inFlight.has(n.id) || blocked.has(n.id)) return false
-    const missing = n.deps.filter((d) => !done(d))
+    if (!pending(n) || !inScope(n) || !buildable(n) || inFlight.has(n.id) || blocked.has(n.id)) return false
+    const missing = n.deps.filter((d) => !done(d, n))
     for (const d of missing) if (!nodes.has(d) || !inScope(nodes.get(d))) unsatisfiedDeps.push({ wo: n.id, dep: d })
     return !missing.length
   })
@@ -164,8 +206,8 @@ export function planChains(graph, state, { scope = [], lanes, mode }) {
     claimed.add(head.id)
     while (!head.barrier && chain.length < CHAIN_MAX) {
       const ids = new Set(chain.map((n) => n.id))
-      const next = [...nodes.values()].filter((n) => n.frd === head.frd && !n.barrier && pending(n) && !claimed.has(n.id) && !inFlight.has(n.id) && !blocked.has(n.id)
-        && n.deps.some((d) => ids.has(d)) && n.deps.every((d) => ids.has(d) || done(d))).sort(prio)[0]
+      const next = [...nodes.values()].filter((n) => n.frd === head.frd && !n.barrier && pending(n) && buildable(n) && !claimed.has(n.id) && !inFlight.has(n.id) && !blocked.has(n.id)
+        && n.deps.some((d) => ids.has(d)) && n.deps.every((d) => ids.has(d) || done(d, n))).sort(prio)[0]
       if (!next) break
       chain.push(next)
       claimed.add(next.id)
@@ -178,14 +220,20 @@ export function planChains(graph, state, { scope = [], lanes, mode }) {
   let k = Math.max(1, Math.min(requested, cap))
   let kReason = lanes !== undefined ? 'requested' : 'default'
   if (requested > cap) kReason = `mode-cap-${mode || 'powerful'}`
-  if (width <= 1 && k > 1) { k = 1; kReason = 'narrow-dag' }
+  // The work beside the longest path: what a second lane could build in parallel at all.
+  const todo = new Set([...nodes.values()].filter((n) => pending(n) && inScope(n) && buildable(n) && !blocked.has(n.id)).map((n) => n.id))
+  const plen = new Map()
+  const pathLen = (id) => { if (!plen.has(id)) plen.set(id, 1 + Math.max(0, ...nodes.get(id).deps.filter((d) => todo.has(d)).map(pathLen))); return plen.get(id) }
+  const offPath = todo.size - Math.max(0, ...[...todo].map(pathLen))
+  if (width <= 1 && k > 1) { k = 1; kReason = 'narrow-dag' } else if (k > 1 && offPath < MIN_LANE_GAIN) { k = 1; kReason = 'gain-below-bootstrap' }
   const barrier = activeBarrier(state)
-  const freeLanes = state.pool.filter((l) => !l.chain).map((l) => l.lane)
+  const freeLanes = state.pool.filter((l) => !l.chain && !l.booting && !l.broken).map((l) => l.lane)
   const laneChains = chains.filter((c) => !c.barrier)
   const landQueue = live.filter((c) => c.status === 'built').sort((a, b) => b.downstream - a.downstream || String(a.builtAt).localeCompare(String(b.builtAt))).map((c) => c.id)
   const blockedFrds = unique([...blocked].map((id) => nodes.get(id)?.frd).filter(Boolean)).sort()
   return {
-    k, kRequested: requested, kCap: cap, kReason, width, chains,
+    k, kRequested: requested, kCap: cap, kReason, width, offPath, chains,
+    pool: { size: state.pool.length, free: freeLanes.length, booting: state.pool.filter((l) => l.booting).length, broken: state.pool.filter((l) => l.broken).length },
     dispatch: { lanes: laneChains.slice(0, freeLanes.length).map((c, i) => ({ chain: c.id, lane: freeLanes[i] })), barrier: barrier ? null : (chains.find((c) => c.barrier) || {}).id || null },
     barrierActive: barrier ? barrier.id : null, landingsPaused: Boolean(barrier), landQueue,
     inFlight: live.map((c) => c.id), parked: parkedChains.map((c) => c.id), blockedWos: [...blocked].sort(), blockedFrds, unsatisfiedDeps,
@@ -270,41 +318,58 @@ export function ensureWorktree(ctx, wt, sha) {
 }
 
 // ── ops ────────────────────────────────────────────────────────────────────────────────────────
-/** `lane-pool --size K`: K lane worktrees, each bootstrapped on its own port (in parallel). */
+/**
+ * `lane-pool --size K`: K lane worktrees (more when a live chain of an earlier run holds a higher lane), each
+ * bootstrapped on its own port. Worktrees and ports are claimed under lanes.lock; the bootstrap (minutes) runs outside
+ * it, in parallel, with each lane `booting` meanwhile (never free), then `broken` with its failure or ready.
+ */
 export async function lanePoolOp(o) {
   if (!Number.isInteger(o.size) || o.size < 1) throw new InputError('lane-pool needs --size <K ≥ 1>')
   const ctx = projectCtx(o.project)
   const head = ctx.g.must(['rev-parse', 'HEAD']).trim()
-  return withState(ctx, o, async (s) => {
-    const lanes = []
-    for (let n = 1; n <= o.size; n++) {
+  const lanes = await withState(ctx, o, async (s) => {
+    const size = Math.max(o.size, ...Object.values(s.chains).filter((c) => LIVE.has(c.status) && c.lane).map((c) => c.lane))
+    const out = []
+    for (let n = 1; n <= size; n++) {
       const wt = path.join(lanesDir(ctx), `lane-${n}`)
       const { created } = ensureWorktree(ctx, wt, head)
       let entry = s.pool.find((l) => l.lane === n)
       if (!entry) { entry = { lane: n, path: wt, port: null, base: head, chain: null }; s.pool.push(entry) }
       entry.port = await lanePort(s, n, entry.port)
-      lanes.push({ entry, wt, created })
+      Object.assign(entry, { booting: true, broken: null })
+      out.push({ lane: n, wt, port: entry.port, created })
     }
     s.pool.sort((a, b) => a.lane - b.lane)
-    const failures = (await Promise.all(lanes.map(({ entry, wt }) => bootstrapLane(ctx, wt, entry.lane, entry.port)))).map((f, i) => (f ? { lane: lanes[i].entry.lane, failure: f } : null)).filter(Boolean)
-    if (failures.length) return { code: 4, body: { status: 'bootstrap-failed', failures, pool: s.pool } }
-    return { code: 0, body: { status: 'ready', pool: s.pool.map((l) => ({ lane: l.lane, path: l.path, port: l.port, chain: l.chain, env: laneEnv(l.lane, l.port) })), created: lanes.filter((x) => x.created).map((x) => x.entry.lane) } }
+    return out
+  })
+  const failures = await Promise.all(lanes.map((l) => bootstrapLane(ctx, l.wt, l.lane, l.port)))
+  return withState(ctx, o, async (s) => {
+    lanes.forEach((l, i) => { const e = s.pool.find((x) => x.lane === l.lane); if (e) Object.assign(e, { booting: false, broken: failures[i] || null }) })
+    const failed = lanes.map((l, i) => (failures[i] ? { lane: l.lane, failure: failures[i] } : null)).filter(Boolean)
+    const pool = s.pool.map((l) => ({ lane: l.lane, path: l.path, port: l.port, chain: l.chain, broken: l.broken || null, env: laneEnv(l.lane, l.port) }))
+    if (failed.length === lanes.length) return { code: 4, body: { status: 'bootstrap-failed', failures: failed, pool } }
+    return { code: 0, body: { status: 'ready', pool, failures: failed, created: lanes.filter((x) => x.created).map((x) => x.lane) } }
   })
 }
 
 /** `lane-plan`: see planChains. Read-only (the refresh is reported, not written). */
 export function lanePlanOp(o) {
-  if (o.lanes !== undefined && o.lanes < 1) throw new InputError('--lanes must be ≥ 1')
-  if (o.mode && !(o.mode in MODE_CAPS)) throw new InputError(`--mode must be one of ${Object.keys(MODE_CAPS).join('|')}`)
+  checkLaneFlags(o)
   const ctx = projectCtx(o.project)
   const graph = woGraph(ctx)
   const state = readState(ctx)
-  const landedByGit = refreshFromMain(state, graph.nodes)
-  return { code: 0, body: { status: 'planned', ...planChains(graph, state, { scope: o.frds, lanes: o.lanes, mode: o.mode }), landedByGit } }
+  const landedByGit = refreshFromMain(state, graph.nodes, ctx)
+  return { code: 0, body: { status: 'planned', ...planChains(graph, state, scopeOf(o)), landedByGit } }
+}
+/** The planner options of an op's flags (shared by lane-plan, lane-next and fast-start). */
+export const scopeOf = (o) => ({ scope: o.frds || [], lanes: o.lanes, mode: o.mode, build: o.builds || [], waitVerified: o.waitVerifieds || [] })
+export function checkLaneFlags(o) {
+  if (o.lanes !== undefined && o.lanes < 1) throw new InputError('--lanes must be ≥ 1')
+  if (o.mode && !(o.mode in MODE_CAPS)) throw new InputError(`--mode must be one of ${Object.keys(MODE_CAPS).join('|')}`)
 }
 
 /** What moved between a lane's previous base and the new one that needs a resync (install, prisma generate, DB). */
-function resyncNeeds(ctx, from, to) {
+export function resyncNeeds(ctx, from, to) {
   if (!from || from === to) return { install: false, prisma: false, db: false, changed: [] }
   const r = ctx.g.run(['diff', '--name-only', '--relative', from, to, '--', '.'])
   const changed = r.ok ? r.out.split('\n').filter(Boolean) : null
@@ -332,60 +397,86 @@ export async function laneDispatchOp(o) {
   if (!o.wos.length) throw new InputError('lane-dispatch needs the chain\'s --wo ids in dependency order')
   if (Boolean(o.barrier) === (o.lane !== undefined)) throw new InputError('lane-dispatch needs exactly one of --lane <n> or --barrier')
   const ctx = projectCtx(o.project)
-  const graph = woGraph(ctx)
-  const wos = o.wos.map(normWoId)
+  return dispatchChain(ctx, o, woGraph(ctx), { chain: o.chain, wos: o.wos, lane: o.lane, barrier: o.barrier })
+}
+/**
+ * Dispatch one chain: a barrier is only recorded (it builds on main); a lane chain is claimed under lanes.lock (the
+ * lane's dirt salvaged, the lane reset to main's HEAD on `lane/<c>`, or back on its own branch for a re-dispatch of the
+ * same chain, DR-086), resynced OUTSIDE the lock (bootstrap and `prisma generate` take minutes), then recorded. A failed
+ * resync marks the lane `broken` and releases the chain (its WOs are ready again for a healthy lane).
+ */
+export async function dispatchChain(ctx, o, graph, req) {
+  const wos = req.wos.map(normWoId)
   const unknown = wos.filter((id) => !graph.nodes.has(id))
   if (unknown.length) throw new InputError(`unknown work order(s): ${unknown.join(', ')}`)
-  const id = o.chain || chainIdOf(wos)
+  const id = req.chain || chainIdOf(wos)
   const barrierWos = wos.filter((w) => graph.nodes.get(w).barrier)
-  if (barrierWos.length && !o.barrier) throw new Refusal('barrier-off-main', `${barrierWos.join(', ')} touch a schema, migration, package.json or lockfile path: that chain builds on main (--barrier), never in a lane`, { wos: barrierWos })
+  if (barrierWos.length && !req.barrier) throw new Refusal('barrier-off-main', `${barrierWos.join(', ')} touch a schema, migration, package.json or lockfile path: that chain builds on main (--barrier), never in a lane`, { wos: barrierWos })
   const head = ctx.g.must(['rev-parse', 'HEAD']).trim()
-  return withState(ctx, o, async (s) => {
-    refreshFromMain(s, graph.nodes)
+  const record = (s, extra) => { const prior = s.chains[id]; s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, barrier: Boolean(req.barrier), status: 'dispatched', downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString(), fixes: prior && (req.barrier || extra.resumed) ? prior.fixes || 0 : 0, ...extra } }
+  const claim = await withState(ctx, o, async (s) => {
+    refreshFromMain(s, graph.nodes, ctx)
     const prior = s.chains[id]
     const busy = Object.values(s.chains).find((c) => c.id !== id && LIVE.has(c.status) && c.wos.some((w) => wos.includes(w)))
     if (busy) throw new Refusal('wo-in-flight', `${busy.wos.filter((w) => wos.includes(w)).join(', ')} already in the live chain ${busy.id}`)
-    if (o.barrier) {
+    if (req.barrier) {
       const other = activeBarrier(s)
       if (other && other.id !== id) throw new Refusal('barrier-active', `the barrier chain ${other.id} is still building on main: one barrier at a time`)
-      s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, lane: null, barrier: true, base: head, status: 'dispatched', fixes: prior ? prior.fixes : 0, downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString() }
-      return { code: 0, body: { status: 'dispatched', chain: id, barrier: true, where: 'main', wos, landingsPaused: true } }
+      record(s, { lane: null, base: head })
+      return { done: { code: 0, body: { status: 'dispatched', chain: id, barrier: true, where: 'main', wos, landingsPaused: true } } }
     }
-    const entry = s.pool.find((l) => l.lane === o.lane)
-    if (!entry) throw new Refusal('no-such-lane', `lane ${o.lane} is not in the pool (run lane-pool first)`)
-    if (entry.chain && entry.chain !== id) throw new Refusal('lane-busy', `lane ${o.lane} holds the live chain ${entry.chain}`)
+    const entry = s.pool.find((l) => l.lane === req.lane)
+    if (!entry) throw new Refusal('no-such-lane', `lane ${req.lane} is not in the pool (run lane-pool first)`)
+    if (entry.chain && entry.chain !== id) throw new Refusal('lane-busy', `lane ${req.lane} holds the live chain ${entry.chain}`)
+    if (entry.booting || entry.broken) throw new Refusal('lane-unready', `lane ${req.lane} is ${entry.booting ? 'still booting' : `broken (${entry.broken})`}`)
     const wt = entry.path
-    if (!existsSync(wt)) throw new Refusal('lane-missing', `lane ${o.lane}'s worktree ${wt} is gone: recreate the pool`)
+    if (!existsSync(wt)) throw new Refusal('lane-missing', `lane ${req.lane}'s worktree ${wt} is gone: recreate the pool`)
     const lctx = projectCtx(path.join(wt, ctx.prefix))
     const branch = `lane/${id}`
-    const resumed = Boolean(prior && LIVE.has(prior.status) && prior.lane === o.lane && lctx.g.run(['rev-parse', '--verify', '-q', branch]).ok)
+    const resumed = Boolean(prior && LIVE.has(prior.status) && prior.lane === req.lane && lctx.g.run(['rev-parse', '--verify', '-q', branch]).ok)
     // The lane's dirt is a previous builder's evidence: salvaged into the MAIN project's run dir before any reset.
     const dirt = dirtyEntries(lctx)
-    const salvageDir = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${o.lane}`, utcStamp())
+    const salvageDir = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${req.lane}`, utcStamp())
     const salvaged = dirt.length ? salvageAndReset(lctx, dirt, salvageDir) : []
     const wg = gitIn(wt)
     wg.must(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
     lctx.g.must(['clean', '-fdq', '--', '.'])
     const base = resumed ? prior.base : head
-    const needs = resyncNeeds(ctx, entry.base, wg.must(['rev-parse', 'HEAD']).trim())
-    const port = await lanePort(s, o.lane, entry.port)
-    const ran = []
-    // The bootstrap is the one writer of the lane's install, DB hook and pinned e2e port: re-run only when one moved.
-    if (needs.install || needs.db || port !== entry.port || !portPinned(lctx, port)) {
-      const f = await bootstrapLane(ctx, wt, o.lane, port)
-      if (f) throw new Refusal('resync-failed', f)
-      ran.push('bootstrap')
-    }
-    if (needs.prisma && existsSync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'))) {
-      const r = await runAsync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'), ['generate'], { cwd: lctx.project, env: laneEnv(o.lane, port), timeoutMs: 5 * 60 * 1000 })
-      if (!r.ok) throw new Refusal('resync-failed', `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}`)
-      ran.push('prisma-generate')
-    }
-    Object.assign(entry, { port, base: wg.must(['rev-parse', 'HEAD']).trim(), chain: id })
-    s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, lane: o.lane, barrier: false, base, status: 'dispatched', fixes: prior && resumed ? prior.fixes : 0, downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString() }
-    const committed = resumed ? laneCommits(wg, base, 'HEAD').filter((c) => c.wo).map((c) => c.wo) : []
-    return { code: 0, body: { status: 'dispatched', chain: id, lane: o.lane, branch, path: lctx.project, base: base.slice(0, 12), resumed, committed, env: laneEnv(o.lane, port), resync: { ...needs, ran }, salvaged: salvaged.length ? { dir: salvageDir, paths: salvaged } : null } }
+    const tip = wg.must(['rev-parse', 'HEAD']).trim()
+    const port = await lanePort(s, req.lane, entry.port)
+    const prevPort = entry.port
+    Object.assign(entry, { port, chain: id })
+    record(s, { lane: req.lane, base, resumed })
+    return { wt, wg, lctx, branch, resumed, base, tip, port, prevPort, needs: resyncNeeds(ctx, entry.base, tip), salvaged: salvaged.length ? { dir: salvageDir, paths: salvaged } : null }
   })
+  if (claim.done) return claim.done
+  const { wt, wg, lctx, needs, port } = claim
+  const ran = []
+  let failure = null
+  // The bootstrap is the one writer of the lane's install, DB hook and pinned e2e port: re-run only when one moved.
+  if (needs.install || needs.db || port !== claim.prevPort || !portPinned(lctx, port)) {
+    failure = await bootstrapLane(ctx, wt, req.lane, port)
+    if (!failure) ran.push('bootstrap')
+  }
+  if (!failure && needs.prisma && existsSync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'))) {
+    const r = await runAsync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'), ['generate'], { cwd: lctx.project, env: laneEnv(req.lane, port), timeoutMs: 5 * 60 * 1000 })
+    if (r.ok) ran.push('prisma-generate')
+    else failure = `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}`
+  }
+  const out = await withState(ctx, o, async (s) => {
+    const entry = s.pool.find((l) => l.lane === req.lane)
+    if (failure) {
+      Object.assign(entry, { chain: null, broken: failure })
+      delete s.chains[id]
+      wg.run(['checkout', '-q', '--detach'])
+      return null
+    }
+    entry.base = claim.tip
+    const committed = claim.resumed ? laneCommits(wg, claim.base, 'HEAD').filter((c) => c.wo).map((c) => c.wo) : []
+    return { code: 0, body: { status: 'dispatched', chain: id, frd: s.chains[id].frd, wos, lane: req.lane, branch: claim.branch, path: lctx.project, base: claim.base.slice(0, 12), resumed: claim.resumed, committed, downstream: s.chains[id].downstream, env: laneEnv(req.lane, port), resync: { ...needs, ran }, salvaged: claim.salvaged } }
+  })
+  if (!out) throw new Refusal('resync-failed', failure, { chain: id, lane: req.lane })
+  return out
 }
 /** Does the lane's e2e config already serve on its port (server-env.json PORT and the lane.env)? */
 function portPinned(lctx, port) {

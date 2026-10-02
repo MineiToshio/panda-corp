@@ -74,14 +74,14 @@ export function smokeDrift(ctx, sha) {
 
 // ── security-scope ─────────────────────────────────────────────────────────────────────────────
 /**
- * The landed diff of the project since `since`, as the floor's input shape: changed paths + added lines per file,
- * plus `readFile(path)` — the file's body at HEAD (null when deleted or unreadable), which the module-level security
- * triggers ('use server', an fs import) need beyond the added lines.
+ * The landed diff of the project over `since`..`to` (default HEAD), as the floor's input shape: changed paths + added
+ * lines per file, plus `readFile(path)` — the file's body at `to` (null when deleted or unreadable), which the
+ * module-level security triggers ('use server', an fs import) need beyond the added lines.
  */
-export function landedDiff(ctx, since) {
+export function landedDiff(ctx, since, to = 'HEAD') {
   const spec = ['--', '.', ':(exclude).pandacorp', ':(exclude)docs']
-  const names = ctx.g.run(['diff', '--relative', '--name-only', '--no-renames', `${since}..HEAD`, ...spec])
-  const body = names.ok ? ctx.g.run(['diff', '--relative', '-U0', '--no-color', '--no-renames', `${since}..HEAD`, ...spec]) : names
+  const names = ctx.g.run(['diff', '--relative', '--name-only', '--no-renames', `${since}..${to}`, ...spec])
+  const body = names.ok ? ctx.g.run(['diff', '--relative', '-U0', '--no-color', '--no-renames', `${since}..${to}`, ...spec]) : names
   if (!names.ok || !body.ok) return null
   const addedByFile = new Map()
   let cur = null
@@ -89,7 +89,7 @@ export function landedDiff(ctx, since) {
     if (line.startsWith('+++ ')) { cur = line === '+++ /dev/null' ? null : line.replace(/^\+\+\+ b\//, ''); if (cur && !addedByFile.has(cur)) addedByFile.set(cur, []); continue }
     if (cur && line.startsWith('+')) addedByFile.get(cur).push(line.slice(1))
   }
-  const readFile = (p) => { const r = ctx.g.run(['show', `HEAD:./${p}`]); return r.ok ? r.out : null }
+  const readFile = (p) => { const r = ctx.g.run(['show', `${to}:./${p}`]); return r.ok ? r.out : null }
   return { files: names.out.split('\n').filter(Boolean).map((p) => ({ path: p })), addedByFile, linesKnown: true, readFile }
 }
 export function securityScopeOp(o) {

@@ -199,11 +199,16 @@ const setFmKey = (text, key, value) => {
  * Writes and commits (one commit, only those frd.md) every `floor:` that changed; never lowers a `floor: true`.
  */
 function classifyFrds(ctx, frds, { range = null, lockWaitMs }) {
+  // A lane-landed FRD's commits are not contiguous on main (other chains landed between them): `range` may then be the
+  // list of its own commit ranges, and the verdict is floor when any of them is.
+  const ranges = Array.isArray(range) ? range : range ? [range] : null
   const results = frds.map((f) => {
     const before = fmGet(f.frdText, 'floor').toLowerCase()
     let verdict
-    if (range) verdict = classifier(ctx, ['--range', range])
-    else {
+    if (ranges) {
+      const vs = ranges.map((r) => classifier(ctx, ['--range', r]))
+      verdict = ranges.length ? { floor: vs.some((v) => v.floor), hits: vs.flatMap((v) => v.hits) } : { floor: true, hits: ['no landed commit of this FRD found — fail-closed'] }
+    } else {
       // Declared paths only: frd.md is prose (a spec saying "no auth" is not auth code); the landed diff decides the rest.
       const files = unique(f.wos.flatMap((w) => fmList(w.text, 'artifacts')))
       verdict = files.length ? classifier(ctx, ['--files', files.join(',')]) : { floor: true, hits: ['no declared artifacts — fail-closed'] }
@@ -227,6 +232,8 @@ function classifyFrds(ctx, frds, { range = null, lockWaitMs }) {
   }
   return { results, committed }
 }
+/** The floor of one FRD over a list of landed commit ranges (a lane-landed FRD), written monotone like classify-frd. */
+export const classifyFrdRanges = (ctx, f, ranges, lockWaitMs) => classifyFrds(ctx, [f], { range: ranges, lockWaitMs }).results[0]
 export function classifyFrdOp(o) {
   if (!o.frds.length) throw new InputError('classify-frd needs at least one --frd <folder>')
   const ctx = projectCtx(o.project)
@@ -333,9 +340,37 @@ export function landedBase(ctx, frd, rels) {
  * `since`. Any hit keeps its opus gate at xhigh off the floor; the path triggers stay the security delta's business.
  * @returns {Array<{trigger: string, kind: 'content', detail: string}>|null} null when the range cannot be read (fail-closed)
  */
-export function injectionHits(ctx, since) {
-  const diff = landedDiff(ctx, since)
+export function injectionHits(ctx, since, to = 'HEAD') {
+  const diff = landedDiff(ctx, since, to)
   return diff ? securityDeltaTriggers(diff).hits.filter((h) => h.kind === 'content') : null
+}
+/**
+ * USABLE has ONE writer (DR-115): append the build_usable line for `frd` at `sha` to main's track.jsonl and commit it
+ * with the journals' pending lines, under the main-writer lock; the event follows the commit. A failed commit
+ * withdraws the line.
+ * @returns {{ usableCommit: string|null, usableFailure: string }}
+ */
+export function commitUsable(ctx, o, frd, sha) {
+  let usableCommit = null
+  let usableFailure = ''
+  const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: o.op || 'verify' })
+  try {
+    const trackAbs = path.join(ctx.project, TRACK)
+    const existed = existsSync(trackAbs)
+    const line = JSON.stringify({ kind: 'build_usable', frd, sha, at: new Date().toISOString() })
+    appendFileSync(trackAbs, `${line}\n`)
+    const paths = unique([TRACK, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
+    const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
+    const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\nProposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.`, '--', ...paths]) : add
+    if (c.ok) usableCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
+    else {
+      ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
+      withdrawLine(trackAbs, line, existed)
+      usableFailure = `the build_usable commit failed, so ${frd} is not USABLE: ${(c.err || 'no output').split('\n').slice(-3).join(' | ')}`
+    }
+  } finally { releaseLock(lock) }
+  if (usableCommit) emit(o, { event: 'build_usable', frd, sha })
+  return { usableCommit, usableFailure }
 }
 export function verifyOp(o) {
   if (o.frds.length !== 1) throw new InputError('verify needs exactly one --frd <folder>')
@@ -362,27 +397,7 @@ export function verifyOp(o) {
   sealReportProvenance(ctx, 'verify')   // proposal 40: the close may reuse only a report a script ran
   const green = rep.green && rep.scope !== 'partial'
   // USABLE has ONE writer (DR-115): the committed build_usable line. No commit, no USABLE, no event.
-  let usableCommit = null
-  let usableFailure = ''
-  if (green && !floor) {
-    const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: 'verify' })
-    try {
-      const trackAbs = path.join(ctx.project, TRACK)
-      const existed = existsSync(trackAbs)
-      const line = JSON.stringify({ kind: 'build_usable', frd, sha, at: new Date().toISOString() })
-      appendFileSync(trackAbs, `${line}\n`)
-      const paths = unique([TRACK, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
-      const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
-      const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\nProposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.`, '--', ...paths]) : add
-      if (c.ok) usableCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
-      else {
-        ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
-        withdrawLine(trackAbs, line, existed)
-        usableFailure = `the build_usable commit failed, so ${frd} is not USABLE: ${(c.err || 'no output').split('\n').slice(-3).join(' | ')}`
-      }
-    } finally { releaseLock(lock) }
-    if (usableCommit) emit(o, { event: 'build_usable', frd, sha })
-  }
+  const { usableCommit, usableFailure } = green && !floor ? commitUsable(ctx, o, frd, sha) : { usableCommit: null, usableFailure: '' }
   const usable = Boolean(usableCommit)
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
   return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
