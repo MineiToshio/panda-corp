@@ -1000,6 +1000,13 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
 - **Wrapped relay answers.** A model may return a structured answer as one string-valued key (`{"parameter":
   "<json>"}`). Every sealed-receipt reader unwraps it once (the inner object carrying the expected key, or the bare
   sealed line) before its seal check, which still decides.
+- **Build Plan by header, landed range without the receipt (bench FM-1).** `plan` finds the Build Plan columns by
+  header name (`WO`/`Work order`, `Depends on`/`Depends`/`dependsOn`/`Deps`; `none`/`—`/`-`/empty is no dependency, ids
+  are normalized), and a cross-FRD table's rows of another FRD are not drift (a WO with no own row may use them). The
+  medium bench's FRD-01 table has an `FRD` column before `Depends on`; the positional read took `01` as a dependency and
+  the run paid a plan agent. `verify` without `--since` (the relay altered the dispatch receipt's checksum, so the
+  engine lost its base) derives the base itself: the parent of the oldest current `IN_PROGRESS` stamp commit of the
+  FRD's WOs, else the dispatch snapshot's base; it fails closed to floor only when neither exists.
 
 **The fast build shape (needs `mechScript`; `lane:'fast'` with `mechScript:false` builds classic waves).**
 - **Sequential FRD lanes on `main` (§11).** One FRD at a time in dependency order; no worktree lanes, no landing train,
