@@ -1,5 +1,19 @@
 # Decision Log — Mission Control
 
+## 2026-10-02 — Manual: `implement` builds on the fast lane by default (plugin 9.119.0, DR-124)
+
+**What:** the Manual's `implement` skill flow (`src/lib/manual/skill-flows.ts`), the unattended-build page
+(`DesatendidaDetail.tsx`, incl. two new engine-arg rows `lane` and `reviewBudget`) and the `pandacorp-build` workflow
+note now explain, in plain Spanish: one fast agent per feature gives a USABLE milestone in minutes (code on `main`,
+`verify.sh` green, push) while the opus review runs afterwards in the background until VERIFIED; sensitive features
+(auth, money, personal-data persistence, secrets, destructive data ops) are usable only once VERIFIED; `--lane classic`
+restores the previous flow (the global-waves text is now labelled as the classic lane); `--review-budget defer` stops at
+USABLE; a subscription usage limit pauses the run cleanly and it resumes with `launch-implement.sh ... --resume <run-id>`
+without reverting anything. The measured `maxAgents` rule and `maxAgents auto` text is unchanged. New pins in
+`src/app/manual/_tests/manualPages.fastLane.test.tsx`.
+
+**Why:** DR-046 (the Manual must stay current with the factory). Design: factory proposal 39 (§1, C6, C7, §11).
+
 ## 2026-10-01 — Pandacorp overlay upgraded 8.94.0 -> 8.95.0
 
 **What:** compatible (same MAJOR) bump. Gate-config conformance (DR-059): `e2e/visual.spec.ts` drifted only by the

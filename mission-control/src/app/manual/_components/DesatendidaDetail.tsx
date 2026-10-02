@@ -101,7 +101,19 @@ const ENGINE_ARGS_ROWS: readonly (readonly string[])[] = [
     "gateSlots",
     "2",
     "Cuántos gates pueden correr a la vez cuando parallelGates está activo.",
-    "Súbelo solo en una máquina con más memoria que la de referencia (16 GB); si lo subes, sube también maxAgents (regla práctica medida: unas 8 de base, 4 a 6 por work order y unas 20 por FRD a revisar).",
+    "Súbelo solo en una máquina con más memoria que la de referencia (16 GB); si lo subes, sube también maxAgents (regla práctica medida: unas 8 de base, 4 a 6 por work order y unas 20 por FRD a revisar), o pasa maxAgents auto para que el motor lo calcule tras el plan.",
+  ],
+  [
+    "lane",
+    "'fast' (desde 9.119.0)",
+    "Carril de construcción: 'fast' construye cada feature con un solo agente rápido y la deja USABLE en minutos; 'classic' es el flujo anterior, por oleadas con varios agentes en paralelo y revisión antes de seguir.",
+    "--lane classic en el launcher si quieres exactamente el flujo anterior.",
+  ],
+  [
+    "reviewBudget",
+    "'now'",
+    "Qué hacer con la revisión: 'now' sigue hasta dejar cada feature VERIFIED; 'defer' se detiene cuando todo es USABLE y deja la revisión pendiente.",
+    "--review-budget defer en el launcher si prefieres probar primero y revisar en otra ventana de uso.",
   ],
   [
     "driftPolicy",
@@ -122,6 +134,59 @@ export function DesatendidaDetail(): React.JSX.Element {
         necesita intervención humana para avanzar. Puedes cerrar la sesión y retomar más tarde: el
         build continúa desde el último safe point y nunca pierde trabajo completado.
       </Body>
+
+      <DocH title="El carril rápido: usable en minutos, revisado después (desde 9.119.0)" />
+      <Body margin="0 0 8px">
+        Desde la versión 9.119.0 (DR-124) <Code>implement</Code> construye por defecto como lo haría{" "}
+        <B weight={500}>un solo agente rápido por feature</B>, y te entrega un hito{" "}
+        <B weight={500}>USABLE</B> en minutos: el código ya está en <Code>main</Code>,{" "}
+        <Code>verify.sh</Code> pasó en verde sobre ese commit y te llega un aviso al celular. La
+        revisión con opus no desaparece: corre <B weight={500}>después, en segundo plano</B>, hasta
+        dejar cada feature VERIFIED, mientras se construye la siguiente.
+      </Body>
+      <Ul>
+        <li>
+          <B weight={500}>USABLE no es VERIFIED.</B> USABLE significa construido y con la suite en
+          verde, para que lo pruebes ya. VERIFIED significa que además pasó la revisión completa. La
+          deuda de revisión (features usables que aún no están verificadas) se calcula al leer y se
+          te informa con cada hito.
+        </li>
+        <li>
+          <B weight={500}>Las features sensibles esperan.</B> Si una feature toca login y sesiones,
+          dinero, datos personales guardados, secretos o borrados destructivos de datos, no es
+          usable hasta quedar VERIFIED, y las que dependen de ella esperan antes de construirse.
+        </li>
+        <li>
+          <B weight={500}>Después de USABLE se arregla hacia adelante.</B> Si la revisión encuentra
+          algo, se parchea y se vuelve a certificar; nada de lo ya entregado se revierte solo. Si
+          hiciera falta descartarlo, te lo pregunta a ti.
+        </li>
+        <li>
+          <B weight={500}>Una feature a la vez.</B> Las features se construyen una tras otra sobre{" "}
+          <Code>main</Code>, en orden de dependencias; lo que sí se solapa es la revisión de una con
+          la construcción de la siguiente.
+        </li>
+      </Ul>
+      <Body margin="0 0 8px">Dos interruptores, ambos opcionales:</Body>
+      <Ul>
+        <li>
+          <Code>--lane classic</Code> trae de vuelta el flujo anterior, byte a byte: oleadas con
+          varios agentes y revisión antes de seguir.
+        </li>
+        <li>
+          <Code>--review-budget defer</Code> se detiene en USABLE y deja la revisión para después.
+          Para saldarla basta relanzar normalmente: las features ya construidas van directo a su
+          gate, sin reconstruirse. Para una corrida <Code>defer</Code> dimensiona{" "}
+          <Code>maxAgents</Code> sin las unidades de gate por FRD (el launcher te lo recuerda).
+        </li>
+      </Ul>
+      <NotePanel icon="ti-player-pause" iconColor="var(--color-warn)">
+        <B weight={500}>Si se acaba tu cupo de uso.</B> Un límite de uso de la suscripción no es un
+        fallo de la build: el motor se pausa limpio, no revierte ni pierde nada de lo ya commiteado,
+        te avisa, y se reanuda cuando se renueve la ventana con{" "}
+        <Code>launch-implement.sh … --resume &lt;run-id&gt;</Code>. Las work orders ya commiteadas
+        no se reconstruyen.
+      </NotePanel>
 
       <DocH title="Cómo se le ordena parar" />
       <Body>
@@ -163,15 +228,16 @@ export function DesatendidaDetail(): React.JSX.Element {
         </li>
       </Ul>
 
-      <DocH title="Paralelismo: oleadas globales" />
+      <DocH title="Paralelismo: oleadas globales (carril classic)" />
       <Body>
-        Cada oleada toma las work orders <B weight={500}>listas de todos los FRDs</B> (con sus
-        dependencias <Code>dependsOn</Code> satisfechas y artefactos que no se pisan) hasta el tope
-        del modo: en potente, 8 en paralelo. Ya no se espera a que termine un FRD para empezar el
-        siguiente, así que seis features independientes se construyen a la vez. Las dependencias son
-        explícitas en el frontmatter de cada work order; no se infieren. Los gates de review siguen
-        siendo uno por FRD y, desde 9.116.0, corren en paralelo por defecto con el aterrizaje a main
-        siempre de uno en uno.
+        Esto describe el carril <Code>classic</Code> (<Code>--lane classic</Code>); el carril rápido
+        construye una feature a la vez y solo solapa su revisión. Cada oleada toma las work orders{" "}
+        <B weight={500}>listas de todos los FRDs</B> (con sus dependencias <Code>dependsOn</Code>{" "}
+        satisfechas y artefactos que no se pisan) hasta el tope del modo: en potente, 8 en paralelo.
+        Ya no se espera a que termine un FRD para empezar el siguiente, así que seis features
+        independientes se construyen a la vez. Las dependencias son explícitas en el frontmatter de
+        cada work order; no se infieren. Los gates de review siguen siendo uno por FRD y, desde
+        9.116.0, corren en paralelo por defecto con el aterrizaje a main siempre de uno en uno.
       </Body>
 
       <DocH title="Los args del motor" />
@@ -210,7 +276,9 @@ export function DesatendidaDetail(): React.JSX.Element {
       <Body margin="0 0 8px">
         Cuando resuelves el bloqueo (corriges el bug escalado o tomas la decisión pendiente),
         actualizas el estado y relanzas. El motor retoma desde el último safe point, con el bloqueo
-        resuelto.
+        resuelto. Si la corrida se cortó por un límite de uso y su lease quedó vencido, el
+        relanzamiento lleva <Code>--resume &lt;run-id&gt;</Code> (con el mismo carril de la corrida
+        cortada): el lanzador recupera el lease por sí mismo y nada se revierte.
       </Body>
       <CmdRow command="/pandacorp:implement" />
     </>
