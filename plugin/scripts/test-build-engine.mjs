@@ -1898,6 +1898,69 @@ SCENARIOS.push({
   },
 })
 
+// Bench FM-2: frd-01 ← frd-02 ← frd-03 and frd-01 ← frd-04 (cross-FRD WO deps). A gate in flight (or a slot that
+// cannot be prepared) must never stop the builders of the FRDs that are ready.
+const PIPE_PLAN = () => fastPlan([
+  { frd: 'frd-01', ids: ['wo-01-001', 'wo-01-002', 'wo-01-003'] },
+  { frd: 'frd-02', ids: ['wo-02-001', 'wo-02-002'], extra: { 'wo-02-001': { deps: ['wo-01-001'] }, 'wo-02-002': { deps: ['wo-01-002'] } } },
+  { frd: 'frd-03', ids: ['wo-03-001'], extra: { 'wo-03-001': { deps: ['wo-02-001', 'wo-02-002'] } } },
+  { frd: 'frd-04', ids: ['wo-04-001'], extra: { 'wo-04-001': { deps: ['wo-01-001', 'wo-01-002', 'wo-01-003'] } } },
+])
+const PIPE_FRDS = ['frd-01', 'frd-02', 'frd-03', 'frd-04']
+const pipeBuilder = (state, frd, onBuilt = () => {}) => (call) => {
+  state.order.push(`build:${frd}`)
+  state.gate01SettledAtBuild[frd] = state.gate01Settled
+  onBuilt(frd)
+  return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
+}
+{
+  const state = { order: [], gate01Settled: false, gate01SettledAtBuild: {} }
+  let release
+  const bothBuilt = new Promise((res) => { release = res })
+  const built = new Set()
+  const onBuilt = (frd) => { built.add(frd); if (built.has('frd-03') && built.has('frd-04')) release() }
+  SCENARIOS.push({
+    name: 'F39-39a. fast-lane-pipelines-past-an-in-flight-gate — bench FM-2: the FRD-03 and FRD-04 builders start before the FRD-01 gate settles; FRD-02\'s gate takes the free slot meanwhile; all VERIFIED, landed in order',
+    args: { mode: 'balanced', ...FAST },
+    plan: PIPE_PLAN(),
+    responses: [
+      { label: 'gate:frd-01', times: 1, response: async () => { state.order.push('gate01:start'); await Promise.race([bothBuilt, new Promise((res) => setTimeout(res, 3000))]); state.gate01Settled = true; state.order.push('gate01:settle'); return { green: true } } },
+      { label: 'gate:frd-02', response: () => { state.order.push('gate02:start'); return { green: true } } },
+      ...PIPE_FRDS.map((frd) => ({ label: `fast-build:${frd}`, response: pipeBuilder(state, frd, onBuilt) })),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(state.gate01SettledAtBuild['frd-03'] === false && state.gate01SettledAtBuild['frd-04'] === false, `the FRD-03 and FRD-04 builders ran before the FRD-01 gate settled (order: ${state.order.join(' > ')})`)
+      const g2 = state.order.indexOf('gate02:start')
+      t.ok(g2 >= 0 && g2 < state.order.indexOf('gate01:settle'), `FRD-02's gate launched in the free slot while FRD-01's was in flight (order: ${state.order.join(' > ')})`)
+      t.ok(run.result && JSON.stringify(run.result.builtFrds) === JSON.stringify(PIPE_FRDS), `all four VERIFIED, landed in plan order (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+      t.ok(!hasLog(run, /legacy/i), 'no gate fell to the legacy path')
+    },
+  })
+}
+{
+  const state = { order: [], gate01Settled: false, gate01SettledAtBuild: {} }
+  SCENARIOS.push({
+    name: 'F39-39b. fast-lane-slot-failure-never-blocks-builds — bench FM-2: every slot answers the sealed "directory is missing" failure; every fast-build precedes any gate, the on-main gates come after the last verify, upstream first; all VERIFIED',
+    args: { mode: 'balanced', ...FAST },
+    plan: PIPE_PLAN(),
+    responses: [
+      { label: /^gate-worktree:\d+$/, response: { line: mechLine('gate-prepare', { ok: false, failure: 'a worktree is registered at that path but the directory is missing; evidence preserved', dirty: [] }) } },
+      ...PIPE_FRDS.map((frd) => ({ label: `fast-build:${frd}`, response: pipeBuilder(state, frd) })),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const labels = run.calls.map((c) => c.label)
+      const firstGate = labels.findIndex((l) => /^gate:/.test(l))
+      t.ok(firstGate >= 0 && lastIdx(run, /^fast-build:/) < firstGate, `every fast-build precedes any gate (calls: ${labels.join(' ')})`)
+      t.ok(lastIdx(run, /^verify:/) < firstGate, 'the on-main gates start only after the last verify')
+      const gates = labels.filter((l) => /^gate:/.test(l))
+      t.ok(JSON.stringify(gates) === JSON.stringify(PIPE_FRDS.map((f) => `gate:${f}`)), `the gates run on main in plan order, upstream first (got ${gates.join(', ')})`)
+      t.ok(run.result && JSON.stringify(run.result.builtFrds) === JSON.stringify(PIPE_FRDS), `all four VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

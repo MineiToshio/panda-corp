@@ -5429,6 +5429,15 @@ async function topUpBeforeLanding(idx = 0) {
   landingInFlight = { frd: gateResults[idx].f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gateResults[idx].gate) }   // reserve the landing's cost BEFORE the refill spends the budget
   try { launchParallelGates() } finally { landingInFlight = null }
 }
+// Put `frd` back in gateQueue at its PLAN position (frdState's enrolment order), never at the tail, so the gates that
+// fall to main still run upstream first.
+function requeueGateInPlanOrder(frd) {
+  const order = [...frdState.keys()]
+  const at = order.indexOf(frd)
+  const i = gateQueue.findIndex((x) => order.indexOf(x) > at)
+  if (i < 0) gateQueue.push(frd)
+  else gateQueue.splice(i, 0, frd)
+}
 // Land ONE settled verdict on main (the lane) — gateResults[idx], picked by nextLandingIndex (arrival order among
 // the verdicts no upstream holds). `final` (post-loop): a verdict whose slot failed is gated on main right away
 // instead of being re-queued for another slot — and no slot is refilled (the run is stopping).
@@ -5450,6 +5459,14 @@ async function landParallelVerdict(final = false, idx = 0) {
         st.slotRequeued = true
         log(`↻ D1: ${f.frd}'s gate slot was dirty — re-queued ONCE for another slot (${liveSlots().length} live)`)
         gateQueue.unshift(f.frd)
+        return
+      }
+      // Bench FM-2: under the fast lane a gate on main here is awaited INLINE in the lane — no builder runs meanwhile
+      // (18 min on the medium bench). Re-queue it in plan order instead: a live slot takes it, or, once every slot
+      // failed, fastLaneStep gates it on main only when nothing is left to build. Bounded: each such failure drops a slot.
+      if (FAST && !final) {
+        requeueGateInPlanOrder(f.frd)
+        log(`↻ D1: ${f.frd}'s gate slot could not be prepared — re-queued in plan order (${liveSlots().length ? `${liveSlots().length} live slot(s) left` : 'no live slot: it gates on main once nothing is left to build'}); the builders keep running`)
         return
       }
       await convergeOne({ f, reviewIds, gate: null, __needsLegacy: true })
@@ -5911,7 +5928,9 @@ while (true) {
     const unpinned = gateQueue.filter((x) => { const st = frdState.get(x); return st && !st.pinSha })
     if (unpinned.length) await capturePin(unpinned)
   }
-  if (gateQueue.length && !(PARALLEL_GATES && concurrentGates !== false && launchParallelGates())) {
+  // Bench FM-2: the fast lane never runs this inline legacy gate ahead of its builders — fastLaneStep (or the idle path
+  // below) gates on main only once nothing is left to build.
+  if (gateQueue.length && !(PARALLEL_GATES && concurrentGates !== false && launchParallelGates()) && !(FAST && PARALLEL_GATES)) {
     if (concurrentGates === null) {
       concurrentGates = await ensureGateWorktree(frdState.get(gateQueue[0]).pinSha)   // probe → creates the worktree at the first pin
       log(concurrentGates ? '▹ C2: gates run CONCURRENTLY with builds in a pinned worktree' : '↩ C2: legacy synchronous gate path (worktree unavailable) for the whole run')
@@ -5954,7 +5973,8 @@ while (true) {
       // Unreachable by construction (with nothing in flight the first queued gate is always eligible and
       // launched) — but a queued gate must never be dropped silently: gate it on main instead.
       const frd = gateQueue.shift()
-      log(`⚠ D1: ${frd} is gate-ready but no parallel gate could start with nothing in flight — gating it on main (legacy) rather than dropping it`)
+      if (FAST && concurrentGates === false) log(`⚠ D1: no gate slot is usable — gating ${frd} on main (legacy), in plan order, now that nothing is left to build`)
+      else log(`⚠ D1: ${frd} is gate-ready but no parallel gate could start with nothing in flight — gating it on main (legacy) rather than dropping it`)
       const st = frdState.get(frd)
       await gateAndConverge(st.f, st.reviewIds)
       continue

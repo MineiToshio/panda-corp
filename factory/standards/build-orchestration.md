@@ -1056,6 +1056,11 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   parallel gate slot (§5c) while the next FRD builds. A floor FRD is USABLE only at VERIFIED, and a dependent of a floor
   FRD (or of an FRD whose verify stayed red, in this run or an earlier one: an all-`IN_REVIEW` FRD the precheck does not
   list as still USABLE) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
+- **A gate never blocks the builders (bench FM-2).** A slot that cannot be prepared (not dirt) re-queues its gate in
+  plan order instead of gating on `main` inline in the landing lane, and the loop never runs the legacy inline gate
+  ahead of the next build: a gate falls to `main` only when no buildable FRD is left, upstream first. `gate-prepare`
+  prunes a slot registered in git whose directory is gone (`git worktree prune --expire=now`: missing, unlocked admin
+  entries only) and recreates it; an existing dirty slot is still refused untouched (BL-0067).
 - **Fix-forward after USABLE.** A gate rejection is patched and certified (DR-073 ladder unchanged). A discard of a USABLE
   FRD becomes `BLOCKED: needs-owner` with a decision record naming the whole dependent set and a push; the engine reverts
   nothing. This holds across runs: the `precheck` derives the FRDs still USABLE from the committed `build_usable` lines

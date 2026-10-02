@@ -3331,6 +3331,13 @@ async function topUpBeforeLanding(idx = 0) {
  landingInFlight = { frd: gateResults[idx].f.frd, spawnedAt: agentSpawned, reserve: landingCostOf(gateResults[idx].gate) }
  try { launchParallelGates() } finally { landingInFlight = null }
 }
+function requeueGateInPlanOrder(frd) {
+ const order = [...frdState.keys()]
+ const at = order.indexOf(frd)
+ const i = gateQueue.findIndex((x) => order.indexOf(x) > at)
+ if (i < 0) gateQueue.push(frd)
+ else gateQueue.splice(i, 0, frd)
+}
 async function landParallelVerdict(final = false, idx = 0) {
  const [{ f, reviewIds, pin, gate }] = gateResults.splice(idx, 1)
  const st = frdState.get(f.frd)
@@ -3347,6 +3354,11 @@ async function landParallelVerdict(final = false, idx = 0) {
     st.slotRequeued = true
     log(`↻ D1: ${f.frd}'s gate slot was dirty — re-queued ONCE for another slot (${liveSlots().length} live)`)
     gateQueue.unshift(f.frd)
+    return
+   }
+   if (FAST && !final) {
+    requeueGateInPlanOrder(f.frd)
+    log(`↻ D1: ${f.frd}'s gate slot could not be prepared — re-queued in plan order (${liveSlots().length ? `${liveSlots().length} live slot(s) left` : 'no live slot: it gates on main once nothing is left to build'}); the builders keep running`)
     return
    }
    await convergeOne({ f, reviewIds, gate: null, __needsLegacy: true })
@@ -3710,7 +3722,7 @@ while (true) {
   const unpinned = gateQueue.filter((x) => { const st = frdState.get(x); return st && !st.pinSha })
   if (unpinned.length) await capturePin(unpinned)
  }
- if (gateQueue.length && !(PARALLEL_GATES && concurrentGates !== false && launchParallelGates())) {
+ if (gateQueue.length && !(PARALLEL_GATES && concurrentGates !== false && launchParallelGates()) && !(FAST && PARALLEL_GATES)) {
   if (concurrentGates === null) {
    concurrentGates = await ensureGateWorktree(frdState.get(gateQueue[0]).pinSha)
    log(concurrentGates ? '▹ C2: gates run CONCURRENTLY with builds in a pinned worktree' : '↩ C2: legacy synchronous gate path (worktree unavailable) for the whole run')
@@ -3743,7 +3755,8 @@ while (true) {
   }
   if (PARALLEL_GATES && gateQueue.length) {
    const frd = gateQueue.shift()
-   log(`⚠ D1: ${frd} is gate-ready but no parallel gate could start with nothing in flight — gating it on main (legacy) rather than dropping it`)
+   if (FAST && concurrentGates === false) log(`⚠ D1: no gate slot is usable — gating ${frd} on main (legacy), in plan order, now that nothing is left to build`)
+   else log(`⚠ D1: ${frd} is gate-ready but no parallel gate could start with nothing in flight — gating it on main (legacy) rather than dropping it`)
    const st = frdState.get(frd)
    await gateAndConverge(st.f, st.reviewIds)
    continue
