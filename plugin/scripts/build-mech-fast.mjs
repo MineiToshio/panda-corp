@@ -2,8 +2,10 @@
 //   plan          the build plan read straight from the blueprints' Build Plan tables and the work-order frontmatter,
 //                 so a fast-lane run needs no plan agent (a missing or drifted Build Plan → `no-build-plan`, and the
 //                 engine falls back to the plan agent);
-//   classify-frd  the deterministic floor of an FRD (classify-change.mjs over its declared artifacts + its frd.md text,
-//                 or over a landed range), written to the FRD frontmatter `floor:` — monotone, never lowered;
+//   classify-frd  the deterministic PRODUCT-RISK floor of an FRD (`classify-change.mjs --product-floor`, i.e.
+//                 product-floor.mjs: auth, money, personal-data persistence, secrets, destructive data — never prose,
+//                 test fixtures, framework config or the factory's oracles) over its declared artifacts, or over a
+//                 landed range, written to the FRD frontmatter `floor:` — monotone, never lowered;
 //   verify        the USABLE check of one built FRD: clean tree (the shared append-only journals excepted: a gate in a
 //                 parallel slot appends to them at any time), every work order committed IN_REVIEW, the landed floor (or
 //                 the engine's own `--floor` verdict), then `verify.sh` on that clean SHA; green and not floor → ONE
@@ -112,9 +114,13 @@ function hasFrontend(ctx) {
 }
 
 // ── classify-frd ───────────────────────────────────────────────────────────────────────────────
-/** classify-change.mjs's verdict as a floor: any critical floor hit, and any unusable answer fails closed to floor. */
+/**
+ * The product-risk floor (`classify-change.mjs --product-floor`): any critical hit is floor, and any unusable answer
+ * fails closed to floor. /change's own floor (S5-S9) protects the factory and floors nearly every web FRD (bench F-1:
+ * a console.log-only form), so the fast lane asks the product question only.
+ */
 function classifier(ctx, args) {
-  const r = spawnSync(process.execPath, [CLASSIFIER, '--repo', ctx.project, ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 300000 })
+  const r = spawnSync(process.execPath, [CLASSIFIER, '--repo', ctx.project, '--product-floor', ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 300000 })
   let v = null
   try { v = JSON.parse(String(r.stdout || '').trim().split('\n').pop()) } catch { v = null }
   if (!v || !Array.isArray(v.floor_hits)) return { floor: true, hits: [`classifier gave no verdict (exit ${r.status}) — fail-closed`] }
@@ -134,15 +140,13 @@ const setFmKey = (text, key, value) => {
  */
 function classifyFrds(ctx, frds, { range = null, lockWaitMs }) {
   const results = frds.map((f) => {
-    const rel = frdMdRel(f.frd)
     const before = fmGet(f.frdText, 'floor').toLowerCase()
     let verdict
     if (range) verdict = classifier(ctx, ['--range', range])
     else {
+      // Declared paths only: frd.md is prose (a spec saying "no auth" is not auth code); the landed diff decides the rest.
       const files = unique(f.wos.flatMap((w) => fmList(w.text, 'artifacts')))
-      verdict = files.length
-        ? classifier(ctx, ['--files', files.join(','), ...(existsSync(path.join(ctx.project, rel)) ? ['--text', rel] : [])])
-        : { floor: true, hits: ['no declared artifacts — fail-closed'] }
+      verdict = files.length ? classifier(ctx, ['--files', files.join(',')]) : { floor: true, hits: ['no declared artifacts — fail-closed'] }
     }
     const floor = before === 'true' || verdict.floor
     return { frd: f.frd, floor, previous: before || null, changed: before !== String(floor), floorHits: verdict.hits }
@@ -156,7 +160,7 @@ function classifyFrds(ctx, frds, { range = null, lockWaitMs }) {
       const originals = paths.map((p) => readFileSync(path.join(ctx.project, p), 'utf8'))
       paths.forEach((p, i) => writeFileSync(path.join(ctx.project, p), setFmKey(originals[i], 'floor', changed[i].floor)))
       const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
-      const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): floor classification of ${changed.map((x) => `${x.frd}=${x.floor}`).join(', ')}\n\nProposal 39 C3: deterministic (classify-change.mjs), monotone.`, '--', ...paths]) : add
+      const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): floor classification of ${changed.map((x) => `${x.frd}=${x.floor}`).join(', ')}\n\nProposal 39 C3: deterministic (classify-change.mjs --product-floor), monotone.`, '--', ...paths]) : add
       if (!c.ok) { ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths]); paths.forEach((p, i) => writeFileSync(path.join(ctx.project, p), originals[i])); throw new Refusal('commit-failed', `the floor commit failed and frd.md was restored: ${c.err || 'no output'}`) }
       committed = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
     } finally { releaseLock(lock) }
@@ -211,6 +215,14 @@ function emit(o, fields) {
   const file = o.events || path.join(os.homedir(), '.claude', 'dashboard-events.ndjson')
   try { mkdirSync(path.dirname(file), { recursive: true }); appendFileSync(file, `${JSON.stringify({ event: fields.event, at: new Date().toISOString(), project: o.projectName || path.basename(o.project), ...fields })}\n`) } catch (e) { process.stderr.write(`pandacorp-build-mech: could not append the ${fields.event} event (${e.message})\n`) }
 }
+/** One gate-report `failures[]` row as text: a string as-is, a `{file, line, code, msg}` object as `file:line code msg`. */
+export function failureText(row) {
+  if (row === null || row === undefined) return ''
+  if (typeof row !== 'object') return String(row)
+  const where = [row.file, row.line].filter((x) => x !== undefined && x !== null && x !== '').join(':')
+  const text = [where, row.code, row.msg || row.message].filter((x) => x !== undefined && x !== null && x !== '').join(' ')
+  return text || JSON.stringify(row)
+}
 /** The verdict of the report verify.sh just wrote: green only when the run exited 0, the report is green and it is THIS sha's. */
 function readReport(ctx, exit, headFull) {
   let rep = null
@@ -219,7 +231,8 @@ function readReport(ctx, exit, headFull) {
   const scope = String(rep.scope ?? '')
   if (String(rep.sha || '') !== headFull) return { green: false, scope, failure: `stale gate-report: its sha ${String(rep.sha || '(none)').slice(0, 12)} is not HEAD ${headFull.slice(0, 12)}` }
   const red = (Array.isArray(rep.subgates) ? rep.subgates : []).find((g) => g && g.exit !== 0)
-  const failure = red ? `${red.name}: ${(red.failures || []).slice(0, 2).join(' | ') || `exit ${red.exit}`}` : (exit !== 0 ? `verify.sh exited ${exit}` : '')
+  const rows = red && Array.isArray(red.failures) ? red.failures.slice(0, 2).map(failureText).filter(Boolean) : []
+  const failure = red ? `${red.name}: ${rows.join(' | ') || `exit ${red.exit}`}` : (exit !== 0 ? `verify.sh exited ${exit}` : '')
   return { green: exit === 0 && rep.green === true, scope, failure }
 }
 export function verifyOp(o) {

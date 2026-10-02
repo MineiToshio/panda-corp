@@ -29,6 +29,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
+import { productFloor } from "./product-floor.mjs";
 
 const LEVELS = ["micro", "normal", "critical"];
 const rank = (l) => LEVELS.indexOf(l);
@@ -379,7 +380,7 @@ const anyMatch = (patterns, value) => patterns.some((re) => re.test(value));
 // ---------------------------------------------------------------------------------------------
 
 function parseArgs(argv) {
-  const opts = { repo: null, mode: null, range: null, files: null, card: null, wo: null, attempts: null, texts: [] };
+  const opts = { repo: null, mode: null, range: null, files: null, card: null, wo: null, attempts: null, texts: [], productFloor: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const need = () => {
@@ -397,11 +398,13 @@ function parseArgs(argv) {
       case "--wo": opts.wo = need(); break;
       case "--text": opts.texts.push(need()); break;
       case "--attempts": opts.attempts = need(); break;
+      case "--product-floor": opts.productFloor = true; break;
       default: throw new FailClosed(`unknown argument: ${a}`);
     }
   }
   if (!opts.repo) throw new FailClosed("--repo <path> is required");
   if (!opts.mode) throw new FailClosed("one of --range | --staged | --worktree | --files is required");
+  if (opts.productFloor && (opts.card || opts.wo || opts.attempts !== null)) throw new FailClosed("--product-floor takes no --card/--wo/--attempts (it decides product risk, not /change rigor)");
   if (opts.attempts !== null && !/^\d+$/.test(opts.attempts)) throw new FailClosed(`--attempts must be a non-negative integer, got '${opts.attempts}'`);
   return opts;
 }
@@ -888,6 +891,18 @@ function realOrResolved(p) {
   try { return realpathSync(p); } catch { return path.resolve(p); }
 }
 
+/**
+ * `--product-floor` (proposal 39 C3/C6, the fast lane): the PRODUCT-RISK floor of product-floor.mjs
+ * instead of /change's rigor. Same input collection and the same FAILCLOSED path; none of the S1-S17
+ * signals runs, so /change's verdicts (and its backtests) are untouched by this mode.
+ */
+function productVerdict(ctx) {
+  if (!ctx.files.length) throw new FailClosed("nothing to classify (a bad range reads exactly like a no-op change)");
+  const v = productFloor(ctx);
+  const stats = { files: ctx.files.length, added: ctx.files.reduce((n, f) => n + f.added, 0), deleted: ctx.files.reduce((n, f) => n + f.deleted, 0), new_files: ctx.files.filter((f) => f.status === "A").length };
+  return { mode: "product-floor", rigor: v.floor ? "critical" : "normal", floor: v.floor, reasons: v.floor_hits, floor_hits: v.floor_hits, stats, notes: v.notes };
+}
+
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   if (!existsSync(opts.repo)) throw new FailClosed(`repo path does not exist: ${opts.repo}`);
@@ -900,7 +915,7 @@ function main() {
   ctx.projectRoot = realOrResolved(opts.repo);
   ctx.projectPrefix = normalizePath(path.relative(realOrResolved(ctx.repoRoot), ctx.projectRoot));
   addTexts(opts, ctx);
-  process.stdout.write(`${JSON.stringify(classify(opts, ctx))}\n`);
+  process.stdout.write(`${JSON.stringify(opts.productFloor ? productVerdict(ctx) : classify(opts, ctx))}\n`);
 }
 
 try {

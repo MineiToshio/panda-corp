@@ -45,7 +45,7 @@
 //   plan         [--frd <folder>]… [--classify]   the fast lane's plan without a plan agent: the blueprints' Build Plan
 //                order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan. --classify also
 //                writes the deterministic floor (C3). See build-mech-fast.mjs.
-//   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone FRD floor (classify-change.mjs), frontmatter `floor:`.
+//   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone product-risk FRD floor (classify-change.mjs --product-floor), frontmatter `floor:`.
 //   verify       --frd <folder> --since <base> [--wo <id>]… [--floor]   the USABLE check (C6): clean tree (journals
 //                excepted), committed WOs, landed floor (or the engine's --floor), verify.sh on the clean SHA; green + not
 //                floor → build_usable (track.jsonl commit + dashboard); `usable` only once that line is committed.

@@ -921,7 +921,7 @@ shorter, zero `VERIFIED` FRD red at the close-out full suite, and no false needs
 (`'now'` default | `'defer'`, fast lane only; launcher `--review-budget now|defer`, which requires `--lane fast`).
 The default flips to `fast` only after the pre-registered §9 measurement passes (small bench T_usable ≤ 2× the vanilla
 median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Each condition below is a tested behaviour
-(`test-build-engine.mjs` scenarios P39-* and F39-*, `test-build-mech.mjs`, `test-classify-change.mjs` case 15b,
+(`test-build-engine.mjs` scenarios P39-* and F39-*, `test-build-mech.mjs`, `test-classify-change.mjs` case 15b, `test-product-floor.mjs`,
 `test-build-run-id.mjs` P39 launcher), not a guideline.
 
 **Two safety flags, each reachable alone in either lane** (both on under `lane:'fast'`):
@@ -991,9 +991,30 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
   commits each WO itself through `commit-wo` (or parks it); a `difficulty: high` or reopened WO gets its own opus builder
   in sequence. A WO without a sealed receipt is treated as not landed and parked; the missed WOs get one opus rebuild,
   then the classic bounded repair.
-- **Floor (C3).** `classify-change.mjs` over the declared paths plus the FRD text (`--text`), at plan time and again on
-  the landed diff; monotone, fail-closed (unreadable = floor); the engine is the single writer of FRD frontmatter
-  `floor:`.
+- **Floor (C3) = PRODUCT risk, not /change rigor.** `classify-change.mjs --product-floor` (`product-floor.mjs`) over
+  the declared artifact paths at plan time and again over the landed diff; monotone (never lowered), fail-closed
+  (unreadable input = floor), deterministic, every hit explained; the engine is the single writer of FRD frontmatter
+  `floor:`. An FRD is floor iff its CODE touches one of:
+
+  | Signal | Domain | Floor when |
+  |---|---|---|
+  | P1 | auth / authorization / session | a file or dir NAMED auth, session, login, logout, sign-in/up, password, credential, oauth, jwt (a path token, so `authors/` is not); an auth-library import (next-auth, `@auth/*`, `@clerk/*`, better-auth, lucia, iron-session, jose, jsonwebtoken, bcrypt, argon2, passport…); scrypt/pbkdf2; reading or sending an `Authorization` header; a `middleware.*` whose body gates access (an i18n middleware is not) |
+  | P2 | payments / money | a file or dir named payment, billing, checkout, invoice, subscription, payout, refund, price, stripe, polar, paypal, paddle, lemonsqueezy; a payment-SDK import (stripe, `@stripe/*`, `@polar-sh/*`, `@lemonsqueezy/*`, `@paypal/*`, `@paddle/*`, braintree, `@mollie/*`, razorpay, `@adyen/*`, square) |
+  | P3 | persistence of personal data | a schema/migration surface whose added lines carry a personal field (email, phone, first/last/full name, address, zip/postal code, birth date, ssn, national id, passport, dni/nif, tax id, document number, iban; a bare `name` is not personal); a data-layer write (ORM create/insert/update/upsert, SQL INSERT/UPDATE) in a file carrying such a field |
+  | P4 | secrets / env | an env file (`.env`, `.env.local`, `.env.example`…) that ADDS a secret-shaped key (…SECRET/TOKEN/PASSWORD/API_KEY/PRIVATE_KEY/ACCESS_KEY/CREDENTIAL…, never `NEXT_PUBLIC_`/`PUBLIC_`/`VITE_`) or a URL with `user:password@`; a secrets/credentials/`*.pem`/`*.key` file; code reading a secret-shaped key from `process.env`/`import.meta.env`; a key-shaped literal in product code |
+  | P5 | destructive data | DROP TABLE/COLUMN/SCHEMA/DATABASE; TRUNCATE; DELETE FROM with no WHERE; `deleteMany()` with no filter; drizzle `db.delete(t)` with no `.where(`; dropDatabase/destroyAll; migrate reset, `--force-reset`, `--accept-data-loss` |
+
+  **Never floor here:** prose (`docs/`, `*.md`, frd.md itself: a spec saying "no auth" is not auth code), test surfaces
+  (unit tests, `src/test/`, `e2e/`, fixtures: an example e-mail in a test is not stored data), framework/tool config
+  (`next.config.*`, tsconfig, biome, vitest/playwright config, unless their code reads a secret), the coding agents'
+  config dirs and the factory's oracle surfaces (those are /change's factory protection, S7/S9). Decisions:
+  `.env.example` is floor only when it adds a secret-shaped key (the FRD starts handling a secret; plain config like
+  `PORT` or a sqlite `DATABASE_URL` is not); a single-row DELETE endpoint and a cascade delete are ordinary CRUD (the
+  bench-medium Tablero app), a dev tool `scripts/*reset|seed|fixture|test*` that wipes the local test database is test
+  infrastructure, and only DROP/TRUNCATE/unfiltered bulk deletes are floor. A `--files` listing has no body, so the
+  content rules (middleware, env files, schema fields) are deferred to the landed diff, which certifies USABLE.
+  Measured: bench F-1 (a console.log-only form) and the whole bench-medium Tablero history are not floor; buytrack,
+  cotizapdf and pandatrack are (P1/P2/P4). /change's own classification (no `--product-floor`) is unchanged.
 - **USABLE (C6).** `verify` refuses unless the tree is clean and every WO is committed `IN_REVIEW` at `HEAD`, then runs
   `verify.sh` on that SHA. The shared append-only journals are not dirt: a gate in a parallel slot appends its review
   lines to the MAIN tree's journals at any time, so `verify` and `commit-wo`'s after-commit check ignore them, and an op
@@ -1026,8 +1047,9 @@ median and usage ≤ 3× vanilla; oracle ≥ 90 % at USABLE on both benches). Ea
 **Not built in this release (recorded, not promised):** parallel worktree lanes, the landing train, the serial schema
 step, attributed relock and bisect (C4 S1/C5, deferred by §11 until §9.2 shows the build half, not usage, is the
 bottleneck); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
-refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: a bench FRD touching `package.json`,
-`next.config`, `e2e/` or `tsconfig` classifies as floor (then USABLE = VERIFIED); `commit-wo` runs only for single-WO
+refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: the product floor is a path/content
+heuristic (~90 % by design, the owner's trade): an auth or payment flow written with no recognisable library, path name
+or header escapes it until the opus gate, and a feature domain named `session` or `price` is floor; `commit-wo` runs only for single-WO
 waves in a mechScript classic run (a parallel wave would refuse its siblings' files); under a real usage limit the
 pause close may fail too, and the lease then expires by its TTL.
 

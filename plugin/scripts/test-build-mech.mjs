@@ -713,7 +713,7 @@ const frdMd = (id, extra = '', body = '') => `---\nid: ${id}\ntype: frd\nimpleme
 const blueprint = (rows) => `---\nid: BP\n---\n# Blueprint\n\n## 7. Build Plan\n\n| WO | Depends on | Artifacts (globs) |\n|---|---|---|\n${rows.map(([id, deps]) => `| ${id} | ${deps} | x |`).join('\n')}\n\n- **Order:** as the table says.\n\n## 8. Risks\n`
 const fmA = 'title: Alpha cards\ndifficulty: high\nartifacts: [src/alpha.ts, "src/_tests/**"]\ndependsOn: []\nsource_requirements: []\n'
 const fmB = (deps = '[WO-01-001]') => `title: Beta sort\nartifacts: [src/beta.ts]\ndependsOn: ${deps}\n`
-const fmC = (art = 'src/app/api/gamma/**') => `title: Gamma panel\nartifacts: [${art}]\ndependsOn: [WO-01-002]\n`
+const fmC = (art = 'src/app/api/auth/gamma/**') => `title: Gamma panel\nartifacts: [${art}]\ndependsOn: [WO-01-002]\n`
 function planFixture(r, { statusA = 'PLANNED', statusC = 'PLANNED', depsB, artC } = {}) {
   r.write('package.json', '{"name":"proj","dependencies":{"next":"16.0.0","react":"19.0.0"}}\n')
   r.write(`${FRD_A}/frd.md`, frdMd('FRD-01'))
@@ -769,8 +769,8 @@ console.log('plan --classify / classify-frd: the deterministic floor, written to
     const head = r.head()
     const p = r.run('plan', ['--classify'])
     ok(p.code === 0 && p.receipt.status === 'planned', `plan --classify runs (got ${p.receipt && p.receipt.status} ${p.receipt && p.receipt.reason})`)
-    ok(byFrd(p)['frd-01-alpha'].floor === false && byFrd(p)['frd-02-gamma'].floor === true, 'a plain FRD is not floor; an FRD declaring app/api is floor')
-    ok((byFrd(p)['frd-02-gamma'].floorHits || []).some((h) => /app\/api/.test(h)), 'the floor hit is named')
+    ok(byFrd(p)['frd-01-alpha'].floor === false && byFrd(p)['frd-02-gamma'].floor === true, 'a plain FRD is not floor; an FRD declaring an app/api/auth route is floor (product floor P1)')
+    ok((byFrd(p)['frd-02-gamma'].floorHits || []).some((h) => /^P1: .*api\/auth/.test(h)), `the floor hit is named (got ${JSON.stringify(byFrd(p)['frd-02-gamma'].floorHits)})`)
     ok(r.head() !== head && /floor/.test(r.subject()) && r.filesAt().sort().join() === [`proj/${FRD_A}/frd.md`, `proj/${FRD_C}/frd.md`].join(), 'one commit writes floor: into exactly the two frd.md')
     ok(/^floor: false$/m.test(r.atHead(`${FRD_A}/frd.md`)) && /^floor: true$/m.test(r.atHead(`${FRD_C}/frd.md`)), 'the frontmatter carries floor: false / floor: true')
     const h2 = r.head()
@@ -780,10 +780,16 @@ console.log('plan --classify / classify-frd: the deterministic floor, written to
     r.git('commit', '-q', '-am', 'gamma moves out of app/api')
     const m = r.run('classify-frd', ['--frd', 'frd-02-gamma'])
     ok(m.code === 0 && m.sealed && m.receipt.frds[0].floor === true && /^floor: true$/m.test(r.read(`${FRD_C}/frd.md`)), 'floor is monotone: a later non-floor verdict never lowers it')
-    r.write(`${FRD_A}/frd.md`, frdMd('FRD-01', 'floor: false\n', '- The system SHALL check the password before showing private cards.\n'))
+    r.write(`${FRD_A}/frd.md`, frdMd('FRD-01', 'floor: false\n', '- The system SHALL NOT ask for a password; example contact: Ana@Example.COM.\n'))
     r.git('commit', '-q', '-am', 'alpha spec mentions credentials')
     const t = r.run('classify-frd', ['--frd', 'frd-01-alpha'])
-    ok(t.receipt.frds[0].floor === true && t.receipt.frds[0].changed === true, 'the FRD text alone can raise the floor (S5 content via --text)')
+    ok(t.receipt.frds[0].floor === false && t.receipt.frds[0].changed === false, 'frd.md prose alone never raises the floor (a spec mentioning a password or an e-mail is not product code — bench F-1)')
+    r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: 'title: Beta sort\nartifacts: [src/app/api/beta/route.ts, next.config.ts, src/test/setup.ts, e2e/beta.spec.ts]\ndependsOn: [WO-01-001]\n' }))
+    r.git('commit', '-q', '-am', 'beta declares an ordinary route, framework config and test surfaces')
+    const o = r.run('classify-frd', ['--frd', 'frd-01-alpha'])
+    ok(o.receipt.frds[0].floor === false, `an ordinary app/api route, next.config.ts, src/test/setup.ts and an e2e spec are not product risk (got ${JSON.stringify(o.receipt.frds[0].floorHits)})`)
+    r.write(WO_B, woMd('WO-01-002', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: fmB() }))
+    r.git('commit', '-q', '-am', 'beta back')
     const base = r.head()
     r.write('src/lib/auth/session.ts', 'export const s = 1\n')
     r.git('add', '-A'); r.git('commit', '-q', '-m', 'auth helper')
@@ -798,7 +804,7 @@ console.log('plan --classify / classify-frd: the deterministic floor, written to
 
 console.log('verify: the USABLE check — clean tree, committed WOs, landed floor, verify.sh on the clean landed SHA')
 {
-  const VERIFY_SH = ({ green = true, sha = '$(git rev-parse HEAD)' } = {}) => `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"2026-10-01T00:00:00Z","scope":"full","green":${green},"sha":"%s","subgates":[{"name":"biome","exit":0,"failures":[]},{"name":"tsc","exit":${green ? 0 : 2},"failures":[${green ? '' : '"src/a.ts: TS2345"'}]}]}\\n' "${sha}" > .pandacorp/run/gate-report.json\nexit ${green ? 0 : 1}\n`
+  const VERIFY_SH = ({ green = true, sha = '$(git rev-parse HEAD)', rows = '"src/a.ts: TS2345"' } = {}) => `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"2026-10-01T00:00:00Z","scope":"full","green":${green},"sha":"%s","subgates":[{"name":"biome","exit":0,"failures":[]},{"name":"tsc","exit":${green ? 0 : 2},"failures":[${green ? '' : rows}]}]}\\n' "${sha}" > .pandacorp/run/gate-report.json\nexit ${green ? 0 : 1}\n`
   const setup = (opts) => {
     const r = mkRepo()
     planFixture(r)
@@ -857,12 +863,31 @@ console.log('verify: the USABLE check — clean tree, committed WOs, landed floo
   {
     const { r, base } = setup()
     try {
-      r.write('src/app/api/alpha/route.ts', 'export async function GET() { return new Response("ok") }\n')
+      r.write('src/app/api/alpha/route.ts', 'import Stripe from "stripe"\nexport async function POST() { return new Response(String(Stripe)) }\n')
       r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001 route')
       const v = r.run('verify', args(base))
-      ok(v.receipt.status === 'green' && v.receipt.floor === true && v.receipt.usable === false && /^floor: true$/m.test(r.atHead(`${FRD_A}/frd.md`)), 'a landed floor path makes it floor: green but NOT usable')
+      ok(v.receipt.status === 'green' && v.receipt.floor === true && v.receipt.usable === false && /^floor: true$/m.test(r.atHead(`${FRD_A}/frd.md`)) && v.receipt.floorHits.some((h) => /^P2: payment SDK/.test(h)), `a landed product-risk import (stripe) makes it floor: green but NOT usable (got ${JSON.stringify(v.receipt.floorHits)})`)
       const track = r.atHead('.pandacorp/track.jsonl')
       ok(!/build_usable/.test(track), 'no build_usable for a floor FRD')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup()
+    try {
+      r.write('e2e/alpha.spec.ts', "import { test } from '@playwright/test'\ntest('a', async ({ page }) => { await page.getByLabel('Email').fill('Maria@Example.COM') })\n")
+      r.write('next.config.ts', 'export default { reactStrictMode: true }\n')
+      r.write('src/test/setup.ts', "import '@testing-library/jest-dom/vitest'\n")
+      r.write('src/app/api/alpha/route.ts', 'export async function GET() { return new Response("ok") }\n')
+      r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001 e2e, config, route')
+      const v = r.run('verify', args(base))
+      ok(v.receipt.status === 'green' && v.receipt.floor === false && v.receipt.usable === true, `the bench F-1 landed shape (an e2e fixture e-mail, next.config.ts, src/test/setup.ts, an ordinary route) is not floor → USABLE (got ${JSON.stringify(v.receipt && { f: v.receipt.floor, u: v.receipt.usable, h: v.receipt.floorHits })})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup({ green: false, rows: '{"file":"src/a.ts","line":3,"code":"unused-export","msg":"alpha is never imported"},{"file":"src/b.ts","msg":"unused file"}' })
+    try {
+      const v = r.run('verify', args(base))
+      ok(v.receipt.status === 'red' && v.receipt.failure === 'tsc: src/a.ts:3 unused-export alpha is never imported | src/b.ts unused file', `object failure rows render as text, never [object Object] (got ${v.receipt && v.receipt.failure})`)
     } finally { r.cleanup() }
   }
 }
