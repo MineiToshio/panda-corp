@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-02 — Pandacorp overlay upgraded to 8.96.0 (fast-lane engine)
+
+**What:** the only template that changed between 8.95.0 and 8.96.0 is the build engine (`plugin/templates/shared/.claude/engines/pandacorp-build.js`: 9.118.1/9.118.2 hotfixes plus the fast lane of proposal 39, now the default of /pandacorp:implement, DR-124); `.claude/engines/pandacorp-build.js` is copied byte-identical and `overlay_version` follows.
+
+**Why:** plugin 9.119.0 ships the fast lane as the implement default (measured on the factory benches).
+
 ## 2026-10-02 — Manual: `implement` builds on the fast lane by default (plugin 9.119.0, DR-124)
 
 **What:** the Manual's `implement` skill flow (`src/lib/manual/skill-flows.ts`), the unattended-build page
