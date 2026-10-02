@@ -1814,6 +1814,36 @@ SCENARIOS.push({
   },
 })
 
+SCENARIOS.push({
+  name: 'F39-36. fast-lane-high-difficulty-stays-in-builder — a difficulty:high WO stays in the FRD\'s ONE worker builder; opus only climbs the ladder after a red verify (sonnet fix-forward, then the opus repair); a reopened WO still escalates',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F30_PLAN,
+  noPlanLine: true,
+  responses: [
+    fusedStart(F30_PLAN),
+    { label: 'verify:frd-f1', response: { line: mechLine('verify', { status: 'red', frd: 'frd-f1', green: false, usable: false, floor: false, sha: 'feed00000002', scope: 'full', failure: 'knip: unused export' }) } },
+    { label: 'repair:frd-f1', response: { green: true } },
+    { label: 'wo-revert-plan:frd-f1', response: { output: sealLine({ ok: true, version: 1, frd: 'frd-f1', mode: 'plan', status: 'nothing', changed: false, wos: [], files: [] }) } },   // the classic repair records its discard intent first (BL-0215)
+  ],
+  next: () => {
+    const plan = fastPlan([{ frd: 'frd-r', ids: ['WO-02-001', 'WO-02-002'], extra: { 'WO-02-002': { reopen_count: 1 } } }])
+    const recover = { output: sealLine({ ok: true, version: 1, mode: 'recover', frd: 'frd-r', status: 'nothing', changed: false, committed: null, recovery: 'none', reason: 'no pending revert intent', wos: [], files: [] }) }
+    return { args: { mode: 'balanced', ...FUSED }, plan, noPlanLine: true, responses: [fusedStart(plan, { synced: undefined, dispatch: undefined, status: 'planned' }), { label: 'wo-revert-recover:frd-r', response: recover }] }
+  },
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, /^fast-build:/)
+    t.ok(b.length === 1 && b[0].label === 'fast-build:frd-f1' && b[0].model === 'sonnet' && ['WO-01-001', 'WO-01-002', 'WO-01-003'].every((id) => b[0].prompt.includes(`### WORK ORDER ${id}`)), `ONE sonnet builder holds all three WOs, the high one included (got ${b.map((c) => `${c.label}/${c.model}`).join(', ')})`)
+    const fix = byLabel(run, 'fix:frd-f1')
+    t.ok(fix.length === 1 && fix[0].model === 'sonnet' && labelIdx(run, /^fix:frd-f1$/) > labelIdx(run, /^verify:frd-f1$/), 'a red verify gets the sonnet fix-forward first')
+    const rep = byLabel(run, 'repair:frd-f1')
+    t.ok(rep.length === 1 && rep[0].model === 'opus' && labelIdx(run, /^repair:frd-f1$/) > labelIdx(run, /^fix:frd-f1$/), 'opus enters only as the repair after the fix-forward stayed red')
+    const two = run.next
+    const tb = two && byLabel(two, /^fast-build:/)
+    t.ok(tb && tb.length === 2 && tb[1].label === 'fast-build:frd-r:WO-02-002' && tb[1].model === 'opus', `a WO that already failed once (reopen_count) still gets its own opus builder (got ${tb && tb.map((c) => `${c.label}/${c.model}`).join(', ')})`)
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

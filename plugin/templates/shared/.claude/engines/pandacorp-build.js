@@ -3462,7 +3462,7 @@ const fastMarkLanded = (frd, ids) => { const st = frdState.get(frd); for (const 
 function fastSegments(wos) {
  const segs = []
  for (const w of wos) {
-  const model = pickWorkerModel(w)
+  const model = (w.reopen_count || 0) >= 1 ? pickWorkerModel(w) : P.worker
   const last = segs[segs.length - 1]
   if (last && model === P.worker && last.model === P.worker) last.wos.push(w)
   else segs.push({ model, wos: [w] })

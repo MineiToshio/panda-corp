@@ -5589,11 +5589,13 @@ async function fastLaneStep() {
   return null
 }
 const fastMarkLanded = (frd, ids) => { const st = frdState.get(frd); for (const id of ids) { globalQueue.delete(id); doneIds.add(id); if (st) st.toBuildIds.delete(id) } }
-// Consecutive worker-tier work orders share ONE builder; an escalated one (difficulty:high / a reopen, DR-073) gets its own.
+// Consecutive worker-tier work orders share ONE builder. A difficulty:high WO stays in it (bench F-1: its own opus builder
+// was 4.9 of 16.4 min); opus enters after a red verify (the fix-forward, then the repair). Only a WO that already failed
+// once (reopen_count, DR-073's empirical rung) gets its own escalated builder.
 function fastSegments(wos) {
   const segs = []
   for (const w of wos) {
-    const model = pickWorkerModel(w)
+    const model = (w.reopen_count || 0) >= 1 ? pickWorkerModel(w) : P.worker
     const last = segs[segs.length - 1]
     if (last && model === P.worker && last.model === P.worker) last.wos.push(w)
     else segs.push({ model, wos: [w] })
