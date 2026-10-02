@@ -442,6 +442,12 @@ console.log('lane-resume-after-pause: --resume re-dispatches a live chain on its
     ok(back && back.resumed === true && back.lane === 1 && JSON.stringify(back.committed) === '["WO-01-001"]', `the chain is re-dispatched on lane 1 keeping WO-01-001 (${JSON.stringify(back && { r: back.resumed, c: back.committed })})`)
     ok(back && back.salvaged && back.salvaged.paths.some((p) => /wo-01-002\.ts$/.test(p.path || p)), 'the half-written file is salvaged, never built on')
     ok(!existsSync(path.join(r.laneProj(1), 'src/wo-01-002.ts')), 'and the lane is clean for the rebuild of WO-01-002')
+    const p2 = r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-02-001'])
+    ok(p2.code === 4 && p2.receipt.status === 'lane-busy', 'the resumed chain holds its lane')
+    r.run('lane-mark', ['--chain', d.receipt.chain, '--as', 'parked', '--why', 'red three times'])
+    ok(r.run('lane-plan').receipt.blockedWos.includes('WO-01-001'), 'parked: its WOs wait for the rest of this run')
+    const nextRun = r.run('lane-next', ['--resume'])
+    ok(nextRun.receipt.retired.includes(d.receipt.chain) && nextRun.receipt.dispatched.some((x) => x.wos.includes('WO-01-001')) && nextRun.receipt.blockedFrds.length === 0, `the next run's resume round retires the park and retries the chain (${JSON.stringify(nextRun.receipt.dispatched.map((x) => x.chain))})`)
   } finally { r.cleanup() }
 }
 

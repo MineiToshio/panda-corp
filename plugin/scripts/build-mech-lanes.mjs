@@ -12,7 +12,7 @@
 //                                               engine's own schedule; `--wait-verified f` makes f's IN_REVIEW work
 //                                               orders satisfy only f's own WOs (a floor FRD's dependents wait for its
 //                                               VERIFIED). Read-only.
-//   lane-dispatch --chain c --wo a [--wo b…] (--lane n | --barrier)   a lane chain: salvage the lane's dirt, reset it
+//   lane-dispatch --chain c --wo a [--wo b…] (--lane n | --barrier)   [in build-mech-lane-next.mjs]   a lane chain: salvage the lane's dirt, reset it
 //                                               to main's HEAD on `lane/<c>` (a re-dispatch of the SAME chain keeps
 //                                               its committed WOs, DR-086), resync when the lockfile, prisma/** or the
 //                                               migrations moved since the lane's last base, give it a free port, and
@@ -31,7 +31,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
-import { InputError, Refusal, acquireLock, dirtyEntries, gitIn, projectCtx, releaseLock, salvageAndReset, unique, utcStamp } from './build-mech-lib.mjs'
+import { InputError, Refusal, acquireLock, gitIn, projectCtx, releaseLock, unique } from './build-mech-lib.mjs'
 import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 
 /** Lane caps per run mode (proposal 40 §9): pro never lanes, balanced 2, powerful/deep 4. */
@@ -49,9 +49,6 @@ export const BARRIER_PATHS = Object.freeze([
   /(^|\/)prisma\//, /\.(sql|prisma)$/i, /(^|\/)migrations?\//, /(^|\/)drizzle\//,
   /(^|\/)package\.json$/, /(^|\/)(pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$/,
 ])
-const INSTALL_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$/
-const PRISMA_RE = /(^|\/)prisma\/|\.prisma$/i
-const DB_RE = /(^|\/)(prisma|migrations?|drizzle)\/|\.sql$/i
 export const LIVE = new Set(['dispatched', 'built', 'needs-fix'])
 const DONE_STATUSES = new Set(['IN_REVIEW', 'VERIFIED'])
 const isBarrierPath = (p) => BARRIER_PATHS.some((re) => re.test(String(p).replace(/^\.\//, '')))
@@ -272,7 +269,7 @@ export async function freePort(taken, offset = 0) {
   throw new Refusal('no-free-port', `no free lane port in ${base}..${base + LANE_PORT_SPAN - 1}`)
 }
 /** The lane's port: its current one while free and not a sibling's, else the first free one from base + lane - 1. */
-async function lanePort(state, lane, current) {
+export async function lanePort(state, lane, current) {
   const taken = new Set(state.pool.filter((l) => l.lane !== lane && l.port).map((l) => l.port))
   if (current && !taken.has(current) && !(await portBusy(current))) return current
   return freePort(taken, lane - 1)
@@ -368,14 +365,6 @@ export function checkLaneFlags(o) {
   if (o.mode && !(o.mode in MODE_CAPS)) throw new InputError(`--mode must be one of ${Object.keys(MODE_CAPS).join('|')}`)
 }
 
-/** What moved between a lane's previous base and the new one that needs a resync (install, prisma generate, DB). */
-export function resyncNeeds(ctx, from, to) {
-  if (!from || from === to) return { install: false, prisma: false, db: false, changed: [] }
-  const r = ctx.g.run(['diff', '--name-only', '--relative', from, to, '--', '.'])
-  const changed = r.ok ? r.out.split('\n').filter(Boolean) : null
-  if (!changed) return { install: true, prisma: true, db: true, changed: ['<unknown: the previous base is unreachable>'] }
-  return { install: changed.some((p) => INSTALL_RE.test(p)), prisma: changed.some((p) => PRISMA_RE.test(p)), db: changed.some((p) => DB_RE.test(p)), changed: changed.filter((p) => INSTALL_RE.test(p) || PRISMA_RE.test(p) || DB_RE.test(p)) }
-}
 /** The lane's commits over `base`: { sha, subject, wo } (wo: the WO a `feat(...)` commit builds, else null). */
 export function laneCommits(g, base, tip) {
   const r = g.run(['log', '--reverse', '--format=%H%x09%s', `${base}..${tip}`])
@@ -392,101 +381,7 @@ export function commitShape(commits, wos) {
   return { missing: wos.filter((id) => count(id) === 0), duplicated: wos.filter((id) => count(id) > 1) }
 }
 
-/** `lane-dispatch --chain c --wo …  (--lane n | --barrier)`. */
-export async function laneDispatchOp(o) {
-  if (!o.wos.length) throw new InputError('lane-dispatch needs the chain\'s --wo ids in dependency order')
-  if (Boolean(o.barrier) === (o.lane !== undefined)) throw new InputError('lane-dispatch needs exactly one of --lane <n> or --barrier')
-  const ctx = projectCtx(o.project)
-  return dispatchChain(ctx, o, woGraph(ctx), { chain: o.chain, wos: o.wos, lane: o.lane, barrier: o.barrier })
-}
-/**
- * Dispatch one chain: a barrier is only recorded (it builds on main); a lane chain is claimed under lanes.lock (the
- * lane's dirt salvaged, the lane reset to main's HEAD on `lane/<c>`, or back on its own branch for a re-dispatch of the
- * same chain, DR-086), resynced OUTSIDE the lock (bootstrap and `prisma generate` take minutes), then recorded. A failed
- * resync marks the lane `broken` and releases the chain (its WOs are ready again for a healthy lane).
- */
-export async function dispatchChain(ctx, o, graph, req) {
-  const wos = req.wos.map(normWoId)
-  const unknown = wos.filter((id) => !graph.nodes.has(id))
-  if (unknown.length) throw new InputError(`unknown work order(s): ${unknown.join(', ')}`)
-  const id = req.chain || chainIdOf(wos)
-  const barrierWos = wos.filter((w) => graph.nodes.get(w).barrier)
-  if (barrierWos.length && !req.barrier) throw new Refusal('barrier-off-main', `${barrierWos.join(', ')} touch a schema, migration, package.json or lockfile path: that chain builds on main (--barrier), never in a lane`, { wos: barrierWos })
-  const head = ctx.g.must(['rev-parse', 'HEAD']).trim()
-  const record = (s, extra) => { const prior = s.chains[id]; s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, barrier: Boolean(req.barrier), status: 'dispatched', downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString(), fixes: prior && (req.barrier || extra.resumed) ? prior.fixes || 0 : 0, ...extra } }
-  const claim = await withState(ctx, o, async (s) => {
-    refreshFromMain(s, graph.nodes, ctx)
-    const prior = s.chains[id]
-    const busy = Object.values(s.chains).find((c) => c.id !== id && LIVE.has(c.status) && c.wos.some((w) => wos.includes(w)))
-    if (busy) throw new Refusal('wo-in-flight', `${busy.wos.filter((w) => wos.includes(w)).join(', ')} already in the live chain ${busy.id}`)
-    if (req.barrier) {
-      const other = activeBarrier(s)
-      if (other && other.id !== id) throw new Refusal('barrier-active', `the barrier chain ${other.id} is still building on main: one barrier at a time`)
-      record(s, { lane: null, base: head })
-      return { done: { code: 0, body: { status: 'dispatched', chain: id, barrier: true, where: 'main', wos, landingsPaused: true } } }
-    }
-    const entry = s.pool.find((l) => l.lane === req.lane)
-    if (!entry) throw new Refusal('no-such-lane', `lane ${req.lane} is not in the pool (run lane-pool first)`)
-    if (entry.chain && entry.chain !== id) throw new Refusal('lane-busy', `lane ${req.lane} holds the live chain ${entry.chain}`)
-    if (entry.booting || entry.broken) throw new Refusal('lane-unready', `lane ${req.lane} is ${entry.booting ? 'still booting' : `broken (${entry.broken})`}`)
-    const wt = entry.path
-    if (!existsSync(wt)) throw new Refusal('lane-missing', `lane ${req.lane}'s worktree ${wt} is gone: recreate the pool`)
-    const lctx = projectCtx(path.join(wt, ctx.prefix))
-    const branch = `lane/${id}`
-    const resumed = Boolean(prior && LIVE.has(prior.status) && prior.lane === req.lane && lctx.g.run(['rev-parse', '--verify', '-q', branch]).ok)
-    // The lane's dirt is a previous builder's evidence: salvaged into the MAIN project's run dir before any reset.
-    const dirt = dirtyEntries(lctx)
-    const salvageDir = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${req.lane}`, utcStamp())
-    const salvaged = dirt.length ? salvageAndReset(lctx, dirt, salvageDir) : []
-    const wg = gitIn(wt)
-    wg.must(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
-    lctx.g.must(['clean', '-fdq', '--', '.'])
-    const base = resumed ? prior.base : head
-    const tip = wg.must(['rev-parse', 'HEAD']).trim()
-    const port = await lanePort(s, req.lane, entry.port)
-    const prevPort = entry.port
-    Object.assign(entry, { port, chain: id })
-    record(s, { lane: req.lane, base, resumed })
-    return { wt, wg, lctx, branch, resumed, base, tip, port, prevPort, needs: resyncNeeds(ctx, entry.base, tip), salvaged: salvaged.length ? { dir: salvageDir, paths: salvaged } : null }
-  })
-  if (claim.done) return claim.done
-  const { wt, wg, lctx, needs, port } = claim
-  const ran = []
-  let failure = null
-  // The bootstrap is the one writer of the lane's install, DB hook and pinned e2e port: re-run only when one moved.
-  if (needs.install || needs.db || port !== claim.prevPort || !portPinned(lctx, port)) {
-    failure = await bootstrapLane(ctx, wt, req.lane, port)
-    if (!failure) ran.push('bootstrap')
-  }
-  if (!failure && needs.prisma && existsSync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'))) {
-    const r = await runAsync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'), ['generate'], { cwd: lctx.project, env: laneEnv(req.lane, port), timeoutMs: 5 * 60 * 1000 })
-    if (r.ok) ran.push('prisma-generate')
-    else failure = `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}`
-  }
-  const out = await withState(ctx, o, async (s) => {
-    const entry = s.pool.find((l) => l.lane === req.lane)
-    if (failure) {
-      Object.assign(entry, { chain: null, broken: failure })
-      delete s.chains[id]
-      wg.run(['checkout', '-q', '--detach'])
-      return null
-    }
-    entry.base = claim.tip
-    const committed = claim.resumed ? laneCommits(wg, claim.base, 'HEAD').filter((c) => c.wo).map((c) => c.wo) : []
-    return { code: 0, body: { status: 'dispatched', chain: id, frd: s.chains[id].frd, wos, lane: req.lane, branch: claim.branch, path: lctx.project, base: claim.base.slice(0, 12), resumed: claim.resumed, committed, downstream: s.chains[id].downstream, env: laneEnv(req.lane, port), resync: { ...needs, ran }, salvaged: claim.salvaged } }
-  })
-  if (!out) throw new Refusal('resync-failed', failure, { chain: id, lane: req.lane })
-  return out
-}
-/** Does the lane's e2e config already serve on its port (server-env.json PORT and the lane.env)? */
-function portPinned(lctx, port) {
-  const env = path.join(lctx.project, '.pandacorp', 'run', 'lane.env')
-  if (!existsSync(env) || !readFileSync(env, 'utf8').includes(`PORT=${port}\n`)) return false
-  const file = path.join(lctx.project, 'e2e', 'server-env.json')
-  if (!existsSync(file)) return true
-  try { return String(JSON.parse(readFileSync(file, 'utf8')).PORT) === String(port) } catch { return false }
-}
-const chainDownstream = (graph, wos) => { const { depth } = downstreamOf(graph.nodes); return Math.max(...wos.map(depth)) }
+export const chainDownstream = (graph, wos) => { const { depth } = downstreamOf(graph.nodes); return Math.max(...wos.map(depth)) }
 
 /** `lane-mark --chain c --as built|parked [--why text]`. */
 export async function laneMarkOp(o) {
@@ -513,4 +408,4 @@ export async function laneMarkOp(o) {
   })
 }
 
-export const LANE_OPS = { 'lane-pool': lanePoolOp, 'lane-plan': lanePlanOp, 'lane-dispatch': laneDispatchOp, 'lane-mark': laneMarkOp }
+export const LANE_OPS = { 'lane-pool': lanePoolOp, 'lane-plan': lanePlanOp, 'lane-mark': laneMarkOp }

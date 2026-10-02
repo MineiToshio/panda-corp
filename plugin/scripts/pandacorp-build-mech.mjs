@@ -66,7 +66,7 @@
 //   verify --patch / certify-state   proposal 40: the patch ladder's scripted check (the reviewer-test hash first, then
 //                those tests and the full suite) and its fenced stamp (WO VERIFIED, status.yaml, the last-green
 //                snapshot): build-mech-patch.mjs.
-//   lane-pool / lane-plan / lane-dispatch / lane-mark   proposal 40 Phase B (lanes): the worktree pool, the chain
+//   lane-pool / lane-plan / lane-mark (+ lane-dispatch, in build-mech-lane-next.mjs)   proposal 40 Phase B: the pool, the chain
 //                planner over the WO DAG, the per-dispatch reset/resync/port, the built/parked marks (build-mech-lanes.mjs).
 //   land-chain / lane-bisect   proposal 40 Phase B: a built chain's rebase (one commit per WO, union journals, i18n key
 //                union) + checks + ff-only landing, and the bisect of a red USABLE over 1-3 chains (build-mech-lane-land.mjs).
