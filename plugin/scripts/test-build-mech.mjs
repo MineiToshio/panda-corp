@@ -1150,6 +1150,54 @@ console.log('verify without --since: the landed range is derived (dispatch stamp
   }
 }
 
+console.log('gate-effort-xhigh-on-injection-content: verify scans the landed range with the security delta\'s content triggers (proposal 40 Phase 4)')
+{
+  const VERIFY_GREEN = '#!/bin/sh\nmkdir -p .pandacorp/run\nprintf \'{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n\' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n'
+  const setup = (files = {}) => {
+    const r = mkRepo()
+    planFixture(r)
+    r.write('.pandacorp/verify.sh', VERIFY_GREEN); chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'chore: the project gate')
+    const base = r.head()
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    for (const [p, body] of Object.entries(files)) r.write(p, body)
+    r.write(WO_A, woMd('WO-01-001', 'IN_REVIEW', { acs: ['AC-01-001.1', 'AC-01-001.2'], extraFm: fmA }))
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: WO-01-001')
+    return { r, base }
+  }
+  const verify = (r, base) => r.run('verify', ['--frd', 'frd-01-alpha', ...(base ? ['--since', base] : []), '--wo', 'WO-01-001'])
+  {
+    const { r, base } = setup()
+    try {
+      const v = verify(r, base)
+      ok(v.code === 0 && v.sealed && Array.isArray(v.receipt.injection) && v.receipt.injection.length === 0, `a plain landed range: injection is [] (its gate may run at high) (got ${JSON.stringify(v.receipt && v.receipt.injection)})`)
+    } finally { r.cleanup() }
+  }
+  {
+    const { r, base } = setup({
+      'src/post.tsx': 'export const Post = ({ html }: { html: string }) => <div dangerouslySetInnerHTML={{ __html: html }} />\n',
+      'src/_tests/post.test.tsx': "it('renders', () => { document.body.innerHTML = '<b>x</b>' })\n",
+      'src/app/api/post/route.ts': 'export async function GET() { return new Response(null) }\n',
+    })
+    try {
+      const v = verify(r, base)
+      const inj = (v.receipt && v.receipt.injection) || []
+      ok(inj.some((h) => h.trigger === 'dangerouslySetInnerHTML' && h.kind === 'content' && /src\/post\.tsx/.test(h.detail)), `an added dangerouslySetInnerHTML is an injection hit naming its file (got ${JSON.stringify(inj)})`)
+      ok(!inj.some((h) => h.trigger === 'innerHTML'), 'a test surface never counts')
+      ok(inj.every((h) => h.kind === 'content'), 'only the CONTENT triggers count (a route is a path trigger: the security delta\'s business, not the gate effort\'s)')
+      ok(v.receipt.floor === false && v.receipt.usable === true, 'injection content is not floor: the FRD is still USABLE (only its gate stays at xhigh)')
+    } finally { r.cleanup() }
+  }
+  {
+    const { r } = setup()
+    try {
+      rmSync(r.abs('.pandacorp/run/dispatch/frd-01-alpha.json'), { force: true })
+      const v = verify(r, null)
+      ok(v.receipt.injection === null, `an unknowable landed range: injection is null (the engine keeps xhigh, fail-closed) (got ${JSON.stringify(v.receipt && v.receipt.injection)})`)
+    } finally { r.cleanup() }
+  }
+}
+
 console.log('precheck: USABLE is derived from the committed build_usable lines, so a later run still never auto-discards it')
 {
   const VERIFY_GREEN = '#!/bin/sh\nmkdir -p .pandacorp/run\nprintf \'{"scope":"full","green":true,"sha":"%s","subgates":[]}\\n\' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\n'

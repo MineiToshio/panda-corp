@@ -12,6 +12,8 @@
 //                 `--since`..HEAD (absent: derived from the dispatch stamp history, then the dispatch snapshot) (or
 //                 the engine's own `--floor` verdict), then `verify.sh` on that clean SHA; green and not floor → ONE
 //                 committed build_usable line (it sweeps the journals' pending lines) and only then `usable` + the event.
+//                 It also reports `injection`: the security delta's content triggers on that range (proposal 40 §9:
+//                 a hit keeps the FRD's gate at xhigh off the floor; null when the range is unknowable).
 // Every op returns { code, body } for the CLI's one sealed line; nothing here prints.
 
 import { spawnSync } from 'node:child_process'
@@ -20,7 +22,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { landedDiff } from './build-mech-close.mjs'
 import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
+import { securityDeltaTriggers } from './product-floor.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
 const TRACK = JOURNALS[0]
@@ -323,6 +327,16 @@ export function landedBase(ctx, frd, rels) {
   if (snap && snap.frd === frd && typeof snap.base === 'string' && /^[0-9a-f]{7,40}$/i.test(snap.base) && isAncestor(snap.base, 'HEAD')) return { base: snap.base, source: 'dispatch-snapshot' }
   return null
 }
+/**
+ * Proposal 40 §9 (gate effort): the injection-style CONTENT triggers of the security delta (dangerouslySetInnerHTML,
+ * innerHTML, eval, raw SQL, redirect/fetch built from input, cookies, fs path joins) on the lines the FRD landed since
+ * `since`. Any hit keeps its opus gate at xhigh off the floor; the path triggers stay the security delta's business.
+ * @returns {Array<{trigger: string, kind: 'content', detail: string}>|null} null when the range cannot be read (fail-closed)
+ */
+export function injectionHits(ctx, since) {
+  const diff = landedDiff(ctx, since)
+  return diff ? securityDeltaTriggers(diff).hits.filter((h) => h.kind === 'content') : null
+}
 export function verifyOp(o) {
   if (o.frds.length !== 1) throw new InputError('verify needs exactly one --frd <folder>')
   const frd = o.frds[0]
@@ -340,6 +354,7 @@ export function verifyOp(o) {
   const landed = since ? classifyFrds(ctx, [f], { range: `${since}..HEAD`, lockWaitMs: o.lockWaitMs }).results[0] : { floor: true, changed: false, floorHits: ['no --since and no dispatch stamp or snapshot: the landed range is unknown — fail-closed'] }
   // The engine's verdict is fail-closed and in memory (an unreadable plan-time classification): it can only add floor.
   const floor = landed.floor || o.floor === true
+  const injection = since ? injectionHits(ctx, since) : null
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
   const sha = headFull.slice(0, 12)
   const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
@@ -370,7 +385,7 @@ export function verifyOp(o) {
   }
   const usable = Boolean(usableCommit)
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
-  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
+  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
 }
 
 // ── USABLE across runs (C6) ────────────────────────────────────────────────────────────────────
