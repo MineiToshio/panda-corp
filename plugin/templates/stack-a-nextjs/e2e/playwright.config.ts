@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074) +
- * Shell-Presence Gate (DR-075). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
+ * Shell-Presence Gate (DR-075) + the Production-Build Smoke (proposal 40, PANDACORP_PROD_SMOKE). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
  * /pandacorp:upgrade. Deterministic by construction: single worker, animations disabled, caret
  * hidden, fonts settled before each shot, retries OFF (a retry re-creates a missing baseline → the
  * gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
@@ -33,6 +33,9 @@ const serverEnv: Record<string, string> = fs.existsSync(SERVER_ENV_FILE)
 
 const PORT = Number(serverEnv.PORT ?? process.env.PORT) || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Production-Build Smoke (proposal 40): the build engine sets PANDACORP_PROD_SMOKE in a detached worktree, so the
+// server is the production artifact (`next build && next start`, its real CSP), never a reused dev server.
+const PROD_SMOKE = Boolean(process.env.PANDACORP_PROD_SMOKE);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -62,10 +65,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `next dev --hostname 127.0.0.1 --port ${PORT}`,
+    command: PROD_SMOKE
+      ? `next build && next start --hostname 127.0.0.1 --port ${PORT}`
+      : `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !isCI && Object.keys(serverEnv).length === 0,
-    timeout: 180_000,
+    reuseExistingServer: !PROD_SMOKE && !isCI && Object.keys(serverEnv).length === 0,
+    timeout: PROD_SMOKE ? 600_000 : 180_000,
     env: serverEnv,
   },
 });
