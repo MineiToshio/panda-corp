@@ -1844,6 +1844,25 @@ SCENARIOS.push({
   },
 })
 
+SCENARIOS.push({
+  name: 'F39-37. fast-lane-builder-self-verify — after its last commit the builder runs verify.sh and fixes its own reds with a --fixup commit; the engine\'s scripted verify still runs after it',
+  args: { mode: 'balanced', ...FUSED },
+  plan: F31_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(F31_PLAN)],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, /^fast-build:frd-es$/)[0]
+    const p = (b && b.prompt) || ''
+    const last = p.lastIndexOf('commit command')
+    const sv = p.search(SELF_VERIFY_RE)
+    t.ok(sv > 0 && sv > p.indexOf('HOW TO RUN'), 'the builder prompt has a self-verify step running bash .pandacorp/verify.sh after the work orders')
+    t.ok(/commit-wo --project '\.' --fixup <the-wo-id>/.test(p) && /never weaken, skip or delete a test/i.test(p), 'its fixes go through commit-wo --fixup for its own WO, and it never weakens a test')
+    t.ok(/every work order committed/i.test(p) && /tree clean/i.test(p), 'only once every WO committed, and it leaves the tree clean')
+    t.ok(last >= 0 && labelIdx(run, /^verify:frd-es$/) > labelIdx(run, /^fast-build:frd-es$/), 'the engine still runs its authoritative scripted verify after the builder')
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────
