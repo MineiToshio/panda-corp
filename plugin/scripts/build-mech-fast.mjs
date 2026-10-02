@@ -1,7 +1,8 @@
 // build-mech-fast.mjs — the fast lane's deterministic ops of pandacorp-build-mech.mjs (proposal 39 §2 C3/C4/C6):
 //   plan          the build plan read straight from the blueprints' Build Plan tables and the work-order frontmatter,
 //                 so a fast-lane run needs no plan agent (a missing or drifted Build Plan → `no-build-plan`, and the
-//                 engine falls back to the plan agent);
+//                 engine falls back to the plan agent); `--compact` keeps every free text out of the line (the AC lines
+//                 go to .pandacorp/run/context/<WO>.md, labels are folded to ASCII) so a relay has nothing to decode;
 //   classify-frd  the deterministic PRODUCT-RISK floor of an FRD (`classify-change.mjs --product-floor`, i.e.
 //                 product-floor.mjs: auth, money, personal-data persistence, secrets, destructive data — never prose,
 //                 test fixtures, framework config or the factory's oracles) over its declared artifacts, or over a
@@ -106,6 +107,10 @@ function acTextOf(w, frdText) {
   const lines = frdText.split('\n').filter((l) => ids.some((id) => new RegExp(`\\b${id.replace(/\./g, '\\.')}(?![0-9])`).test(l)))
   return lines.join('\n').slice(0, AC_TEXT_CAP)
 }
+/** Display text folded to ASCII (accents dropped, anything else non-ASCII → `?`): never a fact, only a label or a log. */
+const asciiFold = (s) => String(s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7e]/g, '?')
+/** Where `plan --compact` writes a work order's verbatim AC lines (gitignored run state, rewritten by every compact plan). */
+const contextFileOf = (id) => `.pandacorp/run/context/${id}.md`
 function hasFrontend(ctx) {
   try {
     const pkg = JSON.parse(readFileSync(path.join(ctx.project, 'package.json'), 'utf8'))
@@ -192,17 +197,28 @@ export function planOp(o) {
   const ordered = topo(scope, depsOf, (f) => f.frd)
   const classified = o.classify && ordered.length ? classifyFrds(ctx, ordered, { lockWaitMs: o.lockWaitMs }) : null
   const floorOf = (f) => (classified ? classified.results.find((x) => x.frd === f.frd) : { floor: fmGet(f.frdText, 'floor').toLowerCase() === 'true', floorHits: [] })
+  // --compact (the fast lane): the line a model relays carries no free text. Bench F-1: the relay decoded the \u00f3
+  // escapes of a Spanish AC text, so the plan failed its seal and an opus plan agent ran. The verbatim AC lines go to a
+  // context file the builder reads; the labels (summary, floor hits) are folded to ASCII.
+  const label = (s) => (o.compact ? asciiFold(s) : s)
+  const acOf = (w, text) => {
+    if (!o.compact || !text) return { acText: text }
+    const rel = contextFileOf(w.id)
+    mkdirSync(path.dirname(path.join(ctx.project, rel)), { recursive: true })
+    writeFileSync(path.join(ctx.project, rel), `${text}\n`)
+    return { acFile: rel }
+  }
   const frds = ordered.map((f) => {
     const woOrder = topo([...f.wos].sort((a, b) => f.plan.get(a.id).order - f.plan.get(b.id).order), (w) => w.deps, (w) => w.id)
     const fl = floorOf(f)
     return {
-      frd: f.frd, deps: depsOf(f), floor: fl.floor, floorHits: fl.floorHits,
+      frd: f.frd, deps: depsOf(f), floor: fl.floor, floorHits: (fl.floorHits || []).map(label),
       workOrders: woOrder.map((w) => {
         const docStatus = fmGet(w.text, 'status').toUpperCase()
         const pending = w.status !== 'VERIFIED' && w.status !== 'BLOCKED'
         return { id: w.id, status: w.status, ...(docStatus ? { docStatus } : {}), path: w.rel, deps: w.deps, artifacts: fmList(w.text, 'artifacts'),
           difficulty: (fmGet(w.text, 'difficulty') || 'medium').toLowerCase(), reopen_count: Number(fmGet(w.text, 'reopen_count')) || 0,
-          foundation: fmGet(w.text, 'foundation').toLowerCase() === 'true', summary: fmGet(w.text, 'title') || fmGet(w.text, 'slug') || w.id, acText: pending ? acTextOf(w, f.frdText) : '' }
+          foundation: fmGet(w.text, 'foundation').toLowerCase() === 'true', summary: label(fmGet(w.text, 'title') || fmGet(w.text, 'slug') || w.id), ...acOf(w, pending ? acTextOf(w, f.frdText) : '') }
       }),
     }
   })

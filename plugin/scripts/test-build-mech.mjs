@@ -67,7 +67,7 @@ function mkRepo() {
   const installVitest = () => { write('node_modules/.bin/vitest', FAKE_VITEST); chmodSync(abs('node_modules/.bin/vitest'), 0o755) }
   const hook = (body) => { const h = path.join(root, '.git', 'hooks', 'pre-commit'); writeFileSync(h, `#!/bin/sh\n${body}\n`); chmodSync(h, 0o755) }
   const run = (op, args = [], env = {}) => {
-    const evArgs = ['commit-wo', 'precheck', 'verify'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
+    const evArgs = ['commit-wo', 'precheck', 'verify', 'fast-start'].includes(op) && !args.includes('--events') ? ['--events', events] : []   // never the real ~/.claude stream
     const r = spawnSync(process.execPath, [SCRIPT, op, '--project', proj, ...args, ...evArgs], { cwd: root, encoding: 'utf8', env: { ...process.env, FAKE_VITEST_LOG: vitestLog, ...env } })
     const lines = (r.stdout || '').trim().split('\n')
     const line = lines.pop() || ''
@@ -1080,6 +1080,118 @@ console.log('verify: the shared journals are not dirt; a gate line before or dur
       ok(!(existsSync(r.events) && /build_usable/.test(readFileSync(r.events, 'utf8'))) && !/build_usable/.test(r.read('.pandacorp/track.jsonl')), 'no dashboard event, and the uncommitted line is withdrawn')
     } finally { r.cleanup() }
   }
+}
+
+// ── fast-start: the fast lane's FUSED start (bench F-1: six relay spawns before the first build) ────────────────────
+// precheck → the owner stop / rethink probe (lease renewed) → the scripted baseline verdict → plan --classify --compact
+// → the drainable-work check → the rollup sync → the first FRD's committed dispatch, as ONE sealed line. Every step that
+// is not the quiet common case stops there and hands the rest back to the engine's separate steps.
+const startFixture = (r, { frdAText } = {}) => {
+  planFixture(r)
+  if (frdAText) { r.write(`${FRD_A}/frd.md`, frdAText); r.git('commit', '-q', '-am', 'docs: spanish ACs') }
+}
+const startArgs = (lease, extra = []) => ['--token', lease.token, '--epoch', String(lease.epoch), '--launch-event', '--mode', 'balanced', '--max-agents', '40', '--project-name', 'proj', ...extra]
+const stampOf = (r, rel) => (/^implementation_status: (\w+)$/m.exec(r.atHead(rel) || '') || [])[1]
+
+console.log('fast-start: the quiet common case — one sealed line through the first FRD\'s committed dispatch')
+{
+  const r = mkRepo()
+  try {
+    // bench F-1: the AC text was Spanish; the relay decoded its ó escapes and the plan line failed its seal.
+    startFixture(r, { frdAText: frdMd('FRD-01').replace('show the cards.', 'mostrar las tarjetas válidas (teléfono, año).') })
+    const lease = await acquire(r.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const before = r.head()
+    const s = r.run('fast-start', startArgs(lease))
+    const b = s.receipt || {}
+    ok(s.code === 0 && s.sealed && s.lines === 1 && b.ok === true && b.status === 'dispatched', `exit 0, ONE sealed line, status dispatched (got ${s.code} ${b.status} ${b.stage || ''} ${b.reason || b.error || ''})`)
+    ok(b.precheck && b.precheck.ok === true && b.precheck.op === undefined && Array.isArray(b.precheck.ownerDirt) && b.precheck.greenfield && b.precheck.greenfield.greenfield === true, 'the precheck body rides inside, ok:true, with its greenfield verdict')
+    ok(b.probe && b.probe.ok === true && b.probe.renewed === true && b.probe.work === false && b.probe.stop_receipt && b.probe.stop_receipt.method === 'node-lstat', 'the probe renewed the lease (fenced) and found nothing to drain')
+    ok(b.baseline === 'leased-status-only', `the lease's own status.yaml write is the only dirt → baseline leased-status-only (BL-0124), no judge (got ${b.baseline})`)
+    ok(b.plan && b.plan.ok === true && b.plan.status === 'planned' && JSON.stringify(b.plan.frds.map((f) => f.frd)) === JSON.stringify(['frd-01-alpha', 'frd-02-gamma']), 'the scripted Build Plan order rides inside')
+    ok(!/\\u[0-9a-f]{4}/i.test(s.line) && !/[^\x20-\x7e]/.test(s.line), 'the line holds NO \\uXXXX escape and no non-ASCII byte: a relay has nothing to decode (bench F-1)')
+    const w1 = b.plan.frds[0].workOrders[0]
+    ok(w1.acText === undefined && w1.acFile === '.pandacorp/run/context/WO-01-001.md', `compact plan: the AC text is a context file, not line content (got ${JSON.stringify({ acText: w1.acText, acFile: w1.acFile })})`)
+    ok(/mostrar las tarjetas válidas \(teléfono, año\)/.test(r.read(w1.acFile) || '') && /AC-01-001\.2/.test(r.read(w1.acFile) || '') && !/AC-01-002\.1/.test(r.read(w1.acFile) || ''), 'the context file holds this WO\'s frd.md AC lines verbatim (accents kept) and only those')
+    ok(b.synced && b.synced.ok === true, `the rollups were synced through the fenced writer (got ${JSON.stringify(b.synced)})`)
+    const d = b.dispatch || {}
+    ok(d.ok === true && d.frd === 'frd-01-alpha' && JSON.stringify(d.wos) === JSON.stringify(['WO-01-001', 'WO-01-002']) && d.committed && d.base, `the first FRD (no upstream in the plan) is dispatched: its PLANNED WOs, committed (got ${JSON.stringify(d)})`)
+    ok(stampOf(r, WO_A) === 'IN_PROGRESS' && stampOf(r, WO_B) === 'IN_PROGRESS' && stampOf(r, WO_C) === 'PLANNED', 'IN_PROGRESS committed for frd-01-alpha only; the dependent FRD is untouched')
+    const subjects = r.git('log', '--format=%s', `${before}..HEAD`).split('\n')
+    ok(/dispatch WO-01-001, WO-01-002/.test(subjects[0]) && subjects.slice(1).some((x) => /rollup/i.test(x)) && subjects.some((x) => /floor/.test(x)), `order: floor classification, rollup sync, then the dispatch commit (got ${subjects.join(' | ')})`)
+    ok(r.git('rev-parse', `${d.committed}^`).startsWith(d.base), 'the dispatch base is HEAD before the stamp commit (the landed-range anchor)')
+    const evs = existsSync(r.events) ? readFileSync(r.events, 'utf8').trim().split('\n').map((l) => JSON.parse(l)) : []
+    ok(evs.some((e) => e.event === 'BuildLaunch' && e.mode === 'balanced' && e.maxAgents === 40 && e.targeted === false && e.project === 'proj') && b.launchEvent === true, 'the BuildLaunch event (B1) is appended by the script itself')
+    ok(!existsSync(r.abs('.pandacorp/run/main-writer.lock')), 'the main-writer lock is released')
+  } finally { r.cleanup() }
+}
+
+console.log('fast-start: every unusual start hands back before planning or dispatching')
+{
+  const r = mkRepo()
+  try {
+    startFixture(r)
+    const lease = await acquire(r.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const head = r.head()
+    r.write('src/owner-draft.ts', 'export const draft = 1\n')
+    const o = r.run('fast-start', startArgs(lease))
+    ok(o.sealed && o.receipt.status === 'owner-dirt' && o.receipt.precheck.ownerDirt.includes('src/owner-draft.ts') && !o.receipt.plan && !o.receipt.dispatch, `owner dirt → status owner-dirt, nothing planned or dispatched (got ${o.receipt.status})`)
+    ok(r.head() === head && stampOf(r, WO_A) === 'PLANNED' && r.read('src/owner-draft.ts') !== null, 'nothing committed, the owner edit untouched')
+    rmSync(r.abs('src/owner-draft.ts'))
+    r.write('.pandacorp/run/stop', '')
+    const st = r.run('fast-start', startArgs(lease))
+    ok(st.receipt.status === 'stop' && st.receipt.probe.stop_receipt.stop === true && !st.receipt.plan && r.head() === head, `the owner stop file → status stop before the plan (got ${st.receipt.status})`)
+    rmSync(r.abs('.pandacorp/run/stop'))
+    const sy = r.read('.pandacorp/status.yaml')
+    r.write('.pandacorp/status.yaml', `${sy}rethink_pending: true\n`)
+    const rt = r.run('fast-start', startArgs(lease))
+    ok(rt.receipt.status === 'handoff' && rt.receipt.stage === 'rethink' && !rt.receipt.plan && r.head() === head, `rethink_pending → handoff at rethink (the engine's pre-check consumes it), nothing planned (got ${rt.receipt.status} ${rt.receipt.stage})`)
+    r.write('.pandacorp/status.yaml', sy)
+    const foreign = r.run('fast-start', ['--token', 'not-the-token', '--epoch', String(lease.epoch)])
+    ok(foreign.receipt.status === 'handoff' && foreign.receipt.stage === 'probe' && foreign.receipt.probe.renewed === false && r.head() === head, 'a lease that cannot be renewed → handoff at the probe, nothing planned')
+    r.write('.gitignore', 'node_modules/\n.pandacorp/run/\n.pandacorp/inbox/\n')   // the owner inbox is gitignored in a real project
+    r.git('commit', '-q', '-am', 'chore: ignore the inbox')
+    r.write('.pandacorp/inbox/changes/a-fix.md', '---\ntype: bug\nclass: expedite\nstatus: ready\ndate: 2026-09-20\n---\nbody\n')
+    const wk = r.run('fast-start', startArgs(lease))
+    ok(wk.receipt.status === 'planned' && wk.receipt.probe.work === true && wk.receipt.plan.status === 'planned' && !wk.receipt.dispatch && !wk.receipt.synced && stampOf(r, WO_A) === 'PLANNED', `a ready change → planned, the probe says work, no sync and no dispatch (the drain may change the plan) (got ${wk.receipt.status})`)
+    rmSync(r.abs('.pandacorp/inbox'), { recursive: true })
+    const nt = r.run('fast-start')
+    ok(nt.receipt.baseline === 'greenfield' && nt.receipt.status === 'planned' && !nt.receipt.synced && !nt.receipt.dispatch && stampOf(r, WO_A) === 'PLANNED', `no lease token: the BL-0124 exclusion is unproven (dirty status.yaml), greenfield decides; nothing synced or dispatched without the fence (got ${nt.receipt.status} ${nt.receipt.stage} ${nt.receipt.baseline})`)
+  } finally { r.cleanup() }
+}
+
+console.log('fast-start: the scripted baseline verdict — known-green, escalate, greenfield; a declined plan hands back')
+{
+  const r = mkRepo()
+  try {
+    startFixture(r)
+    const green = r.head()
+    r.write('.pandacorp/status.yaml', `phase: implementation\nlast_green_sha: ${green}\n`)
+    r.git('commit', '-q', '-am', 'chore: publish last_green_sha')
+    const g = r.run('fast-start')
+    ok(g.receipt.baseline === 'green' && g.receipt.plan && g.receipt.plan.status === 'planned' && g.receipt.status === 'planned' && !g.receipt.dispatch, `a clean tree on the BL-0066 pointer commit is known-green; without a token nothing is synced or dispatched (got ${g.receipt.baseline} ${g.receipt.status})`)
+    r.write('src/later.ts', 'export const later = 1\n')
+    r.git('add', '-A'); r.git('commit', '-q', '-m', 'feat: unverified work after the pin')
+    const e = r.run('fast-start')
+    ok(e.receipt.status === 'handoff' && e.receipt.stage === 'baseline' && e.receipt.baseline === 'escalate' && !e.receipt.plan, `HEAD past the pin, not greenfield → escalate: handoff before the plan (the judge baseline decides) (got ${e.receipt.baseline})`)
+  } finally { r.cleanup() }
+  const p = mkRepo()
+  try {
+    startFixture(p)
+    p.write(`${FRD_A}/blueprint.md`, '---\nid: BP\n---\n# Blueprint without a plan\n')
+    p.git('commit', '-q', '-am', 'docs: no Build Plan')
+    const lease = await acquire(p.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const d = p.run('fast-start', startArgs(lease))
+    ok(d.receipt.status === 'handoff' && d.receipt.stage === 'plan' && d.receipt.baseline === 'leased-status-only' && d.receipt.plan.status === 'no-build-plan' && !d.receipt.dispatch && stampOf(p, WO_A) === 'PLANNED', `a missing Build Plan → handoff at the plan with its reason (the engine runs the plan agent once) (got ${d.receipt.status} ${d.receipt.stage})`)
+  } finally { p.cleanup() }
+  const b = mkRepo()
+  try {
+    startFixture(b)
+    b.write(WO_B, woMd('WO-01-002', 'BLOCKED', { acs: ['AC-01-002.1'], extraFm: `${fmB()}blocked_reason: needs-owner\n` }))
+    b.git('commit', '-q', '-am', 'blocked beta')
+    const lease = await acquire(b.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const x = b.run('fast-start', startArgs(lease))
+    ok(x.receipt.status === 'planned' && !x.receipt.dispatch && stampOf(b, WO_A) === 'PLANNED', `a first FRD with a BLOCKED work order is left to the engine's own dispatch (got ${x.receipt.status})`)
+  } finally { b.cleanup() }
 }
 
 console.log(`\nRESULT: ${passed} passed, ${failed} failed`)

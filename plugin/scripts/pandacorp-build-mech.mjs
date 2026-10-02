@@ -42,9 +42,14 @@
 //                `work`. The engine spawns the LLM drain only when `work` is true.
 //   reuse-check  [--max-age 900]   BL-0147: may the close-out reuse .pandacorp/run/gate-report.json?
 //   gate-prepare --path <wt> --sha <sha> [--port N]   C2: a frozen detached gate worktree at <sha>, bootstrapped.
-//   plan         [--frd <folder>]… [--classify]   the fast lane's plan without a plan agent: the blueprints' Build Plan
-//                order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan. --classify also
-//                writes the deterministic floor (C3). See build-mech-fast.mjs.
+//   plan         [--frd <folder>]… [--classify] [--compact]   the fast lane's plan without a plan agent: the blueprints'
+//                Build Plan order + work-order frontmatter (C4); a missing/drifted Build Plan → status no-build-plan.
+//                --classify also writes the deterministic floor (C3); --compact keeps free text out of the line (the AC
+//                lines go to .pandacorp/run/context/<WO>.md). See build-mech-fast.mjs.
+//   fast-start   --token T --epoch E [--targeted] [--frd <folder>]… [--launch-event --mode M --max-agents N]
+//                the fast lane's FUSED start: BuildLaunch event → precheck → stop/rethink probe → baseline verdict → plan
+//                --classify --compact → drainable work → rollup sync → the first FRD's committed dispatch, ONE line;
+//                anything but the quiet common case hands back at its step. See build-mech-start.mjs.
 //   classify-frd --frd <folder>… [--range <a>..<b>]   the monotone product-risk FRD floor (classify-change.mjs --product-floor), frontmatter `floor:`.
 //   verify       --frd <folder> --since <base> [--wo <id>]… [--floor]   the USABLE check (C6): clean tree (journals
 //                excepted), committed WOs, landed floor (or the engine's --floor), verify.sh on the clean SHA; green + not
@@ -61,6 +66,7 @@ import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
 import { INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectCtx, releaseLock, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
+import { fastStartOp } from './build-mech-start.mjs'
 import { sealLine } from './drift-seal.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
@@ -79,7 +85,7 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event'])
 const LISTS = new Set(['file', 'wo', 'ac', 'frd'])
 function parseArgs(argv) {
   const op = argv[0]
@@ -95,8 +101,8 @@ function parseArgs(argv) {
     else if (name === 'extra') o.extras.push({ path: v.replace(/^\.\//, ''), reason: null })
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name}s`].push(v)
-    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
-    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
+    else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
+    else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
   if (!o.project) throw new InputError('--project is required')
@@ -559,7 +565,8 @@ function gateRelease(o) {
 }
 
 // ── CLI ────────────────────────────────────────────────────────────────────────────────────────
-const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, ...FAST_OPS }
+const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, ...FAST_OPS,
+  'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }) }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
 export async function main(argv) {
