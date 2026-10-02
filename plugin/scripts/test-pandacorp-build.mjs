@@ -303,9 +303,16 @@ async function runEngine(scenario) {
   // absent from the scenario's own args object/string.
   const scenarioSetParallelGates = (o) => { try { return typeof o === 'string' ? /"parallelGates"\s*:/.test(o) : Boolean(o) && typeof o === 'object' && 'parallelGates' in o } catch { return false } }
   const parallelGatesHarnessDefault = scenarioSetParallelGates(engineArgs) ? {} : { parallelGates: false }
+  // v9.119.0 (DR-124 amended): the engine's OWN default for args.lane flipped to 'fast'. This suite is the CLASSIC lane's
+  // specification (every scenario here predates proposal 39 or pins a classic-lane contract; the fast lane's own
+  // scenarios live in test-build-engine.mjs, including default-lane-is-fast / explicit-classic-is-classic). Same
+  // mechanism as the parallelGates pin above: the harness passes `lane: 'classic'` EXPLICITLY whenever a scenario's own
+  // args do not mention the key at all; a scenario that sets `lane` (even to undefined) keeps full control.
+  const scenarioSetLane = (o) => { try { return typeof o === 'string' ? /"lane"\s*:/.test(o) : Boolean(o) && typeof o === 'object' && 'lane' in o } catch { return false } }
+  const laneHarnessDefault = scenarioSetLane(engineArgs) ? {} : { lane: 'classic' }
   if (typeof engineArgs === 'string') {
-    try { engineArgs = JSON.stringify({ stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...JSON.parse(engineArgs) }) } catch {}
-  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...engineArgs }
+    try { engineArgs = JSON.stringify({ stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...laneHarnessDefault, ...JSON.parse(engineArgs) }) } catch {}
+  } else if (engineArgs && typeof engineArgs === 'object') engineArgs = { stateCli: '/installed plugin/scripts/pandacorp-build-state.mjs', leaseToken: 'test-lease-token', leaseEpoch: 1, ...parallelGatesHarnessDefault, ...laneHarnessDefault, ...engineArgs }
   try {
     result = await engine(agentStub, (l) => logs.push(String(l)), budget, engineArgs, (t) => phases.push(t), parallelStub)
   } catch (e) {

@@ -34,11 +34,13 @@
 #              default applies (on under --gate-evidence digested, off under explore).
 #   --gate-inventory-cache: OPT-IN → engine args.gateInventoryCache:true (BL-0189, engine default off): a repeat
 #              gate of an FRD whose frd.md/blueprint.md body is unchanged reuses the cached contract inventory.
-#   --lane fast|classic: engine args.lane (proposal 39, DR-124; OPT-IN this release, the engine default is classic).
-#              `fast`: no plan agent, one builder per FRD committing each WO through the scripted commit-wo, a scripted
+#   --lane fast|classic: engine args.lane (proposal 39, DR-124). **Default fast since 9.119.0** (the small-bench verdict):
+#              no plan agent, one builder per FRD committing each WO through the scripted commit-wo, a scripted
 #              verify on the clean landed tree (USABLE per non-floor FRD), the unchanged opus gates in the parallel slots
-#              while the next FRD builds, and the infra halt/resume (stopReason paused-infra). Omitted → no key.
-#   --review-budget now|defer: engine args.reviewBudget, fast lane only (requires --lane fast). `defer` stops at
+#              while the next FRD builds, and the infra halt/resume (stopReason paused-infra). `--lane classic` is the
+#              opt-out (the plan agent + global waves + per-WO commits, exactly as before). The launcher always passes the
+#              effective lane EXPLICITLY as args.lane, so the launch's own argv names it.
+#   --review-budget now|defer: engine args.reviewBudget, fast lane only (refused with --lane classic). `defer` stops at
 #              all-USABLE and launches no FRD gate: the unreviewed FRDs stay review debt (derived, never stored) for a
 #              later run. Omitted → no key (the engine default `now` continues to VERIFIED).
 #   --resume <run-id>: resume a run cut short (a usage limit, a crash) whose atomic lease went STALE under that run
@@ -46,7 +48,7 @@
 #              BL-0153 grace window), held by runtime claude, under exactly <run-id> (the preflight's checks) — and then
 #              prints the normal Workflow call with the NEW token/epoch. A fresh lease, another run's or another
 #              runtime's is refused (exit 2) and left untouched. Passing the stale lease's own run id as the
-#              positional run argument does the same. Works for both lanes (pass the same --lane as the cut run).
+#              positional run argument does the same. Works for both lanes (a classic run resumes with --lane classic again).
 #
 # The preflight guarantees no owner exists. This launcher atomically acquires the neutral lease;
 # re-running while it is held fails closed instead of manufacturing a second owner.
@@ -100,8 +102,10 @@ case "$GATE_EVIDENCE" in ""|explore|digested) ;; *) echo "ERROR: --gate-evidence
 case "$DRIFT_FINDER" in ""|on|off) ;; *) echo "ERROR: --drift-finder must be on or off." >&2; exit 3 ;; esac
 case "$LANE" in ""|fast|classic) ;; *) echo "ERROR: --lane must be fast or classic." >&2; exit 3 ;; esac
 case "$REVIEW_BUDGET" in ""|now|defer) ;; *) echo "ERROR: --review-budget must be now or defer." >&2; exit 3 ;; esac
-# reviewBudget is read by the fast lane only: on any other lane the engine would silently ignore it.
-[ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget requires --lane fast." >&2; exit 3; }
+# 9.119.0 (DR-124 amended): the fast lane is the default; --lane classic is the opt-out.
+[ -n "$LANE" ] || LANE="fast"
+# reviewBudget is read by the fast lane only: on the classic lane the engine would silently ignore it.
+[ -z "$REVIEW_BUDGET" ] || [ "$LANE" = "fast" ] || { echo "ERROR: --review-budget is fast-lane only (it contradicts --lane classic)." >&2; exit 3; }
 if [ -n "$RESUME_RUN" ]; then
   [[ "$RESUME_RUN" =~ ^[A-Za-z0-9._:-]{1,160}$ ]] && [ "$RESUME_RUN" != "auto" ] && [ "$RESUME_RUN" != "new" ] \
     || { echo "ERROR: invalid --resume run id." >&2; exit 3; }
@@ -261,7 +265,12 @@ echo "ARG-ECHO VERIFICATION (mandatory): the engine's FIRST log line must read  
 echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <type>, NOT an object',"
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
-[ "$LANE" = "fast" ] && echo "  FAST LANE (DR-124): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now}  — a missing line means classic ran."
+if [ "$LANE" = "fast" ]; then
+  echo "  FAST LANE (DR-124, the default): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now}  — a missing line means classic ran."
+  echo "  (Opt-out: relaunch with --lane classic for the classic plan-agent + global-waves build.)"
+else
+  echo "  CLASSIC LANE (--lane classic): the engine must NOT log  lane fast  — if it does, the args were dropped: TaskStop and relaunch."
+fi
 [ -z "$MAX_AGENTS" ] && echo "  WARNING: no maxAgents given — an OVERNIGHT run MUST pass one (the real guardrail)."
 [ "$MAX_AGENTS" = "auto" ] && echo "  WARNING: maxAgents=auto is a projection-sized convenience, NOT an owner-chosen budget — an OVERNIGHT run MUST still pass an explicit integer (the real guardrail)."
 # `auto` has no integer to compare: every numeric floor check below is skipped for it (the engine logs its own projection).

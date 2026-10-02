@@ -288,15 +288,22 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   const classicOut = await launch(["--lane", "classic"]);
   const classicArgs = workflowArgs(classicOut);
   ok(classicArgs.lane === "classic" && !("reviewBudget" in classicArgs) && !/lane fast · mechScript on/.test(classicOut), "P39 launcher: --lane classic is passed explicitly and prints no fast-lane echo line");
-  const bare = workflowArgs(await launch([]));
-  ok(!("lane" in bare) && !("reviewBudget" in bare), "P39 launcher: without --lane/--review-budget the launcher adds neither key (the engine's classic default governs)");
+  const bareOut = await launch([]);
+  const bare = workflowArgs(bareOut);
+  ok(bare.lane === "fast" && !("reviewBudget" in bare), "9.119.0 launcher: without --lane the launch is the fast lane (DR-124 default), passed EXPLICITLY as args.lane:'fast'; no reviewBudget key (the engine default 'now' governs)");
+  ok(/lane fast · mechScript on · infraGuard on · reviewBudget now/.test(bareOut), "9.119.0 launcher: a bare launch's ARG-ECHO names the fast lane's engine log line to verify");
+  ok(/--lane classic/.test(bareOut), "9.119.0 launcher: a bare (default fast) launch prints `--lane classic` as the opt-out");
+  ok(/CLASSIC LANE/.test(classicOut) && !/FAST LANE/.test(classicOut), "9.119.0 launcher: an explicit --lane classic launch's ARG-ECHO names the classic lane, not the fast one");
+  const bareDefer = await launch(["--review-budget", "defer"]);
+  const bareDeferArgs = workflowArgs(bareDefer);
+  ok(bareDeferArgs.lane === "fast" && bareDeferArgs.reviewBudget === "defer" && /reviewBudget defer/.test(bareDefer), "9.119.0 launcher: --review-budget defer without --lane is accepted (the default lane is fast) and reaches the engine with lane:'fast'");
   const frds = ["--frds", "frd-02,frd-03,frd-04,frd-05"];
   const deferSized = await launch([...frds, "--lane", "fast", "--review-budget", "defer"], "40");
   ok(!/recommended\s+floor is 8/.test(deferSized) && /review-budget defer launches no FRD gate/.test(deferSized), "P39 launcher: --review-budget defer launches no gate, so the per-FRD gate sizing floor is replaced by a defer note");
   const nowSized = await launch([...frds, "--lane", "fast"], "40");
   ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");
 }
-for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--review-budget", "defer"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"]]) {
+for (const bad of [["--lane"], ["--lane", "turbo"], ["--lane", "Fast"], ["--review-budget"], ["--review-budget", "later"], ["--lane", "classic", "--review-budget", "defer"], ["--review-budget", "now", "--lane", "classic"], ["--lane", "fast", "--lane", "classic"], ["--lane", "fast", "--review-budget", "now", "--review-budget", "defer"]]) {
   const root = await fixture({ phase: "architecture", running: "false" });
   let rejected = false;
   try { await exec("bash", [claudeLauncherPath, root, "pro", "8", "auto", ...bad]); } catch (error) { rejected = error.code === 3; }

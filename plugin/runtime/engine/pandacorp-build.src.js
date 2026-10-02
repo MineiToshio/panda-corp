@@ -215,7 +215,9 @@ const FINDER_SNIPPETS_CLI_COMMAND = `node ${shellQuote(STATE_CLI.replace(/[^/]+$
 //   args.gateSlots: the pool size when parallelGates is on (integer 1..8, **default 2** — the red-team's
 //     16 GB measurement, X6; anything else → 2 with a loud log). `args.maxParallelGates` (the proposal's name) is accepted as an alias; gateSlots
 //     wins when both are set. Ignored (logged) when parallelGates is off.
-//   args.lane: 'classic' (DEFAULT, unchanged) | 'fast' — proposal 39. Its safety contracts are each also reachable alone:
+//   args.lane: 'fast' (**DEFAULT since 9.119.0** — DR-124 amended, the small-bench verdict: USABLE in 8-12 min with the
+//     oracle green vs 51-84 min to done classic) | 'classic' (the opt-out, byte-identical classic behavior) — proposal 39.
+//     Any other value runs the default (fast) with a loud log. Its safety contracts are each also reachable alone:
 //     args.mechScript (C1, scripted MECH ops + the C7 resume precheck) and args.infraGuard (C7, the `infra` failure class +
 //     the paused-infra halt); both default to true under lane 'fast', false otherwise. The fast BUILD shape (stage 3, needs
 //     mechScript): no plan agent, one builder per FRD committing each WO through commit-wo, a scripted verify → USABLE per
@@ -631,15 +633,16 @@ const optionalText = (v) => {
 const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
 
 // ── Proposal 39 (fast lane) stage 2: engine safety ─────────────────────────────────────────────────
-// args.lane: 'fast' | 'classic' (default classic, byte-identical behavior). The fast lane turns on, by default:
+// args.lane: 'fast' (DEFAULT since 9.119.0, DR-124) | 'classic' (opt-out, byte-identical classic behavior). The fast lane
+// turns on, by default:
 //   args.mechScript (C1): the scripted MECH ops of pandacorp-build-mech.mjs — each prompt is "run exactly <cmd>, return
 //     its last line" and the engine verifies the line's seal; plus the C7 resume precheck before anything is read.
 //   args.infraGuard (C7): an agent() that throws, returns nothing, or carries a usage-limit/429/overloaded signature is
 //     `infra`, never a work-order failure (no repair try, no BLOCKED, no wo-revert): one pause + one retry; a second
 //     infra or any limit signature HALTS the run (stopReason 'paused-infra'), committed work kept.
 // Each flag can be passed explicitly in either lane (true/false), e.g. classic + mechScript:true.
-const LANE = (args && args.lane === 'fast') ? 'fast' : 'classic'
-if (args && args.lane !== undefined && args.lane !== 'fast' && args.lane !== 'classic') log(`⚠ args.lane ${JSON.stringify(args.lane)} is neither fast nor classic — running classic`)
+const LANE = (args && args.lane === 'classic') ? 'classic' : 'fast'
+if (args && args.lane !== undefined && args.lane !== 'fast' && args.lane !== 'classic') log(`⚠ args.lane ${JSON.stringify(args.lane)} is neither fast nor classic — running fast (the default; pass lane:'classic' to opt out)`)
 const argFlag = (key, dflt) => (argBool(args, key, true) ? true : argBool(args, key, false) ? false : dflt)
 const MECH_SCRIPT = argFlag('mechScript', LANE === 'fast')
 const INFRA_GUARD = argFlag('infraGuard', LANE === 'fast')

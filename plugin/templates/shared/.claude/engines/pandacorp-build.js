@@ -175,8 +175,8 @@ const optionalText = (v) => {
  return /^(?:null|undefined|none|""|'')$/i.test(t) ? '' : t
 }
 const MECH_EFFORT = MECH_LEAN ? 'low' : undefined
-const LANE = (args && args.lane === 'fast') ? 'fast' : 'classic'
-if (args && args.lane !== undefined && args.lane !== 'fast' && args.lane !== 'classic') log(`⚠ args.lane ${JSON.stringify(args.lane)} is neither fast nor classic — running classic`)
+const LANE = (args && args.lane === 'classic') ? 'classic' : 'fast'
+if (args && args.lane !== undefined && args.lane !== 'fast' && args.lane !== 'classic') log(`⚠ args.lane ${JSON.stringify(args.lane)} is neither fast nor classic — running fast (the default; pass lane:'classic' to opt out)`)
 const argFlag = (key, dflt) => (argBool(args, key, true) ? true : argBool(args, key, false) ? false : dflt)
 const MECH_SCRIPT = argFlag('mechScript', LANE === 'fast')
 const INFRA_GUARD = argFlag('infraGuard', LANE === 'fast')

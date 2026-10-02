@@ -126,7 +126,9 @@ async function runEngine(scenario) {
   const unmatched = []
   const responses = [...(scenario.responses || [])]
   if (scenario.plan) responses.unshift({ label: 'plan', response: scenario.plan })
-  if (scenario.plan && scenario.args && scenario.args.lane === 'fast' && !scenario.noPlanLine) responses.push({ label: 'mech-plan', response: { line: mechLine('plan', { status: 'planned', unsatisfiedDeps: [], ...scenario.plan }) } })
+  // 9.119.0 (DR-124): the fast lane is the engine's DEFAULT — a scenario without args.lane runs fast too; every classic
+  // scenario passes lane:'classic' explicitly.
+  if (scenario.plan && scenario.args && (scenario.args.lane === 'fast' || scenario.args.lane === undefined) && !scenario.noPlanLine) responses.push({ label: 'mech-plan', response: { line: mechLine('plan', { status: 'planned', unsatisfiedDeps: [], ...scenario.plan }) } })
 
   const agentStub = async (prompt, opts = {}) => {
     const call = {
@@ -236,7 +238,7 @@ const SCENARIOS = []
 // to the split — exactly the "prior-reopened WO" branch of the rule.
 SCENARIOS.push({
   name: '1. powerful reviewSplit — a prior-reopened WO (C1a) sends the FIRST gate straight to split; 4 finder lenses fan out; refuted finding dies; one confirmed reaches the closer (opus)',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   plan: mkPlan([{
     frd: 'frd-01-split',
     deps: [],
@@ -296,7 +298,7 @@ SCENARIOS.push({
 // ── 2. balanced (reviewSplit off): NO finders — a single serial gate spawn, exactly like today ──
 SCENARIOS.push({
   name: '2. balanced reviewSplit off — no finder lenses; a single serial gate spawn (unchanged behavior)',
-  args: { mode: 'balanced' },
+  args: { mode: 'balanced', lane: 'classic' },
   plan: mkPlan([{
     frd: 'frd-02-serial',
     deps: [],
@@ -337,7 +339,7 @@ SCENARIOS.push({
 // budget forcing serial — is unchanged by this.
 SCENARIOS.push({
   name: '3. powerful, maxAgents nearly exhausted — a prior-reopened WO (C1a) reaches the split decision, then the budget check falls back to the serial reviewer + logs why',
-  args: { mode: 'powerful', maxAgents: 20 },
+  args: { mode: 'powerful', lane: 'classic', maxAgents: 20 },
   plan: mkPlan([{
     frd: 'frd-03-fallback',
     deps: [],
@@ -377,7 +379,7 @@ const threeWoPlan = (frd = 'frd-a1') => mkPlan([{
 
 SCENARIOS.push({
   name: "A1-a. auto-sizes-1frd-3wo — maxAgents:'auto' sizes the cap from the post-plan projection (1 FRD / 3 WOs ≈ 40 units x1.25) and the run never stops on the agent ceiling",
-  args: { mode: 'powerful', maxAgents: 'auto' },
+  args: { mode: 'powerful', lane: 'classic', maxAgents: 'auto' },
   plan: threeWoPlan(),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -395,7 +397,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'A1-b. plan-growth-recomputes — a change drained mid-run that adds an FRD raises the auto cap by the added FRD\'s own projection (never lowers it)',
-  args: { mode: 'powerful', maxAgents: 'auto' },
+  args: { mode: 'powerful', lane: 'classic', maxAgents: 'auto' },
   plan: threeWoPlan(),
   responses: [
     { label: 'safe-point', times: 1, response: { stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, ready: ['change-grow'], unblocked: [] } },
@@ -416,7 +418,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'A1-c. explicit-below-is-advisory — an explicit numeric maxAgents below the projection is NEVER overridden and NEVER fails fast; it only gets an advisory log',
-  args: { mode: 'powerful', maxAgents: 30 },
+  args: { mode: 'powerful', lane: 'classic', maxAgents: 30 },
   plan: threeWoPlan(),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -430,7 +432,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'A1-d. explicit-above-is-silent — an explicit maxAgents at/above the projection prints no advisory and no auto log',
-  args: { mode: 'powerful', maxAgents: 200 },
+  args: { mode: 'powerful', lane: 'classic', maxAgents: 200 },
   plan: threeWoPlan(),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -440,7 +442,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'A1-e. omitted-maxAgents-unchanged — an omitted maxAgents stays unbounded and logs no sizing',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   plan: threeWoPlan(),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -463,7 +465,7 @@ const deferredLine = (run) => (run.logs.find((l) => /↻ deferred:/.test(l)) || 
 
 SCENARIOS.push({
   name: 'F-a. lib-only-wo-builds-with-foundation — a dependency-free WO with lib-only artifacts joins the foundation wave',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   plan: foundationPlan({ artifacts: ['src/lib/slug/**'] }),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -481,7 +483,7 @@ for (const [slug, second, why] of [
 ]) {
   SCENARIOS.push({
     name: `F-b. ${slug} — a WO with ${why} keeps the foundation-first deferral`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     plan: foundationPlan(second),
     assert(t, run) {
       t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -503,7 +505,7 @@ for (const [slug, audit, expectFix] of [
 ]) {
   SCENARIOS.push({
     name: `S. ${slug}`,
-    args: { mode: 'balanced' },
+    args: { mode: 'balanced', lane: 'classic' },
     plan: doneFrdPlan(),
     responses: [{ label: 'hardening:security-audit', response: audit }],
     assert(t, run) {
@@ -533,21 +535,21 @@ const takesFastPath = (t, run) => {
 }
 SCENARIOS.push({
   name: '9.118.1-a. the exact bench-medium C-1 pre-check (failure:"null", projectPrefix:\'""\') takes the BL-0124 fast path',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ projectPrefix: '""', failure: 'null' }) }],
   assert: takesFastPath,
 })
 for (const sentinel of ['undefined', '', 'none', ' None ', 'NULL']) {
   SCENARIOS.push({
     name: `9.118.1-b. sentinel failure ${JSON.stringify(sentinel)} is no failure: the BL-0124 fast path is taken`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ failure: sentinel }) }],
     assert: takesFastPath,
   })
 }
 SCENARIOS.push({
   name: '9.118.1-c. a real BL-0022 failure still stops the run baseline red',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [{ label: 'baseline-precheck', response: { green: false, failure: 'BL-0022: deterministic project/lease inspection failed' } }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -558,7 +560,7 @@ SCENARIOS.push({
 })
 SCENARIOS.push({
   name: '9.118.1-d. a quoted-empty projectPrefix \'""\' is no prefix: a flat status.yaml path still matches',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: leasedStatusPrecheck({ projectPrefix: '""', dirtyPaths: ['.pandacorp/status.yaml'], outsideDirtyPaths: [] }) }],
   assert: takesFastPath,
 })
@@ -572,14 +574,14 @@ const wrappedPrecheck = (key) => ({ [key]: '{\n  "escalate": true, "dirty": true
 for (const key of ['parameter', 'input', 'result', 'output', 'json']) {
   SCENARIOS.push({
     name: `9.118.2-a. precheck-wrapped-in-${key}-is-unwrapped: the BL-0124 fast path is taken, no judge baseline`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     responses: [preLoopSafePoint, { label: 'baseline-precheck', response: wrappedPrecheck(key) }],
     assert: takesFastPath,
   })
 }
 SCENARIOS.push({
   name: '9.118.2-a2. a wrapped string that is not a JSON object is left as it is (no fast path, judge baseline)',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: { parameter: 'escalate: true' } }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -597,7 +599,7 @@ const proceedsWithJudgeBaseline = (t, run) => {
 }
 SCENARIOS.push({
   name: '9.118.2-b. greenfield-skips-baseline: last_green empty + every WO PLANNED/DRAFT + red tree → plan, no judge baseline',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 9, DRAFT: 1 }, missing: 0 })) }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -611,7 +613,7 @@ SCENARIOS.push({
 })
 SCENARIOS.push({
   name: '9.118.2-b2. the greenfield probe arrives wrapped in `parameter` together with the whole pre-check: still greenfield',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: { parameter: JSON.stringify(redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 3, byStatus: { PLANNED: 3 }, missing: 0 }))) } }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -622,14 +624,14 @@ SCENARIOS.push({
 for (const [slug, byStatus] of [['in-progress', { PLANNED: 9, IN_PROGRESS: 1 }], ['in-review', { PLANNED: 9, IN_REVIEW: 1 }], ['verified', { PLANNED: 9, VERIFIED: 1 }], ['blocked', { PLANNED: 9, BLOCKED: 1 }]]) {
   SCENARIOS.push({
     name: `9.118.2-c. not-greenfield-when-any-wo-built (${slug}): the judge baseline runs, unchanged`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus, missing: 0 })) }],
     assert: proceedsWithJudgeBaseline,
   })
 }
 SCENARIOS.push({
   name: '9.118.2-d. not-greenfield-when-last-green-set: the judge baseline runs, unchanged',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: 'abc1234', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })) }],
   assert: proceedsWithJudgeBaseline,
 })
@@ -642,7 +644,7 @@ for (const [slug, probe] of [
 ]) {
   SCENARIOS.push({
     name: `9.118.2-e. not-greenfield on ${slug}: fail-safe to the judge baseline`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(probe) }],
     assert: proceedsWithJudgeBaseline,
   })
@@ -656,26 +658,26 @@ for (const [slug, facts] of [
 ]) {
   SCENARIOS.push({
     name: `F39-21. adopted-brownfield-is-not-greenfield (${slug}): the sealed verdict decides, the judge baseline runs`,
-    args: { mode: 'powerful' },
+    args: { mode: 'powerful', lane: 'classic' },
     responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine(facts)) }],
     assert: proceedsWithJudgeBaseline,
   })
 }
 SCENARIOS.push({
   name: 'F39-21b. a sealed line whose facts look greenfield but whose verdict says not (the one definition decides): judge baseline',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(sealLine({ ok: true, probe: 'greenfield', lastGreenSha: '', workOrders: 3, byStatus: { PLANNED: 3 }, missing: 0, greenfield: false, reason: 'an adopted project (created_via: adopt)' })) }],
   assert: proceedsWithJudgeBaseline,
 })
 SCENARIOS.push({
   name: '9.118.2-f. args.strictBaseline keeps the judge baseline even on a greenfield project',
-  args: { mode: 'powerful', strictBaseline: true },
+  args: { mode: 'powerful', lane: 'classic', strictBaseline: true },
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })) }],
   assert: proceedsWithJudgeBaseline,
 })
 SCENARIOS.push({
   name: '9.118.2-g. the pre-check prompt runs the greenfield probe from the installed scripts dir',
-  args: { mode: 'powerful' },
+  args: { mode: 'powerful', lane: 'classic' },
   responses: [preLoopSafePoint],
   assert(t, run) {
     const pre = byLabel(run, 'baseline-precheck')[0]
@@ -691,7 +693,7 @@ const MECH_SCRIPT_RE = /pandacorp-build-mech\.mjs' (\S+) --project/
 const literalOp = (call) => (MECH_SCRIPT_RE.exec(call.prompt) || [])[1] || null
 const isLiteral = (call) => Boolean(literalOp(call)) && /return its last line/i.test(call.prompt)
 const indexOf = (run, re) => run.calls.findIndex((c) => re.test(c.label))
-const SAFETY = { mechScript: true, infraGuard: true }   // stage 2's contracts, reachable alone in the classic wave lane
+const SAFETY = { lane: 'classic', mechScript: true, infraGuard: true }   // stage 2's contracts, reachable alone in the classic wave lane (explicit: fast is the default since 9.119.0)
 const infraPlan = (frd, ids, status = 'PLANNED') => mkPlan([{ frd, deps: [], workOrders: ids.map((id, i) => mkWo(id, status, { frd, artifacts: [`src/${frd}/${i}/**`] })) }])
 const throwing = (message) => () => { throw new Error(message) }
 const noRepairPath = (t, run) => {
@@ -912,7 +914,7 @@ SCENARIOS.push({
   name: 'P39-j5. safe-point-probe-targeted — a targeted run passes --targeted (the probe lists no ready change); the classic lane never probes',
   args: { mode: 'balanced', ...SAFETY, frds: ['frd-st'], safePointEveryWave: true },
   plan: infraPlan('frd-st', ['wo-st-001']),
-  next: () => ({ args: { mode: 'balanced' }, plan: infraPlan('frd-sc', ['wo-sc-001']) }),
+  next: () => ({ args: { mode: 'balanced', lane: 'classic' }, plan: infraPlan('frd-sc', ['wo-sc-001']) }),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const probes = byLabel(run, 'safe-point-probe')
@@ -982,7 +984,7 @@ SCENARIOS.push({
 
 SCENARIOS.push({
   name: 'P39-g. mechscript-opt-in-and-out — classic + mechScript:true is literal; fast + mechScript:false keeps the prose recipes',
-  args: { mode: 'balanced', mechScript: true },
+  args: { mode: 'balanced', lane: 'classic', mechScript: true },
   plan: infraPlan('frd-o', ['wo-o-001']),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -1001,8 +1003,8 @@ SCENARIOS.push({
 })
 
 SCENARIOS.push({
-  name: 'P39-h. classic-unchanged — no lane arg: no precheck, prose MECH recipes, and a builder that returns nothing is a WO failure repaired exactly as before (no infra class)',
-  args: { mode: 'balanced' },
+  name: 'P39-h. classic-unchanged — explicit lane:classic: no precheck, prose MECH recipes, and a builder that returns nothing is a WO failure repaired exactly as before (no infra class)',
+  args: { mode: 'balanced', lane: 'classic' },
   plan: infraPlan('frd-cl', ['wo-cl-001']),
   responses: [
     { label: 'build:wo-cl-001', times: 1, response: null },
@@ -1280,7 +1282,7 @@ SCENARIOS.push({
   plan: fastPlan([{ frd: 'frd-x16', ids: ['wo-x16-001'] }, { frd: 'frd-y16', ids: ['wo-y16-001'], deps: ['frd-x16'] }]),
   responses: [{ label: 'verify:frd-x16', response: { line: mechLine('verify', { status: 'green', frd: 'frd-x16', green: true, usable: true, floor: false, sha: 'abc000000016', scope: 'full' }) } }],
   next: () => ({
-    args: { mode: 'balanced' },
+    args: { mode: 'balanced', lane: 'classic' },
     plan: inReviewPlan([{ frd: 'frd-x16', ids: ['wo-x16-001'] }, { frd: 'frd-y16', ids: ['wo-y16-001'], deps: ['frd-x16'] }]),
     responses: [
       { label: 'gate:frd-x16', response: rejectGate('frd-x16') },
@@ -1303,7 +1305,7 @@ SCENARIOS.push({
 })
 SCENARIOS.push({
   name: 'F39-16b. classic-lane-mechscript-derives-usable — classic + mechScript: the precheck\'s durable USABLE list guards the classic ladder too (needs-owner, no revert spawn at all)',
-  args: { mode: 'balanced', mechScript: true },
+  args: { mode: 'balanced', lane: 'classic', mechScript: true },
   plan: inReviewPlan([{ frd: 'frd-x16b', ids: ['wo-x16b-001'] }]),
   responses: [
     { label: 'mech-precheck', response: precheckLine({ keptInReview: ['wo-x16b-001'], usable: [{ frd: 'frd-x16b', sha: 'abc00000016b' }] }) },
@@ -1323,7 +1325,7 @@ SCENARIOS.push({
   args: { mode: 'balanced', ...FAST },
   plan: fastPlan([{ frd: 'frd-p17', ids: ['wo-p17-001', 'wo-p17-002'] }]),
   responses: [{ label: 'fast-build:frd-p17', response: { wos: [{ id: 'wo-p17-001', line: commitLine('wo-p17-001') }, { id: 'wo-p17-002', line: 'garbled' }] } }],
-  next: () => ({ args: { mode: 'balanced', mechScript: true, infraGuard: true }, plan: fastPlan([{ frd: 'frd-q17', ids: ['wo-q17-001'] }]), responses: [{ label: 'build:wo-q17-001', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }] }),
+  next: () => ({ args: { mode: 'balanced', lane: 'classic', mechScript: true, infraGuard: true }, plan: fastPlan([{ frd: 'frd-q17', ids: ['wo-q17-001'] }]), responses: [{ label: 'build:wo-q17-001', response: throwing('API Error: 429 {"type":"error","error":{"type":"rate_limit_error","message":"usage limit reached"}}') }] }),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const b = byLabel(run, 'fast-build:frd-p17')[0]
@@ -1641,8 +1643,8 @@ SCENARIOS.push({
 })
 
 SCENARIOS.push({
-  name: 'F39-10. classic-unchanged — without lane:fast the plan agent, per-WO builders and commits, and the classic result shape are untouched',
-  args: { mode: 'balanced' },
+  name: 'F39-10. classic-unchanged — with an explicit lane:classic the plan agent, per-WO builders and commits, and the classic result shape are untouched',
+  args: { mode: 'balanced', lane: 'classic' },
   plan: fastPlan([{ frd: 'frd-cl2', ids: ['wo-cl2-001', 'wo-cl2-002'] }]),
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
@@ -1960,6 +1962,51 @@ const pipeBuilder = (state, frd, onBuilt = () => {}) => (call) => {
     },
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 9.119.0 (DR-124 amended): the fast lane is the DEFAULT of /pandacorp:implement; `lane:'classic'` is the opt-out
+// ─────────────────────────────────────────────────────────────────────────────
+// The same one-FRD plan, run twice: once with NO lane key at all, once with an explicit lane:'classic'. Neither passes
+// mechScript, infraGuard, fusedStart or reviewBudget, so every sub-default under test is the engine's own.
+const DEFAULT_LANE_PLAN = fastPlan([{ frd: 'frd-dl', ids: ['wo-dl-001', 'wo-dl-002'] }])
+SCENARIOS.push({
+  name: 'default-lane-is-fast — no args.lane: the fast lane runs with its sub-defaults (mechScript on, infraGuard on, fusedStart on, reviewBudget now): ONE fused start, no plan agent, one FRD builder, a literal verify → USABLE, then the gate → VERIFIED',
+  args: { mode: 'balanced', parallelGates: true },
+  plan: DEFAULT_LANE_PLAN,
+  noPlanLine: true,
+  responses: [fusedStart(DEFAULT_LANE_PLAN)],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(hasLog(run, /lane fast · mechScript on · infraGuard on · reviewBudget now/), 'the engine logs the fast lane with every sub-default on (lane fast · mechScript on · infraGuard on · reviewBudget now)')
+    t.ok(JSON.stringify(BEFORE_BUILD(run)) === JSON.stringify(['fast-start']), `fusedStart on: the ONLY spawn before the builder is the fused fast-start (got ${BEFORE_BUILD(run).join(', ')})`)
+    const fs = byLabel(run, 'fast-start')[0]
+    t.ok(fs && isLiteral(fs) && literalOp(fs) === 'fast-start', 'mechScript on: the start is a literal scripted op')
+    t.ok(byLabel(run, 'plan').length === 0 && byLabel(run, /^(build|commit):/).length === 0, 'no plan agent, no per-WO builder or commit spawn')
+    const b = byLabel(run, /^fast-build:/)
+    t.ok(b.length === 1 && b[0].label === 'fast-build:frd-dl', `one FRD builder (got ${b.map((c) => c.label).join(', ')})`)
+    const v = byLabel(run, 'verify:frd-dl')
+    t.ok(v.length === 1 && isLiteral(v[0]) && literalOp(v[0]) === 'verify', 'one literal verify op')
+    t.ok(run.result && Array.isArray(run.result.usable) && run.result.usable.some((u) => u.frd === 'frd-dl'), `the FRD is USABLE (got ${run.result && JSON.stringify(run.result.usable)})`)
+    t.ok(byLabel(run, 'gate:frd-dl').length === 1 && run.result.builtFrds.includes('frd-dl'), 'reviewBudget now: the gate still runs and VERIFIES it')
+    t.ok(run.result && run.result.stopReason !== 'paused-infra', 'a normal close, not a pause')
+  },
+})
+
+SCENARIOS.push({
+  name: 'explicit-classic-is-classic — args.lane:\'classic\' with the same plan: the plan agent, per-WO builders and commits, prose MECH recipes, no precheck, no fast-lane log line, the classic result shape',
+  args: { mode: 'balanced', parallelGates: true, lane: 'classic' },
+  plan: DEFAULT_LANE_PLAN,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(!hasLog(run, /lane fast/i) && !hasLog(run, /mechScript on|infraGuard on/), 'no fast-lane log line and neither safety flag on (both default off under classic)')
+    t.ok(byLabel(run, /^(fast-start|mech-precheck|mech-plan)$/).length === 0, 'no fused start, no precheck, no scripted plan reader')
+    t.ok(byLabel(run, 'plan').length === 1, 'the plan agent runs')
+    t.ok(byLabel(run, /^build:/).length === 2 && byLabel(run, /^commit:/).length === 2, 'per-WO builders and commits')
+    t.ok(byLabel(run, /^dispatch:/).every((c) => /perl -0pi/.test(c.prompt) && !isLiteral(c)), 'mechScript off: the dispatch keeps its prose perl recipe')
+    t.ok(byLabel(run, /^(fast-build|fast-retry|verify|fix|block-usable):/).length === 0, 'no fast-lane spawn')
+    t.ok(run.result && !('usable' in run.result) && !('reviewDebt' in run.result) && !('pushHint' in run.result) && run.result.builtFrds.includes('frd-dl'), 'the classic result shape, the FRD VERIFIED')
+  },
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
