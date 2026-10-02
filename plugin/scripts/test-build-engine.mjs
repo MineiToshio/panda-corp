@@ -87,6 +87,15 @@ function defaultResponse(label, call = {}) {
   if (label.startsWith('block-usable:')) return { green: false, blocked_reason: 'needs-owner' }
   if (label.startsWith('stale-pin:')) return { count: 0 }   // D1 stale-pin guard: main gained no code commit since the gate's pin
   if (label === 'safe-point-probe') return { line: mechLine('safe-point', { status: 'quiet', stop: false, stop_receipt: { status_exists: true, stop: false, method: 'node-lstat' }, rethink_pending: false, renewed: true, ready: [], unreadable: [], blockedNeedsOwner: [], answeredDecisions: 0, work: false }) }
+  // proposal 40: the scripted tail. A missing receipt's mechanical re-commit refuses by default (the WO is parked and
+  // rebuilt exactly as before); the security delta and telemetry stay applicable by default (their agents run as before).
+  if (label.startsWith('recommit:')) return { line: mechLine('commit-wo', { ok: false, status: 'tests-red', wo: label.slice(9), reason: 'related unit tests failed' }) }
+  if (label.startsWith('gate-land:')) return { line: mechLine('gate-land', { status: 'landed', frd: label.slice(10), sha: '1a4d00000000', landed: [{ path: 'src/_tests/x.reviewer.test.ts', kind: 'test' }], refused: [], unapplied: [], kept: [] }) }
+  if (label === 'security-scope') return { line: mechLine('security-scope', { status: 'triggered', triggered: true, hits: [{ trigger: 'route', kind: 'path', detail: 'src/app/api/x/route.ts' }] }) }
+  if (label === 'telemetry-scope') return { line: mechLine('telemetry-scope', { status: 'applicable', applicable: true, planned: ['page_viewed'], missing: [] }) }
+  if (label === 'close-scripted') return { line: mechLine('close', { status: 'released', verify: 'ran', sha: 'c105ed000000', report: 'docs/reviews/security-2026-10-02.md', gold: 0 }) }
+  if (label === 'prod-smoke') return { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'feed00000001' }) }
+  if (label === 'cross-feature-review') return { done: true }
   if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
   if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
   if (label.startsWith('infra-pause:')) return { done: true }
@@ -1089,7 +1098,8 @@ SCENARIOS.push({
     const early = byLabel(run, 'hardening:security-audit-early')
     t.ok(early.length === 1 && early[0].model === 'opus' && early[0].agentType === 'pandacorp:security-auditor' && labelIdx(run, /^hardening:security-audit-early$/) < labelIdx(run, /^apply-gate:/), 'the security audit starts alongside the first gate (opus, read-only auditor)')
     t.ok(byLabel(run, 'hardening:security-audit').length === 0 && byLabel(run, 'hardening:security-delta').length === 1, 'the hardening runs the fail-closed security delta instead of a second full audit')
-    t.ok(byLabel(run, 'close-out').length === 1, 'the close-out runs once per build')
+    const close = byLabel(run, 'close-scripted')
+    t.ok(close.length === 1 && isLiteral(close[0]) && literalOp(close[0]) === 'close' && byLabel(run, 'close-out').length === 0, 'the close runs once per build: the scripted close op, no opus close-out (proposal 40)')
   },
 })
 
@@ -2005,6 +2015,271 @@ SCENARIOS.push({
     t.ok(byLabel(run, /^dispatch:/).every((c) => /perl -0pi/.test(c.prompt) && !isLiteral(c)), 'mechScript off: the dispatch keeps its prose perl recipe')
     t.ok(byLabel(run, /^(fast-build|fast-retry|verify|fix|block-usable):/).length === 0, 'no fast-lane spawn')
     t.ok(run.result && !('usable' in run.result) && !('reviewDebt' in run.result) && !('pushHint' in run.result) && run.result.builtFrds.includes('frd-dl'), 'the classic result shape, the FRD VERIFIED')
+  },
+})
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 40 Phase 1 — engine-bug and plumbing fixes (§2 Lever 1)
+// ─────────────────────────────────────────────────────────────────────────────
+const F40_PLAN = fastPlan([{ frd: 'frd-q', ids: ['wo-q-001', 'wo-q-002'] }])
+const F40_LINKED = fastPlan([{ frd: 'frd-qa', ids: ['wo-qa-001'] }, { frd: 'frd-qb', ids: ['wo-qb-001'], deps: ['frd-qa'], extra: { 'wo-qb-001': { deps: ['wo-qa-001'] } } }])
+const F40_UNLINKED = fastPlan([{ frd: 'frd-qc', ids: ['wo-qc-001'] }, { frd: 'frd-qd', ids: ['wo-qd-001'] }])
+const withFrontend = (p) => ({ ...p, hasFrontend: true })
+const releasedClose = (over = {}) => ({ line: mechLine('close', { status: 'released', verify: 'ran', sha: 'c105ed000000', ...over }) })
+
+SCENARIOS.push({
+  name: 'F40-1. builder-self-verify-is-scoped — the builder checks --since the FRD\'s dispatch base, once, never the full suite per WO; the engine\'s scripted verify runs the full suite once before USABLE',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const p = (byLabel(run, /^fast-build:frd-q$/)[0] || {}).prompt || ''
+    t.ok(/run `bash \.pandacorp\/verify\.sh --since d15pa7cbase0` ONCE/.test(p), 'self-verify is verify.sh --since the dispatch base, once')
+    t.ok(!/`bash \.pandacorp\/verify\.sh`/.test(p) && /never after each work order/.test(p) && /the engine runs the FULL suite once before USABLE/.test(p), 'never the bare full suite, never per work order: the engine\'s verify runs the full suite once')
+    const v = byLabel(run, 'verify:frd-q')
+    t.ok(v.length === 1 && !/--only|--files/.test(v[0].prompt), 'the scripted USABLE verify runs once, unscoped (the full FRD suite)')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-1b. builder-self-verify-without-a-base — a lost dispatch base: the builder runs the full suite ONCE, still never per work order',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'dispatch:frd-q', response: { line: 'not a sealed line' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const p = (byLabel(run, /^fast-build:frd-q$/)[0] || {}).prompt || ''
+    t.ok(/run `bash \.pandacorp\/verify\.sh` ONCE/.test(p) && /never after each work order/.test(p) && !/--since/.test(p.slice(p.indexOf('SELF-VERIFY'))), 'the full suite once, never per work order')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-2. fixforward-mech-commit-wo-on-not-committed — a WO whose receipt failed its seal is landed by the literal commit-wo (bench F-3): no park, no opus rebuild',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [
+    { label: 'fast-build:frd-q', response: { wos: [{ id: 'wo-q-001', line: commitLine('wo-q-001') }, { id: 'wo-q-002', line: commitLine('wo-q-002').replace('committed', 'COMMITTED') }] } },
+    { label: 'recommit:wo-q-002', response: { line: mechLine('commit-wo', { status: 'nothing', wo: 'wo-q-002', reason: 'wo-q-002 is already committed IN_REVIEW and the tree is clean' }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const rc = byLabel(run, 'recommit:wo-q-002')
+    t.ok(rc.length === 1 && isLiteral(rc[0]) && literalOp(rc[0]) === 'commit-wo' && /--wo 'wo-q-002'/.test(rc[0].prompt) && rc[0].model === 'haiku', 'the unproven WO gets ONE literal commit-wo (haiku relay)')
+    t.ok(byLabel(run, 'recommit:wo-q-001').length === 0, 'a WO with a valid receipt is never re-committed')
+    t.ok(byLabel(run, /^fast-retry:/).length === 0 && byLabel(run, /^park:/).length === 0, 'no park and no opus rebuild')
+    t.ok(hasLog(run, /wo-q-002: commit-wo landed it \(nothing\)/), 'the landing is logged')
+    t.ok(run.result.builtFrds.includes('frd-q') && labelIdx(run, /^recommit:/) < labelIdx(run, /^verify:frd-q$/), 'verify runs after the re-commit; the FRD verifies')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-3. gate-lands-its-own-tests-and-bless — a parallel PASS lands the gate\'s files through the literal gate-land before apply-gate stamps; the gate blesses (fast lane only)',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: /^gate-release:/, response: { line: mechLine('gate-release', { salvaged: [{ path: 'src/_tests/q.reviewer.test.ts', status: 'untracked', sha256: 'a'.repeat(64) }], remaining: [] }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const land = byLabel(run, 'gate-land:frd-q')
+    t.ok(land.length === 1 && isLiteral(land[0]) && literalOp(land[0]) === 'gate-land' && /--dir '[^']*gate-evidence\/frd-q'/.test(land[0].prompt) && /--frd 'frd-q'/.test(land[0].prompt), 'one literal gate-land over the gate\'s evidence dir')
+    t.ok(labelIdx(run, /^gate-release:frd-q$/) < labelIdx(run, /^gate-land:frd-q$/) && labelIdx(run, /^gate-land:frd-q$/) < labelIdx(run, /^apply-gate:frd-q$/), 'release → land → apply')
+    const apply = byLabel(run, 'apply-gate:frd-q')[0]
+    t.ok(apply && !/port command/.test(apply.prompt) && !/q\.reviewer\.test\.ts/.test(apply.prompt), 'the apply agent ports and stages nothing: the tests are already committed')
+    const gate = byLabel(run, /^gate:frd-q$/)[0]
+    t.ok(gate && /Bless at green \(DR-080, only you\)/.test(gate.prompt) && /never change an existing baseline/.test(gate.prompt) && /list its paths in `testFiles`/.test(gate.prompt), 'the fast-lane gate blesses a new route at green, never changes an existing baseline, and hands the bless to the landing')
+    t.ok(run.result.builtFrds.includes('frd-q'), 'the FRD verifies')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-3b. gate-land-refused-keeps-the-agent-port — a landing that cannot run (no manifest) leaves the apply agent porting the tests exactly as before',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [
+    { label: /^gate-release:/, response: { line: mechLine('gate-release', { salvaged: [{ path: 'src/_tests/q.reviewer.test.ts', status: 'untracked', sha256: 'a'.repeat(64) }], remaining: [] }) } },
+    { label: 'gate-land:frd-q', response: { line: mechLine('gate-land', { ok: false, status: 'no-manifest', reason: 'no readable gate-manifest.json' }) } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const apply = byLabel(run, 'apply-gate:frd-q')[0]
+    t.ok(apply && /port command/.test(apply.prompt) && /q\.reviewer\.test\.ts/.test(apply.prompt), 'the apply agent ports the reviewer test (the pre-proposal-40 path)')
+    t.ok(hasLog(run, /gate landing did not land \(no-manifest/), 'the refusal is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-3c. classic-gate-never-blesses-here — the classic lane\'s gate prompt and landing are unchanged (no bless clause, no gate-land)',
+  args: { mode: 'balanced', lane: 'classic' },
+  plan: mkPlan([{ frd: 'frd-qk', deps: [], workOrders: [mkWo('wo-qk-001', 'IN_REVIEW', { frd: 'frd-qk', artifacts: ['src/qk/**'] })] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const gate = byLabel(run, /^gate:frd-qk$/)[0]
+    t.ok(gate && !/Bless at green/.test(gate.prompt), 'no bless clause in the classic gate')
+    t.ok(byLabel(run, /^gate-land:/).length === 0 && byLabel(run, /^(close-scripted|security-scope|telemetry-scope|prod-smoke|recommit:)/).length === 0 && byLabel(run, 'close-out').length === 1, 'no proposal-40 op in the classic lane; its opus close-out is unchanged')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-4. stale-pin-ignores-test-only-write-backs — the fast lane\'s stale-pin count excludes the test surfaces (another gate\'s landing never forces a re-verify); a builder code commit still does',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_LINKED,
+  responses: [{ label: /^stale-pin:/, response: { count: 0 } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const sp = byLabel(run, /^stale-pin:/)
+    t.ok(sp.length >= 1 && sp.every((c) => /':\(exclude,glob\)\*\*\/\*\.test\.\*'/.test(c.prompt) && /':\(exclude\)e2e'/.test(c.prompt) && /':\(exclude\)docs'/.test(c.prompt)), `every stale-pin count excludes the test surfaces (got ${sp.length})`)
+    t.ok(byLabel(run, /^reverify:/).length === 0, 'no code commit since the pin → no re-verify')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-5. security-delta-conditional — no trigger since the early pin: the script commits the early report, no opus delta audit; a trigger keeps it (F39-2)',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'security-scope', response: { line: mechLine('security-scope', { status: 'written', triggered: false, hits: [], files: 3, report: 'docs/reviews/security-2026-10-02.md', sha: '5ec000000000' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const sc = byLabel(run, 'security-scope')
+    t.ok(sc.length === 1 && isLiteral(sc[0]) && literalOp(sc[0]) === 'security-scope' && /--since '[0-9a-f]+'/.test(sc[0].prompt) && /--write-report/.test(sc[0].prompt) && /--findings 0/.test(sc[0].prompt), 'one literal security-scope op over the early pin')
+    t.ok(byLabel(run, 'hardening:security-delta').length === 0 && byLabel(run, 'hardening:security-audit').length === 0, 'no opus delta audit, no full audit')
+    t.ok(byLabel(run, 'hardening:security-fix').length === 0, 'the early audit found nothing: no fix spawn')
+    t.ok(hasLog(run, /security delta not triggered/) && byLabel(run, 'close-scripted').length === 1, 'logged; the release proceeds')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-5b. security-delta-content-trigger — a dangerouslySetInnerHTML since the pin runs the opus delta audit',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'security-scope', response: { line: mechLine('security-scope', { status: 'triggered', triggered: true, hits: [{ trigger: 'dangerouslySetInnerHTML', kind: 'content', detail: "src/app/JsonLd.tsx: 'dangerouslySetInnerHTML'" }] }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'hardening:security-delta').length === 1 && labelIdx(run, /^security-scope$/) < labelIdx(run, /^hardening:security-delta$/), 'the delta audit runs after the scope said triggered')
+    t.ok(hasLog(run, /delta audit runs: .*dangerouslySetInnerHTML/), 'the trigger is logged')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-6. telemetry-conditional — no event plan: no telemetry agent; the build releases',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'telemetry-scope', response: { line: mechLine('telemetry-scope', { status: 'absent', applicable: false }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const ts = byLabel(run, 'telemetry-scope')
+    t.ok(ts.length === 1 && isLiteral(ts[0]) && /--write-na/.test(ts[0].prompt), 'one literal telemetry-scope op')
+    t.ok(byLabel(run, 'hardening:telemetry').length === 0 && byLabel(run, 'close-scripted').length === 1 && byLabel(run, 'close-needs-hardening').length === 0, 'no telemetry agent; the release proceeds')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-6b. telemetry-plan-without-emitter-fails-loud — a plan nothing emits blocks the release: no telemetry agent, the needs-hardening close names it',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'telemetry-scope', response: { line: mechLine('telemetry-scope', { ok: false, status: 'no-emitters', applicable: true, planned: ['page_viewed'], missing: ['page_viewed'], reason: 'the event plan lists 1 event(s) (page_viewed) and NONE is emitted anywhere in the product code' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const c = byLabel(run, 'close-needs-hardening')
+    t.ok(byLabel(run, 'hardening:telemetry').length === 0 && c.length === 1 && /NONE is emitted/.test(c[0].prompt), 'the needs-hardening close carries the loud failure')
+    t.ok(byLabel(run, 'close-scripted').length === 0 && byLabel(run, 'close-out').length === 0, 'never released')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-7. scripted-close-single-frd — one built FRD: no cross-feature review, one literal fenced close op, no opus close-out',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const c = byLabel(run, 'close-scripted')
+    t.ok(c.length === 1 && isLiteral(c[0]) && literalOp(c[0]) === 'close' && /--token 'test-lease-token' --epoch '1'/.test(c[0].prompt), 'the close op carries the lease fence')
+    t.ok(byLabel(run, 'cross-feature-review').length === 0 && byLabel(run, 'close-out').length === 0 && byLabel(run, 'close-out-verify-reuse-check').length === 0, 'no cross-feature review, no opus close-out, no separate reuse check (the close op decides reuse)')
+    t.ok(hasLog(run, /scripted close: released ran/), 'the release is logged')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-7b. scripted-close-linked-frds — two built FRDs linked by a WO dependency: ONE sonnet (high) cross-feature review, then the scripted close',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_LINKED,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const x = byLabel(run, 'cross-feature-review')
+    t.ok(x.length === 1 && x[0].model === 'sonnet' && x[0].opts.effort === 'high' && x[0].agentType === 'pandacorp:reviewer', 'one sonnet/high reviewer')
+    t.ok(x[0] && /frd-qa, frd-qb|frd-qb, frd-qa/.test(x[0].prompt) && /do NOT run the whole-project verify\.sh/.test(x[0].prompt) && /producer\/consumer pair actually AGREES/.test(x[0].prompt), 'it names the linked FRDs, carries the DR-060 seam check, runs no full suite')
+    t.ok(labelIdx(run, /^cross-feature-review$/) < labelIdx(run, /^security-scope$/) && labelIdx(run, /^cross-feature-review$/) < labelIdx(run, /^close-scripted$/) && byLabel(run, 'close-out').length === 0, 'review (before the hardening) → scripted close; no opus close-out')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-7c. scripted-close-unlinked-frds — two built FRDs with no dependency between them: no cross-feature review',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_UNLINKED,
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result.builtFrds.length === 2 && byLabel(run, 'cross-feature-review').length === 0 && byLabel(run, 'close-scripted').length === 1, 'both verified; no review; one scripted close')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-7d. scripted-close-archive-then-release — a change card still building: the archive agent runs, then the close again',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [
+    { label: 'close-scripted', times: 1, response: { line: mechLine('close', { ok: false, status: 'archive-pending', cards: ['add-x.md'], reason: 'change card(s) still building' }) } },
+    { label: 'close-scripted', response: releasedClose() },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'close-scripted').length === 2 && byLabel(run, 'archive-changes').length === 1 && labelIdx(run, /^archive-changes$/) < lastIdx(run, /^close-scripted$/), 'archive between the two close attempts')
+    t.ok(byLabel(run, 'close-out').length === 0 && hasLog(run, /scripted close: released/), 'released without the opus close-out')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-7e. scripted-close-red-falls-back — a red full verify.sh never releases by script: the opus close-out decides (fail-safe)',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_PLAN,
+  responses: [{ label: 'close-scripted', response: { line: mechLine('close', { ok: false, status: 'red', verify: 'ran', failure: 'vitest red', sha: 'c105ed000000' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'close-out').length === 1 && labelIdx(run, /^close-scripted$/) < labelIdx(run, /^close-out$/) && hasLog(run, /scripted close: red vitest red/), 'the opus close-out runs after the red scripted close')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-7f. cross-feature-seam-defect — the review reopens a WO: the run is partial (no hardening, no release); the notify-end close reports it',
+  args: { mode: 'balanced', ...FAST },
+  plan: F40_LINKED,
+  responses: [{ label: 'cross-feature-review', response: { done: false, failure: 'frd-qb reads `dueAt` but frd-qa returns `dueDate`: wo-qb-001 reopened' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'notify-end').length === 1 && run.result.reopenedFrds.includes('frd-qa') && run.result.reopenedFrds.includes('frd-qb'), 'the linked FRDs are reopened; the partial close (notify-end) reports them')
+    t.ok(byLabel(run, /^(security-scope|hardening:|close-scripted|close-out$)/).filter((c) => c.label !== 'hardening:security-audit-early').length === 0 && hasLog(run, /cross-feature review: frd-qb reads `dueAt`/), 'no hardening, never released; the seam is logged')
+  },
+})
+
+SCENARIOS.push({
+  name: 'F40-8. prod-smoke-parallel-with-visual-qa — a frontend build runs the production-build smoke (literal op, its own worktree) alongside visual-qa, before the release',
+  args: { mode: 'balanced', ...FAST },
+  plan: withFrontend(fastPlan([{ frd: 'frd-q', ids: ['wo-q-001'], extra: { 'wo-q-001': { artifacts: ['src/app/page.tsx'] } } }])),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const ps = byLabel(run, 'prod-smoke')
+    t.ok(ps.length === 1 && isLiteral(ps[0]) && literalOp(ps[0]) === 'prod-smoke' && /--path '[^']*gate-worktree-smoke'/.test(ps[0].prompt) && /--port 3890/.test(ps[0].prompt), 'one literal prod-smoke in its own worktree and port')
+    t.ok(byLabel(run, 'visual-qa').length === 1 && labelIdx(run, /^prod-smoke$/) < labelIdx(run, /^visual-qa$/) && labelIdx(run, /^visual-qa$/) < labelIdx(run, /^security-scope$/), 'fired before visual-qa, both in flight before the hardening')
+    t.ok(byLabel(run, 'close-scripted').length === 1, 'green → released')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-8b. prod-smoke-red-blocks-release — a CSP violation in the production build: not released, the needs-hardening close names the smoke',
+  args: { mode: 'balanced', ...FAST },
+  plan: withFrontend(F40_PLAN),
+  responses: [{ label: 'prod-smoke', response: { line: mechLine('prod-smoke', { ok: false, status: 'red', green: false, routes: 2, red: [{ path: '/blog/a', reasons: ['CSP violation: EvalError'] }], failure: '/blog/a: CSP violation: EvalError', sha: 'feed00000001' }) } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const c = byLabel(run, 'close-needs-hardening')
+    t.ok(c.length === 1 && /production-build smoke: RED — \/blog\/a: CSP violation/.test(c[0].prompt), 'the needs-hardening close carries the smoke failure')
+    t.ok(byLabel(run, 'close-scripted').length === 0 && byLabel(run, 'close-out').length === 0, 'never released')
+  },
+})
+SCENARIOS.push({
+  name: 'F40-8c. classic-never-runs-the-prod-smoke — the classic lane\'s close-out is unchanged',
+  args: { mode: 'balanced', lane: 'classic' },
+  plan: mkPlan([{ frd: 'frd-qs', deps: [], workOrders: [mkWo('wo-qs-001', 'IN_REVIEW', { frd: 'frd-qs', artifacts: ['src/qs/**'] })] }], { hasFrontend: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'prod-smoke').length === 0 && byLabel(run, 'close-out').length === 1, 'no smoke; the opus close-out')
   },
 })
 
