@@ -3068,9 +3068,10 @@ function WorkflowBuild(): React.JSX.Element {
       <Lead>
         Es la joya de la corona: construye un proyecto entero leyendo las FRDs y sus work orders, y
         no para hasta terminar (o hasta que topa con presupuesto, salud, o algo que solo tú puedes
-        decidir). Construye en <B weight={600}>oleadas globales</B>: cada oleada agarra los work
-        orders LISTOS de TODAS las features a la vez (los que tienen sus dependencias hechas y no
-        chocan de archivos), así las features independientes avanzan en paralelo.
+        decidir). En el carril classic construye en <B weight={600}>oleadas globales</B>: cada
+        oleada agarra los work orders LISTOS de TODAS las features a la vez (los que tienen sus
+        dependencias hechas y no chocan de archivos), así las features independientes avanzan en
+        paralelo.
       </Lead>
 
       <NotePanel icon="ti-building-skyscraper" iconColor="var(--color-accent)">
@@ -3078,6 +3079,17 @@ function WorkflowBuild(): React.JSX.Element {
         hay muchos obreros a la vez, y cada piso se inspecciona antes de subir al siguiente. La
         inspección es la compuerta de revisión — y esa inspección ahora la hacen varios
         especialistas en paralelo.
+      </NotePanel>
+
+      <NotePanel icon="ti-bolt" iconColor="var(--color-accent)">
+        <B weight={500}>Por defecto, carril rápido (desde 9.119.0, DR-124).</B> Cada feature la
+        construye un solo agente, como uno suelto, y queda <B weight={500}>USABLE</B> (código en
+        main, verify.sh en verde, aviso al celular) en minutos; la revisión con opus corre después,
+        en segundo plano, hasta VERIFIED. Las features sensibles (login, dinero, datos personales,
+        secretos, borrados de datos) esperan su VERIFIED. Todo lo que sigue sobre oleadas globales
+        describe el carril <Code>classic</Code> (<Code>--lane classic</Code>); con{" "}
+        <Code>--review-budget defer</Code> se detiene en USABLE, y si un límite de uso corta la
+        corrida se pausa limpio y se reanuda con <Code>--resume &lt;run-id&gt;</Code>.
       </NotePanel>
 
       <Panel>
