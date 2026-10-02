@@ -1149,6 +1149,7 @@ const FRD_GATE_SCHEMA = {
       direction: { type: 'string', enum: ['code', 'spec', 'unknown'], description: 'BL-0178: your read of which side is wrong — the owner decides on the resulting card.' } } } },
     // C2: on a PASS the review-only gate returns the new/changed adversarial TEST FILES it wrote (repo-relative)
     // so the serialized apply-gate step can PORT them from the frozen worktree onto the main tree.
+    probes: { type: 'array', items: { type: 'object', properties: { wo: { type: 'string' }, test: { type: 'string' } } } },
     testFiles: { type: 'array', items: { type: 'string' }, description: 'C2: repo-relative paths of the new/changed adversarial test files the gate wrote this cycle (in its worktree) — the apply step ports them to the main tree on green' },
     report_scope: REPORT_SCOPE,
     // WP-08: the raw machine-readable verdict, so the ENGINE classifies the failing sub-gate
@@ -1216,6 +1217,7 @@ const isOpenFail = (entry) => Boolean(entry) && (entry.status === 'fail' || (DRI
 const DISMISSAL_SOURCE_RE = /^(?:docs\/|\.pandacorp\/inbox\/changes\/)[^\s:]+\.md:[1-9]\d*(?:-[1-9]\d*)?$/
 const DISMISSAL_FRD_SOURCE_RE = /^docs\/(?:frds\/[^/\s:]+\/frd\.md|product\/prd\.md|product\/prds\/[^\s:]+\.md):[1-9]\d*(?:-[1-9]\d*)?$/
 const DISMISSAL_MIN_QUOTE_CHARS = 10
+const HARNESS_MARKER_RE = /\bharness\b|opt-out marker|data-scroll-x|\bunblessed\b/i
 function classifyDismissals(result) {
   const list = result && Array.isArray(result.dismissals) ? result.dismissals : []
   const flawed = []
@@ -1227,7 +1229,8 @@ function classifyDismissals(result) {
     const quote = String(obj.quote || '').replace(/\s+/g, ' ').trim()
     const contract = obj.contract || contractIdOf(obj.finding) || contractIdOf(quote)
     let why = ''
-    if (!DISMISSAL_SOURCE_RE.test(source)) why = 'no <path>:<line> citation of a docs/ or change-card line'
+    if (FAST && HARNESS_MARKER_RE.test(String(obj.finding))) why = 'a harness-marker finding is a finding with its fix, never a dismissal'
+    else if (!DISMISSAL_SOURCE_RE.test(source)) why = 'no <path>:<line> citation of a docs/ or change-card line'
     else if (quote.length < DISMISSAL_MIN_QUOTE_CHARS) why = 'no literal quote of that line'
     else if (contract && !DISMISSAL_FRD_SOURCE_RE.test(source)) why = 'a work order or change card cannot dismiss a normative FRD contract (the FRD outranks the work order): only a line of frd.md or the PRD can, otherwise record it as a fail'
     if (why) flawed.push({ finding, why })
@@ -1236,6 +1239,16 @@ function classifyDismissals(result) {
   return { flawed, valid }
 }
 const flawedDismissals = (result) => classifyDismissals(result).flawed
+// Proposal 40 Phase 4: a fast green verdict needs >= 1 probe per reviewed work order (GATE_TESTS). Missing → the same
+// deficient-verdict path as a missing traceability class: ONE re-ask (B2), then needs-owner, never certified.
+function enforceProbes(reviewIds, r) {
+  if (!FAST || !r || r.green !== true) return r
+  const has = new Set((Array.isArray(r.probes) ? r.probes : []).map((p) => String((p && p.wo) || '').toLowerCase()))
+  const missing = reviewIds.filter((id) => !has.has(id.toLowerCase()))
+  if (!missing.length) return r
+  log(`⚠ green verdict without an adversarial probe for ${missing.join(', ')}`)
+  return { ...r, green: false, traceabilityDeficient: true, missingClasses: missing.map((id) => `a probe for ${id} (write the test, list it in \`probes\`)`), failure: `no probe for ${missing.join(', ')}` }
+}
 // What the re-ask tells the reviewer about its flawed dismissals ('' when there are none).
 const dismissalReaskNote = (flawed) => flawed && flawed.length
   ? ` Your verdict's \`dismissals\` array carried ${flawed.length} scope dismissal(s) without a valid LITERAL citation, so the engine treats them as NOT dismissed: ${flawed.map((x) => `"${x.finding}" (${x.why})`).join('; ')}. For each one either (a) open the file, find the line that scopes it out with grep -n, and cite it as source \`<path>:<line>\` plus its verbatim quote (note: the FRD outranks the work order, so a work order or change card line can never dismiss a normative FRD clause; only a line of frd.md can), or (b) you cannot cite it, so record it as a \`fail\` traceability entry or a finding. Never dismiss from memory or paraphrase.`
@@ -1619,7 +1632,7 @@ const deferredGateOutcome = (raw) => Boolean(raw) && typeof raw === 'object' && 
   && Array.isArray(raw.traceability) && raw.traceability.some((e) => e && e.status === 'fail' && e.claim === 'preexisting')
 async function finalizeGate(frd, reviewIds, raw, pinSha = null, sourceDir = PROJECT_DIR) {
   const adjudicated = await adjudicateDrift(frd, reviewIds, mergeDriftFinderClaims(frd, raw), pinSha, sourceDir)   // BL-0203: finder claims join the reviewer's before the proof
-  let result = enforceWholeFrdTraceability(adjudicated)
+  let result = enforceProbes(reviewIds, enforceWholeFrdTraceability(adjudicated))
   // BL-0211: an ACCEPTED scope dismissal is auditable from the log alone (what was waved off, on which line, in whose words).
   for (const d of classifyDismissals(adjudicated).valid) log(`⊙ ${frd}: gate dismissed "${d.finding}" by ${d.source} — "${d.quote.slice(0, 160)}"`)
   // BL-0185: a reviewer that blocks needs-owner while carrying a drift claim DEFERS its review_end/GateVerdict
@@ -2508,7 +2521,18 @@ async function frdGate(frd, reviewIds, workFrom, evidencePack) {
 // Proposal 40 §2 (Patch): the patch tier reads each finding's size; an unestimated one is never bounded (opus).
 const GATE_FIX_LINES = '; give each finding `fixLines`, the changed lines its fix needs'
 const GATE_BLESS = ` **Bless at green (DR-080, only you):** bless each still-unblessed surface of this FRD you judged right, as your agent definition says; never change an existing baseline. Leave the bless uncommitted and list its paths in \`testFiles\`.`
-const GATE_PASS_RETURN = ` **If CORRECTION passes (visual nits, if any, APPEND to the punch-list at the MAIN tree \`${PROJECT_DIR}/.pandacorp/comms/visual-punch-list.md\` — absolute path, they do NOT block):** you are a REVIEW-ONLY gate — do NOT set any work order VERIFIED, do NOT reset reopen_count, do NOT recompute the FRD rollup, do NOT edit .pandacorp/status.yaml, do NOT advance last_green_sha, and do NOT \`git commit\` (you may be running in a FROZEN worktree; a separate serialized apply step on the MAIN tree performs every one of those writes). Just make sure the adversarial test files you wrote this cycle are SAVED in your working tree, and return { green: true, testFiles: [the repo-relative path of EACH new or changed test file you wrote this gate] } so the apply step can port them to the main tree.${FAST ? GATE_BLESS : ''}`
+// Proposal 40 §2/§9 (Opus FRD gate, DR-015/DR-080): the fast gate writes a regression test for each finding plus a few
+// adversarial PROBES per reviewed work order (1-5, at its interaction, async and boundary edges), not a blanket suite
+// (bench FM-3: ~2,800 lines of reviewer tests, 0 product defects). finalizeGate re-asks a green verdict that left a
+// reviewed work order unprobed (the engine counts `probes`, it never trusts "I wrote tests").
+const GATE_TESTS = FAST
+  ? 'write a regression test for each finding, plus adversarial PROBES the implementers did not see: at least 1 and at most 5 per reviewed work order, aimed at its interaction, async and boundary edges (anchored in EARS + real bugs; never a blanket suite)'
+  : 'write adversarial tests the implementers did not see (anchored in EARS + real bugs)'
+// Proposal 40 §5 A2 (Harness markers, first pass): bench FM-3's FRD-04 gate waved off a designed table scroll missing the
+// responsive harness's opt-out marker (punch-list, route left unblessed); only the BL-0211 re-ask turned it red. The rule
+// raises it on the FIRST pass, and classifyDismissals refuses such a dismissal on the fast lane even with a citation.
+const GATE_MARKER = ` **Harness markers (first pass):** a surface that is right but trips a gate harness for want of its opt-out marker (e.g. \`data-scroll-x="intentional"\` on a designed horizontal scroll), or a route left unblessed because of it, is a CORRECTION finding with its fix, raised on this first pass: never a dismissal, never the punch-list.`
+const GATE_PASS_RETURN = ` **If CORRECTION passes (visual nits, if any, APPEND to the punch-list at the MAIN tree \`${PROJECT_DIR}/.pandacorp/comms/visual-punch-list.md\` — absolute path, they do NOT block):** you are a REVIEW-ONLY gate — do NOT set any work order VERIFIED, do NOT reset reopen_count, do NOT recompute the FRD rollup, do NOT edit .pandacorp/status.yaml, do NOT advance last_green_sha, and do NOT \`git commit\` (you may be running in a FROZEN worktree; a separate serialized apply step on the MAIN tree performs every one of those writes). Just make sure the adversarial test files you wrote this cycle are SAVED in your working tree, and return { green: true, testFiles: [the repo-relative path of EACH new or changed test file you wrote this gate] } so the apply step can port them to the main tree.${FAST ? `${GATE_BLESS} Also return \`probes: [{ wo, test }]\`, one entry per probe (the reviewed work order, its test path): every reviewed work order needs one.${GATE_MARKER}` : ''}`
 
 // ── WP-06: DIGESTED GATE EVIDENCE ────────────────────────────────────────────────────────────────
 // The per-FRD gate is the build's ONE independent oracle, and FRD-24 measured where its money goes: the
@@ -3191,7 +3215,7 @@ ${directive ? `\n  ${directive}\n` : ''}
   ${DRIFT_CLAIM_DIRECTIVE}
   ${DISMISSAL_CITATION_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
-  1) Review the changed work orders for CORRECTION (the blocking lenses above) and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising them TOGETHER with the rest of the feature (real integration, not isolated).
+  1) Review the changed work orders for CORRECTION (the blocking lenses above) and ${GATE_TESTS}, exercising them TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
@@ -3199,7 +3223,7 @@ ${GATE_PASS_RETURN}
   **If a SPECIFIC reviewed work order fails CORRECTION (a real bug / missing requirement / gross-structural miss):** check that WO's frontmatter \`reopen_count\` (default 0). **DR-072 NON-PROGRESS STOP — if it is already ≥ ${MAX_REOPENS}, do NOT reopen again** (the same fault is not resolving autonomously): you are REVIEW-ONLY — do NOT stamp BLOCKED, do NOT write decisions.md, do NOT commit; just${TRACK('review_end', `,"frd":"${frd}","verdict":"blocked"`)}${GATE_VERDICT(frd, 'blocked', `,"blocked_reason":"needs-owner"`)} return { green: false, reopen: [], blocked_reason: 'needs-owner', failure: 'reopened ${MAX_REOPENS}x, gate not satisfiable autonomously' } — the engine persists the BLOCKED state + the decision record on the MAIN tree. **Otherwise — DR-073 PATCH-FIRST: do NOT revert, do NOT change the WO's \`implementation_status\` (leave it IN_REVIEW), do NOT touch \`reopen_count\`, do NOT \`git checkout\`/\`git rm\` anything, do NOT commit a revert.** The build is ~correct except a bounded fault — the engine will attempt an in-place PATCH on the existing build BEFORE any revert. **FIX-FORWARD MANDATE (DR-073, calibrated 2026-07-01): a BOUNDED fault you can name at file:line with an estimated fix of ≤ ~30 lines (a hardcoded string, a missing null-guard, a clipped breakpoint, a missing escape) MUST take this findings exit — never a bare failure, never blocked_reason 'error' (80% of real first-gate fails had ≤6-min fixes; routing them to revert cost ~1.5h of a run's 2.2h rework).** Your job here is to REPORT the fixable fault(s) precisely: for EACH failing reviewed WO, write the specific finding (with file:line) and a RED-PROVEN failing test (a test you wrote that fails WITHOUT the fix and will pass WITH it — give its path / describe-it / a snippet) and the file(s) the fix should touch.${TRACK('review_end', `,"frd":"${frd}","verdict":"reopen"`)}${GATE_VERDICT(frd, 'reopen', `,"reopened":%s`, ` "<the count of work orders you are reopening — an integer>"`)} Return { green: false, reopen: [those ids], findings: [{ wo, finding, failingTest, files }], failure }${FAST ? GATE_FIX_LINES : ''}. The engine patches those findings in place; only if the patch can't green it whole-project does it then revert + reopen for a clean rebuild (DR-070, the fallback).
   **DR-065 — missing foundation primitive:** if a surface looks FLAT / structurally wrong because a SHARED design-system primitive it needs is NOT built (it isn't in src/components nor docs/design/components.md — e.g. the mock shows a Room/AgentSprite/StoneBridge the foundation never built), do NOT block and do NOT just reopen — return { green: false, missingFoundation: [the primitive names], failure }. The engine auto-repairs the foundation and rebuilds the surfaces against it.
   ${GATE_BROKEN_CLAUSE(frd)}`,
-    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
+    { label: `gate:${frd}`, phase: 'Review', model: P.judge, effort: FAST ? fastGateEffort(frd) : 'xhigh', agentType: 'pandacorp:reviewer', schema: FRD_GATE_SCHEMA, workFrom })
 }
 
 // ── FRD gate SPLIT (proposal 31 T1.2): parallel finder lenses → dedup → adversarial verify → close ──
@@ -3315,7 +3339,7 @@ async function frdGateSplit(frd, reviewIds, attemptNo = 1, workFrom, evidencePac
   ${DRIFT_CLAIM_DIRECTIVE}
   ${DISMISSAL_CITATION_DIRECTIVE}${inventoryBlock(frd, reviewIds)}${gateContextScope(frd, reviewIds)}
 ${evidenceBlock(frd, ev)}${driftFinderBlock(frd, reviewIds)}
-  1) Independently CONFIRM the surviving corrections and write adversarial tests the implementers did not see (anchored in EARS + real bugs), exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
+  1) Independently CONFIRM the surviving corrections and ${GATE_TESTS}, exercising the work orders TOGETHER with the rest of the feature (real integration, not isolated).
 ${gateFocusedStep(frd, ev)}
 
 ${GATE_PASS_RETURN}
@@ -5654,6 +5678,9 @@ function holdMain(who, fn) {
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
 const isUsable = (frd) => Boolean(usableOf(frd))   // both lanes: fastUsable is fast-only, priorUsable comes from any mechScript precheck
 const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
+// Proposal 40 §9: the serial opus gate runs at high off the floor; xhigh on the floor, on injection-style content landed
+// by the FRD (the verify op's scan with the security delta's content triggers), and whenever that scan is unknown.
+const fastGateEffort = (frd) => fastIsFloor(frd) || (frdState.get(frd) || {}).injection !== false ? 'xhigh' : 'high'
 const FAST_BUILD_SCHEMA = { type: 'object', required: ['wos'], properties: { wos: { type: 'array', items: { type: 'object', required: ['id', 'line'], properties: { id: { type: 'string' }, line: { type: 'string', description: "the LAST line this work order's final commit or park command printed, copied character for character" } } } } } }
 const SEC_AUDIT_SCHEMA = { type: 'object', required: ['done'], properties: { done: { type: 'boolean' }, failure: { type: 'string' }, findings: { type: 'array', items: { type: 'object' } } } }
 // C3 for an FRD the scripted plan did not classify (plan-agent fallback, a drained change): one op, fail-closed to floor.
@@ -5739,8 +5766,12 @@ const fastWoBrief = (w, frd) => `### WORK ORDER ${w.id}${w.summary ? ` — ${w.s
 // scripted verify ran it again: the builder's own check is now `--since` the FRD's dispatch base (the tests the FRD
 // changed + the global static checks), once, not per work order. With no known base it runs the full suite once.
 const fastSelfVerify = (since) => `run \`bash .pandacorp/verify.sh${since ? ` --since ${since}` : ''}\` ONCE, never after each work order (its commit already ran its related tests)${since ? '; the engine runs the FULL suite once before USABLE' : ''}`
+// Proposal 40 §2 (Builder trap checklist): the defects the gate caught before (benches F-1..3, Mission Control), so the
+// builder gets them right instead of the gate catching them after USABLE.
+const FAST_TRAPS = 'KNOWN TRAPS (past gate catches; get them right the first time): a state update from the previous value uses the functional form (no stale closure); a length limit counts what the spec counts (`[...s].length` code points vs `s.length` UTF-16 units); compare ISO timestamps with `Date.parse`, never as strings; no interactive element inside another (a button in a link or a button); a dialog traps focus, closes on Escape and returns focus to its trigger; `cn()` (tailwind-merge) drops a class it reads as conflicting, so check the classes really render; numeric bounds hold at both ends, including 5+-digit years.'
 const fastBuilderPrompt = (frd, wos, retry, since = null) => `${EMIT('implementer', frd, { frd, activity: retry ? 'retry' : 'implement' })}FAST-LANE BUILDER (proposal 39 C4) for FRD ${frd}.${retry ? ' RETRY: these work orders did not land on the first attempt; find out why before you rebuild them.' : ''} Build its work orders below IN THIS ORDER, one at a time, each with TDD (RED → GREEN → refactor) against its EARS criteria. A work order's boundary is the files it owns: another work order's files and the .pandacorp state are not yours.
 ${wos.map((w) => fastWoBrief(w, frd)).join('\n')}
+${FAST_TRAPS}
 HOW TO RUN each work order, in order:
  1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Read the ## Status Note of the work orders it depends on and build against those interfaces.
  2) Implement it until its own tests pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.
@@ -5811,6 +5842,9 @@ async function fastVerify(frd, since, ids) {
   const b = r.body
   if (!b || b.ok !== true) return { refused: true, green: false, usable: false, failure: r.error || (b && `${b.status}: ${b.reason || b.error || ''}`) || 'no verify receipt' }
   if (b.floor === true) fastFloor.add(frd)
+  const st = frdState.get(frd)
+  if (st && st.injection !== true && Array.isArray(b.injection)) st.injection = b.injection.length > 0
+  if (b.injection && b.injection.length) log(`◦ ${frd}: injection-style content (${b.injection.map((h) => h.detail).join('; ').slice(0, 200)}): its gate stays xhigh`)
   const green = b.green === true && b.scope !== 'partial'
   return { refused: false, green, usable: green && b.usable === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '' }
 }

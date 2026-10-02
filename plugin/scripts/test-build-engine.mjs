@@ -78,6 +78,10 @@ const mechLine = (op, body = {}) => sealLine({ version: 1, op, ok: true, ...body
 const FAST_BUILT_IDS = (prompt) => [...String(prompt).matchAll(/### WORK ORDER (\S+)/g)].map((m) => m[1])
 const commitLine = (wo, sha = 'c0ffee000000') => mechLine('commit-wo', { status: 'committed', wo, sha })
 const parkLine = (wo) => mechLine('park-wo', { status: 'parked', wo, parked: [] })
+// Proposal 40 Phase 4: a fast-lane green gate verdict carries >= 1 probe per reviewed work order. A scripted green answer
+// that names no `probes` gets one per WO the prompt reviews (the happy path); a scenario about the mandate sets its own.
+const REVIEWED_IDS = (prompt) => ((/THIS cycle: (.+?) \(all IN_REVIEW\)/.exec(String(prompt)) || [])[1] || '').split(', ').filter(Boolean)
+const withProbes = (call, answer) => answer && answer.green === true && !('probes' in answer) ? { ...answer, probes: REVIEWED_IDS(call.prompt).map((wo) => ({ wo, test: `src/_tests/${wo}.probe.test.ts` })) } : answer
 function defaultResponse(label, call = {}) {
   if (label === 'mech-plan') return null   // a fast-lane scenario gets its plan line from runEngine (scenario.plan)
   if (/^fast-(build|retry):/.test(label)) return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
@@ -118,7 +122,7 @@ function defaultResponse(label, call = {}) {
   if (/^(build|test|be|fe|selftest):/.test(label)) return { green: true } // VERIFY_SCHEMA
   if (label.startsWith('find:')) return { findings: [] }                 // FINDER_SCHEMA — nothing found
   if (label.startsWith('verify-finding:')) return { refuted: true, reason: 'default refuted' } // VERIFY_FINDING_SCHEMA
-  if (label.startsWith('gate:')) return { green: true, traceability: validTraceability } // FRD_GATE_SCHEMA
+  if (label.startsWith('gate:')) return withProbes(call, { green: true, traceability: validTraceability }) // FRD_GATE_SCHEMA
   if (/^(repair|patch|gate-test-repair|verify-patch|revert|foundation-repair):/.test(label)) return { green: true } // REPAIR_SCHEMA
   if (/^(process-change|plan-drained):/.test(label)) return { done: true, affectedFrds: [], frds: [] }
   if (label === 'ensure-stopped') return { done: true, allowed_paths: ['.pandacorp/status.yaml'], lease_released: true }
@@ -158,7 +162,7 @@ async function runEngine(scenario) {
       if (!m) continue
       if (r.times !== undefined) r.times--
       const answer = await (typeof r.response === 'function' ? r.response(call) : r.response)
-      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed && !('traceability' in answer) ? { ...answer, traceability: validTraceability } : answer
+      return call.label.startsWith('gate:') && answer && typeof answer === 'object' && !answer.__splitFailed ? withProbes(call, 'traceability' in answer ? answer : { ...answer, traceability: validTraceability }) : answer
     }
     const def = defaultResponse(call.label, call)
     if (def === null) {
@@ -2498,6 +2502,129 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'verify-patch:frd-cl').length === 1 && byLabel(run, 'certify-patch:frd-cl').length === 1 && byLabel(run, 'reviewer-test-hash:frd-cl').length === 1, 'the hash agent, the verify-patch agent and the certify-patch agent run as before')
     t.ok(byLabel(run, /^(patch-verify|certify-state):/).length === 0, 'no scripted patch op on the classic lane')
     t.ok(!/fixLines/.test(byLabel(run, 'gate:frd-cl')[0].prompt), 'the classic gate prompt is unchanged (no fixLines clause)')
+  },
+})
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 40 Phase 4: the gate trims (builder trap checklist, gate effort by floor or content, findings + probes,
+// the first-pass harness-marker rule). The classic lane keeps every prompt and effort as before.
+// ─────────────────────────────────────────────────────────────────────────────
+const TRAP_RES = [/functional/i, /stale closure/i, /\[\.\.\.s\]\.length/, /Date\.parse/, /interactive element inside/i, /traps focus/i, /cn\(\)/, /5\+-digit years?/]
+SCENARIOS.push({
+  name: 'builder-prompt-carries-trap-checklist — the fast-lane builder gets the traps the gate caught before (functional setState, UTF-16 length, Date.parse, nested interactive elements, dialog focus, cn() merge, 5+-digit years)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-tc', ids: ['wo-tc-001', 'wo-tc-002'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, 'fast-build:frd-tc')
+    t.ok(b.length === 1, 'one builder')
+    const missing = TRAP_RES.filter((re) => !(b[0] && re.test(b[0].prompt)))
+    t.ok(missing.length === 0, `every trap is in the builder prompt (missing: ${missing.join(' ')})`)
+    t.ok(b[0] && b[0].prompt.indexOf('KNOWN TRAPS') < b[0].prompt.indexOf('HOW TO RUN'), 'the checklist comes before the build steps (the builder reads it before it writes code)')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-carries-trap-checklist (classic) — the classic builders and gates are unchanged: no checklist, no probe mandate, no marker rule, the gate stays xhigh',
+  args: { mode: 'balanced', lane: 'classic' },
+  plan: fastPlan([{ frd: 'frd-tk', ids: ['wo-tk-001'] }]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^build:/).length === 1, 'the classic per-WO builder ran')
+    t.ok(!run.calls.some((c) => /KNOWN TRAPS/.test(c.prompt)), 'no trap checklist on the classic lane')
+    const g = byLabel(run, 'gate:frd-tk')
+    t.ok(g.length === 1 && g[0].opts.effort === 'xhigh', `the classic gate stays xhigh (got ${g.map((c) => c.opts.effort)})`)
+    t.ok(g[0] && !/PROBES/.test(g[0].prompt) && !/data-scroll-x/.test(g[0].prompt) && /write adversarial tests the implementers did not see/.test(g[0].prompt), 'the classic gate prompt keeps its adversarial-test step, no probe mandate, no marker rule')
+  },
+})
+const injVerify = (frd, extra) => ({ label: `verify:${frd}`, response: { line: mechLine('verify', { status: 'green', frd, green: true, usable: !extra.floor, floor: false, sha: 'feed00000001', scope: 'full', ...extra }) } })
+SCENARIOS.push({
+  name: 'gate-effort-xhigh-on-injection-content — off the floor the gate runs at high; a landed injection-style content trigger (the security delta\'s content rules) keeps xhigh, as does the floor and an unknown scan (fail-closed)',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-ei', ids: ['wo-ei-001'] }, { frd: 'frd-eq', ids: ['wo-eq-001'] }, { frd: 'frd-ef', ids: ['wo-ef-001'], floor: true }, { frd: 'frd-eu', ids: ['wo-eu-001'] }]),
+  responses: [
+    injVerify('frd-ei', { injection: [{ trigger: 'dangerouslySetInnerHTML', kind: 'content', detail: "src/app/post.tsx: '<div dangerouslySetInnerHTML={{ __html: body }} />'" }] }),
+    injVerify('frd-eq', { injection: [] }),
+    injVerify('frd-ef', { injection: [], floor: true }),
+    injVerify('frd-eu', {}),
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const eff = (f) => byLabel(run, `gate:${f}`).map((c) => c.opts.effort).join(',')
+    t.ok(eff('frd-ei') === 'xhigh', `injection content off the floor → xhigh (got ${eff('frd-ei')})`)
+    t.ok(eff('frd-eq') === 'high', `no floor, no injection content → high (got ${eff('frd-eq')})`)
+    t.ok(eff('frd-ef') === 'xhigh', `a floor FRD → xhigh (got ${eff('frd-ef')})`)
+    t.ok(eff('frd-eu') === 'xhigh', `a verify receipt without the content scan → xhigh (fail-closed) (got ${eff('frd-eu')})`)
+    t.ok(byLabel(run, /^gate:/).every((c) => c.model === 'opus'), 'the gate stays opus at either effort (DR-015)')
+    t.ok(hasLog(run, /frd-ei.*dangerouslySetInnerHTML/), 'the injection trigger that kept xhigh is logged')
+    t.ok(run.result && ['frd-ei', 'frd-eq', 'frd-ef', 'frd-eu'].every((f) => run.result.builtFrds.includes(f)), 'all VERIFIED')
+  },
+})
+const PROBE_RE = /at least 1 and at most 5 per reviewed work order/
+const probesOf = (...ids) => ids.map((wo) => ({ wo, test: `src/_tests/${wo}.probe.test.ts` }))
+SCENARIOS.push({
+  name: 'probe-mandate-min-one-per-wo — the fast gate writes regression tests for findings plus 1-5 probes per reviewed WO (no blanket suite); a green verdict with a WO left unprobed is re-asked once, then certified',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-pm', ids: ['wo-pm-001', 'wo-pm-002'] }]),
+  responses: [
+    { label: 'gate:frd-pm', times: 1, response: { green: true, testFiles: ['src/_tests/wo-pm-001.probe.test.ts'], probes: probesOf('wo-pm-001') } },
+    { label: 'gate:frd-pm', response: { green: true, testFiles: ['src/_tests/wo-pm-001.probe.test.ts', 'src/_tests/wo-pm-002.probe.test.ts'], probes: probesOf('wo-pm-001', 'wo-pm-002') } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const g = byLabel(run, 'gate:frd-pm')
+    t.ok(g[0] && PROBE_RE.test(g[0].prompt) && /regression test for each finding/i.test(g[0].prompt) && /never a blanket suite/i.test(g[0].prompt), 'the first gate carries the findings + probes mandate')
+    t.ok(g[0] && /probes: \[\{ wo, test \}\]/.test(g[0].prompt), 'the gate is told to return its probes per work order')
+    t.ok(g.length === 2 && /RE-ASK/.test(g[1].prompt) && /wo-pm-002/.test(g[1].prompt.split('RE-ASK')[1] || ''), `the unprobed WO is named in ONE re-ask (got ${g.length} gate calls)`)
+    t.ok(run.result && run.result.builtFrds.includes('frd-pm'), 'VERIFIED once every reviewed WO has a probe')
+  },
+})
+SCENARIOS.push({
+  name: 'probe-mandate-min-one-per-wo (b) — still unprobed after the re-ask: needs-owner, never certified; the classic lane does not enforce probes',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-pn', ids: ['wo-pn-001', 'wo-pn-002'] }]),
+  responses: [{ label: 'gate:frd-pn', response: { green: true, testFiles: [], probes: probesOf('wo-pn-001') } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'gate:frd-pn').length === 2, 'one re-ask, never a loop')
+    t.ok(run.result && !run.result.builtFrds.includes('frd-pn') && run.result.blockedReasons['frd-pn'] === 'needs-owner', `not VERIFIED, needs-owner (got ${run.result && JSON.stringify(run.result.blockedReasons)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'probe-mandate-min-one-per-wo (classic) — a classic green verdict with no probes is certified as before',
+  args: { mode: 'balanced', lane: 'classic', parallelGates: true },
+  plan: mkPlan([{ frd: 'frd-pc', deps: [], workOrders: [mkWo('wo-pc-001', 'IN_REVIEW', { frd: 'frd-pc', artifacts: ['src/pc/**'] })] }]),
+  responses: [{ label: 'gate:frd-pc', response: { green: true, testFiles: [], probes: [] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'gate:frd-pc').length === 1 && run.result && run.result.builtFrds.includes('frd-pc'), 'one gate, VERIFIED')
+  },
+})
+const MARKER_DISMISSAL = { finding: 'Once / is blessed, the responsive gate reds at 390px on div.overflow-x-auto: the FRD-required table scroll is missing only the harness opt-out marker data-scroll-x="intentional"; I left / unblessed and put it on the punch-list', ground: 'frd-scope', source: 'docs/frds/frd-hm/frd.md:12', quote: 'The summary table scrolls inside its own container on narrow screens.' }
+SCENARIOS.push({
+  name: 'harness-marker-raised-first-pass — the fast gate is told on its FIRST pass that a missing harness opt-out marker is a finding with its fix, never a dismissal; a marker dismissal is refused even with a valid citation',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-hm', ids: ['wo-hm-001'] }]),
+  responses: [
+    { label: 'gate:frd-hm', times: 1, response: { green: true, testFiles: [], probes: probesOf('wo-hm-001'), dismissals: [MARKER_DISMISSAL] } },
+    { label: 'gate:frd-hm', response: { green: true, testFiles: [], probes: probesOf('wo-hm-001') } },
+  ],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const g = byLabel(run, 'gate:frd-hm')
+    t.ok(g[0] && !/RE-ASK/.test(g[0].prompt) && /harness/i.test(g[0].prompt) && /data-scroll-x="intentional"/.test(g[0].prompt) && /first pass/i.test(g[0].prompt) && /never a dismissal/i.test(g[0].prompt), 'the first-pass gate prompt carries the marker rule')
+    t.ok(g.length === 2 && /RE-ASK/.test(g[1].prompt) && /harness/i.test(g[1].prompt.split('RE-ASK')[1] || ''), `the marker dismissal is NOT accepted: one re-ask names it (got ${g.length} gate calls)`)
+    t.ok(!hasLog(run, /gate dismissed .*data-scroll-x/), 'the marker dismissal is never logged as accepted')
+    t.ok(run.result && run.result.builtFrds.includes('frd-hm'), 'VERIFIED after the re-ask')
+  },
+})
+SCENARIOS.push({
+  name: 'harness-marker-raised-first-pass (classic) — the classic lane keeps the BL-0211 rule only: a cited marker dismissal is accepted, no re-ask',
+  args: { mode: 'balanced', lane: 'classic', parallelGates: true },
+  plan: mkPlan([{ frd: 'frd-hc', deps: [], workOrders: [mkWo('wo-hc-001', 'IN_REVIEW', { frd: 'frd-hc', artifacts: ['src/hc/**'] })] }]),
+  responses: [{ label: 'gate:frd-hc', response: { green: true, testFiles: [], dismissals: [{ ...MARKER_DISMISSAL, source: 'docs/frds/frd-hc/frd.md:12' }] } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'gate:frd-hc').length === 1 && run.result && run.result.builtFrds.includes('frd-hc'), 'one gate, VERIFIED')
   },
 })
 
