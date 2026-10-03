@@ -3578,6 +3578,74 @@ SCENARIOS.push({
   },
 })
 
+// C7 (orchestrator decision 2026-10-03): effort `medium` ships ON by default for a sonnet fast builder, with an opt-out.
+const effortOf = (c) => c && c.opts.effort
+SCENARIOS.push({
+  name: 'builder-effort-medium-by-default — a sonnet fast builder runs at effort medium with no arg (C7 ON by default, DR-126); the classic builder and the fix-forward are unchanged',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  next: () => ({ args: { mode: 'balanced', lane: 'classic' }, plan: mkPlan([{ frd: 'frd-41c', deps: [], workOrders: [mkWo('wo-41c-001', 'PLANNED', { frd: 'frd-41c', artifacts: ['src/c/**'] })] }]) }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && b.model === 'sonnet' && effortOf(b) === 'medium', `sonnet builder at medium (got ${b && b.model}/${effortOf(b)})`)
+    const classic = run.next && byLabel(run.next, /^build:/)[0]
+    t.ok(classic && classic.model === 'sonnet' && effortOf(classic) === undefined, `the classic sonnet builder keeps no effort key (got ${effortOf(classic)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'builder-effort-unset-by-default (opt-out) — args.builderEffort \'default\' (or false) restores today\'s unset effort',
+  args: { mode: 'balanced', ...FAST, builderEffort: 'default' },
+  plan: p41Plan(),
+  next: () => ({ args: { mode: 'balanced', ...FAST, builderEffort: false }, plan: p41Plan() }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && b.model === 'sonnet' && effortOf(b) === undefined && !('effort' in b.opts && b.opts.effort !== undefined), `'default' → no effort (got ${effortOf(b)})`)
+    const n = run.next && p41Builder(run.next)
+    t.ok(n && effortOf(n) === undefined, `false → no effort (got ${effortOf(n)})`)
+  },
+})
+SCENARIOS.push({
+  name: 'builder-effort-flag-sets-sonnet-medium — an explicit effort reaches the sonnet builder; an unknown value is logged and falls back to medium',
+  args: { mode: 'balanced', ...FAST, builderEffort: 'high' },
+  plan: p41Plan(),
+  next: () => ({ args: { mode: 'balanced', ...FAST, builderEffort: 'turbo' }, plan: p41Plan() }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(effortOf(p41Builder(run)) === 'high', `'high' → high (got ${effortOf(p41Builder(run))})`)
+    const n = run.next && p41Builder(run.next)
+    t.ok(n && effortOf(n) === 'medium' && hasLog(run.next, /args\.builderEffort "turbo" is not low\|medium\|high\|default — using medium/), 'an unknown value: medium, loudly')
+  },
+})
+SCENARIOS.push({
+  name: 'opus-builder-keeps-high-effort — the opus rebuild of a parked WO stays at high whatever builderEffort says; the sonnet builder takes the flag',
+  args: { mode: 'balanced', ...FAST, builderEffort: 'low' },
+  plan: fastPlan([{ frd: 'frd-41h', ids: ['wo-41h-001'] }]),
+  responses: [{ label: 'fast-build:frd-41h', response: parkedVia(['wo-41h-001']) }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = byLabel(run, 'fast-build:frd-41h')[0]
+    t.ok(b && b.model === 'sonnet' && effortOf(b) === 'low', `the sonnet builder takes builderEffort (got ${b && b.model}/${effortOf(b)})`)
+    const r = byLabel(run, 'fast-retry:frd-41h')[0]
+    t.ok(r && r.model === 'opus' && effortOf(r) === 'high', `the opus rebuild stays at high (got ${r && r.model}/${effortOf(r)})`)
+  },
+})
+{
+  const sim = laneSim([chainOf('frd-41p', ['wo-41p-001']), chainOf('frd-41q', ['wo-41q-001'])])
+  SCENARIOS.push({
+    name: 'builder-effort-medium-by-default (lane) — lane builders get the same default',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-41p', ids: ['wo-41p-001'] }, { frd: 'frd-41q', ids: ['wo-41q-001'] }]),
+    responses: [...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const builds = byLabel(run, /^lane-build:/)
+      t.ok(builds.length === 2 && builds.every((c) => c.model === 'sonnet' && effortOf(c) === 'medium'), `both lane builders sonnet/medium (got ${builds.map((c) => `${c.model}/${effortOf(c)}`).join(', ')})`)
+    },
+  })
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
 // ─────────────────────────────────────────────────────────────────────────────

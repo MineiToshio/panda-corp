@@ -3637,10 +3637,18 @@ function fastLanded(wos, wrappedAnswer) {
  }
  return out
 }
+const BUILDER_EFFORT = (() => {
+ const raw = args ? args.builderEffort : undefined
+ if (raw === undefined || raw === null) return 'medium'
+ if (raw === false || raw === 'false' || raw === 'default') return undefined
+ if (['low', 'medium', 'high'].includes(raw)) return raw
+ log(`⚠ args.builderEffort ${JSON.stringify(raw)} is not low|medium|high|default — using medium (DR-126)`)
+ return 'medium'
+})()
 async function fastBuilder(frd, wos, model, retry = false, since = null, ln = null) {
  agentSpawned += COST(model)
  const label = ln ? `lane-build:${ln.chain}` : retry ? `fast-retry:${frd}` : model !== P.worker ? `fast-build:${frd}:${wos[0].id}` : `fast-build:${frd}`
- const out = fastLanded(wos, await agent(fastBuilderPrompt(frd, wos, retry, since, ln), { label, phase: 'Build', model, effort: model === 'opus' ? 'high' : undefined, agentType: 'pandacorp:implementer', schema: FAST_BUILD_SCHEMA, ...(ln ? { workFrom: laneWorkFrom(ln) } : {}) }))
+ const out = fastLanded(wos, await agent(fastBuilderPrompt(frd, wos, retry, since, ln), { label, phase: 'Build', model, effort: model === 'opus' ? 'high' : BUILDER_EFFORT, agentType: 'pandacorp:implementer', schema: FAST_BUILD_SCHEMA, ...(ln ? { workFrom: laneWorkFrom(ln) } : {}) }))
  const dir = ln ? ln.path : PROJECT_DIR
  const recommitted = out.unproven.length ? await fastRecommit(out.unproven, dir) : []
  const unproven = out.unproven.filter((w) => !recommitted.includes(w))
