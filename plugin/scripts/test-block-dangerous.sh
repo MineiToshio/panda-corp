@@ -203,6 +203,43 @@ check "block: git -C x push --force"                              2 "$fx" "git -
 check "allow: git -C x reset --hard <explicit-sha> (flat repo)"   0 "$fx" "git -C sub reset --hard 515c5ff"
 check "allow: flat repo git clean -fd still allowed"              0 "$fx" "git -C sub clean -fd"
 
+echo "== BL-0223: host-wide kills of dev/prod servers (pkill/killall by pattern, port kills) =="
+# FM-10: a gate reviewer's host-wide pkill by pattern killed an unrelated Next.js oracle server.
+# Kills must be scoped to the PID/process group the agent started itself (.pandacorp/serve-once.sh).
+check "block: pkill -f \"next start\""                            2 "$fx" 'pkill -f "next start"'
+check "block: pkill -f next-server"                               2 "$fx" "pkill -f next-server"
+check "block: pkill -9 -f next"                                   2 "$fx" "pkill -9 -f next"
+check "block: pkill node"                                         2 "$fx" "pkill node"
+check "block: pkill -f vite"                                      2 "$fx" "pkill -f vite"
+check "block: pkill -f playwright"                                2 "$fx" "pkill -f playwright"
+check "block: pkill -f 'pnpm start'"                              2 "$fx" "pkill -f 'pnpm start'"
+check "block: killall node"                                       2 "$fx" "killall node"
+check "block: killall -9 next-server"                             2 "$fx" "killall -9 next-server"
+check "block: chained after curl"                                 2 "$fx" 'curl -s localhost:3000 && pkill -f "next start" ; true'
+check "block: sudo pkill -f next"                                 2 "$fx" "sudo pkill -f next"
+check "block: lsof port | xargs kill"                             2 "$fx" "lsof -ti :3000 | xargs kill"
+check "block: lsof port | xargs kill -9"                          2 "$fx" "lsof -ti:3000 | xargs kill -9"
+check "block: kill command-substitution of lsof"                  2 "$fx" 'kill $(lsof -ti :3000)'
+check "block: kill -9 command-substitution of lsof -t -i"         2 "$fx" 'kill -9 $(lsof -t -i:3000)'
+check "block: kill backtick lsof"                                 2 "$fx" 'kill `lsof -ti :3000`'
+check "block: kill command-substitution of pgrep -f"              2 "$fx" 'kill $(pgrep -f next)'
+check "block: pgrep | xargs kill"                                 2 "$fx" "pgrep -f next-server | xargs kill"
+check "block: ps|grep|awk|xargs kill"                             2 "$fx" "ps aux | grep next | awk '{print \$2}' | xargs kill"
+check "block: fuser -k port"                                      2 "$fx" "fuser -k 3000/tcp"
+check "allow: kill \$PID"                                         0 "$fx" 'kill $PID'
+check "allow: kill -TERM \$PID"                                   0 "$fx" 'kill -TERM $SERVER_PID'
+check "allow: kill the own process group"                         0 "$fx" 'kill -- -$PGID'
+check "allow: kill -TERM -PGID"                                   0 "$fx" 'kill -TERM -- -$PGID'
+check "allow: pkill -P \$PID (own children)"                      0 "$fx" 'pkill -P $PID'
+check "allow: pkill -TERM -P \$PID"                               0 "$fx" 'pkill -TERM -P $PID'
+check "allow: kill of pgrep -P \$PID"                             0 "$fx" 'kill $(pgrep -P $PID)'
+check "allow: pkill -f of an unrelated tool"                      0 "$fx" 'pkill -f myhelper-daemon'
+check "allow: lsof only inspects"                                 0 "$fx" "lsof -ti :3000"
+check "allow: pgrep only inspects"                                0 "$fx" "pgrep -f next"
+check "allow: xargs kill fed by an own pid file"                  0 "$fx" 'cat server.pid | xargs kill'
+check "allow: prose mentioning the ban in a commit message"       0 "$fx" 'git commit -m "docs: never run pkill -f next"'
+check "allow: serve-once helper"                                  0 "$fx" "bash .pandacorp/serve-once.sh -- pnpm start"
+
 echo "== OUT OF SCOPE (expect 0 in a non-Pandacorp dir) =="
 plain=$(mktemp -d)
 check "non-Pandacorp dir allows"           0 "$plain" "git push --force"
