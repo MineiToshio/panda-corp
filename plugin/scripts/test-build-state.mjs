@@ -109,6 +109,17 @@ await test("closeout-security-report-local-date: release finds the report named 
     await rm(d.p, { recursive: true });
   } finally { if (savedTz === undefined) delete process.env.TZ; else process.env.TZ = savedTz; }
 });
+await test("BL-0218: a phase set through the state CLI survives the lease quiesce", async () => {
+  const p = await fixture(); const l = await acquire(p, { runtime: "claude", runId: "phase-quiesce", ttlSeconds: 30 });
+  const frd = path.join(p, "docs/frds/frd-01"); await mkdir(path.join(frd, "work-orders"), { recursive: true });
+  await writeFile(path.join(frd, "frd.md"), "---\nimplementation_status: VERIFIED\n---\n");
+  await mkdir(path.join(p, "docs/reviews"), { recursive: true }); await writeFile(path.join(p, "docs/reviews", `security-${localDay()}.md`), "green\n");
+  const cli = (...a) => execFileSync("node", [buildStateCli, ...a, "--project", p, "--token", l.token, "--epoch", String(l.epoch)], { encoding: "utf8" });
+  cli("set-phase", "--phase", "release"); cli("quiesce");
+  const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8");
+  ok(/^phase:\s*["']?release["']?$/m.test(status) && /^running: false$/m.test(status), "quiesce re-projected the phase set through the state CLI");
+  await rm(p, { recursive: true });
+});
 await test("two-phase release keeps fencing through the committed quiesce window", async () => {
   const p = await fixture(); const l = await acquire(p, { runtime: "codex", runId: "two-phase", ttlSeconds: 30 }); await quiesce(p, l.token, l.epoch); const status = await readFile(path.join(p, ".pandacorp/status.yaml"), "utf8"); ok(/running: false/.test(status), "quiesce projection missing"); ok(Boolean(await currentLease(p)), "quiesce dropped ownership before commit"); await rejects(() => renew(p, l.token, l.epoch), "QUIESCED"); await rejects(() => finalizeRelease(p, "foreign", l.epoch), "FENCE"); await finalizeRelease(p, l.token, l.epoch); ok(!(await currentLease(p)), "finalize retained lease"); await rm(p, { recursive: true });
 });

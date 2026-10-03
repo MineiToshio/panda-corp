@@ -685,6 +685,10 @@ SCENARIOS.push({
     const closeout = byLabel(run, 'close-out')[0]
     t.ok(closeout && /assert the hardening evidence EXISTS/.test(closeout.prompt),
       'the close-out prompt gates phase: release on the hardening evidence (security report + telemetry verification)')
+    // BL-0218: the lease owns the projected phase and the terminal quiesce re-projects it, so a hand-edited
+    // status.yaml `phase: release` is overwritten (the run A-1 "restore phase" commit). The close-out sets it through the CLI.
+    t.ok(closeout && /pandacorp-build-state\.mjs'? set-phase --project [^\n]* --phase release/.test(closeout.prompt),
+      'the close-out sets phase: release through the fenced set-phase CLI, never by hand-editing status.yaml (BL-0218)')
   },
 })
 

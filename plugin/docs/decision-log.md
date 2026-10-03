@@ -4,6 +4,12 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased (bench follow-ups)
+
+### BL-0218 — the close-out sets `phase: release` through the state CLI (no more hand edit, no restore commit)
+
+The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) told the agent to "set `.pandacorp/status.yaml` phase: release" by hand. The lease owns the projected phase (`lease.project_phase`, default `implementation`) and the terminal `quiesce` re-projects it from the lease, so the hand edit was silently overwritten and the run needed a third commit to restore it (bench run A-1: `5998aac` -> `01dbb9a` -> `42c8993`). The prompt now instructs `pandacorp-build-state.mjs set-phase --phase release`, the single writer (it also re-checks every FRD VERIFIED and the hardening evidence). `quiesce` itself is unchanged: a phase set through the CLI survives it (new `test-build-state.mjs` assertion) and the scripted close (`build-mech-close.mjs`) already did this. Test: `test-pandacorp-build.mjs` scenario 5 asserts the close-out prompt carries the `set-phase` command. Engine artifact regenerated.
+
 ## v9.120.1 — 2026-10-03 (PATCH): the stack-a production-smoke harness passes its own stack gate. `OVERLAY_VERSION` 8.97.0 -> 8.97.1
 
 **What:** `/pandacorp:upgrade` of Mission Control to 8.97.0 installed `e2e/prod-smoke.spec.ts` + `e2e/_prod-smoke.ts` verbatim and the project's full `verify.sh` went RED on the TEMPLATE files, not on product code: (1) biome `lint/suspicious/noSkippedTests` on the file-level `test.skip(!process.env.PANDACORP_PROD_SMOKE, ...)` plus two formatter diffs, and (2) `tsc` TS2532 on `csp[0].slice(...)` under the stack's own `noUncheckedIndexedAccess`. Every project upgrading to 8.97.0 would have been red-locked (DR-076 amendment step 3b). Fixed at the source: a `biome-ignore` with the reason (the skip is the deliberate env gate), biome-formatted, and the first CSP violation read through a narrowed local. `test-prod-smoke.mjs`'s spec-shape regex now tolerates the formatter's line break after `test.skip(` (28/28).

@@ -3,12 +3,12 @@ id: BL-0218
 type: bug
 area: build-engine
 title: "the lease quiesce re-projects status.yaml phase after the close-out set phase release, so the close-out has to restore it with an extra commit"
-status: open
+status: done
 severity: p2
 opened: 2026-10-01
-closed:
+closed: 2026-10-03
 source: "pandacorp-bench-form benchmark run A-1 (bench-implement commits 5998aac → 01dbb9a → 42c8993), red-team spec/redteam.md change c"
-closes:
+closes: "close-out sets phase release through the state CLI set-phase (plugin/docs/decision-log.md, Unreleased bench follow-ups)"
 links: [DR-085, DR-097]
 ---
 
@@ -20,8 +20,9 @@ In run A-1 (plugin 9.117.1, /Users/Shared/Proyectos/pandacorp-bench-form/bench-i
 agent spent part of its 9.3 opus minutes hunting the phase setter.
 
 ## Root cause
-Not verified. Suspect: the quiesce path in plugin/scripts/pandacorp-build-state.mjs re-derives `phase` from a stale
-projection instead of preserving the value the close-out wrote.
+Verified 2026-10-03: `quiesce` -> `reassertActiveProjection` projects `phase` from `lease.project_phase` (default
+`implementation`). The prose close-out prompt hand-edited `status.yaml` phase instead of using `set-phase`, which is the only
+writer of `lease.project_phase`, so quiesce overwrote the hand edit. A phase set through `set-phase` survives quiesce.
 
 ## Fix plan
 Make quiesce preserve a `phase` written after the run's last projection (or have close-out set it through the state
