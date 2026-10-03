@@ -2366,7 +2366,18 @@ const TRACK_AND_WO_COMMIT = (frd, woId) =>
 // Proposal 39 C1/C2 (mechScript): a SOLO wave (one WO building, so no sibling's in-flight files) with declared artifacts
 // commits through the scripted commit-wo (clean-tree, AC-citation floor, related unit tests, one commit naming the WO).
 // A multi-WO wave keeps the prose writer: commit-wo refuses any undeclared dirty path, and a sibling is still building.
+// Proposal 41 (builder speed): the FRD's behaviour e2e spec is mandated (FAST_E2E) yet owned by no WO's artifacts, so commit-wo
+// called it undeclared. One name serves the prompt and the commit flags; the FRD's last UI WO (else its last) owns it.
+const fastE2eSpec = (frd) => `e2e/${frd}.behaviour.spec.ts`
+const fastSpecOwner = (wo) => {
+  if (!FAST || !plan || !plan.hasFrontend) return null
+  const f = (plan.frds || []).find((x) => (x.workOrders || []).some((w) => w.id === wo.id))
+  if (!f) return null
+  const ui = f.workOrders.filter((w) => !(w.artifacts && w.artifacts.length) || w.artifacts.some((a) => UI_ARTIFACT_RE.test(a)))
+  return (ui.length ? ui : f.workOrders).slice(-1)[0].id === wo.id ? f.frd : null
+}
 const commitWoFlags = (wo) => [`--wo ${shellQuote(wo.id)}`, ...(wo.artifacts || []).map((a) => `--file ${shellQuote(a)}`),
+  ...(fastSpecOwner(wo) ? [`--file ${shellQuote(fastE2eSpec(fastSpecOwner(wo)))}`] : []),
   ...(plan && plan.hasFrontend ? [`--extra ${shellQuote('docs/design/components.md')} --reason ${shellQuote('DR-057 shared component inventory')}`] : []),
   ...(P.split && plan && plan.hasFrontend ? [`--extra ${shellQuote(`docs/api/${wo.id}.md`)} --reason ${shellQuote('DR-060 per-WO API contract')}`] : [])].join(' ')
 async function scriptedCommitWO(wo) {
@@ -5825,17 +5836,17 @@ const fastWoBrief = (w, frd, dir) => `### WORK ORDER ${w.id}${w.summary ? ` — 
 // gates (knip, madge, doc-lint and residual-ambiguity are the engine's full verify's), then the FRD's own e2e specs once and
 // `--last-failed` per fix. Bench FM-3/5/9: 6 verify re-runs only recovered an exit code `| tail` had hidden.
 const SELF_VERIFY_ONLY = 'structure-guard,data-layer,api-error-contract,biome,tsc,vitest'
-const fastSelfVerify = (since) => `run \`bash .pandacorp/verify.sh${since ? ` --since ${since}` : ''} --only=${SELF_VERIFY_ONLY}; echo EXIT=$?\` ONCE, never after each work order (its commit already ran its related tests), then the FRD's OWN e2e spec files once (\`pnpm exec playwright test <its spec files>; echo EXIT=$?\`) and, after each fix, only \`pnpm exec playwright test --last-failed\`. Take the verdict from .pandacorp/run/gate-report.json or EXIT=, never from \`| tail\` alone. Never re-run a whole spec file for one fix, never write a throwaway screenshot spec, never start \`next dev\` or \`next build\` yourself (the Playwright webServer serves the app); the engine runs the FULL suite once before USABLE`
+const fastSelfVerify = (since) => `run \`bash .pandacorp/verify.sh${since ? ` --since ${since}` : ''} --only=${SELF_VERIFY_ONLY}; echo EXIT=$?\` ONCE, never after each work order (its commit already ran its related tests), then the FRD's OWN e2e spec files once (\`pnpm exec playwright test <its spec files>; echo EXIT=$?\`) and, after each fix, only \`pnpm exec playwright test --last-failed\`. Take the verdict from .pandacorp/run/gate-report.json or EXIT=, never from \`| tail\` alone. Never re-run a whole spec file for one fix, never write a throwaway screenshot spec in the test tree, never start \`next dev\` or \`next build\` yourself (the Playwright webServer serves the app); the engine runs the FULL suite once before USABLE`
 // Proposal 40 §2 (Builder trap checklist): the defects the gate caught before (benches F-1..3, Mission Control), so the
 // builder gets them right instead of the gate catching them after USABLE.
 const FAST_TRAPS = 'KNOWN TRAPS (past gate catches; get them right the first time): a state update from the previous value uses the functional form (no stale closure); a length limit counts what the spec counts (`[...s].length` code points vs `s.length` UTF-16 units); compare ISO timestamps with `Date.parse`, never as strings; no interactive element inside another (a button in a link or a button); a dialog traps focus, closes on Escape and returns focus to its trigger; `cn()` (tailwind-merge) drops a class it reads as conflicting, so check the classes really render; numeric bounds hold at both ends, including 5+-digit years.'
 // Proposal 41 C6 (DR-056 kept): one fidelity pass per FRD replaces each UI work order's own render loop (bench: 6.4 min of
 // screenshot side-checks in 5 runs).
-const FAST_FIDELITY = 'ONE fidelity script per FRD (DR-056 in-loop check): after its last UI work order, one script renders EVERY UI work order\'s route and screenshots each next to its mock; fix only a GROSS structural divergence (layout, a missing section), never nits: the end-of-build Visual QA owns fine fidelity. No other screenshot check.'
+const FAST_FIDELITY = 'ONE fidelity script per FRD (DR-056 in-loop check): after its last UI work order, one script renders EVERY UI work order\'s route and screenshots each next to its mock; fix only a GROSS structural divergence (layout, a missing section), never nits: the end-of-build Visual QA owns fine fidelity. No other screenshot check. Run it as a Playwright script under .pandacorp/run/ (gitignored) on the project\'s playwright config webServer (never `next dev` by hand), leave it untracked and never commit it.'
 // Proposal 41 C1 (DR-126): builders wrote 8-10x vanilla's unit-test volume (bench FM-9: 295k unit chars vs 139k app). The
 // cap of 3 ids per title keeps the citation floor meaningful (R2); the behaviour e2e covers V-2's dialog-focus misses (R1).
 const FAST_BUDGET = 'TEST BUDGET (DR-126): about ONE unit test file per work-order module; its unit tests at most as many characters as its production code; one `it`/`describe` title may cite at most 3 AC ids (group them: `it(\'AC-01-002.1, AC-01-002.2: ...\')`), and every id under `cite:` is cited somewhere.'
-const FAST_E2E = ' BEHAVIOUR E2E: keep or extend ONE e2e spec for this FRD covering its primary flow plus, for every dialog, Escape, the focus trap and the return of focus to its trigger.'
+const FAST_E2E = (frd) => ` BEHAVIOUR E2E: keep or extend ONE e2e spec for this FRD covering its primary flow plus, for every dialog, Escape, the focus trap and the return of focus to its trigger. Its path is \`${fastE2eSpec(frd)}\` (declared by the commit command of the FRD's last UI work order).`
 // Proposal 41 C5 (DR-126): the lean contract rides the EXISTING pandacorp:implementer agent type, never a new one: a running
 // session freezes its agent registry (BL-0168, LESSON-0248), so a new type would crash every session not restarted.
 // implementer.md's fast-lane section yields to this prompt; its Forbidden list, DR-080 and false-done rule still bind.
@@ -5845,7 +5856,7 @@ const fastBuilderPrompt = (frd, wos, retry, since = null, ln = null) => `${EMIT(
 CONTEXT, once before the first work order: run \`${mechOpCommand('wo-brief', `${wos.map((w) => `--wo ${shellQuote(w.id)}`).join(' ')}${since ? ` --since ${shellQuote(since)}` : ''}`, ln ? ln.path : PROJECT_DIR)}\` and Read the file its last line names: the blueprint sections your work orders cite, their mocks, and the Status Notes of the dependencies landed in your base (one marked NOT landed: Read that note in its work-order file once committed). Never re-read what it inlines; if it fails, read those files yourself.
 ${wos.map((w) => fastWoBrief(w, frd, ln ? ln.path : PROJECT_DIR)).join('\n')}
 ${FAST_TRAPS}
-${FAST_BUDGET}${plan.hasFrontend ? FAST_E2E : ''}
+${FAST_BUDGET}${plan.hasFrontend ? FAST_E2E(frd) : ''}
 HOW TO RUN each work order, in order:
  1) Append its start line: printf '{"kind":"wo_start","frd":"${frd}","wo":"<id>","at":"%s"}\\n' "$(date -u +%FT%TZ)" >> ${ln ? '.pandacorp/track.jsonl' : TRACK_PATH}. If .pandacorp/run/preserved-tests/<id>/ exists, restore those tests first (your RED baseline, DR-107). Build against the interfaces its dependencies' Status Notes expose.
  2) Write its code AND its tests in 1-2 calls (one heredoc, or parallel Write calls in one turn), then run vitest ONCE on its own test files, chaining checks in ONE Bash call (\`a && b; echo EXIT=$?\`); fix until they pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.

@@ -3485,6 +3485,50 @@ SCENARIOS.push({
   },
 })
 SCENARIOS.push({
+  name: 'fast-behaviour-e2e-spec-declared — on a frontend build the mandated behaviour spec e2e/<frd>.behaviour.spec.ts rides the commit flags of the FRD\'s last UI WO (so commit-wo never calls it undeclared) and is the very path the prompt tells the builder to create; non-UI builds and the classic lane are unchanged',
+  args: { mode: 'balanced', ...FAST },
+  plan: mkPlan([{ frd: 'frd-41', deps: [], workOrders: [
+    mkWo('wo-41-001', 'PLANNED', { frd: 'frd-41', artifacts: ['src/components/a.tsx'] }),
+    mkWo('wo-41-002', 'PLANNED', { frd: 'frd-41', artifacts: ['src/components/b.tsx'], deps: ['wo-41-001'] }),
+    mkWo('wo-41-003', 'PLANNED', { frd: 'frd-41', artifacts: ['src/lib/c.ts'], deps: ['wo-41-002'] }),
+  ] }], { hasFrontend: true, stack: 'A' }),
+  next: () => ({ args: { mode: 'balanced', ...FAST }, plan: p41Plan() }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    const brief = (id) => b ? (b.prompt.slice(b.prompt.indexOf(`### WORK ORDER ${id}`)).split('\n### WORK ORDER')[0].split('\n').find((l) => l.startsWith('  commit:')) || '') : ''
+    const spec = "'e2e/frd-41.behaviour.spec.ts'"
+    t.ok(b && brief('wo-41-002').includes(`--file ${spec}`), 'the last UI WO (the lib WO after it is not UI) declares the behaviour spec')
+    t.ok(b && !brief('wo-41-001').includes('behaviour.spec') && !brief('wo-41-003').includes('behaviour.spec'), 'no other WO declares it')
+    t.ok(b && b.prompt.includes('e2e/frd-41.behaviour.spec.ts`') && b.prompt.indexOf('BEHAVIOUR E2E') > -1, 'the prompt names the same path the commit flag carries')
+    const n = run.next && p41Builder(run.next)
+    t.ok(n && !/behaviour\.spec/.test(n.prompt), 'non-UI build: no behaviour spec path anywhere')
+  },
+})
+SCENARIOS.push({
+  name: 'fast-behaviour-e2e-spec-falls-back-to-last-wo — a UI FRD whose WOs declare no UI-looking artifact still gets the spec on its LAST work order',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan({ ui: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    const brief = (id) => b ? (b.prompt.slice(b.prompt.indexOf(`### WORK ORDER ${id}`)).split('\n### WORK ORDER')[0].split('\n').find((l) => l.startsWith('  commit:')) || '') : ''
+    t.ok(b && brief('wo-41-002').includes("--file 'e2e/frd-41.behaviour.spec.ts'") && !brief('wo-41-001').includes('behaviour.spec'), 'the last WO owns the spec')
+  },
+})
+SCENARIOS.push({
+  name: 'fidelity-script-lives-under-pandacorp-run — the one fidelity script is a gitignored Playwright script under .pandacorp/run/ on the config webServer, never committed; self-verify no longer contradicts it',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan({ ui: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    const fid = b ? b.prompt.slice(b.prompt.indexOf('ONE fidelity script per FRD')).split('\n')[0] : ''
+    t.ok(/Playwright script under \.pandacorp\/run\/ \(gitignored\)/.test(fid) && /webServer/.test(fid) && /never `next dev` by hand/.test(fid) && /never commit it/.test(fid), `the fidelity sentence names .pandacorp/run/, the webServer, no next dev, never committed (got ${fid.slice(0, 400)})`)
+    t.ok(b && !/never write a throwaway screenshot spec(?! in the test tree)/.test(b.prompt) && /never write a throwaway screenshot spec in the test tree/.test(b.prompt), 'self-verify forbids a screenshot spec only in the test tree, so the fidelity script is not contradicted')
+  },
+})
+SCENARIOS.push({
   name: 'builder-prompt-keeps-preserved-tests-restore — DR-107: preserved tests are restored before a work order builds, and the retry builder says so too',
   args: { mode: 'balanced', ...FAST },
   plan: p41Plan(),
