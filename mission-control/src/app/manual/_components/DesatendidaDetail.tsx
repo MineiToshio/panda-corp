@@ -116,6 +116,12 @@ const ENGINE_ARGS_ROWS: readonly (readonly string[])[] = [
     "--lanes N en el launcher para otro número (por ejemplo 4 en powerful); --lanes 1 apaga los carriles.",
   ],
   [
+    "builderEffort",
+    "'medium' (desde 9.121.0)",
+    "Esfuerzo del builder sonnet del carril rápido. Con medium piensa menos por turno y escribe menos tests; la calidad la siguen sosteniendo el verify y el gate opus.",
+    "--builder-effort default en el launcher para volver al esfuerzo anterior (o low/high).",
+  ],
+  [
     "reviewBudget",
     "'now'",
     "Qué hacer con la revisión: 'now' sigue hasta dejar cada feature VERIFIED; 'defer' se detiene cuando todo es USABLE y deja la revisión pendiente.",
@@ -230,6 +236,37 @@ export function DesatendidaDetail(): React.JSX.Element {
         Medido en el banco mediano (4 features, 10 work orders): con 2 carriles todas las features
         quedaron USABLE a los 56,9 minutos, contra 67,8 a 77,3 minutos de una en una, y la suite
         oculta pasó completa (289 de 289).
+      </Body>
+
+      <DocH title="Builder más ligero" />
+      <Body margin="0 0 8px">
+        Desde la versión 9.121.0 (DR-126, propuesta 41) el builder de cada feature escribe menos,
+        corre menos y lee menos:
+      </Body>
+      <Ul>
+        <li>
+          <B weight={500}>Tests con presupuesto.</B> Escribe los tests junto al código, más o menos
+          un archivo de tests unitarios por módulo, y una sola spec e2e de comportamiento por
+          feature con UI (el flujo principal más Escape, foco atrapado y foco devuelto en cada
+          diálogo).
+        </li>
+        <li>
+          <B weight={500}>Contexto servido.</B> Recibe un brief por work order con los criterios que
+          debe citar y las secciones del blueprint que le tocan, en vez de buscarlos.
+        </li>
+        <li>
+          <B weight={500}>Una sola autoverificación.</B> Corre <Code>verify.sh</Code> acotado y sus
+          propias specs e2e una vez, y solo repite lo que falló.
+        </li>
+        <li>
+          <B weight={500}>Esfuerzo medium.</B> El builder sonnet piensa menos por turno.{" "}
+          <Code>--builder-effort default</Code> lo devuelve al esfuerzo anterior.
+        </li>
+      </Ul>
+      <Body margin="0 0 8px">
+        Medido: en el banco mediano todo quedó USABLE a los 43,5 minutos (antes 56,9) y en el
+        pequeño a los 7 a 11 minutos (antes 10 a 12,5), con la suite oculta completa en ambos (289
+        de 289 y 151 de 151).
       </Body>
 
       <DocH title="Cómo se le ordena parar" />
