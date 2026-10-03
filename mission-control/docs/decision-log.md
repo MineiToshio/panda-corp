@@ -1,5 +1,18 @@
 # Decision Log — Mission Control
 
+## 2026-10-03 — Pandacorp overlay upgraded 8.96.0 -> 8.97.1
+
+**What:** compatible (same MAJOR) bump. Gate-config conformance (DR-059): the production-build smoke harness
+(`e2e/prod-smoke.spec.ts`, `e2e/_prod-smoke.ts`, proposal 40) was installed for the first time; it runs only under the
+engine's `PANDACORP_PROD_SMOKE` step and is skipped on a normal `verify.sh`. Everything else (engine, `verify.sh`,
+`canary.sh`, `biome.json`, `knip.json`, `playwright.config.ts`, the other e2e files, `docs/rules/`, overlay scripts)
+already matched the template; toolchain already conformant. Target was 8.97.0, but its two new template files red-locked
+this project's baseline (biome `noSkippedTests` + format, and tsc TS2532 under `noUncheckedIndexedAccess`); they were
+fixed at the SOURCE (DR-076, plugin 9.120.1 / overlay 8.97.1) and the fixed copies installed here byte-identical.
+`verify.sh --canary` 10/10 and a full `verify.sh` baseline both green.
+
+**Why:** carry the engine's production-build smoke harness into this project without a red baseline.
+
 ## 2026-10-03 — Engine 9.120.0 synced; Manual: parallel lanes by default, cheaper review, production smoke (DR-125)
 
 **What:** the build engine `.claude/engines/pandacorp-build.js` is byte-identical to the plugin 9.120.0 artifact
