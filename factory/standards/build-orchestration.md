@@ -1162,16 +1162,23 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   (FRD-01, FRD-05, FRD-01). A WO declaring `prisma/**`, a migration, `package.json` or a lockfile is a **barrier**: a
   chain of its own, built on main (`lane-dispatch --barrier`; `commit-wo` still refuses schema paths off main), one at a
   time; lane builds go on, `land-chain` refuses `landings-paused` until its WOs are committed on main. K is static:
-  `--lanes N`, else 2, capped by mode (pro 1, balanced 2, powerful/deep 4), and **1 whenever the ready width is ≤ 1**, so
+  `--lanes N`, else **1** (lanes ship behind `--lanes` until the FM-5 bench meets proposal 40 §6.2, §7 row 5 / §9;
+  `DEFAULT_LANES`), capped by mode (pro 1, balanced 2, powerful/deep 4), and **1 whenever the ready width is ≤ 1**, so
   a small build runs exactly as today. `lane-pool` creates K detached worktrees under `.pandacorp/run/lanes/`, each
-  bootstrapped on its own free port; `lane-dispatch` salvages a lane's dirt, resets it to main on `lane/<chain>` (a
-  re-dispatch of the same chain keeps its committed WOs, DR-086), re-runs the bootstrap only when the lockfile, the DB
-  paths or the port moved (and `prisma generate` when `prisma/**` did), and returns the lane env: `PORT`,
-  `PANDACORP_E2E_PORT` and `PANDACORP_LANE`, which makes the stack template's Playwright config refuse to reuse a
-  running server. `lane-mark --as built` checks one `feat` commit per WO before queueing. `land-chain` lands one chain at
+  bootstrapped on its own free port; `lane-dispatch` refuses a lane dir that is not its own git worktree (lanes live
+  inside main's tree: a lane missing its `.git` file would resolve to main and be reset), salvages a lane's dirt,
+  resets it to main on `lane/<chain>` (a re-dispatch of the same live chain keeps its committed WOs, DR-086; a fresh
+  reuse of the branch, e.g. a retried park, first keeps its unlanded tip under `refs/lane-parked/<chain>/<stamp>`,
+  releases it from a free sibling lane, and refuses `branch-in-use` when a live lane or a worktree outside the pool
+  holds it), re-runs the bootstrap only when the lockfile, the DB paths or the port moved (and `prisma generate` when
+  `prisma/**` did), and returns the lane env: `PORT`, `PANDACORP_E2E_PORT` and `PANDACORP_LANE`, also written to the
+  lane's `.pandacorp/run/lane.env`, which the stack template's Playwright config reads FROM DISK (a fresh shell never
+  sourced it): the lane's port, and never reusing a running server. `lane-mark --as built` checks one `feat` commit per WO before queueing. `land-chain` lands one chain at
   a time (its own lock): rebase with `--empty=keep` (commit count and subjects re-checked: one commit per WO, DR-097),
   the journals merged by `merge=union` through an attributes file passed by config, `messages/*.json` by a 3-way key
-  union (one key, two values → red); then tsc, biome and `vitest related` in the lane; then, under the main-writer
+  union (one key, two values → red); then, when the rebase crossed a lockfile/prisma/migration change since the
+  lane's last sync, the same resync as a dispatch (a failed resync lands nothing, `resync-failed`, the chain stays
+  queued); then tsc, biome and `vitest related` in the lane; then, under the main-writer
   lock, the journals swept and `merge --ff-only` (main moved by journal lines only → rebase again without re-checking),
   and one `lane_land` track line re-keying each WO id to its landed SHA. A conflict or a red check gets ONE rebase-fix
   (`needs-rebase-fix`), then the chain parks and the blocked-FRD set (its DAG descendants only) is reported; main is
@@ -1196,8 +1203,10 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`;
   `test-build-mech-lanes.mjs` Stage B; `test-build-run-id.mjs` `--lanes`).** `args.lanes` (launcher `--lanes N`, fast
   lane only). K is decided ONCE, at the first fast step, after the first safe point drained every ready card into the
-  schedule (bare `/implement`, `--frds` and `--change` share the scheduler): the fused start's `lanes` when its probe
-  found no work, else one `lane-plan` op; `--lanes 1` skips it. K = 1 is the sequential build above, untouched. At
+  schedule (bare `/implement`, `--frds` and `--change` share the scheduler): only with `--lanes N ≥ 2` (no `--lanes`:
+  no lane plan, pool or round at all), the fused start's `lanes` when its probe found no work, else one `lane-plan`
+  op. K = 1 is the sequential build above, untouched. A barrier of an earlier run whose WOs this run cannot build (its
+  FRD out of scope, a WO BLOCKED) is parked at once, so it never pauses the landings for the whole run. At
   K ≥ 2 `lane-pool` boots beside the first work and `laneRound` drives the run: a `lane-next` round only when a lane can
   take a chain (or the resume is pending); a lane job per dispatched chain (the fast builder pointed at its worktree:
   its lane env and port, `commit-wo`/`park-wo` on the lane project, its own self-verify; up to 3 attempts, worker then
@@ -1219,7 +1228,7 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
 
 **Not built in this release (recorded, not promised):** the third gate slot (proposal 40 Phase C), the lane canaries of
-§6.4 and the FM-5 bench that decides whether K = 2 stays the default, and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
+§6.4 and the FM-5 bench that decides whether K = 2 becomes the default (until then K = 1 without `--lanes`), and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
 refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: the product floor is a path/content
 heuristic (~90 % by design, the owner's trade): an auth or payment flow written with no recognisable library, path name
 or header escapes it until the opus gate, and a feature domain named `session` or `price` is floor; `commit-wo` runs only for single-WO
