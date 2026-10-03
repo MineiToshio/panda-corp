@@ -670,11 +670,12 @@ const FUSED_START = FAST && argFlag('fusedStart', true) && !CHANGE && !STRICT_BA
 const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
-// Proposal 40 §3 Phase B (§9): args.lanes N (launcher --lanes N) is the requested lane count K; absent, the default (2).
-// The lane planner caps it by mode (pro 1, balanced 2, powerful 4) and drops it to 1 on a narrow DAG; 1 = today's build.
+// Proposal 40 §3 Phase B (§9, §7 row 5): args.lanes N (launcher --lanes N) is the requested lane count K. Absent, K = 1:
+// lanes ship behind --lanes until the FM-5 bench passes §6.2, so a plain build never plans, boots or schedules a lane.
+// With N ≥ 2 the lane planner caps it by mode (pro 1, balanced 2, powerful 4) and drops it to 1 on a narrow DAG.
 const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
-if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K applies`)
-if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || 'auto'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
+if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = 1 applies`)
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || '1 (default)'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
 const fastFloor = new Set()        // C3: FRDs USABLE only when VERIFIED (plan-time or landed floor) — monotone, never removed
 const fastClassified = new Set()   // FRDs whose plan-time floor ran; an unclassified one counts as floor (fail-closed)
 const fastUsable = []              // C6: the build_usable events of this run, { frd, sha }, in order (an event, never stored)
@@ -1928,7 +1929,7 @@ if (FUSED_START) {
   agentSpawned++
   const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
     `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : []),
-    ...(LANES_ARG !== 1 ? [`--lane-plan${LANES_ARG ? ` --lanes ${LANES_ARG}` : ''}`] : [])]
+    ...(LANES_ARG >= 2 ? [`--lane-plan --lanes ${LANES_ARG}`] : [])]
   const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
   if (r === PAUSED) return await pausedExit()
   const b = r.body
@@ -6026,9 +6027,10 @@ function fastResult() {
 
 // ── Proposal 40 §3 Phase B: LANES (static K ≥ 2) ─────────────────────────────────────────────────────────────────────
 // Every lane decision a script can make is a mech op (build-mech-lanes / -lane-land / -lane-next); the engine only
-// orchestrates. K is decided ONCE per run (decideLanes: the fused start's lane plan, else one lane-plan op), after the
-// first safe point drained every ready change card into the schedule (one DAG for bare /implement, --frds and --change
-// alike). K = 1 (a narrow DAG, the gain below the bootstrap, pro, --lanes 1) is exactly the sequential build above.
+// orchestrates. Only --lanes N ≥ 2 turns them on (no --lanes: K = 1, no lane op at all). K is decided ONCE per run
+// (decideLanes: the fused start's lane plan, else one lane-plan op), after the first safe point drained every ready
+// change card into the schedule (one DAG for bare /implement, --frds and --change alike). K = 1 (no --lanes, a narrow
+// DAG, the gain below the bootstrap, pro) is exactly the sequential build above.
 // At K ≥ 2 the pool boots beside the first work; each `lane-next` round dispatches the barrier (a schema/package chain,
 // built on main as a main-writer holder: lane landings pause, lane builds go on) and one chain of ≤ 3 WOs per free lane.
 // A lane builder is the fast-lane builder pointed at its worktree (commit-wo per WO on lane/<chain>, its self-verify with
@@ -6048,7 +6050,7 @@ const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f
 const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
 async function decideLanes() {
   LANED = false
-  if (!FAST || LANES_ARG === 1 || globalQueue.size < 2) return
+  if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
   let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null   // drained cards would widen a fused plan
   if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
   if (!b || b.ok !== true || !(b.k >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
@@ -6153,18 +6155,19 @@ async function laneBarrier(c) {
   const ids = laneIds(c)
   const wos = st ? st.f.workOrders.filter((w) => ids.includes(w.id) && st.toBuildIds.has(w.id)) : []
   lane.plan = true
-  if (wos.length) {
-    log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
-    if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
-    const since = await fastDispatch(c.frd, wos.map((w) => w.id))
-    let missed
-    try { missed = await fastBuildWos(c.frd, wos, since) } catch (e) {
-      if (!isInfraError(e)) throw e
-      await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
-      return 'paused'
-    }
-    if (missed.length) { await lanePark(c, `${missed.map((w) => w.id).join(', ')} did not commit on main`); return null }
+  // A barrier of an earlier run this run cannot build (its FRD out of scope, a WO BLOCKED) would pause landings forever:
+  // park it (only its descendants wait; the next run's resume round retires the park).
+  if (!wos.length) { await lanePark(c, 'none of its work orders is buildable in this run'); return null }
+  log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
+  if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
+  const since = await fastDispatch(c.frd, wos.map((w) => w.id))
+  let missed
+  try { missed = await fastBuildWos(c.frd, wos, since) } catch (e) {
+    if (!isInfraError(e)) throw e
+    await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
+    return 'paused'
   }
+  if (missed.length) { await lanePark(c, `${missed.map((w) => w.id).join(', ')} did not commit on main`); return null }
   lane.landed.add(c.frd)
   lane.live.delete(c.chain)
   if (st && !st.failed && st.toBuildIds.size === 0) lane.usableQ.push({ frd: c.frd, rung: 0 })

@@ -44,9 +44,10 @@
 #              all-USABLE and launches no FRD gate: the unreviewed FRDs stay review debt (derived, never stored) for a
 #              later run. Omitted → no key (the engine default `now` continues to VERIFIED).
 #   --lanes N: engine args.lanes, fast lane only (refused with --lane classic): the requested number of worktree lanes
-#              K (proposal 40 Phase B). Omitted → no key: the default K = 2, capped by mode (pro 1, balanced 2,
-#              powerful/deep 4) and dropped to 1 when the ready DAG is narrow or the gain is below the pool bootstrap,
-#              so a small build runs exactly as before. `--lanes 1` turns the lanes off.
+#              K (proposal 40 Phase B). Omitted → no key: K = 1, lanes OFF (they ship behind --lanes until the FM-5
+#              bench passes, proposal 40 §7 row 5 / §9), exactly the sequential build. N ≥ 2 is capped by mode (pro 1,
+#              balanced 2, powerful/deep 4) and dropped to 1 when the ready DAG is narrow or the gain is below the pool
+#              bootstrap, so a small build runs exactly as before. `--lanes 1` is the default made explicit.
 #   --resume <run-id>: resume a run cut short (a usage limit, a crash) whose atomic lease went STALE under that run
 #              id. The launcher performs the fenced reclaim itself — the lease must be stale (past its TTL and its
 #              BL-0153 grace window), held by runtime claude, under exactly <run-id> (the preflight's checks) — and then
@@ -278,7 +279,7 @@ echo "  If it reads 'maxAgents OFF' when you passed one, or 'args arrived as a <
 echo "  the args were DROPPED (Workflow serialization bug) and the run is UNBOUNDED → TaskStop it"
 echo "  immediately and relaunch (re-pass args; hardcode the scope into args if needed)."
 if [ "$LANE" = "fast" ]; then
-  echo "  FAST LANE (DR-124, the default): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now} · lanes ${LANES:-auto}  — a missing line means classic ran."
+  echo "  FAST LANE (DR-124, the default): the engine must also log  lane fast · mechScript on · infraGuard on · reviewBudget ${REVIEW_BUDGET:-now} · lanes ${LANES:-1 (default)}  — a missing line means classic ran."
   echo "  (Opt-out: relaunch with --lane classic for the classic plan-agent + global-waves build.)"
 else
   echo "  CLASSIC LANE (--lane classic): the engine must NOT log  lane fast  — if it does, the args were dropped: TaskStop and relaunch."

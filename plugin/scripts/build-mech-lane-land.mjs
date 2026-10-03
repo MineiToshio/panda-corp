@@ -20,7 +20,7 @@
 import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { InputError, JOURNALS, Refusal, acquireLock, commitJournals, dirtyEntries, gitIn, isOnMain, projectCtx, releaseLock } from './build-mech-lib.mjs'
-import { activeBarrier, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, planChains, readState, refreshFromMain, runAsync, withState, woGraph } from './build-mech-lanes.mjs'
+import { activeBarrier, assertOwnWorktree, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, planChains, readState, refreshFromMain, resyncLane, resyncNeeds, runAsync, withState, woGraph } from './build-mech-lanes.mjs'
 
 const TRACK = JOURNALS[0]
 const MESSAGES_RE = /(^|\/)messages\/[^/]+\.json$/
@@ -163,6 +163,7 @@ export async function landChainOp(o) {
     if (!c || !['built', 'needs-fix'].includes(c.status)) throw new Refusal('chain-not-built', `${id} is ${c ? c.status : 'unknown'}: only a built chain lands`)
     const lane = state.pool.find((l) => l.lane === c.lane)
     if (!lane || !existsSync(lane.path)) throw new Refusal('lane-missing', `${id}'s lane worktree is gone`)
+    assertOwnWorktree(lane.path)
     const lctx = projectCtx(path.join(lane.path, ctx.prefix))
     const lg = gitIn(lane.path)
     const branch = `lane/${id}`
@@ -172,6 +173,8 @@ export async function landChainOp(o) {
     const preTip = lg.must(['rev-parse', 'HEAD']).trim()
     let checksBase = null
     let checks = null
+    let syncedAt = lane.base
+    const resynced = []
     for (let attempt = 0; attempt < MAX_MAIN_RETRIES; attempt++) {
       const onto = ctx.g.must(['rev-parse', 'HEAD']).trim()
       const pre = laneCommits(lg, onto, 'HEAD')
@@ -184,6 +187,17 @@ export async function landChainOp(o) {
       if (post.length !== pre.length || post.some((x, i) => x.subject !== pre[i].subject)) {
         lg.must(['reset', '-q', '--hard', preTip])
         throw new Refusal('commit-shape', `the rebase changed the chain's commits (${pre.length} → ${post.length}): reset to ${preTip.slice(0, 12)}, nothing landed`)
+      }
+      // Rebased onto a dependency barrier (lockfile, prisma, migrations): the lane's install/client must follow, or the
+      // checks below go red on stale dependencies, not on the chain. Same resync as a dispatch; a failure lands nothing.
+      const needs = resyncNeeds(ctx, syncedAt, onto)
+      const sync = await resyncLane(ctx, lane.path, lane.lane, lane.port, needs)
+      resynced.push(...sync.ran)
+      if (sync.failure) throw new Refusal('resync-failed', `${id}'s lane could not resync to ${onto.slice(0, 12)} (${needs.changed.join(', ')}): ${sync.failure} — nothing landed, the chain stays queued`, { chain: id, lane: lane.lane })
+      if (sync.ran.length) {
+        syncedAt = onto
+        await withState(ctx, o, async (s) => { const e = s.pool.find((l) => l.lane === lane.lane); if (e) e.base = onto })
+        checks = null
       }
       if (!checks || !journalsOnly(ctx, checksBase, onto)) {
         checks = await laneChecks(lctx, onto, tip, o.testTimeoutMs)
@@ -210,7 +224,7 @@ export async function landChainOp(o) {
         Object.assign(s.chains[id], { status: 'landed', landedSha: tip, landedBase: onto, landedAt: new Date().toISOString() })
         for (const l of s.pool) if (l.chain === id) Object.assign(l, { chain: null, base: tip })
       })
-      return { code: 0, body: { status: 'landed', chain: id, sha: tip.slice(0, 12), base: onto.slice(0, 12), wos: landed.wos, resolved: rb.resolved, checks: checks.steps, rechecked: checksBase === onto } }
+      return { code: 0, body: { status: 'landed', chain: id, sha: tip.slice(0, 12), base: onto.slice(0, 12), wos: landed.wos, resolved: rb.resolved, checks: checks.steps, rechecked: checksBase === onto, resync: { ran: resynced } } }
     }
     throw new Refusal('main-busy', `main kept moving under ${id} (${MAX_MAIN_RETRIES} tries): nothing landed, the chain stays queued`)
   } finally { releaseLock(landing) }

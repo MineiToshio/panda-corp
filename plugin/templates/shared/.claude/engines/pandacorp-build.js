@@ -194,8 +194,8 @@ const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
 const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
-if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K applies`)
-if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || 'auto'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
+if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = 1 applies`)
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || '1 (default)'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
 const fastFloor = new Set()
 const fastClassified = new Set()
 const fastUsable = []
@@ -1016,7 +1016,7 @@ if (FUSED_START) {
  agentSpawned++
  const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
   `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : []),
-  ...(LANES_ARG !== 1 ? [`--lane-plan${LANES_ARG ? ` --lanes ${LANES_ARG}` : ''}`] : [])]
+  ...(LANES_ARG >= 2 ? [`--lane-plan --lanes ${LANES_ARG}`] : [])]
  const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
  if (r === PAUSED) return await pausedExit()
  const b = r.body
@@ -3792,7 +3792,7 @@ const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f
 const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
 async function decideLanes() {
  LANED = false
- if (!FAST || LANES_ARG === 1 || globalQueue.size < 2) return
+ if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
  let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null
  if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
  if (!b || b.ok !== true || !(b.k >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
@@ -3894,18 +3894,17 @@ async function laneBarrier(c) {
  const ids = laneIds(c)
  const wos = st ? st.f.workOrders.filter((w) => ids.includes(w.id) && st.toBuildIds.has(w.id)) : []
  lane.plan = true
- if (wos.length) {
-  log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
-  if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
-  const since = await fastDispatch(c.frd, wos.map((w) => w.id))
-  let missed
-  try { missed = await fastBuildWos(c.frd, wos, since) } catch (e) {
-   if (!isInfraError(e)) throw e
-   await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
-   return 'paused'
-  }
-  if (missed.length) { await lanePark(c, `${missed.map((w) => w.id).join(', ')} did not commit on main`); return null }
+ if (!wos.length) { await lanePark(c, 'none of its work orders is buildable in this run'); return null }
+ log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
+ if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
+ const since = await fastDispatch(c.frd, wos.map((w) => w.id))
+ let missed
+ try { missed = await fastBuildWos(c.frd, wos, since) } catch (e) {
+  if (!isInfraError(e)) throw e
+  await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
+  return 'paused'
  }
+ if (missed.length) { await lanePark(c, `${missed.map((w) => w.id).join(', ')} did not commit on main`); return null }
  lane.landed.add(c.frd)
  lane.live.delete(c.chain)
  if (st && !st.failed && st.toBuildIds.size === 0) lane.usableQ.push({ frd: c.frd, rung: 0 })

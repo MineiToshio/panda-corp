@@ -21,21 +21,41 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { InputError, Refusal, blobAt, dirtyEntries, findWo, frontmatterStatus, gitIn, isOnMain, projectCtx, salvageAndReset, unique, utcStamp } from './build-mech-lib.mjs'
 import { classifyFrdRanges, commitUsable, injectionHits, normWoId, readFrds, readReport } from './build-mech-fast.mjs'
-import { LIVE, activeBarrier, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, planChains, portBusy, readState, refreshFromMain, runAsync, scopeOf, withState, woGraph } from './build-mech-lanes.mjs'
+import { LIVE, activeBarrier, assertOwnWorktree, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, planChains, portBusy, readState, realOr, refreshFromMain, resyncLane, resyncNeeds, runAsync, scopeOf, withState, woGraph } from './build-mech-lanes.mjs'
 
 const MAX_GREENS = 20
-const INSTALL_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$/
-const PRISMA_RE = /(^|\/)prisma\/|\.prisma$/i
-const DB_RE = /(^|\/)(prisma|migrations?|drizzle)\/|\.sql$/i
 
 // ── dispatch (one chain) ───────────────────────────────────────────────────────────────────────
-/** What moved between a lane's previous base and the new one that needs a resync (install, prisma generate, DB). */
-export function resyncNeeds(ctx, from, to) {
-  if (!from || from === to) return { install: false, prisma: false, db: false, changed: [] }
-  const r = ctx.g.run(['diff', '--name-only', '--relative', from, to, '--', '.'])
-  const changed = r.ok ? r.out.split('\n').filter(Boolean) : null
-  if (!changed) return { install: true, prisma: true, db: true, changed: ['<unknown: the previous base is unreachable>'] }
-  return { install: changed.some((p) => INSTALL_RE.test(p)), prisma: changed.some((p) => PRISMA_RE.test(p)), db: changed.some((p) => DB_RE.test(p)), changed: changed.filter((p) => INSTALL_RE.test(p) || PRISMA_RE.test(p) || DB_RE.test(p)) }
+/** The registered worktrees that have `branch` checked out (real paths). */
+function worktreesOn(ctx, branch) {
+  const out = []
+  let at = null
+  for (const l of ctx.g.must(['worktree', 'list', '--porcelain']).split('\n')) {
+    if (l.startsWith('worktree ')) at = realOr(l.slice(9))
+    else if (l === `branch refs/heads/${branch}` && at) out.push(at)
+  }
+  return out
+}
+/**
+ * Make `lane/<c>` safe to reset for a FRESH dispatch (a retried park reuses its chain id): a free pool lane still
+ * holding the branch lets go of it; a live lane or a worktree outside the pool holding it is a refusal (nothing
+ * touched). Commits on the old tip that main does not have are kept under refs/lane-parked/<c>/<stamp> first (DR-086:
+ * committed work is never thrown away by a reset). Returns the archive, or null when there was nothing to keep.
+ */
+function freeBranchForReset(ctx, s, wt, branch, head) {
+  const tip = ctx.g.run(['rev-parse', '--verify', '-q', `refs/heads/${branch}`])
+  if (!tip.ok) return null
+  for (const h of worktreesOn(ctx, branch).filter((p) => p !== realOr(wt))) {
+    const holder = s.pool.find((l) => realOr(l.path) === h)
+    if (!holder || holder.chain) throw new Refusal('branch-in-use', `${branch} is checked out in ${h}${holder ? ` (lane ${holder.lane}, live chain ${holder.chain})` : ', outside the lane pool'}: nothing touched`, { branch, worktree: h })
+    assertOwnWorktree(holder.path)
+    gitIn(holder.path).must(['checkout', '-q', '--detach'])
+  }
+  const sha = tip.out.trim()
+  if (ctx.g.run(['merge-base', '--is-ancestor', sha, head]).ok) return null
+  const ref = `refs/lane-parked/${branch.slice('lane/'.length)}/${utcStamp()}-${sha.slice(0, 12)}`
+  ctx.g.must(['update-ref', ref, sha])
+  return { ref, sha: sha.slice(0, 12) }
 }
 /** `lane-dispatch --chain c --wo …  (--lane n | --barrier)`. */
 export async function laneDispatchOp(o) {
@@ -76,15 +96,18 @@ export async function dispatchChain(ctx, o, graph, req) {
     if (entry.booting || entry.broken) throw new Refusal('lane-unready', `lane ${req.lane} is ${entry.booting ? 'still booting' : `broken (${entry.broken})`}`)
     const wt = entry.path
     if (!existsSync(wt)) throw new Refusal('lane-missing', `lane ${req.lane}'s worktree ${wt} is gone: recreate the pool`)
+    assertOwnWorktree(wt)
     const lctx = projectCtx(path.join(wt, ctx.prefix))
     const branch = `lane/${id}`
     const resumed = Boolean(prior && LIVE.has(prior.status) && prior.lane === req.lane && lctx.g.run(['rev-parse', '--verify', '-q', branch]).ok)
+    const archived = resumed ? null : freeBranchForReset(ctx, s, wt, branch, head)
     // The lane's dirt is a previous builder's evidence: salvaged into the MAIN project's run dir before any reset.
     const dirt = dirtyEntries(lctx)
     const salvageDir = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${req.lane}`, utcStamp())
     const salvaged = dirt.length ? salvageAndReset(lctx, dirt, salvageDir) : []
     const wg = gitIn(wt)
-    wg.must(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
+    const co = wg.run(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
+    if (!co.ok) throw new Refusal('lane-checkout-failed', `lane ${req.lane}: git checkout ${branch} failed: ${co.err.split('\n').slice(-2).join(' | ')}`, { archived })
     lctx.g.must(['clean', '-fdq', '--', '.'])
     const base = resumed ? prior.base : head
     const tip = wg.must(['rev-parse', 'HEAD']).trim()
@@ -92,22 +115,11 @@ export async function dispatchChain(ctx, o, graph, req) {
     const prevPort = entry.port
     Object.assign(entry, { port, chain: id })
     record(s, { lane: req.lane, base, resumed })
-    return { wt, wg, lctx, branch, resumed, base, tip, port, prevPort, needs: resyncNeeds(ctx, entry.base, tip), salvaged: salvaged.length ? { dir: salvageDir, paths: salvaged } : null }
+    return { wt, wg, lctx, branch, resumed, base, tip, port, prevPort, archived, needs: resyncNeeds(ctx, entry.base, tip), salvaged: salvaged.length ? { dir: salvageDir, paths: salvaged } : null }
   })
   if (claim.done) return claim.done
   const { wt, wg, lctx, needs, port } = claim
-  const ran = []
-  let failure = null
-  // The bootstrap is the one writer of the lane's install, DB hook and pinned e2e port: re-run only when one moved.
-  if (needs.install || needs.db || port !== claim.prevPort || !portPinned(lctx, port)) {
-    failure = await bootstrapLane(ctx, wt, req.lane, port)
-    if (!failure) ran.push('bootstrap')
-  }
-  if (!failure && needs.prisma && existsSync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'))) {
-    const r = await runAsync(path.join(lctx.project, 'node_modules', '.bin', 'prisma'), ['generate'], { cwd: lctx.project, env: laneEnv(req.lane, port), timeoutMs: 5 * 60 * 1000 })
-    if (r.ok) ran.push('prisma-generate')
-    else failure = `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}`
-  }
+  const { ran, failure } = await resyncLane(ctx, wt, req.lane, port, needs, port !== claim.prevPort || !portPinned(lctx, port))
   const out = await withState(ctx, o, async (s) => {
     const entry = s.pool.find((l) => l.lane === req.lane)
     if (failure) {
@@ -118,7 +130,7 @@ export async function dispatchChain(ctx, o, graph, req) {
     }
     entry.base = claim.tip
     const committed = claim.resumed ? laneCommits(wg, claim.base, 'HEAD').filter((c) => c.wo).map((c) => c.wo) : []
-    return { code: 0, body: { status: 'dispatched', chain: id, frd: s.chains[id].frd, wos, lane: req.lane, branch: claim.branch, path: lctx.project, base: claim.base.slice(0, 12), resumed: claim.resumed, committed, downstream: s.chains[id].downstream, env: laneEnv(req.lane, port), resync: { ...needs, ran }, salvaged: claim.salvaged } }
+    return { code: 0, body: { status: 'dispatched', chain: id, frd: s.chains[id].frd, wos, lane: req.lane, branch: claim.branch, path: lctx.project, base: claim.base.slice(0, 12), resumed: claim.resumed, committed, downstream: s.chains[id].downstream, env: laneEnv(req.lane, port), resync: { ...needs, ran }, salvaged: claim.salvaged, ...(claim.archived ? { archived: claim.archived } : {}) } }
   })
   if (!out) throw new Refusal('resync-failed', failure, { chain: id, lane: req.lane })
   return out

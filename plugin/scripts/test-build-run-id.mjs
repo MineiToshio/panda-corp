@@ -303,7 +303,7 @@ for (const bad of [["--no-parallel-gates", "--gate-slots", "2"], ["--parallel-ga
   const lanesOut = await launch(["--lanes", "3"]);
   const lanesArgs = workflowArgs(lanesOut);
   ok(lanesArgs.lanes === 3 && lanesArgs.lane === "fast" && /lanes 3/.test(lanesOut), "proposal 40 launcher: --lanes 3 reaches the engine as args.lanes:3 (a number) and the ARG-ECHO names it");
-  ok(!("lanes" in bare) && /lanes auto/.test(bareOut), "proposal 40 launcher: without --lanes no key is set (the engine's default K governs) and the ARG-ECHO says auto");
+  ok(!("lanes" in bare) && /lanes 1 \(default\)/.test(bareOut), "proposal 40 launcher: without --lanes no key is set (the engine's default K = 1, lanes off) and the ARG-ECHO says 1 (default)");
   const nowSized = await launch([...frds, "--lane", "fast"], "40");
   ok(/recommended\s+floor is 8 \+ 20 x FRDs\s+= 88/.test(nowSized), "P39 launcher control: the fast lane with the default review budget keeps the per-FRD gate sizing warning");
 }

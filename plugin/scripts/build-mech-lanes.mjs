@@ -14,7 +14,9 @@
 //                                               VERIFIED). Read-only.
 //   lane-dispatch --chain c --wo a [--wo b…] (--lane n | --barrier)   [in build-mech-lane-next.mjs]   a lane chain: salvage the lane's dirt, reset it
 //                                               to main's HEAD on `lane/<c>` (a re-dispatch of the SAME chain keeps
-//                                               its committed WOs, DR-086), resync when the lockfile, prisma/** or the
+//                                               its committed WOs, DR-086; a fresh reuse of `lane/<c>`, e.g. a retried
+//                                               park, first keeps its unlanded tip under refs/lane-parked/<c>/), refuse
+//                                               a lane dir that is not its own worktree, resync when the lockfile, prisma/** or the
 //                                               migrations moved since the lane's last base, give it a free port, and
 //                                               hand back its env (PANDACORP_LANE forces Playwright reuseExistingServer
 //                                               false, so a lane never tests a sibling's server). A barrier chain
@@ -36,7 +38,11 @@ import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 
 /** Lane caps per run mode (proposal 40 §9): pro never lanes, balanced 2, powerful/deep 4. */
 export const MODE_CAPS = Object.freeze({ pro: 1, balanced: 2, powerful: 4, deep: 4 })
-export const DEFAULT_LANES = 2
+/**
+ * K without --lanes: 1, so a plain build is today's sequential build. Proposal 40 §7 row 5 / §9: lanes ship behind
+ * `--lanes N` (auto 1) until the FM-5 medium bench meets the §6.2 thresholds; only then may this become 2.
+ */
+export const DEFAULT_LANES = 1
 export const CHAIN_MAX = 3
 /**
  * Auto K = 1 when the work off the critical path is below this many work orders: the pool bootstrap (~2.5 min) and a
@@ -278,8 +284,8 @@ export async function lanePort(state, lane, current) {
 export const laneEnv = (lane, port) => ({ PANDACORP_LANE: typeof lane === 'number' ? `lane-${lane}` : String(lane), PORT: String(port), PANDACORP_E2E_PORT: String(port) })
 
 // ── worktrees ──────────────────────────────────────────────────────────────────────────────────
-const realOr = (p) => { try { return realpathSync(p) } catch { const up = path.dirname(p); return up === p ? p : path.join(realOr(up), path.basename(p)) } }
-const registered = (ctx) => ctx.g.must(['worktree', 'list', '--porcelain']).split('\n').filter((l) => l.startsWith('worktree ')).map((l) => realOr(l.slice(9)))
+export const realOr = (p) => { try { return realpathSync(p) } catch { const up = path.dirname(p); return up === p ? p : path.join(realOr(up), path.basename(p)) } }
+export const registered = (ctx) => ctx.g.must(['worktree', 'list', '--porcelain']).split('\n').filter((l) => l.startsWith('worktree ')).map((l) => realOr(l.slice(9)))
 /** Run a command async (bounded); resolves { ok, code, tail }. */
 export function runAsync(cmd, args, { cwd, env, timeoutMs }) {
   return new Promise((resolve) => {
@@ -303,10 +309,50 @@ export async function bootstrapLane(ctx, wt, lane, port) {
   writeFileSync(path.join(dir, '.pandacorp', 'run', 'lane.env'), Object.entries(env).map(([k, v]) => `export ${k}=${v}\n`).join(''))
   return r.ok ? null : `worktree-bootstrap.sh exited ${r.code}${r.signal ? ` (${r.signal})` : ''}: ${r.tail.split('\n').slice(-3).join(' | ')}`
 }
+/**
+ * Refuse a lane directory that is not its OWN git worktree. Lanes live inside main's tree, so a lane dir whose `.git`
+ * file is gone (or never was) resolves to MAIN's checkout: a `checkout -f`/`clean` there would reset main.
+ */
+export function assertOwnWorktree(wt) {
+  const top = gitIn(wt).run(['rev-parse', '--show-toplevel'])
+  if (!top.ok || realOr(top.out.trim()) !== realOr(wt)) throw new Refusal('lane-orphan', `${wt} is not its own git worktree (git resolves it to ${top.ok ? top.out.trim() : 'nothing'}): evidence preserved, nothing touched`)
+}
+const INSTALL_RE = /(^|\/)(package\.json|pnpm-lock\.yaml|package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|bun\.lockb?)$/
+const PRISMA_RE = /(^|\/)prisma\/|\.prisma$/i
+const DB_RE = /(^|\/)(prisma|migrations?|drizzle)\/|\.sql$/i
+/** What moved between a lane's previous base and the new one that needs a resync (install, prisma generate, DB). */
+export function resyncNeeds(ctx, from, to) {
+  if (!from || from === to) return { install: false, prisma: false, db: false, changed: [] }
+  const r = ctx.g.run(['diff', '--name-only', '--relative', from, to, '--', '.'])
+  const changed = r.ok ? r.out.split('\n').filter(Boolean) : null
+  if (!changed) return { install: true, prisma: true, db: true, changed: ['<unknown: the previous base is unreachable>'] }
+  return { install: changed.some((p) => INSTALL_RE.test(p)), prisma: changed.some((p) => PRISMA_RE.test(p)), db: changed.some((p) => DB_RE.test(p)), changed: changed.filter((p) => INSTALL_RE.test(p) || PRISMA_RE.test(p) || DB_RE.test(p)) }
+}
+/**
+ * Resync a lane (or snapshot) worktree to what moved: the bootstrap (the one writer of its install, DB hook and pinned
+ * e2e port) when the install or the DB moved or `rebootstrap`, then `prisma generate` when the schema moved.
+ * @returns {Promise<{ ran: string[], failure: string|null }>}
+ */
+export async function resyncLane(ctx, wt, lane, port, needs, rebootstrap = false) {
+  const proj = path.join(wt, ctx.prefix)
+  const ran = []
+  if (rebootstrap || needs.install || needs.db) {
+    const failure = await bootstrapLane(ctx, wt, lane, port)
+    if (failure) return { ran, failure }
+    ran.push('bootstrap')
+  }
+  const prisma = path.join(proj, 'node_modules', '.bin', 'prisma')
+  if (needs.prisma && existsSync(prisma)) {
+    const r = await runAsync(prisma, ['generate'], { cwd: proj, env: laneEnv(lane, port), timeoutMs: 5 * 60 * 1000 })
+    if (!r.ok) return { ran, failure: `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}` }
+    ran.push('prisma-generate')
+  }
+  return { ran, failure: null }
+}
 /** Create (or reuse) a detached worktree at `wt` on `sha`. Returns { created } or throws a Refusal. */
 export function ensureWorktree(ctx, wt, sha) {
   const isReg = registered(ctx).includes(realOr(wt))
-  if (existsSync(wt) && isReg) return { created: false }
+  if (existsSync(wt) && isReg) { assertOwnWorktree(wt); return { created: false } }
   if (existsSync(wt)) throw new Refusal('lane-orphan', `${wt} exists but is not a registered worktree: evidence preserved, nothing touched`)
   if (isReg) ctx.g.must(['worktree', 'prune', '--expire=now'])
   const add = ctx.g.run(['worktree', 'add', '-q', '--detach', wt, sha])
