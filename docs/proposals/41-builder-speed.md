@@ -1,6 +1,6 @@
 # 41 — Fast-lane builder speed: write less, run less, read less
 
-**Status:** proposed, revised after one red-team · **Date:** 2026-10-03
+**Status:** implemented, unreleased (DR-126; C5 without a new agent type, see plugin/docs/decision-log.md "Unreleased (proposal 41)"), not yet measured · **Date:** 2026-10-03
 **Home:** FACTORY proposal (build engine). Plugin 9.120.2; fast lane is the default (DR-124), lanes K = 2 (DR-125). Nothing here has been executed.
 
 ---

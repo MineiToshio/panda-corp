@@ -1093,8 +1093,30 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   skipped. Accepted heuristic miss: input bound to a variable first (`const n = sp.get("next"); redirect(n)`) does
   not match the redirect/fetch triggers; the early full audit bounds it. With no trigger the early report becomes `docs/reviews/security-<local date>.md`; an unreadable range
   or a missing early report runs the audit. The report is named and asserted by the LOCAL date (`date +%F`).
+- **The builder (proposal 41, DR-126; the classic lane is unchanged).** The fast builder writes less, runs less and reads
+  less. It runs as the existing `pandacorp:implementer` (never a new agent type: a running session freezes its agent
+  registry, BL-0168) with a lean contract that the agent file's **Fast lane** section yields to; the Forbidden list,
+  DR-080, DR-078 and the false-done rule still bind. CONTEXT: one `wo-brief` op (`build-mech-brief.mjs`) writes a file
+  with the blueprint sections of the CMP/IF ids each WO cites, its mocks and each dependency's Status Note read from the
+  builder's base (`--since` the dispatch or chain base), inlined only when that dependency is committed there; an
+  unlanded one (a sibling lane chain) is named to Read. No memory INDEX read: the WO cites its lessons. Each WO brief
+  prints `cite:` with the plan op's `acIds`, the exact list `commit-wo`'s floor checks. TEST BUDGET: about one unit test
+  file per module, unit-test chars <= production chars, at most 3 AC ids per `it`/`describe` title (`commit-wo`
+  measures `max_acs_per_it`, advisory; the floor itself is unchanged); a UI FRD keeps ONE behaviour e2e spec (primary
+  flow plus every dialog's Escape, focus trap and focus return). Code and tests are written together and run once
+  (the TDD fast-lane exception, `quality.md`); preserved tests are restored first (DR-107). SELF-VERIFY, once per
+  builder: `verify.sh --since <base> --only=structure-guard,data-layer,api-error-contract,biome,tsc,vitest; echo EXIT=$?`,
+  then the FRD's own e2e specs once and `--last-failed` per fix, two in-context repair attempts; never a whole-file
+  re-run, a throwaway screenshot spec, `next dev`/`next build` by hand or a `| tail`-only verdict. A WO's files go in
+  1-2 calls with chained checks; ONE fidelity script per UI FRD screenshots every UI WO's route next to its mock
+  (DR-056). A sonnet builder runs at effort `medium` by default (`args.builderEffort` / launcher `--builder-effort
+  low|medium|high|default`, `default` opts out); opus keeps `high`. Tests: `test-build-engine.mjs` (the proposal 41
+  scenarios), `test-build-mech.mjs` (`acIds`, `ac-citation-*`, `commit-wo-receipt-reports-max-acs-per-it`, `wo-brief`),
+  `test-build-run-id.mjs` (`--builder-effort`). Not yet measured on a bench: the pre-registered kill/acceptance is in
+  `docs/proposals/41-builder-speed.md` §5 and its orchestrator decision.
 - **The tail (proposal 40 Phase 1, `test-build-engine.mjs` F40-*, `test-build-mech.mjs`, `test-prod-smoke.mjs`).**
-  The builder's self-verify is `verify.sh --since <dispatch base>`, once (never per WO); the scripted verify runs the full
+  The builder's self-verify is `verify.sh --since <dispatch base>`, once (never per WO; since DR-126 scoped further, see
+  **The builder** below); the scripted verify runs the full
   suite once before USABLE and seals the report it ran (`gate-report.provenance.json`), and `reuse-check` reuses only a
   sealed report with intact bytes. A WO with no valid receipt gets one literal `commit-wo` before any park or rebuild. A
   gate PASS lands through `gate-land`: the reviewer tests, the NEW baselines the gate blessed at green, the `routes.ts`
