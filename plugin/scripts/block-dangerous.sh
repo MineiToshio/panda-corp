@@ -301,6 +301,65 @@ if echo "$git_cmd" | grep -Eq 'git reset --hard'; then
     || block "hard reset discards work — only 'git reset --hard <explicit-sha>' (the last_green_sha recovery, DR-067) is allowed; anything else: justify and ask"
 fi
 
+# ── BL-0223: host-wide kills of dev/prod servers ─────────────────────────────────────────────────────
+# Incident (proposal 41, bench FM-10): an FRD-gate reviewer stopped its ad-hoc `pnpm start` with a host-wide
+# `pkill -f "next start"`; pkill matches the command line of EVERY process on the machine, so an unrelated
+# `next start` (the benchmark oracle, a parallel session's preview, Mission Control itself) died with it.
+# The same blast radius comes from `killall`, from `lsof -ti :<port> | xargs kill` on a port the agent did not
+# bind, and from any pid list built by pattern (pgrep/ps|grep|awk) and fed to kill. A kill is allowed only when
+# scoped to a PID or process group the agent started itself: `kill <PID>`, `kill -- -<PGID>`, `pkill -P <PID>`
+# (children of its own PID) — which `.pandacorp/serve-once.sh` does by construction. Heuristic, command-position
+# only (never prose in a commit message or an echo'd sentence); the lines are split on separators, pipes kept.
+SERVER_KILL_TARGETS='(^|[^a-z0-9])(next|node|nodejs|vite|playwright|pnpm|npm|npx|tsx)([^a-z0-9]|$)'
+SERVER_KILL_HINT="start the server with 'bash .pandacorp/serve-once.sh -- <cmd>' (ephemeral port, own process group, killed exactly on exit) or record its PID (\$!) and stop only that: kill <PID> / kill -- -<PGID> / pkill -P <PID>"
+srv_disc=0
+while IFS= read -r seg; do
+  srv_pipe=0
+  case "$seg" in '@@PIPE@@'*) srv_pipe=1; seg="${seg#@@PIPE@@}" ;; esac
+  [ "$srv_pipe" = 1 ] || srv_disc=0
+  read -ra toks <<< "$seg"
+  n=${#toks[@]}; srv_cmd=""; srv_ci=-1
+  for ((k = 0; k < n; k++)); do
+    tk="${toks[$k]#[({]}"
+    case "$tk" in
+      then|do|else|'!'|time|command|exec|sudo|nohup|env|'') continue ;;
+      -*) continue ;;
+      [A-Za-z_]*=*) continue ;;
+      *) srv_cmd="${tk##*/}"; srv_ci=$k; break ;;
+    esac
+  done
+  [ "$srv_ci" -ge 0 ] || continue
+  srv_args=("${toks[@]:$((srv_ci + 1))}")
+  srv_own_children=0
+  for a in "${srv_args[@]}"; do case "$a" in -P|--parent|-P[0-9\$]*) srv_own_children=1 ;; esac; done
+  case "$srv_cmd" in
+    pkill|killall)
+      [ "$srv_own_children" = 1 ] && continue
+      pat=""
+      for a in "${srv_args[@]}"; do case "$a" in -*) ;; *) pat="$pat $a" ;; esac; done
+      pat=$(printf '%s' "$pat" | tr '[:upper:]' '[:lower:]')
+      if printf '%s' "$pat" | grep -Eq "$SERVER_KILL_TARGETS"; then
+        block "'$srv_cmd$pat' is a HOST-WIDE kill by pattern: it terminates every matching server on the machine (the owner's other projects, parallel sessions, a benchmark oracle, Mission Control), not just yours — $SERVER_KILL_HINT (BL-0223)"
+      fi ;;
+    kill)
+      if [ "$srv_own_children" = 0 ] && printf '%s' "$seg" | grep -Eq '(\$\(|`)[[:space:]]*(lsof|pgrep|pidof)([[:space:]]|$)'; then
+        block "kill of a pid list found by port/pattern (lsof/pgrep) can hit servers you did not start — $SERVER_KILL_HINT (BL-0223)"
+      fi ;;
+    xargs)
+      kill_arg=0
+      for a in "${srv_args[@]}"; do [ "$a" = "kill" ] && kill_arg=1; done
+      if [ "$kill_arg" = 1 ] && [ "$srv_disc" = 1 ]; then
+        block "'| xargs kill' on a pid list found by port/pattern (lsof/pgrep/ps|grep) can hit servers you did not start — $SERVER_KILL_HINT (BL-0223)"
+      fi ;;
+    fuser)
+      for a in "${srv_args[@]}"; do
+        case "$a" in -k*|-[a-zA-Z]*k*) block "fuser -k kills whatever holds the port, including servers you did not start — $SERVER_KILL_HINT (BL-0223)" ;; esac
+      done ;;
+    lsof|pgrep|pidof|ps|grep|awk|netstat|ss)
+      [ "$srv_own_children" = 1 ] || srv_disc=1 ;;
+  esac
+done < <(printf '%s\n' "$cmd" | awk '{ gsub(/&&|\|\||[;&]/, "\n"); gsub(/\|/, "\n@@PIPE@@"); print }')
+
 # Production deploys are behind the DR-004 HUMAN GATE — mechanically, not just in prose (audit-20 P1-5;
 # infra.md says human gates ship as hard rules, this is that rule). The agent presents the summary and
 # the OWNER approves; only after explicit approval in the conversation does the deploy run (re-running
