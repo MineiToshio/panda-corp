@@ -1,7 +1,7 @@
 # 41 — Fast-lane builder speed: write less, run less, read less
 
-**Status:** implemented, unreleased (DR-126; C5 without a new agent type, see plugin/docs/decision-log.md "Unreleased (proposal 41)"), not yet measured · **Date:** 2026-10-03
-**Home:** FACTORY proposal (build engine). Plugin 9.120.2; fast lane is the default (DR-124), lanes K = 2 (DR-125). Nothing here has been executed.
+**Status:** implemented and measured, released in plugin 9.121.0 (DR-126; see "Measured results" at the end). As built, C5 adds NO new agent type (the lean contract is a "Fast lane" section of `pandacorp:implementer`) and C7 is ON by default (`--builder-effort default` opts out); the C5/C7 rows below describe the pre-implementation design · **Date:** 2026-10-03
+**Home:** FACTORY proposal (build engine). Written against plugin 9.120.2; fast lane is the default (DR-124), lanes K = 2 (DR-125).
 
 ---
 
@@ -9,7 +9,7 @@
 
 1. **The builder is limited by what it generates, not by its tools.** Across 20 builder transcripts, 71.5 % of builder time is model time: about 117 min of output generation at about 185 tok/s and about 30 min of per-turn latency (756 turns). Builders write **4.2-4.8× vanilla's output tokens** for the same app. App code is only 1.3-1.7× vanilla; the gap is unit tests (8-10×), e2e specs (6×) and fix churn.
 2. **Engine plumbing is not the problem.** `commit-wo`, `park-wo`, receipts, `wo_start` and `preserved-tests` cost about 1 % and stay as they are.
-3. **Ship C1-C6, plus C7 behind a flag that is off by default:** a unit-test budget that keeps one behaviour e2e spec per UI FRD; the AC ids printed up front; a narrowed self-verify; tests written with the code; a lean `fast-builder` agent; batched turns; sonnet at effort `medium` (C7). The red-team removed the e2e ban and the single self-repair attempt.
+3. **Ship C1-C6, plus C7 (as designed: behind a flag, off by default; as shipped after the orchestrator decision: ON by default):** a unit-test budget that keeps one behaviour e2e spec per UI FRD; the AC ids printed up front; a narrowed self-verify; tests written with the code; a lean `fast-builder` agent; batched turns; sonnet at effort `medium` (C7). The red-team removed the e2e ban and the single self-repair attempt.
 4. **PROJECTION:** about **15-20 summed builder-minutes** saved per medium run. That is about 58 → 38-43 min. All-USABLE on the medium bench goes from 56.9 → about 46-49 min at K = 2.
 
    Small-bench USABLE goes to about 6.5-9 min. **Neither the ≤ 30 min medium target nor the ≤ 6 min small target is reachable from builder changes alone.** The engine's land, verify and lane-USABLE path (13-24 min outside the builders) is the next proposal.
@@ -157,3 +157,20 @@ No red-team condition was rejected. Three design ideas were withdrawn: the e2e b
 
 ## Orchestrator decision (2026-10-03, owner-delegated)
 Implement C1-C6 and C7 (builder effort medium) together. To save subscription usage, measure ONE configuration (C7 on): small bench n=2, medium bench n=1 with lanes K=2. Kill/acceptance as pre-registered (small 151/151 both runs; medium 289/289; medium all-USABLE <= 50 min). If accepted, C7 ships ON by default (DR-126); if quality drops, re-measure with C7 off before deciding.
+
+---
+
+## Measured results (2026-10-03, plugin feat/builder-speed = 9.121.0 candidate, C7 on) — ACCEPTED
+| Bench | Run | First USABLE | All USABLE | All VERIFIED | Done | USD-eq | Oracle (USABLE / final) |
+|---|---|---|---|---|---|---|---|
+| Medium (4 FRDs / 10 WOs, K = 2) | FM-9 (9.120.0, baseline) | 21.3 | 56.9 | 89.0 | 97.5 | 42.8 | 289/289 / 289/289 |
+| | **FM-10** | 22.5 | **43.5** | 80.3 | **89.9** | 41.3 | 289/289 / 289/289 |
+| Small (1 FRD / 3 WOs) | F-4 / F-5 (9.120.0, baseline) | 10.4 / 12.5 | = | — | 22.5 / 23.2 | 8.7 / 7.5 | 151/151 |
+| | **F-6 / F-7** | **10.7 / 7.2** | = | 20.2 / 17.2 | **23.0 / 19.6** | 7.3 / 7.3 | 151/151 / 151/151 |
+
+- Every pre-registered bar holds: small 151/151 in both runs, medium 289/289, medium all-USABLE 43.5 <= 50 min. C7 stays ON.
+- Medium all-USABLE -24 % (inside the 46-49 projection, slightly better); done -8 %; cost flat. Small USABLE mean -22 % (11.45 -> 8.95), done mean -7 %.
+- Fix-forwards: FM-10 3 (frd-04 scroll root/cn(), frd-02 JS string length, frd-01 long-name wrap) vs FM-9 2; F-6 1, F-7 0. All small; no oracle regression.
+- The small-bench builder now builds 3 WOs in about 4 min; the rest before USABLE is its single self-verify (in F-6 it caught a real visual defect, 3 min including 30 s e2e timeouts) and the engine's scripted verify (~1.7 min). Remaining time to "done" is the opus gate and close-out, unchanged by this proposal (next lever).
+- Side finding, fixed in the same release: a gate reviewer killed host-wide `next start` processes (BL-0223).
+

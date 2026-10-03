@@ -6,8 +6,9 @@ title: "FRD-gate agents stop their ad-hoc server with host-wide `pkill -f \"next
 status: done
 severity: p1
 opened: 2026-10-03
+closed: 2026-10-03
 source: "owner/conversation — proposal 41 bench run FM-10 (wf_21c442d1-f54), reviewer agent a1342c1ca98236397 at 2026-10-03T18:44:33Z"
-closes:
+closes: "plugin 9.121.0 (decision log v9.121.0); block-dangerous.sh + .pandacorp/serve-once.sh + SERVER_LIFECYCLE clause"
 links: [DR-118, DR-125]
 ---
 
@@ -58,9 +59,8 @@ the kill to the PID the agent itself started.
 ## Done when
 - [x] Hook refuses host-wide kills of dev/prod servers; the two-server test is green in `run-engine-tests`.
 - [x] `reviewer.md` (+ implementer, frontend-dev, backend-dev, test-writer) carry the lifecycle clause; Codex mirrors regenerated.
-- [ ] Plugin version bumped; decision log entry written. **Deferred to release** (the version bump, `OVERLAY_VERSION`
-      for the new `.pandacorp/serve-once.sh` overlay file, and the decision-log entry land with the release commit).
-- [ ] A medium-bench run with an oracle running concurrently shows no `ECONNREFUSED` caused by build agents.
+- [x] Plugin version bumped (9.121.0, OVERLAY_VERSION 8.98.0); decision log entry written (v9.121.0).
+- [ ] (NOT VERIFIED live yet; first bench run on 9.121.0 confirms) A medium-bench run with an oracle running concurrently shows no `ECONNREFUSED` caused by build agents.
       **Pending**: needs a live bench run, not done here.
 
 ## Resolution
