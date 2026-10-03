@@ -81,7 +81,7 @@ let verdict='green',summary='mock';
 if(prompt.includes('Integrate queued change')){if(scenario==='planner-writes')writeFileSync('illegal-planner-write.txt','forbidden\\n');const bug=prompt.includes('canonical bug contract'),blueprint=readFileSync('docs/frds/frd-01-a/blueprint.md','utf8'),wo1=readFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','utf8');let mutations;if(bug){mutations=[{target:'docs/frds/frd-01-a/work-orders/wo-01.md',content:wo1+'\\n## Regression\\n- queued bug regression\\n'}]}else{const next=blueprint.includes('WO-02')?blueprint:blueprint.replace(/(\\| WO-01[^\\n]*\\n)/,'$1| WO-02 | WO-01 | change.txt | false | — |\\n');mutations=[{target:'docs/frds/frd-01-a/blueprint.md',content:next},{target:'docs/frds/frd-01-a/work-orders/wo-02.md',content:'---\\nid: WO-02\\nimplementation_status: PLANNED\\ndependsOn: [WO-01]\\n---\\n\\n## Summary\\nQueued feature\\n'}]}writeFileSync(o,JSON.stringify({done:true,verdict:'green',summary:'planned',findings:[],change_kind:bug?'bug':'feature',affected_frds:['frd-01-a'],mutations,reopen_work_orders:[]}));process.exit(0)}
 if(prompt.includes('Implement exactly')){writeFileSync('feature.txt','ok\\n');writeFileSync('feature.js','export const add = (a, b) => a + b;\\n');if(scenario==='needs-owner'){verdict='needs-owner';summary='owner secret required'}}
 if(prompt.includes('Implement exactly')&&scenario==='slow-heartbeat'){for(const t0=Date.now();Date.now()-t0<30000;await new Promise(r=>setTimeout(r,25))){const l=JSON.parse(readFileSync('.pandacorp/run/build.lease/lease.json','utf8'));if(l.renewed_at!==l.acquired_at){appendFileSync('.pandacorp/run/heartbeat-observed','1\\n');break}}}
-if(prompt.includes('Implement exactly')&&scenario==='stalled-renewal'){for(const t0=Date.now();Date.now()-t0<12000;await new Promise(r=>setTimeout(r,25)));}
+if(prompt.includes('Implement exactly')&&scenario==='stalled-renewal'){writeFileSync('.pandacorp/run/stalled-dispatch-started','1\\n');for(const t0=Date.now();Date.now()-t0<12000;await new Promise(r=>setTimeout(r,25)));}
 if(prompt.includes('Implement exactly')&&scenario==='worker-status-write')appendFileSync('.pandacorp/status.yaml','worker_owned: true\\n');
 if(prompt.includes('Implement exactly')&&scenario==='worker-wo-write')appendFileSync('docs/frds/frd-01-a/work-orders/wo-01.md','worker_owned: true\\n');
 if(prompt.includes('Independently review')&&scenario==='red-review'){mkdirSync('src/__tests__',{recursive:true});writeFileSync('src/__tests__/adversarial.test.js','// preserved red evidence\\n');verdict='red';summary='adversarial failure'}
@@ -179,16 +179,19 @@ await test(`fenced heartbeat during a long dispatch is controller-owned, not a w
   ok(/feat\(WO-01\): implementation attempt/.test(log.out), log.out);
 });
 
-// A disk call that never returns (a stalled network volume): every rename of the lease file after the one that acquired it hangs
-// forever, so the first renewal never settles while it holds the lease mutation mutex (BL-0216).
+// A disk call that never returns (a stalled network volume): once the dispatch is running, every rename of the lease file hangs
+// forever, so the next renewal never settles while it holds the lease mutation mutex (BL-0216). The hang is armed by the fake
+// worker's own marker, not by a renewal count: a count armed it on the first renewal (~100 ms), so a pre-dispatch fenced mutation
+// that started later starved on the mutex and ended the run as CONTENDED before the stall deadline, on timing alone (BL-0221).
 const hangingLeaseRename = async () => {
   const file = path.join(await mkdtemp(path.join(os.tmpdir(), "pc-hung-lease-")), "hung-lease.mjs");
   await writeFile(file, [
     "import { createRequire, syncBuiltinESMExports } from 'node:module';",
+    "import { existsSync } from 'node:fs';",
     "const fsp = createRequire(import.meta.url)('node:fs/promises');",
     "if (/executor\\.mjs$/.test(process.argv[1] || '')) {",
-    "  const rename = fsp.rename; let leaseWrites = 0;",
-    "  fsp.rename = (from, ...rest) => (String(from).includes('lease.json.tmp') && ++leaseWrites > 1 ? new Promise(() => {}) : rename(from, ...rest));",
+    "  const rename = fsp.rename, armed = () => existsSync('.pandacorp/run/stalled-dispatch-started');",
+    "  fsp.rename = (from, ...rest) => (String(from).includes('lease.json.tmp') && armed() ? new Promise(() => {}) : rename(from, ...rest));",
     "  syncBuiltinESMExports();",
     "}",
   ].join("\n"));

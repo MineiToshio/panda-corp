@@ -3,12 +3,12 @@ id: BL-0221
 type: bug
 area: build-engine
 title: "BL-0216's own regression test is RED on main (test-codex-executor.mjs: a lease renewal that never settles does not end the run), so run-engine-tests.sh fails 31/32"
-status: open
+status: done
 severity: p1
 opened: 2026-10-01
-closed:
+closed: 2026-10-03
 source: "pandacorp-bench-form benchmark session 2026-10-01: run-engine-tests.sh on the 9.118.0 candidate and test-codex-executor.mjs on main 9a12a08b (2/2 runs)"
-closes:
+closes: "plugin/scripts/test-codex-executor.mjs (BL-0216 hang armed at dispatch start) + test-codex-enforcement.mjs (bounded codex CLI calls); plugin decision-log Unreleased (bench follow-ups)"
 links: [BL-0216, BL-0213]
 ---
 
@@ -34,3 +34,21 @@ test-codex-executor.mjs GREEN 5/5 consecutive runs; run-engine-tests.sh 32/32 un
 
 ## Done when
 Both suites green and stable; BL-0216 back-linked.
+
+## Resolution (2026-10-03)
+
+Root cause confirmed: a test timing assumption, not the executor. The executor's stall deadline (`renewStallMs`,
+`heartbeat`) is intact and `plugin/runtime/codex/` is unchanged since f51684a6. Reproduced 3/3 in isolation: exit 2
+`CONTENDED lease mutation mutex busy`, stderr also carrying `lease renewal stalled for 1501 ms`, and the fake worker was
+never invoked (no `fake-calls.log`). The preload hung the lease's second rename, the first renewal ~100 ms after acquire,
+so a pre-dispatch fenced mutation started after the hang, waited the mutex's ~1 s budget and ended the run CONTENDED
+before the 1.5 s stall deadline. The test only passed when the controller reached the dispatch within 100 ms.
+
+Fix (test only, no assertion changed): the hang arms from the fake worker's own `stalled-dispatch-started` marker, so
+the renewal stalls during the dispatch, the scenario the test names. Mutation check: with the stall deadline removed the
+test is RED again (exit 2 CONTENDED). `test-codex-enforcement.mjs` bounds every `codex` CLI call (180 s spawnSync
+timeout, `PANDACORP_CODEX_CLI_TIMEOUT_MS`, SIGKILL) and names a timeout as the failure reason (proved RED with
+"codex timed out after 200 ms" under a 200 ms budget).
+
+Evidence: `test-codex-executor.mjs` 56/56 in 5 consecutive runs; `test-codex-enforcement.mjs` 20/20;
+`run-engine-tests.sh` under `timeout 1800` 37/37 suites green. BL-0216 back-linked (`links:`).

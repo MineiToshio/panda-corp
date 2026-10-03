@@ -9,7 +9,7 @@ opened: 2026-09-30
 closed: 2026-09-30
 source: "second red-team of the BL-0212/0213/0214 batch (2026-09-30), attack 6 (executor mutex / lease TTL)"
 closes: "plugin/runtime/codex/executor.mjs (heartbeat renewal deadline); decision-log 2026-09-30 (BL-0215/0216)"
-links: [BL-0213, BL-0166]
+links: [BL-0213, BL-0166, BL-0221]
 ---
 
 ## Problem
@@ -68,3 +68,7 @@ lease simply goes stale, the honest state. The message carries numbers only (no 
 the stderr message, a single `LeaseLost` journal line, and a stop before the dispatch (12 s) ends. RED before (the run
 continued and ended CONTENDED after the dispatch); mutation (deadline removed) turns it RED again. Green in 3
 consecutive runs of the suite plus 2 full `run-engine-tests.sh` batteries.
+
+**Follow-up (BL-0221, 2026-10-03).** This test later went RED on main by timing: the hang armed on the first renewal
+(~100 ms), before the dispatch, so a pre-dispatch fenced mutation ended the run CONTENDED first. The hang now arms at the
+dispatch's start; the executor fix above was intact.

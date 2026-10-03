@@ -15,6 +15,11 @@ const test = async (name, fn) => {
   catch (error) { process.stderr.write(`FAIL  ${name}: ${error.stack || error}\n`); failed++; }
 };
 const ok = (condition, message) => { if (!condition) throw new Error(message); };
+// Every `codex` CLI call is bounded (BL-0221): `codex doctor` was seen to run past 10 minutes, which hung the whole
+// run-engine-tests.sh battery. A timed-out call fails its test loudly with the reason instead of blocking the runner.
+const CODEX_CLI_TIMEOUT_MS = Number(process.env.PANDACORP_CODEX_CLI_TIMEOUT_MS) || 180_000;
+const codexCli = (args, options = {}) => spawnSync("codex", args, { cwd: root, encoding: "utf8", timeout: CODEX_CLI_TIMEOUT_MS, killSignal: "SIGKILL", ...options });
+const codexFailure = (result, fallback) => (result.error?.code === "ETIMEDOUT" ? `codex timed out after ${CODEX_CLI_TIMEOUT_MS} ms` : result.error ? `codex failed to run: ${result.error.message}` : result.stderr || fallback);
 
 // A "stop" hook run reaches verify-before-stop.sh, which (F2, DR-...) emits a StopGate event and
 // falls back to the REAL $HOME/.claude/dashboard-events.ndjson when PANDACORP_EVENTS_LOG is unset
@@ -141,15 +146,17 @@ await test("both adapters fail closed when jq is absent", async () => {
 });
 
 await test("Codex 0.144.1 strict config accepts generated project config", async () => {
-  const result = spawnSync("codex", ["--strict-config", "doctor", "--summary", "--no-color"], { cwd: root, encoding: "utf8", env: { ...process.env, TERM: process.env.TERM === "dumb" ? "xterm-256color" : process.env.TERM } });
-  ok(result.status === 0 && /config\s+loaded/.test(result.stdout), result.stderr || "strict config rejected");
+  const result = codexCli(["--strict-config", "doctor", "--summary", "--no-color"], { env: { ...process.env, TERM: process.env.TERM === "dumb" ? "xterm-256color" : process.env.TERM } });
+  ok(result.status === 0 && /config\s+loaded/.test(result.stdout), codexFailure(result, "strict config rejected"));
 });
 
 await test("Codex execpolicy forbids destructive command and leaves safe command unmatched", async () => {
-  const denied = spawnSync("codex", ["execpolicy", "check", "--rules", rules, "git", "reset", "--hard", "HEAD"], { cwd: root, encoding: "utf8" });
-  const allowed = spawnSync("codex", ["execpolicy", "check", "--rules", rules, "git", "status"], { cwd: root, encoding: "utf8" });
-  ok(denied.status === 0 && JSON.parse(denied.stdout).decision === "forbidden", "destructive command not forbidden");
-  ok(allowed.status === 0 && !JSON.parse(allowed.stdout).decision, "safe command unexpectedly decided");
+  const denied = codexCli(["execpolicy", "check", "--rules", rules, "git", "reset", "--hard", "HEAD"]);
+  const allowed = codexCli(["execpolicy", "check", "--rules", rules, "git", "status"]);
+  ok(denied.status === 0, codexFailure(denied, "execpolicy check failed"));
+  ok(JSON.parse(denied.stdout).decision === "forbidden", "destructive command not forbidden");
+  ok(allowed.status === 0, codexFailure(allowed, "execpolicy check failed"));
+  ok(!JSON.parse(allowed.stdout).decision, "safe command unexpectedly decided");
 });
 
 await test("generated Codex enforcement projections are deterministic", async () => {
