@@ -4,7 +4,7 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
-## Unreleased (bench follow-ups)
+## v9.120.2 — 2026-10-03 (PATCH): bench follow-ups BL-0218..BL-0221 (close-out phase via the state CLI, usage-rollup prices cache writes, preflight warns on an outside-project cwd, BL-0216 test timing). `OVERLAY_VERSION` 8.97.1 -> 8.97.2 (the shipped engine artifact changed).
 
 ### BL-0218 — the close-out sets `phase: release` through the state CLI (no more hand edit, no restore commit)
 
@@ -57,7 +57,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Rejected / not built.** The replay harness (Phase 0) and the third gate slot (Phase 6), per §9. The planner's `laned` placement still keys on an explicit `--lanes` (a bare manual `lane-next` keeps its fill-every-free-lane behaviour), which is why the engine always passes its K.
 
-## Unreleased — 2026-10-03 (PATCH, version set at release): lossy mech relays — ASCII-normalized seals, re-readable receipts, orphan re-adoption (bench FM-8)
+## v9.120.0 (part) — 2026-10-03 (PATCH): lossy mech relays — ASCII-normalized seals, re-readable receipts, orphan re-adoption (bench FM-8)
 
 **Why.** Bench run FM-8 (`--lanes`): mech scripts perform durable side effects and THEN a haiku relay copies their sealed receipt line back to the engine, and the relay is lossy. One relay truncated a `lane-next` line (invalid JSON): the engine logged "unverifiable, nothing dispatched" while the script had already claimed lane 2 for chain `c-wo-01-004`; nothing ever started its builder, the planner never re-dispatched its held WOs, and FRD-01/02/03 were silently deferred. Another relay decoded `\u203a` to `›` in an intact `lane-usable` receipt, the seal broke and FRD-04 was never marked USABLE. Earlier runs showed the same class (dropped checksum digits, `ó` decoding, `{"parameter": ...}` wrapping).
 
@@ -71,7 +71,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Rejected.** Re-running a durable op on a lost receipt (a second `lane-next` claims another lane; a second `land-chain` or `commit-wo` is not a no-op). Skipping knip's dependency check in the lane's `verify.sh` (a project template change, and it would hide a real unused dependency): the builder prompt states the expected red instead.
 
-## Unreleased — 2026-10-03 (PATCH, version set at release): verify contention — host verify slots, a sequential bisect, the timeout re-run, pre-existing reds of other FRDs (bench FM-7)
+## v9.120.0 (part) — 2026-10-03 (PATCH): verify contention — host verify slots, a sequential bisect, the timeout re-run, pre-existing reds of other FRDs (bench FM-7)
 
 **Why.** Bench run FM-7 (`--lanes`): up to four full `verify.sh` ran at once on a 10-core host (`lane-bisect` fanned out three with `Promise.all`, beside another FRD's `lane-usable` and a gate reviewer's run). CPU contention pushed two tests that launch `prisma migrate deploy` past vitest's 5 s default; `lane-usable` went red on an FRD-01 test while verifying FRD-02, the bisect said `pre-existing` (its base had been verified under the same contention) and FRD-02's USABLE was blocked ~40 min on a red that was neither its own nor real.
 
@@ -83,7 +83,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Rejected.** A global host lock (one verify at a time) — it serializes unrelated projects' and the gate's independent runs for no gain on a multi-core host. Re-running the whole suite on any red — it hides real reds and doubles the cost; only a timeout signature whose files pass ALONE is contention.
 
-## Unreleased — 2026-10-02 (PATCH, version set at release): lanes robust to bootstrap-owned files (bench FM-6)
+## v9.120.0 (part) — 2026-10-02 (PATCH): lanes robust to bootstrap-owned files (bench FM-6)
 
 **Why.** The medium bench run FM-6 (`--lanes 2`) parked a chain whose code was correct and stalled every DAG descendant: the second lane's `worktree-bootstrap.sh` (step 2) rewrote `.claude/launch.json` with the lane's ports, assuming it gitignored, but that project TRACKS it. The rewrite ran after the dispatch's dirt salvage (a port change re-bootstraps), so `land-chain` refused three times with `lane-dirty … (.claude/launch.json)` and the engine counted each refusal toward park. Reproduced with the real bootstrap in a temp repo: the same dirt also refused `commit-wo` (`undeclared`) in the lane.
 
@@ -101,7 +101,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Residual.** The lane rebase-fix agent's own manual `git rebase` does not set the owned files aside. A work order that must change a bootstrap-owned file cannot commit it in a lane (skip-worktree refuses a plain `git add`), the same as `server-env.json` before.
 
-## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 Phase 5 — K re-decided at every lane round (bench FM-5)
+## v9.120.0 (part) — 2026-10-02 (PATCH): proposal 40 Phase 5 — K re-decided at every lane round (bench FM-5)
 
 **Why.** The medium bench run FM-5 with `--lanes 2` built strictly sequentially. Its first `lane-plan` returned `{"k":1,"kRequested":2,"kReason":"narrow-dag","width":1,"offPath":4}`: at the start only WO-01-001 was ready, and the engine decided K once for the whole run from that first width, so it fell back to the one-FRD-at-a-time loop although the Build Plan DAG (`pandacorp-bench-medium` frd-01 blueprint) is two wide at five later points (WO-01-002 ∥ WO-01-003, WO-01-004 ∥ WO-04-001, WO-01-005 ∥ WO-02-001, WO-02-002 ∥ WO-03-001…). The `narrow-dag` rule also fired on a DAG with offPath 4, and the fused start dispatched all of FRD-01 on main from the same K = 1. Two further defects made it worse: the head chain absorbed WO-01-002 (serializing it behind WO-01-001 while its sibling, the barrier WO-01-003, waited for main), and `lane-next` ignored K entirely (it filled every free lane).
 
@@ -119,7 +119,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-mech-lanes.mjs` `lanes-k-reevaluated-when-width-grows` (the bench DAG, ten WOs through lane-plan/lane-next/commit-wo/land-chain), `auto-k1-on-narrow-dag (per step)`, `cross-frd-ready-wo-gets-a-lane`; `test-build-mech.mjs` fast-start `lanes-pool-boots-before-first-parallel-dispatch` (kRun 2 under a narrow first round: nothing dispatched on main); `test-build-engine.mjs` `lanes-k-reevaluated-when-width-grows`, `lanes-pool-boots-before-first-parallel-dispatch`, `cross-frd-ready-wo-gets-a-lane` (the lane simulator gained a per-round mode); every existing lane, classic and artifact scenario unchanged and green.
 
-## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 Phase 5 review fix round 1 — lanes opt-in, lane port from disk, parked commits kept
+## v9.120.0 (part) — 2026-10-02 (PATCH): proposal 40 Phase 5 review fix round 1 — lanes opt-in, lane port from disk, parked commits kept
 
 **Why.** The Phase 5 review failed the branch on three ship-blocking defects: (1) lanes were ON by default (`DEFAULT_LANES = 2`) though §7 row 5 ships them "behind `--lanes` (auto 1 until §6.2 passes)" and §9 accepts K = 2 only once FM-5 meets §6.2, and neither FM-5 nor the §6.4 lane canaries ran, so any wide plain fast build became an unproven K = 2 lane run; (2) a lane's own port and "never reuse a server" reached Playwright only through the shell env, which a builder's fresh Bash call never had (`lane.env` was only to be sourced by hand), so its e2e could test a sibling lane's or main's server (false green/red, wrong-app baselines); (3) a retried parked chain reuses its chain id and branch, and the fresh dispatch force-reset `lane/<chain>`, discarding committed-but-unlanded WOs (only the reflog kept them), and when a sibling lane still had that branch checked out the `checkout -B` threw a non-Refusal every round, silently dropping the run to K = 1.
 
@@ -133,7 +133,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-mech-lanes.mjs`: K = 1 without `--lanes` on a wide DAG in every mode, `--lanes 2` → `requested`; the template config evaluated in a real lane with an EMPTY env (and with `PORT=3000`) uses the lane port and never reuses, with a no-`lane.env` control that does reuse; `lane-park-retry-keeps-commits` (archive ref holds both committed WOs; nothing archived when nothing is unlanded); a branch held by a free sibling lane is released, held outside the pool → `branch-in-use` in a sealed round; `lane-orphan` (dispatch and land refuse, main's HEAD, branch and owner WIP untouched); `land-chain` resync after a lockfile change (failed resync lands nothing, then lands with one re-bootstrap; no change, no resync). `test-build-mech.mjs`: `fast-start --lane-plan` bare → K = 1 `default`. `test-build-engine.mjs`: `lanes-off-by-default (engine)`, `F39-30` (no `--lane-plan` without `--lanes`), `F39-30b`, `stale-barrier-parks (engine)` (it looped the engine out of memory before the fix); the lane scenarios now pass `lanes: 2`. `test-build-run-id.mjs`: the ARG-ECHO says `lanes 1 (default)`. Each new assertion was run RED before its fix.
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 5 Stage B — the engine schedules the lanes
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 5 Stage B — the engine schedules the lanes
 
 **Why.** Stage A shipped every deterministic lane step as a mech op, but the event loop still built one FRD at a time on main. Proposal 40 §3 Phase B and the §9 orchestrator decision ask for the lanes themselves: static K (`--lanes N`, mode caps pro 1 / balanced 2 / powerful 4, auto 1 on a narrow DAG; the default is 1 until FM-5 passes, see review fix round 1 above), chains dispatched to worktree lanes, landings serialized on main, USABLE per FRD on a pinned SHA in a snapshot worktree, bisect + fix-forward on a red USABLE (never an automatic revert), a parked chain blocking only its descendants, the usage limit as a global pause, resume from git + the lane journal, and every ready card drained into one DAG.
 
@@ -146,7 +146,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-engine.mjs`: `two-lanes-build-in-parallel`, `schema-chain-pauses-landings (engine)`, `lane-park-blocks-only-descendants`, `usage-limit-global-pause-not-attempt`, `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`; F39-30 asserts the fused start carries `--lane-plan`. `test-build-mech-lanes.mjs` Stage B: `auto-k1-on-narrow-dag (gain)`, `--build`/`--wait-verified`, the pool booting outside the lock, `lane-next`, `lane-resume-after-pause` (mech), a broken lane, `lane-usable` (green on the pin, own-commit floor, red cross + bisect, red own, uncommitted). `test-build-mech.mjs`: `fast-start --lane-plan`. `test-build-run-id.mjs`: `--lanes`. `test-engine-artifact.mjs`: the budget and its headroom.
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 5 Stage A — the lane mech layer
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 5 Stage A — the lane mech layer
 
 **Why.** Proposal 40 §3 Phase B (Lever 2) and §9: FM-3 put the builder at 50.6 % of the critical path and Mission Control's WO graph is acyclic and up to 21 WOs wide, so building chains in parallel worktrees is the remaining speed lever. The red-team (B2-B9) named what makes it unsafe: a stale Prisma client or DB, a lane testing a sibling's server, journal appends conflicting on every rebase with stale SHAs, blaming the latest chain for a red USABLE, a parked WO widening through a cyclic FRD graph. Each is decided here by a script, so the engine only orchestrates and its 450 KB artifact does not grow.
 
@@ -158,7 +158,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 **Deviations.** (a) A barrier WO is always a chain of its own (the proposal only says a chain touching those paths is a barrier); it keeps the landing pause as short as one WO. (b) Re-keying is a `lane_land` line mapping each WO id to its landed SHA, appended after the ff (swept by the next landing or committer), rather than rewriting earlier lines: no lane line carries a SHA today (`wo_end` is keyed by WO id), and `build_usable` is written on main. (c) The "gain below the bootstrap" clause of auto K = 1 is approximated by the ready width alone. (d) Lane state is gitignored run state, not a committed journal; git wins over it (a live chain whose WOs are committed on main is landed). The engine wiring (the event loop dispatching chains, USABLE in a snapshot worktree, the global usage pause, resume, drain-all) is the next stage; the engine artifact is unchanged.
 
 **Tests:** `test-build-mech-lanes.mjs` (new, real temp repos with the project nested, real linked worktrees, WOs built with the real `commit-wo`): `cyclic-frd-graph-sliced-by-ready-set`, `auto-k1-on-narrow-dag`, `schema-chain-pauses-landings`, `land-chain-union-merges-track-journal`, the i18n key union with rebase-fix then park, red checks, `lane-never-reuses-sibling-server`, `lane-bisect`. Written with the code; each was checked RED against a mutation (union attributes off, barrier detection off, port probe off).
-## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 bench FM-4 fixes
+## v9.120.0 (part) — 2026-10-02 (PATCH): proposal 40 bench FM-4 fixes
 
 **Why.** Bench FM-4 (journal lines 56-66): (1) `verify --patch` spawned `node_modules/.bin/playwright` with the inherited PATH, the project's webServer (a bare `next dev`) exited 127 and a correct patch counted RED, so the FRD went BLOCKED needs-owner; (2) a haiku MECH relay whose op crossed the Bash default 120 s backgrounded it and polled to 600 s (10 min lost).
 
@@ -166,7 +166,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-mech.mjs`: `patch-verify-runner-path` (+ `tests[].ok` false on a red run). `test-build-engine.mjs`: `P40-fg`/`P40-fg2 mech-relay-foreground-timeout`. All RED before their fix.
 
-## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 review fix round 2
+## v9.120.0 (part) — 2026-10-02 (PATCH): proposal 40 review fix round 2
 
 **Why.** The second review failed the branch on two ship-blocking defects: (1) the production smoke judged the commit at the close-out's start, alongside visual-qa, while the hardening chain (the security-fix agent, the telemetry agent) and visual-qa commit product code after it, and nothing compared the smoked SHA with the released HEAD: a CSP added by the security fix (the ppv2 f4ed29a shape) could ship with the smoke green on the pre-fix commit; (2) the security delta and the gate's injection scan reused the product floor's out-of-scope filter, which drops `.mdx` (compiled to a component), any `docs/` segment and any `test/` directory, so an MDX injection sink or a route under `src/app/docs/` skipped the delta audit and kept its gate at `high`.
 
@@ -179,7 +179,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-product-floor.mjs`: `security-delta-mdx-is-code`, `security-delta-app-docs-segment`, `security-delta-app-test-segment`, `security-delta-app-segments`, `security-delta-real-tests-only`. `test-build-mech.mjs`: `gate-effort-injection-mdx-and-app-docs`, `release-requires-current-smoke` (moved product code refused before verify.sh, docs/.pandacorp-only commits released, a foreign SHA refused, a malformed SHA an input error, HEAD released). `test-build-engine.mjs`: `F40-8d`/`F40-8e`/`F40-8f release-requires-current-smoke` (+ F40-8c: no smoke clause in the classic close-out). All RED before their fix.
 
-## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 review fix round 1
+## v9.120.0 (part) — 2026-10-02 (PATCH): proposal 40 review fix round 1
 
 **Why.** The independent review of proposal 40 failed the branch on two ship-blocking defects: (1) the security delta's module-level triggers ('use server', an fs import) read only the ADDED lines, so a new action in an existing `'use server'` module or a new `path.join` in a module already importing fs left the delta quiet and the early audit stood as the build's report; Next 16's `proxy.*` (the renamed middleware) was not a trigger at all; (2) the production smoke read its verdict right after `load`, before hydration and before a lazy client chunk, so the ppv2 f4ed29a shape it exists for could pass.
 
@@ -192,7 +192,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-product-floor.mjs`: `security-delta-server-action-existing-module`, `security-delta-fs-path-join-existing-import`, `security-delta-actions-path`, `security-delta-next16-proxy` (+ proxy floor, root route, no over-trigger). `test-build-mech.mjs`: `security-scope-reads-head` (real git range). `test-prod-smoke.mjs`: `prod-smoke-waits-for-hydration` (a real Chromium on a strict-CSP fixture; late violation, SSE-holding clean page, never-hydrating page). `test-build-engine.mjs`: `F40-3d gate-land-unapplied-test-keeps-the-agent-port`. All RED before their fix.
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 4 — the gate trims
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 4 — the gate trims
 
 **Why.** Proposal 40 §1/§2: the opus FRD gate is 38-62 % of a fast-lane build's cost and ran after every oracle result was already final; on FM-3 it wrote ~2,800 lines of reviewer tests and found 0 product defects, while its real catches (stale `errors`, UTF-16 length, the 390 px marker, the ppv2 JSON-LD XSS) were either builder-introduced traps or injection-style content. §9 (owner-delegated) ships the effort split without the replay harness: `xhigh` stays where a miss is costly (floor, injection content), `high` elsewhere.
 
@@ -206,7 +206,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-engine.mjs`: `builder-prompt-carries-trap-checklist` (+ classic guard), `gate-effort-xhigh-on-injection-content`, `probe-mandate-min-one-per-wo` (+ needs-owner and classic variants), `harness-marker-raised-first-pass` (+ classic variant). `test-build-mech.mjs`: `gate-effort-xhigh-on-injection-content` (the verify op's scan). All RED before the change except the classic guards.
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 3 — the patch ladder's merge
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 3 — the patch ladder's merge
 
 **Why.** Proposal 40 §1/§2: on the benches the verify-patch agent wrote nothing in 4 of 4 runs and the certify agent only wrote work-order and status files, so neither judged anything a script cannot decide; the opus patch also ran on findings the gate itself bounded at ≤ ~30 lines. The red-team (B) asked that a patcher can never weaken the RED test, hence the mandatory hash, and that a cheaper patcher escalate.
 
@@ -219,7 +219,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-mech.mjs`: `reviewer-test-hash-tamper-red`, `certify-state-writes-wo-and-status` (both RED before). `test-build-engine.mjs`: `sonnet-patch-escalates-after-red` (+ floor/unbounded variants), `reviewer-test-hash-tamper-red (engine)`, `patch-ladder-agent-fallback`, `classic-patch-ladder-unchanged`.
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 2 — the fast lane's event loop and main-writer mutex
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 2 — the fast lane's event loop and main-writer mutex
 
 **Why.** Proposal 40 §1/§3 Phase A: on FM-3 an apply-gate delayed the next FRD's dispatch by 2.8 min, and FRD-03's gate started 23 min after a slot freed, because the scheduler awaited each build (and each landing) inline: a slot that freed mid-build stayed idle until the build returned. The red-team (B1) cut the honest gain to about 4-5 min of done time and asked for a mutex.
 
@@ -233,7 +233,7 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 
 **Tests:** `test-build-engine.mjs`: `apply-gate-never-blocks-dispatch`, `gate-launches-when-slot-frees` (both RED before), `main-writer-mutex-serializes-apply-patch-commit` (an invariant guard: proven RED by a mutant that lands a verdict while a build holds main).
 
-## Unreleased — 2026-10-02 (MINOR, version set at release): proposal 40 Phase 1 — the fast lane's tail made cheaper and its engine bugs fixed
+## v9.120.0 (part) — 2026-10-02 (MINOR): proposal 40 Phase 1 — the fast lane's tail made cheaper and its engine bugs fixed
 
 **Why.** Proposal 40 §1: after USABLE nothing ever changed an oracle result, yet the tail cost ~30 min on the small bench and +40.4 min on FM-3, and the opus close-out spent part of it doing engine-bug work: a security report the checker could not find (local vs UTC date), reviewer tests left untracked on main, new-route baselines the gate never blessed, plus the builder running the full suite 14 times (FM-3) and an opus rebuild of a WO that was already committed (F-3). §9 ships Lever 1 without the replay harness; this is its row 1 (§7), the engine-bug and plumbing fixes. Gate effort, the trap checklist and the patch ladder are later phases.
 

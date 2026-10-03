@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-03 — Pandacorp overlay 8.97.1 -> 8.97.2 (engine follow-up)
+
+**What:** the only template change is the build engine artifact (BL-0218: the cross-feature close-out sets `phase: release` through the state CLI so the lease quiesce cannot undo it); `.claude/engines/pandacorp-build.js` is copied byte-identical and `overlay_version` follows.
+
+**Why:** plugin 9.120.2 bench follow-ups.
+
 ## 2026-10-03 — Pandacorp overlay upgraded 8.96.0 -> 8.97.1
 
 **What:** compatible (same MAJOR) bump. Gate-config conformance (DR-059): the production-build smoke harness
