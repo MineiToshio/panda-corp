@@ -110,6 +110,12 @@ const ENGINE_ARGS_ROWS: readonly (readonly string[])[] = [
     "--lane classic en el launcher si quieres exactamente el flujo anterior.",
   ],
   [
+    "lanes",
+    "2 (desde 9.120.0)",
+    "Cuántos carriles en paralelo usa el carril rápido para las work orders que no dependen unas de otras. Es un techo: el modo lo limita (pro 1, balanced 2, powerful hasta 4) y baja solo a 1 cuando el árbol de dependencias es estrecho.",
+    "--lanes N en el launcher para otro número (por ejemplo 4 en powerful); --lanes 1 apaga los carriles.",
+  ],
+  [
     "reviewBudget",
     "'now'",
     "Qué hacer con la revisión: 'now' sigue hasta dejar cada feature VERIFIED; 'defer' se detiene cuando todo es USABLE y deja la revisión pendiente.",
@@ -162,9 +168,11 @@ export function DesatendidaDetail(): React.JSX.Element {
           hiciera falta descartarlo, te lo pregunta a ti.
         </li>
         <li>
-          <B weight={500}>Una feature a la vez.</B> Las features se construyen una tras otra sobre{" "}
-          <Code>main</Code>, en orden de dependencias; lo que sí se solapa es la revisión de una con
-          la construcción de la siguiente.
+          <B weight={500}>En paralelo cuando se puede.</B> Desde la 9.120.0 las work orders que no
+          dependen unas de otras se construyen a la vez en carriles separados (ver abajo); cuando el
+          árbol de dependencias es estrecho, las features se construyen una tras otra sobre{" "}
+          <Code>main</Code>, como antes. La revisión de una feature siempre se solapa con la
+          construcción de la siguiente.
         </li>
       </Ul>
       <Body margin="0 0 8px">Dos interruptores, ambos opcionales:</Body>
@@ -187,6 +195,42 @@ export function DesatendidaDetail(): React.JSX.Element {
         <Code>launch-implement.sh … --resume &lt;run-id&gt;</Code>. Las work orders ya commiteadas
         no se reconstruyen.
       </NotePanel>
+
+      <DocH title="Carriles en paralelo, revisión más barata y smoke de producción (desde 9.120.0)" />
+      <Body margin="0 0 8px">
+        Desde la versión 9.120.0 (DR-125, propuesta 40) el carril rápido construye en paralelo las
+        work orders independientes. Cada tramo de hasta 3 work orders seguidas va a su propio{" "}
+        <B weight={500}>carril</B>: una copia aparte del proyecto (un worktree) con su propio
+        puerto, para que sus pruebas nunca toquen el servidor de otro carril. Los carriles aterrizan
+        en <Code>main</Code> de a uno, y un tramo que toca el esquema de datos o las dependencias se
+        construye directamente en <Code>main</Code> mientras los demás esperan para aterrizar.
+      </Body>
+      <Ul>
+        <li>
+          <B weight={500}>Cuántos carriles.</B> 2 por defecto, hasta 4 en modo powerful si lo pides
+          (1 en pro), y automáticamente 1 cuando el árbol de dependencias es estrecho: entonces el
+          build es exactamente el secuencial de siempre. El número se recalcula en cada ronda según
+          cuántas work orders están listas. <Code>--lanes N</Code> lo cambia y{" "}
+          <Code>--lanes 1</Code> apaga los carriles.
+        </li>
+        <li>
+          <B weight={500}>Revisión más barata.</B> El gate sigue siendo opus, pero trabaja con
+          esfuerzo high en las features no sensibles y con xhigh en las sensibles o cuando el código
+          trae riesgo de inyección. En vez de una suite completa escribe un test de regresión por
+          cada hallazgo más entre 1 y 5 pruebas adversariales por work order.
+        </li>
+        <li>
+          <B weight={500}>Smoke del build de producción.</B> Antes de cerrar corre un smoke del
+          build de producción (<Code>next build</Code> y <Code>next start</Code> en una copia
+          aparte) que visita cada ruta aprobada y queda en rojo ante una violación de CSP, una
+          pantalla de error o una página vacía.
+        </li>
+      </Ul>
+      <Body margin="0 0 8px">
+        Medido en el banco mediano (4 features, 10 work orders): con 2 carriles todas las features
+        quedaron USABLE a los 56,9 minutos, contra 67,8 a 77,3 minutos de una en una, y la suite
+        oculta pasó completa (289 de 289).
+      </Body>
 
       <DocH title="Cómo se le ordena parar" />
       <Body>

@@ -1,5 +1,25 @@
 # Decision Log — Mission Control
 
+## 2026-10-03 — Engine 9.120.0 synced; Manual: parallel lanes by default, cheaper review, production smoke (DR-125)
+
+**What:** the build engine `.claude/engines/pandacorp-build.js` is byte-identical to the plugin 9.120.0 artifact
+(proposal 40: Lever 1 plus worktree lanes on by default, K = 2 auto-narrowing). `playwright.config.ts` is a VERBATIM
+DR-059 template file this project already carried byte-identical, so it was re-copied (it now reads a lane's
+`.pandacorp/run/lane.env` port from disk, never reuses a server inside a lane, and serves `next build && next start`
+under `PANDACORP_PROD_SMOKE`; the normal `next dev` gate is unchanged). `overlay_version` stays 8.96.0: the new
+`e2e/prod-smoke.spec.ts` / `e2e/_prod-smoke.ts` harness (OVERLAY_VERSION 8.97.0) is a first-time install left to
+`/pandacorp:upgrade`; until then the engine's production smoke step refuses `missing-harness` here (fail-loud).
+The Manual (`src/lib/manual/skill-flows.ts`, `DesatendidaDetail.tsx` with a new `lanes` engine-arg row and section,
+the `pandacorp-build` workflow note) now explains in plain Spanish: independent work orders build in parallel
+(2 lanes by default, up to 4 in powerful, automatically 1 on a narrow dependency tree; `--lanes N` changes it,
+`--lanes 1` turns it off), the cheaper opus review (effort high off sensitive features, xhigh on sensitive or
+injection-risk code; findings plus probes) and the new production-build smoke step. New pins in
+`src/app/manual/_tests/manualPages.lanes.test.tsx`.
+
+**Why:** DR-046 (the Manual must stay current with the factory); factory DR-125 and
+`docs/proposals/40-implement-speed-v2.md` (medium bench FM-9: every FRD USABLE at 56.9 min with 2 lanes vs 67.8-77.3
+sequential, oracle 289/289).
+
 ## 2026-10-02 — Pandacorp overlay upgraded to 8.96.0 (fast-lane engine)
 
 **What:** the only template that changed between 8.95.0 and 8.96.0 is the build engine (`plugin/templates/shared/.claude/engines/pandacorp-build.js`: 9.118.1/9.118.2 hotfixes plus the fast lane of proposal 39, now the default of /pandacorp:implement, DR-124); `.claude/engines/pandacorp-build.js` is copied byte-identical and `overlay_version` follows.

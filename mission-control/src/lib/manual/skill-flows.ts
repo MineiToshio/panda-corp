@@ -477,7 +477,7 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "implement",
     explainer:
-      "El comando que CONSTRUYE (y reanuda) un proyecto. Por defecto construye como UN agente rápido por feature (FRD): en minutos te deja un hito USABLE (el código ya está en main, verify.sh en verde y te llega un aviso al celular) y la revisión con opus corre después, en segundo plano, hasta dejar cada feature VERIFIED. Siempre con un supervisor en vivo que te avisa si algo se atasca o termina. Corre desatendido y reanudable: si se corta, lo vuelves a correr y sigue desde donde quedó (nunca reconstruye un FRD ya verificado).",
+      "El comando que CONSTRUYE (y reanuda) un proyecto. Por defecto construye con el carril rápido: en minutos te deja un hito USABLE (el código ya está en main, verify.sh en verde y te llega un aviso al celular) y la revisión con opus corre después, en segundo plano, hasta dejar cada feature VERIFIED. Desde la 9.120.0 construye en paralelo las work orders que no dependen unas de otras: 2 carriles por defecto, hasta 4 en modo powerful, y automáticamente 1 cuando el árbol de dependencias es estrecho. Siempre con un supervisor en vivo que te avisa si algo se atasca o termina. Corre desatendido y reanudable: si se corta, lo vuelves a correr y sigue desde donde quedó (nunca reconstruye un FRD ya verificado).",
     runsIn: "project",
     steps: [
       {
@@ -503,8 +503,8 @@ const FLOWS: SkillFlow[] = [
         title: "Lanzar el workflow + fijar el techo",
         kind: "safe",
         detail:
-          "Marca running:true, deja el lock, y lanza el workflow pandacorp-build con un tope de agentes (maxAgents; con auto el motor lo calcula tras el plan, y para una noche desatendida conviene darle un número tuyo) para no quemar tus tokens de noche. Por defecto usa el carril rápido; --lane classic vuelve al flujo anterior y --review-budget defer lo detiene en USABLE y deja la revisión para después. Cada FRD entregado será un commit (punto seguro).",
-        note: "DR-124: carril rápido por defecto desde el plugin 9.119.0",
+          "Marca running:true, deja el lock, y lanza el workflow pandacorp-build con un tope de agentes (maxAgents; con auto el motor lo calcula tras el plan, y para una noche desatendida conviene darle un número tuyo) para no quemar tus tokens de noche. Por defecto usa el carril rápido; --lane classic vuelve al flujo anterior y --review-budget defer lo detiene en USABLE y deja la revisión para después. --lanes N cambia cuántos carriles en paralelo usa (--lanes 1 los apaga). Cada work order entregada será un commit (punto seguro).",
+        note: "DR-124: carril rápido por defecto desde el plugin 9.119.0. DR-125: carriles en paralelo por defecto desde el 9.120.0",
       },
       {
         title: "Montar el supervisor",
@@ -517,8 +517,8 @@ const FLOWS: SkillFlow[] = [
         title: "Construir cada FRD (carril rápido)",
         kind: "loop",
         detail:
-          "Cada feature la construye UN solo agente, como lo haría uno suelto: hace todas sus work orders con TDD, y cada WO queda commiteada en main con su nota de hand-off. Al terminar corre verify.sh una vez sobre el árbol limpio. Si queda en verde, la feature es USABLE: puedes probarla ya.",
-        note: "Con --lane classic vuelve el flujo anterior, por oleadas con varios agentes en paralelo",
+          "Las work orders se construyen con TDD y cada una queda commiteada con su nota de hand-off. Las que no dependen unas de otras se construyen en paralelo: cada tramo (hasta 3 work orders seguidas) va a su propio carril, una copia aparte del proyecto con su propio puerto, y los carriles aterrizan en main de a uno. Son 2 carriles por defecto, hasta 4 en modo powerful (1 en pro), y automáticamente 1 cuando el árbol de dependencias es estrecho: entonces construye una feature tras otra sobre main, como antes. Un tramo que toca el esquema de datos o las dependencias se construye en main y los demás esperan para aterrizar. Al cerrar cada feature corre verify.sh una vez; si queda en verde, la feature es USABLE: puedes probarla ya.",
+        note: "DR-125: --lanes N cambia el número de carriles, --lanes 1 los apaga. Con --lane classic vuelve el flujo anterior, por oleadas con varios agentes en paralelo",
         parallel: true,
         calls: [
           { ref: "backend-dev", as: "agent", note: "datos + lógica + API" },
@@ -530,8 +530,8 @@ const FLOWS: SkillFlow[] = [
         title: "Hito USABLE y gate de revisión por FRD",
         kind: "gate",
         detail:
-          "Cuando una feature es USABLE (código en main, verify.sh verde) te llega un aviso: ya puedes probarla. La revisión con opus corre después, en segundo plano, mientras se construye la siguiente: el reviewer revisa la feature completa con 3 lentes + tests adversariales + verify.sh. Verde → VERIFIED + commit. Si algo falla, lo repara hacia adelante (patch-first), sin deshacer lo ya entregado; si no puede, marca BLOCKED con motivo y sigue con features independientes. Las features sensibles (login y sesiones, dinero, datos personales guardados, secretos, borrados de datos) NO son usables hasta quedar VERIFIED, y las que dependen de ellas esperan.",
-        note: "DR-015/073/124. Con --review-budget defer se detiene en USABLE y la revisión queda pendiente para otra corrida",
+          "Cuando una feature es USABLE (código en main, verify.sh verde) te llega un aviso: ya puedes probarla. La revisión con opus corre después, en segundo plano, mientras se construye la siguiente: el reviewer revisa la feature completa con 3 lentes + verify.sh, y escribe un test de regresión por cada hallazgo más entre 1 y 5 pruebas adversariales por work order. Es más barata que antes: opus trabaja con esfuerzo high en las features no sensibles y con xhigh en las sensibles o cuando el código trae riesgo de inyección. Verde → VERIFIED + commit. Si algo falla, lo repara hacia adelante (patch-first), sin deshacer lo ya entregado; si no puede, marca BLOCKED con motivo y sigue con features independientes. Las features sensibles (login y sesiones, dinero, datos personales guardados, secretos, borrados de datos) NO son usables hasta quedar VERIFIED, y las que dependen de ellas esperan.",
+        note: "DR-015/073/124/125. Con --review-budget defer se detiene en USABLE y la revisión queda pendiente para otra corrida",
         calls: [{ ref: "reviewer", as: "agent", note: "revisa el FRD completo y corre verify.sh" }],
       },
       {
@@ -546,6 +546,13 @@ const FLOWS: SkillFlow[] = [
           { ref: "bug", as: "skill", note: "integra fixes con test de regresión" },
           { ref: "decide", as: "skill", note: "responde lo que necesita tu decisión" },
         ],
+      },
+      {
+        title: "Smoke del build de producción",
+        kind: "gate",
+        detail:
+          "Antes de cerrar corre un smoke del build de producción (next build y next start en una copia aparte), en paralelo con la revisión visual: visita cada ruta aprobada y queda en rojo ante una violación de la política de seguridad de contenido (CSP), una pantalla de error o una página vacía. Atrapa lo que solo se rompe en producción y no en desarrollo.",
+        note: "DR-125 (propuesta 40)",
       },
       {
         title: "Reanudar para varias pasadas + apagado garantizado",

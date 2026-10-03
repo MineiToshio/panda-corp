@@ -3089,7 +3089,11 @@ function WorkflowBuild(): React.JSX.Element {
         secretos, borrados de datos) esperan su VERIFIED. Todo lo que sigue sobre oleadas globales
         describe el carril <Code>classic</Code> (<Code>--lane classic</Code>); con{" "}
         <Code>--review-budget defer</Code> se detiene en USABLE, y si un límite de uso corta la
-        corrida se pausa limpio y se reanuda con <Code>--resume &lt;run-id&gt;</Code>.
+        corrida se pausa limpio y se reanuda con <Code>--resume &lt;run-id&gt;</Code>. Desde la
+        9.120.0 (DR-125) el carril rápido usa además carriles en paralelo: las work orders
+        independientes se construyen a la vez en copias aparte del proyecto (2 por defecto, hasta 4
+        en powerful, 1 cuando el árbol de dependencias es estrecho; <Code>--lanes N</Code> lo
+        cambia).
       </NotePanel>
 
       <Panel>

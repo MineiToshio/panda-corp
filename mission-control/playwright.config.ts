@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Preview Smoke Gate (DR-055) + Visual-Fidelity Gate Layer A (DR-056) + Responsive Gate (DR-074) +
- * Shell-Presence Gate (DR-075). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
+ * Shell-Presence Gate (DR-075) + the Production-Build Smoke (proposal 40, PANDACORP_PROD_SMOKE). VERBATIM stack template (DR-059) — at the project ROOT, conformance-checked by
  * /pandacorp:upgrade. Deterministic by construction: single worker, animations disabled, caret
  * hidden, fonts settled before each shot, retries OFF (a retry re-creates a missing baseline → the
  * gate fails OPEN; DR-056 forbids it). In CI baselines are frozen (`updateSnapshots:'none'`);
@@ -31,8 +31,28 @@ const serverEnv: Record<string, string> = fs.existsSync(SERVER_ENV_FILE)
     )
   : {};
 
-const PORT = Number(serverEnv.PORT ?? process.env.PORT) || 3000;
+// Build lanes (proposal 40 Phase B): a lane worktree carries its own `.pandacorp/run/lane.env` (PANDACORP_LANE and the
+// lane's PORT), written by the build engine. It is read from DISK, not only from the shell env: a builder's fresh shell
+// never sourced it, and an e2e on the default port would test a sibling lane's (or main's) server.
+const LANE_ENV_FILE = path.resolve(".pandacorp", "run", "lane.env");
+const laneEnv: Record<string, string> = fs.existsSync(LANE_ENV_FILE)
+  ? Object.fromEntries(
+      fs
+        .readFileSync(LANE_ENV_FILE, "utf8")
+        .split("\n")
+        .map((line) => /^(?:export\s+)?([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim()))
+        .filter((m): m is RegExpExecArray => m !== null)
+        .map((m) => [m[1], m[2]]),
+    )
+  : {};
+
+const PORT = Number(serverEnv.PORT ?? laneEnv.PORT ?? process.env.PORT) || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
+// Production-Build Smoke (proposal 40): the build engine sets PANDACORP_PROD_SMOKE in a detached worktree, so the
+// server is the production artifact (`next build && next start`, its real CSP), never a reused dev server.
+const PROD_SMOKE = Boolean(process.env.PANDACORP_PROD_SMOKE);
+// In a lane (its lane.env, or PANDACORP_LANE in the env) the e2e never reuses a server a sibling lane or main left running.
+const LANE = Boolean(laneEnv.PANDACORP_LANE || process.env.PANDACORP_LANE);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -62,10 +82,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: `next dev --hostname 127.0.0.1 --port ${PORT}`,
+    command: PROD_SMOKE
+      ? `next build && next start --hostname 127.0.0.1 --port ${PORT}`
+      : `next dev --hostname 127.0.0.1 --port ${PORT}`,
     url: BASE_URL,
-    reuseExistingServer: !isCI && Object.keys(serverEnv).length === 0,
-    timeout: 180_000,
+    reuseExistingServer: !PROD_SMOKE && !LANE && !isCI && Object.keys(serverEnv).length === 0,
+    timeout: PROD_SMOKE ? 600_000 : 180_000,
     env: serverEnv,
   },
 });
