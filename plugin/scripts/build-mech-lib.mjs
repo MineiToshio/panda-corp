@@ -36,6 +36,8 @@ export class Refusal extends Error {
 }
 
 export const unique = (xs) => [...new Set(xs)]
+/** The env a project binary runs with: the project's node_modules/.bin first on PATH (bench FM-4: a playwright webServer's bare `next dev`). */
+export const projectBinEnv = (dir, env = process.env) => ({ ...env, PATH: `${path.join(dir, 'node_modules', '.bin')}${path.delimiter}${env.PATH || ''}` })
 const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 
 /** git runner bound to a cwd: `run` never throws, `must` throws an InputError on a non-zero exit. */

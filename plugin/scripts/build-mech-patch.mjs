@@ -20,7 +20,7 @@ import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFil
 import os from 'node:os'
 import path from 'node:path'
 import { stampLastGreen, transitionWorkOrder } from '../runtime/build-state.mjs'
-import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine } from './build-mech-lib.mjs'
+import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectBinEnv, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine } from './build-mech-lib.mjs'
 import { readReport } from './build-mech-fast.mjs'
 
 const [TRACK, JOURNAL] = JOURNALS
@@ -61,19 +61,23 @@ function assertClean(ctx, pinned) {
   const dirty = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION && !JOURNALS.includes(e.path) && !own.has(e.path)).map((e) => e.path)
   if (dirty.length) throw new Refusal('dirty', `the tree is not clean (${dirty.join(', ')}): a patch is certified only on its committed tree`, { paths: dirty })
 }
-/** Run the reviewer's tests by absolute path: vitest, or Playwright for an e2e spec. A missing runner certifies nothing. */
+/**
+ * Run the reviewer's tests by absolute path: vitest, or Playwright for an e2e spec, with the project's bin on PATH.
+ * A runner that is missing or cannot start (spawn error, exit 127, "command not found") certifies nothing: a refusal
+ * (the engine falls back to the agent verifier), never red. Returns the failure and the paths that failed.
+ */
 function runPinned(ctx, pinned, timeoutMs) {
   const groups = [['vitest', ['run'], pinned.filter((t) => !PLAYWRIGHT_RE.test(t.path))], ['playwright', ['test'], pinned.filter((t) => PLAYWRIGHT_RE.test(t.path))]]
   for (const [bin, verb, tests] of groups.filter((g) => g[2].length)) {
     const exe = path.join(ctx.project, 'node_modules', '.bin', bin)
     if (!existsSync(exe)) throw new Refusal('no-test-runner', `node_modules/.bin/${bin} is absent: the reviewer's tests cannot run, so nothing is certified`)
-    const r = spawnSync(exe, [...verb, ...tests.map((t) => path.join(ctx.top, t.path))], { cwd: ctx.project, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
-    if (r.status !== 0) {
-      const tail = `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-4).join(' | ')
-      return `the reviewer's RED-proven test(s) still fail (${tests.map((t) => t.path).join(', ')}): ${bin} exit ${r.status}${tail ? `: ${tail.slice(0, 400)}` : ''}`
-    }
+    const r = spawnSync(exe, [...verb, ...tests.map((t) => path.join(ctx.top, t.path))], { cwd: ctx.project, env: projectBinEnv(ctx.project), encoding: 'utf8', timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 })
+    if (r.status === 0) continue
+    const tail = `${r.stdout || ''}${r.stderr || ''}`.trim().split('\n').slice(-4).join(' | ')
+    if ((r.error && r.error.code !== 'ETIMEDOUT') || r.status === 127 || /command not found/i.test(tail)) throw new Refusal('runner-refused', `${bin} could not run the reviewer's tests (${r.error ? r.error.code : `exit ${r.status}`}${tail ? `: ${tail.slice(0, 300)}` : ''}): nothing is certified either way`)
+    return { failure: `the reviewer's RED-proven test(s) still fail (${tests.map((t) => t.path).join(', ')}): ${bin} exit ${r.status}${tail ? `: ${tail.slice(0, 400)}` : ''}`, failed: tests.map((t) => t.path) }
   }
-  return ''
+  return { failure: '', failed: [] }
 }
 function assertInReview(ctx, wos) {
   const notIn = wos.filter((w) => frontmatterStatus(blobAt(ctx, 'HEAD', w.rel)) !== 'IN_REVIEW' || frontmatterStatus(readFileSync(path.join(ctx.project, w.rel), 'utf8')) !== 'IN_REVIEW').map((w) => w.id)
@@ -95,8 +99,8 @@ export function patchVerifyOp(o) {
   const breach = breachesOf(ctx, pinned, o.dir)
   const tests = pinned.map((t) => ({ path: t.path, ok: !breach.some((b) => b.path === t.path) }))
   if (breach.length) return { code: 0, body: { status: 'red', frd, green: false, sha, breach, tests, failure: `DR-080: the reviewer's test file(s) were modified or removed after the gate (${breach.map((b) => `${b.path}: ${b.observed ? 'changed' : 'missing'}`).join('; ')}); a patch may not edit the tests that judge it` } }
-  const failing = runPinned(ctx, pinned, o.testTimeoutMs)
-  if (failing) return { code: 0, body: { status: 'red', frd, green: false, sha, tests, failure: failing } }
+  const run = runPinned(ctx, pinned, o.testTimeoutMs)
+  if (run.failure) return { code: 0, body: { status: 'red', frd, green: false, sha, tests: tests.map((t) => ({ ...t, ok: !run.failed.includes(t.path) })), failure: run.failure } }
   const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
   const rep = readReport(ctx, r.status, headFull)
   sealReportProvenance(ctx, 'verify')

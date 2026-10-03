@@ -1661,6 +1661,36 @@ SCENARIOS.push({
   },
 })
 
+// Bench FM-4: a haiku relay whose verify crossed the Bash default 120 s backgrounded it and polled to 600 s (10 min
+// lost). Every MECH relay prompt, in both lanes, sets the tool's timeout and forbids backgrounding/polling.
+const MECH_FOREGROUND_OK = (t, run, what) => {
+  const relays = run.calls.filter((c) => /MECHANICAL (COMMAND RUNNER|STEPS|GATE RE-RUN)/.test(c.prompt || ''))
+  t.ok(relays.length > 0, `${what}: fixture has MECH relays`)
+  const bad = relays.filter((c) => !/`timeout: 600000`/.test(c.prompt) || !/NEVER `run_in_background`/.test(c.prompt) || !/polling/.test(c.prompt))
+  t.ok(!bad.length, `${what}: every MECH relay sets the Bash timeout and forbids backgrounding/polling (missing in ${bad.map((c) => c.label).join(', ')})`)
+  return relays
+}
+SCENARIOS.push({
+  name: 'P40-fg. mech-relay-foreground-timeout — every MECH relay prompt (fast lane) carries the Bash timeout and the no-background rule',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-fg1', ids: ['wo-fg1-001'] }, { frd: 'frd-fg2', ids: ['wo-fg2-001'] }]),
+  responses: [{ label: /^stale-pin:/, response: { count: 1 } }, { label: /^reverify:/, response: { green: true, report_scope: 'since', failure: '' } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const relays = MECH_FOREGROUND_OK(t, run, 'fast lane')
+    t.ok(['verify:', 'stale-pin:', 'reverify:'].every((l) => relays.some((c) => c.label.startsWith(l))), `fixture: the literal, MCR and verify.sh re-run relays are all covered (got ${relays.map((c) => c.label).join(', ')})`)
+  },
+})
+SCENARIOS.push({
+  name: 'P40-fg2. mech-relay-foreground-timeout-classic — classic + mechScript: the same rule on every MECH relay',
+  args: { mode: 'balanced', ...SAFETY },
+  plan: infraPlan('frd-fg3', ['wo-fg3-001']),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    MECH_FOREGROUND_OK(t, run, 'classic waves')
+  },
+})
+
 SCENARIOS.push({
   name: 'F39-10. classic-unchanged — with an explicit lane:classic the plan agent, per-WO builders and commits, and the classic result shape are untouched',
   args: { mode: 'balanced', lane: 'classic' },

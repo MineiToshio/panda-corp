@@ -1723,7 +1723,7 @@ console.log('close: the scripted release — asserts, ONE full verify.sh, phase 
 const REVIEWER_TEST = 'src/_tests/alpha.reviewer.test.ts'
 const REVIEWER_TEST_BODY = "import { it } from 'vitest'\nit('AC-01-001.1 shows the empty state', () => {})\n"
 const sha256Of = (text) => createHash('sha256').update(text).digest('hex')
-const patchFixture = async (r, { verifyGreen = true, lease = false, reopen = 1 } = {}) => {
+const patchFixture = async (r, { verifyGreen = true, lease = false, reopen = 1, testPath = REVIEWER_TEST } = {}) => {
   planFixture(r)
   r.write('.pandacorp/verify.sh', `#!/bin/sh\nmkdir -p .pandacorp/run && echo ran >> .pandacorp/run/verify-ran\nprintf '{"at":"2026-10-02T00:00:00Z","scope":"full","green":${verifyGreen},"sha":"%s","subgates":[{"name":"vitest","exit":${verifyGreen ? 0 : 1},"failures":[${verifyGreen ? '' : '"src/alpha.ts: expected 2"'}]}]}\\n' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\nexit ${verifyGreen ? 0 : 1}\n`)
   chmodSync(r.abs('.pandacorp/verify.sh'), 0o755)
@@ -1734,11 +1734,11 @@ const patchFixture = async (r, { verifyGreen = true, lease = false, reopen = 1 }
   if (held) { r.git('add', '-A', '--', 'proj'); r.git('commit', '-q', '-m', 'chore: lease projection') }
   // The gate's RED test: salvaged into the evidence dir, then ported onto main UNTRACKED at its repo-root path.
   const ev = path.join(r.proj, '.pandacorp', 'run', 'gate-evidence', 'frd-01-alpha')
-  mkdirSync(path.join(ev, 'proj', path.dirname(REVIEWER_TEST)), { recursive: true })
-  writeFileSync(path.join(ev, 'proj', REVIEWER_TEST), REVIEWER_TEST_BODY)
-  r.write(REVIEWER_TEST, REVIEWER_TEST_BODY)
+  mkdirSync(path.join(ev, 'proj', path.dirname(testPath)), { recursive: true })
+  writeFileSync(path.join(ev, 'proj', testPath), REVIEWER_TEST_BODY)
+  r.write(testPath, REVIEWER_TEST_BODY)
   r.installVitest()
-  return { ev, test: `${sha256Of(REVIEWER_TEST_BODY)}:proj/${REVIEWER_TEST}`, lease: held }
+  return { ev, test: `${sha256Of(REVIEWER_TEST_BODY)}:proj/${testPath}`, lease: held }
 }
 console.log('reviewer-test-hash-tamper-red: verify --patch checks the reviewer test hash first, then runs that test and the suite')
 {
@@ -1775,6 +1775,7 @@ console.log('reviewer-test-hash-tamper-red: verify --patch checks the reviewer t
     const { ev, test } = await patchFixture(red)
     const v = red.run('verify', ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--dir', ev], { FAKE_VITEST_EXIT: '1' })
     ok(v.receipt.status === 'red' && /alpha\.reviewer\.test\.ts/.test(v.receipt.failure) && !existsSync(red.abs('.pandacorp/run/verify-ran')), `the RED-proven test still failing is red, before the suite (got ${v.receipt && v.receipt.failure})`)
+    ok(v.receipt.tests && v.receipt.tests.length === 1 && v.receipt.tests[0].ok === false, `tests[].ok reflects the run, not only the hash (got ${JSON.stringify(v.receipt && v.receipt.tests)})`)
   } finally { red.cleanup() }
   const suite = mkRepo()
   try {
@@ -1782,6 +1783,34 @@ console.log('reviewer-test-hash-tamper-red: verify --patch checks the reviewer t
     const v = suite.run('verify', ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', test, '--dir', ev])
     ok(v.receipt.status === 'red' && /vitest/.test(v.receipt.failure) && existsSync(suite.abs('.pandacorp/run/verify-ran')), 'a red suite is red, naming its sub-gate')
   } finally { suite.cleanup() }
+}
+// Bench FM-4: the project's playwright webServer runs a bare `next dev`, found only on node_modules/.bin; spawned with the
+// inherited PATH it exited 127 and a correct patch counted RED. A runner that cannot start is a refusal, never red.
+console.log('patch-verify-runner-path: project binaries run with node_modules/.bin on PATH; a runner that cannot start is a refusal, never red')
+{
+  const SPEC = 'e2e/alpha.reviewer.spec.ts'
+  const bare = { PATH: (process.env.PATH || '').split(path.delimiter).filter((d) => !d.includes('node_modules')).join(path.delimiter) }
+  const withRunner = async (r, playwright) => {
+    const fx = await patchFixture(r, { testPath: SPEC })
+    r.write('node_modules/.bin/playwright', playwright); chmodSync(r.abs('node_modules/.bin/playwright'), 0o755)
+    r.write('node_modules/.bin/next-fake', '#!/bin/sh\nexit 0\n'); chmodSync(r.abs('node_modules/.bin/next-fake'), 0o755)
+    return ['--patch', '--frd', 'frd-01-alpha', '--wo', 'WO-01-001', '--test', fx.test, '--dir', fx.ev]
+  }
+  const g = mkRepo()
+  try {
+    const v = g.run('verify', await withRunner(g, '#!/bin/sh\nsh -c next-fake\n'), bare)
+    ok(v.code === 0 && v.receipt.status === 'green' && v.receipt.tests[0].ok === true && existsSync(g.abs('.pandacorp/run/verify-ran')), `a runner whose webServer needs a bare project binary is green (got ${v.code} ${JSON.stringify(v.receipt && { s: v.receipt.status, f: v.receipt.failure })})`)
+  } finally { g.cleanup() }
+  const n = mkRepo()
+  try {
+    const v = n.run('verify', await withRunner(n, '#!/bin/sh\necho "sh: next: command not found" >&2\nexit 127\n'), bare)
+    ok(v.code === 4 && v.receipt.ok === false && v.receipt.status === 'runner-refused' && v.receipt.status !== 'red' && !existsSync(n.abs('.pandacorp/run/verify-ran')), `a runner exit 127 is a refusal (the agent verifier takes over), never red (got ${v.code} ${JSON.stringify(v.receipt && { s: v.receipt.status, r: v.receipt.reason })})`)
+  } finally { n.cleanup() }
+  const e = mkRepo()
+  try {
+    const v = e.run('verify', await withRunner(e, '#!/nonexistent/interpreter\n'), bare)
+    ok(v.code === 4 && v.receipt.status === 'runner-refused', `a runner that cannot be spawned (ENOENT) is a refusal (got ${v.code} ${JSON.stringify(v.receipt && { s: v.receipt.status, r: v.receipt.reason })})`)
+  } finally { e.cleanup() }
 }
 console.log('certify-state-writes-wo-and-status: the scripted stamp — WO VERIFIED, rollups, status.yaml and the two-commit last-green snapshot')
 {
