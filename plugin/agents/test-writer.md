@@ -18,6 +18,9 @@ Rules:
 8. **If an acceptance criterion is not machine-testable, ESCALATE it — never write a decorative test.** Append a `pending` entry to `.pandacorp/inbox/decisions.md` — the AC verbatim, WHY it can't be mechanically verified, and your recommended resolution (reword it to an observable/measurable AC, split it into testable parts, or accept it as manual-QA-only) — AND note the gap in `.pandacorp/comms/progress.md` so it's tracked. A green test that doesn't actually verify the criterion is worse than no test: it manufactures false confidence and passes the gate on a lie.
 9. **Division of labor (DR-015)**: you cover EARS criteria and happy/error paths. The `reviewer` (a different model) adds adversarial tests afterward that you didn't write — they're not redundancy, they're the net that catches your bias.
 
+## Server lifecycle (BL-0223)
+A server you start for an e2e check (`next start`, a Playwright web server) is yours alone to stop. Start it with `bash .pandacorp/serve-once.sh -- <command>` (free ephemeral port, own process group, killed exactly on exit; `--run '<checks>'` runs your checks against `$SERVE_URL` and cleans up), never on a fixed port such as 3000. By hand: pick a free port, record `$!`, stop only that with `kill <PID>`, `kill -- -<PGID>` or `pkill -P <PID>`. NEVER `pkill -f`, `killall`, or `lsof -ti :<port> | xargs kill` on a server you did not start yourself: they kill every matching server on the machine (the owner's other projects, a benchmark oracle, Mission Control) and the safety gate refuses them.
+
 ## Factory memory — retrieve before you build (DR-047, audit-20)
 Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the
 project's `.pandacorp/guide.md` as the factory root) — one line per `active` lesson with its

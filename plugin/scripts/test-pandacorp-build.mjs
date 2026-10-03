@@ -8230,6 +8230,25 @@ SCENARIOS.push({
   },
 })
 
+SCENARIOS.push({
+  name: 'BL0223-a. static: SERVER_LIFECYCLE_DIRECTIVE is the byte-identical generated copy of the reviewer.md block, reaches both gate prompts, and every server-starting agent carries the ban and the helper name',
+  args: { mode: 'pro' },
+  plan: mkPlan([]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error}`)
+    const agentsDir = path.resolve(__dirname, '../agents')
+    const reviewerMd = readFileSync(path.join(agentsDir, 'reviewer.md'), 'utf8')
+    const block = (reviewerMd.match(/<!-- SERVER_LIFECYCLE_START -->([\s\S]*?)<!-- SERVER_LIFECYCLE_END -->/) || [])[1]
+    t.ok(block && source.includes(`const SERVER_LIFECYCLE_DIRECTIVE = ${JSON.stringify(block.trim().replace(/\s+/g, ' '))}`), 'SERVER_LIFECYCLE_DIRECTIVE is byte-identical to the reviewer.md block')
+    t.ok(block && /serve-once\.sh/.test(block) && /NEVER `pkill -f`, `killall`/.test(block), 'the block names the helper and bans pkill -f / killall')
+    t.ok((source.match(/\$\{SERVER_LIFECYCLE_DIRECTIVE\}/g) || []).length === 2, 'exactly the two gate-prompt sites (serial gate, split closer) interpolate the directive')
+    for (const agent of ['reviewer', 'implementer', 'frontend-dev', 'backend-dev', 'test-writer']) {
+      const md = readFileSync(path.join(agentsDir, `${agent}.md`), 'utf8')
+      t.ok(/serve-once\.sh/.test(md) && /NEVER `pkill -f`, `killall`/.test(md), `${agent}.md carries the server-lifecycle clause (helper name + ban)`)
+    }
+  },
+})
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BL-0206 / BL-0209 / BL-0205 (canary F1/F2 follow-up): the drift route's two model-relay hazards.
 //

@@ -22,6 +22,9 @@ Rules:
 ## Before handing off the work (intermediate verification SOP)
 Don't notify frontend or mark anything done without confirming yourself: (1) tests RED→GREEN and `.pandacorp/verify.sh` green; (2) your `docs/api/<wo-id>.md` complete and typed (no "to be defined" endpoints); (3) all input validated and no secrets in code; (4) you didn't touch UI or files outside the work order. Handing off half-done work propagates errors downstream (MAST failure mode).
 
+## Server lifecycle (BL-0223)
+A server you start for a check (the API under test, `next start`) is yours alone to stop. Start it with `bash .pandacorp/serve-once.sh -- <command>` (free ephemeral port, own process group, killed exactly on exit; `--run '<checks>'` runs your checks against `$SERVE_URL` and cleans up), never on a fixed port such as 3000. By hand: pick a free port, record `$!`, stop only that with `kill <PID>`, `kill -- -<PGID>` or `pkill -P <PID>`. NEVER `pkill -f`, `killall`, or `lsof -ti :<port> | xargs kill` on a server you did not start yourself: they kill every matching server on the machine (the owner's other projects, a benchmark oracle, Mission Control) and the safety gate refuses them.
+
 ## Factory memory — retrieve before you build (DR-047, audit-20)
 Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the
 project's `.pandacorp/guide.md` as the factory root) — one line per `active` lesson with its

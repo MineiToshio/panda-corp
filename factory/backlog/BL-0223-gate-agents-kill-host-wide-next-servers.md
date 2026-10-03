@@ -3,7 +3,7 @@ id: BL-0223
 type: bug
 area: plugin-agent
 title: "FRD-gate agents stop their ad-hoc server with host-wide `pkill -f \"next start\"` / `pkill -f next-server`, killing every other Next.js server on the machine"
-status: open
+status: done
 severity: p1
 opened: 2026-10-03
 source: "owner/conversation — proposal 41 bench run FM-10 (wf_21c442d1-f54), reviewer agent a1342c1ca98236397 at 2026-10-03T18:44:33Z"
@@ -56,10 +56,24 @@ the kill to the PID the agent itself started.
 - Prompt-fragment test: the generated reviewer/implementer directives contain the ban and the helper name.
 
 ## Done when
-- Hook refuses host-wide kills of dev/prod servers; the two-server test is green in `run-engine-tests`.
-- `reviewer.md` (+ the other server-starting agents) carry the lifecycle clause; Codex mirrors regenerated.
-- Plugin version bumped; decision log entry written.
-- A medium-bench run with an oracle running concurrently shows no `ECONNREFUSED` caused by build agents.
+- [x] Hook refuses host-wide kills of dev/prod servers; the two-server test is green in `run-engine-tests`.
+- [x] `reviewer.md` (+ implementer, frontend-dev, backend-dev, test-writer) carry the lifecycle clause; Codex mirrors regenerated.
+- [ ] Plugin version bumped; decision log entry written. **Deferred to release** (the version bump, `OVERLAY_VERSION`
+      for the new `.pandacorp/serve-once.sh` overlay file, and the decision-log entry land with the release commit).
+- [ ] A medium-bench run with an oracle running concurrently shows no `ECONNREFUSED` caused by build agents.
+      **Pending**: needs a live bench run, not done here.
+
+## Resolution
+- `plugin/scripts/block-dangerous.sh`: command-position scan refuses `pkill`/`killall` by a next/node/vite/playwright/
+  pnpm/npm/npx/tsx pattern, a pid list found by `lsof`/`pgrep`/`ps|grep` fed to `kill` (`$(...)` or `xargs kill`) and
+  `fuser -k`; `kill <PID>`, `kill -- -<PGID>` and `pkill -P <PID>` stay allowed. The refusal names the helper.
+  Tests: `plugin/scripts/test-block-dangerous.sh` (BL-0223 section, RED before / GREEN after).
+- `plugin/templates/shared/.pandacorp/serve-once.sh` (overlay helper): free ephemeral port, own process group, HTTP
+  readiness wait, `--run` for a self-cleaning smoke, kills exactly its group. Test: `plugin/scripts/test-serve-once.sh`
+  (two concurrent instances independent), registered in `run-engine-tests.sh`.
+- Agents: SERVER_LIFECYCLE block in `reviewer.md` generated into the engine as `SERVER_LIFECYCLE_DIRECTIVE`
+  (both gate prompts); a plain clause in the other four agents. Test: scenario BL0223-a in `test-pandacorp-build.mjs`.
+  Engine artifact regenerated (475 558 bytes, under the 480 000 budget).
 
 ## Out of scope
 Changing which agent runs the production-build smoke, or the gate's evidence model.

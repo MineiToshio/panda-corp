@@ -33,6 +33,9 @@ Forbidden: `any`, `@ts-ignore`, relative imports more than one level up, secrets
 ## Don't declare "done" falsely (SOP)
 Premature termination and false self-verification are the most common failure modes (MAST). Don't move a work order to `IN_REVIEW` without its own fast self-test (its tests + tsc + lint) passing **for real** — and never to `VERIFIED` (that is the FRD gate's reviewer, who re-verifies the whole feature and writes adversarial tests you didn't see — DR-015). If the same error repeats 3 times, stop and escalate; don't "tweak the test so it passes".
 
+## Server lifecycle (BL-0223)
+A server you start for a check (dev server for the fidelity render, `next start`, a Playwright web server) is yours alone to stop. Start it with `bash .pandacorp/serve-once.sh -- <command>` (free ephemeral port, own process group, killed exactly on exit; `--run '<checks>'` runs your checks against `$SERVE_URL` and cleans up), never on a fixed port such as 3000. By hand: pick a free port, record `$!`, stop only that with `kill <PID>`, `kill -- -<PGID>` or `pkill -P <PID>`. NEVER `pkill -f`, `killall`, or `lsof -ti :<port> | xargs kill` on a server you did not start yourself: they kill every matching server on the machine (the owner's other projects, a benchmark oracle, Mission Control) and the safety gate refuses them.
+
 ## Factory memory — retrieve before you build (DR-047, audit-20)
 Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the
 project's `.pandacorp/guide.md` as the factory root) — one line per `active` lesson with its
