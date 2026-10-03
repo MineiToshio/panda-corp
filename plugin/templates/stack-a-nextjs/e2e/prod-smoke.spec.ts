@@ -19,13 +19,19 @@ import { BLESSED } from "./routes";
  */
 const SAMPLES_FILE = path.resolve("e2e", "prod-samples.json");
 const samples: string[] = existsSync(SAMPLES_FILE)
-  ? (JSON.parse(readFileSync(SAMPLES_FILE, "utf8")) as unknown[]).filter((p): p is string => typeof p === "string")
+  ? (JSON.parse(readFileSync(SAMPLES_FILE, "utf8")) as unknown[]).filter(
+      (p): p is string => typeof p === "string",
+    )
   : [];
 const declared = [...new Set([...BLESSED.map((s) => s.path), ...samples])];
 const ROUTES = declared.length ? declared : ["/"];
 const REPORT = process.env.PANDACORP_PROD_SMOKE_REPORT;
 
-test.skip(!process.env.PANDACORP_PROD_SMOKE, "the production-build smoke runs only under PANDACORP_PROD_SMOKE (next build && next start)");
+// biome-ignore lint/suspicious/noSkippedTests: deliberate env gate, the engine sets PANDACORP_PROD_SMOKE for this step only
+test.skip(
+  !process.env.PANDACORP_PROD_SMOKE,
+  "the production-build smoke runs only under PANDACORP_PROD_SMOKE (next build && next start)",
+);
 
 for (const route of ROUTES) {
   test(`prod-smoke · ${route} renders in the production build`, async ({ page }) => {

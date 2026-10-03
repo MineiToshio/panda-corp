@@ -55,7 +55,8 @@ export function judgeProdPage(o: ProdPageObservation): ProdPageVerdict {
     ...o.consoleErrors.filter((m) => CSP_MESSAGE.test(m)),
     ...o.pageErrors.filter((m) => CSP_MESSAGE.test(m)),
   ];
-  if (csp.length) reasons.push(`CSP violation: ${csp[0].slice(0, 200)}`);
+  const firstCsp = csp[0];
+  if (firstCsp !== undefined) reasons.push(`CSP violation: ${firstCsp.slice(0, 200)}`);
   if (o.hydrated === false) reasons.push("never hydrated");
   if (o.errorBoundary) reasons.push("rendered an error boundary");
   if (o.mainText === null) reasons.push("no <main> element");

@@ -115,7 +115,7 @@ console.log('prod smoke harness: the production artifact under PANDACORP_PROD_SM
   ok(/next dev --hostname 127\.0\.0\.1 --port \$\{PORT\}/.test(cfg), 'every other run still serves next dev')
   const spec = readFileSync(path.join(TEMPLATE, 'e2e/prod-smoke.spec.ts'), 'utf8')
   ok(/observeProdPage\(page, route\)/.test(spec) && !/waitUntil/.test(spec) && !/__pcCsp/.test(spec), 'the spec observes through the shared observeProdPage (hydration + settle), never its own load-time read')
-  ok(/test\.skip\(!process\.env\.PANDACORP_PROD_SMOKE/.test(spec) && /BLESSED/.test(spec) && /prod-samples\.json/.test(spec) && /securitypolicyviolation/.test(readFileSync(path.join(TEMPLATE, 'e2e/_prod-smoke.ts'), 'utf8')), 'the spec skips outside the prod smoke, visits the blessed routes + the dynamic samples, and (through its observer) listens for CSP violation events')
+  ok(/test\.skip\(\s*!process\.env\.PANDACORP_PROD_SMOKE/.test(spec) && /BLESSED/.test(spec) && /prod-samples\.json/.test(spec) && /securitypolicyviolation/.test(readFileSync(path.join(TEMPLATE, 'e2e/_prod-smoke.ts'), 'utf8')), 'the spec skips outside the prod smoke, visits the blessed routes + the dynamic samples, and (through its observer) listens for CSP violation events')
 }
 console.log('prod-smoke op: a project without the harness is red (fail-closed), never a skip')
 {

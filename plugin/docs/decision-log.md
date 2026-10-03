@@ -4,6 +4,14 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.120.1 — 2026-10-03 (PATCH): the stack-a production-smoke harness passes its own stack gate. `OVERLAY_VERSION` 8.97.0 -> 8.97.1
+
+**What:** `/pandacorp:upgrade` of Mission Control to 8.97.0 installed `e2e/prod-smoke.spec.ts` + `e2e/_prod-smoke.ts` verbatim and the project's full `verify.sh` went RED on the TEMPLATE files, not on product code: (1) biome `lint/suspicious/noSkippedTests` on the file-level `test.skip(!process.env.PANDACORP_PROD_SMOKE, ...)` plus two formatter diffs, and (2) `tsc` TS2532 on `csp[0].slice(...)` under the stack's own `noUncheckedIndexedAccess`. Every project upgrading to 8.97.0 would have been red-locked (DR-076 amendment step 3b). Fixed at the source: a `biome-ignore` with the reason (the skip is the deliberate env gate), biome-formatted, and the first CSP violation read through a narrowed local. `test-prod-smoke.mjs`'s spec-shape regex now tolerates the formatter's line break after `test.skip(` (28/28).
+
+**Why the plugin's own tests missed it:** `test-prod-smoke.mjs` checks the template's shape by regex and runs nothing through the stack's `biome.json` / strict `tsconfig`; the first real gate the files met was a project's `verify.sh`. Gap noted for the backlog (no template lint/typecheck pass in the plugin tests).
+
+**Verification:** Mission Control `verify.sh --canary` 10/10, full `verify.sh` green (vitest 7814 passed, Playwright 78 passed, prod-smoke skipped outside `PANDACORP_PROD_SMOKE`).
+
 ## v9.120.0 — 2026-10-03 (MINOR): proposal 40 — a cheaper review (Lever 1) and DAG-parallel worktree lanes ON by default (DR-125). `OVERLAY_VERSION` 8.96.0 -> 8.97.0 (the shipped engine artifact and the stack-a e2e templates changed).
 
 **Why.** [`docs/proposals/40-implement-speed-v2.md`](../../docs/proposals/40-implement-speed-v2.md): on every fast-lane run the oracle was already final at USABLE, yet the opus gate and its tail were 38-62 % of the cost and ~30-40 min after USABLE, and FRDs still built one at a time on `main` even on a wide work-order DAG. The owner delegated the trade-offs (§9: maximize speed at any size, ~90 % reliability acceptable).
