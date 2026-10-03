@@ -649,5 +649,111 @@ console.log('lane-usable: a red caused only by the FRD\'s own chains is class ow
   } finally { r.cleanup() }
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// Per-step K (bench FM-5): K is re-evaluated at EVERY scheduling round, never decided once for the run.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+
+// The medium bench's Build Plan (pandacorp-bench-medium, frd-01-projects/blueprint.md): ten WOs, four FRDs, one
+// schema/package barrier (WO-01-003). FM-5 asked --lanes 2, the first lane-plan saw only WO-01-001 ready (width 1) and
+// the whole run built sequentially although the DAG is two wide at five later points.
+const BENCH_MEDIUM = [
+  { frd: 'frd-01-projects', id: 'WO-01-001' },
+  { frd: 'frd-01-projects', id: 'WO-01-002', deps: ['WO-01-001'] },
+  { frd: 'frd-01-projects', id: 'WO-01-003', deps: ['WO-01-001'], artifacts: ['prisma/schema.prisma', 'package.json'] },
+  { frd: 'frd-01-projects', id: 'WO-01-004', deps: ['WO-01-003'] },
+  { frd: 'frd-01-projects', id: 'WO-01-005', deps: ['WO-01-001', 'WO-01-002', 'WO-01-004'] },
+  { frd: 'frd-02-tasks', id: 'WO-02-001', deps: ['WO-01-004'] },
+  { frd: 'frd-02-tasks', id: 'WO-02-002', deps: ['WO-01-001', 'WO-01-002', 'WO-01-004', 'WO-02-001'] },
+  { frd: 'frd-03-search-filters', id: 'WO-03-001', deps: ['WO-02-001'] },
+  { frd: 'frd-03-search-filters', id: 'WO-03-002', deps: ['WO-02-002', 'WO-03-001'] },
+  { frd: 'frd-04-dashboard', id: 'WO-04-001', deps: ['WO-01-001', 'WO-01-002', 'WO-01-003'] },
+]
+console.log('lanes-k-reevaluated-when-width-grows: the medium-bench DAG at --lanes 2 starts narrow on main, then runs two lanes wherever it is two wide')
+{
+  const r = mkRepo(BENCH_MEDIUM)
+  const L2 = ['--lanes', '2', '--mode', 'balanced']
+  const schedule = []
+  const step = (n) => {
+    const x = n.receipt
+    schedule.push(`K=${x.k} (${x.kReason}, width ${x.width}): ${[x.barrier && x.barrier.wos.join('+') + ' on main', ...(x.dispatched || []).map((d) => `${d.wos.join('+')} in lane ${d.lane}`)].filter(Boolean).join(' ∥ ') || 'nothing new'}`)
+    return x
+  }
+  const built = (_r, d) => { for (const w of d.wos) if (r.buildIn(d.lane, w, fileFor(w)).code !== 0) throw new Error(`commit-wo ${w}`); return r.run('lane-mark', ['--chain', d.chain, '--as', 'built']) }
+  const landed = (chain) => r.run('land-chain', ['--chain', chain]).receipt.status === 'landed'
+  const onMain = (id, files) => { for (const [rel, c] of Object.entries(files)) r.write(rel, c); return r.run('commit-wo', ['--wo', id, '--files', Object.keys(files).join(',')]).code === 0 }
+  const lanesOf = (x) => (x.dispatched || []).map((d) => d.wos.join('+')).sort().join(' | ')
+  try {
+    const p = r.run('lane-plan', L2)
+    ok(p.code === 0 && p.receipt.kRun === 2 && p.receipt.kRunReason === 'requested', `the run's lane ceiling is 2: the DAG is wide later (offPath ${p.receipt.offPath}) (${p.receipt.kRun} ${p.receipt.kRunReason})`)
+    ok(p.receipt.k === 1 && p.receipt.kReason === 'narrow-step' && p.receipt.width === 1, `this step is narrow: K = 1 now, not for the run (${p.receipt.k} ${p.receipt.kReason} width ${p.receipt.width})`)
+    ok(JSON.stringify(chainWos(p)) === '[["WO-01-001"]]', `the head chain stops before its two children, so they can build in parallel next (${JSON.stringify(chainWos(p))})`)
+    ok(p.receipt.dispatch.main === 'c-wo-01-001' && p.receipt.dispatch.lanes.length === 0, 'a narrow step builds on main: no lane, no landing to pay')
+    ok(r.run('lane-pool', ['--size', String(p.receipt.kRun)]).code === 0, 'the pool boots for the run\'s ceiling, beside the first chain')
+    const s1 = step(r.run('lane-next', L2))
+    ok(s1.k === 1 && s1.barrier && s1.barrier.chain === 'c-wo-01-001' && s1.barrier.onMain === 'narrow-step' && s1.dispatched.length === 0, `round 1: WO-01-001 on main, both lanes stay free (${JSON.stringify(s1.barrier)})`)
+    ok(onMain('WO-01-001', fileFor('WO-01-001')), 'WO-01-001 commits on main')
+    const s2 = step(r.run('lane-next', L2))
+    ok(s2.k === 2 && s2.kReason === 'requested' && s2.barrier && s2.barrier.chain === 'c-wo-01-003' && s2.barrier.onMain === 'schema' && lanesOf(s2) === 'WO-01-002', `round 2: the width grew to 2: the schema barrier on main ∥ WO-01-002 in a lane (K ${s2.k}, ${lanesOf(s2)})`)
+    ok(built(r, s2.dispatched[0]).code === 0 && onMain('WO-01-003', { 'prisma/schema.prisma': 'model P { id Int @id }\n' }) && landed(s2.dispatched[0].chain), 'the barrier commits on main, then WO-01-002 lands')
+    const s3 = step(r.run('lane-next', L2))
+    ok(s3.k === 2 && lanesOf(s3) === 'WO-01-004 | WO-04-001', `round 3: two lanes, WO-01-004 ∥ WO-04-001 (another FRD, its deps met by the foundation) (${lanesOf(s3)})`)
+    const d004 = s3.dispatched.find((d) => d.wos[0] === 'WO-01-004')
+    const d041 = s3.dispatched.find((d) => d.wos[0] === 'WO-04-001')
+    ok(built(r, d004).code === 0 && built(r, d041).code === 0 && landed(d004.chain), 'both build; WO-01-004 lands first, WO-04-001 still holds its lane')
+    const s4 = step(r.run('lane-next', L2))
+    ok(s4.k === 2 && lanesOf(s4) === 'WO-02-001' && s4.barrier === null, `round 4: one slot left under K = 2 (WO-04-001 holds the other): WO-02-001 (longest path) gets it; WO-01-005 waits, never a third builder on main (${lanesOf(s4)})`)
+    ok(built(r, s4.dispatched[0]).code === 0 && landed(d041.chain) && landed(s4.dispatched[0].chain), 'WO-04-001 and WO-02-001 land')
+    const s5 = step(r.run('lane-next', L2))
+    ok(s5.k === 2 && lanesOf(s5) === 'WO-02-002 | WO-03-001', `round 5: WO-02-002 ∥ WO-03-001 (both feed WO-03-002) (${lanesOf(s5)})`)
+    ok(s5.dispatched.every((d) => built(r, d).code === 0) && s5.dispatched.every((d) => landed(d.chain)), 'both land')
+    const s6 = step(r.run('lane-next', L2))
+    ok(s6.k === 2 && lanesOf(s6) === 'WO-01-005 | WO-03-002', `round 6: WO-01-005 ∥ WO-03-002 (${lanesOf(s6)})`)
+    ok(s6.offPath === 1 && s6.kRun === 2, `the gain is judged on the REMAINING DAG at every round (offPath ${s6.offPath}): the pool is up, so one WO beside the path still earns its lane (kRun ${s6.kRun})`)
+    ok(s6.dispatched.every((d) => built(r, d).code === 0) && s6.dispatched.every((d) => landed(d.chain)), 'both land')
+    ok(r.run('lane-plan', L2).receipt.remaining === 0, 'all ten built')
+    const feats = r.subjects().filter((s) => s.startsWith('feat('))
+    ok(feats.length === 10 && BENCH_MEDIUM.every((w) => feats.filter((s) => s.includes(w.id)).length === 1), 'main holds exactly one feat commit per WO')
+    ok(schedule.length === 6, `six rounds for ten WOs (sequential: ten): ${schedule.map((x, i) => `\n      ${i + 1}. ${x}`).join('')}`)
+  } finally { r.cleanup() }
+}
+console.log('auto-k1-on-narrow-dag (per step): a DAG narrow throughout never lanes at any round; each chain builds on main')
+{
+  const r = mkRepo([
+    { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-02-b', id: 'WO-02-002', deps: ['WO-02-001'] },
+    { frd: 'frd-03-c', id: 'WO-03-001', deps: ['WO-02-002'] },
+  ])
+  try {
+    const L2 = ['--lanes', '2', '--mode', 'balanced']
+    r.run('lane-pool', ['--size', '2'])
+    const seen = []
+    for (let i = 0; i < 4 && r.run('lane-plan', L2).receipt.remaining > 0; i++) {
+      const n = r.run('lane-next', L2).receipt
+      seen.push(`${n.k}/${n.kReason}/${n.barrier ? `${n.barrier.wos.join('+')}@${n.barrier.onMain}` : '-'}/${n.dispatched.length}`)
+      if (!n.barrier || n.dispatched.length) break
+      for (const w of n.barrier.wos) {
+        for (const [rel, c] of Object.entries(fileFor(w))) r.write(rel, c)
+        if (r.run('commit-wo', ['--wo', w, '--files', Object.keys(fileFor(w)).join(',')]).code !== 0) throw new Error(`commit-wo ${w}`)
+      }
+    }
+    ok(JSON.stringify(seen) === JSON.stringify(['1/narrow-dag/WO-02-001+WO-02-002@narrow-step/0', '1/narrow-dag/WO-03-001@narrow-step/0']), `every round K = 1 (narrow-dag), each chain on main, no lane ever dispatched (${seen.join(', ')})`)
+    ok(r.run('lane-plan', L2).receipt.remaining === 0 && r.git('branch', '--list', 'lane/*') === '', 'all built on main; no lane branch was ever created')
+  } finally { r.cleanup() }
+}
+console.log('cross-frd-ready-wo-gets-a-lane: a WO of another FRD whose deps are met takes the free lane while FRD-02 builds')
+{
+  const r = mkRepo([
+    { frd: 'frd-01-a', id: 'WO-01-001', status: 'IN_REVIEW' },
+    { frd: 'frd-02-b', id: 'WO-02-001', deps: ['WO-01-001'] }, { frd: 'frd-02-b', id: 'WO-02-002', deps: ['WO-02-001'] },
+    { frd: 'frd-03-c', id: 'WO-03-001', deps: ['WO-02-002'] },
+    { frd: 'frd-04-d', id: 'WO-04-001', deps: ['WO-01-001'] },
+  ])
+  try {
+    r.run('lane-pool', ['--size', '2'])
+    ok(r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-02-001', '--wo', 'WO-02-002']).code === 0, 'FRD-02 builds in lane 1')
+    const n = r.run('lane-next', ['--lanes', '2', '--mode', 'balanced', '--frd', 'frd-01-a', '--frd', 'frd-02-b', '--frd', 'frd-03-c', '--frd', 'frd-04-d']).receipt
+    ok(n.k === 2 && n.dispatched.length === 1 && n.dispatched[0].wos[0] === 'WO-04-001' && n.dispatched[0].lane === 2 && n.barrier === null, `WO-04-001 (FRD-04) gets lane 2 at once (${JSON.stringify(n.dispatched.map((d) => [d.wos, d.lane]))} K ${n.k} ${n.kReason})`)
+  } finally { r.cleanup() }
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 process.exit(failed ? 1 : 0)

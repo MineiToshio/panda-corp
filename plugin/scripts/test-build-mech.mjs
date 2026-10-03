@@ -1474,6 +1474,23 @@ console.log('fast-start --lane-plan (proposal 40 Phase B): the lane K rides in t
     const none = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'balanced'])
     ok(!('lanes' in none.receipt), 'without --lane-plan the line carries no lanes (classic callers unchanged)')
   } finally { wide.cleanup() }
+  // lanes-pool-boots-before-first-parallel-dispatch (bench FM-5): the start is one WO wide, the DAG two wide after it.
+  // The run's ceiling decides (kRun 2): the fused start leaves the first chain to the lane scheduler (it builds on main
+  // as a narrow round while the pool boots), never a whole-FRD dispatch that would pin the run to K = 1.
+  const widening = mkRepo()
+  try {
+    startFixture(widening)
+    widening.write('docs/frds/frd-01-alpha/work-orders/wo-01-003-eta.md', woMd('WO-01-003', 'PLANNED', { acs: ['AC-01-002.1'], extraFm: 'title: Eta\nartifacts: [src/eta.ts]\ndependsOn: [WO-01-001]\n' }))
+    widening.write('docs/frds/frd-02-gamma/work-orders/wo-02-002-delta.md', woMd('WO-02-002', 'PLANNED', { acs: ['AC-02-001.1'], extraFm: 'title: Delta\nartifacts: [src/delta.ts]\ndependsOn: [WO-01-001]\n' }))
+    widening.write(`${FRD_A}/blueprint.md`, blueprint([['WO-01-001', 'none'], ['WO-01-002', 'WO-01-001'], ['WO-01-003', 'WO-01-001']]))
+    widening.write(`${FRD_C}/blueprint.md`, blueprint([['WO-02-001', 'WO-01-002'], ['WO-02-002', 'WO-01-001']]))
+    widening.git('add', '-A'); widening.git('commit', '-q', '-m', 'docs: a DAG that widens after its first WO')
+    const lease = await acquire(widening.proj, { runtime: 'claude', runId: 'mech-test', ttlSeconds: 60 })
+    const s = widening.run('fast-start', startArgs(lease, ['--lane-plan', '--lanes', '2']))
+    const l = s.receipt.lanes || {}
+    ok(l.ok === true && l.k === 1 && l.kReason === 'narrow-step' && l.kRun === 2 && l.kRunReason === 'requested', `the first round is narrow (K 1) but the run's ceiling is 2 (${JSON.stringify(l)})`)
+    ok(s.receipt.status === 'planned' && !s.receipt.dispatch && stampOf(widening, WO_A) === 'PLANNED', `kRun 2: nothing dispatched on main by the start; the lane scheduler boots the pool and builds the first chain (got ${s.receipt.status})`)
+  } finally { widening.cleanup() }
 }
 
 console.log('fast-start: every unusual start hands back before planning or dispatching')

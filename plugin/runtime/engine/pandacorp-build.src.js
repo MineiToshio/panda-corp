@@ -674,7 +674,8 @@ if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && ar
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
 // Proposal 40 §3 Phase B (§9, §7 row 5): args.lanes N (launcher --lanes N) is the requested lane count K. Absent, K = 1:
 // lanes ship behind --lanes until the FM-5 bench passes §6.2, so a plain build never plans, boots or schedules a lane.
-// With N ≥ 2 the lane planner caps it by mode (pro 1, balanced 2, powerful 4) and drops it to 1 on a narrow DAG.
+// With N ≥ 2 the lane planner caps it by mode (pro 1, balanced 2, powerful 4) into the run's ceiling kRun (1 on a DAG
+// narrow throughout); each lane round's K is min(kRun, the ready width then).
 const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
 if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = 1 applies`)
 if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || '1 (default)'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
@@ -837,7 +838,7 @@ let mainWriter = null
 // Proposal 40 Phase B: null until decided (the first fast step, after the first safe point drained the ready cards into
 // the schedule), then true for a run at K ≥ 2 and false at K = 1. `lane` is the lane scheduler's run state (laneRound).
 let LANED = null
-const lane = { k: 1, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
+const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
 // 9.118.2 (bench-medium C-1, plugin 9.118.1): a MECH (haiku) agent sometimes returns its structured result
 // JSON-ENCODED inside one string field — `{ parameter: "{\"escalate\": true, \"dirtyPaths\": [...] …}" }` — so every
 // field the engine branches on read as absent (the pre-check skipped the BL-0124 fast path and paid an opus judge
@@ -6029,12 +6030,15 @@ function fastResult() {
 
 // ── Proposal 40 §3 Phase B: LANES (static K ≥ 2) ─────────────────────────────────────────────────────────────────────
 // Every lane decision a script can make is a mech op (build-mech-lanes / -lane-land / -lane-next); the engine only
-// orchestrates. Only --lanes N ≥ 2 turns them on (no --lanes: K = 1, no lane op at all). K is decided ONCE per run
-// (decideLanes: the fused start's lane plan, else one lane-plan op), after the first safe point drained every ready
-// change card into the schedule (one DAG for bare /implement, --frds and --change alike). K = 1 (no --lanes, a narrow
-// DAG, the gain below the bootstrap, pro) is exactly the sequential build above.
-// At K ≥ 2 the pool boots beside the first work; each `lane-next` round dispatches the barrier (a schema/package chain,
-// built on main as a main-writer holder: lane landings pause, lane builds go on) and one chain of ≤ 3 WOs per free lane.
+// orchestrates. Only --lanes N ≥ 2 turns them on (no --lanes: K = 1, no lane op at all). Whether the run lanes is decided
+// once (decideLanes: the fused start's lane plan, else one lane-plan op, after the first safe point drained every ready
+// change card into the schedule: one DAG for bare /implement, --frds and --change alike) on the run's CEILING kRun: the
+// requested K capped by mode, 1 when the DAG is narrow throughout or the gain is below the bootstrap. kRun = 1 is exactly
+// the sequential build above. K itself is re-decided at EVERY lane-next round (bench FM-5: a run that starts one WO wide
+// built strictly sequentially): min(kRun, the ready width now); a narrow round's chain builds on main (no lane, no
+// landing), a wide one fills the lanes. At kRun ≥ 2 the pool boots at once, beside the first work, so the first wide
+// round never waits for the bootstrap; each `lane-next` round dispatches the barrier (a schema/package chain, or the
+// round's chain on main: a main-writer holder, lane landings pause, lane builds go on) and one chain of ≤ 3 WOs per lane.
 // A lane builder is the fast-lane builder pointed at its worktree (commit-wo per WO on lane/<chain>, its self-verify with
 // the lane's own e2e port), up to LANE_MAX_ATTEMPTS attempts, then the chain parks and only its DAG descendants wait.
 // Main holders, one at a time (the Phase A mutex): the barrier, the USABLE fix-forward, `land-chain` (rebase keeping one
@@ -6055,12 +6059,13 @@ async function decideLanes() {
   if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
   let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null   // drained cards would widen a fused plan
   if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
-  if (!b || b.ok !== true || !(b.k >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
+  const kRun = b && (Number.isInteger(b.kRun) ? b.kRun : b.k)
+  if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
   LANED = true
-  lane.k = b.k
-  log(`⚒ lanes: K = ${b.k} (${b.kReason}, ready width ${b.width}) — chains of ≤ 3 work orders build in ${b.k} worktree lanes and land on main one at a time (proposal 40 §3 Phase B)`)
+  lane.k = kRun
+  log(`⚒ lanes: K = ${kRun} (${b.kRunReason || b.kReason}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
   agentSpawned++
-  lane.pool = runMechOp('lane-pool', `--size ${b.k}`, { label: 'lane-pool' }).then((r) => {
+  lane.pool = runMechOp('lane-pool', `--size ${kRun}`, { label: 'lane-pool' }).then((r) => {
     lane.ready = Boolean(r.body && r.body.ok === true)
     log(lane.ready ? `▹ lane pool ready (${r.body.pool.length} lane(s))` : `⚠ the lane pool did not start (${r.error || (r.body && (r.body.reason || r.body.status))}) — barriers still build on main; the rest falls back to one FRD at a time`)
   }, (e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.pool = null; lane.plan = true })
@@ -6078,6 +6083,7 @@ function laneNext() {
     const b = r.body
     if (!b || b.ok !== true) { lane.plan = ++lane.idle < 2; log(`⚠ lane-next unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — nothing dispatched this round`); return }
     lane.idle = 0
+    if (b.k !== lane.stepK) { lane.stepK = b.k; log(`◦ lanes: this round K = ${b.k} (${b.kReason}, ready width ${b.width})`) }
     if (resume) lane.resumed = true
     lane.broken = (b.pool && b.pool.broken) || 0
     for (const f of b.failed || []) log(`⚠ chain ${f.chain}: not dispatched (${f.status}: ${f.reason})`)
@@ -6160,7 +6166,7 @@ async function laneBarrier(c) {
   // A barrier of an earlier run this run cannot build (its FRD out of scope, a WO BLOCKED) would pause landings forever:
   // park it (only its descendants wait; the next run's resume round retires the park).
   if (!wos.length) { await lanePark(c, 'none of its work orders is buildable in this run'); return null }
-  log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
+  log(`⚒ ${c.onMain && c.onMain !== 'schema' ? `chain ${c.chain} (${ids.join(', ')}) builds on main (${c.onMain})` : `barrier ${c.chain} (${ids.join(', ')}) builds on main`} — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
   if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
   const since = await fastDispatch(c.frd, wos.map((w) => w.id))
   let missed
@@ -6468,7 +6474,8 @@ while (true) {
   }
 
   // Proposal 39 §11: the fast lane builds ONE FRD per iteration (sequential FRD lanes on main); its gate runs in the slots above.
-  // Proposal 40 Phase B: K is decided here once (the first safe point has drained the ready cards); K ≥ 2 runs the lanes.
+  // Proposal 40 Phase B: whether to lane is decided here once (the first safe point has drained the ready cards), on the
+// run's ceiling kRun; kRun ≥ 2 runs the lanes, each round re-deciding its own K.
   if (FAST) {
     if (LANED === null) await decideLanes()
     if ((await (LANED ? laneRound() : fastLaneStep())) === 'paused') { stopReason = 'paused-infra'; break }

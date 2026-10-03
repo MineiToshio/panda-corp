@@ -4,7 +4,11 @@
 //               every live lane chain of an earlier run re-dispatched on its own lane (its committed WOs kept, DR-086)
 //               and every chain an earlier run parked retired (a park holds for one run; the chain is retried fresh),
 //               the ready barrier dispatched to main (landings pause), every free ready lane given the next chain
-//               (longest downstream path first; the resyncs run in parallel). The receipt is the engine's whole view:
+//               (longest downstream path first; the resyncs run in parallel). With --lanes N ≥ 2 the round's own K
+//               (re-decided every round from the ready width, never once per run) bounds what is in flight: a narrow
+//               round builds its chain on main (`onMain: narrow-step`, recorded like a barrier, no landing to pay), a
+//               wide one fills the free lanes, and main takes one more while no lane is free (`no-free-lane`, the
+//               pool still booting). The receipt is the engine's whole view:
 //               what it must build now (`dispatched`, `barrier`), land (`landQueue`, `needsFix`), and what waits
 //               (`parked`, `blockedFrds`: only the DAG descendants of a parked chain), plus K and the pool's health.
 //   lane-usable --frd f --wo …  [--floor] [--sha <pin>]
@@ -78,7 +82,9 @@ export async function dispatchChain(ctx, o, graph, req) {
   const barrierWos = wos.filter((w) => graph.nodes.get(w).barrier)
   if (barrierWos.length && !req.barrier) throw new Refusal('barrier-off-main', `${barrierWos.join(', ')} touch a schema, migration, package.json or lockfile path: that chain builds on main (--barrier), never in a lane`, { wos: barrierWos })
   const head = ctx.g.must(['rev-parse', 'HEAD']).trim()
-  const record = (s, extra) => { const prior = s.chains[id]; s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, barrier: Boolean(req.barrier), status: 'dispatched', downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString(), fixes: prior && (req.barrier || extra.resumed) ? prior.fixes || 0 : 0, ...extra } }
+  // A chain on main is a schema/package barrier, or a plain chain the round placed there (narrow-step, no-free-lane).
+  const onMain = req.barrier ? (barrierWos.length ? 'schema' : req.onMain || 'manual') : null
+  const record = (s, extra) => { const prior = s.chains[id]; s.chains[id] = { id, frd: graph.nodes.get(wos[0]).frd, wos, barrier: Boolean(req.barrier), onMain, status: 'dispatched', downstream: chainDownstream(graph, wos), dispatchedAt: new Date().toISOString(), fixes: prior && (req.barrier || extra.resumed) ? prior.fixes || 0 : 0, ...extra } }
   const claim = await withState(ctx, o, async (s) => {
     refreshFromMain(s, graph.nodes, ctx)
     const prior = s.chains[id]
@@ -88,7 +94,7 @@ export async function dispatchChain(ctx, o, graph, req) {
       const other = activeBarrier(s)
       if (other && other.id !== id) throw new Refusal('barrier-active', `the barrier chain ${other.id} is still building on main: one barrier at a time`)
       record(s, { lane: null, base: head })
-      return { done: { code: 0, body: { status: 'dispatched', chain: id, barrier: true, where: 'main', wos, landingsPaused: true } } }
+      return { done: { code: 0, body: { status: 'dispatched', chain: id, barrier: true, onMain, where: 'main', wos, landingsPaused: true } } }
     }
     const entry = s.pool.find((l) => l.lane === req.lane)
     if (!entry) throw new Refusal('no-such-lane', `lane ${req.lane} is not in the pool (run lane-pool first)`)
@@ -147,7 +153,7 @@ function portPinned(lctx, port) {
 /** A chain as the engine needs it: its lane's project dir and env too, so a resumed chain can be fixed or rebuilt. */
 const chainView = (ctx, state, c) => {
   const l = c.lane ? state.pool.find((x) => x.lane === c.lane) : null
-  return { chain: c.id, frd: c.frd, wos: c.wos, lane: c.lane, downstream: c.downstream, status: c.status, fixes: c.fixes || 0, base: String(c.base || '').slice(0, 12), ...(l ? { path: path.join(l.path, ctx.prefix), env: laneEnv(l.lane, l.port) } : {}) }
+  return { chain: c.id, frd: c.frd, wos: c.wos, lane: c.lane, onMain: c.barrier ? c.onMain || 'schema' : null, downstream: c.downstream, status: c.status, fixes: c.fixes || 0, base: String(c.base || '').slice(0, 12), ...(l ? { path: path.join(l.path, ctx.prefix), env: laneEnv(l.lane, l.port) } : {}) }
 }
 
 /** `lane-next` — see the header. */
@@ -178,6 +184,8 @@ export async function laneNextOp(o) {
   const plan = planChains(graph, before, scopeOf(o))
   const barrierChain = plan.dispatch.barrier ? plan.chains.find((c) => c.id === plan.dispatch.barrier) : null
   if (barrierChain) await tryDispatch({ chain: barrierChain.id, wos: barrierChain.wos, barrier: true })
+  const mainChain = plan.dispatch.main ? plan.chains.find((c) => c.id === plan.dispatch.main) : null
+  if (mainChain) await tryDispatch({ chain: mainChain.id, wos: mainChain.wos, barrier: true, onMain: plan.dispatch.mainWhy })
   const reqs = [...resumed.map((c) => ({ chain: c.id, wos: c.wos, lane: c.lane })), ...plan.dispatch.lanes.map((d) => { const c = plan.chains.find((x) => x.id === d.chain); return { chain: c.id, wos: c.wos, lane: d.lane } })]
   const dispatched = (await Promise.all(reqs.map(tryDispatch))).filter(Boolean)
   const state = readState(ctx)
@@ -187,7 +195,7 @@ export async function laneNextOp(o) {
   return {
     code: 0,
     body: {
-      status: 'next', k: after.k, kReason: after.kReason, width: plan.width, dispatched, failed, retired,
+      status: 'next', k: plan.k, kReason: plan.kReason, kRun: plan.kRun, kRunReason: plan.kRunReason, width: plan.width, offPath: plan.offPath, dispatched, failed, retired,
       barrier: barrier ? chainView(ctx, state, barrier) : null, landingsPaused: Boolean(barrier),
       landQueue: after.landQueue.map((id) => chainView(ctx, state, state.chains[id])), needsFix: live.filter((c) => c.status === 'needs-fix').map((c) => chainView(ctx, state, c)),
       inFlight: live.filter((c) => LIVE.has(c.status)).map((c) => c.id), parked: after.parked, blockedFrds: after.blockedFrds, blockedWos: after.blockedWos,

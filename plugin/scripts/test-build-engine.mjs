@@ -2741,33 +2741,52 @@ SCENARIOS.push({
 // FRD, the fix-forward ladder, parking, the global pause and resume.
 // ─────────────────────────────────────────────────────────────────────────────
 const LANED_ARGS = { mode: 'balanced', ...FAST, lanes: 2 }   // lanes are opt-in: --lanes N ≥ 2 (proposal 40 §7 row 5)
-function laneSim(chains, { k = 2, kReason = 'requested', resumed = [] } = {}) {
-  const st = { status: Object.fromEntries(chains.map((c) => [c.chain, 'pending'])), lane: {}, landed: [], nextCalls: 0, committed: {} }
+// `perStep` (bench FM-5) answers like the per-round planner: K = min(k, ready width) each round, a narrow round's chain
+// on main (onMain narrow-step), a free lane otherwise, main once more while no lane is free (the pool still booting,
+// `poolMs`); lane-plan then reports the first round narrow (k 1) under the run's ceiling kRun = k.
+function laneSim(chains, { k = 2, kReason = 'requested', resumed = [], perStep = false, poolMs = 0 } = {}) {
+  const st = { status: Object.fromEntries(chains.map((c) => [c.chain, 'pending'])), lane: {}, landed: [], nextCalls: 0, committed: {}, main: {}, poolUp: !perStep, ks: [] }
   for (const r of resumed) { st.status[r.chain] = 'dispatched'; st.lane[r.chain] = r.lane; st.committed[r.chain] = r.committed }
   const byId = (id) => chains.find((c) => c.chain === id)
   const live = (id) => ['dispatched', 'built', 'needs-fix'].includes(st.status[id])
-  const free = () => Array.from({ length: k }, (_, i) => i + 1).filter((n) => !Object.keys(st.lane).some((id) => st.lane[id] === n && live(id)))
+  const free = () => (st.poolUp ? Array.from({ length: k }, (_, i) => i + 1).filter((n) => !Object.keys(st.lane).some((id) => st.lane[id] === n && live(id))) : [])
+  const onMainNow = () => chains.find((c) => (c.barrier || st.main[c.chain]) && st.status[c.chain] === 'dispatched')
   const ready = (c) => st.status[c.chain] === 'pending' && (c.after || []).every((d) => st.status[d] === 'landed')
   const desc = (roots) => { const out = new Set(roots); let grew = true; while (grew) { grew = false; for (const c of chains) if (!out.has(c.chain) && (c.after || []).some((d) => out.has(d))) { out.add(c.chain); grew = true } } return out }
   const blockedFrds = () => [...new Set([...desc(chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain))].map((id) => byId(id).frd))].sort()
-  const view = (c) => ({ chain: c.chain, frd: c.frd, wos: c.wos, lane: st.lane[c.chain] || null, downstream: c.downstream || 0, status: st.status[c.chain], fixes: 0, base: 'ba5e00000001', ...(st.lane[c.chain] ? { path: `/lanes/lane-${st.lane[c.chain]}/proj`, env: { PANDACORP_LANE: `lane-${st.lane[c.chain]}`, PORT: String(4100 + st.lane[c.chain]), PANDACORP_E2E_PORT: String(4100 + st.lane[c.chain]) } } : {}) })
+  const view = (c) => ({ chain: c.chain, frd: c.frd, wos: c.wos, lane: st.lane[c.chain] || null, onMain: c.barrier ? 'schema' : st.main[c.chain] ? 'narrow-step' : null, downstream: c.downstream || 0, status: st.status[c.chain], fixes: 0, base: 'ba5e00000001', ...(st.lane[c.chain] ? { path: `/lanes/lane-${st.lane[c.chain]}/proj`, env: { PANDACORP_LANE: `lane-${st.lane[c.chain]}`, PORT: String(4100 + st.lane[c.chain]), PANDACORP_E2E_PORT: String(4100 + st.lane[c.chain]) } } : {}) })
   const next = (call) => {
     st.nextCalls++
     const dispatched = []
     if (/--resume/.test(call.prompt)) for (const r of resumed) if (st.status[r.chain] === 'dispatched') dispatched.push({ ...view(byId(r.chain)), resumed: true, committed: r.committed })
     if (!chains.some((c) => c.barrier && st.status[c.chain] === 'dispatched')) { const b = chains.find((c) => c.barrier && ready(c)); if (b) st.status[b.chain] = 'dispatched' }
-    for (const n of free()) { const c = chains.find((x) => !x.barrier && ready(x)); if (!c) break; st.status[c.chain] = 'dispatched'; st.lane[c.chain] = n; dispatched.push({ ...view(c), resumed: false, committed: [] }) }
-    const barrier = chains.find((c) => c.barrier && st.status[c.chain] === 'dispatched')
-    return { line: mechLine('lane-next', { status: 'next', k, kReason, dispatched, failed: [], barrier: barrier ? view(barrier) : null, landingsPaused: Boolean(barrier), landQueue: chains.filter((c) => st.status[c.chain] === 'built').map(view), needsFix: [], inFlight: chains.filter((c) => live(c.chain)).map((c) => c.chain), parked: chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain), blockedFrds: blockedFrds(), blockedWos: [], landedFrds: [...new Set(chains.filter((c) => st.status[c.chain] === 'landed').map((c) => c.frd))], pool: { size: k, free: free().length, booting: 0, broken: 0 }, remaining: chains.filter((c) => st.status[c.chain] !== 'landed').length }) }
+    let kStep = k
+    if (!perStep) for (const n of free()) { const c = chains.find((x) => !x.barrier && ready(x)); if (!c) break; st.status[c.chain] = 'dispatched'; st.lane[c.chain] = n; dispatched.push({ ...view(c), resumed: false, committed: [] }) }
+    else {
+      const readyNow = chains.filter((x) => !x.barrier && ready(x))
+      const width = readyNow.length + chains.filter((c) => live(c.chain)).length
+      kStep = width <= 1 ? 1 : Math.min(k, width)
+      let slots = kStep - chains.filter((c) => !c.barrier && live(c.chain)).length
+      for (const c of readyNow) {
+        if (slots-- <= 0) break
+        if (!onMainNow() && (kStep === 1 || !free().length)) { st.status[c.chain] = 'dispatched'; st.main[c.chain] = true; continue }
+        const n = free()[0]
+        if (!n) break
+        st.status[c.chain] = 'dispatched'; st.lane[c.chain] = n; dispatched.push({ ...view(c), resumed: false, committed: [] })
+      }
+      st.ks.push(kStep)
+    }
+    const barrier = onMainNow()
+    return { line: mechLine('lane-next', { status: 'next', k: kStep, kReason: kStep === 1 && perStep ? 'narrow-step' : kReason, kRun: k, dispatched, failed: [], barrier: barrier ? view(barrier) : null, landingsPaused: Boolean(barrier), landQueue: chains.filter((c) => st.status[c.chain] === 'built').map(view), needsFix: [], inFlight: chains.filter((c) => live(c.chain)).map((c) => c.chain), parked: chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain), blockedFrds: blockedFrds(), blockedWos: [], landedFrds: [...new Set(chains.filter((c) => st.status[c.chain] === 'landed').map((c) => c.frd))], pool: { size: k, free: free().length, booting: 0, broken: 0 }, remaining: chains.filter((c) => st.status[c.chain] !== 'landed').length }) }
   }
   const responses = [
-    { label: 'lane-plan', response: { line: mechLine('lane-plan', { status: 'planned', k, kReason, width: 2, offPath: 2 }) } },
-    { label: 'lane-pool', response: { line: mechLine('lane-pool', { status: 'ready', pool: Array.from({ length: k }, (_, i) => ({ lane: i + 1 })) }) } },
+    { label: 'lane-plan', response: { line: mechLine('lane-plan', perStep ? { status: 'planned', k: 1, kReason: 'narrow-step', kRun: k, kRunReason: kReason, width: 1, offPath: 2 } : { status: 'planned', k, kReason, width: 2, offPath: 2 }) } },
+    { label: 'lane-pool', response: async () => { if (poolMs) await tick(poolMs); st.poolUp = true; return { line: mechLine('lane-pool', { status: 'ready', pool: Array.from({ length: k }, (_, i) => ({ lane: i + 1 })) }) } } },
     { label: 'lane-next', response: next },
     { label: /^lane-mark:/, response: (call) => { const id = call.label.slice(10); st.status[id] = 'built'; return { line: mechLine('lane-mark', { status: 'built', chain: id }) } } },
     { label: /^lane-park:/, response: (call) => { const id = call.label.slice(10); st.status[id] = 'parked'; return { line: mechLine('lane-mark', { status: 'parked', chain: id, blockedFrds: blockedFrds() }) } } },
     { label: /^land-chain:/, response: (call) => { const id = call.label.slice(11); st.status[id] = 'landed'; st.landed.push(id); return { line: mechLine('land-chain', { status: 'landed', chain: id, sha: `1a9d${String(st.landed.length).padStart(8, '0')}`, wos: byId(id).wos }) } } },
-    { label: /^fast-build:/, response: (call) => { for (const c of chains) if (c.barrier && FAST_BUILT_IDS(call.prompt).some((w) => c.wos.includes(w))) st.status[c.chain] = 'landed'; return builtNow(call) } },
+    { label: /^fast-build:/, response: (call) => { for (const c of chains) if ((c.barrier || st.main[c.chain]) && FAST_BUILT_IDS(call.prompt).some((w) => c.wos.includes(w))) st.status[c.chain] = 'landed'; return builtNow(call) } },
   ]
   return { st, responses }
 }
@@ -2987,6 +3006,72 @@ SCENARIOS.push({
     t.ok(run.result && ['frd-na', 'frd-nb'].every((f) => run.result.builtFrds.includes(f)) && !('lanes' in run.result), 'both VERIFIED; no lanes in the result')
   },
 })
+// Bench FM-5 (--lanes 2, medium): the first lane-plan saw ONE ready WO (width 1) and K = 1 was decided for the whole run,
+// so it built strictly sequentially although the DAG is two wide later. K is now re-decided at every round.
+const widensAfter = (root, kids) => fastPlan([{ frd: root, ids: [`wo-${root.slice(4)}-001`] }, ...kids.map((f) => ({ frd: f, ids: [`wo-${f.slice(4)}-001`], deps: [root], extra: { [`wo-${f.slice(4)}-001`]: { deps: [`wo-${root.slice(4)}-001`] } } }))])
+{
+  const sim = laneSim([chainOf('frd-ga', ['wo-ga-001']), chainOf('frd-gb', ['wo-gb-001'], { after: ['c-wo-ga-001'] }), chainOf('frd-gc', ['wo-gc-001'], { after: ['c-wo-ga-001'] })], { perStep: true })
+  const conc = { active: 0, peak: 0 }
+  const overlapping = async (call) => { conc.active++; conc.peak = Math.max(conc.peak, conc.active); await tick(25); conc.active--; return builtNow(call) }
+  SCENARIOS.push({
+    name: 'lanes-k-reevaluated-when-width-grows — the run starts one WO wide (lane-plan: K 1 narrow-step under kRun 2): the run lanes anyway, the narrow round builds on main, and once the width grows to 2 two lane builders run at once',
+    args: LANED_ARGS,
+    plan: widensAfter('frd-ga', ['frd-gb', 'frd-gc']),
+    responses: [{ label: /^lane-build:/, response: overlapping }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(hasLog(run, /lanes: K = 2 \(requested/) && byLabel(run, 'lane-pool').length === 1 && /--size 2/.test(byLabel(run, 'lane-pool')[0].prompt), 'the run\'s ceiling (kRun 2) decides: one pool of two lanes, although the first round is narrow')
+      t.ok(byLabel(run, 'fast-build:frd-ga').length === 1 && byLabel(run, /^lane-build:c-wo-ga-001$/).length === 0 && byLabel(run, /^land-chain:c-wo-ga-001$/).length === 0, 'the narrow round builds its chain on main: no lane, no landing')
+      t.ok(conc.peak === 2 && byLabel(run, /^lane-build:/).length === 2, `once the width grew to 2 both lane builders were in flight at once (peak ${conc.peak})`)
+      t.ok(labelIdx(run, /^lane-build:/) > labelIdx(run, /^fast-build:frd-ga$/), 'the lanes take the chains the main build opened')
+      t.ok(hasLog(run, /this round K = 1 \(narrow-step/) && hasLog(run, /this round K = 2/) && sim.st.ks[0] === 1 && sim.st.ks.includes(2), `K is re-decided per round (${sim.st.ks.join(', ')})`)
+      t.ok(run.result && ['frd-ga', 'frd-gb', 'frd-gc'].every((f) => run.result.builtFrds.includes(f)) && run.result.lanes && run.result.lanes.k === 2, `all three VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+{
+  const sim = laneSim([chainOf('frd-ha', ['wo-ha-001']), chainOf('frd-hb', ['wo-hb-001'], { after: ['c-wo-ha-001'] }), chainOf('frd-hc', ['wo-hc-001'], { after: ['c-wo-ha-001'] })], { perStep: true, poolMs: 30 })
+  const seen = { mainWhileBooting: null, rounds: [] }
+  SCENARIOS.push({
+    name: 'lanes-pool-boots-before-first-parallel-dispatch — the pool boots in the background beside the first (narrow) chain on main, so the first two-wide round dispatches both lanes at once instead of waiting for the bootstrap',
+    args: LANED_ARGS,
+    plan: widensAfter('frd-ha', ['frd-hb', 'frd-hc']),
+    responses: [
+      { label: 'fast-build:frd-ha', response: async (call) => { seen.mainWhileBooting = !sim.st.poolUp; await tick(80); return sim.responses.find((r) => String(r.label) === String(/^fast-build:/)).response(call) } },
+      { label: 'lane-next', response: (call) => { const r = sim.responses.find((x) => x.label === 'lane-next').response(call); seen.rounds.push({ poolUp: sim.st.poolUp, lanes: JSON.parse(r.line).dispatched.length }); return r } },
+      ...sim.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(labelIdx(run, /^lane-pool$/) >= 0 && labelIdx(run, /^lane-pool$/) < labelIdx(run, /^fast-build:frd-ha$/), 'the pool boot starts before the first chain\'s build')
+      t.ok(seen.mainWhileBooting === true, 'the first chain builds on main while the pool is still booting (it never waits for the bootstrap)')
+      const wide = seen.rounds.find((r) => r.lanes > 0)
+      t.ok(wide && wide.poolUp && wide.lanes === 2, `the first round with lane work finds the pool up and dispatches both lanes at once (${JSON.stringify(seen.rounds)})`)
+      t.ok(run.result && ['frd-ha', 'frd-hb', 'frd-hc'].every((f) => run.result.builtFrds.includes(f)), 'all three VERIFIED')
+    },
+  })
+}
+{
+  // FRD-CB is two WOs in sequence; FRD-CD's only WO depends on the foundation alone (like the bench's WO-04-001).
+  const sim = laneSim([chainOf('frd-ca', ['wo-ca-001']), chainOf('frd-cb', ['wo-cb-001'], { after: ['c-wo-ca-001'] }), chainOf('frd-cb', ['wo-cb-002'], { after: ['c-wo-cb-001'] }), chainOf('frd-cd', ['wo-cd-001'], { after: ['c-wo-ca-001'] })], { perStep: true })
+  const live = new Set()
+  let overlap = false
+  const lb = async (call) => { live.add(call.label); if (live.size > 1) overlap = true; await tick(/cb-001/.test(call.label) ? 60 : 10); live.delete(call.label); return builtNow(call) }
+  SCENARIOS.push({
+    name: 'cross-frd-ready-wo-gets-a-lane — a WO of another FRD whose deps are met (FRD-CD after the foundation) takes a lane while FRD-CB builds, and is USABLE before FRD-CB finishes',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ca', ids: ['wo-ca-001'] }, { frd: 'frd-cb', ids: ['wo-cb-001', 'wo-cb-002'], deps: ['frd-ca'], extra: { 'wo-cb-001': { deps: ['wo-ca-001'] }, 'wo-cb-002': { deps: ['wo-cb-001'] } } }, { frd: 'frd-cd', ids: ['wo-cd-001'], deps: ['frd-ca'], extra: { 'wo-cd-001': { deps: ['wo-ca-001'] } } }]),
+    responses: [{ label: /^lane-build:/, response: lb }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const first = byLabel(run, 'lane-next')[0]
+      t.ok(first && ['frd-ca', 'frd-cb', 'frd-cd'].every((f) => first.prompt.includes(`--frd '${f}'`)) && ['wo-cb-002', 'wo-cd-001'].every((w) => first.prompt.includes(`--build '${w}'`)), 'every lane round schedules over every FRD of the run (one WO DAG, not FRD by FRD)')
+      t.ok(overlap && byLabel(run, 'lane-build:c-wo-cd-001').length === 1 && byLabel(run, 'lane-build:c-wo-cb-001').length === 1, 'FRD-CD\'s builder ran in its lane while FRD-CB\'s was building')
+      t.ok(labelIdx(run, /^usable:frd-cd$/) >= 0 && labelIdx(run, /^usable:frd-cd$/) < labelIdx(run, /^fast-build:frd-cb$/), 'FRD-CD is verified USABLE before FRD-CB\'s last WO builds')
+      t.ok(run.result && ['frd-ca', 'frd-cb', 'frd-cd'].every((f) => run.result.builtFrds.includes(f)), `all three VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner

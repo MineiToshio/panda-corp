@@ -1159,12 +1159,21 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   set from the WO DAG on main after every landing: a WO is ready when pending, in scope, not in a live or parked chain,
   not below a parked or BLOCKED WO, and every dependency is done (IN_REVIEW in scope, VERIFIED outside it). Chains are
   ≤ 3 WOs of one FRD in dependency order, longest downstream path first, so a cyclic FRD graph is built slice by slice
-  (FRD-01, FRD-05, FRD-01). A WO declaring `prisma/**`, a migration, `package.json` or a lockfile is a **barrier**: a
+  (FRD-01, FRD-05, FRD-01); a chain grows only along a linear segment (its tail opens exactly one WO, same FRD, not a
+  barrier), so two WOs opened at once build in parallel next round instead of serialized in one chain. A WO declaring `prisma/**`, a migration, `package.json` or a lockfile is a **barrier**: a
   chain of its own, built on main (`lane-dispatch --barrier`; `commit-wo` still refuses schema paths off main), one at a
-  time; lane builds go on, `land-chain` refuses `landings-paused` until its WOs are committed on main. K is static:
-  `--lanes N`, else **1** (lanes ship behind `--lanes` until the FM-5 bench meets proposal 40 §6.2, §7 row 5 / §9;
-  `DEFAULT_LANES`), capped by mode (pro 1, balanced 2, powerful/deep 4), and **1 whenever the ready width is ≤ 1**, so
-  a small build runs exactly as today. `lane-pool` creates K detached worktrees under `.pandacorp/run/lanes/`, each
+  time; lane builds go on, `land-chain` refuses `landings-paused` until its WOs are committed on main. K has two
+  levels, both re-decided at EVERY `lane-plan`/`lane-next` round, never once per run (bench FM-5: a run that started one
+  WO wide built strictly sequentially). **kRun**, the run's ceiling and the pool size: `--lanes N`, else **1** (lanes
+  ship behind `--lanes` until the FM-5 bench meets proposal 40 §6.2, §7 row 5 / §9; `DEFAULT_LANES`), capped by mode
+  (pro 1, balanced 2, powerful/deep 4), **1 when the remaining DAG is narrow throughout** (`narrow-dag`: nothing off
+  its longest pending path) or the gain is below what is still to pay (`gain-below-bootstrap`: fewer than
+  MIN_LANE_GAIN = 2 WOs off the path before a pool exists, fewer than 1 once a pool of ≥ 2 lanes is up and only a
+  landing is left). **k**, this round's K: min(kRun, the ready width now = ready chains + chains in flight);
+  `narrow-step` when that width is ≤ 1, `ready-width` when it is below kRun. With `--lanes` a round places its ready
+  chains under k (the chains in flight count, a schema barrier does not): a narrow round builds its chain on main
+  (`onMain: narrow-step`, recorded like a barrier, no landing to pay), a wider one fills the free lanes, and main takes
+  one more while no lane is free (`no-free-lane`, the pool still booting). So a small build runs exactly as today. `lane-pool` creates K detached worktrees under `.pandacorp/run/lanes/`, each
   bootstrapped on its own free port; `lane-dispatch` refuses a lane dir that is not its own git worktree (lanes live
   inside main's tree: a lane missing its `.git` file would resolve to main and be reset), salvages a lane's dirt,
   resets it to main on `lane/<chain>` (a re-dispatch of the same live chain keeps its committed WOs, DR-086; a fresh
@@ -1189,8 +1198,8 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   and `lane-usable` (`build-mech-lane-next.mjs`, where `lane-dispatch` moved too) and moved the long steps out of `lanes.lock`: `lane-pool` and `lane-dispatch` claim
   under the lock and bootstrap/resync outside it (a booting lane is never free; a failed resync marks the lane
   `broken` and releases the chain). `lane-plan` takes the engine's schedule (`--build`) and `--wait-verified f` (f's
-  IN_REVIEW WOs satisfy only f's own WOs: a floor or red FRD's dependents wait for its VERIFIED), and drops to K = 1
-  when fewer than two WOs could build beside the longest pending path (`gain-below-bootstrap`, MIN_LANE_GAIN).
+  IN_REVIEW WOs satisfy only f's own WOs: a floor or red FRD's dependents wait for its VERIFIED), and drops kRun to 1
+  when too few WOs could build beside the longest pending path (`gain-below-bootstrap`, above).
   `lane-next` is one scheduling round (state read before the WO graph; `--resume` re-dispatches every live chain of an
   earlier run on its own lane and retires its parks (a park holds for one run); the barrier, then every free lane, the resyncs in parallel); its receipt is the engine's
   whole view (dispatched, barrier, landQueue, needsFix, parked, blockedFrds, landedFrds, pool health). `lane-usable`
@@ -1200,18 +1209,24 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   since the last green pin, ≤ 3). `fast-start --lane-plan` carries the lane K and dispatches nothing on main at K ≥ 2.
 - **Lanes, the engine scheduler (proposal 40 Phase 5 Stage B; `test-build-engine.mjs` `two-lanes-build-in-parallel`,
   `schema-chain-pauses-landings (engine)`, `lane-park-blocks-only-descendants`, `usage-limit-global-pause-not-attempt`,
-  `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`;
-  `test-build-mech-lanes.mjs` Stage B; `test-build-run-id.mjs` `--lanes`).** `args.lanes` (launcher `--lanes N`, fast
-  lane only). K is decided ONCE, at the first fast step, after the first safe point drained every ready card into the
-  schedule (bare `/implement`, `--frds` and `--change` share the scheduler): only with `--lanes N ≥ 2` (no `--lanes`:
-  no lane plan, pool or round at all), the fused start's `lanes` when its probe found no work, else one `lane-plan`
-  op. K = 1 is the sequential build above, untouched. A barrier of an earlier run whose WOs this run cannot build (its
+  `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`,
+  `lanes-k-reevaluated-when-width-grows`, `lanes-pool-boots-before-first-parallel-dispatch`,
+  `cross-frd-ready-wo-gets-a-lane`; `test-build-mech-lanes.mjs` Stage B and per-step K; `test-build-run-id.mjs`
+  `--lanes`).** `args.lanes` (launcher `--lanes N`, fast lane only). Whether the run lanes is decided ONCE, at the
+  first fast step, after the first safe point drained every ready card into the schedule (bare `/implement`, `--frds`
+  and `--change` share the scheduler), on the run's ceiling **kRun** (never on the first round's width): only with
+  `--lanes N ≥ 2` (no `--lanes`: no lane plan, pool or round at all), the fused start's `lanes` when its probe found no
+  work (at kRun ≥ 2 the fused start dispatches nothing on main, even when its first round is narrow), else one
+  `lane-plan` op. kRun = 1 is the sequential build above, untouched. K itself is each `lane-next` round's `k` (logged
+  when it changes): a narrow round's chain builds on main as a main-writer holder, a wide round fills the lanes, so
+  every WO whose deps are met (any FRD of the run: one WO DAG) is dispatchable as soon as K allows. A barrier of an earlier run whose WOs this run cannot build (its
   FRD out of scope, a WO BLOCKED) is parked at once, so it never pauses the landings for the whole run. At
-  K ≥ 2 `lane-pool` boots beside the first work and `laneRound` drives the run: a `lane-next` round only when a lane can
+  kRun ≥ 2 `lane-pool` boots at once, in the background beside the first work (so the first wide round never waits
+  for the bootstrap), and `laneRound` drives the run: a `lane-next` round only when a lane can
   take a chain (or the resume is pending); a lane job per dispatched chain (the fast builder pointed at its worktree:
   its lane env and port, `commit-wo`/`park-wo` on the lane project, its own self-verify; up to 3 attempts, worker then
   opus; then `lane-mark --as built` or `--as parked`); the main-writer holders, one at a time, in this priority: the
-  barrier (dispatch + builder on main), the USABLE fix-forward, `land-chain` (longest downstream first), then a
+  barrier or the round's chain on main (dispatch + builder on main), the USABLE fix-forward, `land-chain` (longest downstream first), then a
   settled gate verdict. A chain landing completes an FRD → `lane-usable` beside the landings (one at a time) → green:
   USABLE and the gate exactly as before (pinned at the verified SHA); red: `lane-bisect` when the class is `cross`, a
   sonnet fix-forward on main naming the culprit chain, re-verify, then opus, then `BLOCKED: needs-owner` through the

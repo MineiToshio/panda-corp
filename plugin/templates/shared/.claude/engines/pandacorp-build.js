@@ -250,7 +250,7 @@ let oracleNoFallbackLogged = false
 let landingInFlight = null
 let mainWriter = null
 let LANED = null
-const lane = { k: 1, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
+const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
 const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
 const unwrapStructuredResult = (answer, schema) => {
  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
@@ -3796,12 +3796,13 @@ async function decideLanes() {
  if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
  let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null
  if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
- if (!b || b.ok !== true || !(b.k >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
+ const kRun = b && (Number.isInteger(b.kRun) ? b.kRun : b.k)
+ if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
  LANED = true
- lane.k = b.k
- log(`⚒ lanes: K = ${b.k} (${b.kReason}, ready width ${b.width}) — chains of ≤ 3 work orders build in ${b.k} worktree lanes and land on main one at a time (proposal 40 §3 Phase B)`)
+ lane.k = kRun
+ log(`⚒ lanes: K = ${kRun} (${b.kRunReason || b.kReason}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
  agentSpawned++
- lane.pool = runMechOp('lane-pool', `--size ${b.k}`, { label: 'lane-pool' }).then((r) => {
+ lane.pool = runMechOp('lane-pool', `--size ${kRun}`, { label: 'lane-pool' }).then((r) => {
   lane.ready = Boolean(r.body && r.body.ok === true)
   log(lane.ready ? `▹ lane pool ready (${r.body.pool.length} lane(s))` : `⚠ the lane pool did not start (${r.error || (r.body && (r.body.reason || r.body.status))}) — barriers still build on main; the rest falls back to one FRD at a time`)
  }, (e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.pool = null; lane.plan = true })
@@ -3819,6 +3820,7 @@ function laneNext() {
   const b = r.body
   if (!b || b.ok !== true) { lane.plan = ++lane.idle < 2; log(`⚠ lane-next unverifiable (${r.error || (b && (b.reason || b.error || b.status)) || 'no receipt'}) — nothing dispatched this round`); return }
   lane.idle = 0
+  if (b.k !== lane.stepK) { lane.stepK = b.k; log(`◦ lanes: this round K = ${b.k} (${b.kReason}, ready width ${b.width})`) }
   if (resume) lane.resumed = true
   lane.broken = (b.pool && b.pool.broken) || 0
   for (const f of b.failed || []) log(`⚠ chain ${f.chain}: not dispatched (${f.status}: ${f.reason})`)
@@ -3896,7 +3898,7 @@ async function laneBarrier(c) {
  const wos = st ? st.f.workOrders.filter((w) => ids.includes(w.id) && st.toBuildIds.has(w.id)) : []
  lane.plan = true
  if (!wos.length) { await lanePark(c, 'none of its work orders is buildable in this run'); return null }
- log(`⚒ barrier ${c.chain} (${ids.join(', ')}) builds on main — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
+ log(`⚒ ${c.onMain && c.onMain !== 'schema' ? `chain ${c.chain} (${ids.join(', ')}) builds on main (${c.onMain})` : `barrier ${c.chain} (${ids.join(', ')}) builds on main`} — lane landings wait for it, lane builds go on (proposal 40 §3 B.2)`)
  if (!fastClassified.has(c.frd)) await fastClassify([c.frd])
  const since = await fastDispatch(c.frd, wos.map((w) => w.id))
  let missed

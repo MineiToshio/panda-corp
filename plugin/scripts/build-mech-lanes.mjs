@@ -7,7 +7,8 @@
 //                                               it is done, `broken` when it failed, and only a ready lane is free.
 //   lane-plan     [--frd f]… [--build wo]… [--wait-verified f]… [--lanes N] [--mode M]   the ready set recomputed
 //                                               from the WO DAG (dependsOn, DR-087) on main: chains of ≤ 3 WOs of one
-//                                               FRD in dependency order, barriers, K, the landing queue, the
+//                                               FRD in dependency order, barriers, K (the run's ceiling kRun and this
+//                                               round's K, re-decided at every round), the landing queue, the
 //                                               parked/blocked sets. `--build` limits what may be dispatched to the
 //                                               engine's own schedule; `--wait-verified f` makes f's IN_REVIEW work
 //                                               orders satisfy only f's own WOs (a floor FRD's dependents wait for its
@@ -47,9 +48,12 @@ export const CHAIN_MAX = 3
 /**
  * Auto K = 1 when the work off the critical path is below this many work orders: the pool bootstrap (~2.5 min) and a
  * landing cost about one work order's build, so a DAG that can run fewer than two WOs beside its longest path gains
- * nothing from a second lane (proposal 40 §3 B.7, "gain below the bootstrap").
+ * nothing from a second lane (proposal 40 §3 B.7, "gain below the bootstrap"). Judged on the REMAINING DAG at every
+ * round: once a pool of ≥ 2 lanes exists its bootstrap is paid, only a landing is left, so one WO beside the path
+ * (MIN_LANE_GAIN_BOOTED) still earns a lane.
  */
 export const MIN_LANE_GAIN = 2
+export const MIN_LANE_GAIN_BOOTED = 1
 /** A chain touching any of these builds on main and pauses lane landings until it commits (§3 B.2). */
 export const BARRIER_PATHS = Object.freeze([
   /(^|\/)prisma\//, /\.(sql|prisma)$/i, /(^|\/)migrations?\//, /(^|\/)drizzle\//,
@@ -207,11 +211,14 @@ export function planChains(graph, state, { scope = [], lanes, mode, build = [], 
     if (claimed.has(head.id)) continue
     const chain = [head]
     claimed.add(head.id)
+    // A chain grows only along a LINEAR segment: when its tail opens exactly one WO (same FRD, not a barrier). Two or
+    // more WOs opened at once are siblings that can build in parallel next round, never serialized into one chain.
     while (!head.barrier && chain.length < CHAIN_MAX) {
       const ids = new Set(chain.map((n) => n.id))
-      const next = [...nodes.values()].filter((n) => n.frd === head.frd && !n.barrier && pending(n) && buildable(n) && !claimed.has(n.id) && !inFlight.has(n.id) && !blocked.has(n.id)
-        && n.deps.some((d) => ids.has(d)) && n.deps.every((d) => ids.has(d) || done(d, n))).sort(prio)[0]
-      if (!next) break
+      const opened = [...nodes.values()].filter((n) => pending(n) && inScope(n) && buildable(n) && !claimed.has(n.id) && !inFlight.has(n.id) && !blocked.has(n.id)
+        && n.deps.some((d) => ids.has(d)) && n.deps.every((d) => ids.has(d) || done(d, n)))
+      const next = opened.length === 1 ? opened[0] : null
+      if (!next || next.frd !== head.frd || next.barrier) break
       chain.push(next)
       claimed.add(next.id)
     }
@@ -219,29 +226,60 @@ export function planChains(graph, state, { scope = [], lanes, mode, build = [], 
   }
   const cap = MODE_CAPS[mode] ?? MODE_CAPS.powerful
   const requested = lanes ?? DEFAULT_LANES
-  const width = chains.length + live.filter((c) => !c.barrier).length
-  let k = Math.max(1, Math.min(requested, cap))
-  let kReason = lanes !== undefined ? 'requested' : 'default'
-  if (requested > cap) kReason = `mode-cap-${mode || 'powerful'}`
-  // The work beside the longest path: what a second lane could build in parallel at all.
+  // The work beside the longest path of the REMAINING DAG: what a second lane could build in parallel at all.
   const todo = new Set([...nodes.values()].filter((n) => pending(n) && inScope(n) && buildable(n) && !blocked.has(n.id)).map((n) => n.id))
   const plen = new Map()
   const pathLen = (id) => { if (!plen.has(id)) plen.set(id, 1 + Math.max(0, ...nodes.get(id).deps.filter((d) => todo.has(d)).map(pathLen))); return plen.get(id) }
   const offPath = todo.size - Math.max(0, ...[...todo].map(pathLen))
-  if (width <= 1 && k > 1) { k = 1; kReason = 'narrow-dag' } else if (k > 1 && offPath < MIN_LANE_GAIN) { k = 1; kReason = 'gain-below-bootstrap' }
+  // kRun: the run's lane ceiling from here on (the pool's size). offPath 0 = narrow throughout (Mirsky: no two
+  // remaining WOs are ever independent).
+  let kRun = Math.max(1, Math.min(requested, cap))
+  let kRunReason = lanes !== undefined ? 'requested' : 'default'
+  if (requested > cap) kRunReason = `mode-cap-${mode || 'powerful'}`
+  const gain = state.pool.filter((l) => !l.broken).length >= 2 ? MIN_LANE_GAIN_BOOTED : MIN_LANE_GAIN
+  if (kRun > 1 && offPath === 0) { kRun = 1; kRunReason = 'narrow-dag' } else if (kRun > 1 && offPath < gain) { kRun = 1; kRunReason = 'gain-below-bootstrap' }
+  // k: THIS round's K = min(kRun, the ready width now: ready chains + chains in flight), never decided once per run.
+  const width = chains.length + live.length
+  let k = kRun
+  let kReason = kRunReason
+  if (kRun > 1 && width <= 1) { k = 1; kReason = 'narrow-step' } else if (kRun > 1 && kRun > width) { k = width; kReason = 'ready-width' }
   const barrier = activeBarrier(state)
   const freeLanes = state.pool.filter((l) => !l.chain && !l.booting && !l.broken).map((l) => l.lane)
   const laneChains = chains.filter((c) => !c.barrier)
+  const dispatchBarrier = barrier ? null : (chains.find((c) => c.barrier) || {}).id || null
+  const place = placeChains(laneChains, { laned: lanes !== undefined && Math.min(requested, cap) >= 2, k, freeLanes, live, mainFree: !barrier && !dispatchBarrier })
   const landQueue = live.filter((c) => c.status === 'built').sort((a, b) => b.downstream - a.downstream || String(a.builtAt).localeCompare(String(b.builtAt))).map((c) => c.id)
   const blockedFrds = unique([...blocked].map((id) => nodes.get(id)?.frd).filter(Boolean)).sort()
   return {
-    k, kRequested: requested, kCap: cap, kReason, width, offPath, chains,
+    k, kRequested: requested, kCap: cap, kReason, kRun, kRunReason, width, offPath, chains,
     pool: { size: state.pool.length, free: freeLanes.length, booting: state.pool.filter((l) => l.booting).length, broken: state.pool.filter((l) => l.broken).length },
-    dispatch: { lanes: laneChains.slice(0, freeLanes.length).map((c, i) => ({ chain: c.id, lane: freeLanes[i] })), barrier: barrier ? null : (chains.find((c) => c.barrier) || {}).id || null },
+    dispatch: { lanes: place.lanes.map((c, i) => ({ chain: c.id, lane: freeLanes[i] })), barrier: dispatchBarrier, main: place.main ? place.main.id : null, mainWhy: place.mainWhy },
     barrierActive: barrier ? barrier.id : null, landingsPaused: Boolean(barrier), landQueue,
     inFlight: live.map((c) => c.id), parked: parkedChains.map((c) => c.id), blockedWos: [...blocked].sort(), blockedFrds, unsatisfiedDeps,
     remaining: [...nodes.values()].filter((n) => pending(n) && inScope(n)).length,
   }
+}
+/** Does a live chain hold one of the round's K slots? A lane chain, or a non-schema chain building on main. */
+const occupiesSlot = (c) => !c.barrier || (c.onMain && c.onMain !== 'schema')
+/**
+ * Where this round's ready lane chains go (longest downstream first). Without a lane request (`laned` false: a manual
+ * lane-next) every free lane takes one. In a laned run the round's K bounds the chains in flight (lanes plus a
+ * non-schema chain on main): a narrow round (K = 1) builds on main (no lane, no landing), a wider one fills the free
+ * lanes and, when none is free (the pool still booting), main takes one if no barrier holds it.
+ * @returns {{ lanes: object[], main: object|null, mainWhy: 'narrow-step'|'no-free-lane'|null }}
+ */
+function placeChains(ready, { laned, k, freeLanes, live, mainFree }) {
+  if (!laned) return { lanes: ready.slice(0, freeLanes.length), main: null, mainWhy: null }
+  let slots = Math.max(0, k - live.filter(occupiesSlot).length)
+  const out = { lanes: [], main: null, mainWhy: null }
+  for (const c of ready) {
+    if (slots <= 0) break
+    if (mainFree && !out.main && (k === 1 || out.lanes.length >= freeLanes.length)) Object.assign(out, { main: c, mainWhy: k === 1 ? 'narrow-step' : 'no-free-lane' })
+    else if (out.lanes.length < freeLanes.length) out.lanes.push(c)
+    else break
+    slots--
+  }
+  return out
 }
 /** A chain's id: its first work order, lower case (`c-wo-01-001`); the lane branch is `lane/<id>`. */
 export const chainIdOf = (wos) => `c-${String(wos[0]).toLowerCase()}`
