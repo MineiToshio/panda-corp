@@ -74,6 +74,9 @@
 //   lane-next / lane-usable   proposal 40 Phase B: the engine's scheduling round (refresh, resume, barrier, dispatch every
 //                free lane) and the USABLE check of a lane-built FRD in the snapshot worktree on a pinned SHA, with the
 //                bisect candidates of a red one (build-mech-lane-next.mjs).
+//   wo-brief     --wo <id>… [--since <base>]   proposal 41 C5: the fast builder's context file (cited blueprint sections,
+//                mocks, and the Status Notes of dependencies landed in <base>; an unlanded one is named to Read):
+//                build-mech-brief.mjs.
 //   Every op takes [--receipt <nonce>] (bench FM-8): its sealed line is ALSO written to
 //                .pandacorp/run/receipts/<op>-<nonce>.json, so the engine re-reads a receipt its relay lost instead of
 //                re-running a durable op.
@@ -89,6 +92,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
 import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, maxAcsPerTitle, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { BRIEF_OPS } from './build-mech-brief.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
@@ -625,7 +629,7 @@ function gateRelease(o) {
 const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'safe-point': safePoint, 'reuse-check': reuseCheck, 'gate-prepare': gatePrepare, 'gate-release': gateRelease, 'gate-land': gateLandOp, ...FAST_OPS,
   verify: (o) => (o.patch ? patchVerifyOp(o) : FAST_OPS.verify(o)), 'certify-state': certifyStateOp,
   'security-scope': securityScopeOp, 'telemetry-scope': telemetryScopeOp, close: closeOp, 'prod-smoke': (o) => prodSmokeOp(o, { gatePrepare }),
-  'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }), ...LANE_OPS, ...LAND_OPS, ...NEXT_OPS }
+  'fast-start': (o) => fastStartOp(o, { precheck, safePoint, dispatch, emitEvent }), ...LANE_OPS, ...LAND_OPS, ...NEXT_OPS, ...BRIEF_OPS }
 
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
 export async function main(argv) {

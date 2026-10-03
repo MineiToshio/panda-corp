@@ -945,6 +945,63 @@ console.log('fast-wo-brief-lists-every-cited-ac-id (plan) — each pending WO ca
   } finally { r.cleanup() }
 }
 
+// ── wo-brief (proposal 41 C5): the fast builder's context, gathered once ──────────────────────────
+const briefWo = (id, status, { deps = '[]', note = '(to fill)', body = '' } = {}) => `---\nid: ${id}\ntitle: ${id} title\nimplementation_status: ${status}\ndependsOn: ${deps}\n---\n# ${id}\n\n## Acceptance criteria\n- **${id.replace('WO', 'AC')}.1** something.\n${body}\n## Status Note\n${note}\n`
+const BRIEF_BP = '---\nid: BP\n---\n# Blueprint\n\n## 3. Components\n\n### CMP-01-cards — the card list\nRenders `CardList({ items })`; empty state below.\n#### Empty state\nShows the empty panel.\n\n### CMP-01-other\nNot cited.\n\n## 4. Interfaces\n\n| id | signature |\n|---|---|\n| IF-01-sort | `sortCards(cards: Card[]): Card[]` |\n'
+function briefFixture(r) {
+  r.write(`${FRD_A}/blueprint.md`, BRIEF_BP)
+  r.write(`${FRD_A}/mocks/list.html`, '<main>mock</main>\n')
+  r.write(WO_A, briefWo('WO-01-001', 'IN_PROGRESS', { note: '(to fill)' }))
+  r.write(WO_B, briefWo('WO-01-002', 'PLANNED', { deps: '[WO-01-001]', body: '\nBuilds CMP-01-cards against IF-01-sort and CMP-01-missing.\n\n## Visual reference\nThe binding mock: `mocks/list.html`.\n' }))
+  r.git('add', '-A'); r.git('commit', '-q', '-m', 'docs: brief fixture')
+}
+const briefText = (r, b) => (b.receipt && b.receipt.file ? r.read(b.receipt.file) || '' : '')
+
+console.log('status-note-inlined-only-when-dep-is-ancestor-of-base — a dependency\'s Status Note is inlined from the base only when it is committed there')
+{
+  const r = mkRepo()
+  try {
+    briefFixture(r)
+    const before = r.head()
+    const a = r.run('wo-brief', ['--wo', 'WO-01-002'])
+    ok(a.code === 0 && a.sealed && a.receipt.status === 'written' && a.receipt.file === '.pandacorp/run/context/brief-WO-01-002.md', `a sealed receipt naming the brief file (got ${a.code} ${a.line.slice(0, 160)})`)
+    const t0 = briefText(r, a)
+    ok(/#### WO-01-001: NOT landed in your base \(IN_PROGRESS there\)\. Read its ## Status Note in `docs\/frds\/frd-01-alpha\/work-orders\/wo-01-001-alpha\.md`/.test(t0) && a.receipt.wos[0].deps[0].inlined === false, 'an uncommitted dependency is NOT inlined: the builder is told to Read it')
+    ok(/### CMP-01-cards — the card list\nRenders `CardList\(\{ items \}\)`; empty state below\.\n#### Empty state\nShows the empty panel\./.test(t0) && !/Not cited/.test(t0), 'a cited heading id inlines its section, sub-headings included, up to the next sibling heading')
+    ok(/\| IF-01-sort \| `sortCards\(cards: Card\[\]\): Card\[\]` \|/.test(t0), 'an id named only in a table row inlines that row')
+    ok(/not found in the blueprint: CMP-01-missing/.test(t0) && JSON.stringify(a.receipt.wos[0].missing) === JSON.stringify(['CMP-01-missing']), 'an id the blueprint lacks is reported, never invented')
+    ok(/- `docs\/frds\/frd-01-alpha\/mocks\/list\.html`/.test(t0) && JSON.stringify(a.receipt.wos[0].mocks) === JSON.stringify(['docs/frds/frd-01-alpha/mocks/list.html']), 'the mock its Visual reference names, resolved under the FRD')
+    ok(r.status() === '' && r.head() === before, 'the brief is gitignored run state: nothing tracked changes')
+    r.write(WO_A, briefWo('WO-01-001', 'IN_REVIEW', { note: 'Exposes `alpha(): number` from src/alpha.ts.' }))
+    r.git('commit', '-q', '-am', 'feat: WO-01-001 committed IN_REVIEW')
+    r.write(WO_A, briefWo('WO-01-001', 'IN_REVIEW', { note: 'UNCOMMITTED WIP NOTE' }))
+    const b = r.run('wo-brief', ['--wo', 'WO-01-002'])
+    const t1 = briefText(r, b)
+    ok(b.code === 0 && /#### WO-01-001 \(landed in your base, IN_REVIEW\)\nExposes `alpha\(\): number` from src\/alpha\.ts\./.test(t1) && b.receipt.wos[0].deps[0].inlined === true, 'committed in the base → its note is inlined')
+    ok(!/UNCOMMITTED WIP NOTE/.test(t1), 'the note is read from the base commit, never from the working tree')
+    const c = r.run('wo-brief', ['--wo', 'WO-01-002', '--since', before])
+    ok(c.code === 0 && c.receipt.base === before.slice(0, 12) && c.receipt.wos[0].deps[0].inlined === false && /NOT landed in your base/.test(briefText(r, c)), 'with --since a base that predates the dependency\'s commit, it is not inlined')
+    const bad = r.run('wo-brief', ['--wo', 'WO-01-002', '--since', 'nope'])
+    ok(bad.code === 2 && bad.receipt.status === 'error', 'an unknown base fails loud (exit 2)')
+    const none = r.run('wo-brief', [])
+    ok(none.code === 2 && /at least one --wo/.test(none.receipt.error), 'no --wo fails loud')
+  } finally { r.cleanup() }
+}
+console.log('lane-builder-told-to-read-unlanded-dep-note — a dependency committed only on another chain\'s branch is never inlined')
+{
+  const r = mkRepo()
+  try {
+    briefFixture(r)
+    r.git('checkout', '-q', '-b', 'lane/c-other')
+    r.write(WO_A, briefWo('WO-01-001', 'IN_REVIEW', { note: 'Note from a sibling lane chain.' }))
+    r.git('commit', '-q', '-am', 'feat: WO-01-001 on a sibling lane')
+    r.git('checkout', '-q', 'main')
+    const b = r.run('wo-brief', ['--wo', 'WO-01-002'])
+    const t = briefText(r, b)
+    ok(b.code === 0 && b.receipt.wos[0].deps[0].inlined === false && /NOT landed in your base \(IN_PROGRESS there\)\. Read its ## Status Note/.test(t) && !/sibling lane chain/.test(t), 'the sibling chain\'s note is not inlined: the builder Reads it once it is committed in its base')
+  } finally { r.cleanup() }
+}
+
 console.log('plan: real bench Build Plan tables (columns by header name, cross-FRD rows, `none`) plan with no plan agent')
 {
   // Bench FM-1: the medium bench's FRD-01 table carries an `FRD` column before `Depends on` and repeats every FRD's rows

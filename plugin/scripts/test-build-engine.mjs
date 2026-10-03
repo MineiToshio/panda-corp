@@ -43,7 +43,7 @@
 // Focus: ONLY_SCENARIO=<name prefix> runs the matching scenarios only; SHOW_CALLS=1 prints each run's spawn labels in order.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sealLine } from './drift-seal.mjs'
@@ -3493,6 +3493,88 @@ SCENARIOS.push({
     const b = p41Builder(run)
     t.ok(b && /If \.pandacorp\/run\/preserved-tests\/<id>\/ exists, restore those tests first \(your RED baseline, DR-107\)/.test(b.prompt), 'the preserved-tests restore stays in step 1')
     t.ok(b && /never weaken, skip or delete a test, never edit a blessed baseline/.test(b.prompt), 'never weaken a test, never edit a baseline')
+  },
+})
+
+// C5 without a new agent type: the lean contract is the prompt on the EXISTING pandacorp:implementer (a new agent type would
+// crash every running session whose registry is frozen, BL-0168 / LESSON-0248).
+const IMPLEMENTER_MD = readFileSync(path.resolve(__dirname, '../agents/implementer.md'), 'utf8')
+const CODEX_IMPLEMENTER = readFileSync(path.resolve(__dirname, '../../.codex/agents/implementer.toml'), 'utf8')
+SCENARIOS.push({
+  name: 'fast-builder-agent-carries-forbidden-dr080-done-clauses — the agent the fast builder runs as keeps the Forbidden list, the DR-080 ban and the false-done rule verbatim, and its fast-lane section exempts none of them',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(/Forbidden: `any`, `@ts-ignore`, relative imports more than one level up, secrets in code/.test(IMPLEMENTER_MD), 'the Forbidden list (any, @ts-ignore, secrets)')
+    t.ok(/\*\*editing the reviewer's acceptance suite or any blessed visual baseline\*\* \(the agent that writes the code cannot shape the test that judges it — DR-080\/§22\)/.test(IMPLEMENTER_MD), 'the DR-080 acceptance-suite ban')
+    t.ok(/## Don't declare "done" falsely \(SOP\)/.test(IMPLEMENTER_MD) && /Don't move a work order to `IN_REVIEW` without its own fast self-test/.test(IMPLEMENTER_MD), 'the never-declare-done-falsely rule')
+    const fast = IMPLEMENTER_MD.slice(IMPLEMENTER_MD.indexOf('## Fast lane'), IMPLEMENTER_MD.indexOf('Mandatory checklist'))
+    t.ok(/Everything else binds unchanged in the fast lane: the Forbidden list below, DR-080 .*, DR-078, and "Don't declare done falsely"/.test(fast), 'the fast-lane section keeps all three binding')
+    const b = p41Builder(run)
+    t.ok(b && /your Forbidden list, DR-080 and "Don't declare done falsely" still hold/.test(b.prompt), 'and the lean prompt says so to the builder')
+  },
+})
+SCENARIOS.push({
+  name: 'fast-lane-uses-fast-builder-classic-uses-implementer — the fast builder is the lean prompt on pandacorp:implementer (no new agent type: a frozen registry would crash a running session); the classic builder keeps its own prompt',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  next: () => ({ args: { mode: 'balanced', lane: 'classic' }, plan: mkPlan([{ frd: 'frd-41c', deps: [], workOrders: [mkWo('wo-41c-001', 'PLANNED', { frd: 'frd-41c', artifacts: ['src/c/**'] })] }]) }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && b.agentType === 'pandacorp:implementer' && /FAST-LANE BUILDER/.test(b.prompt) && /This is the fast-lane contract of your agent file/.test(b.prompt), 'the fast builder: the lean contract on pandacorp:implementer')
+    t.ok(run.calls.every((c) => c.agentType !== 'pandacorp:fast-builder') && !/pandacorp:fast-builder/.test(source), 'no fast-builder agent type anywhere in the engine')
+    const classic = run.next && byLabel(run.next, /^build:/)[0]
+    t.ok(classic && classic.agentType === 'pandacorp:implementer' && /with TDD \(RED→GREEN→refactor\)/.test(classic.prompt) && !/FAST-LANE BUILDER|wo-brief|TEST BUDGET/.test(classic.prompt), 'the classic builder keeps its TDD prompt, no lean contract')
+  },
+})
+SCENARIOS.push({
+  name: 'status-note-inlined-only-when-dep-is-ancestor-of-base (engine) — the builder reads ONE context file from wo-brief, --since its dispatch base, instead of opening each dependency\'s note',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /CONTEXT, once before the first work order: run `node '[^']*pandacorp-build-mech\.mjs' wo-brief --project '\.' --wo 'wo-41-001' --wo 'wo-41-002' --since 'd15pa7cbase0'`/.test(b.prompt), 'one wo-brief command for every WO of the builder, --since the dispatch base')
+    t.ok(b && /Status Notes of the dependencies landed in your base \(one marked NOT landed: Read that note in its work-order file once committed\)/.test(b.prompt), 'an unlanded dependency is read, never guessed')
+    t.ok(b && !/Read the ## Status Note of the work orders it depends on/.test(b.prompt) && /Build against the interfaces its dependencies' Status Notes expose/.test(b.prompt), 'no per-dependency hunt')
+    t.ok(b && b.prompt.indexOf('CONTEXT, once') < b.prompt.indexOf('### WORK ORDER wo-41-001'), 'the context comes before the first brief')
+  },
+})
+{
+  const sim = laneSim([chainOf('frd-41n', ['wo-41n-001']), chainOf('frd-41o', ['wo-41o-001'])])
+  SCENARIOS.push({
+    name: 'lane-builder-told-to-read-unlanded-dep-note (engine) — a lane builder\'s wo-brief runs in its lane, --since its chain base, so a sibling chain\'s unlanded note is never inlined',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-41n', ids: ['wo-41n-001'] }, { frd: 'frd-41o', ids: ['wo-41o-001'] }]),
+    responses: [...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const builds = byLabel(run, /^lane-build:/)
+      t.ok(builds.length === 2 && builds.every((c) => /wo-brief --project '\/lanes\/lane-\d\/proj' --wo '[^']+' --since 'ba5e00000001'/.test(c.prompt)), 'each lane builder: wo-brief in its lane worktree, --since its chain base')
+      t.ok(builds.every((c) => /one marked NOT landed: Read that note/.test(c.prompt)), 'told to Read a note not landed in its base')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'implementer-telemetry-emit-unchanged — the fast builder still announces itself as role implementer (Mission Control keys on it)',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && b.prompt.startsWith('Before you start, record your activity for Party') && /"data":\{"role":"implementer","wo":"frd-41","frd":"frd-41","phase":"build","activity":"implement"/.test(b.prompt), 'EMIT(\'implementer\') opens the prompt with the same event shape')
+  },
+})
+SCENARIOS.push({
+  name: 'codex-mirror-exists-for-fast-builder — no new agent means no new mirror: the generated implementer.toml carries the fast-lane section (regenerated, never hand-edited)',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(/## Fast lane \(a prompt that begins `FAST-LANE BUILDER`, DR-126\)/.test(CODEX_IMPLEMENTER) && /Everything else binds unchanged in the fast lane/.test(CODEX_IMPLEMENTER), 'the Codex mirror of implementer carries the fast-lane section')
+    t.ok(!existsSync(path.resolve(__dirname, '../../.codex/agents/fast-builder.toml')) && !existsSync(path.resolve(__dirname, '../agents/fast-builder.md')), 'no fast-builder agent or mirror exists')
   },
 })
 
