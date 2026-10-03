@@ -115,6 +115,47 @@ console.log('commit-wo: one WO, one commit, stamp + code + journals, clean tree'
   } finally { r.cleanup() }
 }
 
+console.log('ac-citation-grouped-title-passes — one title citing several AC ids satisfies the floor for each (proposal 41 C1)')
+{
+  const r = mkRepo()
+  try {
+    buildAlpha(r, "import { it } from 'vitest'\nit('AC-01-001.1, AC-01-001.2: alpha renders and sorts', () => {})\n")
+    const c = r.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 0 && c.receipt.status === 'committed' && c.receipt.acs.cited.length === 2, `a grouped title cites both ACs and commits (got ${c.code} ${c.receipt && c.receipt.status})`)
+    ok(c.receipt.max_acs_per_it === 2, `the receipt measures 2 ids in that title (got ${c.receipt.max_acs_per_it})`)
+  } finally { r.cleanup() }
+}
+console.log('ac-citation-missing-sub-ac-refuses — the floor is unchanged: a sub-AC no test cites refuses (ac-uncited), grouped titles notwithstanding')
+{
+  const r = mkRepo()
+  try {
+    r.write(WO_A, woMd('WO-01-001', 'IN_PROGRESS', { acs: ['AC-01-001.1', 'AC-01-001.2', 'AC-01-001.3'] }))
+    r.git('commit', '-q', '-am', 'a third sub-AC')
+    const before = r.head()
+    buildAlpha(r, "import { it } from 'vitest'\nit('AC-01-001.1, AC-01-001.2: grouped', () => {})\n")
+    const c = r.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 4 && c.receipt.status === 'ac-uncited' && JSON.stringify(c.receipt.uncited) === JSON.stringify(['AC-01-001.3']), `the skipped sub-AC refuses (got ${c.code} ${c.receipt && c.receipt.status} ${JSON.stringify(c.receipt && c.receipt.uncited)})`)
+    ok(r.head() === before && /implementation_status: IN_PROGRESS/.test(r.read(WO_A)), 'nothing committed, nothing stamped')
+  } finally { r.cleanup() }
+}
+console.log('commit-wo-receipt-reports-max-acs-per-it — the most AC ids one staged test title cites; advisory, never a refusal')
+{
+  const r = mkRepo()
+  try {
+    r.write('src/alpha.ts', 'export const alpha = 1\n')
+    r.write('src/_tests/alpha.test.ts', "import { describe, it } from 'vitest'\ndescribe('AC-01-001.1 AC-01-001.2 AC-01-002.1 AC-02-001.1: too many', () => {\n  it(\"AC-01-001.1 one\", () => {})\n})\n")
+    const c = r.run('commit-wo', ALPHA_FILES)
+    ok(c.code === 0 && c.receipt.status === 'committed', `a title above the cap of 3 still commits: the measure is advisory (got ${c.code} ${c.receipt && c.receipt.status})`)
+    ok(c.receipt.max_acs_per_it === 4, `max_acs_per_it = 4 (got ${c.receipt.max_acs_per_it})`)
+    const r2 = mkRepo()
+    try {
+      buildAlpha(r2)
+      const d = r2.run('commit-wo', ALPHA_FILES)
+      ok(d.code === 0 && d.receipt.max_acs_per_it === 1, `one id per title → 1 (got ${d.receipt && d.receipt.max_acs_per_it})`)
+    } finally { r2.cleanup() }
+  } finally { r.cleanup() }
+}
+
 console.log('commit-wo: related unit tests only (vitest related --run)')
 {
   const r = mkRepo()

@@ -97,6 +97,7 @@ Engineering standard (DR-006 covers the approval gate for destructive changes):
 
 ## TDD per work order
 - Tests of the acceptance criteria first (RED) → minimal implementation (GREEN) → refactor. Max 3 repair attempts per subtask, then escalate.
+- **Fast-lane exception (DR-126, proposal 41 C4).** The fast lane's builder writes a work order's code and tests in the same batch and runs them once; RED-first is not required there. What still bounds it: the AC-citation floor of `commit-wo` (every AC id cited, at most 3 per test title), the preserved tests (DR-107), one behaviour e2e spec per UI FRD (primary flow plus every dialog's Escape, focus trap and focus return), the engine's full `verify.sh` before USABLE and the FRD gate. The classic lane and every other build keep RED-first.
 
 ## Accessibility and performance (CI gates, web)
 - **a11y-gate**: **Biome's `a11y` rule group** (enabled by default — Biome is the standard linter) **+ axe-core over the REAL built pages** (not just the design mockups). Covers ~30-40% of WCAG 2.2 AA → automatic gate **+ `reviewer` check** (focus and contrast are not detected by the linter). **target-size 2.5.8 is now a WIRED gate, not just advisory** (DR-074): the Responsive Gate runs axe `target-size` over the real built pages at the mobile width and fails on a sub-24px tap target — moving what this line previously deferred to the `reviewer` into the fail-closed `verify.sh` gate. Don't promise full determinism.

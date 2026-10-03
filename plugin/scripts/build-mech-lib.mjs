@@ -195,6 +195,19 @@ export function findWo(ctx, id) {
 }
 
 const AC_ID_RE = /\bAC-\d+-\d+\.\d+(?![0-9])/g
+// An `it`/`test`/`describe` call's literal title (any modifier chain: `it.each`, `test.skip`…), quotes kept balanced.
+const TEST_TITLE_RE = /\b(?:it|test|describe)(?:\.\w+)*\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
+/**
+ * Proposal 41 C1 (R2, advisory): the most distinct AC ids one test title cites across `texts` — measured in the commit-wo
+ * receipt, never a refusal (a refusal would bring back the rework turns C2 removes).
+ * @param {string[]} texts test file contents
+ * @returns {number} the maximum (0 when no title cites an AC id)
+ */
+export function maxAcsPerTitle(texts) {
+  let max = 0
+  for (const t of texts) for (const m of String(t).matchAll(TEST_TITLE_RE)) max = Math.max(max, unique(m[2].match(AC_ID_RE) || []).length)
+  return max
+}
 /** The AC ids a work order owns: its "Acceptance criteria" section, else its body before the Status Note. */
 export function woAcIds(text) {
   const body = String(text).replace(/^---\r?\n[\s\S]*?\r?\n---/, '')

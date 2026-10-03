@@ -22,7 +22,8 @@
 //                [--events <f>] [--project-name <n>]
 //                the ONE commit of a built work order (C2): main-writer lock (10-min stale reclaim) → refuse
 //                undeclared or another WO's changed paths → refuse schema/migration paths off main → AC-citation
-//                floor → related unit tests only (`vitest related --run`) → stamp IN_REVIEW + the track.jsonl wo_end
+//                floor (its receipt also measures `max_acs_per_it`, the most AC ids one staged test title cites:
+//                advisory, proposal 41 C1) → related unit tests only (`vitest related --run`) → stamp IN_REVIEW + the track.jsonl wo_end
 //                line → one commit naming the WO (extras in a trailer) → assert the tree clean → the wo_commit event. Any failure after the stamp restores it (and
 //                undoes the commit), so an IN_REVIEW never exists without its clean commit. `--fixup <id>` commits a
 //                fix to an earlier own-FRD WO as its own commit, no stamp.
@@ -87,7 +88,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
-import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
+import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, maxAcsPerTitle, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
@@ -259,6 +260,7 @@ function commitWo(o) {
     const original = readFileSync(woAbs, 'utf8')
     const acs = o.fixup ? { skipped: true, reason: 'fixup: the fixed work order passed its floor at its own commit' } : acCitation(ctx, original, o.acs, stage)
     const tests = relatedTests(ctx, stage.filter((p) => !auto(p)), o.testTimeoutMs)
+    const maxAcs = maxAcsPerTitle(stage.filter((p) => TEST_FILE_RE.test(p)).map((p) => { try { return readFileSync(path.join(ctx.project, p), 'utf8') } catch { return '' } }))
     if (!tests.ok) throw new Refusal('tests-red', `related unit tests failed (exit ${tests.exit}${tests.signal ? `, ${tests.signal}` : ''}) — nothing was stamped or committed`, { tests })
     const trackAbs = path.join(ctx.project, TRACK)
     const trackExisted = existsSync(trackAbs)
@@ -286,7 +288,7 @@ function commitWo(o) {
       throw new Refusal('dirty-after-commit', `the tree was not clean after the commit (${after.join(', ')}) — the commit was undone and the stamp restored`, { paths: after })
     }
     if (!o.fixup) { rmSync(parkedFile(ctx, wo.id), { force: true }); emitEvent(o, { event: 'wo_commit', frd: wo.frd, wo: wo.id, state: 'IN_REVIEW' }) }
-    return { code: 0, body: { status: 'committed', wo: wo.id, frd: wo.frd, sha: sha.slice(0, 12), fixup: Boolean(o.fixup), paths, codePaths: paths.filter((p) => !auto(p) && p !== TRACK), extras: stagedExtras, acs, tests, lock: { reclaimed: lock.reclaimed } } }
+    return { code: 0, body: { status: 'committed', wo: wo.id, frd: wo.frd, sha: sha.slice(0, 12), fixup: Boolean(o.fixup), paths, codePaths: paths.filter((p) => !auto(p) && p !== TRACK), extras: stagedExtras, acs, max_acs_per_it: maxAcs, tests, lock: { reclaimed: lock.reclaimed } } }
   } finally { releaseLock(lock) }
 }
 

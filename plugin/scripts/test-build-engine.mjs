@@ -3453,7 +3453,46 @@ SCENARIOS.push({
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const b = p41Builder(run)
     t.ok(b && !/fidelity script/.test(b.prompt) && !/VISUAL FIDELITY/.test(b.prompt), 'no fidelity directive without a frontend')
-    t.ok(b && /in 1-2 calls/.test(b.prompt) && /chain checks in ONE Bash call/.test(b.prompt), 'C6: files in 1-2 calls, chained checks')
+    t.ok(b && /in 1-2 calls/.test(b.prompt) && /chaining checks in ONE Bash call/.test(b.prompt), 'C6: files in 1-2 calls, chained checks')
+  },
+})
+
+SCENARIOS.push({
+  name: 'builder-prompt-carries-test-budget — about one unit test file per module, unit chars ≤ production chars, ≤ 3 AC ids per title, every cited id covered; tests written with the code (DR-126), no RED-first',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /TEST BUDGET \(DR-126\): about ONE unit test file per work-order module/.test(b.prompt), 'one unit test file per module')
+    t.ok(b && /unit tests at most as many characters as its production code/.test(b.prompt), 'unit chars ≤ production chars')
+    t.ok(b && /may cite at most 3 AC ids/.test(b.prompt) && /every id under `cite:` is cited somewhere/.test(b.prompt), 'at most 3 ids per title, and the floor still holds')
+    t.ok(b && /its code and its tests written together \(DR-126: RED-first is not required in the fast lane\)/.test(b.prompt) && !/TDD \(RED → GREEN → refactor\)/.test(b.prompt), 'C4: tests with the code, RED-first dropped in the fast lane')
+    t.ok(b && /run vitest ONCE on its own test files/.test(b.prompt), 'one vitest run on that work order\'s files')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-requires-behaviour-e2e-for-ui-frd — a UI FRD keeps ONE behaviour e2e spec (primary flow + every dialog\'s Escape, focus trap, focus return); a non-UI FRD is not asked for one',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan({ ui: true }),
+  next: () => ({ args: { mode: 'balanced', ...FAST }, plan: p41Plan() }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /BEHAVIOUR E2E: keep or extend ONE e2e spec for this FRD covering its primary flow plus, for every dialog, Escape, the focus trap and the return of focus to its trigger/.test(b.prompt), 'the UI FRD builder must keep one behaviour e2e spec with the dialog checks')
+    const n = run.next && p41Builder(run.next)
+    t.ok(n && !/BEHAVIOUR E2E/.test(n.prompt), 'no behaviour e2e demand without a frontend')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-keeps-preserved-tests-restore — DR-107: preserved tests are restored before a work order builds, and the retry builder says so too',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /If \.pandacorp\/run\/preserved-tests\/<id>\/ exists, restore those tests first \(your RED baseline, DR-107\)/.test(b.prompt), 'the preserved-tests restore stays in step 1')
+    t.ok(b && /never weaken, skip or delete a test, never edit a blessed baseline/.test(b.prompt), 'never weaken a test, never edit a baseline')
   },
 })
 
