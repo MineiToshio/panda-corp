@@ -2991,6 +2991,45 @@ SCENARIOS.push({
     },
   })
 }
+{
+  // Bench FM-6: land-chain reports a lane dirty ONLY with its bootstrap-owned files (bootstrapOnly) more times than the
+  // landing budget (3). That is never a landing attempt: no park, the chain lands once the lane is clean, and its DAG
+  // descendant builds; the independent chain is unaffected.
+  const sim = laneSim([chainOf('frd-ea', ['wo-ea-001']), chainOf('frd-eb', ['wo-eb-001'], { after: ['c-wo-ea-001'] }), chainOf('frd-ec', ['wo-ec-001'])])
+  const landing = sim.responses.find((r) => String(r.label) === String(/^land-chain:/)).response
+  let dirty = 0
+  const bootstrapDirt = { line: mechLine('land-chain', { ok: false, status: 'lane-dirty', reason: "c-wo-ea-001's lane has uncommitted work (.claude/launch.json)", paths: ['.claude/launch.json'], bootstrapOnly: true }) }
+  SCENARIOS.push({
+    name: 'lane-bootstrap-dirt-never-parks (engine) — a lane-dirty refusal naming only bootstrap-owned files, repeated past the landing budget, is never a landing attempt: no park, the chain lands, its descendant builds',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ea', ids: ['wo-ea-001'] }, { frd: 'frd-eb', ids: ['wo-eb-001'], deps: ['frd-ea'], extra: { 'wo-eb-001': { deps: ['wo-ea-001'] } } }, { frd: 'frd-ec', ids: ['wo-ec-001'] }]),
+    responses: [{ label: 'land-chain:c-wo-ea-001', response: (call) => (dirty++ < 4 ? bootstrapDirt : landing(call)) }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'land-chain:c-wo-ea-001').length === 5, `four bootstrap-only refusals, then the landing (${byLabel(run, 'land-chain:c-wo-ea-001').length} tries)`)
+      t.ok(byLabel(run, /^lane-park:/).length === 0 && !hasLog(run, /parked/), 'nothing is parked')
+      t.ok(hasLog(run, /chain c-wo-ea-001: its lane is dirty only with bootstrap-owned files \(\.claude\/launch\.json\) — not a landing attempt/), 'each refusal is logged as not a landing attempt')
+      t.ok(byLabel(run, /^lane-build:c-wo-eb-001$/).length === 1, 'the DAG descendant is dispatched once the chain landed')
+      t.ok(run.result && ['frd-ea', 'frd-eb', 'frd-ec'].every((f) => run.result.builtFrds.includes(f)), `all three land and verify (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+{
+  // Control: the same refusal WITHOUT bootstrapOnly (real uncommitted work) still counts, and parks after 3.
+  const sim = laneSim([chainOf('frd-fa', ['wo-fa-001']), chainOf('frd-fc', ['wo-fc-001'])])
+  const realDirt = { line: mechLine('land-chain', { ok: false, status: 'lane-dirty', reason: "c-wo-fa-001's lane has uncommitted work (src/stray.ts)", paths: ['src/stray.ts'], bootstrapOnly: false }) }
+  SCENARIOS.push({
+    name: 'lane-dirty-real-work-still-parks (engine) — a lane-dirty refusal naming real uncommitted work counts as a landing attempt and parks the chain after 3',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-fa', ids: ['wo-fa-001'] }, { frd: 'frd-fc', ids: ['wo-fc-001'] }]),
+    responses: [{ label: 'land-chain:c-wo-fa-001', response: realDirt }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'land-chain:c-wo-fa-001').length === 3 && byLabel(run, 'lane-park:c-wo-fa-001').length === 1, `three counted tries, then one park (${byLabel(run, 'land-chain:c-wo-fa-001').length} tries)`)
+      t.ok(run.result && run.result.builtFrds.includes('frd-fc'), 'the independent chain lands and verifies')
+    },
+  })
+}
 SCENARIOS.push({
   name: 'auto-k1-on-narrow-dag (engine) — the lane planner says K = 1: no pool, no lane round, the sequential fast lane on main exactly as before; --lanes 1 skips the planner; the scope, mode and --lanes reach it',
   args: { ...LANED_ARGS, lanes: 3 },

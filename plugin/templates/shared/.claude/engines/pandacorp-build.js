@@ -3933,6 +3933,7 @@ async function laneLand(c) {
  const tries = (c.landTries || 0) + 1
  lane.landHold = true
  if (b && b.status === 'landings-paused') { lane.land.push(c); return null }
+ if (b && b.status === 'lane-dirty' && b.bootstrapOnly === true) { log(`⚠ chain ${c.chain}: its lane is dirty only with bootstrap-owned files (${(b.paths || []).join(', ')}) — not a landing attempt, it stays queued`); lane.land.push(c); return null }
  if (tries < 3) { log(`⚠ chain ${c.chain}: land-chain refused (${r.error || (b && (b.reason || b.status))}) — it stays queued`); lane.land.push({ ...c, landTries: tries }); return null }
  await lanePark(c, `land-chain refused it ${tries} times (${r.error || (b && (b.reason || b.status))})`)
  return null

@@ -17,6 +17,7 @@ import { mergeJson3 } from './build-mech-lane-land.mjs'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(__dirname, 'pandacorp-build-mech.mjs')
 const TEMPLATE_PW = path.join(__dirname, '..', 'templates', 'stack-a-nextjs', 'e2e', 'playwright.config.ts')
+const REAL_BOOTSTRAP = path.join(__dirname, '..', 'templates', 'shared', '.pandacorp', 'worktree-bootstrap.sh')
 
 let passed = 0
 let failed = 0
@@ -28,7 +29,12 @@ const VERIFY = '#!/bin/sh\nmkdir -p .pandacorp/run\nsha=$(git rev-parse HEAD)\ni
 const woMd = (id, { deps = [], artifacts = [], status = 'PLANNED' } = {}) => `---\nid: ${id}\ntype: work-order\nslug: ${id.toLowerCase()}\nimplementation_status: ${status}\nreopen_count: 0\ndependsOn: [${deps.join(', ')}]\nartifacts: [${artifacts.join(', ')}]\ntests: none\ntests_reason: lane fixture\n---\n# ${id}\n\n## Status Note\n`
 const woRel = (frd, id) => `docs/frds/${frd}/work-orders/${id.toLowerCase()}-x.md`
 
-function mkRepo(wos) {
+/**
+ * A fixture repository. Default: the project NESTED under `proj/` with a fake bootstrap. `flat` puts the project at the
+ * repo root (a normal product project, the bench shape); `realBootstrap` installs the shipped worktree-bootstrap.sh (with
+ * a fake `pnpm` on PATH that drops the fake tools into node_modules/.bin); `files` adds tracked project files.
+ */
+function mkRepo(wos, { flat = false, realBootstrap = false, files = {} } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'lanes-'))
   const scratch = mkdtempSync(path.join(os.tmpdir(), 'lanes-scratch-'))
   const gitAt = (cwd) => (...args) => {
@@ -41,7 +47,7 @@ function mkRepo(wos) {
   git('config', 'user.email', 't@example.com')
   git('config', 'user.name', 'T')
   git('config', 'commit.gpgsign', 'false')
-  const proj = path.join(root, 'proj')
+  const proj = flat ? root : path.join(root, 'proj')
   const writeAt = (base) => (rel, content) => { mkdirSync(path.dirname(path.join(base, rel)), { recursive: true }); writeFileSync(path.join(base, rel), content) }
   const write = writeAt(proj)
   const read = (rel, base = proj) => (existsSync(path.join(base, rel)) ? readFileSync(path.join(base, rel), 'utf8') : null)
@@ -49,7 +55,8 @@ function mkRepo(wos) {
   write('.gitignore', 'node_modules/\n.pandacorp/run/\n')
   write('.pandacorp/status.yaml', 'phase: implementation\n')
   write('.pandacorp/track.jsonl', '{"kind":"start"}\n')
-  write('.pandacorp/worktree-bootstrap.sh', BOOTSTRAP)
+  write('.pandacorp/worktree-bootstrap.sh', realBootstrap ? readFileSync(REAL_BOOTSTRAP, 'utf8') : BOOTSTRAP)
+  for (const [rel, content] of Object.entries(files)) write(rel, content)
   write('.pandacorp/verify.sh', VERIFY)
   write('tsconfig.json', '{}\n')
   write('messages/en.json', '{\n  "title": "T"\n}\n')
@@ -64,6 +71,13 @@ function mkRepo(wos) {
   const events = path.join(scratch, 'events.ndjson')
   const portBase = String(20000 + Math.floor(Math.random() * 400) * 100)
   const baseEnv = { FAKE_TOOL: fakeTool, LANE_TOOL_LOG: toolLog, BOOT_LOG: bootLog, PANDACORP_LANE_PORT_BASE: portBase, FAIL_TOOLS: '' }
+  if (realBootstrap) {
+    const bin = path.join(scratch, 'bin')
+    mkdirSync(bin, { recursive: true })
+    writeFileSync(path.join(bin, 'pnpm'), '#!/bin/sh\nmkdir -p node_modules/.bin\nfor t in tsc biome vitest; do cp "$FAKE_TOOL" node_modules/.bin/$t; chmod +x node_modules/.bin/$t; done\n')
+    chmodSync(path.join(bin, 'pnpm'), 0o755)
+    baseEnv.PATH = `${bin}${path.delimiter}${process.env.PATH}`
+  }
   const runIn = (project, op, args = [], env = {}) => {
     const evArgs = op === 'commit-wo' ? ['--events', events] : []
     const r = spawnSync(process.execPath, [SCRIPT, op, '--project', project, ...args, ...evArgs], { cwd: root, encoding: 'utf8', env: { ...process.env, ...baseEnv, ...env } })
@@ -73,7 +87,8 @@ function mkRepo(wos) {
     return { code: r.status, receipt: receipt || {}, sealed: verifySealedLine(line).ok, stderr: r.stderr, line }
   }
   const run = (op, args, env) => runIn(proj, op, args, env)
-  const laneProj = (n) => path.join(proj, '.pandacorp', 'run', 'lanes', `lane-${n}`, 'proj')
+  const laneWt = (n) => path.join(proj, '.pandacorp', 'run', 'lanes', `lane-${n}`)
+  const laneProj = (n) => (flat ? laneWt(n) : path.join(laneWt(n), 'proj'))
   /** Build work orders in a lane: write their artifacts, then the real commit-wo there. */
   const buildIn = (n, id, files) => {
     for (const [rel, content] of Object.entries(files)) writeAt(laneProj(n))(rel, content)
@@ -96,7 +111,7 @@ function mkRepo(wos) {
     p.stdout.on('data', (b) => { out += b })
     p.on('close', (code) => { const line = out.trim().split('\n').pop() || ''; let receipt = null; try { receipt = JSON.parse(line) } catch { receipt = null } resolve({ code, receipt: receipt || {}, sealed: verifySealedLine(line).ok, line }) })
   })
-  return { root, proj, git, gitAt, write, read, run, runIn, runBg, laneProj, buildIn, commitMain, subjects, toolCalls, bootCalls, portBase: Number(portBase), cleanup }
+  return { root, proj, git, gitAt, write, read, run, runIn, runBg, laneWt, laneProj, buildIn, commitMain, subjects, toolCalls, bootCalls, portBase: Number(portBase), cleanup }
 }
 /**
  * Evaluate the stack template's playwright.config.ts in `dir` (Node strips its types) with ONLY `env` set, against a
@@ -752,6 +767,99 @@ console.log('cross-frd-ready-wo-gets-a-lane: a WO of another FRD whose deps are 
     ok(r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-02-001', '--wo', 'WO-02-002']).code === 0, 'FRD-02 builds in lane 1')
     const n = r.run('lane-next', ['--lanes', '2', '--mode', 'balanced', '--frd', 'frd-01-a', '--frd', 'frd-02-b', '--frd', 'frd-03-c', '--frd', 'frd-04-d']).receipt
     ok(n.k === 2 && n.dispatched.length === 1 && n.dispatched[0].wos[0] === 'WO-04-001' && n.dispatched[0].lane === 2 && n.barrier === null, `WO-04-001 (FRD-04) gets lane 2 at once (${JSON.stringify(n.dispatched.map((d) => [d.wos, d.lane]))} K ${n.k} ${n.kReason})`)
+  } finally { r.cleanup() }
+}
+
+// ── bootstrap-owned files (bench FM-6) ──────────────────────────────────────────────────────────
+// The shipped worktree-bootstrap.sh rewrites files a project may TRACK (.claude/launch.json with the lane's ports,
+// e2e/server-env.json's PORT) and writes untracked ones (.env.local). In a lane they are the lane's own config: never a
+// builder's dirt, never landed on main, never a landing refusal. Real dirt is still refused.
+const launchJson = (port) => `${JSON.stringify({ version: '0.0.1', configurations: [{ name: 'app', runtimeExecutable: 'pnpm', runtimeArgs: ['dev', '--port', String(port)], port }] }, null, 2)}\n`
+// The landing's own lane_land journal line stays pending on main by design (swept by the next commit).
+const mainDirt = (r) => r.git('status', '--porcelain', '--', '.', ':!.pandacorp/track.jsonl')
+const BOOT_FILES = { '.claude/launch.json': launchJson(3000), 'e2e/server-env.json': '{\n  "PORT": "3900"\n}\n', 'package.json': '{ "name": "fixture", "private": true }\n', 'factory/README.md': 'factory\n' }
+console.log('lane-bootstrap-tracked-launch-json-still-lands: the second lane\'s bootstrap rewrites a TRACKED launch.json; the chain lands, main\'s launch.json is untouched')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }], { flat: true, realBootstrap: true, files: BOOT_FILES })
+  const servers = []
+  const listen = (port) => new Promise((resolve) => { const s = net.createServer(); s.listen(port, '127.0.0.1', () => { servers.push(s); resolve() }) })
+  try {
+    const pool = r.run('lane-pool', ['--size', '2'])
+    ok(pool.code === 0 && pool.receipt.status === 'ready' && pool.receipt.failures.length === 0, `the real bootstrap readies both lanes (${pool.line.slice(0, 300)})`)
+    const laneLaunch = (n) => r.read('.claude/launch.json', r.laneWt(n))
+    ok([1, 2].every((n) => /"autoPort": true/.test(laneLaunch(n) || '')), 'the bootstrap rewrote the tracked .claude/launch.json in each lane (autoPort)')
+    const tracked = (n) => r.gitAt(r.laneWt(n))('status', '--porcelain', '--untracked-files=no')
+    ok([1, 2].every((n) => tracked(n) === ''), `yet no lane shows a modified tracked file: launch.json and server-env.json are hidden (${[1, 2].map(tracked).join(' | ')})`)
+    // A leftover server on lane 2's port: its dispatch moves it to a free port and RE-BOOTSTRAPS after the dirt salvage
+    // (the FM-6 path: the rewrite happens after the lane was reset).
+    await listen(pool.receipt.pool[1].port)
+    const d1 = r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-01-001'])
+    const d2 = r.run('lane-dispatch', ['--lane', '2', '--wo', 'WO-02-001'])
+    ok(d1.code === 0 && d2.code === 0 && d2.receipt.resync.ran.includes('bootstrap'), `both dispatched; lane 2 re-bootstrapped on its new port (${JSON.stringify(d2.receipt.resync && d2.receipt.resync.ran)})`)
+    ok(d1.receipt.salvaged === null && d2.receipt.salvaged === null, `no bootstrap-owned file is salvaged as a builder's dirt (${JSON.stringify([d1.receipt.salvaged, d2.receipt.salvaged])})`)
+    ok(/"autoPort": true/.test(laneLaunch(2) || ''), 'lane 2 keeps its own launch.json after the dispatch')
+    for (const [n, w] of [[1, 'WO-01-001'], [2, 'WO-02-001']]) {
+      const b = r.buildIn(n, w, fileFor(w))
+      ok(b.code === 0, `${w} committed in lane ${n} (${b.receipt.status} ${b.receipt.reason || ''})`)
+      ok(r.run('lane-mark', ['--chain', `c-${w.toLowerCase()}`, '--as', 'built']).code === 0, `${w}'s chain is built`)
+    }
+    const a = r.run('land-chain', ['--chain', 'c-wo-01-001'])
+    ok(a.code === 0 && a.receipt.status === 'landed', `the first chain lands (${a.receipt.status} ${a.receipt.reason || ''})`)
+    // The owner edits main's launch.json meanwhile: the second chain's rebase crosses a change to the lane-owned file.
+    r.commitMain({ '.claude/launch.json': launchJson(3001) }, 'chore: owner moves the dev port')
+    const b = r.run('land-chain', ['--chain', 'c-wo-02-001'])
+    ok(b.code === 0 && b.receipt.status === 'landed' && b.sealed, `the second lane's chain lands (${b.receipt.status} ${b.receipt.reason || ''})`)
+    ok(r.read('.claude/launch.json') === launchJson(3001), 'main\'s launch.json is exactly the owner\'s, never a lane rewrite')
+    ok(r.read('e2e/server-env.json') === BOOT_FILES['e2e/server-env.json'], 'main\'s e2e/server-env.json is untouched')
+    ok(r.git('log', '--format=%s', 'main', '--', '.claude/launch.json', 'e2e/server-env.json', '.env.local') === 'chore: owner moves the dev port\nchore: init project', 'no landed commit carries a bootstrap-owned file')
+    ok(mainDirt(r) === '', `main\'s tree is clean but for the pending journal line (${mainDirt(r)})`)
+    ok(/"autoPort": true/.test(laneLaunch(2) || '') && tracked(2) === '', `the lane keeps its own launch.json after the landing, still hidden (${tracked(2)})`)
+    const feats = r.subjects().filter((x) => x.startsWith('feat('))
+    ok(feats.length === 2, 'one feat commit per WO on main')
+  } finally { for (const s of servers) s.close(); r.cleanup() }
+}
+console.log('lane-dirty-real-work-still-refused: real uncommitted work is refused (named exactly); a bootstrap rewrite committed in the lane never lands')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }], { flat: true, realBootstrap: true, files: BOOT_FILES })
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const d = r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-01-001'])
+    ok(r.buildIn(1, 'WO-01-001', fileFor('WO-01-001')).code === 0 && r.run('lane-mark', ['--chain', d.receipt.chain, '--as', 'built']).code === 0, 'the chain is built')
+    const lw = r.laneWt(1)
+    writeFileSync(path.join(lw, 'factory/README.md'), 'factory\nhalf-done edit\n')
+    writeFileSync(path.join(lw, 'src/stray.ts'), 'export const s = 1\n')
+    const head = r.git('rev-parse', 'HEAD')
+    const red = r.run('land-chain', ['--chain', d.receipt.chain])
+    ok(red.code === 4 && red.receipt.status === 'lane-dirty' && red.receipt.bootstrapOnly === false && red.sealed, `real dirt is refused, not as bootstrap-only (${red.receipt.status} ${red.receipt.bootstrapOnly})`)
+    ok(JSON.stringify([...(red.receipt.paths || [])].sort()) === '["factory/README.md","src/stray.ts"]', `it names exactly the real dirt, never a bootstrap-owned file (${JSON.stringify(red.receipt.paths)})`)
+    ok(r.git('rev-parse', 'HEAD') === head, 'main is untouched')
+    // Clean the real dirt, then smuggle the bootstrap's launch.json into the WO's commit: it must never reach main.
+    r.gitAt(lw)('checkout', '--', 'factory/README.md')
+    rmSync(path.join(lw, 'src/stray.ts'))
+    const lg = r.gitAt(lw)
+    lg('update-index', '--no-skip-worktree', '.claude/launch.json')
+    lg('add', '.claude/launch.json')
+    lg('commit', '-q', '--amend', '--no-edit')
+    const leak = r.run('land-chain', ['--chain', d.receipt.chain])
+    ok(leak.code === 4 && leak.receipt.status === 'bootstrap-leak' && (leak.receipt.paths || []).includes('.claude/launch.json'), `a committed bootstrap rewrite is refused (${leak.receipt.status} ${leak.receipt.reason || ''})`)
+    ok(r.git('rev-parse', 'HEAD') === head && r.read('.claude/launch.json') === BOOT_FILES['.claude/launch.json'], 'main and its launch.json are untouched')
+  } finally { r.cleanup() }
+}
+console.log('lane-bootstrap-owned-unproven: a lane whose owned-set record is gone (an older bootstrap) is re-proven by its bootstrap at landing, then lands')
+{
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }], { flat: true, realBootstrap: true, files: BOOT_FILES })
+  try {
+    r.run('lane-pool', ['--size', '2'])
+    const d = r.run('lane-dispatch', ['--lane', '1', '--wo', 'WO-01-001'])
+    r.buildIn(1, 'WO-01-001', fileFor('WO-01-001'))
+    r.run('lane-mark', ['--chain', d.receipt.chain, '--as', 'built'])
+    const lg = r.gitAt(r.laneWt(1))
+    rmSync(path.join(lg('rev-parse', '--absolute-git-dir'), 'pandacorp-bootstrap-owned.json'), { force: true })
+    lg('update-index', '--no-skip-worktree', '.claude/launch.json')
+    ok(lg('status', '--porcelain').includes('.claude/launch.json'), 'the legacy lane shows its bootstrap rewrite as dirt')
+    const land = r.run('land-chain', ['--chain', d.receipt.chain])
+    ok(land.code === 0 && land.receipt.status === 'landed', `it lands after the bootstrap re-proves the file (${land.receipt.status} ${land.receipt.reason || ''})`)
+    ok(r.read('.claude/launch.json') === BOOT_FILES['.claude/launch.json'] && mainDirt(r) === '', `main\'s launch.json is untouched, its tree clean (${mainDirt(r)})`)
   } finally { r.cleanup() }
 }
 

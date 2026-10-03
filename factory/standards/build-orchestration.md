@@ -1207,6 +1207,19 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   injection scan over the FRD's OWN commits (its chains are interleaved with others), the committed `build_usable` line
   (the same writer as `verify`), and on red the class (`own` / `cross`) and the bisect candidates (the chains landed
   since the last green pin, ≤ 3). `fast-start --lane-plan` carries the lane K and dispatches nothing on main at K ≥ 2.
+  **Bootstrap-owned files (bench FM-6; `lane-bootstrap-tracked-launch-json-still-lands`,
+  `lane-dirty-real-work-still-refused`, `lane-bootstrap-owned-unproven`).** Every lane/snapshot/bisect bootstrap records
+  what the real script wrote (a new path, or a different mtime/size/content than before it ran: a TRACKED
+  `.claude/launch.json` with the lane's ports, `e2e/server-env.json`, `.env.local`, a hook's output) in the worktree's own
+  git dir (`pandacorp-bootstrap-owned.json`), never guessed. A tracked one gets `skip-worktree` (hidden from `status`, a
+  plain `git add` refuses it, `commit -a` skips it); `dirtyEntries` leaves the whole set out, so it is never a builder's
+  dirt, a salvage, a `commit-wo` undeclared path or a `lane-dirty`. Because skip-worktree alone makes any checkout or
+  rebase that crosses a change to such a file on main fail ("not uptodate"), every git op that moves a lane's tree
+  (dispatch checkout+clean, land-chain checkout/rebase/reset, the snapshot and bisect checkouts) runs with the set aside
+  (bytes kept, file back at HEAD, then restored and re-hidden). A chain whose commits carry the lane's bootstrap bytes is
+  refused `bootstrap-leak`. A lane with no record (an older bootstrap) whose dirt is only files a sibling lane owns is
+  re-proven by its own bootstrap at landing; if that fails the refusal is `lane-dirty` with `bootstrapOnly: true`, which
+  the engine never counts as a landing attempt (real dirt still counts and parks after 3).
 - **Lanes, the engine scheduler (proposal 40 Phase 5 Stage B; `test-build-engine.mjs` `two-lanes-build-in-parallel`,
   `schema-chain-pauses-landings (engine)`, `lane-park-blocks-only-descendants`, `usage-limit-global-pause-not-attempt`,
   `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`,

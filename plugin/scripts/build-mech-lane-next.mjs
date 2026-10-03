@@ -25,7 +25,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { InputError, Refusal, blobAt, dirtyEntries, findWo, frontmatterStatus, gitIn, isOnMain, projectCtx, salvageAndReset, unique, utcStamp } from './build-mech-lib.mjs'
 import { classifyFrdRanges, commitUsable, injectionHits, normWoId, readFrds, readReport } from './build-mech-fast.mjs'
-import { LIVE, activeBarrier, assertOwnWorktree, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, planChains, portBusy, readState, realOr, refreshFromMain, resyncLane, resyncNeeds, runAsync, scopeOf, withState, woGraph } from './build-mech-lanes.mjs'
+import { LIVE, activeBarrier, assertOwnWorktree, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, planChains, portBusy, readState, realOr, refreshFromMain, resyncLane, resyncNeeds, runAsync, scopeOf, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
 
 const MAX_GREENS = 20
 
@@ -112,9 +112,12 @@ export async function dispatchChain(ctx, o, graph, req) {
     const salvageDir = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${req.lane}`, utcStamp())
     const salvaged = dirt.length ? salvageAndReset(lctx, dirt, salvageDir) : []
     const wg = gitIn(wt)
-    const co = wg.run(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
+    const co = withOwnedAside(wt, () => {
+      const c = wg.run(resumed ? ['checkout', '-q', '-f', branch] : ['checkout', '-q', '-f', '-B', branch, head])
+      if (c.ok) lctx.g.must(['clean', '-fdq', '--', '.'])
+      return c
+    })
     if (!co.ok) throw new Refusal('lane-checkout-failed', `lane ${req.lane}: git checkout ${branch} failed: ${co.err.split('\n').slice(-2).join(' | ')}`, { archived })
-    lctx.g.must(['clean', '-fdq', '--', '.'])
     const base = resumed ? prior.base : head
     const tip = wg.must(['rev-parse', 'HEAD']).trim()
     const port = await lanePort(s, req.lane, entry.port)
@@ -247,8 +250,7 @@ export async function laneUsableOp(o) {
   const wt = path.join(lanesDir(ctx), 'snapshot')
   const { created } = ensureWorktree(ctx, wt, shaFull)
   const wg = gitIn(wt)
-  wg.must(['checkout', '-q', '-f', '--detach', shaFull])
-  wg.must(['clean', '-fdq'])
+  withOwnedAside(wt, () => { wg.must(['checkout', '-q', '-f', '--detach', shaFull]); wg.must(['clean', '-fdq']) })
   const snapProj = path.join(wt, ctx.prefix)
   const prior = readState(ctx).snapshot || {}
   const taken = new Set(readState(ctx).pool.map((l) => l.port).filter(Boolean))

@@ -11,16 +11,18 @@
 //                  journal lines only → rebase again without re-checking; anything else → re-check), then ONE track.jsonl
 //                  `lane_land` line re-keying each WO id to its landed SHA (revert targeting stays per WO, DR-073/117).
 //               A conflict or a red check gets one rebase-fix (needs-rebase-fix), then the chain parks; either way the
-//               main tree is untouched.
+//               main tree is untouched. The lane's bootstrap-owned files are never its dirt (`lane-dirty` names real
+//               work only; `bootstrapOnly: true` when a lane with no owned record could not be re-proven, never counted
+//               by the engine), are set aside around the checkout/rebase, and a commit carrying one is `bootstrap-leak`.
 //   lane-bisect --candidate c [--candidate c…] [--sha <red pin>]   1-3 landed chains: verify.sh in parallel snapshot
 //               worktrees at the base before the first and at each chain's landed tip; the culprit is the first red
 //               tip after a green point ('pre-existing' when the base is already red, 'not-reproduced' when none is).
 //               It never reverts: the engine hands the culprit to the fix-forward patch ladder.
 
-import { appendFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { InputError, JOURNALS, Refusal, acquireLock, commitJournals, dirtyEntries, gitIn, isOnMain, projectCtx, releaseLock } from './build-mech-lib.mjs'
-import { activeBarrier, assertOwnWorktree, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, planChains, readState, refreshFromMain, resyncLane, resyncNeeds, runAsync, withState, woGraph } from './build-mech-lanes.mjs'
+import { InputError, JOURNALS, Refusal, acquireLock, commitJournals, dirtyEntries, gitIn, isOnMain, projectCtx, readOwned, releaseLock, utcStamp } from './build-mech-lib.mjs'
+import { activeBarrier, assertOwnWorktree, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, ownedLeaks, planChains, readState, refreshFromMain, resyncLane, resyncNeeds, runAsync, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
 
 const TRACK = JOURNALS[0]
 const MESSAGES_RE = /(^|\/)messages\/[^/]+\.json$/
@@ -146,6 +148,29 @@ async function landFailure(ctx, o, graph, id, kind, extra) {
     return { code: 4, body: { status: 'parked', chain: id, kind, ...extra, blockedWos: plan.blockedWos, blockedFrds: plan.blockedFrds } }
   })
 }
+/**
+ * The lane's real uncommitted work (dirtyEntries already leaves out the files its bootstrap owns). A lane with NO
+ * owned-set record (bootstrapped before it existed) whose dirt is only files a sibling lane's bootstrap owns is
+ * re-proven by its own bootstrap first (their bytes copied to the salvage dir before): bootstrap-only dirt never refuses
+ * a landing. A failed re-proof refuses with `bootstrapOnly: true` (the lane's bootstrap, not the chain, is at fault).
+ */
+async function laneDirt(ctx, state, lane, lctx) {
+  const dirt = dirtyEntries(lctx)
+  if (!dirt.length || readOwned(gitIn(lane.path)) !== null) return dirt
+  const known = new Set(state.pool.filter((l) => l.lane !== lane.lane && existsSync(l.path)).flatMap((l) => { try { return (readOwned(gitIn(l.path)) || []).map((e) => e.path) } catch { return [] } }))
+  if (!dirt.every((e) => known.has(`${lctx.prefix}${e.path}`))) return dirt
+  const salvage = path.join(ctx.project, '.pandacorp', 'run', 'salvage', `lane-${lane.lane}`, `${utcStamp()}-bootstrap-owned`)
+  for (const e of dirt) {
+    const abs = path.join(lctx.project, e.path)
+    let st = null
+    try { st = lstatSync(abs) } catch { st = null }
+    if (st && st.isFile()) { mkdirSync(path.dirname(path.join(salvage, e.path)), { recursive: true }); copyFileSync(abs, path.join(salvage, e.path)) }
+  }
+  const failure = await bootstrapLane(ctx, lane.path, lane.lane, lane.port)
+  const paths = dirt.map((e) => e.path)
+  if (failure) throw new Refusal('lane-dirty', `${lane.lane}'s lane is dirty only with bootstrap-owned files (${paths.join(', ')}) and its bootstrap could not re-prove them: ${failure}`, { paths, bootstrapOnly: true, salvaged: salvage })
+  return dirtyEntries(lctx)
+}
 /** `land-chain [--chain c]` — see the header. */
 export async function landChainOp(o) {
   const ctx = projectCtx(o.project)
@@ -167,9 +192,9 @@ export async function landChainOp(o) {
     const lctx = projectCtx(path.join(lane.path, ctx.prefix))
     const lg = gitIn(lane.path)
     const branch = `lane/${id}`
-    const dirt = dirtyEntries(lctx)
-    if (dirt.length) throw new Refusal('lane-dirty', `${id}'s lane has uncommitted work (${dirt.map((e) => e.path).join(', ')}): commit or park it first`)
-    lg.must(['checkout', '-q', branch])
+    const dirt = await laneDirt(ctx, state, lane, lctx)
+    if (dirt.length) throw new Refusal('lane-dirty', `${id}'s lane has uncommitted work (${dirt.map((e) => e.path).join(', ')}): commit or park it first`, { paths: dirt.map((e) => e.path), bootstrapOnly: false })
+    withOwnedAside(lane.path, () => lg.must(['checkout', '-q', branch]))
     const preTip = lg.must(['rev-parse', 'HEAD']).trim()
     let checksBase = null
     let checks = null
@@ -180,14 +205,17 @@ export async function landChainOp(o) {
       const pre = laneCommits(lg, onto, 'HEAD')
       const shape = commitShape(pre, c.wos)
       if (shape.missing.length || shape.duplicated.length) throw new Refusal('commit-shape', `one commit per work order (DR-097): missing ${shape.missing.join(', ') || 'none'}, duplicated ${shape.duplicated.join(', ') || 'none'}`, shape)
-      const rb = rebaseLane(ctx, lane.path, onto)
+      const rb = withOwnedAside(lane.path, () => rebaseLane(ctx, lane.path, onto))
       if (!rb.ok) return landFailure(ctx, o, graph, id, 'conflict', { conflicts: rb.conflicts })
       const tip = lg.must(['rev-parse', 'HEAD']).trim()
       const post = laneCommits(lg, onto, tip)
       if (post.length !== pre.length || post.some((x, i) => x.subject !== pre[i].subject)) {
-        lg.must(['reset', '-q', '--hard', preTip])
+        withOwnedAside(lane.path, () => lg.must(['reset', '-q', '--hard', preTip]))
         throw new Refusal('commit-shape', `the rebase changed the chain's commits (${pre.length} → ${post.length}): reset to ${preTip.slice(0, 12)}, nothing landed`)
       }
+      // A lane's bootstrap rewrite (its launch.json ports…) is the lane's own config: committed, it would land on main.
+      const leaked = ownedLeaks(lane.path, onto, tip)
+      if (leaked.length) throw new Refusal('bootstrap-leak', `${id}'s commits carry its lane's bootstrap rewrite of ${leaked.join(', ')}: drop it from the commits (the lane's own config never lands), nothing landed`, { paths: leaked })
       // Rebased onto a dependency barrier (lockfile, prisma, migrations): the lane's install/client must follow, or the
       // checks below go red on stale dependencies, not on the chain. Same resync as a dispatch; a failure lands nothing.
       const needs = resyncNeeds(ctx, syncedAt, onto)
@@ -252,8 +280,7 @@ export async function laneBisectOp(o) {
     const wt = path.join(lanesDir(ctx), `bisect-${i}`)
     ensureWorktree(ctx, wt, p.sha)
     const wg = gitIn(wt)
-    wg.must(['checkout', '-q', '-f', '--detach', p.sha])
-    wg.must(['clean', '-fdq'])
+    withOwnedAside(wt, () => { wg.must(['checkout', '-q', '-f', '--detach', p.sha]); wg.must(['clean', '-fdq']) })
     const port = await freePort(taken, 50 + i)
     taken.add(port)
     prepared.push({ ...p, wt, port })

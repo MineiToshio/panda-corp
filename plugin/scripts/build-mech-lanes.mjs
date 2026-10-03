@@ -25,16 +25,20 @@
 //                                               only recorded here, and lane landings pause until it commits.
 //   lane-mark     --chain c --as built|parked [--why text]   a built chain joins the landing queue (one commit per
 //                                               WO checked); a parked one blocks only its DAG descendants.
+// Every bootstrap (pool, resync, snapshot, bisect) records the files it wrote as the worktree's bootstrap-owned set
+// (bench FM-6: a TRACKED launch.json rewritten with the lane's ports): hidden from the lane's dirt, set aside around every
+// checkout/rebase, never landed — see recordOwned / withOwnedAside below.
 // land-chain and lane-bisect live in build-mech-lane-land.mjs; lane-next and lane-usable (the engine's scheduling round
 // and the snapshot USABLE check) in build-mech-lane-next.mjs. Lane state is gitignored run state
 // (.pandacorp/run/lanes/state.json, under its own lanes.lock); git stays the truth: a chain whose WOs are committed on
 // main is landed whatever the state file says.
 
 import { spawn } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
-import { InputError, Refusal, acquireLock, gitIn, projectCtx, releaseLock, unique } from './build-mech-lib.mjs'
+import { InputError, Refusal, acquireLock, gitIn, projectCtx, readOwned, releaseLock, unique, writeOwned } from './build-mech-lib.mjs'
 import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 
 /** Lane caps per run mode (proposal 40 §9): pro never lanes, balanced 2, powerful/deep 4. */
@@ -338,13 +342,101 @@ export function runAsync(cmd, args, { cwd, env, timeoutMs }) {
   })
 }
 const BOOTSTRAP_MS = 20 * 60 * 1000
-/** Bootstrap a lane (or snapshot) worktree on its port and write its lane.env; null on success, else the failure. */
+// ── bootstrap-owned files (bench FM-6) ─────────────────────────────────────────────────────────
+// worktree-bootstrap.sh (and a project's own worktree-setup.sh hook) rewrite files a project may TRACK: launch.json
+// with the lane's ports, e2e/server-env.json's PORT; and write untracked ones (.env.local). In a lane they are the lane's
+// own config. The set is never guessed: bootstrapLane observes what the real script changed (new, or a different
+// mtime/size/content than before it ran) and records it in the worktree's own git dir; a tracked one also gets
+// `skip-worktree` (hidden from `status`, refused by a plain `git add`, skipped by `commit -a`), the precedent the
+// bootstrap itself set for server-env.json. skip-worktree alone breaks every checkout/rebase that crosses a change to
+// such a file on main ("not uptodate. Cannot merge"), so the git ops that move a lane's tree run inside withOwnedAside.
+/** Every path `git status` reports in the worktree (root-relative, untracked one by one). */
+const statusPaths = (g) => g.must(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames']).split('\0').filter(Boolean).map((e) => e.slice(3))
+/** Every skip-worktree path of the worktree's index. */
+const skipWorktreePaths = (g) => g.must(['ls-files', '-v', '-z']).split('\0').filter((e) => /^[Ss] /.test(e)).map((e) => e.slice(2))
+/** A file's identity for "did the bootstrap write it": mtime, size and content hash ('absent' when gone). */
+function fileSig(wt, rel) {
+  try {
+    const abs = path.join(wt, rel)
+    const st = lstatSync(abs)
+    return `${st.mtimeMs}:${st.size}:${st.isFile() ? createHash('sha256').update(readFileSync(abs)).digest('hex') : st.mode}`
+  } catch { return 'absent' }
+}
+/** The previously recorded owned set, [] when there is none or it cannot be read (it is re-derived right after). */
+const priorOwned = (g) => { try { return readOwned(g) || [] } catch { return [] } }
+/** Run `fn` (the bootstrap) and record what it wrote as the worktree's bootstrap-owned files. */
+async function recordOwned(wt, fn) {
+  const g = gitIn(wt)
+  const prior = priorOwned(g).map((e) => e.path)
+  const before = new Map(unique([...statusPaths(g), ...skipWorktreePaths(g), ...prior]).map((p) => [p, fileSig(wt, p)]))
+  const out = await fn()
+  const priorSet = new Set(prior)
+  // Owned: dirty or hidden now AND written by this run (or by an earlier recorded run); dirt that was there before and
+  // that the script left alone stays dirt.
+  const owned = unique([...statusPaths(g), ...skipWorktreePaths(g)]).filter((p) => priorSet.has(p) || !before.has(p) || before.get(p) !== fileSig(wt, p)).sort()
+  const tracked = new Set(owned.length ? g.must(['--literal-pathspecs', 'ls-files', '-z', '--', ...owned]).split('\0').filter(Boolean) : [])
+  const hide = owned.filter((p) => tracked.has(p))
+  if (hide.length) g.must(['update-index', '--skip-worktree', '--', ...hide])
+  writeOwned(g, owned.map((p) => ({ path: p, tracked: tracked.has(p) })))
+  return out
+}
+/**
+ * Run the sync `fn` (a checkout, reset, rebase or clean of the lane's tree) with every bootstrap-owned file set aside:
+ * its bytes kept, skip-worktree cleared, the file back at HEAD (or removed when HEAD has none); then put back and
+ * re-hidden, whatever `fn` did. A bootstrap rewrite never takes part in a lane's git ops, so it never lands.
+ */
+export function withOwnedAside(wt, fn) {
+  const g = gitIn(wt)
+  const saved = []
+  for (const e of readOwned(g) || []) {
+    const abs = path.join(wt, e.path)
+    let st = null
+    try { st = lstatSync(abs) } catch { st = null }
+    if (!st || !st.isFile()) continue
+    saved.push({ path: e.path, bytes: readFileSync(abs), mode: st.mode })
+    g.run(['update-index', '--no-skip-worktree', '--', e.path])
+    if (g.run(['cat-file', '-e', `HEAD:${e.path}`]).ok) g.must(['--literal-pathspecs', 'checkout', 'HEAD', '--', e.path])
+    else rmSync(abs, { force: true })
+  }
+  try { return fn() } finally {
+    for (const x of saved) {
+      const abs = path.join(wt, x.path)
+      mkdirSync(path.dirname(abs), { recursive: true })
+      writeFileSync(abs, x.bytes)
+      chmodSync(abs, x.mode & 0o7777)
+      if (g.run(['--literal-pathspecs', 'ls-files', '--error-unmatch', '--', x.path]).ok) g.run(['update-index', '--skip-worktree', '--', x.path])
+    }
+  }
+}
+/**
+ * The bootstrap-owned tracked files a lane's commits `base..tip` carry with the lane's own bootstrap bytes: a rewrite
+ * that was committed (forced past skip-worktree, or before it existed). Never landed on main.
+ */
+export function ownedLeaks(wt, base, tip) {
+  const g = gitIn(wt)
+  const owned = (readOwned(g) || []).filter((e) => e.tracked).map((e) => e.path)
+  if (!owned.length) return []
+  const changed = g.must(['--literal-pathspecs', 'diff', '--name-only', base, tip, '--', ...owned]).split('\n').filter(Boolean)
+  return changed.filter((p) => {
+    const blob = g.run(['cat-file', 'blob', `${tip}:${p}`])
+    let bytes = null
+    try { bytes = readFileSync(path.join(wt, p), 'utf8') } catch { bytes = null }
+    return blob.ok && bytes !== null && blob.out === bytes
+  })
+}
+/**
+ * Bootstrap a lane (or snapshot) worktree on its port and write its lane.env, recording what they wrote as the
+ * worktree's bootstrap-owned files; null on success, else the failure.
+ */
 export async function bootstrapLane(ctx, wt, lane, port) {
   const env = laneEnv(lane, port)
   const dir = path.join(wt, ctx.prefix)
-  const r = await runAsync('bash', ['.pandacorp/worktree-bootstrap.sh'], { cwd: dir, env, timeoutMs: BOOTSTRAP_MS })
-  mkdirSync(path.join(dir, '.pandacorp', 'run'), { recursive: true })
-  writeFileSync(path.join(dir, '.pandacorp', 'run', 'lane.env'), Object.entries(env).map(([k, v]) => `export ${k}=${v}\n`).join(''))
+  const r = await recordOwned(wt, async () => {
+    const run = await runAsync('bash', ['.pandacorp/worktree-bootstrap.sh'], { cwd: dir, env, timeoutMs: BOOTSTRAP_MS })
+    mkdirSync(path.join(dir, '.pandacorp', 'run'), { recursive: true })
+    writeFileSync(path.join(dir, '.pandacorp', 'run', 'lane.env'), Object.entries(env).map(([k, v]) => `export ${k}=${v}\n`).join(''))
+    return run
+  })
   return r.ok ? null : `worktree-bootstrap.sh exited ${r.code}${r.signal ? ` (${r.signal})` : ''}: ${r.tail.split('\n').slice(-3).join(' | ')}`
 }
 /**

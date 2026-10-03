@@ -4,6 +4,24 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-02 (PATCH, version set at release): lanes robust to bootstrap-owned files (bench FM-6)
+
+**Why.** The medium bench run FM-6 (`--lanes 2`) parked a chain whose code was correct and stalled every DAG descendant: the second lane's `worktree-bootstrap.sh` (step 2) rewrote `.claude/launch.json` with the lane's ports, assuming it gitignored, but that project TRACKS it. The rewrite ran after the dispatch's dirt salvage (a port change re-bootstraps), so `land-chain` refused three times with `lane-dirty … (.claude/launch.json)` and the engine counted each refusal toward park. Reproduced with the real bootstrap in a temp repo: the same dirt also refused `commit-wo` (`undeclared`) in the lane.
+
+**What ([build-orchestration.md §5d](../../factory/standards/build-orchestration.md), "Lanes, the mech layer", bootstrap-owned files):**
+1. `bootstrapLane` (pool, dispatch/land resync, snapshot, bisect) records what the real script wrote (new, or a different mtime/size/content than before it ran: derived from the script's actual effect, never a hand list) in the worktree's own git dir (`pandacorp-bootstrap-owned.json`); a tracked one gets `skip-worktree`, the precedent the bootstrap already set for `e2e/server-env.json` (BL-0154).
+2. `dirtyEntries` leaves a linked worktree's owned set out: never a builder's dirt, a salvage, a `commit-wo` undeclared path or a `lane-dirty`. Real dirt is still refused, and `lane-dirty` now names its `paths` with `bootstrapOnly`.
+3. `withOwnedAside`: skip-worktree alone breaks any checkout/rebase that crosses a change to the file on main (verified: `checkout -f` → "not uptodate. Cannot merge", `rebase` → "would be overwritten"; this already affected `server-env.json`), so the dispatch checkout+clean, land-chain checkout/rebase/reset and the snapshot/bisect checkouts run with the set aside (bytes kept, file back at HEAD) and restored after.
+4. `land-chain` refuses `bootstrap-leak` when the chain's commits carry the lane's bootstrap bytes: a rewrite never lands on main.
+5. A lane with no record (bootstrapped by an older plugin) whose dirt is only files a sibling lane owns is re-proven by its bootstrap at landing (bytes copied to the salvage dir first); a failed re-proof refuses `lane-dirty` with `bootstrapOnly: true`.
+6. Engine: a `lane-dirty` refusal with `bootstrapOnly: true` is never a landing attempt (re-queued, not counted, never parks); real dirt still counts and parks after 3.
+
+**Choice.** Skip-worktree alone fails on any main change to the file; restoring only inside land-chain leaves the dirt visible to `commit-wo`, the dispatch salvage and a builder's `git add -A`. Both together: hidden everywhere, set aside around the git ops that move the tree.
+
+**Tests:** `test-build-mech-lanes.mjs` `lane-bootstrap-tracked-launch-json-still-lands` (the shipped bootstrap, flat project, the second lane re-bootstrapped after its salvage, main's launch.json changed by the owner under the second landing: both land, main's launch.json is the owner's, no commit carries an owned file; RED without the aside), `lane-dirty-real-work-still-refused` (+ `bootstrap-leak`), `lane-bootstrap-owned-unproven`; `test-build-engine.mjs` `lane-bootstrap-dirt-never-parks (engine)` (RED without the rule) and the control `lane-dirty-real-work-still-parks (engine)`.
+
+**Residual.** The lane rebase-fix agent's own manual `git rebase` does not set the owned files aside. A work order that must change a bootstrap-owned file cannot commit it in a lane (skip-worktree refuses a plain `git add`), the same as `server-env.json` before.
+
 ## Unreleased — 2026-10-02 (PATCH, version set at release): proposal 40 Phase 5 — K re-decided at every lane round (bench FM-5)
 
 **Why.** The medium bench run FM-5 with `--lanes 2` built strictly sequentially. Its first `lane-plan` returned `{"k":1,"kRequested":2,"kReason":"narrow-dag","width":1,"offPath":4}`: at the start only WO-01-001 was ready, and the engine decided K once for the whole run from that first width, so it fell back to the one-FRD-at-a-time loop although the Build Plan DAG (`pandacorp-bench-medium` frd-01 blueprint) is two wide at five later points (WO-01-002 ∥ WO-01-003, WO-01-004 ∥ WO-04-001, WO-01-005 ∥ WO-02-001, WO-02-002 ∥ WO-03-001…). The `narrow-dag` rule also fired on a DAG with offPath 4, and the fused start dispatched all of FRD-01 on main from the same K = 1. Two further defects made it worse: the head chain absorbed WO-01-002 (serializing it behind WO-01-001 while its sibling, the barrier WO-01-003, waited for main), and `lane-next` ignored K entirely (it filled every free lane).

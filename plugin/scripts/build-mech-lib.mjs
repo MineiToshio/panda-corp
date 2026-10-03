@@ -73,14 +73,46 @@ export function projectCtx(project) {
 /** True on the project's main branch in the primary checkout (never a linked worktree, never a detached HEAD). */
 export const isOnMain = (ctx, mainBranch) => ctx.branch === mainBranch && !ctx.linked
 
+// ── bootstrap-owned files (bench FM-6) ─────────────────────────────────────────────────────────
+/**
+ * The record of what a lane/snapshot worktree's bootstrap wrote, kept in THAT worktree's own git dir (per worktree,
+ * never in the tree, never cleaned, never committed). Its paths are worktree-root relative.
+ */
+export const OWNED_FILE = 'pandacorp-bootstrap-owned.json'
+const ownedFileOf = (g) => { const r = g.run(['rev-parse', '--absolute-git-dir']); return r.ok ? path.join(r.out.trim(), OWNED_FILE) : null }
+/**
+ * The bootstrap-owned paths of the worktree `g` runs in: null when none was recorded (the primary checkout, or a lane
+ * bootstrapped before the record existed). An unreadable record fails loud (DR-078): it is never an empty set.
+ * @returns {Array<{ path: string, tracked: boolean }>|null}
+ */
+export function readOwned(g) {
+  const file = ownedFileOf(g)
+  if (!file || !existsSync(file)) return null
+  let rec = null
+  try { rec = JSON.parse(readFileSync(file, 'utf8')) } catch { rec = null }
+  if (!rec || rec.version !== 1 || !Array.isArray(rec.paths) || rec.paths.some((e) => !e || typeof e.path !== 'string')) throw new InputError(`${file} is not a bootstrap-owned record (version 1): refusing to guess which files the bootstrap owns`)
+  return rec.paths
+}
+/** Record the bootstrap-owned paths of the worktree `g` runs in (an atomic replace). */
+export function writeOwned(g, paths) {
+  const file = ownedFileOf(g)
+  if (!file) throw new InputError('no git dir to record the bootstrap-owned files in')
+  const tmp = `${file}.${process.pid}.tmp`
+  writeFileSync(tmp, `${JSON.stringify({ version: 1, paths, at: new Date().toISOString() }, null, 1)}\n`)
+  renameSync(tmp, file)
+}
+
 /**
  * Every uncommitted path of THIS project (BL-0202: `-- .`, prefix stripped), untracked files listed one by one,
- * the gitignored-anyway `.pandacorp/run/` excluded.
+ * the gitignored-anyway `.pandacorp/run/` excluded, and so are the files this worktree's bootstrap owns (a lane's
+ * launch.json, server-env.json, .env.local: its own config, never anyone's dirt; recorded by bootstrapLane).
  * @returns {Array<{ code: string, path: string }>} `code` is the porcelain XY pair
  */
 export function dirtyEntries(ctx) {
   const raw = ctx.g.must(['status', '--porcelain=v1', '-z', '--untracked-files=all', '--no-renames', '--', '.'])
+  const owned = new Set(ctx.linked ? (readOwned(ctx.g) || []).map((e) => e.path) : [])
   return raw.split('\0').filter(Boolean).map((e) => ({ code: e.slice(0, 2), path: e.slice(3) }))
+    .filter((e) => !owned.has(e.path))
     .map((e) => ({ ...e, path: ctx.prefix && e.path.startsWith(ctx.prefix) ? e.path.slice(ctx.prefix.length) : e.path }))
     .filter((e) => !e.path.startsWith('.pandacorp/run/'))
 }
