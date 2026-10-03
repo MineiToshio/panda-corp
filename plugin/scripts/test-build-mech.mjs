@@ -12,7 +12,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { acquire, currentLease } from '../runtime/build-state.mjs'
-import { verifySealedLine } from './drift-seal.mjs'
+import { sealLine, verifySealedLine } from './drift-seal.mjs'
 import { projectCtx, sealReportProvenance } from './build-mech-lib.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -1865,6 +1865,40 @@ console.log('certify-state-writes-wo-and-status: the scripted stamp — WO VERIF
     ok(evs.some((x) => x.event === 'GateVerdict' && x.verdict === 'pass' && x.via === 'patch' && x.passed === 1) && evs.some((x) => x.event === 'PatchResult' && x.outcome === 'green') && evs.some((x) => x.event === 'achievement' && x.wo === 'WO-01-001' && x.frd === 'frd-01-alpha'), 'the dashboard gets GateVerdict pass (via patch), PatchResult green and the achievement')
     const again = r.run('certify-state', args)
     ok(again.code === 4 && again.receipt.status === 'not-in-review', 'a WO no longer IN_REVIEW is never stamped twice')
+  } finally { r.cleanup() }
+}
+
+// Bench FM-8: the relay is lossy. A relay that DECODES the line's \uXXXX escapes (› for ›, ó for ó) changed no
+// value: every seal check re-escapes the received text before hashing. A real value change still fails.
+console.log('relay-decoded-unicode-still-seals: a decoded escape keeps the seal; a changed value never does')
+{
+  const line = sealLine({ version: 1, op: 'lane-usable', ok: true, failure: 'vitest › src/a.test.ts: canción esperada', frd: 'frd-04' })
+  ok(/^[\x20-\x7e]+$/.test(line) && line.includes('\\u203a') && line.includes('\\u00f3'), 'the sealed line is ASCII-only (non-ASCII escaped)')
+  const decoded = line.replace(/\\u([0-9a-f]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+  ok(decoded !== line && decoded.includes('›') && verifySealedLine(decoded).ok, 'a relay that decoded › and ó still verifies')
+  ok(JSON.parse(decoded).failure === JSON.parse(line).failure, 'the decoded line carries the same values')
+  ok(!verifySealedLine(decoded.replace('›', '>')).ok && !verifySealedLine(line.replace('frd-04', 'frd-05')).ok && !verifySealedLine(decoded.replace('ó', 'o')).ok, 'real-value-change-still-fails: a changed character (decoded or not) breaks the seal')
+}
+
+// Bench FM-8: a durable op's sealed receipt is also written to .pandacorp/run/receipts/<op>-<nonce>.json, so a lost relay
+// is recovered by READING it again, never by re-running the op.
+console.log('receipt file: --receipt <nonce> stores the exact sealed line; a bad nonce is refused before anything runs')
+{
+  const r = mkRepo()
+  try {
+    buildAlpha(r)
+    r.installVitest()
+    const before = r.head()
+    const c = r.run('commit-wo', [...ALPHA_FILES, '--receipt', 'tok1-7'])
+    const file = r.abs('.pandacorp/run/receipts/commit-wo-tok1-7.json')
+    ok(c.code === 0 && c.sealed && existsSync(file), `the op ran and its receipt file exists (got ${c.code} ${c.receipt && c.receipt.status})`)
+    ok(existsSync(file) && readFileSync(file, 'utf8') === `${c.line}\n`, 'the receipt file holds the exact sealed stdout line')
+    const refused = r.run('park-wo', ['--wo', 'WO-01-002', '--receipt', 'tok1-8'])
+    ok(existsSync(r.abs('.pandacorp/run/receipts/park-wo-tok1-8.json')) && readFileSync(r.abs('.pandacorp/run/receipts/park-wo-tok1-8.json'), 'utf8') === `${refused.line}\n`, 'every receipt is stored, whatever its verdict')
+    const head = r.head()
+    const bad = r.run('commit-wo', [...ALPHA_FILES, '--receipt', '../../escape'])
+    ok(bad.code === 2 && bad.receipt && /--receipt/.test(bad.receipt.error) && r.head() === head && !existsSync(path.join(r.proj, '.pandacorp', 'escape.json')), `a nonce outside [A-Za-z0-9_-] is an input error, nothing written (got ${bad.code} ${bad.receipt && bad.receipt.error})`)
+    ok(head !== before, 'sanity: the first commit landed')
   } finally { r.cleanup() }
 }
 

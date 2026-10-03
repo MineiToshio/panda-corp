@@ -250,7 +250,7 @@ let oracleNoFallbackLogged = false
 let landingInFlight = null
 let mainWriter = null
 let LANED = null
-const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], routed: new Set(), usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
+const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], routed: new Set(), usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [], owned: new Set(), inFlight: [] }
 const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
 const unwrapStructuredResult = (answer, schema) => {
  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
@@ -633,7 +633,7 @@ const cyrb53 = (str) => {
 const DRIFT_SEAL_RE = /,"sum":"([0-9a-f]{14})"\}$/
 const driftSealHolds = (text) => {
  const m = DRIFT_SEAL_RE.exec(text)
- return Boolean(m) && cyrb53(`${text.slice(0, m.index)}}`).toString(16).padStart(14, '0') === m[1]
+ return Boolean(m) && cyrb53(`${text.slice(0, m.index)}}`.replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)).toString(16).padStart(14, '0') === m[1]
 }
 function parseDriftProof(answer) {
  const raw = unwrapAnswer(answer, 'output')
@@ -959,10 +959,18 @@ function parseMechLine(answer, op) {
  if (!j || j.op !== op) return { body: null, error: `the line is not a ${op} receipt` }
  return { body: j, error: '' }
 }
+let mechSeq = 0
+const MECH_NONCE = `${String(LEASE_TOKEN).replace(/[^A-Za-z0-9]/g, '').slice(0, 8) || 'run'}e${LEASE_EPOCH}`
 async function runMechOp(op, flags, { label, phase = 'Build', prefix = '', suffix = '', dir = PROJECT_DIR }) {
- const cmd = mechOpCommand(op, flags, dir)
- const raw = await agent(prefix.trim() || suffix.trim() ? MECH_FUSED(cmd, prefix, suffix) : MECH_LITERAL(cmd), { label, phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA })
- return parseMechLine(raw, op)
+ const nonce = `${MECH_NONCE}n${++mechSeq}`
+ const cmd = mechOpCommand(op, `${flags ? `${flags} ` : ''}--receipt ${nonce}`, dir)
+ const opts = { phase, model: MECH, agentType: MECH_AGENT('pandacorp:implementer'), effort: MECH_EFFORT, schema: MECH_LINE_SCHEMA }
+ const r = parseMechLine(await agent(prefix.trim() || suffix.trim() ? MECH_FUSED(cmd, prefix, suffix) : MECH_LITERAL(cmd), { label, ...opts }), op)
+ if (r.body) return r
+ agentSpawned++
+ const again = parseMechLine(await agent(MECH_LITERAL(`cat ${shellQuote(`${dir}/.pandacorp/run/receipts/${op}-${nonce}.json`)}`), { label: `receipt:${label}`, ...opts }), op)
+ log(again.body ? `↺ ${label}: the relayed line was unverifiable (${r.error}) — re-read from its stored receipt, the op was not re-run` : `⚠ ${label}: the relayed line was unverifiable (${r.error}) and its stored receipt too (${again.error}) — the op's outcome is unknown`)
+ return again.body ? again : r
 }
 const parkWoFlags = (w) => `--wo ${shellQuote(w.id)}${(w.artifacts || []).map((a) => ` --file ${shellQuote(a)}`).join('')}${FAST ? ' --all-undeclared' : ''}`
 async function parkWorkOrders(wos, dir = PROJECT_DIR) {
@@ -3106,10 +3114,10 @@ for (const f of plan.frds) enrollFrd(f)
 sizeAgentBudget()
 detectCycles()
 if ((await preLoopGuarded(() => recoverPendingReverts())) === PAUSED) return await pausedExit({ builtFrds, blockedFrds, reopenedFrds, blockedReasons, blockedFailures })
-function blockFrdInSchedule(frd, reason) {
+function blockFrdInSchedule(frd, reason, failure = '') {
  const st = frdState.get(frd)
  if (st) { st.failed = true; for (const id of st.toBuildIds) { globalQueue.delete(id); blockedIds.add(id) } }
- blockFrd(frd, reason)
+ blockFrd(frd, reason, failure)
 }
 function frdDepsBlocked(frd) {
  const st = frdState.get(frd)
@@ -3556,6 +3564,15 @@ async function fastIdle() {
   await gateAndConverge(st.f, st.reviewIds)
   return null
  }
+ for (const c of lane.inFlight) {
+  const ids = new Set(c.wos.map((w) => String(w).toLowerCase()))
+  for (const [f, st] of lane.owned.has(c.chain) ? [] : frdState) {
+   if (st.failed || ![...st.toBuildIds].some((id) => ids.has(id.toLowerCase()))) continue
+   log(`⛔ ${f}: its work is held by lane chain ${c.chain} (lane ${c.lane}), in flight for the script but never owned by this run — a stop for the owner, not a deferral`)
+   blockFrdInSchedule(f, 'needs-owner', `held by the orphaned lane chain ${c.chain} (lane ${c.lane}): inspect .pandacorp/run/lanes/state.json, land or park it, then relaunch`)
+   stopReason = 'orphan-chain'
+  }
+ }
  for (const [f, st] of frdState) {
   if (st.failed || st.toBuildIds.size === 0) continue
   log(`↩ ${f}: deferred to the next run — it waits for ${fastWaitLog.get(f) || 'an upstream'}, which will not be VERIFIED this run`)
@@ -3590,7 +3607,7 @@ HOW TO RUN each work order, in order:
  2) Implement it until its own tests pass. Fill its ## Status Note: what it built, the interfaces with signatures, the seams, the decisions and assumptions a consumer inherits, its test files. Never edit implementation_status and never call git yourself: the commit command stamps IN_REVIEW and commits.
  3) Run its commit command exactly as given and read the LAST line it prints (one JSON object). "ok":true → the next work order. A refusal says why: "undeclared" → the tree held no owner edit at dispatch (the engine never builds over one), so an undeclared path is a stray edit of this build: undo it, or re-run adding --extra '<path>' --reason '<why this work order needs it>'; "parked-leftover" → that path is a parked work order's leftover, never this one's, whether it came in through --files or --extra: run the park command of the work order it names (it salvages the leftover), then re-run; "tests-red" or an uncited AC → fix it (cite each AC id in a test) and re-run.
  4) If it still does not commit after honest attempts, run its park command and go on; a work order that depends on a parked one is parked too (run its park command, do not build it).
- 5) SELF-VERIFY, once every work order committed (none parked): ${fastSelfVerify(since)}${ln ? ' (static checks, the unit tests and this lane\'s own e2e on its port)' : ''}. If it is red, fix the PRODUCTION code it names here, in this same context (never weaken, skip or delete a test, never edit a blessed baseline), and commit each fix with \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>', ln ? ln.path : PROJECT_DIR)}\`, naming the work order whose code you fixed; re-run until green or after two honest attempts. Leave the tree clean: the engine's own verify runs next.${designRef(frd)}${reuseRef(frd)}
+ 5) SELF-VERIFY, once every work order committed (none parked): ${fastSelfVerify(since)}${ln ? ' (static checks, the unit tests and this lane\'s own e2e on its port)' : ''}. If it is red, fix the PRODUCTION code it names here, in this same context (never weaken, skip or delete a test, never edit a blessed baseline), and commit each fix with \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>', ln ? ln.path : PROJECT_DIR)}\`, naming the work order whose code you fixed; re-run until green or after two honest attempts. Leave the tree clean: the engine's own verify runs next.${ln && laneSchemaBarrier() ? LANE_BARRIER_NOTE : ''}${designRef(frd)}${reuseRef(frd)}
 Return { wos: [{ id, line }] }: one entry per work order above, line = the LAST line its final commit or park command printed, copied character for character.`
 function fastLanded(wos, wrappedAnswer) {
  const answer = unwrapAnswer(wrappedAnswer, 'wos')
@@ -3788,6 +3805,8 @@ function fastResult() {
 const LANE_MAX_ATTEMPTS = 3
 const laneBusy = () => Boolean(mainWriter || lane.next || lane.usable || lane.pool || lane.jobs.size || lane.land.length || lane.fixQ.length || lane.usableQ.length || lane.barrier)
 const laneMainWork = () => Boolean(lane.barrier || lane.fixQ.length || (lane.land.length && !lane.landHold))
+const laneSchemaBarrier = () => [...lane.live.values()].some((c) => c.onMain === 'schema')
+const LANE_BARRIER_NOTE = ' A schema/package barrier is building on main and this lane\'s base predates it: a knip unused-dependency (or unlisted-dependency) red here is EXPECTED; never remove or add a dependency and never edit package.json or the lockfile to clear it (the landing re-checks on main).'
 const laneWorkFrom = (ln) => `LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`
 const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f]) => `--frd ${shellQuote(f)}`), ...[...globalQueue.keys()].map((id) => `--build ${shellQuote(id)}`),
  ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), ...(LANES_ARG ? [`--lanes ${LANES_ARG}`] : []), `--mode ${shellQuote(MODE)}`].join(' ')
@@ -3826,11 +3845,19 @@ function laneNext() {
   lane.broken = (b.pool && b.pool.broken) || 0
   for (const f of b.failed || []) log(`⚠ chain ${f.chain}: not dispatched (${f.status}: ${f.reason})`)
   const known = (id) => lane.jobs.has(id) || lane.land.some((x) => x.chain === id) || (lane.barrier && lane.barrier.chain === id) || Boolean(mainWriter && mainWriter.who.endsWith(`:${id}`))
-  const track = (c) => { lane.live.set(c.chain, c); return true }
-  for (const c of b.dispatched || []) if (!known(c.chain) && track(c)) laneStart(c)
+  const track = (c) => { lane.live.set(c.chain, c); lane.owned.add(c.chain); return true }
   if (b.barrier && !known(b.barrier.chain) && track(b.barrier)) lane.barrier = b.barrier
+  for (const c of b.dispatched || []) if (!known(c.chain) && track(c)) laneStart(c)
   for (const c of b.landQueue || []) if (!known(c.chain) && track(c)) lane.land.push(c)
   for (const c of b.needsFix || []) if (!known(c.chain) && track(c)) laneStart({ ...c, fix: { kind: 'resumed needs-fix' } })
+  lane.inFlight = b.inFlightChains || []
+  for (const c of lane.resumed ? lane.inFlight : []) {
+   if (c.status !== 'dispatched' || known(c.chain) || lane.live.has(c.chain)) continue
+   if (!c.path) { log(`⚠ chain ${c.chain}: in flight in lane ${c.lane} but its lane has no worktree path — it cannot be re-adopted`); continue }
+   log(`↺ re-adopting chain ${c.chain} (${c.wos.join(', ')}) in lane ${c.lane}: its dispatch line was lost, the script holds it in flight`)
+   track(c)
+   laneStart({ ...c, resumed: true, committed: c.committed || [] })
+  }
   for (const f of b.landedFrds || []) lane.landed.add(f)
   lane.parked = b.parked || []
   if ((b.blockedFrds || []).join() !== lane.blocked.join()) { lane.blocked = b.blockedFrds || []; if (lane.blocked.length) log(`⊘ lanes: parked ${lane.parked.join(', ')} — only their DAG descendants wait: ${lane.blocked.join(', ')} (proposal 40 §3 B.9)`) }
@@ -4391,6 +4418,7 @@ function runEndSummary(needsOwner) {
   : stopReason === 'blocks' ? ' Paro: demasiados FRDs bloqueados seguidos (algo sistemico va mal).'
   : stopReason === 'rethink' ? ' Paro en safe point: el owner re-planificó (rethink_pending) — la próxima corrida retoma con el plan nuevo.'
   : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).'
+  : stopReason === 'orphan-chain' ? ' Paro: una cadena de lane quedo huerfana (su recibo se perdio); revisa .pandacorp/run/lanes/state.json.'
   : stopReason === 'review-deferred' ? ` Revision diferida (reviewBudget defer): ${fastUsable.length} FRD(s) USABLE en main; los gates quedan pendientes para otra ventana.` : ''
  const ownerMsg = needsOwner.length
   ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`

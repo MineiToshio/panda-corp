@@ -474,6 +474,7 @@ console.log('lane-next: barrier to main + one chain per free lane; built chains 
     ok(r.run('commit-wo', ['--wo', 'WO-01-001', '--files', 'prisma/schema.prisma']).code === 0, 'the barrier commits on main')
     const after = r.run('lane-next')
     ok(after.receipt.landingsPaused === false && after.receipt.barrier === null && after.receipt.landedFrds.includes('frd-01-a'), 'git wins: the barrier is landed, landings resume')
+    ok((n.receipt.inFlightChains || []).length === 2 && n.receipt.inFlightChains.every((c) => c.lane && c.status === 'dispatched') && !n.receipt.inFlightChains.some((c) => c.chain === 'c-wo-01-001'), 'inFlightChains lists the live lane chains, never the barrier on main')
     const st = JSON.parse(r.read('.pandacorp/run/lanes/state.json'))
     ok(st.chains['c-wo-01-001'].landedSha && r.git('log', '-1', '--format=%s', st.chains['c-wo-01-001'].landedSha).includes('WO-01-001'), 'the barrier landed by its main commit records its landed SHA (bisectable)')
   } finally { r.cleanup() }
@@ -490,6 +491,11 @@ console.log('lane-resume-after-pause: --resume re-dispatches a live chain on its
     writeFileSync(path.join(r.laneProj(1), 'src/wo-01-002.ts'), 'export const half = 1\n')   // the killed builder's half-written file
     const plain = r.run('lane-next')
     ok(plain.receipt.dispatched.length === 0 && plain.receipt.inFlight.includes(d.receipt.chain), 'without --resume a live chain is only reported in flight')
+    // Bench FM-8: a dispatch whose receipt the relay lost is an orphan the engine must re-adopt; every round names each live
+    // lane chain with what the engine needs to resume it there (its lane path, env and committed WOs), without touching it.
+    const orphan = (plain.receipt.inFlightChains || []).find((x) => x.chain === d.receipt.chain)
+    ok(orphan && orphan.lane === 1 && orphan.status === 'dispatched' && path.resolve(orphan.path) === path.resolve(r.laneProj(1)) && orphan.env && orphan.env.PORT && JSON.stringify(orphan.wos) === '["WO-01-001","WO-01-002"]' && JSON.stringify(orphan.committed) === '["WO-01-001"]', `inFlightChains names the live lane chain with its lane, path, env and committed WOs (${JSON.stringify(orphan)})`)
+    ok(existsSync(path.join(r.laneProj(1), 'src/wo-01-002.ts')), 'reporting it in flight resets nothing in the lane (the half-written file is still there)')
     const res = r.run('lane-next', ['--resume'])
     const back = res.receipt.dispatched.find((x) => x.chain === d.receipt.chain)
     ok(back && back.resumed === true && back.lane === 1 && JSON.stringify(back.committed) === '["WO-01-001"]', `the chain is re-dispatched on lane 1 keeping WO-01-001 (${JSON.stringify(back && { r: back.resumed, c: back.committed })})`)

@@ -1266,6 +1266,23 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   settle before the paused close, and the resume's first round after the pool is up passes `--resume`. If the pool
   never comes up, every lane breaks or `lane-next` fails twice, the rest falls back to K = 1 on main. The result carries
   `lanes: { k, parked, blockedFrds }`. The artifact budget rose to 480 000 bytes for this scheduler (decision log).
+  **Lossy relays (bench FM-8; `test-build-engine.mjs` `corrupted-lane-next-receipt-still-builds-and-lands`,
+  `orphaned-chain-readopted`, `orphaned-chain-loud-stop`, `fast-lane-receipt-reread`, `relay-decoded-unicode-still-seals
+  (engine)`, `lane-before-schema-barrier-no-unused-deps-red`; `test-build-mech.mjs` `relay-decoded-unicode-still-seals`,
+  receipt file; `test-build-mech-lanes.mjs` `inFlightChains`).** A mech op's side effects are durable before its haiku
+  relay copies the sealed line back, and the relay is lossy (a truncated `lane-next` line left a claimed lane chain
+  orphaned and its FRD and dependents silently deferred; a decoded `\u203a` broke an intact `lane-usable` seal). So, for
+  the fast lane and the lanes alike: (1) every seal check (`drift-seal.mjs` `verifySealedLine`, the engine's
+  `driftSealHolds`) re-escapes non-ASCII in the received text before hashing, so a decoded escape seals and a changed
+  value never does; (2) every `runMechOp` passes `--receipt <nonce>` and the op also writes its sealed line to
+  `.pandacorp/run/receipts/<op>-<nonce>.json`; an unverifiable relay gets ONE cat-only re-read relay (`receipt:<label>`,
+  never a re-run of the op), and only when that fails too is the op unknown and its caller's idempotent probe decides;
+  (3) `lane-next` reports `inFlightChains` (every live non-barrier lane chain with its lane path, env and committed WOs,
+  read-only), and after the resume round the engine re-adopts one it does not own as a resume in its lane (no
+  re-dispatch, no checkout or reset); a chain it never owned that still holds work when the run idles (it cannot be
+  adopted: no lane path) BLOCKS that FRD needs-owner naming the chain, `stopReason: 'orphan-chain'`, never a deferral;
+  (4) a lane builder started while a schema/package barrier is in flight is told that a knip unused-dependency red from
+  its pre-barrier base is expected and never to be cleared by touching the dependencies, package.json or the lockfile.
 - **Review debt** = FRDs whose WOs are all ≥ `IN_REVIEW` but not VERIFIED, derived at read time (the run result's
   `reviewDebt`); no stored field (DR-115). `reviewBudget:'defer'` launches no gate and ends `stopReason:
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.

@@ -84,6 +84,7 @@ const REVIEWED_IDS = (prompt) => ((/THIS cycle: (.+?) \(all IN_REVIEW\)/.exec(St
 const withProbes = (call, answer) => answer && answer.green === true && !('probes' in answer) ? { ...answer, probes: REVIEWED_IDS(call.prompt).map((wo) => ({ wo, test: `src/_tests/${wo}.probe.test.ts` })) } : answer
 function defaultResponse(label, call = {}) {
   if (label === 'mech-plan') return null   // a fast-lane scenario gets its plan line from runEngine (scenario.plan)
+  if (label.startsWith('receipt:')) return { line: '' }   // bench FM-8: a receipt re-read finds nothing unless a scenario stores one
   if (/^(fast-(build|retry)|lane-build):/.test(label)) return { wos: FAST_BUILT_IDS(call.prompt).map((id) => ({ id, line: commitLine(id) })) }
   if (label.startsWith('usable:')) return { line: mechLine('lane-usable', { status: 'green', frd: label.slice(7), green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full', injection: [], class: null, candidates: [] }) }
   if (label.startsWith('lane-fix:')) return { done: true }
@@ -923,7 +924,8 @@ SCENARIOS.push({
   responses: [{ label: 'safe-point-probe', times: 1, response: { line: probeLine({}).line.replace('"quiet"', '"QUIET"') } }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
-    t.ok(indexOf(run, /^safe-point$/) === indexOf(run, /^safe-point-probe$/) + 1, 'the full safe point runs right after the unverifiable probe')
+    // Bench FM-8: between them, exactly ONE re-read of the probe's stored receipt (it finds nothing here).
+    t.ok(indexOf(run, /^receipt:safe-point-probe$/) === indexOf(run, /^safe-point-probe$/) + 1 && indexOf(run, /^safe-point$/) === indexOf(run, /^receipt:safe-point-probe$/) + 1, 'the full safe point runs right after the unverifiable probe and its one failed receipt re-read')
     t.ok(hasLog(run, /probe.*(seal|unverifiable)/i), 'the fallback is logged')
     t.ok(run.result && run.result.builtFrds.includes('frd-su'), 'the FRD verifies')
   },
@@ -2777,7 +2779,7 @@ function laneSim(chains, { k = 2, kReason = 'requested', resumed = [], perStep =
       st.ks.push(kStep)
     }
     const barrier = onMainNow()
-    return { line: mechLine('lane-next', { status: 'next', k: kStep, kReason: kStep === 1 && perStep ? 'narrow-step' : kReason, kRun: k, dispatched, failed: [], barrier: barrier ? view(barrier) : null, landingsPaused: Boolean(barrier), landQueue: chains.filter((c) => st.status[c.chain] === 'built').map(view), needsFix: [], inFlight: chains.filter((c) => live(c.chain)).map((c) => c.chain), parked: chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain), blockedFrds: blockedFrds(), blockedWos: [], landedFrds: [...new Set(chains.filter((c) => st.status[c.chain] === 'landed').map((c) => c.frd))], pool: { size: k, free: free().length, booting: 0, broken: 0 }, remaining: chains.filter((c) => st.status[c.chain] !== 'landed').length }) }
+    return { line: mechLine('lane-next', { status: 'next', k: kStep, kReason: kStep === 1 && perStep ? 'narrow-step' : kReason, kRun: k, dispatched, failed: [], barrier: barrier ? view(barrier) : null, landingsPaused: Boolean(barrier), landQueue: chains.filter((c) => st.status[c.chain] === 'built').map(view), needsFix: [], inFlight: chains.filter((c) => live(c.chain)).map((c) => c.chain), inFlightChains: chains.filter((c) => !c.barrier && st.lane[c.chain] && live(c.chain)).map((c) => ({ ...view(c), committed: st.committed[c.chain] || [] })), parked: chains.filter((c) => st.status[c.chain] === 'parked').map((c) => c.chain), blockedFrds: blockedFrds(), blockedWos: [], landedFrds: [...new Set(chains.filter((c) => st.status[c.chain] === 'landed').map((c) => c.frd))], pool: { size: k, free: free().length, booting: 0, broken: 0 }, remaining: chains.filter((c) => st.status[c.chain] !== 'landed').length }) }
   }
   const responses = [
     { label: 'lane-plan', response: { line: mechLine('lane-plan', perStep ? { status: 'planned', k: 1, kReason: 'narrow-step', kRun: k, kRunReason: kReason, width: 1, offPath: 2 } : { status: 'planned', k, kReason, width: 2, offPath: 2 }) } },
@@ -3155,6 +3157,156 @@ const widensAfter = (root, kids) => fastPlan([{ frd: root, ids: [`wo-${root.slic
       t.ok(overlap && byLabel(run, 'lane-build:c-wo-cd-001').length === 1 && byLabel(run, 'lane-build:c-wo-cb-001').length === 1, 'FRD-CD\'s builder ran in its lane while FRD-CB\'s was building')
       t.ok(labelIdx(run, /^usable:frd-cd$/) >= 0 && labelIdx(run, /^usable:frd-cd$/) < labelIdx(run, /^fast-build:frd-cb$/), 'FRD-CD is verified USABLE before FRD-CB\'s last WO builds')
       t.ok(run.result && ['frd-ca', 'frd-cb', 'frd-cd'].every((f) => run.result.builtFrds.includes(f)), `all three VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bench FM-8: the relay is LOSSY. A truncated lane-next line made the engine dispatch nothing while the script had
+// already claimed a lane (an orphaned chain, its FRD and dependents silently deferred); a relay that decoded › to ›
+// broke the seal of an intact lane-usable receipt. The fix, for both the fast lane and the lanes: ASCII-normalized seal
+// checks, a re-read of the stored receipt file (never a re-run of the op), re-adoption of an orphaned chain, and a loud
+// stop when a chain the script holds in flight is still unowned at the end.
+// ─────────────────────────────────────────────────────────────────────────────
+const RECEIPT_CAT = /^MECHANICAL COMMAND RUNNER .*run exactly `cat '[^']*\/\.pandacorp\/run\/receipts\/([a-z-]+)-([A-Za-z0-9_-]+)\.json'`/
+const decodeEscapes = (line) => line.replace(/\\u([0-9a-f]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+{
+  // The first lane-next round's line reaches the engine truncated (invalid JSON) AFTER the script claimed both lanes.
+  const sim = laneSim([chainOf('frd-ta', ['wo-ta-001']), chainOf('frd-tb', ['wo-tb-001'])])
+  const simNext = sim.responses.find((x) => x.label === 'lane-next').response
+  const stored = new Map()
+  let cut = 0
+  SCENARIOS.push({
+    name: 'corrupted-lane-next-receipt-still-builds-and-lands — a truncated lane-next relay is recovered by ONE re-read of its stored receipt (lane-next is never re-run for it): the claimed chain is built and landed, the sibling lane untouched',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ta', ids: ['wo-ta-001'] }, { frd: 'frd-tb', ids: ['wo-tb-001'] }]),
+    responses: [
+      { label: 'lane-next', response: (call) => {
+        const r = simNext(call)
+        const nonce = (/--receipt ([A-Za-z0-9_-]+)/.exec(call.prompt) || [])[1]
+        stored.set(`lane-next-${nonce}`, r.line)
+        return cut++ === 0 ? { line: r.line.slice(0, Math.floor(r.line.length * 0.6)) } : r
+      } },
+      { label: /^receipt:/, response: (call) => { const m = RECEIPT_CAT.exec(call.prompt); return { line: (m && stored.get(`${m[1]}-${m[2]}`)) || '' } } },
+      ...sim.responses.filter((x) => x.label !== 'lane-next'),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const nexts = byLabel(run, 'lane-next')
+      t.ok(nexts.length > 0 && nexts.every((c) => /lane-next --project '[^']+' .*--receipt [A-Za-z0-9_-]+/.test(c.prompt)), 'every lane-next carries a --receipt nonce')
+      const rr = byLabel(run, /^receipt:/)
+      t.ok(rr.length === 1 && rr[0].label === 'receipt:lane-next' && RECEIPT_CAT.test(rr[0].prompt), `exactly ONE re-read relay, a cat of the stored lane-next receipt (got ${rr.map((c) => c.label).join(', ') || 'none'})`)
+      t.ok(rr.length === 1 && !/pandacorp-build-mech\.mjs/.test(rr[0].prompt), 'receipt-reread-never-reexecutes: the re-read runs no mech op')
+      t.ok(sim.st.nextCalls === nexts.length, `lane-next ran exactly as often as it was relayed (${sim.st.nextCalls} vs ${nexts.length}): the corrupted round was never re-executed`)
+      t.ok(['c-wo-ta-001', 'c-wo-tb-001'].every((id) => byLabel(run, `lane-build:${id}`).length === 1 && byLabel(run, `land-chain:${id}`).length === 1), `each chain built once in its lane and landed once (builds ${byLabel(run, /^lane-build:/).map((c) => c.label).join(', ')})`)
+      t.ok(byLabel(run, /^lane-build:/).every((c) => !/unused-dependency/.test(c.prompt)), 'no barrier in flight: the lane builder gets no expected-red note')
+      t.ok(!hasLog(run, /lane-next unverifiable/) && hasLog(run, /re-read from its stored receipt/), 'the round is recovered, never "nothing dispatched"')
+      t.ok(run.result && ['frd-ta', 'frd-tb'].every((f) => run.result.builtFrds.includes(f)) && run.result.reopenedFrds.length === 0, `both FRDs VERIFIED, nothing deferred (built ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+{
+  // The re-read fails too: the claimed chain is an orphan until the next round reports it in inFlightChains — adopted as a
+  // resume in its lane (no re-dispatch, no reset), built and landed.
+  const sim = laneSim([chainOf('frd-oa', ['wo-oa-001']), chainOf('frd-ob', ['wo-ob-001'])])
+  const simNext = sim.responses.find((x) => x.label === 'lane-next').response
+  let cut = 0
+  SCENARIOS.push({
+    name: 'orphaned-chain-readopted — a lost lane-next receipt whose re-read also fails leaves the claimed chains orphaned only until the next round: inFlightChains re-adopts them in their lanes, both built and landed',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-oa', ids: ['wo-oa-001'] }, { frd: 'frd-ob', ids: ['wo-ob-001'] }]),
+    responses: [
+      { label: 'lane-next', response: (call) => { const r = simNext(call); return cut++ === 0 ? { line: r.line.slice(0, 120) } : r } },
+      { label: /^receipt:/, response: { line: '' } },
+      ...sim.responses.filter((x) => x.label !== 'lane-next'),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'receipt:lane-next').length === 1 && hasLog(run, /lane-next unverifiable/), 'one re-read, failed: the round is unverifiable')
+      t.ok(hasLog(run, /re-adopt(ed|ing) chain c-wo-oa-001/) && hasLog(run, /re-adopt(ed|ing) chain c-wo-ob-001/), 'the next round re-adopts both orphaned chains, named')
+      t.ok(['c-wo-oa-001', 'c-wo-ob-001'].every((id) => byLabel(run, `lane-build:${id}`).length === 1 && byLabel(run, `land-chain:${id}`).length === 1), `each orphan built once in its own lane and landed (builds ${byLabel(run, /^lane-build:/).map((c) => c.label).join(', ')})`)
+      t.ok(run.result && ['frd-oa', 'frd-ob'].every((f) => run.result.builtFrds.includes(f)) && run.result.reopenedFrds.length === 0, `both VERIFIED, nothing deferred (reopened ${run.result && JSON.stringify(run.result.reopenedFrds)})`)
+    },
+  })
+}
+{
+  // A chain the script holds in flight that the engine cannot adopt (its lane is gone from the pool view: no path) still
+  // holds its FRD's work order at the end: a LOUD stop naming the chain, never a silent deferral.
+  const sim = laneSim([chainOf('frd-lb', ['wo-lb-001']), chainOf('frd-lc', ['wo-lc-001'])])
+  const simNext = sim.responses.find((x) => x.label === 'lane-next').response
+  const ghost = { chain: 'c-wo-la-001', frd: 'frd-la', wos: ['wo-la-001'], lane: 3, onMain: null, downstream: 0, status: 'dispatched', fixes: 0, base: 'ba5e00000001', committed: [] }
+  SCENARIOS.push({
+    name: 'orphaned-chain-loud-stop — work held by a chain the script lists in flight but the engine never owned is a LOUD stop naming the chain (needs-owner), never a silent deferral',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-la', ids: ['wo-la-001'] }, { frd: 'frd-lb', ids: ['wo-lb-001'] }, { frd: 'frd-lc', ids: ['wo-lc-001'] }]),
+    responses: [
+      { label: 'lane-next', response: (call) => { const r = JSON.parse(simNext(call).line); delete r.sum; const { version, op, ok, ...body } = r; return { line: mechLine('lane-next', { ...body, inFlight: [...body.inFlight, ghost.chain], inFlightChains: [...body.inFlightChains, ghost] }) } } },
+      ...sim.responses.filter((x) => x.label !== 'lane-next'),
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, /^lane-build:c-wo-la-001/).length === 0, 'the unadoptable chain is never built by the engine')
+      t.ok(run.result && ['frd-lb', 'frd-lc'].every((f) => run.result.builtFrds.includes(f)), 'the other FRDs still land and verify')
+      t.ok(run.result && run.result.stopReason === 'orphan-chain' && run.result.blockedFrds.includes('frd-la') && /c-wo-la-001/.test(run.result.blockedFailures['frd-la'] || ''), `a loud stop: frd-la BLOCKED naming the chain (stop ${run.result && run.result.stopReason}, failure ${run.result && JSON.stringify(run.result.blockedFailures)})`)
+      t.ok(run.result && !run.result.reopenedFrds.includes('frd-la') && !hasLog(run, /frd-la: deferred to the next run/), 'never a silent deferral')
+      t.ok(hasLog(run, /⛔.*c-wo-la-001/), 'the stop is logged loudly, naming the chain')
+    },
+  })
+}
+{
+  // A schema barrier and a lane chain dispatched in the same round: the lane's base lacks the barrier, so its self-verify
+  // may show a knip unused-dependency red the builder must NOT "fix" by removing a dependency.
+  const sim = laneSim([chainOf('frd-sa', ['wo-sa-001'], { barrier: true }), chainOf('frd-sb', ['wo-sb-001'])])
+  SCENARIOS.push({
+    name: 'lane-before-schema-barrier-no-unused-deps-red — a lane builder dispatched while a schema/package barrier is in flight is told its unused-dependency reds are expected and must never be fixed by removing a dependency',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-sa', ids: ['wo-sa-001'] }, { frd: 'frd-sb', ids: ['wo-sb-001'] }]),
+    responses: [{ label: /^fast-build:frd-sa/, response: async (call) => { await tick(40); sim.st.status['c-wo-sa-001'] = 'landed'; return builtNow(call) } }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const lb = byLabel(run, 'lane-build:c-wo-sb-001')
+      t.ok(lb.length === 1 && /barrier/i.test(lb[0].prompt) && /unused-dependency/.test(lb[0].prompt) && /never remove/i.test(lb[0].prompt) && /package\.json/.test(lb[0].prompt), 'the lane builder is told the unused-dependency red is expected and never to remove a dependency')
+      t.ok(byLabel(run, /^fast-build:frd-sa/).every((c) => !/unused-dependency/.test(c.prompt)), 'the barrier builder on main gets no such note')
+      t.ok(run.result && ['frd-sa', 'frd-sb'].every((f) => run.result.builtFrds.includes(f)), 'both VERIFIED')
+    },
+  })
+}
+{
+  // Fast lane (sequential, on main): the scripted verify's line is lost once; the stored receipt is re-read, never re-run.
+  SCENARIOS.push({
+    name: 'fast-lane-receipt-reread — a truncated verify relay on the sequential fast lane is recovered by re-reading its receipt; verify.sh is not re-run, the FRD is USABLE and VERIFIED',
+    args: { mode: 'balanced', ...FAST },
+    plan: fastPlan([{ frd: 'frd-rv', ids: ['wo-rv-001'] }]),
+    responses: [
+      { label: 'verify:frd-rv', response: (call) => {
+        const line = mechLine('verify', { status: 'green', frd: 'frd-rv', green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full' })
+        return { line: line.replace(/\d(?=[^\d]*"sum")/, '') }   // a dropped digit: invalid JSON or a broken seal
+      } },
+      { label: 'receipt:verify:frd-rv', response: { line: mechLine('verify', { status: 'green', frd: 'frd-rv', green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full' }) } },
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'verify:frd-rv').length === 1 && byLabel(run, 'receipt:verify:frd-rv').length === 1 && RECEIPT_CAT.test(byLabel(run, 'receipt:verify:frd-rv')[0].prompt), 'one verify relay, one receipt re-read (a cat), no second verify')
+      t.ok(run.result && run.result.usable.some((u) => u.frd === 'frd-rv') && run.result.builtFrds.includes('frd-rv'), 'USABLE from the re-read receipt, then VERIFIED')
+    },
+  })
+}
+{
+  // FM-8's second shape: the relay decoded the escaped › of an intact lane-usable line. Same values: it still seals. A real
+  // value change in the next FRD's line still fails (re-read finds nothing): never certified from it.
+  const sim = laneSim([chainOf('frd-ua', ['wo-ua-001']), chainOf('frd-ub', ['wo-ub-001'])])
+  const decoded = { line: decodeEscapes(mechLine('lane-usable', { status: 'green', frd: 'frd-ua', green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full', injection: [], class: null, candidates: [], failure: '', note: 'vitest › 12 files · canción' })) }
+  const changed = { line: mechLine('lane-usable', { status: 'green', frd: 'frd-ub', green: true, usable: true, floor: false, sha: 'feed00000001', scope: 'full', injection: [], class: null, candidates: [], failure: '' }).replace('"sha":"feed00000001"', '"sha":"feed00000002"') }
+  SCENARIOS.push({
+    name: 'relay-decoded-unicode-still-seals (engine) — a lane-usable line whose › and ó the relay decoded is accepted with no re-read; real-value-change-still-fails: an altered sha is never accepted',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-ua', ids: ['wo-ua-001'] }, { frd: 'frd-ub', ids: ['wo-ub-001'] }]),
+    responses: [{ label: 'usable:frd-ua', response: decoded }, { label: 'usable:frd-ub', times: 1, response: changed }, { label: /^receipt:/, response: { line: '' } }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(/›/.test(decoded.line) && byLabel(run, 'usable:frd-ua').length === 1 && byLabel(run, 'receipt:usable:frd-ua').length === 0, 'the decoded line seals: one relay, no re-read')
+      t.ok(run.result && run.result.usable.some((u) => u.frd === 'frd-ua' && u.sha === 'feed00000001'), 'frd-ua is USABLE from it')
+      t.ok(byLabel(run, 'receipt:usable:frd-ub').length >= 1 && !(run.result && run.result.usable.some((u) => u.sha === 'feed00000002')), 'the altered line fails its seal (re-read attempted) and is never certified')
     },
   })
 }

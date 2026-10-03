@@ -11,6 +11,8 @@
 //               pool still booting). The receipt is the engine's whole view:
 //               what it must build now (`dispatched`, `barrier`), land (`landQueue`, `needsFix`), and what waits
 //               (`parked`, `blockedFrds`: only the DAG descendants of a parked chain), plus K and the pool's health.
+//               `inFlightChains` (bench FM-8) names every live lane chain with its lane path, env and committed WOs, so the
+//               engine re-adopts one whose dispatch receipt its relay lost instead of leaving it orphaned.
 //   lane-usable --frd f --wo …  [--floor] [--sha <pin>]
 //               USABLE for a lane-built FRD (§3 B.6): one full verify.sh on the PINNED SHA (HEAD at the start) in the
 //               snapshot worktree, so landings go on meanwhile. The floor and the injection scan read the FRD's OWN
@@ -165,6 +167,22 @@ const chainView = (ctx, state, c) => {
   return { chain: c.id, frd: c.frd, wos: c.wos, lane: c.lane, onMain: c.barrier ? c.onMain || 'schema' : null, downstream: c.downstream, status: c.status, fixes: c.fixes || 0, base: String(c.base || '').slice(0, 12), ...(l ? { path: path.join(l.path, ctx.prefix), env: laneEnv(l.lane, l.port) } : {}) }
 }
 
+/**
+ * Bench FM-8: every live lane chain (never a barrier on main), as the engine needs it to RE-ADOPT one whose dispatch
+ * receipt its relay lost: the chain view plus the WOs already committed on its lane branch. Read-only: nothing is
+ * checked out or reset (a live builder may be working there).
+ */
+function inFlightChains(ctx, state, chains) {
+  return chains.filter((c) => LIVE.has(c.status) && !c.barrier && c.lane).map((c) => {
+    const v = chainView(ctx, state, c)
+    const g = v.path ? gitIn(v.path) : null
+    const tip = g && c.base ? g.run(['rev-parse', '--verify', '-q', `refs/heads/lane/${c.id}`]) : null
+    if (!tip || !tip.ok) return { ...v, committed: [] }
+    // An unreadable lane history is reported as unknown (null), never as "nothing committed": the round itself must not fail.
+    try { return { ...v, committed: laneCommits(g, c.base, tip.out.trim()).filter((x) => x.wo).map((x) => x.wo) } } catch (e) { return { ...v, committed: null, committedError: e.message } }
+  })
+}
+
 /** `lane-next` — see the header. */
 export async function laneNextOp(o) {
   checkLaneFlags(o)
@@ -207,7 +225,7 @@ export async function laneNextOp(o) {
       status: 'next', k: plan.k, kReason: plan.kReason, kRun: plan.kRun, kRunReason: plan.kRunReason, width: plan.width, offPath: plan.offPath, dispatched, failed, retired,
       barrier: barrier ? chainView(ctx, state, barrier) : null, landingsPaused: Boolean(barrier),
       landQueue: after.landQueue.map((id) => chainView(ctx, state, state.chains[id])), needsFix: live.filter((c) => c.status === 'needs-fix').map((c) => chainView(ctx, state, c)),
-      inFlight: live.filter((c) => LIVE.has(c.status)).map((c) => c.id), parked: after.parked, blockedFrds: after.blockedFrds, blockedWos: after.blockedWos,
+      inFlight: live.filter((c) => LIVE.has(c.status)).map((c) => c.id), inFlightChains: inFlightChains(ctx, state, live), parked: after.parked, blockedFrds: after.blockedFrds, blockedWos: after.blockedWos,
       landedFrds: unique(live.filter((c) => c.status === 'landed').map((c) => c.frd)).sort(), pool: after.pool, remaining: after.remaining,
     },
   }

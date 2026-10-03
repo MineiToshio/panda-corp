@@ -73,6 +73,9 @@
 //   lane-next / lane-usable   proposal 40 Phase B: the engine's scheduling round (refresh, resume, barrier, dispatch every
 //                free lane) and the USABLE check of a lane-built FRD in the snapshot worktree on a pinned SHA, with the
 //                bisect candidates of a red one (build-mech-lane-next.mjs).
+//   Every op takes [--receipt <nonce>] (bench FM-8): its sealed line is ALSO written to
+//                .pandacorp/run/receipts/<op>-<nonce>.json, so the engine re-reads a receipt its relay lost instead of
+//                re-running a durable op.
 //   Every full verify.sh these ops run (verify, verify --patch, close, lane-usable, lane-bisect, and land-chain's
 //                checks) holds a host verify slot and re-runs a test-timeout red's failing files alone (bench FM-7):
 //                build-mech-verify.mjs.
@@ -128,6 +131,7 @@ function parseArgs(argv) {
     else if (name === 'reason') { const last = o.extras[o.extras.length - 1]; if (!last || last.reason !== null) throw new InputError('--reason must follow its --extra'); last.reason = v.trim() }
     else if (LISTS.has(name)) o[name === 'file' ? 'files' : `${name.replace(/-(\w)/g, (_, c) => c.toUpperCase())}s`].push(v)
     else if (['lock-wait-ms', 'test-timeout-ms', 'max-age', 'port', 'epoch', 'verify-timeout-ms', 'max-agents', 'findings', 'lanes', 'size', 'lane'].includes(name)) { const n = Number(v); if (!Number.isInteger(n) || n < 0) throw new InputError(`${k} must be a non-negative integer`); o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = n }
+    else if (name === 'receipt') { if (!/^[A-Za-z0-9_-]{1,64}$/.test(v)) throw new InputError('--receipt must be 1-64 characters of [A-Za-z0-9_-]'); o.receipt = v }
     else if (['project', 'fixup', 'for', 'main-branch', 'events', 'token', 'path', 'sha', 'dir', 'project-name', 'since', 'range', 'mode', 'pin', 'ui-skip', 'ui-skip-frds', 'visual-qa', 'smoke-sha', 'chain', 'as', 'why'].includes(name)) o[name.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = v
     else throw new InputError(`unknown option ${k}`)
   }
@@ -624,10 +628,19 @@ const OPS = { 'commit-wo': commitWo, 'park-wo': parkWo, precheck, dispatch, 'saf
 /** CLI entry: prints ONE sealed JSON line, returns the exit code. */
 export async function main(argv) {
   const op = argv[0]
-  const emit = (body) => process.stdout.write(`${sealLine({ version: 1, op: op || null, ...body })}\n`)
+  let receipt = null
+  // Bench FM-8: with --receipt the same line is stored first, so a relay that lost it is recovered by READING the file,
+  // never by re-running the op. A file that cannot be written leaves the stdout line the only copy (said on stderr).
+  const emit = (body) => {
+    const line = `${sealLine({ version: 1, op: op || null, ...body })}\n`
+    if (receipt) { try { mkdirSync(path.dirname(receipt), { recursive: true }); writeFileSync(receipt, line) } catch (e) { process.stderr.write(`receipt not stored at ${receipt}: ${e.message}\n`) } }
+    process.stdout.write(line)
+  }
   try {
     if (!OPS[op]) throw new InputError(`first argument must be one of ${Object.keys(OPS).join('|')}, got ${JSON.stringify(op)}`)
-    const { code, body } = await OPS[op](parseArgs(argv))
+    const o = parseArgs(argv)
+    if (o.receipt) receipt = path.join(o.project, '.pandacorp', 'run', 'receipts', `${op}-${o.receipt}.json`)
+    const { code, body } = await OPS[op](o)
     emit({ ok: code === 0, ...body })
     return code
   } catch (e) {

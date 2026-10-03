@@ -8,7 +8,8 @@
 //
 // Seal = a 53-bit cyrb53 checksum (not a security primitive: it detects accidental alteration, which is the
 // only adversary here) of the body text, appended as the LAST key: `…,"sum":"<14 hex>"}`. The body is ASCII
-// only (non-ASCII escaped as \uXXXX, still plain JSON) so a model has fewer characters to mis-copy.
+// only (non-ASCII escaped as \uXXXX, still plain JSON) so a model has fewer characters to mis-copy, and a verifier
+// re-escapes the text it received before hashing (bench FM-8: a relay decoded \u203a to › and broke an intact seal).
 //
 // The engine ships no imports (a Dynamic Workflow script has no module access), so it carries its own copy
 // of `cyrb53` + the verifier; test-pandacorp-build.mjs seals fixtures with THIS module, so any drift between
@@ -38,8 +39,19 @@ const sumOf = (body) => cyrb53(body).toString(16).padStart(14, '0')
  * @returns {string} single-line ASCII JSON whose last key is `sum`
  */
 export function sealLine(obj) {
-  const body = JSON.stringify(obj).replace(/[\u007f-￿]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
+  const body = asciiOnly(JSON.stringify(obj))
   return `${body.slice(0, -1)},"sum":"${sumOf(body)}"}`
+}
+
+/**
+ * Bench FM-8: every non-ASCII character escaped as `\uXXXX` (lowercase hex), exactly as sealLine writes it. A relay that
+ * DECODES an escape (`\u203a` → `›`) changed no value, so every seal check hashes the received text through this first;
+ * a changed character still changes the hash.
+ * @param {string} text
+ * @returns {string}
+ */
+export function asciiOnly(text) {
+  return String(text).replace(/[\u007f-\uffff]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}`)
 }
 
 /**
@@ -51,6 +63,6 @@ export function verifySealedLine(text) {
   const t = String(text || '').trim()
   const m = SEAL_RE.exec(t)
   if (!m) return { ok: false, reason: 'no integrity seal at the end of the line' }
-  const body = `${t.slice(0, m.index)}}`
+  const body = asciiOnly(`${t.slice(0, m.index)}}`)
   return sumOf(body) === m[1] ? { ok: true } : { ok: false, reason: 'the integrity seal does not match the content' }
 }

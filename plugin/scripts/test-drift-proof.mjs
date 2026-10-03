@@ -256,8 +256,13 @@ const run = (args, env = {}) => {
   check(JSON.parse(line).probes[0].head[0].message.includes('\u{1F680}') || JSON.parse(line).probes[0].head[0].message.includes('ó'), 'seal: the escaped characters parse back to the original text')
   check(!verifySealedLine(line.replace('"baseValid":true', '"baseValid":false')).ok && !verifySealedLine(line.replace(']}],"cleanup"', '}],"cleanup"')).ok && !verifySealedLine(line.replace(/,"sum":"[0-9a-f]{14}"\}$/, '}')).ok, 'seal: an edited value, a dropped bracket and a dropped seal are all detected')
   const obj = JSON.parse(line)
-  const reordered = JSON.stringify({ ...obj, frd: obj.frd })   // a re-serialization a model might do: `sum` no longer last → no seal
-  check(!verifySealedLine(reordered).ok || reordered === line, 'seal: a re-serialized copy is either byte-identical or rejected — never silently accepted')
+  const { sum, ...rest } = obj
+  const reordered = JSON.stringify({ sum, ...rest })   // a re-serialization a model might do: `sum` no longer last → no seal
+  check(reordered !== line && !verifySealedLine(reordered).ok, 'seal: a re-serialized copy with its keys moved is rejected — never silently accepted')
+  // Bench FM-8: a copy whose ONLY difference is decoded \uXXXX escapes (a relay decoded ó) carries the same values: it seals.
+  const decoded = JSON.stringify(obj)
+  check(decoded !== line && /[^\x20-\x7e]/.test(decoded) && verifySealedLine(decoded).ok && JSON.stringify(JSON.parse(decoded)) === JSON.stringify(obj), 'seal: a copy that only decoded the escapes verifies and carries the identical values')
+  check(!verifySealedLine(decoded.replace('ó', 'o')).ok, 'seal: a changed character in the decoded copy is still detected')
   check(existsSync(path.join(r.app, stored)) && readFileSync(path.join(r.app, stored), 'utf8') === `${line}\n`, 'out: the stored copy is the exact sealed line')
   check(run(['replay', '--project', r.app, '--frd', 'frd-01-demo', '--file', stored]).out.trim() === line, 'replay: prints the stored line byte-for-byte without re-running a probe')
   check(git(r.repo, 'status', '--porcelain') === '', 'out: the stored proof is gitignored run-state (main tree stays clean)')
