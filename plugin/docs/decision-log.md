@@ -20,6 +20,13 @@ The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) 
 **Not verified:** bench B-3 (3,001,000-token context) back-solves only at a $3/$15/$0.30 tier, a likely long-context price tier the PRICING table does not model; it is left out rather than guessed (CONV-13).
 
 **Tests:** `plugin/scripts/test-usage-rollup.mjs` (j, j2, j3, j4, j5 plus the updated (a); 135 pass). Canonical text: `factory/standards/build-orchestration.md` (cost/token rollup).
+### BL-0220: `/implement` preflight warns when the session cwd is outside the project (PATCH, version set at release)
+
+**What:** `preflight-implement.sh` gains section 1b: a `WARN` (advisory, never a failing check) when the launching session's real cwd is not inside the project being built. `implement/SKILL.md` step 1 documents "launch from a session opened inside the project" and corrects the "launching from ANY cwd is safe" claim, which held for the build's files and events but not for the instructions the agents follow.
+
+**Why:** the bench transcripts show 160/160 engine agents of a build of `pandacorp-bench-form/bench-implement` launched from a Mission Control session received Mission Control's CLAUDE.md/AGENTS.md/`docs/rules` chain (and the factory's), never the bench project's: the injection follows the launching session's cwd, not the cwd the engine `cd`s each agent to. A parent cwd (factory root launching a nested project) injects the parent's chain too, so the check is "cwd inside the project", not "same git toplevel".
+
+**Tests:** `test-preflight-session-cwd.sh` (13 assertions: unrelated, parent and sibling cwd WARN; project, subdirectory and symlinked project path PASS; exit stays 0), registered in `run-engine-tests.sh`.
 
 ## v9.120.1 — 2026-10-03 (PATCH): the stack-a production-smoke harness passes its own stack gate. `OVERLAY_VERSION` 8.97.0 -> 8.97.1
 

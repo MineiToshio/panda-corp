@@ -68,6 +68,24 @@ if [ ! -f "$STATUS" ]; then
   exit "$FAILS"
 fi
 pass "marker present (.pandacorp/status.yaml)"
+
+# 1b) session cwd inside the project (BL-0220). Claude Code injects the CLAUDE.md / AGENTS.md chain
+# of the LAUNCHING session's cwd into every Workflow subagent, whatever cwd the engine later cds
+# them to (verified on the 2026-10-01 bench: 160/160 engine agents building bench-implement received
+# the launching session's Mission Control chain, never the project's). Only a cwd INSIDE the project
+# walks up to the project's own chain; a parent (factory root -> nested project), a sibling or an
+# unrelated cwd injects someone else's rules. Advisory ONLY (a WARN, never $FAILS): the build still
+# runs correctly, just under foreign instructions. Compared by real path so symlinks and a relative
+# project argument cannot fake a match.
+SESSION_CWD_REAL=$(pwd -P 2>/dev/null || true)
+PROJ_REAL=$(cd "$PROJ" 2>/dev/null && pwd -P || true)
+if [ -n "$SESSION_CWD_REAL" ] && [ -n "$PROJ_REAL" ]; then
+  case "$SESSION_CWD_REAL/" in
+    "$PROJ_REAL/"*) pass "session cwd is inside the project (the project's own CLAUDE.md chain reaches the engine agents)" ;;
+    *) warn "el cwd de esta sesión ($SESSION_CWD_REAL) está fuera del proyecto ($PROJ_REAL): los agentes del motor reciben la cadena CLAUDE.md/AGENTS.md del cwd de ESTA sesión, no la del proyecto — lanza /implement desde una sesión abierta dentro del proyecto (BL-0220)." ;;
+  esac
+fi
+
 if [ "$CERTIFICATION_ONLY" = "true" ]; then
   if [ "$TARGET_RUNTIME" = "codex" ]; then pass "certification-only intent declared (permit validation remains mandatory in the launcher)"; else fail "certification-only intent is valid only for target runtime codex"; fi
 fi
