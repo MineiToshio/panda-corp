@@ -67,7 +67,11 @@ const run = async (args) => {
   ok(summary.models['claude-haiku-4-5-20251001'].input_tokens === 8, 'per-model token totals sum correctly (3+5)')
   ok(summary.models['claude-sonnet-5'].cost_usd === Number((40000 * 2 / 1e6 + 160000 * 0.20 / 1e6 + 20000 * 10 / 1e6).toFixed(6)), 'sonnet-5 cost computed from the audited $2/$10/$0.20 MTok rates')
   ok(typeof summary.cost_usd_total === 'number' && summary.cost_usd_total > 0, 'a total cost rolls up across models')
-  ok(Array.isArray(summary.cost_excludes) && summary.cost_excludes.includes('cache_creation_input_tokens'), 'cache-creation cost is explicitly excluded, never invented')
+  ok(Array.isArray(summary.cost_excludes) && summary.cost_excludes.length === 0, 'BL-0219: cost_usd_total now prices cache writes, so nothing is excluded from it')
+  const haikuNoWrite = (8 * 1 + 36887 * 0.10 + 350 * 5) / 1e6
+  const haikuWrite = (20867 + 942) * 2 * 1 / 1e6   // unsplit cache-creation tokens price at the 1-hour tier: 2x the $1/MTok input rate
+  ok(Math.abs(summary.models['claude-haiku-4-5-20251001'].cost_usd - (haikuNoWrite + haikuWrite)) < 1e-6, 'BL-0219: per-model cost_usd includes the cache-write term')
+  ok(Math.abs(summary.models['claude-haiku-4-5-20251001'].cost_usd_excl_cache_write - haikuNoWrite) < 1e-6, 'BL-0219: cost_usd_excl_cache_write equals the pre-fix figure (comparable with past canaries)')
   ok(summary.skipped_incomplete_lines === 0, 'no incomplete lines in a clean fixture')
   await rm(dir, { recursive: true })
 }
@@ -364,18 +368,61 @@ const setupToolRun = async ({ withRepair }) => {
   await rm(root, { recursive: true })
 }
 
-// (j) cache_creation_cost_usd_estimated is computed at 1.25x the model's input rate, labeled as an
-// estimate, and NEVER folded into cost_usd_total (that field keeps its existing, non-estimated meaning).
+// (j) BL-0219: cache-WRITE tokens are priced into cost_usd_total. Claude Code writes the 1-hour TTL tier (2x input;
+// the 5-minute tier is 1.25x), so a line with no per-tier split prices at 2x, and a line carrying
+// `usage.cache_creation.{ephemeral_5m,ephemeral_1h}_input_tokens` prices each tier at its own rate. The pre-fix figure
+// survives as `cost_usd_excl_cache_write` so a new run stays comparable with every earlier canary.
 {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-cachecost-'))
   await writeFile(path.join(dir, 'agent-kkk.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1000000 }) + '\n')
   const { code, stdout } = await run(['--dir', dir, '--wf-json', '/nonexistent/wf.json'])
   ok(code === 0, 'a cache-creation-only line does not fail the rollup')
   const summary = JSON.parse(stdout.trim())
-  ok(summary.cost_usd_total === 0, 'cache_creation_input_tokens still contributes nothing to cost_usd_total (back-compat)')
-  ok(summary.cache_creation_cost_usd_estimated === 2.5, 'the estimate is 1.25x the $2/MTok sonnet-5 input rate over 1M cache-creation tokens')
-  ok(summary.cache_creation_pricing === 'estimated 1.25x input; not verified', 'the estimate is labeled literally as unverified')
+  ok(summary.cost_usd_total === 4, 'BL-0219: 1M unsplit cache-creation tokens price at 2x the $2/MTok sonnet-5 input rate (1-hour tier)')
+  ok(summary.cost_usd_excl_cache_write === 0, 'BL-0219: cost_usd_excl_cache_write keeps the old meaning (cache writes contribute nothing)')
+  ok(summary.cache_creation_cost_usd === 4 && summary.cost_usd_total === summary.cost_usd_excl_cache_write + summary.cache_creation_cost_usd, 'BL-0219: cache_creation_cost_usd is the exact difference between the two totals')
+  ok(typeof summary.cache_creation_pricing === 'string' && /1h/.test(summary.cache_creation_pricing) && !('cache_creation_cost_usd_estimated' in summary), 'BL-0219: the unverified 1.25x estimate is replaced by the priced term')
   await rm(dir, { recursive: true })
+}
+
+// (j2) BL-0219: a per-tier split in the transcript is honoured (400k 5-minute at 1.25x + 600k 1-hour at 2x, $2/MTok).
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-cachetier-'))
+  const usage = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1000000, cache_creation: { ephemeral_5m_input_tokens: 400000, ephemeral_1h_input_tokens: 600000 } }
+  await writeFile(path.join(dir, 'agent-lll.jsonl'), assistantLine('claude-sonnet-5', usage) + '\n')
+  const { code, stdout } = await run(['--dir', dir, '--wf-json', '/nonexistent/wf.json'])
+  ok(code === 0, 'a tiered cache-creation line rolls up')
+  const summary = JSON.parse(stdout.trim())
+  ok(Math.abs(summary.cost_usd_total - 3.4) < 1e-9, 'BL-0219: 400k 5m x 1.25 + 600k 1h x 2 over a $2/MTok input = 3.4')
+  await rm(dir, { recursive: true })
+}
+
+// (j3) BL-0219: reproduces the headless CLI's own `total_cost_usd` for bench run B-4 (sonnet-5-5: in 24 / out 17,215 /
+// cacheRead 708,699 / cacheWrite 79,366 = 0.631 USD), the evidence that the write rate is the 1-hour 2x tier.
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-b4-'))
+  await writeFile(path.join(dir, 'agent-mmm.jsonl'), assistantLine('claude-sonnet-5-5', { input_tokens: 24, output_tokens: 17215, cache_read_input_tokens: 708699, cache_creation_input_tokens: 79366 }) + '\n')
+  const { stdout } = await run(['--dir', dir, '--wf-json', '/nonexistent/wf.json'])
+  const summary = JSON.parse(stdout.trim())
+  ok(Number(summary.cost_usd_total.toFixed(3)) === 0.631, 'BL-0219: the B-4 token counts price to the CLI-reported 0.631 USD')
+  ok(Number(summary.cost_usd_excl_cache_write.toFixed(3)) === 0.314, 'BL-0219: and the old figure (no cache write) is 0.314')
+  await rm(dir, { recursive: true })
+}
+
+// (j4) BL-0219: the joined per-agent rows and the phase rollup carry the priced figure too, so by_phase still sums to the total.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-cacheagent-'))
+  const runDir = path.join(root, 'sess', 'subagents', 'workflows', 'wf_cw')
+  await mkdir(runDir, { recursive: true })
+  await mkdir(path.join(root, 'sess', 'workflows'), { recursive: true })
+  await writeFile(path.join(runDir, 'agent-nnn.jsonl'), assistantLine('claude-sonnet-5', { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1000000 }) + '\n')
+  await writeFile(path.join(root, 'sess', 'workflows', 'wf_cw.json'), JSON.stringify({ workflowProgress: [{ type: 'workflow_agent', agentId: 'nnn', label: 'Build', phaseTitle: 'Build', startedAt: 1000, durationMs: 1000, agentType: 'general-purpose', model: 'sonnet' }] }))
+  const { code, stdout } = await run(['--dir', runDir])
+  ok(code === 0, 'a joined run with cache writes rolls up')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.agents[0].cost_usd === 4 && summary.agents[0].cost_usd_excl_cache_write === 0, 'BL-0219: the agent row prices its cache writes and keeps the comparable excl figure')
+  ok(summary.by_phase.Build.cost_usd === 4 && summary.cost_usd_total === 4, 'BL-0219: by_phase and the total agree')
+  await rm(root, { recursive: true })
 }
 
 // The event stream is not widened (BL-0096 Done-when): --dir mode performs no file writes at all —
@@ -679,6 +726,18 @@ function round3(n) { return Math.round(n * 1e6) / 1e6 }
   ok(code !== 0, 'BL-0156c: an unwritable --out in --dir mode fails loud')
   ok(stdout.trim() === '', 'BL-0156c: no summary line is printed when the record could not be persisted')
   await rm(dir, { recursive: true })
+}
+
+// (j5) BL-0219: --session mode prices cache writes the same way.
+{
+  const root = await mkdtemp(path.join(os.tmpdir(), 'usage-rollup-cachesession-'))
+  const sessionPath = path.join(root, 'sess1.jsonl')
+  await writeFile(sessionPath, assistantLineAt('claude-sonnet-5', { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 1000000 }, '2026-09-22T10:00:00Z') + '\n')
+  const { code, stdout } = await run(['--session', sessionPath])
+  ok(code === 0, 'a session with cache writes rolls up')
+  const summary = JSON.parse(stdout.trim())
+  ok(summary.cost_usd_total === 4 && summary.cost_usd_excl_cache_write === 0 && summary.cost_excludes.length === 0, 'BL-0219: --session prices cache writes and keeps the excl figure')
+  await rm(root, { recursive: true })
 }
 
 console.log(`RESULT: ${passed} passed, 0 failed`)

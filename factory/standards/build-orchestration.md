@@ -253,11 +253,14 @@ pass's guaranteed shutdown (`implement/SKILL.md` "Per-run cost/token rollup"), b
 `track.jsonl`. Shape: `{"kind":"usage_summary","at":<ISO8601Z>,"run_dir":<the transcript dir>,
 "calls_total":<int>,"models":{<model-id>:{"calls","input_tokens","output_tokens",
 "cache_creation_input_tokens","cache_read_input_tokens","cost_usd"}},"cost_usd_total":<number>,
-"cost_excludes":["cache_creation_input_tokens"],"unpriced_models":[<model-id>],
+"cost_usd_excl_cache_write":<number>,"cache_creation_cost_usd":<number>,"cost_excludes":[],"unpriced_models":[<model-id>],
 "skipped_incomplete_lines":<int>}`. Pricing is the dated `docs/proposals/33-model-era-audit.md` §3
 table (USD/MTok, looked up by exact model id or its family after stripping a trailing `-YYYYMMDD`
-snapshot date); cache-CREATION tokens are counted but never priced (no verified cache-write rate —
-CONV-13 forbids inventing one), and an unrecognized model id is tallied with `cost_usd: null` and
+snapshot date); since BL-0219 cache-CREATION tokens ARE priced into `cost_usd` (1.25x the input rate for the
+5-minute tier, 2x for the 1-hour tier Claude Code writes; a line with no per-tier split prices at 2x, verified
+against the headless CLI's own `total_cost_usd`), with the pre-fix figure kept as `cost_usd_excl_cache_write`
+so a post-2026-10-03 run is comparable with earlier canaries (compare like with like: the old total omitted
+~20-25 % of a run), and an unrecognized model id is tallied with `cost_usd: null` and
 listed in `unpriced_models` rather than guessed. The reader fails LOUD (nonzero exit, no line printed)
 on a transcript line that fails to parse and is NOT the file's trailing line (DR-078 — a genuinely
 corrupted transcript is never silently rolled up as empty/zero); a trailing incomplete line (an
@@ -268,9 +271,8 @@ stdout. Mission Control UI for this data and the OTel cross-check are explicitly
 **The rollup joins the workflow's own run record (WP-09, proposal 37).** `usage-rollup.mjs` also reads
 the Dynamic Workflow's `wf_<runId>.json` and joins it into the summary: `agents[]` (per-agent identity),
 `wall_clock_s`, `concurrency_max`, a `by_phase` breakdown, and `agents_unjoined` (a transcript file the run
-record doesn't name, counted rather than silently dropped, per DR-078). `cache_creation_cost_usd_estimated`
-stays a clearly labeled SEPARATE field, never folded into `cost_usd_total`: no verified cache-write rate
-exists (CONV-13 forbids inventing one), so it is a labeled estimate, not a measurement. The per-wave
+record doesn't name, counted rather than silently dropped, per DR-078). `cost_usd_total` includes the cache-write
+term (BL-0219; `cache_creation_cost_usd` names it, `cost_usd_excl_cache_write` is the pre-fix comparable). The per-wave
 dispatch log also now states why each candidate WO was NOT dispatched this wave: `deps` (an unmet
 `dependsOn`), `artifacts` (an overlap serialized to a later wave, DR-060) or `blocked` (an upstream
 `BLOCKED` dependency).

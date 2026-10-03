@@ -9,6 +9,17 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 ### BL-0218 — the close-out sets `phase: release` through the state CLI (no more hand edit, no restore commit)
 
 The cross-feature close-out prompt (`crossCloseHead`, `pandacorp-build.src.js`) told the agent to "set `.pandacorp/status.yaml` phase: release" by hand. The lease owns the projected phase (`lease.project_phase`, default `implementation`) and the terminal `quiesce` re-projects it from the lease, so the hand edit was silently overwritten and the run needed a third commit to restore it (bench run A-1: `5998aac` -> `01dbb9a` -> `42c8993`). The prompt now instructs `pandacorp-build-state.mjs set-phase --phase release`, the single writer (it also re-checks every FRD VERIFIED and the hardening evidence). `quiesce` itself is unchanged: a phase set through the CLI survives it (new `test-build-state.mjs` assertion) and the scripted close (`build-mech-close.mjs`) already did this. Test: `test-pandacorp-build.mjs` scenario 5 asserts the close-out prompt carries the `set-phase` command. Engine artifact regenerated.
+### BL-0219 — usage-rollup prices cache writes into `cost_usd` (comparability break with earlier canaries)
+
+**What:** `plugin/scripts/usage-rollup.mjs` (`--dir` and `--session`) now includes cache-creation tokens in `cost_usd` per model, per agent, per phase/category and in `cost_usd_total`. Rates are the published multipliers over the family's input rate: 5-minute tier 1.25x, 1-hour tier 2x. A transcript line carrying `usage.cache_creation.{ephemeral_5m,ephemeral_1h}_input_tokens` is priced per tier; a line without the split is priced wholly at 2x, because Claude Code writes the 1-hour tier (real transcripts verified 2026-10-03: `ephemeral_1h_input_tokens` only). New fields: `cost_usd_excl_cache_write` (total, per model, per agent; equals the old `cost_usd`), `cache_creation_cost_usd` (the write term). Removed: `cache_creation_cost_usd_estimated` (the unverified 1.25x guess); `cost_excludes` is now `[]`.
+
+**Why:** the old total under-reported a run by ~20-25 % (bench A-1: about 23 USD reported, about 29.8 USD with 2x writes), so every speed/cost canary since BL-0181 compared figures that omit a large, model-dependent term. The 2x rate is anchored on a measurement, not memory: the headless CLI's own `total_cost_usd` for bench run B-4 (sonnet-5-5: in 24, out 17,215, cacheRead 708,699, cacheWrite 79,366) is 0.631 USD, which the rollup now reproduces exactly (test j3).
+
+**Comparability break:** `cost_usd_total` of any run rolled up from this version on is NOT comparable with the `cost_usd_total` of earlier canaries (D2, E, F1/F2, FRD-24 and the bench A-1 rollup). Compare either `cost_usd_excl_cache_write` against the old figures, or recompute the old runs with this version. The stored historical track lines are untouched.
+
+**Not verified:** bench B-3 (3,001,000-token context) back-solves only at a $3/$15/$0.30 tier, a likely long-context price tier the PRICING table does not model; it is left out rather than guessed (CONV-13).
+
+**Tests:** `plugin/scripts/test-usage-rollup.mjs` (j, j2, j3, j4, j5 plus the updated (a); 135 pass). Canonical text: `factory/standards/build-orchestration.md` (cost/token rollup).
 
 ## v9.120.1 — 2026-10-03 (PATCH): the stack-a production-smoke harness passes its own stack gate. `OVERLAY_VERSION` 8.97.0 -> 8.97.1
 

@@ -29,10 +29,13 @@
 // PRICING is the dated, [VERIFIED] table in docs/proposals/33-model-era-audit.md §3 (fetched from the
 // Anthropic pricing page 2026-09-02), USD per MTok. Looked up by exact model id, falling back to the
 // id with a trailing `-YYYYMMDD` snapshot date stripped (dated snapshots of a priced family reuse that
-// family's price without a code change every rotation). Cache-CREATION tokens are counted but their
-// cost is deliberately NOT computed — there is no verified cache-write rate for these models in the
-// audited table, and CONV-13 forbids inventing a number; they are reported per-model and named in the
-// top-level `cost_excludes`. An unrecognized model id is still tallied (calls/tokens) with `cost_usd:
+// family's price without a code change every rotation). BL-0219: cache-CREATION tokens are priced into
+// `cost_usd` at the published cache-write multipliers over the family's input rate — 1.25x for the 5-minute
+// TTL tier, 2x for the 1-hour tier. Claude Code writes the 1-hour tier (verified 2026-10-03: real transcripts
+// carry `usage.cache_creation.ephemeral_1h_input_tokens`, and the headless CLI's own `total_cost_usd` for
+// bench run B-4 back-solves to exactly 2x), so a line with no per-tier split prices wholly at 2x. The
+// pre-fix figure (cache writes omitted, under-reporting a build by ~20-25 %) is kept as
+// `cost_usd_excl_cache_write` so a new run stays comparable with every earlier canary. An unrecognized model id is still tallied (calls/tokens) with `cost_usd:
 // null` and listed in `unpriced_models` — an evolving model vocabulary is not malformed data.
 //
 // Per LESSON-0176 (model is the DOMINANT cost lever, ~10x between tiers — cited in this run's decision
@@ -68,9 +71,8 @@
 // splits cost by engine label prefix and `gate_test_repair` is an always-present block (`fired: false` when absent),
 // so `gate-test-repair`'s extra opus pass never hides inside the generic `Review` phase of a canary comparison.
 //
-// `cache_creation_cost_usd_estimated` is a SEPARATE, clearly-labeled estimate (1.25x each model's
-// verified INPUT rate — cache-write pricing itself is not in the audited table, so this is not treated
-// as a verified number) and is never folded into `cost_usd_total`, which keeps its existing meaning.
+// `cost_usd_total` now INCLUDES cache writes (BL-0219 — a comparability break with canaries before 2026-10-03);
+// compare against those with `cost_usd_excl_cache_write`, and read the write term itself in `cache_creation_cost_usd`.
 //
 // F5 addition (docs/proposals/37 §A.7/§4.1 J1-13, depends on I-1/WP-09 above): a PER-CHANGE rollup,
 // `--session <path>` in place of `--dir`. Two transcript kinds exist per Claude Code session (verified
@@ -134,6 +136,11 @@ const PRICING = {
   'claude-sonnet-4-6': { in: 3, out: 15, cacheRead: 0.30 },
   'claude-sonnet-4-5': { in: 3, out: 15, cacheRead: 0.30 },
 }
+
+// Cache-write multipliers over a family's INPUT rate (Anthropic pricing page: 5-minute write 1.25x, 1-hour write 2x).
+const CACHE_WRITE_MULT_5M = 1.25
+const CACHE_WRITE_MULT_1H = 2
+const CACHE_PRICING_LABEL = 'cache writes: 1.25x input (5m tier) and 2x input (1h tier); an unsplit transcript line is priced at 1h, the tier Claude Code writes'
 
 function priceFor(modelId) {
   if (!modelId) return null
@@ -205,7 +212,17 @@ function defaultWfJsonPath(runDir) {
 }
 
 function emptyBucket() {
-  return { calls: 0, input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 }
+  return { calls: 0, input_tokens: 0, output_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, cache_creation_5m_input_tokens: 0 }
+}
+
+// USD of one bucket under one price, split so the pre-BL-0219 figure stays derivable: `excl` = input + cache read +
+// output (what `cost_usd` meant before), `write` = cache creation. Tokens not claimed by the 5-minute tier are 1-hour.
+function costParts(bucket, price) {
+  const excl = (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
+  const write5m = Math.min(bucket.cache_creation_5m_input_tokens, bucket.cache_creation_input_tokens)
+  const write1h = bucket.cache_creation_input_tokens - write5m
+  const write = (write5m * price.in * CACHE_WRITE_MULT_5M + write1h * price.in * CACHE_WRITE_MULT_1H) / 1e6
+  return { excl, write }
 }
 
 function addUsage(bucket, usage) {
@@ -214,6 +231,8 @@ function addUsage(bucket, usage) {
   bucket.output_tokens += usage.output_tokens || 0
   bucket.cache_creation_input_tokens += usage.cache_creation_input_tokens || 0
   bucket.cache_read_input_tokens += usage.cache_read_input_tokens || 0
+  const tiers = usage.cache_creation
+  if (tiers && typeof tiers.ephemeral_5m_input_tokens === 'number') bucket.cache_creation_5m_input_tokens += tiers.ephemeral_5m_input_tokens
 }
 
 // Parses ANY transcript JSONL file — a top-level session file or an `agent-*.jsonl` subagent
@@ -359,6 +378,7 @@ function readCardRigor(cardPath) {
 function summarizeAgentUsage(agentModels) {
   const totals = emptyBucket()
   let costUsd = 0
+  let costExclWrite = 0
   let allPriced = true
   let dominantModel = null
   let dominantCalls = -1
@@ -368,12 +388,43 @@ function summarizeAgentUsage(agentModels) {
     totals.output_tokens += bucket.output_tokens
     totals.cache_creation_input_tokens += bucket.cache_creation_input_tokens
     totals.cache_read_input_tokens += bucket.cache_read_input_tokens
+    totals.cache_creation_5m_input_tokens += bucket.cache_creation_5m_input_tokens
     if (bucket.calls > dominantCalls) { dominantCalls = bucket.calls; dominantModel = model }
     const price = priceFor(model)
     if (!price) { allPriced = false; continue }
-    costUsd += (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
+    const parts = costParts(bucket, price)
+    costUsd += parts.excl + parts.write
+    costExclWrite += parts.excl
   }
-  return { ...totals, model: dominantModel, cost_usd: allPriced ? round(costUsd) : null }
+  return { ...totals, model: dominantModel, cost_usd: allPriced ? round(costUsd) : null, cost_usd_excl_cache_write: allPriced ? round(costExclWrite) : null }
+}
+
+// Prices every per-model bucket in place (`cost_usd` incl. cache writes, `cost_usd_excl_cache_write` = the pre-BL-0219
+// figure) and returns the run-level cost fields shared by --dir and --session summaries. An unpriced model keeps null
+// and is listed, never guessed.
+function priceModels(models) {
+  const unpricedModels = []
+  let total = 0
+  let exclWrite = 0
+  for (const [model, bucket] of Object.entries(models)) {
+    const price = priceFor(model)
+    if (!price) { unpricedModels.push(model); bucket.cost_usd = null; bucket.cost_usd_excl_cache_write = null; continue }
+    const { excl, write } = costParts(bucket, price)
+    bucket.cost_usd = round(excl + write)
+    bucket.cost_usd_excl_cache_write = round(excl)
+    total += excl + write
+    exclWrite += excl
+  }
+  return {
+    unpricedModels,
+    costFields: {
+      cost_usd_total: round(total),
+      cost_usd_excl_cache_write: round(exclWrite),
+      cache_creation_cost_usd: round(total - exclWrite),
+      cost_excludes: [],
+      cache_creation_pricing: CACHE_PRICING_LABEL,
+    },
+  }
 }
 
 // BL-0208: the REAL tool-call count of one agent. `tool_calls` = distinct `tool_use` blocks in its own transcript
@@ -490,19 +541,7 @@ function runDirMode({ dir, wfJson, out }) {
     }
   }
 
-  const unpricedModels = []
-  let costUsdTotal = 0
-  let cacheCreationCostUsdEstimated = 0
-  for (const [model, bucket] of Object.entries(models)) {
-    const price = priceFor(model)
-    if (!price) { unpricedModels.push(model); bucket.cost_usd = null; continue }
-    const cost = (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
-    bucket.cost_usd = round(cost)
-    costUsdTotal += cost
-    // 1.25x the model's own VERIFIED input rate — there is no verified cache-WRITE rate in the audited
-    // table, so this stays a clearly-labeled estimate and is deliberately excluded from cost_usd_total.
-    cacheCreationCostUsdEstimated += (bucket.cache_creation_input_tokens * price.in * 1.25) / 1e6
-  }
+  const { unpricedModels, costFields } = priceModels(models)
 
   const wfJsonPath = wfJson || process.env.PANDACORP_WF_JSON || defaultWfJsonPath(dir)
   const wf = loadWorkflowAgents(wfJsonPath)
@@ -542,6 +581,7 @@ function runDirMode({ dir, wfJson, out }) {
         cache_read_input_tokens: usage.cache_read_input_tokens,
         cache_creation_input_tokens: usage.cache_creation_input_tokens,
         cost_usd: usage.cost_usd,
+        cost_usd_excl_cache_write: usage.cost_usd_excl_cache_write,
       })
     }
     rows.sort((a, b) => (b.cost_usd ?? -1) - (a.cost_usd ?? -1))
@@ -580,12 +620,9 @@ function runDirMode({ dir, wfJson, out }) {
     run_dir: dir,
     calls_total: callsTotal,
     models,
-    cost_usd_total: round(costUsdTotal),
-    cost_excludes: ['cache_creation_input_tokens'],
+    ...costFields,
     unpriced_models: unpricedModels.sort(),
     skipped_incomplete_lines: skippedIncompleteLines,
-    cache_creation_cost_usd_estimated: round(cacheCreationCostUsdEstimated),
-    cache_creation_pricing: 'estimated 1.25x input; not verified',
     agents,
     wall_clock_s: wallClockS,
     agents_duration_sum_s: agentsDurationSumS,
@@ -651,17 +688,7 @@ function runSessionMode({ session, windowArg, commitsArg, repo, card, out }) {
     contextTokensSum += (usage.input_tokens || 0) + (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0)
   }
 
-  const unpricedModels = []
-  let costUsdTotal = 0
-  let cacheCreationCostUsdEstimated = 0
-  for (const [model, bucket] of Object.entries(models)) {
-    const price = priceFor(model)
-    if (!price) { unpricedModels.push(model); bucket.cost_usd = null; continue }
-    const cost = (bucket.input_tokens * price.in + bucket.cache_read_input_tokens * price.cacheRead + bucket.output_tokens * price.out) / 1e6
-    bucket.cost_usd = round(cost)
-    costUsdTotal += cost
-    cacheCreationCostUsdEstimated += (bucket.cache_creation_input_tokens * price.in * 1.25) / 1e6
-  }
+  const { unpricedModels, costFields } = priceModels(models)
 
   const calls = included.length
   const isoNoMillis = (ms) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, 'Z')
@@ -682,12 +709,9 @@ function runSessionMode({ session, windowArg, commitsArg, repo, card, out }) {
     calls,
     context_avg_tokens_per_call: calls ? round(contextTokensSum / calls) : null,
     models,
-    cost_usd_total: round(costUsdTotal),
-    cost_excludes: ['cache_creation_input_tokens'],
+    ...costFields,
     unpriced_models: unpricedModels.sort(),
     skipped_incomplete_lines: skippedIncompleteLines,
-    cache_creation_cost_usd_estimated: round(cacheCreationCostUsdEstimated),
-    cache_creation_pricing: 'estimated 1.25x input; not verified',
     subagents: subagentsContributing,
     wall_clock_s: wallClockS,
   }

@@ -3,12 +3,12 @@ id: BL-0219
 type: bug
 area: build-engine
 title: "usage-rollup excludes cache-creation cost from cost_usd_total, under-reporting a run by ~20-25% (A-1: ≈23 USD reported vs ≈25-31 USD with cache writes)"
-status: open
+status: done
 severity: p2
 opened: 2026-10-01
-closed:
+closed: 2026-10-03
 source: "pandacorp-bench-form benchmark 2026-10-01 audit of run A-1 (runs/A-1/*.rollup.json)"
-closes:
+closes: "plugin/docs/decision-log.md Unreleased (bench follow-ups) BL-0219; factory/standards/build-orchestration.md rollup section; usage-rollup.mjs cost_usd_excl_cache_write"
 links: [BL-0156, BL-0181]
 ---
 
