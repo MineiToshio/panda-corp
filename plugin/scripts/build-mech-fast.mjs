@@ -3,6 +3,7 @@
 //                 so a fast-lane run needs no plan agent (a missing or drifted Build Plan → `no-build-plan`, and the
 //                 engine falls back to the plan agent); `--compact` keeps every free text out of the line (the AC lines
 //                 go to .pandacorp/run/context/<WO>.md, labels are folded to ASCII) so a relay has nothing to decode;
+//                 each pending work order also carries `acIds`, the exact AC ids commit-wo's floor checks (proposal 41 C2);
 //   classify-frd  the deterministic PRODUCT-RISK floor of an FRD (`classify-change.mjs --product-floor`, i.e.
 //                 product-floor.mjs: auth, money, personal-data persistence, secrets, destructive data — never prose,
 //                 test fixtures, framework config or the factory's oracles) over its declared artifacts, or over a
@@ -281,7 +282,7 @@ export function planOp(o) {
         const pending = w.status !== 'VERIFIED' && w.status !== 'BLOCKED'
         return { id: w.id, status: w.status, ...(docStatus ? { docStatus } : {}), path: w.rel, deps: w.deps, artifacts: fmList(w.text, 'artifacts'),
           difficulty: (fmGet(w.text, 'difficulty') || 'medium').toLowerCase(), reopen_count: Number(fmGet(w.text, 'reopen_count')) || 0,
-          foundation: fmGet(w.text, 'foundation').toLowerCase() === 'true', summary: label(fmGet(w.text, 'title') || fmGet(w.text, 'slug') || w.id), ...acOf(w, pending ? acTextOf(w, f.frdText) : '') }
+          foundation: fmGet(w.text, 'foundation').toLowerCase() === 'true', summary: label(fmGet(w.text, 'title') || fmGet(w.text, 'slug') || w.id), ...acOf(w, pending ? acTextOf(w, f.frdText) : ''), ...(pending ? { acIds: woAcIds(w.text) } : {}) }
       }),
     }
   })

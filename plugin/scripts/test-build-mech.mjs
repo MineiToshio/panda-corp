@@ -883,6 +883,27 @@ console.log('plan: the Build Plan order and the frontmatter, read without a plan
   } finally { r.cleanup() }
 }
 
+console.log('fast-wo-brief-lists-every-cited-ac-id (plan) — each pending WO carries acIds, the exact list commit-wo\'s floor checks')
+{
+  const r = mkRepo()
+  try {
+    planFixture(r)
+    // A sub-AC the WO owns but frd.md never lists: commit-wo checks it, so the brief must name it too.
+    r.write(WO_A, woMd('WO-01-001', 'PLANNED', { acs: ['AC-01-001.1', 'AC-01-001.2', 'AC-01-001.3'], extraFm: fmA }))
+    r.git('commit', '-q', '-am', 'a sub-AC')
+    const p = r.run('plan', ['--compact'])
+    const a = byFrd(p)['frd-01-alpha']
+    ok(p.sealed && JSON.stringify(a.workOrders[0].acIds) === JSON.stringify(['AC-01-001.1', 'AC-01-001.2', 'AC-01-001.3']), `acIds = the WO's Acceptance criteria ids, the sub-AC frd.md lacks included (got ${JSON.stringify(a.workOrders[0].acIds)})`)
+    ok(!a.workOrders[0].acIds.includes('AC-99-999.9'), 'never an id mentioned only in the Status Note (the floor\'s scope)')
+    ok(JSON.stringify(a.workOrders[1].acIds) === JSON.stringify(['AC-01-002.1']), 'each WO its own ids')
+    r.write(WO_C, woMd('WO-02-001', 'VERIFIED', { acs: ['AC-02-001.1'], extraFm: fmC() }))
+    r.write(WO_A, woMd('WO-01-001', 'VERIFIED', { acs: ['AC-01-001.1'], extraFm: fmA }))
+    r.git('commit', '-q', '-am', 'verified')
+    const q = r.run('plan')
+    ok(!('acIds' in byFrd(q)['frd-01-alpha'].workOrders[0]), 'a VERIFIED WO carries no acIds (nothing to build)')
+  } finally { r.cleanup() }
+}
+
 console.log('plan: real bench Build Plan tables (columns by header name, cross-FRD rows, `none`) plan with no plan agent')
 {
   // Bench FM-1: the medium bench's FRD-01 table carries an `FRD` column before `Depends on` and repeats every FRD's rows

@@ -2079,21 +2079,21 @@ SCENARIOS.push({
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const p = (byLabel(run, /^fast-build:frd-q$/)[0] || {}).prompt || ''
-    t.ok(/run `bash \.pandacorp\/verify\.sh --since d15pa7cbase0` ONCE/.test(p), 'self-verify is verify.sh --since the dispatch base, once')
+    t.ok(/run `bash \.pandacorp\/verify\.sh --since d15pa7cbase0 --only=structure-guard,data-layer,api-error-contract,biome,tsc,vitest; echo EXIT=\$\?` ONCE/.test(p), 'self-verify is verify.sh --since the dispatch base (the cheap gates, DR-126), once')
     t.ok(!/`bash \.pandacorp\/verify\.sh`/.test(p) && /never after each work order/.test(p) && /the engine runs the FULL suite once before USABLE/.test(p), 'never the bare full suite, never per work order: the engine\'s verify runs the full suite once')
     const v = byLabel(run, 'verify:frd-q')
     t.ok(v.length === 1 && !/--only|--files/.test(v[0].prompt), 'the scripted USABLE verify runs once, unscoped (the full FRD suite)')
   },
 })
 SCENARIOS.push({
-  name: 'F40-1b. builder-self-verify-without-a-base — a lost dispatch base: the builder runs the full suite ONCE, still never per work order',
+  name: 'F40-1b. builder-self-verify-without-a-base — a lost dispatch base: the builder runs the cheap gates unscoped ONCE (DR-126), still never per work order',
   args: { mode: 'balanced', ...FAST },
   plan: F40_PLAN,
   responses: [{ label: 'dispatch:frd-q', response: { line: 'not a sealed line' } }],
   assert(t, run) {
     t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
     const p = (byLabel(run, /^fast-build:frd-q$/)[0] || {}).prompt || ''
-    t.ok(/run `bash \.pandacorp\/verify\.sh` ONCE/.test(p) && /never after each work order/.test(p) && !/--since/.test(p.slice(p.indexOf('SELF-VERIFY'))), 'the full suite once, never per work order')
+    t.ok(/run `bash \.pandacorp\/verify\.sh --only=structure-guard,data-layer,api-error-contract,biome,tsc,vitest; echo EXIT=\$\?` ONCE/.test(p) && /never after each work order/.test(p) && !/--since/.test(p.slice(p.indexOf('SELF-VERIFY'))), 'the cheap gates unscoped, once, never per work order')
   },
 })
 
@@ -3340,6 +3340,122 @@ const decodeEscapes = (line) => line.replace(/\\u([0-9a-f]{4})/g, (_, h) => Stri
     },
   })
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Proposal 41 (DR-126) — the fast-lane builder: write less, run less, read less. The builder prompt is the system under
+// test; the classic lane's prompts stay byte-for-byte what they were.
+// ─────────────────────────────────────────────────────────────────────────────
+const p41Plan = (opts = {}) => mkPlan([{ frd: 'frd-41', deps: [], workOrders: [
+  { ...mkWo('wo-41-001', 'PLANNED', { frd: 'frd-41', artifacts: ['src/frd-41/a/**'] }), acText: '- **AC-41-001.1** WHEN x, the system SHALL y.', ...(opts.acIds === false ? {} : { acIds: ['AC-41-001.1', 'AC-41-001.2', 'AC-41-001.3'] }) },
+  { ...mkWo('wo-41-002', 'PLANNED', { frd: 'frd-41', artifacts: ['src/frd-41/b/**'], deps: ['wo-41-001'] }), acText: '- **AC-41-002.1** WHEN a, SHALL b. - **AC-41-002.2** WHEN c, SHALL d.' },
+] }], { hasFrontend: Boolean(opts.ui), stack: opts.ui ? 'A' : 'B' })
+const p41Builder = (run) => byLabel(run, /^fast-build:frd-41$/)[0]
+SCENARIOS.push({
+  name: 'fast-wo-brief-lists-every-cited-ac-id — each WO brief prints `cite:` with the exact ids commit-wo checks (the plan op\'s acIds, sub-ACs included; the acText ids when the plan agent gave no acIds)',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    const brief = (id) => b.prompt.slice(b.prompt.indexOf(`### WORK ORDER ${id}`)).split('\n### WORK ORDER')[0]
+    t.ok(b && /\n  cite: AC-41-001\.1, AC-41-001\.2, AC-41-001\.3\n/.test(brief('wo-41-001')), `WO 1 cites all three ids, the two sub-ACs absent from its acText included (got ${b && (/cite: [^\n]*/.exec(brief('wo-41-001')) || [''])[0]})`)
+    t.ok(b && /\n  cite: AC-41-002\.1, AC-41-002\.2\n/.test(brief('wo-41-002')), 'WO 2 (no acIds): the ids of its acText, once each')
+    t.ok(b && brief('wo-41-001').indexOf('cite:') < brief('wo-41-001').indexOf('commit:'), 'the cite list comes before the commit command')
+  },
+})
+SCENARIOS.push({
+  name: 'self-verify-only-excludes-knip-madge-doclint — the builder\'s self-verify is `verify.sh --since <base> --only=` the cheap gates; knip, madge, doc-lint and residual-ambiguity stay the engine\'s',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    const m = b && /bash \.pandacorp\/verify\.sh --since d15pa7cbase0 --only=([a-z,-]+)/.exec(b.prompt)
+    t.ok(Boolean(m), 'the self-verify is scoped --since the dispatch base, then --only=')
+    const gates = m ? m[1].split(',') : []
+    t.ok(JSON.stringify(gates) === JSON.stringify(['structure-guard', 'data-layer', 'api-error-contract', 'biome', 'tsc', 'vitest']), `exactly the cheap gates (got ${gates.join(',')})`)
+    t.ok(!gates.some((g) => ['knip', 'madge', 'doc-lint', 'residual-ambiguity', 'playwright'].includes(g)), 'no knip, madge, doc-lint, residual-ambiguity or whole playwright suite')
+    t.ok(b && (b.prompt.match(/bash \.pandacorp\/verify\.sh/g) || []).length === 1, 'verify.sh appears once: never per work order')
+    const v = byLabel(run, 'verify:frd-41')
+    t.ok(v.length === 1 && !/--only/.test(v[0].prompt), 'the engine\'s own verify stays the full, unscoped one before USABLE')
+  },
+})
+SCENARIOS.push({
+  name: 'self-verify-command-surfaces-exit-code — every check the builder runs ends in `; echo EXIT=$?` and the verdict is read from the gate report or EXIT=, never `| tail` alone',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /verify\.sh --since \S+ --only=\S+; echo EXIT=\$\?`/.test(b.prompt), 'the self-verify command itself prints its exit code')
+    t.ok(b && /playwright test <its spec files>; echo EXIT=\$\?/.test(b.prompt), 'so does its own e2e run')
+    t.ok(b && /gate-report\.json or EXIT=/.test(b.prompt) && /never from `\| tail` alone/.test(b.prompt), 'the verdict source is named and `| tail` alone is ruled out')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-forbids-next-dev-and-shot-specs — no `next dev`/`next build` by hand, no throwaway screenshot spec, no whole-file re-run for one fix',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan({ ui: true }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /never start `next dev` or `next build` yourself/.test(b.prompt), 'next dev / next build are forbidden')
+    t.ok(b && /never write a throwaway screenshot spec/.test(b.prompt) && /No other screenshot check/.test(b.prompt), 'throwaway screenshot specs are forbidden')
+    t.ok(b && /Never re-run a whole spec file for one fix/.test(b.prompt), 'whole-file re-runs are forbidden')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-own-specs-once-plus-last-failed — the FRD\'s own e2e specs run once, then only `--last-failed` per fix; a lane builder runs them on its lane port',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && /the FRD's OWN e2e spec files once/.test(b.prompt), 'its own spec files, once')
+    t.ok(b && /after each fix, only `pnpm exec playwright test --last-failed`/.test(b.prompt), 'then --last-failed per fix')
+    t.ok(b && /after two honest attempts/.test(b.prompt), 'two in-context repair attempts are kept')
+  },
+})
+{
+  const sim = laneSim([chainOf('frd-41l', ['wo-41l-001']), chainOf('frd-41m', ['wo-41m-001'])])
+  SCENARIOS.push({
+    name: 'builder-prompt-own-specs-once-plus-last-failed (lane) — a lane builder\'s narrowed self-verify is --since its chain base, e2e on its lane port',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-41l', ids: ['wo-41l-001'] }, { frd: 'frd-41m', ids: ['wo-41m-001'] }]),
+    responses: [...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const builds = byLabel(run, /^lane-build:/)
+      t.ok(builds.length === 2 && builds.every((c) => /verify\.sh --since ba5e00000001 --only=structure-guard,data-layer,api-error-contract,biome,tsc,vitest; echo EXIT=\$\?/.test(c.prompt) && /\(e2e on this lane's port\)/.test(c.prompt)), 'each lane builder: --since its chain base, the cheap gates, e2e on its port')
+    },
+  })
+}
+SCENARIOS.push({
+  name: 'builder-prompt-one-fidelity-script-per-frd — a UI FRD\'s builder runs ONE fidelity script over every UI WO\'s route (DR-056 kept), not a render loop per WO; a non-UI FRD gets none; the classic per-WO check is unchanged',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan({ ui: true }),
+  next: () => ({ args: { mode: 'balanced', lane: 'classic' }, plan: mkPlan([{ frd: 'frd-41c', deps: [], workOrders: [mkWo('wo-41c-001', 'PLANNED', { frd: 'frd-41c', artifacts: ['src/c/**'] })] }], { hasFrontend: true, stack: 'A' }) }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && (b.prompt.match(/ONE fidelity script per FRD/g) || []).length === 1 && /renders EVERY UI work order's route and screenshots each next to its mock/.test(b.prompt), 'one fidelity script, every UI work order\'s route next to its mock')
+    t.ok(b && /VISUAL FIDELITY \(DR-054\/056/.test(b.prompt) && /BINDING screen mock/.test(b.prompt), 'the binding-mock directive is kept')
+    t.ok(b && !/SINGLE LIGHT in-loop fidelity check/.test(b.prompt) && !/up to 3 cycles/.test(b.prompt), 'no per-WO render loop in the fast lane')
+    const classic = run.next && byLabel(run.next, /^build:/)[0]
+    t.ok(classic && /SINGLE LIGHT in-loop fidelity check BEFORE marking IN_REVIEW/.test(classic.prompt) && !/ONE fidelity script per FRD/.test(classic.prompt), 'the classic builder keeps its per-WO light check')
+  },
+})
+SCENARIOS.push({
+  name: 'builder-prompt-one-fidelity-script-per-frd (non-UI) — no fidelity script and no batching loss for a non-UI FRD',
+  args: { mode: 'balanced', ...FAST },
+  plan: p41Plan(),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    const b = p41Builder(run)
+    t.ok(b && !/fidelity script/.test(b.prompt) && !/VISUAL FIDELITY/.test(b.prompt), 'no fidelity directive without a frontend')
+    t.ok(b && /in 1-2 calls/.test(b.prompt) && /chain checks in ONE Bash call/.test(b.prompt), 'C6: files in 1-2 calls, chained checks')
+  },
+})
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Runner
