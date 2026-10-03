@@ -672,13 +672,16 @@ const FUSED_START = FAST && argFlag('fusedStart', true) && !CHANGE && !STRICT_BA
 const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
-// Proposal 40 §3 Phase B (§9, §7 row 5): args.lanes N (launcher --lanes N) is the requested lane count K. Absent, K = 1:
-// lanes ship behind --lanes until the FM-5 bench passes §6.2, so a plain build never plans, boots or schedules a lane.
-// With N ≥ 2 the lane planner caps it by mode (pro 1, balanced 2, powerful 4) into the run's ceiling kRun (1 on a DAG
-// narrow throughout); each lane round's K is min(kRun, the ready width then).
+// Proposal 40 §3 Phase B (DR-125): args.lanes N (launcher --lanes N) is the requested lane count K. Absent, K =
+// DEFAULT_LANES = 2 (on by default since 9.120.0: the medium bench FM-9 met §6.2). The lane planner caps it by mode (pro
+// 1, balanced 2, powerful 4) into the run's ceiling kRun, 1 on a DAG narrow throughout (no pool, no lane op beyond the
+// one plan: exactly the sequential build); each lane round's K is min(kRun, the ready width then). --lanes 1 opts out:
+// no lane plan, pool or round at all.
+const DEFAULT_LANES = 2
 const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
-if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = 1 applies`)
-if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || '1 (default)'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
+const LANES_K = LANES_ARG || DEFAULT_LANES
+if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = ${DEFAULT_LANES} (auto-narrowing) applies`)
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || `${DEFAULT_LANES} (default, auto-narrowing)`}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
 const fastFloor = new Set()        // C3: FRDs USABLE only when VERIFIED (plan-time or landed floor) — monotone, never removed
 const fastClassified = new Set()   // FRDs whose plan-time floor ran; an unclassified one counts as floor (fail-closed)
 const fastUsable = []              // C6: the build_usable events of this run, { frd, sha }, in order (an event, never stored)
@@ -1946,7 +1949,7 @@ if (FUSED_START) {
   agentSpawned++
   const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
     `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : []),
-    ...(LANES_ARG >= 2 ? [`--lane-plan --lanes ${LANES_ARG}`] : [])]
+    ...(LANES_K >= 2 ? [`--lane-plan --lanes ${LANES_K}`] : [])]
   const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
   if (r === PAUSED) return await pausedExit()
   const b = r.body
@@ -6058,7 +6061,7 @@ function fastResult() {
 
 // ── Proposal 40 §3 Phase B: LANES (static K ≥ 2) ─────────────────────────────────────────────────────────────────────
 // Every lane decision a script can make is a mech op (build-mech-lanes / -lane-land / -lane-next); the engine only
-// orchestrates. Only --lanes N ≥ 2 turns them on (no --lanes: K = 1, no lane op at all). Whether the run lanes is decided
+// orchestrates. They are on by default (K = DEFAULT_LANES = 2, DR-125); --lanes 1 turns them off (no lane op at all). Whether the run lanes is decided
 // once (decideLanes: the fused start's lane plan, else one lane-plan op, after the first safe point drained every ready
 // change card into the schedule: one DAG for bare /implement, --frds and --change alike) on the run's CEILING kRun: the
 // requested K capped by mode, 1 when the DAG is narrow throughout or the gain is below the bootstrap. kRun = 1 is exactly
@@ -6084,18 +6087,20 @@ const laneSchemaBarrier = () => [...lane.live.values()].some((c) => c.onMain ===
 const LANE_BARRIER_NOTE = ' A schema/package barrier is building on main and this lane\'s base predates it: a knip unused-dependency (or unlisted-dependency) red here is EXPECTED; never remove or add a dependency and never edit package.json or the lockfile to clear it (the landing re-checks on main).'
 const laneWorkFrom = (ln) => `LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`
 const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f]) => `--frd ${shellQuote(f)}`), ...[...globalQueue.keys()].map((id) => `--build ${shellQuote(id)}`),
-  ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), ...(LANES_ARG ? [`--lanes ${LANES_ARG}`] : []), `--mode ${shellQuote(MODE)}`].join(' ')
+  ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), `--lanes ${LANES_K}`, `--mode ${shellQuote(MODE)}`].join(' ')
 const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
 async function decideLanes() {
   LANED = false
-  if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
+  if (!FAST || !(LANES_K >= 2) || globalQueue.size < 2) return
   let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null   // drained cards would widen a fused plan
   if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
   const kRun = b && (Number.isInteger(b.kRun) ? b.kRun : b.k)
-  if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
+  // The planner only sees --lanes K; whether K was the owner's or the default is the engine's to name.
+  const why = (r) => (r === 'requested' && !LANES_ARG ? 'default' : r)
+  if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && why(b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
   LANED = true
   lane.k = kRun
-  log(`⚒ lanes: K = ${kRun} (${b.kRunReason || b.kReason}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
+  log(`⚒ lanes: K = ${kRun} (${why(b.kRunReason || b.kReason)}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
   agentSpawned++
   lane.pool = runMechOp('lane-pool', `--size ${kRun}`, { label: 'lane-pool' }).then((r) => {
     lane.ready = Boolean(r.body && r.body.ok === true)

@@ -103,8 +103,9 @@ function defaultResponse(label, call = {}) {
   if (label === 'close-scripted') return { line: mechLine('close', { status: 'released', verify: 'ran', sha: 'c105ed000000', report: 'docs/reviews/security-2026-10-02.md', gold: 0 }) }
   if (label === 'prod-smoke') return { line: mechLine('prod-smoke', { status: 'green', green: true, routes: 2, red: [], failure: '', sha: 'feed00000001' }) }
   if (label === 'cross-feature-review') return { done: true }
-  // proposal 40 Phase B: the lane planner answers K = 1 by default (a narrow DAG), so every scenario that is not about
-  // lanes runs the sequential fast lane exactly as before; a lane scenario scripts its own lane-plan line.
+  // proposal 40 Phase B: lanes are on by default (K = 2, DR-125), so a multi-WO fast run asks the planner; this default
+  // answers K = 1 (a narrow DAG, the planner's auto-narrowing), so every scenario that is not about lanes runs the
+  // sequential fast lane exactly as before; a lane scenario scripts its own lane-plan line.
   if (label === 'lane-plan') return { line: mechLine('lane-plan', { status: 'planned', k: 1, kReason: 'narrow-dag', width: 1, offPath: 0 }) }
   if (label === 'mech-precheck') return { line: mechLine('precheck', { status: 'ok', onMain: true, reverts: [], refused: [], salvaged: [], demoted: [], keptInReview: [] }) }
   if (label.startsWith('park:')) return { line: mechLine('park-wo', { status: 'parked', parked: [] }) }
@@ -1737,8 +1738,8 @@ SCENARIOS.push({
     const fs = byLabel(run, 'fast-start')[0]
     t.ok(fs && isLiteral(fs) && literalOp(fs) === 'fast-start' && fs.model === 'haiku', 'one literal, haiku-relayed fast-start op')
     t.ok(fs && /--token 'test-lease-token' --epoch '1'/.test(fs.prompt) && /--launch-event --mode 'balanced'/.test(fs.prompt) && /--project-name 'bench'/.test(fs.prompt), 'it carries the lease fence and the BuildLaunch fields (the script emits B1 itself)')
-    t.ok(fs && !/--lane-plan/.test(fs.prompt), 'without --lanes it never asks for a lane plan (lanes are off by default, proposal 40 §7 row 5)')
-    t.ok(byLabel(run, /^lane-/).length === 0 && !hasLog(run, /lanes: K =/) && hasLog(run, /lanes 1 \(default\)/), 'no lane-plan spawn, no lane op: the sequential lane, as before')
+    t.ok(fs && /--lane-plan --lanes 2/.test(fs.prompt), 'without --lanes the fused start asks for the lane plan at the default K = 2 (DR-125), costing no extra spawn')
+    t.ok(byLabel(run, /^lane-/).length === 0 && !hasLog(run, /lanes: K = 2/) && hasLog(run, /lanes 2 \(default, auto-narrowing\)/), 'the fused plan is narrow (K = 1): no lane-plan spawn, no lane op, the sequential lane as before')
     t.ok(byLabel(run, /^(mech-precheck|baseline-precheck|baseline|mech-plan|plan|floor:.*|dispatch:.*)$/).length === 0, 'no separate precheck, pre-check, judge baseline, plan, floor or dispatch spawn in the whole run (the later probes are the gates\' safe points)')
     const v = byLabel(run, 'verify:frd-f1')[0]
     t.ok(v && /--since 'f5base000001'/.test(v.prompt), 'verify reads the landed range from the fused dispatch base')
@@ -2993,20 +2994,50 @@ const LIMIT_429 = 'API Error: 429 {"type":"error","error":{"type":"rate_limit_er
     },
   })
 }
+// DR-125 (9.120.0): lanes are ON by default (K = 2) with the per-round auto-narrowing. FAST_DEFAULT is the fast lane
+// with no args.lanes at all: the engine passes --lanes 2 itself and the planner decides the run's ceiling.
+const FAST_DEFAULT = { lane: 'fast', parallelGates: true, fusedStart: false }
+const widensAfter = (root, kids) => fastPlan([{ frd: root, ids: [`wo-${root.slice(4)}-001`] }, ...kids.map((f) => ({ frd: f, ids: [`wo-${f.slice(4)}-001`], deps: [root], extra: { [`wo-${f.slice(4)}-001`]: { deps: [`wo-${root.slice(4)}-001`] } } }))])
 {
-  // Lanes off by default: a wide plan that a K = 2 planner WOULD lane (the simulator answers K = 2 to anything that
-  // asks) builds sequentially on main with no lane op at all when the run has no --lanes.
-  const sim = laneSim([chainOf('frd-da', ['wo-da-001']), chainOf('frd-db', ['wo-db-001']), chainOf('frd-dc', ['wo-dc-001'])])
+  // A DAG that starts one WO wide and widens: with NO args.lanes the run lanes at the default K = 2, the narrow first
+  // round builds on main, the wide round fills two lanes at once.
+  const sim = laneSim([chainOf('frd-da', ['wo-da-001']), chainOf('frd-db', ['wo-db-001'], { after: ['c-wo-da-001'] }), chainOf('frd-dc', ['wo-dc-001'], { after: ['c-wo-da-001'] })], { perStep: true })
+  const conc = { active: 0, peak: 0 }
+  const overlapping = async (call) => { conc.active++; conc.peak = Math.max(conc.peak, conc.active); await tick(25); conc.active--; return builtNow(call) }
   SCENARIOS.push({
-    name: 'lanes-off-by-default (engine) — no args.lanes: a wide DAG of three independent FRDs never plans, boots or schedules a lane; each FRD builds and verifies on main exactly as before',
-    args: { mode: 'powerful', ...FAST },
-    plan: fastPlan([{ frd: 'frd-da', ids: ['wo-da-001'] }, { frd: 'frd-db', ids: ['wo-db-001'] }, { frd: 'frd-dc', ids: ['wo-dc-001'] }]),
-    responses: sim.responses,
+    name: 'default-lanes-is-2-auto-narrow (engine) — no args.lanes: the planner is asked at --lanes 2, the pool is two lanes, the narrow first round builds on main and the wide round runs two lane builders at once',
+    args: { mode: 'powerful', ...FAST_DEFAULT },
+    plan: widensAfter('frd-da', ['frd-db', 'frd-dc']),
+    responses: [{ label: /^lane-build:/, response: overlapping }, ...sim.responses],
     assert(t, run) {
       t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
-      t.ok(byLabel(run, /^(lane-|land-chain:|usable:)/).length === 0 && sim.st.nextCalls === 0, `no lane-plan, lane-pool, lane-next, lane build, landing or snapshot USABLE (got ${byLabel(run, /^(lane-|land-chain:|usable:)/).map((c) => c.label).join(', ') || 'none'})`)
-      t.ok(byLabel(run, /^fast-build:/).length === 3 && byLabel(run, /^verify:/).length === 3 && hasLog(run, /lanes 1 \(default\)/), 'three FRDs built and verified on main, one at a time; the log says lanes 1 (default)')
-      t.ok(run.result && ['frd-da', 'frd-db', 'frd-dc'].every((f) => run.result.builtFrds.includes(f)) && !('lanes' in run.result), 'all VERIFIED; no lanes in the result')
+      t.ok(hasLog(run, /lanes 2 \(default, auto-narrowing\)/), 'the start log names the default: lanes 2 (default, auto-narrowing)')
+      const lp = byLabel(run, 'lane-plan')
+      t.ok(lp.length === 1 && /--lanes 2/.test(lp[0].prompt) && /--mode 'powerful'/.test(lp[0].prompt), 'one lane-plan at the default --lanes 2 (never the powerful cap of 4 unless asked)')
+      t.ok(hasLog(run, /lanes: K = 2 \(default/) && byLabel(run, 'lane-pool').length === 1 && /--size 2/.test(byLabel(run, 'lane-pool')[0].prompt), 'the log names the default ceiling; one pool of two lanes')
+      t.ok(byLabel(run, 'fast-build:frd-da').length === 1 && byLabel(run, /^lane-build:c-wo-da-001$/).length === 0, 'the narrow round builds on main: no lane, no landing')
+      t.ok(conc.peak === 2 && byLabel(run, /^lane-build:/).length === 2, `the wide round runs two lane builders at once (peak ${conc.peak})`)
+      t.ok(sim.st.ks[0] === 1 && sim.st.ks.includes(2), `K is re-decided per round under the default (${sim.st.ks.join(', ')})`)
+      t.ok(run.result && ['frd-da', 'frd-db', 'frd-dc'].every((f) => run.result.builtFrds.includes(f)) && run.result.lanes && run.result.lanes.k === 2, `all three VERIFIED; the result reports the lanes (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
+    },
+  })
+}
+{
+  // The default on a narrow DAG: the planner auto-narrows the run to K = 1, and the build is exactly the sequential one.
+  const narrow = { line: mechLine('lane-plan', { status: 'planned', k: 1, kReason: 'narrow-dag', kRun: 1, kRunReason: 'narrow-dag', width: 1, offPath: 0 }) }
+  SCENARIOS.push({
+    name: 'narrow-dag-default-builds-like-k1 (engine) — no args.lanes on a chain-shaped DAG: one lane-plan at --lanes 2 answers K = 1 (narrow-dag), then no pool, no lane round, each FRD builds and verifies on main exactly as at --lanes 1',
+    args: { mode: 'powerful', ...FAST_DEFAULT },
+    plan: fastPlan([{ frd: 'frd-ka', ids: ['wo-ka-001'] }, { frd: 'frd-kb', ids: ['wo-kb-001'], deps: ['frd-ka'], extra: { 'wo-kb-001': { deps: ['wo-ka-001'] } } }]),
+    responses: [{ label: 'lane-plan', response: narrow }],
+    next: () => ({ args: { mode: 'powerful', ...FAST_DEFAULT, lanes: 1 }, plan: fastPlan([{ frd: 'frd-ka', ids: ['wo-ka-001'] }, { frd: 'frd-kb', ids: ['wo-kb-001'], deps: ['frd-ka'], extra: { 'wo-kb-001': { deps: ['wo-ka-001'] } } }]) }),
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, 'lane-plan').length === 1 && /--lanes 2/.test(byLabel(run, 'lane-plan')[0].prompt), 'the default asks the planner once, at --lanes 2')
+      t.ok(hasLog(run, /lanes: K = 1 \(narrow-dag\)/) && byLabel(run, /^(lane-pool|lane-next|lane-build:.*|land-chain:.*|usable:.*)$/).length === 0, 'K = 1 (narrow-dag): no pool, no lane round, no landing, no snapshot USABLE')
+      const seq = (r) => byLabel(r, /^(fast-build|verify):/).map((c) => c.label).join(',')
+      t.ok(byLabel(run, /^fast-build:/).length === 2 && byLabel(run, /^verify:/).length === 2 && run.result && ['frd-ka', 'frd-kb'].every((f) => run.result.builtFrds.includes(f)) && !('lanes' in run.result), 'both FRDs build, verify and VERIFY on main; no lanes in the result')
+      t.ok(run.next && !run.next.error && byLabel(run.next, /^lane-/).length === 0 && seq(run.next) === seq(run), `--lanes 1 builds the same sequence with no planner spawn at all (${seq(run)} vs ${run.next && seq(run.next)})`)
     },
   })
 }
@@ -3096,7 +3127,6 @@ SCENARIOS.push({
 })
 // Bench FM-5 (--lanes 2, medium): the first lane-plan saw ONE ready WO (width 1) and K = 1 was decided for the whole run,
 // so it built strictly sequentially although the DAG is two wide later. K is now re-decided at every round.
-const widensAfter = (root, kids) => fastPlan([{ frd: root, ids: [`wo-${root.slice(4)}-001`] }, ...kids.map((f) => ({ frd: f, ids: [`wo-${f.slice(4)}-001`], deps: [root], extra: { [`wo-${f.slice(4)}-001`]: { deps: [`wo-${root.slice(4)}-001`] } } }))])
 {
   const sim = laneSim([chainOf('frd-ga', ['wo-ga-001']), chainOf('frd-gb', ['wo-gb-001'], { after: ['c-wo-ga-001'] }), chainOf('frd-gc', ['wo-gc-001'], { after: ['c-wo-ga-001'] })], { perStep: true })
   const conc = { active: 0, peak: 0 }

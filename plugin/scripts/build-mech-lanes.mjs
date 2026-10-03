@@ -44,10 +44,12 @@ import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 /** Lane caps per run mode (proposal 40 §9): pro never lanes, balanced 2, powerful/deep 4. */
 export const MODE_CAPS = Object.freeze({ pro: 1, balanced: 2, powerful: 4, deep: 4 })
 /**
- * K without --lanes: 1, so a plain build is today's sequential build. Proposal 40 §7 row 5 / §9: lanes ship behind
- * `--lanes N` (auto 1) until the FM-5 medium bench meets the §6.2 thresholds; only then may this become 2.
+ * K without --lanes: 2 (DR-125, since 9.120.0: the medium bench FM-9 met proposal 40 §6.2). It is only a ceiling: the
+ * planner still narrows it to 1 on a DAG narrow throughout or below the bootstrap gain, and each round's K to the ready
+ * width, so a narrow build stays today's sequential build. `--lanes 1` opts out. The engine always passes its K
+ * explicitly (`--lanes`), which also selects the per-round placement below; a bare manual call only reads this default.
  */
-export const DEFAULT_LANES = 1
+export const DEFAULT_LANES = 2
 export const CHAIN_MAX = 3
 /**
  * Auto K = 1 when the work off the critical path is below this many work orders: the pool bootstrap (~2.5 min) and a

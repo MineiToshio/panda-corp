@@ -1468,7 +1468,7 @@ console.log('fast-start --lane-plan (proposal 40 Phase B): the lane K rides in t
     ok(s.receipt.status === 'planned' && !s.receipt.dispatch && stampOf(wide, WO_A) === 'PLANNED', `K = 2: nothing dispatched on main, the lane scheduler dispatches (got ${s.receipt.status} ${s.receipt.stage} ${s.receipt.baseline} ${JSON.stringify(s.receipt.plan && (s.receipt.plan.reason || s.receipt.plan.status))})`)
     ok(wide.git('log', '--format=%s', `${head}..HEAD`).split('\n').every((x) => !/dispatch/.test(x)), 'no dispatch commit')
     const bare = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'balanced', '--lane-plan'])
-    ok(bare.receipt.lanes && bare.receipt.lanes.k === 1 && bare.receipt.lanes.kReason === 'default', `the same wide plan without --lanes: K = 1, lanes off by default (proposal 40 §7 row 5) (${JSON.stringify(bare.receipt.lanes)})`)
+    ok(bare.receipt.lanes && bare.receipt.lanes.kRun === 2 && bare.receipt.lanes.kRunReason === 'default', `the same wide plan without --lanes: the default ceiling K = 2, lanes on by default (DR-125) (${JSON.stringify(bare.receipt.lanes)})`)
     const capped = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'pro', '--lane-plan', '--lanes', '2'])
     ok(capped.receipt.lanes && capped.receipt.lanes.k === 1 && capped.receipt.lanes.kReason === 'mode-cap-pro', `pro never lanes (${JSON.stringify(capped.receipt.lanes)})`)
     const none = wide.run('fast-start', ['--token', lease.token, '--epoch', String(lease.epoch), '--mode', 'balanced'])

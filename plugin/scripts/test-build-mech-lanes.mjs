@@ -191,7 +191,7 @@ console.log('auto-k1-on-narrow-dag: chains ≤ 3 in dependency order; K = 1 by d
   try {
     const p = r.run('lane-plan')
     ok(JSON.stringify(chainWos(p)) === '[["WO-02-001","WO-02-002","WO-02-003"]]', `a linear FRD is one chain of 3 in dependency order (${JSON.stringify(chainWos(p))})`)
-    ok(p.receipt.k === 1, 'a one-chain DAG runs at K = 1 (today\'s behaviour)')
+    ok(p.receipt.k === 1 && p.receipt.kRun === 1 && p.receipt.kRunReason === 'narrow-dag', `a one-chain DAG runs at K = 1 even under the default K = 2 (narrow-dag, DR-125) (${p.receipt.k} ${p.receipt.kRunReason})`)
     ok(r.run('lane-plan', ['--lanes', '2']).receipt.kReason === 'narrow-dag', 'even with --lanes 2 a one-chain DAG drops to K = 1 (narrow-dag)')
     ok(r.run('lane-plan', ['--lanes', '4', '--mode', 'powerful']).receipt.k === 1, '--lanes cannot widen a narrow DAG')
   } finally { r.cleanup() }
@@ -202,7 +202,7 @@ console.log('auto-k1-on-narrow-dag: chains ≤ 3 in dependency order; K = 1 by d
   ])
   try {
     const p = w.run('lane-plan')
-    ok(p.receipt.k === 1 && p.receipt.kReason === 'default', `lanes are OFF by default even on a wide DAG: K = 1 until the FM-5 bench passes (proposal 40 §7 row 5, §9) (${p.receipt.k} ${p.receipt.kReason})`)
+    ok(p.receipt.kRun === 2 && p.receipt.kRunReason === 'default' && p.receipt.k === 2 && p.receipt.kReason === 'default', `default-lanes-is-2: lanes are ON by default on a wide DAG, K = 2 (DR-125) (${p.receipt.k} ${p.receipt.kReason} kRun ${p.receipt.kRun})`)
     const two = w.run('lane-plan', ['--lanes', '2'])
     ok(two.receipt.k === 2 && two.receipt.kReason === 'requested', `--lanes 2 on a wide DAG: K = 2 (${two.receipt.k} ${two.receipt.kReason})`)
     ok(JSON.stringify(p.receipt.chains[0].wos) === '["WO-04-001","WO-04-002"]', 'the longest downstream path dispatches first (FRD-04 feeds FRD-06)')
@@ -213,7 +213,10 @@ console.log('auto-k1-on-narrow-dag: chains ≤ 3 in dependency order; K = 1 by d
     ok(pro.receipt.k === 1 && pro.receipt.kReason === 'mode-cap-pro', 'pro never lanes, even with --lanes 2')
     ok(w.run('lane-plan', ['--lanes', '4', '--mode', 'powerful']).receipt.k === 4, 'powerful allows --lanes 4')
     ok(w.run('lane-plan', ['--lanes', '3']).receipt.k === 3, '--lanes overrides the default')
-    ok(w.run('lane-plan', ['--mode', 'powerful']).receipt.k === 1, 'no --lanes: K = 1 in every mode (powerful included)')
+    ok(w.run('lane-plan', ['--mode', 'powerful']).receipt.k === 2, 'no --lanes: the default K = 2 in powerful too (more lanes only on request)')
+    const proDefault = w.run('lane-plan', ['--mode', 'pro'])
+    ok(proDefault.receipt.k === 1 && proDefault.receipt.kRunReason === 'mode-cap-pro', `pro caps the default at 1 (${proDefault.receipt.k} ${proDefault.receipt.kRunReason})`)
+    ok(w.run('lane-plan', ['--lanes', '1']).receipt.k === 1, '--lanes 1 opts out of the default')
     const s = w.run('lane-plan', ['--frd', 'frd-06-f'])
     ok(JSON.stringify(chainWos(s)) === '[["WO-06-002"],["WO-06-003"]]' && s.receipt.unsatisfiedDeps.some((u) => u.wo === 'WO-06-001' && u.dep === 'WO-04-002'), '--frd scope: an out-of-scope upstream must be VERIFIED (reported unsatisfied)')
   } finally { w.cleanup() }
@@ -408,7 +411,12 @@ console.log('auto-k1-on-narrow-dag (gain): K = 1 when fewer than two WOs could b
     const p = three.run('lane-plan', ['--lanes', '2'])
     ok(p.receipt.k === 2 && p.receipt.kReason === 'requested' && p.receipt.offPath === 2, `three independent WOs with --lanes 2: K = 2 (${p.receipt.k} ${p.receipt.kReason})`)
     const bare = three.run('lane-plan')
-    ok(bare.receipt.k === 1 && bare.receipt.kReason === 'default', `the same DAG without --lanes stays at K = 1 (${bare.receipt.k} ${bare.receipt.kReason})`)
+    ok(bare.receipt.k === 2 && bare.receipt.kReason === 'default', `the same DAG without --lanes lanes at the default K = 2 (DR-125) (${bare.receipt.k} ${bare.receipt.kReason})`)
+    const twoBare = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }])
+    try {
+      const q = twoBare.run('lane-plan')
+      ok(q.receipt.k === 1 && q.receipt.kReason === 'gain-below-bootstrap', `the default auto-narrows to 1 below the bootstrap gain (${q.receipt.k} ${q.receipt.kReason})`)
+    } finally { twoBare.cleanup() }
   } finally { three.cleanup() }
 }
 

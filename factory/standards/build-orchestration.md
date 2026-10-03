@@ -924,7 +924,7 @@ default with a loud log; launcher `--lane fast|classic`, which always passes the
 classic lane (9.117/9.118) took 84.3, 51.4 and 58.6 min to done (oracle 151/151); the fast lane (runs F-2/F-3) was
 USABLE at 8.0 / 11.8 min with the oracle at 151/151 both at the USABLE commit and at the final VERIFIED commit, reached
 VERIFIED + close-out at 40.3 / 43.8 min, for ~17-19 $-eq against ~24-30; a vanilla single agent took 2.6-5.5 min
-(unreviewed). Medium bench (4 FRDs / 10 WOs / REST + SQLite, hidden 289-test oracle): fast lane FM-3 all FRDs USABLE at 67.8 min with oracle 289/289 at the USABLE commit (first FRD USABLE at 28.7 min); classic 9.118.2 C-1 ≈132 min active, cut once by a usage limit (manual resume) and ended with FRD-04 BLOCKED needs-owner, 289/289; vanilla single agent 11.5-12.1 min, 285-289/289. Choose `--lane classic` when most of the build is floor code (USABLE rarely
+(unreviewed). Medium bench (4 FRDs / 10 WOs / REST + SQLite, hidden 289-test oracle): fast lane FM-3 all FRDs USABLE at 67.8 min with oracle 289/289 at the USABLE commit (first FRD USABLE at 28.7 min); classic 9.118.2 C-1 ≈132 min active, cut once by a usage limit (manual resume) and ended with FRD-04 BLOCKED needs-owner, 289/289; vanilla single agent 11.5-12.1 min, 285-289/289. **Since 9.120.0 (proposal 40, DR-125):** Lever 1 (cheaper review: gate effort `high` off the floor, `xhigh` on floor or injection-risk content, findings + probes, the scripted patch/certify and close, a production-build smoke) and worktree lanes ON by default (K = 2, auto-narrowing). Measured: small bench (auto K = 1) F-4/F-5 USABLE at 10.4 / 12.5 min, done at 22.5 / 23.2 min, 8.7 / 7.5 $-eq, oracle 151/151 (before: done 40-44 min, 17-19 $-eq); medium bench Lever 1 usage 44.7-46.5 vs 61.2 $-eq (-25 %); lanes K = 2 run FM-9 every FRD USABLE at 56.9 min (first at 21.3), oracle 289/289, against the sequential fast lane FM-3 67.8 / FM-5 77.3 min. Choose `--lane classic` when most of the build is floor code (USABLE rarely
 applies), when many independent FRDs would build faster in the classic parallel waves and only time to all-VERIFIED
 matters, or when nothing may reach `main` before its gate. Each condition below is a tested behaviour
 (`test-build-engine.mjs` scenarios P39-*, F39-*, `default-lane-is-fast` and `explicit-classic-is-classic`,
@@ -1164,13 +1164,13 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   chain of its own, built on main (`lane-dispatch --barrier`; `commit-wo` still refuses schema paths off main), one at a
   time; lane builds go on, `land-chain` refuses `landings-paused` until its WOs are committed on main. K has two
   levels, both re-decided at EVERY `lane-plan`/`lane-next` round, never once per run (bench FM-5: a run that started one
-  WO wide built strictly sequentially). **kRun**, the run's ceiling and the pool size: `--lanes N`, else **1** (lanes
-  ship behind `--lanes` until the FM-5 bench meets proposal 40 §6.2, §7 row 5 / §9; `DEFAULT_LANES`), capped by mode
+  WO wide built strictly sequentially). **kRun**, the run's ceiling and the pool size: `--lanes N`, else **2** (on by
+  default since 9.120.0, DR-125: the medium bench FM-9 met proposal 40 §6.2; `DEFAULT_LANES`; `--lanes 1` opts out), capped by mode
   (pro 1, balanced 2, powerful/deep 4), **1 when the remaining DAG is narrow throughout** (`narrow-dag`: nothing off
   its longest pending path) or the gain is below what is still to pay (`gain-below-bootstrap`: fewer than
   MIN_LANE_GAIN = 2 WOs off the path before a pool exists, fewer than 1 once a pool of ≥ 2 lanes is up and only a
   landing is left). **k**, this round's K: min(kRun, the ready width now = ready chains + chains in flight);
-  `narrow-step` when that width is ≤ 1, `ready-width` when it is below kRun. With `--lanes` a round places its ready
+  `narrow-step` when that width is ≤ 1, `ready-width` when it is below kRun. With `--lanes` (the engine always passes its K, the default included) a round places its ready
   chains under k (the chains in flight count, a schema barrier does not): a narrow round builds its chain on main
   (`onMain: narrow-step`, recorded like a barrier, no landing to pay), a wider one fills the free lanes, and main takes
   one more while no lane is free (`no-free-lane`, the pool still booting). So a small build runs exactly as today. `lane-pool` creates K detached worktrees under `.pandacorp/run/lanes/`, each
@@ -1240,8 +1240,9 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   `cross-frd-ready-wo-gets-a-lane`; `test-build-mech-lanes.mjs` Stage B and per-step K; `test-build-run-id.mjs`
   `--lanes`).** `args.lanes` (launcher `--lanes N`, fast lane only). Whether the run lanes is decided ONCE, at the
   first fast step, after the first safe point drained every ready card into the schedule (bare `/implement`, `--frds`
-  and `--change` share the scheduler), on the run's ceiling **kRun** (never on the first round's width): only with
-  `--lanes N ≥ 2` (no `--lanes`: no lane plan, pool or round at all), the fused start's `lanes` when its probe found no
+  and `--change` share the scheduler), on the run's ceiling **kRun** (never on the first round's width): with
+  K ≥ 2, the default (`DEFAULT_LANES` = 2 since 9.120.0, DR-125; `default-lanes-is-2-auto-narrow`,
+  `narrow-dag-default-builds-like-k1`; `--lanes 1`: no lane plan, pool or round at all), the fused start's `lanes` when its probe found no
   work (at kRun ≥ 2 the fused start dispatches nothing on main, even when its first round is narrow), else one
   `lane-plan` op. kRun = 1 is the sequential build above, untouched. K itself is each `lane-next` round's `k` (logged
   when it changes): a narrow round's chain builds on main as a main-writer holder, a wide round fills the lanes, so
@@ -1288,7 +1289,7 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   'review-deferred'`; a later run with the default budget gates every all-`IN_REVIEW` FRD without rebuilding it.
 
 **Not built in this release (recorded, not promised):** the third gate slot (proposal 40 Phase C), the lane canaries of
-§6.4 and the FM-5 bench that decides whether K = 2 becomes the default (until then K = 1 without `--lanes`), and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
+§6.4, and attributed relock (C4 S1/C5); `usageBudget`/auto-defer, `debtCap` and `--build-first`, the `pandacorp-review-drain` routine, a release
 refusal reading the debt, and Mission Control surfacing USABLE/debt. Known limits: the product floor is a path/content
 heuristic (~90 % by design, the owner's trade): an auth or payment flow written with no recognisable library, path name
 or header escapes it until the opus gate, and a feature domain named `session` or `price` is floor; `commit-wo` runs only for single-WO

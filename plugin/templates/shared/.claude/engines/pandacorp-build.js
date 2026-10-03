@@ -194,9 +194,11 @@ const FUSED_START = FAST && argFlag('fusedStart', true) && !CHANGE && !STRICT_BA
 const REVIEW_BUDGET = (args && args.reviewBudget === 'defer') ? 'defer' : 'now'
 if (args && args.reviewBudget !== undefined && args.reviewBudget !== 'now' && args.reviewBudget !== 'defer') log(`⚠ args.reviewBudget ${JSON.stringify(args.reviewBudget)} is neither now nor defer — using now`)
 const REVIEW_DEFERRED = FAST && REVIEW_BUDGET === 'defer'
+const DEFAULT_LANES = 2
 const LANES_ARG = args && Number.isInteger(args.lanes) && args.lanes >= 1 ? args.lanes : null
-if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = 1 applies`)
-if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || '1 (default)'}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
+const LANES_K = LANES_ARG || DEFAULT_LANES
+if (args && args.lanes !== undefined && LANES_ARG === null) log(`⚠ args.lanes ${JSON.stringify(args.lanes)} is not an integer ≥ 1 — the default K = ${DEFAULT_LANES} (auto-narrowing) applies`)
+if (LANE === 'fast' || MECH_SCRIPT || INFRA_GUARD) log(`lane ${LANE} · mechScript ${MECH_SCRIPT ? 'on' : 'off'} · infraGuard ${INFRA_GUARD ? 'on' : 'off'}${FAST ? ` · reviewBudget ${REVIEW_BUDGET} · lanes ${LANES_ARG || `${DEFAULT_LANES} (default, auto-narrowing)`}` : LANE === 'fast' ? ' · the fast build needs mechScript: classic waves' : ''} (proposal 39)`)
 const fastFloor = new Set()
 const fastClassified = new Set()
 const fastUsable = []
@@ -1025,7 +1027,7 @@ if (FUSED_START) {
  agentSpawned++
  const flags = [`--token ${shellQuote(LEASE_TOKEN)} --epoch ${shellQuote(String(LEASE_EPOCH))}`, ...(TARGETED ? ['--targeted'] : []), ...(ONLY || []).map((f) => `--frd ${shellQuote(f)}`),
   `--launch-event --mode ${shellQuote(MODE)} --max-agents ${shellQuote(String(MAX_AGENTS || 0))}`, ...(args && args.project ? [`--project-name ${shellQuote(PROJECT)}`] : []),
-  ...(LANES_ARG >= 2 ? [`--lane-plan --lanes ${LANES_ARG}`] : [])]
+  ...(LANES_K >= 2 ? [`--lane-plan --lanes ${LANES_K}`] : [])]
  const r = await preLoopGuarded(() => runMechOp('fast-start', flags.join(' '), { label: 'fast-start', phase: 'Baseline' }))
  if (r === PAUSED) return await pausedExit()
  const b = r.body
@@ -3809,18 +3811,19 @@ const laneSchemaBarrier = () => [...lane.live.values()].some((c) => c.onMain ===
 const LANE_BARRIER_NOTE = ' A schema/package barrier is building on main and this lane\'s base predates it: a knip unused-dependency (or unlisted-dependency) red here is EXPECTED; never remove or add a dependency and never edit package.json or the lockfile to clear it (the landing re-checks on main).'
 const laneWorkFrom = (ln) => `LANE ${ln.lane} (proposal 40 Phase B): you build chain ${ln.chain} in the lane worktree ${ln.path} on branch lane/${ln.chain}. cd there FIRST and run everything there with its env loaded (\`set -a; . .pandacorp/run/lane.env; set +a\`: PORT ${(ln.env || {}).PORT}; your dev server and e2e use this lane's port only, never main's or a sibling lane's). Never touch ${PROJECT_DIR} (main); never merge, rebase or push: the engine lands the chain.\n`
 const laneScope = () => [...[...frdState].filter(([, st]) => !st.failed).map(([f]) => `--frd ${shellQuote(f)}`), ...[...globalQueue.keys()].map((id) => `--build ${shellQuote(id)}`),
- ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), ...(LANES_ARG ? [`--lanes ${LANES_ARG}`] : []), `--mode ${shellQuote(MODE)}`].join(' ')
+ ...[...frdState.keys()].filter((f) => fastIsFloor(f) && !builtFrds.includes(f)).map((f) => `--wait-verified ${shellQuote(f)}`), `--lanes ${LANES_K}`, `--mode ${shellQuote(MODE)}`].join(' ')
 const laneIds = (c) => { const st = frdState.get(c.frd); return c.wos.map((id) => ((st && st.f.workOrders.find((w) => w.id.toLowerCase() === String(id).toLowerCase())) || { id }).id) }
 async function decideLanes() {
  LANED = false
- if (!FAST || !(LANES_ARG >= 2) || globalQueue.size < 2) return
+ if (!FAST || !(LANES_K >= 2) || globalQueue.size < 2) return
  let b = fused && fused.lanes && fused.probe && fused.probe.work !== true ? fused.lanes : null
  if (!b) { agentSpawned++; b = (await runMechOp('lane-plan', laneScope(), { label: 'lane-plan', phase: 'Plan' })).body }
  const kRun = b && (Number.isInteger(b.kRun) ? b.kRun : b.k)
- if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && (b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
+ const why = (r) => (r === 'requested' && !LANES_ARG ? 'default' : r)
+ if (!b || b.ok !== true || !(kRun >= 2)) { log(`◦ lanes: K = 1 (${(b && why(b.kRunReason || b.kReason || b.reason || b.status)) || 'no lane plan'}) — one FRD at a time on main, as before (proposal 40 §3 B.7)`); return }
  LANED = true
  lane.k = kRun
- log(`⚒ lanes: K = ${kRun} (${b.kRunReason || b.kReason}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
+ log(`⚒ lanes: K = ${kRun} (${why(b.kRunReason || b.kReason)}, ready width ${b.width} now, offPath ${b.offPath}) — the pool boots now; K is re-decided every round: up to ${kRun} worktree lanes when the DAG is wide, a narrow round on main (proposal 40 §3 Phase B)`)
  agentSpawned++
  lane.pool = runMechOp('lane-pool', `--size ${kRun}`, { label: 'lane-pool' }).then((r) => {
   lane.ready = Boolean(r.body && r.body.ok === true)
