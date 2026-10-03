@@ -38,7 +38,7 @@ import { createHash } from 'node:crypto'
 import { chmodSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import path from 'node:path'
-import { InputError, Refusal, acquireLock, gitIn, projectCtx, readOwned, releaseLock, unique, writeOwned } from './build-mech-lib.mjs'
+import { InputError, Refusal, acquireLock, gitIn, matchesDeclared, projectCtx, readOwned, releaseLock, unique, writeOwned } from './build-mech-lib.mjs'
 import { fmList, normWoId, readFrds } from './build-mech-fast.mjs'
 
 /** Lane caps per run mode (proposal 40 §9): pro never lanes, balanced 2, powerful/deep 4. */
@@ -558,6 +558,20 @@ export function commitShape(commits, wos) {
 }
 
 export const chainDownstream = (graph, wos) => { const { depth } = downstreamOf(graph.nodes); return Math.max(...wos.map(depth)) }
+/**
+ * The work order that owns a project-relative file through its declared `artifacts` (bench FM-7: a red test file's
+ * FRD): an exact declaration first, else a directory/glob one. Null when none declares it or the declarations span
+ * more than one FRD (never guessed).
+ * @returns {{ file: string, frd: string, wo: string }|null}
+ */
+export function ownerOf(graph, file) {
+  const nodes = [...graph.nodes.values()]
+  const exact = nodes.filter((n) => n.artifacts.some((a) => a.replace(/^\.\//, '') === file))
+  const hits = exact.length ? exact : nodes.filter((n) => matchesDeclared(n.artifacts, file))
+  if (!hits.length || new Set(hits.map((n) => n.frd)).size > 1) return null
+  hits.sort((a, b) => a.frdIndex - b.frdIndex || a.order - b.order)
+  return { file, frd: hits[0].frd, wo: hits[0].id }
+}
 
 /** `lane-mark --chain c --as built|parked [--why text]`. */
 export async function laneMarkOp(o) {

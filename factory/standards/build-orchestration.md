@@ -1191,8 +1191,9 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   lock, the journals swept and `merge --ff-only` (main moved by journal lines only → rebase again without re-checking),
   and one `lane_land` track line re-keying each WO id to its landed SHA. A conflict or a red check gets ONE rebase-fix
   (`needs-rebase-fix`), then the chain parks and the blocked-FRD set (its DAG descendants only) is reported; main is
-  never touched by a failed landing. `lane-bisect` runs `verify.sh` on 1-3 landed chains in parallel snapshot worktrees
-  (the base before the first, then each tip) and names the first red tip; it never reverts. Lane state is gitignored
+  never touched by a failed landing. `lane-bisect` runs `verify.sh` on 1-3 landed chains in snapshot worktrees
+  (bootstrapped side by side, verified ONE at a time, the base before the first, then each tip) and names the first red
+  tip; it never reverts. Lane state is gitignored
   run state (`.pandacorp/run/lanes/state.json`), and git wins over it: a live chain whose WOs are committed on main is
   landed (with its landed range read from its WO commits, so a barrier is bisectable too). Stage B added `lane-next`
   and `lane-usable` (`build-mech-lane-next.mjs`, where `lane-dispatch` moved too) and moved the long steps out of `lanes.lock`: `lane-pool` and `lane-dispatch` claim
@@ -1220,6 +1221,18 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   refused `bootstrap-leak`. A lane with no record (an older bootstrap) whose dirt is only files a sibling lane owns is
   re-proven by its own bootstrap at landing; if that fails the refusal is `lane-dirty` with `bootstrapOnly: true`, which
   the engine never counts as a landing attempt (real dirt still counts and parks after 3).
+  **Verify contention (bench FM-7; `verify-slots-cap-concurrency`, `bisect-is-sequential-and-base-first`,
+  `usable-timeout-rerun-is-flaky-contention`, `preexisting-red-in-other-frd-does-not-block-usable`).** Every full
+  `verify.sh` a mech op runs (`verify`, `verify --patch`, `close`, `lane-usable`, `lane-bisect`, and `land-chain`'s
+  checks) holds a host verify slot (`build-mech-verify.mjs`: mkdir slots under `.pandacorp/run/verify-slots/`, max(1,
+  floor(ncpu/4)), `PANDACORP_VERIFY_SLOTS` overrides; a dead holder's slot is reclaimed under a per-slot reclaim lock;
+  waiting is never a failure). A red carrying a test-timeout signature (vitest `Test timed out`, Playwright `Test
+  timeout of …ms exceeded`) re-runs only its failing test files, alone, holding a slot; they pass → `flaky-contention`
+  (no bisect candidates, no fix-forward) and the full `verify.sh` runs once more as the verdict. A red `lane-usable`
+  records the pin's failing test files with their owning WO/FRD (per `artifacts`); `lane-bisect --frd f` on a red base
+  judges it: only when every failing test is red at the base too and owned by ANOTHER FRD, `lane-usable --preexisting`
+  commits f's `build_usable` from those two records (no re-run), the engine routes the failure ONCE to each owning
+  FRD's fix-forward, and the build still closes only on a whole green tree (the scripted close's full verify).
 - **Lanes, the engine scheduler (proposal 40 Phase 5 Stage B; `test-build-engine.mjs` `two-lanes-build-in-parallel`,
   `schema-chain-pauses-landings (engine)`, `lane-park-blocks-only-descendants`, `usage-limit-global-pause-not-attempt`,
   `lane-resume-after-pause`, `usable-red-bisects-then-fixforward` (a, b), `auto-k1-on-narrow-dag (engine)`,
@@ -1241,7 +1254,9 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   opus; then `lane-mark --as built` or `--as parked`); the main-writer holders, one at a time, in this priority: the
   barrier or the round's chain on main (dispatch + builder on main), the USABLE fix-forward, `land-chain` (longest downstream first), then a
   settled gate verdict. A chain landing completes an FRD → `lane-usable` beside the landings (one at a time) → green:
-  USABLE and the gate exactly as before (pinned at the verified SHA); red: `lane-bisect` when the class is `cross`, a
+  USABLE and the gate exactly as before (pinned at the verified SHA); `flaky-contention`: one more snapshot verify later,
+  never a fix-forward; red: `lane-bisect --frd` when the class is `cross` or a failing test is another FRD's (a
+  pre-existing red of another FRD certifies `usable-preexisting` and routes once to its owner, above), then a
   sonnet fix-forward on main naming the culprit chain, re-verify, then opus, then `BLOCKED: needs-owner` through the
   never-discard hold — never a revert (a lane-landed FRD counts as USABLE for every discard guard). `needs-rebase-fix`
   → one sonnet rebase-fix in the lane (`merge=union` attributes, one commit per WO), then the chain re-queues; a second

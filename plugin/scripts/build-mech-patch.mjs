@@ -22,6 +22,7 @@ import path from 'node:path'
 import { stampLastGreen, transitionWorkOrder } from '../runtime/build-state.mjs'
 import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, findWo, fmGet, frontmatterStatus, projectBinEnv, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine } from './build-mech-lib.mjs'
 import { readReport } from './build-mech-fast.mjs'
+import { runVerify, verifyStatus } from './build-mech-verify.mjs'
 
 const [TRACK, JOURNAL] = JOURNALS
 const PLAYWRIGHT_RE = /(^|\/)e2e\/.+\.spec\.[cm]?[jt]sx?$/
@@ -85,7 +86,7 @@ function assertInReview(ctx, wos) {
 }
 
 /** `verify --patch` — see the header. */
-export function patchVerifyOp(o) {
+export async function patchVerifyOp(o) {
   if (o.frds.length !== 1 || !o.wos.length) throw new InputError('verify --patch needs exactly one --frd <folder> and its --wo <id>(s)')
   const pinned = pinnedTests(o.tests, true)
   const frd = o.frds[0]
@@ -101,11 +102,11 @@ export function patchVerifyOp(o) {
   if (breach.length) return { code: 0, body: { status: 'red', frd, green: false, sha, breach, tests, failure: `DR-080: the reviewer's test file(s) were modified or removed after the gate (${breach.map((b) => `${b.path}: ${b.observed ? 'changed' : 'missing'}`).join('; ')}); a patch may not edit the tests that judge it` } }
   const run = runPinned(ctx, pinned, o.testTimeoutMs)
   if (run.failure) return { code: 0, body: { status: 'red', frd, green: false, sha, tests: tests.map((t) => ({ ...t, ok: !run.failed.includes(t.path) })), failure: run.failure } }
-  const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
-  const rep = readReport(ctx, r.status, headFull)
+  const r = await runVerify(ctx, { cwd: ctx.project, timeoutMs: o.verifyTimeoutMs || 45 * 60 * 1000, op: `verify-patch:${frd}` })   // bench FM-7: slotted, timeout re-run
+  const rep = readReport(ctx, r.code, headFull)
   sealReportProvenance(ctx, 'verify')
   const green = rep.green && rep.scope !== 'partial'
-  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, sha, scope: rep.scope, tests, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), exit: r.status } }
+  return { code: 0, body: { status: verifyStatus(r, green), frd, green, sha, scope: rep.scope, tests, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), ...(r.flaky ? { flaky: r.flaky } : {}), exit: r.code } }
 }
 
 /** frd.md's `drift:` replica (BL-0178): set to the proven ids, or removed when there are none. */

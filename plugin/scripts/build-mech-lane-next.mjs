@@ -17,7 +17,12 @@
 //               commits (its chains are interleaved with others on main). Green and not floor → the committed
 //               build_usable line (DR-115: one writer). Red → the class and the bisect candidates: the chains landed
 //               since the last green pin (`own` when they are all this FRD's, else `cross`), at most 3, newest last.
-//               It never reverts.
+//               It never reverts. Bench FM-7: the verify holds a host verify slot; a test-timeout red re-runs its
+//               failing files alone and, when they pass, the full verify once more (`flaky-contention`: no candidates,
+//               no fix-forward). A red records the pin's failing test files (state `reds`) with their owning WO/FRD.
+//   lane-usable --frd f --wo … --sha <pin> --preexisting   no re-run: USABLE when lane-bisect --frd f proved every
+//               failing test of the recorded red at <pin> red at the base too and owned by ANOTHER FRD
+//               (`usable-preexisting`); the build still closes only on a whole green tree.
 //   lane-dispatch --chain c --wo …  (--lane n | --barrier)   one chain by hand (lane-next dispatches through the same
 //               dispatchChain): see build-mech-lanes.mjs's header.
 
@@ -25,7 +30,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { InputError, Refusal, blobAt, dirtyEntries, findWo, frontmatterStatus, gitIn, isOnMain, projectCtx, salvageAndReset, unique, utcStamp } from './build-mech-lib.mjs'
 import { classifyFrdRanges, commitUsable, injectionHits, normWoId, readFrds, readReport } from './build-mech-fast.mjs'
-import { LIVE, activeBarrier, assertOwnWorktree, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, planChains, portBusy, readState, realOr, refreshFromMain, resyncLane, resyncNeeds, runAsync, scopeOf, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
+import { LIVE, activeBarrier, assertOwnWorktree, bootstrapLane, chainDownstream, chainIdOf, checkLaneFlags, ensureWorktree, freePort, laneCommits, laneEnv, lanePort, lanesDir, ownerOf, planChains, portBusy, readState, realOr, refreshFromMain, resyncLane, resyncNeeds, runAsync, scopeOf, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
+import { runVerify, verifyStatus } from './build-mech-verify.mjs'
 
 const MAX_GREENS = 20
 
@@ -246,6 +252,7 @@ export async function laneUsableOp(o) {
   const floor = landed.floor || o.floor === true
   const hits = commits ? commits.map((c) => injectionHits(ctx, `${c}^`, c)) : [null]
   const injection = hits.some((h) => h === null) ? null : hits.flat()
+  if (o.preexisting) return preexistingUsable(ctx, o, { frd, shaFull, floor, landed, injection, commits })
   // The snapshot worktree: one for the pool (disk budget K + gate slots + 1), reset to the pin, resynced only when needed.
   const wt = path.join(lanesDir(ctx), 'snapshot')
   const { created } = ensureWorktree(ctx, wt, shaFull)
@@ -265,24 +272,54 @@ export async function laneUsableOp(o) {
     if (!r.ok) throw new Refusal('snapshot-bootstrap-failed', `prisma generate failed: ${r.tail.split('\n').slice(-3).join(' | ')}`)
   }
   await withState(ctx, o, async (s) => { s.snapshot = { base: shaFull, port } })
-  const run = await runAsync('bash', ['.pandacorp/verify.sh'], { cwd: snapProj, env: laneEnv('snapshot', port), timeoutMs: o.verifyTimeoutMs || 45 * 60 * 1000 })
+  // Bench FM-7: one slotted full verify.sh; a timeout red re-runs its failing files alone before it may count as red.
+  const run = await runVerify(ctx, { cwd: snapProj, env: laneEnv('snapshot', port), timeoutMs: o.verifyTimeoutMs || 45 * 60 * 1000, op: `lane-usable:${frd}` })
   const rep = readReport(projectCtx(snapProj), run.code, shaFull)
   const green = rep.green && rep.scope !== 'partial'
+  const status = verifyStatus(run, green)
   const { usableCommit, usableFailure } = green && !floor ? commitUsable(ctx, o, frd, sha) : { usableCommit: null, usableFailure: '' }
+  const graph = status === 'red' ? woGraph(ctx) : null
+  const failing = status === 'red' ? run.failing.map((file) => ownerOf(graph, file) || { file, frd: null, wo: null }) : []
   const state = await withState(ctx, o, async (s) => {
     if (green) s.greens = [...(s.greens || []), { sha: shaFull, frd, at: new Date().toISOString() }].slice(-MAX_GREENS)
+    // The pin's red failing set (gitignored run state, one writer): what a later lane-bisect --frd compares the base against.
+    const reds = { ...(s.reds || {}) }
+    if (status === 'red') reds[frd] = { sha: shaFull, failing: run.failing, at: new Date().toISOString() }
+    else delete reds[frd]
+    s.reds = reds
     return s
   })
-  const candidates = green ? [] : bisectCandidates(ctx, state, shaFull)
-  const cls = green ? null : candidates.every((c) => c.frd === frd) ? 'own' : 'cross'
+  // A flaky-contention red names no candidate: nothing to bisect, nothing to fix forward.
+  const candidates = status === 'red' ? bisectCandidates(ctx, state, shaFull) : []
+  const cls = status === 'red' ? (candidates.every((c) => c.frd === frd) ? 'own' : 'cross') : null
   return {
     code: 0,
     body: {
-      status: green ? 'green' : 'red', frd, green, usable: Boolean(usableCommit), floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection,
+      status, frd, green, usable: Boolean(usableCommit), floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection,
       sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}),
-      commits: (commits || []).map((c) => c.slice(0, 12)), class: cls, candidates: candidates.map((c) => c.id), snapshot: { path: snapProj, port }, exit: run.code,
+      commits: (commits || []).map((c) => c.slice(0, 12)), class: cls, candidates: candidates.map((c) => c.id), failing, foreign: failing.some((f) => f.frd !== frd),
+      ...(run.flaky ? { flaky: run.flaky } : {}), slotWaitMs: run.slotWaitMs, snapshot: { path: snapProj, port }, exit: run.code,
     },
   }
+}
+
+/**
+ * `lane-usable --preexisting --sha <pin>` (bench FM-7): USABLE from two script-written records, no verify.sh re-run —
+ * this FRD's red recorded at the pin AND a lane-bisect --frd that proved every failing test red at the base too and
+ * owned by another FRD. Anything else certifies nothing.
+ */
+function preexistingUsable(ctx, o, { frd, shaFull, floor, landed, injection, commits }) {
+  const sha = shaFull.slice(0, 12)
+  const st = readState(ctx)
+  const red = (st.reds || {})[frd]
+  const pre = (st.preexisting || {})[frd]
+  if (!red || red.sha !== shaFull) throw new Refusal('no-recorded-red', `${frd} has no red lane-usable recorded at ${sha}: nothing to judge as pre-existing`)
+  if (!pre || pre.sha !== shaFull) throw new Refusal('no-preexisting-proof', `no lane-bisect --frd ${frd} judged the red at ${sha}`)
+  const base = { frd, green: false, floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection, sha, scope: 'full', commits: (commits || []).map((c) => c.slice(0, 12)), class: null, candidates: [] }
+  const preexisting = { base: String(pre.base).slice(0, 12), failing: pre.failing, newFailures: pre.newFailures, owners: pre.owners, why: pre.why }
+  if (pre.unblocks !== true) return { code: 0, body: { ...base, status: 'red', usable: false, usableCommit: null, preexisting, failure: `the red at ${sha} is not only other FRDs' pre-existing failures: ${pre.why}` } }
+  const { usableCommit, usableFailure } = floor ? { usableCommit: null, usableFailure: '' } : commitUsable(ctx, o, frd, sha, { base: preexisting.base, files: pre.failing })
+  return { code: 0, body: { ...base, status: 'usable-preexisting', usable: Boolean(usableCommit), usableCommit, ...(usableFailure ? { usableFailure } : {}), preexisting, failure: `pre-existing at ${preexisting.base}: ${pre.failing.join(', ')}` } }
 }
 
 export const NEXT_OPS = { 'lane-next': laneNextOp, 'lane-usable': laneUsableOp, 'lane-dispatch': laneDispatchOp }

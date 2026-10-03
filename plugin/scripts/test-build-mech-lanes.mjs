@@ -6,7 +6,7 @@
 // receipt alone — and every receipt must carry a valid integrity seal.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -32,9 +32,10 @@ const woRel = (frd, id) => `docs/frds/${frd}/work-orders/${id.toLowerCase()}-x.m
 /**
  * A fixture repository. Default: the project NESTED under `proj/` with a fake bootstrap. `flat` puts the project at the
  * repo root (a normal product project, the bench shape); `realBootstrap` installs the shipped worktree-bootstrap.sh (with
- * a fake `pnpm` on PATH that drops the fake tools into node_modules/.bin); `files` adds tracked project files.
+ * a fake `pnpm` on PATH that drops the fake tools into node_modules/.bin); `files` adds tracked project files; `verify`
+ * replaces the fixture verify.sh.
  */
-function mkRepo(wos, { flat = false, realBootstrap = false, files = {} } = {}) {
+function mkRepo(wos, { flat = false, realBootstrap = false, files = {}, verify = VERIFY } = {}) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'lanes-'))
   const scratch = mkdtempSync(path.join(os.tmpdir(), 'lanes-scratch-'))
   const gitAt = (cwd) => (...args) => {
@@ -57,7 +58,7 @@ function mkRepo(wos, { flat = false, realBootstrap = false, files = {} } = {}) {
   write('.pandacorp/track.jsonl', '{"kind":"start"}\n')
   write('.pandacorp/worktree-bootstrap.sh', realBootstrap ? readFileSync(REAL_BOOTSTRAP, 'utf8') : BOOTSTRAP)
   for (const [rel, content] of Object.entries(files)) write(rel, content)
-  write('.pandacorp/verify.sh', VERIFY)
+  write('.pandacorp/verify.sh', verify)
   write('tsconfig.json', '{}\n')
   write('messages/en.json', '{\n  "title": "T"\n}\n')
   for (const w of wos) write(woRel(w.frd, w.id), woMd(w.id, w))
@@ -860,6 +861,129 @@ console.log('lane-bootstrap-owned-unproven: a lane whose owned-set record is gon
     const land = r.run('land-chain', ['--chain', d.receipt.chain])
     ok(land.code === 0 && land.receipt.status === 'landed', `it lands after the bootstrap re-proves the file (${land.receipt.status} ${land.receipt.reason || ''})`)
     ok(r.read('.claude/launch.json') === BOOT_FILES['.claude/launch.json'] && mainDirt(r) === '', `main\'s launch.json is untouched, its tree clean (${mainDirt(r)})`)
+  } finally { r.cleanup() }
+}
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// Bench FM-7: host verify slots, a sequential bisect, the timeout re-run, and a pre-existing red of another FRD.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+const VERIFY_MOD = path.join(__dirname, 'build-mech-verify.mjs')
+const LIB_MOD = path.join(__dirname, 'build-mech-lib.mjs')
+/** The fixture verify.sh's report writers: green, or red naming vitest failure rows. */
+const VERIFY_HEAD = '#!/bin/sh\nmkdir -p .pandacorp/run\nsha=$(git rev-parse HEAD)\ngreen() { printf \'{"sha":"%s","green":true,"scope":"full","subgates":[]}\' "$sha" > .pandacorp/run/gate-report.json; exit 0; }\nred() { printf \'{"sha":"%s","green":false,"scope":"full","subgates":[{"name":"vitest","exit":1,"failures":[%s]}]}\' "$sha" "$1" > .pandacorp/run/gate-report.json; exit 1; }\n'
+const row = (file, msg) => `{"file":"${file}","msg":"${msg}"}`
+
+console.log('verify-slots-cap-concurrency: N concurrent full verifies never run more than the slot count at once; a dead holder\'s slot is reclaimed')
+{
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'lanes-slots-'))
+  const active = path.join(scratch, 'active')
+  const maxLog = path.join(scratch, 'max.log')
+  const verify = `#!/bin/sh\nmkdir -p "${active}" .pandacorp/run\ntouch "${active}/$$"\nls "${active}" | wc -l | tr -d ' ' >> "${maxLog}"\nsleep 0.4\nrm -f "${active}/$$"\nprintf '{"sha":"%s","green":true,"scope":"full","subgates":[]}' "$(git rev-parse HEAD)" > .pandacorp/run/gate-report.json\nexit 0\n`
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }], { verify })
+  try {
+    // A crashed holder's residue: slot-0 owned by a pid that is gone. Unreclaimed, it would cap the run at ONE slot.
+    const dead = spawnSync(process.execPath, ['-e', 'process.stdout.write(String(process.pid))'], { encoding: 'utf8' }).stdout
+    mkdirSync(path.join(r.proj, '.pandacorp', 'run', 'verify-slots', 'slot-0'), { recursive: true })
+    writeFileSync(path.join(r.proj, '.pandacorp', 'run', 'verify-slots', 'slot-0', 'owner.json'), JSON.stringify({ owner: 'dead', op: 'crashed', pid: Number(dead), at: new Date().toISOString() }))
+    const code = `const { projectCtx } = await import(${JSON.stringify(LIB_MOD)}); const { runVerify } = await import(${JSON.stringify(VERIFY_MOD)}); const v = await runVerify(projectCtx(process.argv[1]), { cwd: process.argv[1], timeoutMs: 60000, op: 'slot-test' }); console.log(JSON.stringify({ code: v.code }))`
+    const N = 5
+    const runs = await Promise.all(Array.from({ length: N }, () => new Promise((resolve) => {
+      const p = spawn(process.execPath, ['--input-type=module', '-e', code, r.proj], { env: { ...process.env, PANDACORP_VERIFY_SLOTS: '2' }, stdio: ['ignore', 'pipe', 'pipe'] })
+      let out = ''
+      p.stdout.on('data', (b) => { out += b })
+      p.on('close', (c) => resolve({ c, out }))
+    })))
+    const seen = readFileSync(maxLog, 'utf8').trim().split('\n').map(Number)
+    ok(runs.every((x) => x.c === 0 && /"code":0/.test(x.out)) && seen.length === N, `all ${N} callers ran their verify (exits ${runs.map((x) => x.c).join(',')}, ${seen.length} runs)`)
+    ok(Math.max(...seen) <= 2, `never more than 2 verifies at once (observed ${seen.join(',')})`)
+    ok(Math.max(...seen) === 2, `the dead holder's slot was reclaimed: 2 ran side by side (observed max ${Math.max(...seen)})`)
+    ok(readdirSync(path.join(r.proj, '.pandacorp', 'run', 'verify-slots')).length === 0, 'every slot is released afterwards')
+  } finally { r.cleanup(); rmSync(scratch, { recursive: true, force: true }) }
+}
+
+console.log('bisect-is-sequential-and-base-first: a verify that fails when another runs beside it stays green under the bisect; the base runs first')
+{
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'lanes-seq-'))
+  const busy = path.join(scratch, 'busy')
+  const order = path.join(scratch, 'order.log')
+  const verify = `${VERIFY_HEAD}if ! mkdir "${busy}" 2>/dev/null; then echo "another verify.sh is running"; red '${row('src/_tests/db.test.ts', 'migrate deploy contended')}'; fi\necho "$sha" >> "${order}"\nsleep 0.3\nrmdir "${busy}"\ngreen\n`
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }, { frd: 'frd-03-c', id: 'WO-03-001' }], { verify })
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const a = landOne(r, 1, ['WO-01-001'], fileFor)
+    const b = landOne(r, 1, ['WO-02-001'], fileFor)
+    const c = landOne(r, 1, ['WO-03-001'], fileFor)
+    ok([a, b, c].every((x) => x.land.code === 0), 'three chains landed')
+    const bis = r.run('lane-bisect', ['--sha', r.git('rev-parse', 'HEAD'), ...[a, b, c].flatMap((x) => ['--candidate', x.d.receipt.chain])], { PANDACORP_VERIFY_SLOTS: '4' })
+    ok(bis.code === 0 && bis.sealed && bis.receipt.status === 'not-reproduced', `with slots to spare the verifies still run one at a time: not-reproduced (${bis.receipt.status} ${JSON.stringify((bis.receipt.results || []).map((x) => x.green))})`)
+    ok(bis.receipt.results[0].label === 'base' && bis.receipt.results[0].green === true, 'the base is green')
+    const ran = readFileSync(order, 'utf8').trim().split('\n')
+    ok(ran.length === 4 && ran[0].startsWith(a.land.receipt.base), `four verifies, the base's first (${ran.map((x) => x.slice(0, 12)).join(' → ')})`)
+  } finally { r.cleanup(); rmSync(scratch, { recursive: true, force: true }) }
+}
+
+console.log('usable-timeout-rerun-is-flaky-contention: a timeout red whose failing file passes alone is flaky-contention (no candidates), then the full re-run decides')
+{
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'lanes-flaky-'))
+  const count = path.join(scratch, 'count')
+  const verify = `${VERIFY_HEAD}n=$(cat "${count}" 2>/dev/null || echo 0); n=$((n + 1)); echo $n > "${count}"\nif [ "$n" -eq 1 ] || [ -n "$ALWAYS_TIMEOUT" ]; then echo " FAIL  src/_tests/db.test.ts > migrate deploy"; echo "Error: Test timed out in 5000ms."; red '${row('src/_tests/db.test.ts', 'migrate deploy')}'; fi\ngreen\n`
+  const r = mkRepo([{ frd: 'frd-01-a', id: 'WO-01-001' }, { frd: 'frd-02-b', id: 'WO-02-001' }], { verify })
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const a = landOne(r, 1, ['WO-01-001'], fileFor)
+    ok(a.land.code === 0, 'a chain landed')
+    const u = r.run('lane-usable', ['--frd', 'frd-01-a', '--wo', 'WO-01-001'])
+    ok(u.code === 0 && u.sealed && u.receipt.status === 'flaky-contention', `the timeout red is flaky-contention (${u.receipt.status} ${u.receipt.failure || ''})`)
+    ok(JSON.stringify(u.receipt.candidates) === '[]' && u.receipt.class === null, `no bisect candidates, no class (${JSON.stringify(u.receipt.candidates)} ${u.receipt.class})`)
+    ok(r.toolCalls().some((l) => l === 'vitest run src/_tests/db.test.ts'), `only the failing file re-ran, alone (${r.toolCalls().filter((l) => l.startsWith('vitest')).join(' | ')})`)
+    ok(readFileSync(count, 'utf8').trim() === '2' && u.receipt.green === true && u.receipt.usable === true && JSON.stringify(u.receipt.flaky) === '{"files":["src/_tests/db.test.ts"],"fullRerun":"green"}', `the full verify ran once more and that green run is the verdict: USABLE (${readFileSync(count, 'utf8').trim()} runs, ${JSON.stringify(u.receipt.flaky)})`)
+    // The same signature whose file still fails alone is a real red: candidates, never masked as contention.
+    writeFileSync(count, '0')
+    const b = landOne(r, 1, ['WO-02-001'], fileFor)
+    const red = r.run('lane-usable', ['--frd', 'frd-02-b', '--wo', 'WO-02-001'], { FAIL_TOOLS: 'vitest' })
+    ok(red.receipt.status === 'red' && red.receipt.green === false && red.receipt.usable === false && !red.receipt.flaky && JSON.stringify(red.receipt.candidates) === JSON.stringify([b.d.receipt.chain]), `a timeout whose file fails alone too stays red with its candidates (${red.receipt.status} ${JSON.stringify(red.receipt.candidates)})`)
+    ok(readFileSync(count, 'utf8').trim() === '1', 'no full re-run after a failed isolated re-run')
+    ok(JSON.parse(readFileSync(path.join(r.proj, '.pandacorp', 'run', 'lanes', 'snapshot', 'proj', '.pandacorp', 'run', 'gate-report.json'), 'utf8')).green === false, 'the first run\'s report is kept on disk')
+  } finally { r.cleanup(); rmSync(scratch, { recursive: true, force: true }) }
+}
+
+console.log('preexisting-red-in-other-frd-does-not-block-usable: a red only on another FRD\'s test, red at the base too, leaves this FRD USABLE')
+{
+  const verify = `${VERIFY_HEAD}f=''\n[ -f src/a-broken.txt ] && f='${row('src/_tests/a.test.ts', 'expected 1 got 2')}'\n[ -f src/b-broken.txt ] && f="\${f:+$f,}${row('src/_tests/b.test.ts', 'expected 3 got 4').replace(/"/g, '\\"')}"\n[ -n "$f" ] && red "$f"\ngreen\n`
+  const r = mkRepo([
+    { frd: 'frd-01-a', id: 'WO-01-001', artifacts: ['src/a.ts', 'src/_tests/a.test.ts'] },
+    { frd: 'frd-02-b', id: 'WO-02-001', artifacts: ['src/b.ts', 'src/_tests/b.test.ts'] },
+    { frd: 'frd-03-c', id: 'WO-03-001', artifacts: ['src/c.ts', 'src/b-broken.txt'] },
+  ], { verify })
+  try {
+    r.run('lane-pool', ['--size', '1'])
+    const a = landOne(r, 1, ['WO-01-001'], () => ({ 'src/a.ts': 'export const a = 1\n', 'src/_tests/a.test.ts': 'test\n' }))
+    ok(a.land.code === 0 && r.run('lane-usable', ['--frd', 'frd-01-a', '--wo', 'WO-01-001']).receipt.green === true, 'FRD-01 is green at its pin')
+    r.commitMain({ 'src/a-broken.txt': 'x\n' }, 'chore: another writer breaks an FRD-01 test on main')
+    const b = landOne(r, 1, ['WO-02-001'], () => ({ 'src/b.ts': 'export const b = 1\n', 'src/_tests/b.test.ts': 'test\n' }))
+    ok(b.land.code === 0, 'FRD-02 landed on top of the break')
+    const pin = r.git('rev-parse', 'HEAD')
+    const red = r.run('lane-usable', ['--frd', 'frd-02-b', '--wo', 'WO-02-001'])
+    ok(red.receipt.status === 'red' && red.receipt.usable === false && red.receipt.foreign === true && JSON.stringify(red.receipt.failing) === JSON.stringify([{ file: 'src/_tests/a.test.ts', frd: 'frd-01-a', wo: 'WO-01-001' }]), `red on FRD-01's test, its owner named (${JSON.stringify(red.receipt.failing)})`)
+    const early = r.run('lane-usable', ['--frd', 'frd-02-b', '--wo', 'WO-02-001', '--sha', pin, '--preexisting'])
+    ok(early.code === 4 && early.receipt.status === 'no-preexisting-proof', `no bisect yet: nothing certified (${early.receipt.status})`)
+    const bis = r.run('lane-bisect', ['--sha', pin, '--frd', 'frd-02-b', ...red.receipt.candidates.flatMap((x) => ['--candidate', x])])
+    ok(bis.receipt.status === 'pre-existing' && bis.receipt.results[0].green === false && JSON.stringify(bis.receipt.results[0].failing) === '["src/_tests/a.test.ts"]', `the base is red on the same test: pre-existing (${bis.receipt.status} ${JSON.stringify(bis.receipt.results[0].failing)})`)
+    ok(bis.receipt.preexisting && bis.receipt.preexisting.unblocks === true && bis.receipt.preexisting.owners[0].frd === 'frd-01-a' && bis.receipt.preexisting.owners[0].wo === 'WO-01-001', `it unblocks FRD-02 and routes to FRD-01's WO-01-001 (${JSON.stringify(bis.receipt.preexisting)})`)
+    const u = r.run('lane-usable', ['--frd', 'frd-02-b', '--wo', 'WO-02-001', '--sha', pin, '--preexisting'])
+    ok(u.code === 0 && u.sealed && u.receipt.status === 'usable-preexisting' && u.receipt.usable === true && u.receipt.green === false, `FRD-02 is USABLE although the tree is red (${u.receipt.status} ${u.receipt.usable} ${u.receipt.reason || ''})`)
+    const line = r.read('.pandacorp/track.jsonl').trim().split('\n').map((l) => JSON.parse(l)).filter((j) => j.kind === 'build_usable' && j.frd === 'frd-02-b')
+    ok(line.length === 1 && line[0].sha === pin.slice(0, 12) && JSON.stringify(line[0].preexisting.files) === '["src/_tests/a.test.ts"]' && /pre-existing failures/.test(r.git('log', '-1', '--format=%B')), 'the committed build_usable line names the pin and the pre-existing files')
+    // A new failure of its own (not red at the base) still blocks this FRD's USABLE.
+    const c = landOne(r, 1, ['WO-03-001'], () => ({ 'src/c.ts': 'export const c = 1\n', 'src/b-broken.txt': 'x\n' }))
+    const pin2 = r.git('rev-parse', 'HEAD')
+    const red2 = r.run('lane-usable', ['--frd', 'frd-03-c', '--wo', 'WO-03-001'])
+    ok(red2.receipt.status === 'red' && red2.receipt.failing.length === 2, `FRD-03's red names both failing tests (${JSON.stringify(red2.receipt.failing)})`)
+    const bis2 = r.run('lane-bisect', ['--sha', pin2, '--frd', 'frd-03-c', ...red2.receipt.candidates.flatMap((x) => ['--candidate', x])])
+    ok(bis2.receipt.status === 'pre-existing' && bis2.receipt.preexisting.unblocks === false && JSON.stringify(bis2.receipt.preexisting.newFailures) === '["src/_tests/b.test.ts"]', `a failure the base does not have blocks (${JSON.stringify(bis2.receipt.preexisting)})`)
+    const u2 = r.run('lane-usable', ['--frd', 'frd-03-c', '--wo', 'WO-03-001', '--sha', pin2, '--preexisting'])
+    ok(u2.code === 0 && u2.receipt.status === 'red' && u2.receipt.usable === false, `not USABLE (${u2.receipt.status})`)
+    ok(!r.read('.pandacorp/track.jsonl').split('\n').some((l) => l.includes('"kind":"build_usable","frd":"frd-03-c"')), 'no build_usable line for it')
   } finally { r.cleanup() }
 }
 

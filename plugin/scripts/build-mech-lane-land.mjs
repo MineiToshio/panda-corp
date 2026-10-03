@@ -14,15 +14,19 @@
 //               main tree is untouched. The lane's bootstrap-owned files are never its dirt (`lane-dirty` names real
 //               work only; `bootstrapOnly: true` when a lane with no owned record could not be re-proven, never counted
 //               by the engine), are set aside around the checkout/rebase, and a commit carrying one is `bootstrap-leak`.
-//   lane-bisect --candidate c [--candidate c…] [--sha <red pin>]   1-3 landed chains: verify.sh in parallel snapshot
-//               worktrees at the base before the first and at each chain's landed tip; the culprit is the first red
-//               tip after a green point ('pre-existing' when the base is already red, 'not-reproduced' when none is).
+//   lane-bisect --candidate c [--candidate c…] [--sha <red pin>] [--frd f]   1-3 landed chains: snapshot worktrees at
+//               the base before the first and at each chain's landed tip, bootstrapped side by side, then verify.sh ONE
+//               at a time, base first, each holding a host verify slot (bench FM-7); the culprit is the first red tip
+//               after a green point ('pre-existing' when the base is already red, 'not-reproduced' when none is).
+//               With --frd, a 'pre-existing' verdict also judges that FRD's red recorded at the pin (`preexisting`:
+//               unblocks only when every failing test is red at the base too and owned by another FRD).
 //               It never reverts: the engine hands the culprit to the fix-forward patch ladder.
 
 import { appendFileSync, copyFileSync, existsSync, lstatSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { InputError, JOURNALS, Refusal, acquireLock, commitJournals, dirtyEntries, gitIn, isOnMain, projectCtx, readOwned, releaseLock, utcStamp } from './build-mech-lib.mjs'
-import { activeBarrier, assertOwnWorktree, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, ownedLeaks, planChains, readState, refreshFromMain, resyncLane, resyncNeeds, runAsync, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
+import { activeBarrier, assertOwnWorktree, bootstrapLane, commitShape, ensureWorktree, freePort, laneCommits, laneEnv, lanesDir, ownedLeaks, ownerOf, planChains, readState, refreshFromMain, resyncLane, resyncNeeds, runAsync, withOwnedAside, withState, woGraph } from './build-mech-lanes.mjs'
+import { runVerify, withVerifySlot } from './build-mech-verify.mjs'
 
 const TRACK = JOURNALS[0]
 const MESSAGES_RE = /(^|\/)messages\/[^/]+\.json$/
@@ -228,7 +232,7 @@ export async function landChainOp(o) {
         checks = null
       }
       if (!checks || !journalsOnly(ctx, checksBase, onto)) {
-        checks = await laneChecks(lctx, onto, tip, o.testTimeoutMs)
+        checks = await withVerifySlot(ctx, `land-chain:${id}`, () => laneChecks(lctx, onto, tip, o.testTimeoutMs))   // bench FM-7: a host verify slot
         if (!checks.ok) return landFailure(ctx, o, graph, id, 'checks-red', { checks, rebasedOnto: onto })
         checksBase = onto
       }
@@ -286,18 +290,51 @@ export async function laneBisectOp(o) {
     prepared.push({ ...p, wt, port })
   }
   const timeoutMs = o.verifyTimeoutMs || 30 * 60 * 1000
-  const results = await Promise.all(prepared.map(async (p) => {
-    const boot = await bootstrapLane(ctx, p.wt, `bisect-${p.label}`, p.port)
-    if (boot) return { label: p.label, sha: p.sha.slice(0, 12), green: null, failure: boot }
-    const r = await runAsync('bash', ['.pandacorp/verify.sh'], { cwd: path.join(p.wt, ctx.prefix), env: laneEnv(`bisect-${p.label}`, p.port), timeoutMs })
-    return { label: p.label, sha: p.sha.slice(0, 12), green: r.ok, ...(r.ok ? {} : { exit: r.code, tail: r.tail }) }
-  }))
+  // Bench FM-7: the bootstraps may run side by side, the verifies never do: base first, then each tip, ONE at a time,
+  // each holding a host verify slot (three parallel suites starved each other into a wrong 'pre-existing').
+  const boots = await Promise.all(prepared.map((p) => bootstrapLane(ctx, p.wt, `bisect-${p.label}`, p.port)))
+  const results = []
+  if (boots.some(Boolean)) {
+    for (const [i, p] of prepared.entries()) results.push({ label: p.label, sha: p.sha.slice(0, 12), green: null, ...(boots[i] ? { failure: boots[i] } : { skipped: 'another point could not bootstrap' }) })
+  } else {
+    for (const p of prepared) {
+      const v = await runVerify(ctx, { cwd: path.join(p.wt, ctx.prefix), env: laneEnv(`bisect-${p.label}`, p.port), timeoutMs, op: `lane-bisect:${p.label}` })
+      const tail = String(v.out || '').trim().split('\n').slice(-12).join('\n')
+      results.push({ label: p.label, sha: p.sha.slice(0, 12), green: v.code === 0, failing: v.failing, ...(v.flaky ? { flaky: v.flaky } : {}), ...(v.code === 0 ? {} : { exit: v.code, tail }) })
+    }
+  }
   for (const p of prepared) ctx.g.run(['worktree', 'remove', '--force', p.wt])
   if (results.some((r) => r.green === null)) return { code: 4, body: { status: 'bisect-failed', results } }
   const [base, ...tips] = results
   const culpritAt = tips.findIndex((r) => !r.green)
   const verdict = !base.green ? 'pre-existing' : culpritAt < 0 ? 'not-reproduced' : 'culprit'
-  return { code: 0, body: { status: verdict, culprit: verdict === 'culprit' ? tips[culpritAt].label : null, results } }
+  const preexisting = verdict === 'pre-existing' && o.frds.length === 1 ? await judgePreexisting(ctx, o, o.frds[0], points[0].sha, base.failing) : null
+  return { code: 0, body: { status: verdict, culprit: verdict === 'culprit' ? tips[culpritAt].label : null, results, ...(preexisting ? { preexisting } : {}) } }
+}
+/**
+ * Bench FM-7: does a base that is already red make THIS FRD's red pre-existing? Only when its red recorded at the pin
+ * (lane-usable's `reds`) names test files, every one of them is red at the base too, and each is owned by ANOTHER FRD
+ * (its work order's artifacts). The verdict is recorded (state `preexisting`) for `lane-usable --preexisting`.
+ */
+async function judgePreexisting(ctx, o, frd, baseSha, baseFailing) {
+  const pin = o.sha ? ctx.g.run(['rev-parse', '--verify', '-q', `${o.sha}^{commit}`]) : null
+  const pinFull = pin && pin.ok ? pin.out.trim() : null
+  const graph = woGraph(ctx)
+  return withState(ctx, o, async (s) => {
+    const red = (s.reds || {})[frd]
+    const out = { frd, unblocks: false, why: '', failing: [], newFailures: [], owners: [] }
+    if (!pinFull || !red || red.sha !== pinFull) out.why = `no red lane-usable of ${frd} recorded at the pin ${String(o.sha || '(none)').slice(0, 12)}`
+    else {
+      out.failing = red.failing
+      out.newFailures = red.failing.filter((f) => !baseFailing.includes(f))
+      out.owners = red.failing.filter((f) => baseFailing.includes(f)).map((f) => ownerOf(graph, f) || { file: f, frd: null, wo: null })
+      const mine = out.owners.filter((x) => !x.frd || x.frd === frd)
+      out.why = !red.failing.length ? 'the red names no failing test file' : out.newFailures.length ? `not red at the base: ${out.newFailures.join(', ')}` : mine.length ? `not owned by another FRD: ${mine.map((x) => x.file).join(', ')}` : ''
+      out.unblocks = !out.why
+    }
+    if (pinFull) s.preexisting = { ...(s.preexisting || {}), [frd]: { sha: pinFull, base: baseSha, at: new Date().toISOString(), ...out } }
+    return out
+  })
 }
 
 export const LAND_OPS = { 'land-chain': landChainOp, 'lane-bisect': laneBisectOp }

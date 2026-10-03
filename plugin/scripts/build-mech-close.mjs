@@ -32,6 +32,7 @@ import path from 'node:path'
 import { finalizeRelease, localDay, quiesce, readSecurityReport, setProjectPhase } from '../runtime/build-state.mjs'
 import { InputError, JOURNALS, PROJECTION, REPORT_REL, Refusal, acquireLock, dirtyEntries, projectCtx, releaseLock, reportProvenance, sealReportProvenance, unique } from './build-mech-lib.mjs'
 import { securityDeltaTriggers } from './product-floor.mjs'
+import { runVerify } from './build-mech-verify.mjs'
 
 const STATUS = PROJECTION
 const EVENTS = 'docs/analytics/events.md'
@@ -194,19 +195,19 @@ function journalGold(ctx) {
   return out
 }
 /** The scripted full verify: a reusable script-sealed report of HEAD, or ONE verify.sh run. */
-function fullVerify(ctx, o, headFull) {
+async function fullVerify(ctx, o, headFull) {
   let rep = null
   try { rep = JSON.parse(readFileSync(path.join(ctx.project, REPORT_REL), 'utf8')) } catch { rep = null }
   const age = rep ? Math.floor((Date.now() - Date.parse(rep.at)) / 1000) : -1
   if (rep && rep.scope === 'full' && rep.green === true && String(rep.sha || '') === headFull && age >= 0 && age <= o.maxAge && reportProvenance(ctx).ok) return { green: true, how: 'reused', failure: '' }
-  const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
+  const v = await runVerify(ctx, { cwd: ctx.project, timeoutMs: o.verifyTimeoutMs || 45 * 60 * 1000, op: 'close' })   // bench FM-7: slotted, timeout re-run
   try { rep = JSON.parse(readFileSync(path.join(ctx.project, REPORT_REL), 'utf8')) } catch { rep = null }
   if (rep) sealReportProvenance(ctx, 'close')
-  if (!rep) return { green: false, how: 'ran', failure: `verify.sh (exit ${r.status}) left no readable gate-report.json` }
+  if (!rep) return { green: false, how: 'ran', failure: `verify.sh (exit ${v.code}) left no readable gate-report.json` }
   if (String(rep.sha || '') !== headFull) return { green: false, how: 'ran', failure: `stale gate-report: its sha is not HEAD ${headFull.slice(0, 12)}` }
   const red = (Array.isArray(rep.subgates) ? rep.subgates : []).find((g) => g && g.exit !== 0)
-  const green = r.status === 0 && rep.green === true && rep.scope === 'full'
-  return { green, how: 'ran', failure: green ? '' : red ? `${red.name} red` : `verify.sh exited ${r.status} (scope ${rep.scope})` }
+  const green = v.code === 0 && rep.green === true && rep.scope === 'full'
+  return { green, how: 'ran', failure: green ? '' : red ? `${red.name} red` : `verify.sh exited ${v.code} (scope ${rep.scope})` }
 }
 export async function closeOp(o) {
   if (!o.token || o.epoch === undefined) throw new InputError('close needs --token and --epoch (the fenced lease)')
@@ -230,7 +231,7 @@ export async function closeOp(o) {
     if (drift) throw new Refusal('stale-smoke', `${drift.reason}: the production smoke must judge the commit that is released (re-smoke HEAD first)`, { smoke: o.smokeSha, paths: drift.paths })
   }
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
-  const v = fullVerify(ctx, o, headFull)
+  const v = await fullVerify(ctx, o, headFull)
   if (!v.green) return { code: 4, body: { status: 'red', verify: v.how, failure: v.failure, sha: headFull.slice(0, 12) } }
   const gold = journalGold(ctx)
   if (gold.length) { mkdirSync(path.join(ctx.project, '.pandacorp', 'run'), { recursive: true }); appendFileSync(path.join(ctx.project, '.pandacorp', 'run', 'lessons.md'), `${gold.join('\n')}\n`) }

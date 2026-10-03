@@ -4,6 +4,18 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## Unreleased — 2026-10-03 (PATCH, version set at release): verify contention — host verify slots, a sequential bisect, the timeout re-run, pre-existing reds of other FRDs (bench FM-7)
+
+**Why.** Bench run FM-7 (`--lanes`): up to four full `verify.sh` ran at once on a 10-core host (`lane-bisect` fanned out three with `Promise.all`, beside another FRD's `lane-usable` and a gate reviewer's run). CPU contention pushed two tests that launch `prisma migrate deploy` past vitest's 5 s default; `lane-usable` went red on an FRD-01 test while verifying FRD-02, the bisect said `pre-existing` (its base had been verified under the same contention) and FRD-02's USABLE was blocked ~40 min on a red that was neither its own nor real.
+
+**What ([build-orchestration.md §5d](../../factory/standards/build-orchestration.md), "Verify contention"):**
+1. `build-mech-verify.mjs`: every full `verify.sh` the mech ops run (`verify`, `verify --patch`, `close`, `lane-usable`, `lane-bisect`, `land-chain`'s checks) holds a host verify slot: mkdir slots in `.pandacorp/run/verify-slots/`, max(1, floor(ncpu/4)), `PANDACORP_VERIFY_SLOTS` overrides; a dead holder's slot is reclaimed under a per-slot reclaim lock (the first cut renamed a stale slot without one and two callers could claim the same slot: the cap test caught 3 at once on 2 slots). Waiting is never a failure.
+2. `lane-bisect` bootstraps its points side by side but verifies them ONE at a time, base first.
+3. The timeout re-run: a red with a test-timeout signature (vitest `Test timed out`, Playwright `Test timeout of …ms exceeded`) re-runs only its failing test files alone, holding a slot; they pass → `flaky-contention` (no candidates, no fix-forward) and the full `verify.sh` runs once more as the verdict; they fail → the first run's red and report stand. The engine re-verifies a `flaky-contention` red once later instead of fixing forward.
+4. A red `lane-usable` records the pin's failing test files and their owning WO/FRD (`artifacts`); the engine bisects with `--frd` when the class is `cross` or a failing test is another FRD's. Only when every failing test is red at the base too and owned by another FRD does `lane-usable --preexisting` commit `build_usable` (no re-run, the line names the pre-existing files) and the engine route the failure ONCE to each owner's fix-forward. A new failure, or one this FRD owns, still blocks; the build closes only on a whole green tree.
+
+**Rejected.** A global host lock (one verify at a time) — it serializes unrelated projects' and the gate's independent runs for no gain on a multi-core host. Re-running the whole suite on any red — it hides real reds and doubles the cost; only a timeout signature whose files pass ALONE is contention.
+
 ## Unreleased — 2026-10-02 (PATCH, version set at release): lanes robust to bootstrap-owned files (bench FM-6)
 
 **Why.** The medium bench run FM-6 (`--lanes 2`) parked a chain whose code was correct and stalled every DAG descendant: the second lane's `worktree-bootstrap.sh` (step 2) rewrote `.claude/launch.json` with the lane's ports, assuming it gitignored, but that project TRACKS it. The rewrite ran after the dispatch's dirt salvage (a port change re-bootstraps), so `land-chain` refused three times with `lane-dirty … (.claude/launch.json)` and the engine counted each refusal toward park. Reproduced with the real bootstrap in a temp repo: the same dirt also refused `commit-wo` (`undeclared`) in the lane.

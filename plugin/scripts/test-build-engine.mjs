@@ -2926,6 +2926,53 @@ const LIMIT_429 = 'API Error: 429 {"type":"error","error":{"type":"rate_limit_er
   })
 }
 {
+  // Bench FM-7: a red the timeout re-run proved was contention is never bisected nor fixed: one more snapshot verify.
+  const sim = laneSim([chainOf('frd-fa', ['wo-fa-001']), chainOf('frd-fb', ['wo-fb-001'])])
+  const flaky = { line: mechLine('lane-usable', { status: 'flaky-contention', frd: 'frd-fa', green: false, usable: false, floor: false, sha: 'f1a700000001', scope: 'full', failure: 'vitest: src/_tests/db.test.ts Test timed out in 5000ms', injection: [], class: null, candidates: [], flaky: { files: ['src/_tests/db.test.ts'], fullRerun: 'red' } }) }
+  SCENARIOS.push({
+    name: 'usable-flaky-contention-requeues-once — a flaky-contention red is re-verified later with no bisect and no fix-forward; green then: USABLE',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-fa', ids: ['wo-fa-001'] }, { frd: 'frd-fb', ids: ['wo-fb-001'] }]),
+    responses: [{ label: 'usable:frd-fa', times: 1, response: flaky }, ...sim.responses],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, /^(bisect|fix|fix-pre):/).length === 0, `no bisect, no fix-forward (got ${byLabel(run, /^(bisect|fix|fix-pre):/).map((c) => c.label).join(', ') || 'none'})`)
+      t.ok(byLabel(run, 'usable:frd-fa').length === 2 && hasLog(run, /frd-fa: verify\.sh timed out under contention/), 'the snapshot verify runs once more, logged as contention')
+      t.ok(run.result && run.result.usable.some((u) => u.frd === 'frd-fa') && ['frd-fa', 'frd-fb'].every((f) => run.result.builtFrds.includes(f)), 'USABLE on the re-run, then VERIFIED')
+    },
+  })
+}
+{
+  // Bench FM-7: FRD-PB's red is only FRD-PA's test, red at the bisect base too: PB is USABLE, PA gets ONE fix-forward.
+  const sim = laneSim([chainOf('frd-pa', ['wo-pa-001']), chainOf('frd-pb', ['wo-pb-001'])])
+  const owner = { file: 'src/_tests/a.test.ts', frd: 'frd-pa', wo: 'wo-pa-001' }
+  const red = { line: mechLine('lane-usable', { status: 'red', frd: 'frd-pb', green: false, usable: false, floor: false, sha: 'be5e00000001', scope: 'full', failure: 'vitest: src/_tests/a.test.ts expected 1 got 2', injection: [], class: 'own', candidates: ['c-wo-pb-001'], failing: [owner], foreign: true }) }
+  SCENARIOS.push({
+    name: 'usable-preexisting-routes-owner-once — a red only on another FRD\'s pre-existing test is bisected (--frd), certified by lane-usable --preexisting, and routed once to the owner\'s fix-forward; nothing reverted',
+    args: LANED_ARGS,
+    plan: fastPlan([{ frd: 'frd-pa', ids: ['wo-pa-001'] }, { frd: 'frd-pb', ids: ['wo-pb-001'] }]),
+    responses: [
+      { label: 'usable:frd-pb', times: 1, response: red },
+      { label: 'bisect:frd-pb', response: { line: mechLine('lane-bisect', { status: 'pre-existing', culprit: null, results: [], preexisting: { frd: 'frd-pb', unblocks: true, why: '', failing: [owner.file], newFailures: [], owners: [owner] } }) } },
+      { label: 'usable-pre:frd-pb', response: { line: mechLine('lane-usable', { status: 'usable-preexisting', frd: 'frd-pb', green: false, usable: true, floor: false, sha: 'be5e00000001', scope: 'full', failure: 'pre-existing', injection: [], class: null, candidates: [] }) } },
+      { label: 'fix-pre:frd-pa', response: { done: true } },
+      ...sim.responses,
+    ],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      const bis = byLabel(run, 'bisect:frd-pb')
+      t.ok(bis.length === 1 && /--frd 'frd-pb'/.test(bis[0].prompt), 'a foreign failing test is bisected even for class own, naming the FRD')
+      const pre = byLabel(run, 'usable-pre:frd-pb')
+      t.ok(pre.length === 1 && /--preexisting/.test(pre[0].prompt) && /--sha 'be5e00000001'/.test(pre[0].prompt), 'lane-usable --preexisting on the red pin')
+      t.ok(byLabel(run, /^fix:frd-pb$/).length === 0 && byLabel(run, /^usable:frd-pb$/).length === 1, 'no fix-forward of FRD-PB, no re-verify')
+      const fix = byLabel(run, 'fix-pre:frd-pa')
+      t.ok(fix.length === 1 && fix[0].model === 'sonnet' && /src\/_tests\/a\.test\.ts/.test(fix[0].prompt) && /pre-dates frd-pb/.test(fix[0].prompt), `ONE sonnet fix-forward of the owner FRD-PA (got ${fix.length})`)
+      t.ok(byLabel(run, /^(revert|wo-revert|block-usable|repair):/).length === 0, 'never a revert, never the discard ladder')
+      t.ok(run.result && run.result.usable.some((u) => u.frd === 'frd-pb'), 'FRD-PB is USABLE')
+    },
+  })
+}
+{
   const sim = laneSim([chainOf('frd-ya', ['wo-ya-001']), chainOf('frd-yb', ['wo-yb-001'])])
   const red = { line: mechLine('lane-usable', { status: 'red', frd: 'frd-ya', green: false, usable: false, floor: false, sha: 're0d00000002', scope: 'full', failure: 'tsc: src/ya.ts TS2322', injection: [], class: 'own', candidates: ['c-wo-ya-001'] }) }
   SCENARIOS.push({

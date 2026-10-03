@@ -23,6 +23,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { landedDiff } from './build-mech-close.mjs'
+import { runVerify, verifyStatus } from './build-mech-verify.mjs'
 import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
 import { securityDeltaTriggers } from './product-floor.mjs'
 
@@ -350,18 +351,19 @@ export function injectionHits(ctx, since, to = 'HEAD') {
  * withdraws the line.
  * @returns {{ usableCommit: string|null, usableFailure: string }}
  */
-export function commitUsable(ctx, o, frd, sha) {
+export function commitUsable(ctx, o, frd, sha, preexisting = null) {
   let usableCommit = null
   let usableFailure = ''
   const lock = acquireLock(ctx, { waitMs: o.lockWaitMs, op: o.op || 'verify' })
   try {
     const trackAbs = path.join(ctx.project, TRACK)
     const existed = existsSync(trackAbs)
-    const line = JSON.stringify({ kind: 'build_usable', frd, sha, at: new Date().toISOString() })
+    const line = JSON.stringify({ kind: 'build_usable', frd, sha, ...(preexisting ? { preexisting } : {}), at: new Date().toISOString() })
+    const why = preexisting ? `Bench FM-7: verify.sh red only on other FRDs' pre-existing failures (${preexisting.files.join(', ')}), red on the same tests at the base ${preexisting.base}.` : 'Proposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.'
     appendFileSync(trackAbs, `${line}\n`)
     const paths = unique([TRACK, ...dirtyEntries(ctx).filter((e) => JOURNALS.includes(e.path)).map((e) => e.path)])
     const add = ctx.g.run(['--literal-pathspecs', 'add', '--', ...paths])
-    const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\nProposal 39 C6: committed work orders, verify.sh green on the clean landed SHA, not floor.`, '--', ...paths]) : add
+    const c = add.ok ? ctx.g.run(['--literal-pathspecs', 'commit', '-q', '-m', `chore(build): ${frd} usable at ${sha}\n\n${why}`, '--', ...paths]) : add
     if (c.ok) usableCommit = ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12)
     else {
       ctx.g.run(['--literal-pathspecs', 'reset', '-q', '--', ...paths])
@@ -372,7 +374,7 @@ export function commitUsable(ctx, o, frd, sha) {
   if (usableCommit) emit(o, { event: 'build_usable', frd, sha })
   return { usableCommit, usableFailure }
 }
-export function verifyOp(o) {
+export async function verifyOp(o) {
   if (o.frds.length !== 1) throw new InputError('verify needs exactly one --frd <folder>')
   const frd = o.frds[0]
   const ctx = projectCtx(o.project)
@@ -392,15 +394,15 @@ export function verifyOp(o) {
   const injection = since ? injectionHits(ctx, since) : null
   const headFull = ctx.g.must(['rev-parse', 'HEAD']).trim()
   const sha = headFull.slice(0, 12)
-  const r = spawnSync('bash', ['.pandacorp/verify.sh'], { cwd: ctx.project, encoding: 'utf8', timeout: o.verifyTimeoutMs || 45 * 60 * 1000, maxBuffer: 256 * 1024 * 1024 })
-  const rep = readReport(ctx, r.status, headFull)
+  const r = await runVerify(ctx, { cwd: ctx.project, timeoutMs: o.verifyTimeoutMs || 45 * 60 * 1000, op: `verify:${frd}` })   // bench FM-7: slotted, timeout re-run
+  const rep = readReport(ctx, r.code, headFull)
   sealReportProvenance(ctx, 'verify')   // proposal 40: the close may reuse only a report a script ran
   const green = rep.green && rep.scope !== 'partial'
   // USABLE has ONE writer (DR-115): the committed build_usable line. No commit, no USABLE, no event.
   const { usableCommit, usableFailure } = green && !floor ? commitUsable(ctx, o, frd, sha) : { usableCommit: null, usableFailure: '' }
   const usable = Boolean(usableCommit)
   const after = dirtyEntries(ctx).filter((e) => e.path !== PROJECTION).map((e) => e.path)
-  return { code: 0, body: { status: green ? 'green' : 'red', frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), dirtyAfter: after, exit: r.status } }
+  return { code: 0, body: { status: verifyStatus(r, green), frd, green, usable, floor, floorChanged: landed.changed, floorHits: landed.floorHits, injection, since: since ? since.slice(0, 12) : null, sinceSource, sha, scope: rep.scope, failure: green ? '' : (rep.failure || `report scope ${rep.scope}`), usableCommit, ...(usableFailure ? { usableFailure } : {}), ...(r.flaky ? { flaky: r.flaky } : {}), dirtyAfter: after, exit: r.code } }
 }
 
 // ── USABLE across runs (C6) ────────────────────────────────────────────────────────────────────

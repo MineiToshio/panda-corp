@@ -250,7 +250,7 @@ let oracleNoFallbackLogged = false
 let landingInFlight = null
 let mainWriter = null
 let LANED = null
-const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
+const lane = { k: 1, stepK: null, pool: null, ready: false, resumed: false, next: null, plan: true, sp: false, stop: false, landHold: false, idle: 0, broken: 0, jobs: new Map(), live: new Map(), land: [], fixQ: [], routed: new Set(), usableQ: [], usable: null, barrier: null, attempts: new Map(), landed: new Set(), parked: [], blocked: [] }
 const STRUCTURED_WRAPPER_KEYS = new Set(['parameter', 'input', 'result', 'output', 'json'])
 const unwrapStructuredResult = (answer, schema) => {
  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) return answer
@@ -3652,7 +3652,8 @@ function fastVerdict(frd, r) {
  if (st && st.injection !== true && Array.isArray(b.injection)) st.injection = b.injection.length > 0
  if (b.injection && b.injection.length) log(`◦ ${frd}: injection-style content (${b.injection.map((h) => h.detail).join('; ').slice(0, 200)}): its gate stays xhigh`)
  const green = b.green === true && b.scope !== 'partial'
- return { refused: false, green, usable: green && b.usable === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '', cls: b.class || null, candidates: Array.isArray(b.candidates) ? b.candidates : [] }
+ const pre = b.status === 'usable-preexisting'
+ return { refused: false, green, usable: (green || pre) && b.usable === true, pre, flaky: b.status === 'flaky-contention', foreign: b.foreign === true, sha: b.sha || null, failure: b.failure || b.usableFailure || '', cls: b.class || null, candidates: Array.isArray(b.candidates) ? b.candidates : [] }
 }
 async function fastVerifyOrRetry(frd, since, ids) {
  const v = await fastVerify(frd, since, ids)
@@ -3725,7 +3726,7 @@ async function fastCertified(frd, v) {
  const st = frdState.get(frd)
  if (v.usable && !fastIsFloor(frd)) {
   fastUsable.push({ frd, sha: v.sha })
-  log(`✅ USABLE: ${frd} @ ${v.sha} — committed, verify.sh green on the clean landed SHA (proposal 39 C6); its gate runs now, fix-forward only from here`)
+  log(`✅ USABLE: ${frd} @ ${v.sha} — committed, ${v.pre ? 'verify.sh red only on other FRDs\' pre-existing failures (bench FM-7)' : 'verify.sh green on the clean landed SHA'} (proposal 39 C6); its gate runs now, fix-forward only from here`)
  } else if (v.refused) log(`⚠ ${frd}: verify refused again (${v.failure}) — not USABLE; nothing is repaired or discarded, its gate decides`)
  else if (v.green && fastIsFloor(frd)) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
  else if (v.green) log(`⚠ ${frd}: green on ${v.sha} but not USABLE (${v.failure || 'no committed build_usable line'}) — its gate decides`)
@@ -3941,13 +3942,18 @@ async function laneLand(c) {
 function laneUsableStart(u) {
  lane.usable = laneUsable(u).catch((e) => { if (!isInfraError(e)) throw e }).finally(() => { lane.usable = null; lane.plan = true })
 }
-async function laneUsable({ frd, rung }) {
+async function laneUsable({ frd, rung, flakyRetry }) {
  const ids = frdState.get(frd).reviewIds
  let v = null
  for (let i = 0; i < 2 && (!v || v.refused); i++) {
   agentSpawned++
   v = fastVerdict(frd, await runMechOp('lane-usable', `--frd ${shellQuote(frd)}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')}${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `usable:${frd}` }))
   if (v.refused) log(`⚠ ${frd}: the snapshot verify was refused (${v.failure}) — it certified nothing either way`)
+ }
+ if (!v.refused && !v.green && v.flaky && !flakyRetry) {
+  log(`◦ ${frd}: verify.sh timed out under contention on ${v.sha} (the failing files pass alone) — the snapshot verify runs again later, no fix-forward`)
+  lane.usableQ.push({ frd, rung, flakyRetry: true })
+  return
  }
  if (!v.refused && !v.green) {
   log(`! ${frd}: verify.sh red on the pinned ${v.sha} (${v.failure}) — ${v.cls === 'cross' ? `other chains landed since the last green pin (${v.candidates.join(', ')}): bisect, then` : 'only its own chains since the last green pin:'} fix-forward, never a revert (proposal 40 §3 B.6)`)
@@ -3956,8 +3962,9 @@ async function laneUsable({ frd, rung }) {
  }
  await fastCertified(frd, v)
 }
-async function laneFixForward({ frd, ids, v, rung }) {
+async function laneFixForward({ frd, ids, v, rung, preFor }) {
  lane.plan = true
+ if (preFor) return lanePreexistingFix(frd, ids, v, preFor)
  const model = rung ? 'opus' : 'sonnet'
  if (rung >= 2 || capHit() || !canAffordRepair(frd, model)) {
   log(`⛔ ${frd}: verify.sh still red on ${v.sha} after the fix-forward ladder (${v.failure}) — nothing is reverted (other chains landed on top): needs-owner`)
@@ -3966,16 +3973,40 @@ async function laneFixForward({ frd, ids, v, rung }) {
   return null
  }
  let hint = ''
- if (v.cls === 'cross' && v.candidates.length && !rung) {
+ if ((v.cls === 'cross' || v.foreign) && v.candidates.length && !rung) {
   agentSpawned++
-  const b = (await runMechOp('lane-bisect', `--sha ${shellQuote(v.sha)}${v.candidates.map((x) => ` --candidate ${shellQuote(x)}`).join('')}`, { label: `bisect:${frd}` })).body
+  const b = (await runMechOp('lane-bisect', `--sha ${shellQuote(v.sha)} --frd ${shellQuote(frd)}${v.candidates.map((x) => ` --candidate ${shellQuote(x)}`).join('')}`, { label: `bisect:${frd}` })).body
   log(`◦ ${frd}: bisect over ${v.candidates.join(', ')} → ${(b && (b.culprit || b.status)) || 'no verdict'}`)
+  if (b && b.ok === true && b.status === 'pre-existing' && b.preexisting && b.preexisting.unblocks === true && (await lanePreexistingUsable(frd, ids, v, b.preexisting))) return null
   hint = b && b.ok === true ? (b.status === 'culprit' ? ` A bisect over the chains landed since the last green pin names chain ${b.culprit} (its work orders' code) as the first red tip: start there.` : ` A bisect over the chains landed since the last green pin found: ${b.status}.`) : ''
  }
  log(`! ${frd}: fix-forward on main (${model})`)
  agentSpawned += COST(model)
  await chargedRepair(frd, model, () => agent(fastFixPrompt(frd, ids, v.failure) + hint, { label: `fix:${frd}`, phase: 'Build', model, effort: rung ? 'high' : 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
  lane.usableQ.unshift({ frd, rung: rung + 1 })
+ return null
+}
+async function lanePreexistingUsable(frd, ids, v, pre) {
+ agentSpawned++
+ const u = fastVerdict(frd, await runMechOp('lane-usable', `--frd ${shellQuote(frd)}${ids.map((id) => ` --wo ${shellQuote(id)}`).join('')} --sha ${shellQuote(v.sha)} --preexisting${fastIsFloor(frd) ? ' --floor' : ''}`, { label: `usable-pre:${frd}` }))
+ if (u.refused || !u.pre) return false
+ const byFrd = new Map()
+ for (const o of pre.owners || []) if (o && o.frd && o.frd !== frd) byFrd.set(o.frd, [...(byFrd.get(o.frd) || []), o])
+ for (const [owner, rows] of byFrd) {
+  const key = `${owner}|${rows.map((o) => o.file).sort().join(',')}`
+  if (lane.routed.has(key) || lane.fixQ.some((f) => f.frd === owner)) continue
+  lane.routed.add(key)
+  log(`↪ ${frd}: its red is ${owner}'s pre-existing failure (${rows.map((o) => o.file).join(', ')}) — routed once to ${owner}'s fix-forward`)
+  lane.fixQ.push({ frd: owner, ids: [...new Set(rows.map((o) => o.wo))], v: { sha: v.sha, failure: `pre-existing red in ${rows.map((o) => o.file).join(', ')} (red at the bisect base too): ${v.failure}` }, rung: 0, preFor: frd })
+ }
+ await fastCertified(frd, u)
+ return true
+}
+async function lanePreexistingFix(frd, ids, v, preFor) {
+ if (capHit() || !canAffordRepair(frd, 'sonnet')) { log(`⚠ ${frd}: its pre-existing red (${v.failure}) gets no fix-forward (budget) — the close-out's full verify still requires it green`); return null }
+ log(`! ${frd}: fix-forward on main of its pre-existing red, found while certifying ${preFor} (sonnet)`)
+ agentSpawned += COST('sonnet')
+ await chargedRepair(frd, 'sonnet', () => agent(`${fastFixPrompt(frd, ids, v.failure)} This red pre-dates ${preFor}'s chains (a bisect found it red at their base): fix ${frd}'s own code.`, { label: `fix-pre:${frd}`, phase: 'Build', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
  return null
 }
 async function laneRound() {

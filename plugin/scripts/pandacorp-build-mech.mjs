@@ -73,6 +73,9 @@
 //   lane-next / lane-usable   proposal 40 Phase B: the engine's scheduling round (refresh, resume, barrier, dispatch every
 //                free lane) and the USABLE check of a lane-built FRD in the snapshot worktree on a pinned SHA, with the
 //                bisect candidates of a red one (build-mech-lane-next.mjs).
+//   Every full verify.sh these ops run (verify, verify --patch, close, lane-usable, lane-bisect, and land-chain's
+//                checks) holds a host verify slot and re-runs a test-timeout red's failing files alone (bench FM-7):
+//                build-mech-verify.mjs.
 
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -108,7 +111,7 @@ const CODE_FILE_RE = /\.[cm]?[jt]sx?$/
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 // ── argument parsing ───────────────────────────────────────────────────────────────────────────
-const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na', 'patch', 'barrier', 'resume', 'lane-plan'])
+const FLAGS = new Set(['commit', 'targeted', 'classify', 'floor', 'all-undeclared', 'compact', 'launch-event', 'write-report', 'write-na', 'patch', 'barrier', 'resume', 'lane-plan', 'preexisting'])
 const LISTS = new Set(['file', 'wo', 'ac', 'frd', 'test', 'drift', 'candidate', 'build', 'wait-verified'])
 function parseArgs(argv) {
   const op = argv[0]
