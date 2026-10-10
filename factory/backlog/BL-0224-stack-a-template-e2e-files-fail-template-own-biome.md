@@ -21,6 +21,15 @@ no project code changed. personal-page-v2 hit this on the 8.81.0 to 8.98.0 upgra
 `tokens.spec.ts:38` cognitive complexity 31 (max 15), `tokens.spec.ts:52` `useOptionalChain`,
 `screenshot-prototype.mjs` unsorted imports + unformatted.
 
+## Corroborating occurrence (2026-10-03, mission-control, harvested via /pandacorp:memory)
+A second angle on the same root cause, from a different project: mission-control's own harvest independently
+flagged that the plugin's own test suite never exercises this path either — `test-prod-smoke.mjs` only
+regex-checks the shipped e2e files' SHAPE (that the right assertions exist), it never actually runs
+`biome check` against them with the template's own `biome.json`. This is exactly the gap this item's Fix
+plan step 2 already targets (a factory-side template-self-lint check in `plugin/scripts/`, wired into
+`run-engine-tests.sh`); no new scope, just a second independent confirmation that the missing check is the
+right fix (not just "fix these two files and move on").
+
 ## Root cause
 Nothing verifies that every file the template ships passes the template's own gate configuration. The
 template files were authored/edited without running the template's `biome.json` over them, and no factory test

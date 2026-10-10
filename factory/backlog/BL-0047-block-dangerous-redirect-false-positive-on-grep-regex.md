@@ -76,6 +76,17 @@ redirect scanner specifically). A general fix (strip heredoc/multi-line quoted b
 ANY of the matchers run, not just the redirect one) would close this class for every matcher at once; see
 `factory/memory/LESSON-0105` (10th corroboration) for the generalized workaround in the meantime.
 
+## Corroborating occurrence (2026-10-06, mission-control, harvested via /pandacorp:memory) — a THIRD distinct matcher
+Confirms the 2026-09-24 corroboration's prediction with a concrete new matcher: the branch-deletion guard
+(`block-dangerous.sh:291`, `grep -Eq 'git (branch|push).*(-D|--delete).*(main|master)'`) false-positived
+"deleting main branch" when a single Bash call combined `git branch -D <other-branch>` with ANY later
+appearance of the default branch's name in the same command string — including plain prose inside a heredoc
+body with no `-D`/`--delete` anywhere near it. Same systemic root cause (a bare whole-command-string
+`grep -Eq` with no quote/heredoc-stripping pre-pass) now reproduced on a THIRD distinct matcher (after the
+redirect-truncation guard and the generic destructive-command matchers). Workaround: split the branch-delete
+and the other command into separate Bash calls, or write heredoc'd text via Edit/Write instead of a bash
+heredoc. See `factory/memory/LESSON-0105` (12th corroboration) for the generalized workaround.
+
 ## Root cause
 The redirect scanner (line 101) is a bare textual pattern match with no shell-tokenization/quote-awareness:
 it cannot distinguish an actual redirect operator from a `>` character that is merely PART of an argument
