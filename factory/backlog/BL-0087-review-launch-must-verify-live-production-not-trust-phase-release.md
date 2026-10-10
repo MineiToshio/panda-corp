@@ -65,3 +65,24 @@ skill's own doc notes the new precondition; `LESSON-0183`'s `promotion` field re
 Auto-triggering a re-deploy/DNS-fix when the mismatch is found (this stays a detect-and-flag fix, not an
 auto-remediation — the actual redeploy for `personal-page-v2` itself is that PROJECT's own defect, routed
 via its `.pandacorp/inbox/changes/` per DR-103, not this factory-tooling item).
+
+## Corroborating occurrence (2026-10-06) — the REVERSE direction: the live domain can move AHEAD of status.yaml too, not just lag behind it
+
+A 2026-10-06 `pandacorp-review-launch` scheduled sweep on personal-page-v2 found the opposite mismatch from
+this item's original finding: `toshiominei.com` was ALREADY serving the rebuild (verified live via
+browser — Vercel deploy + PostHog CSP headers matched the new build), while `.pandacorp/status.yaml` still
+read `phase: implementation` with no cutover commit anywhere in the decision log. Vercel's continuous-deploy
+pipeline had evidently pushed the new build to production on its own trigger (a git push to the production
+branch), entirely outside any `/pandacorp:release` run — the live artifact advanced without the
+skill-tracked phase ever catching up. This instance is now moot for personal-page-v2 itself (it formally
+ran `/pandacorp:release` on 2026-10-07; see `factory/portfolio.md` and
+`personal-page-v2/docs/decision-log.md`), but it widens this item's actual scope: Fix plan step 1's live-
+artifact check must not only fire when `phase: release` (the original direction, domain lagging) — it, or a
+companion check in `sync-portfolio`/the daily sweep, should also catch a domain that has already cut over
+via an out-of-band continuous-deploy pipeline BEFORE `/pandacorp:release` ever ran, so "no cutover yet"
+is never asserted from the phase field alone. Consider extending Fix plan step 3 (a durable cutover-evidence
+artifact) to double as the thing a routine checks before making that claim. No new backlog item — same root
+class (the phase flag vs. the live artifact can diverge in EITHER direction), same fix surface
+(`review-launch`/`release`/`sync-portfolio`). See `LESSON-0183`'s third facet for the generalized knowledge-
+store note on this reverse direction. Source: factory/memory/_inbox.md agent-inferred note (2026-10-06
+review-launch sweep, harvested 2026-10-10).

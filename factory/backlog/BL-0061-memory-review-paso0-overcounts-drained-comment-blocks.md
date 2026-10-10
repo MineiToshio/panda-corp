@@ -282,3 +282,23 @@ further live reproductions of that SAME already-cited incident family, from the 
 second independent project — per DR-047 anti-poisoning and this item's own 2026-09-13 precedent (which
 reached the identical conclusion for an adjacent facet), this does not warrant another LESSON-0008 update,
 let alone a new lesson. No memory-side change made; this is pure fix-design sharpening of BL-0061 itself.
+
+## Note (annotated 2026-10-06) — the isolated-line anchor finds ZERO matches, not just a WRONG one, when a file's only drain block closes inline
+
+A further distinct failure shape, sharpening (not duplicating) the 2026-09-26 annotation's point that most
+real closes are inline rather than isolated: on `pandacast/.pandacorp/run/lessons.md`, whose only drain
+block (the 2026-07-10 harvest) closes inline at the end of its last sentence, an isolated-line-anchored
+search (`^-->\s*$` / `^-->`) returns ZERO matches — not a wrong-occurrence match like the 2026-09-26 case
+(which still found SOME isolated line, just the wrong one). A zero-match result is operationally more
+dangerous: naive logic might read "no isolated close found" as "this file was never drained" or "the drain
+marker is corrupted/missing" and either treat the whole file as suspect or fall back to raw-line counting —
+when the correct reading is "fully drained, 0 live pending notes," confirmable only by reading the whole
+file (or applying the already-established "last literal occurrence, anchored or not" rule from the
+2026-09-26/27/29 annotations, which does not depend on an isolated-line match existing at all). Whoever
+implements this item's Fix plan must treat "isolated-anchor zero matches" and "isolated-anchor wrong match"
+as two symptoms of the SAME already-discredited approach (the isolated-line anchor itself, superseded
+2026-09-26) — no new fix design needed beyond what the 2026-09-26/27/29 annotations already converged on;
+this is corroboration of why that approach must not ship, from a second edge case. No new backlog item; no
+memory-side change (checked against LESSON-0008 per the 2026-09-29 annotation's precedent — same
+already-cited incident family, not independent corroboration). Source: factory/memory/_inbox.md
+agent-inferred note (2026-10-06 harvest, harvested 2026-10-10).
