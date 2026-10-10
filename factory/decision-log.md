@@ -1,5 +1,30 @@
 # Decision Log — Factory
 
+## 2026-10-10 — pandacorp-memory-review sweep: completed an abandoned personal-page-v2 harvest (BL-0089 pattern recurrence)
+
+**What:** the daily `pandacorp-memory-review` scheduled sweep found `factory/backlog/`/`factory/memory/`
+in a dirty, uncommitted state from a 2026-10-07 `/pandacorp:memory harvest personal-page-v2` run: the new
+BL-0224/BL-0225 and LESSON-0279/LESSON-0280 files, plus 7 corroboration updates to existing LESSON files,
+were all written to disk and internally consistent with the project's 9 live inbox notes, but
+`personal-page-v2/.pandacorp/run/lessons.md` was never drained and nothing was ever committed — step 6 of
+`plugin/skills/memory/SKILL.md`'s harvest mode (the mandatory commit) was skipped. Verified every one of
+the 9 notes mapped cleanly to the produced files (cross-checked diffs against the notes' content) before
+acting, then drained the project's `lessons.md` with a matching summary block and committed the factory-side
+files as `42db8a12`. The sweep then ran normally: factory inbox (2 notes, both folded into existing BL-0061/
+BL-0087 as corroborations, `7f415486`) and mission-control (7 notes → 2 new lessons, 2 new BL items, 3
+corroborations, `1ccce755`); review/prune pass found nothing to change; `/fewer-permission-prompts` found
+nothing new crossing the 3-occurrence bar for this repo.
+
+**Why:** this is the exact failure mode the skill's own step 6 names and cites as precedent — "the
+2026-08-11 abandoned-harvest incident, BL-0089" — recurring on a different project about two months later,
+this time as an EXECUTION skip (the commit instruction already existed and was skipped/interrupted) rather
+than BL-0089's original MISSING-instruction gap. Filed **BL-0228** for a structural backstop (a Stop-hook
+check for uncommitted `factory/memory`/`factory/backlog` output, analogous to the existing
+`verify-before-stop.sh`/`capture-lessons-reminder.sh`) so the next recurrence gets caught by the SAME
+session instead of depending on a later sweep's manual `git status` read — whatever interrupted that
+2026-10-07 session (a crash, a context cutoff, a manual Ctrl-C) left real, correct work sitting
+uncommitted for 3 days.
+
 ## 2026-09-03 — BL-0111: Fable prompt-surface recalibration sprint merged (proposal 36)
 
 **What:** closes BL-0111 (R-02's recalibration half, proposal 33 §12.2). One pre-authorized Fable 5.1
