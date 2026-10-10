@@ -48,3 +48,9 @@ what a worktree does NOT inherit; this covers what ALL worktrees still SHARE (th
 could ignore untracked paths that don't intersect the landing branch's own changed paths instead of
 treating any `git status --porcelain` output as blocking — this would remove most of the false-positive
 freezes documented above while keeping the fail-fast guarantee for actually-relevant WIP.
+
+**Further corroboration, generated-file variant (personal-page-v2, 2026-10-06, agent-inferred):** exit 12
+can also be caused by a generated, long-dirty TRACKED file rather than abandoned WIP: `.pandacorp/stats.json`
+(the Mission Control stats snapshot) was stale-dirty in the shared main checkout; the project later committed
+it separately as `chore(stats): refresh generated stats snapshot` (7ac7c33). Rule: when the dirt is a
+generated artifact, ask the owner, then commit it on its own, never inside the feature change.

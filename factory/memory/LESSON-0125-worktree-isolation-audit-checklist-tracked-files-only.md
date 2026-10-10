@@ -113,3 +113,15 @@ job, never the worktree subagent's own, so it doesn't spend a round trip discove
 block mid-task. A symptom that reproduces "only inside
 a worktree" or "only when a parallel session is active" is the tell to reach for this checklist before
 assuming a genuine logic regression.
+
+**Facet 8, third corroboration + workaround (personal-page-v2, 2026-10-06, `.pandacorp/run/lessons.md`,
+agent-inferred):** `EnterWorktree`'s default base is `origin/main`; with unpushed local commits the new
+worktree silently lacks them. Working alternative that avoids the tool's default: create the worktree
+yourself with `git worktree add -b <branch> <path> HEAD` from the up-to-date main checkout and enter it by
+path (`EnterWorktree({path})`). Tracked as BL-0027.
+
+**Facet 6, upgrade-safety corroboration (personal-page-v2, 2026-10-06):** project-specific bootstrap steps
+(copying gitignored `.env*`, generating the content-collections cache) belong in the never-overwritten
+`.pandacorp/worktree-setup.sh` hook, NOT inline in the canonical `worktree-bootstrap.sh`: the 8.81.0 to
+8.98.0 upgrade regenerates the canonical script and would have silently dropped them. The project moved both
+steps into the hook during that upgrade (docs/decision-log.md 2026-10-06). See LESSON-0131.

@@ -61,3 +61,11 @@ STILL the case (five occurrences in) that no `.pandacorp/worktree-setup.sh` hook
 each occurrence keeps fixing the symptom in front of it (or one half of it) rather than creating the hook
 once. If you land on this project again with either symptom, creating the hook is the fix, not another
 investigation.
+
+**Resolution and upgrade-safety facet (2026-10-06):** personal-page-v2 finally created the hook. During the
+8.81.0 to 8.98.0 `/pandacorp:upgrade` its two project-specific steps (copy gitignored `.env*` into a worktree,
+generate the content-collections cache) were moved OUT of the canonical `worktree-bootstrap.sh` INTO
+`.pandacorp/worktree-setup.sh` (docs/decision-log.md 2026-10-06). Why it matters beyond the false-red: the
+canonical script is regenerated on every upgrade, so any project step edited inline there is silently dropped
+at the next overlay bump; only the hook survives. Rule: project-specific bootstrap steps go in
+`worktree-setup.sh` from day one, never inline in the managed script.

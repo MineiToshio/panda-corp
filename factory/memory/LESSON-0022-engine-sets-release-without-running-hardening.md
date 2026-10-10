@@ -13,7 +13,7 @@ promotion: approved
 confidence: high
 times_applied: 1
 applied_in: [panda-corp]
-links: [BL-0012, DR-085, DR-017, LESSON-0183]
+links: [BL-0012, BL-0225, DR-085, DR-017, LESSON-0183]
 ---
 
 **Situation:** DR-085 folds the hardening (security audit + telemetry verification + quality close-out)
@@ -48,3 +48,14 @@ Never let "all the pieces passed" stand in for "the whole-program audit ran."
 **Why it matters:** a build that self-declares release without the audit can ship real security holes (here
 it nearly shipped a CRITICAL). The whole point of DR-085 (audit moved INTO construction) is defeated if the
 engine can reach `phase: release` without running it.
+
+**Third shape: the early-exit path (personal-page-v2, 2026-10-07, agent-inferred; tracked as BL-0225).** The
+engine can also skip the hardening by never reaching it. On a bare `/implement` whose plan is empty (every
+existing WO already VERIFIED, the rest blocked or not yet buildable), the `plan.frds.length === 0` branch
+returns `note: 'all verified'` before the loop, and `runHardeningChain()` is only called from the post-loop
+release branches. The project could never reach `phase: release` through the engine and the owner had to run
+security-auditor, implementer and analytics by hand (which then found 1 high and 3 telemetry gaps).
+Apply: when auditing a "done" transition for mandated stages, check EVERY exit path that can terminate the
+run (empty plan, early return, blocked), not only the happy path; "all verified" from the engine is not
+evidence that hardening ran, so check for `docs/reviews/security-*.md` and the analytics verification
+section on disk.

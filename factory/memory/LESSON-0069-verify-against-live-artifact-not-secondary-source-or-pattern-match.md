@@ -83,3 +83,8 @@ anyone checks. An eleventh: the "live artifact" to check is not always named for
 output that should resemble a real page/component but doesn't say which one, search the codebase for the
 actual rendering component yourself before inventing plausible-looking structure; the absence of an
 explicit pointer is not license to guess.
+
+A TWELFTH corroboration (personal-page-v2, 2026-10-06, agent-inferred): a reviewer subagent's gate report
+cited a doc section ("style-guide section Tags") and a test case that did not exist on disk; it retracted
+both when re-run. A subagent's citation of a doc or test is itself a secondary representation: grep the cited
+section/test on disk before acting on, or repeating, a finding built on it.

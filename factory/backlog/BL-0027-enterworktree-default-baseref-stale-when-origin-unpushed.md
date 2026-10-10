@@ -58,3 +58,10 @@ shell fixture comparing the worktree's `git log` against local `main`'s.
 ## Out of scope
 Changing the tool's behavior when origin IS kept in sync (the common case) — this only targets the
 divergent-origin edge case.
+
+## Corroborating occurrence (2026-10-06, personal-page-v2, harvested 2026-10-07)
+A THIRD occurrence on the same project (`.pandacorp/run/lessons.md`, agent-inferred): with unpushed local
+commits, `EnterWorktree`'s default base (`origin/main`) produced a worktree that silently lacked them. The
+workaround the project used: `git worktree add -b <branch> <path> HEAD` from the up-to-date main checkout,
+then enter by path. Same fix plan applies; a warning when local main is ahead of origin would have removed
+the surprise.
