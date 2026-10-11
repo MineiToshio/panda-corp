@@ -3,12 +3,12 @@ id: BL-0117
 type: change
 area: plugin-skill
 title: "Publish design mockups as Artifacts instead of serving them from a local python3 http.server"
-status: open
+status: done
 severity: p2
 opened: 2026-09-02
-closed:
+closed: 2026-10-11
 source: "docs/proposals/33-model-era-audit.md §6 R-62; REOPENED 2026-10-11 by docs/proposals/42-absorb-claude-design-to-artifacts.md Plan step 3 (the Artifact tool now exists)"
-closes:
+closes: "plugin v9.122.0 — design SKILL.md Step 6 publishes each direction as a private Artifact (lead session), owner comments read via ArtifactComments, local server/screenshots as fallback; spike verdict A (static HTML artifact) over B (Design canvas)"
 links: [BL-0229, DR-058, DR-109, LESSON-0255]
 ---
 
@@ -54,3 +54,19 @@ Record the verdict in proposal 42's Iteration section and here.
 The spike verdict is recorded. The winner, if any, is specified for `/pandacorp:learn` (proposal 42
 Plan step 4). A "neither beats the local server" verdict closes this as tried-and-rejected, with the
 reasons.
+
+## Spike verdict — 2026-10-11 (A wins)
+Source: `pandacast/docs/design/claude-design-archive/screens/Panel.card.html` (React + `_ds_bundle.js`).
+- **A, static HTML artifact** (https://claude.ai/artifact/3CXVtSguC61VaeMgauagv8):
+  - Rendered with a Playwright DOM snapshot into one script-free page (640 KB, 623 inline SVG icons), with the 1.4 MB logo published as a sibling file.
+  - Zero porting cost and pixel-faithful in both themes. Fonts load from Google Fonts. First paint takes about 10 s.
+  - The page offers comments.
+- **B, Design canvas** (https://claude.ai/artifact/41xiwkbFNtVmUHMz3eMPe5):
+  - The type requires every artboard to be hand-authored `.dc.html` markup with inline styles. An existing class/token-based design cannot be ingested; a 640 KB render is impractical to author through the file tool. A reduced Panel artboard was hand-ported with the real OKLCH tokens.
+  - It renders well, and the owner gets a canvas, direct edits, tweak swatches and PNG/PDF/HTML export.
+  - Its "HTML" export is a 2.2 MB bundled-runtime page (8 scripts). It renders offline faithfully under Playwright, so it can serve as a visual baseline, but it is not repo-ready markup.
+  - The type's own rule forbids verifying on the canvas.
+- **Verdict:**
+  - A becomes the review surface: repo HTML stays the source, and the lead session publishes it.
+  - B is not used in the lifecycle. It stays an optional owner playground, revisited only together with the Design System artifact projection (proposal 42 P2, deferred).
+- **Still owner-attended:** a phone view plus one comment on A, read back with `ArtifactComments` (tracked in proposal 42 Iteration).

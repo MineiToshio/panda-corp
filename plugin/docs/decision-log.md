@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.122.0 — 2026-10-11 (MINOR): BL-0117, design visual gate publishes directions as private Artifacts (proposal 42 step 4)
+
+**What:** `skills/design/SKILL.md` Step 6. Once Step 5 passes on the local files, the lead session publishes each direction (or the ADOPT-VISUAL fidelity screens) as a private Artifact. The URLs go into `iteration.md`, and the owner reviews and comments from any device; the agent reads the feedback with `ArtifactComments`, refines the local file, re-verifies and republishes the same URL. Opening the local HTML or showing screenshots remains the fallback when Artifacts are unavailable (no claude.ai login, API-key/headless/`-p`, ZDR). The `Design` canvas and native `/design` are explicitly not used for this gate.
+**Why:** standalone Claude Design sunsets 2026-12-14, and the reopened BL-0117 spike compared a static HTML artifact (A) with a Design canvas (B) on a real PandaCast screen. A won: zero porting, pixel-faithful, comments. B needs hand-ported inline-style artboards, and its export is a bundled runtime page. The repo copy stays the only verified source (DR-115, DR-056).
+
 ## v9.121.1 — 2026-10-11 (PATCH): BL-0229, design skill honesty patch for the standalone Claude Design sunset (proposal 42)
 
 **What:** standalone `claude.ai/design` closes 2026-12-14. Designs, design systems and decks are now Artifacts, and the `DesignSync` tool's own description now forbids generating designs with it.
