@@ -1,0 +1,147 @@
+{
+  "$schema": "https://tweakcn.com/schema/design-tokens.json",
+  "_meta": {
+    "name": "Pandacorp Cockpit — Design Tokens",
+    "status": "PROPUESTA — 3 direcciones sin congelar. Sergio elige una antes de congelar (encargo §10).",
+    "colorSpace": "oklch",
+    "base": "shadcn/ui",
+    "rules": [
+      "Tema desde pocos tokens OKLCH (base / acento / contraste + superficies por elevación).",
+      "Un único acento racionado por dirección. Una sola acción primaria por pantalla.",
+      "font-variant-numeric: tabular-nums en TODO número.",
+      "3 niveles de elevación: canvas -> panel -> card/popup.",
+      "Radio base segun direccion; espaciado en multiplos de 0.25rem; base 16px; hairline 1px.",
+      "Color persistente por agente, reusado en toda la UI; cada uno armoniza con su sprite fijo.",
+      "Ningun estado depende solo del color (icono/forma + etiqueta).",
+      "Motion: solo transform/opacity, <300ms, 2-3 easings. prefers-reduced-motion lo desactiva."
+    ]
+  },
+
+  "scale": {
+    "spacingBase": "0.25rem",
+    "spacing": { "0": "0", "1": "0.25rem", "2": "0.5rem", "3": "0.75rem", "4": "1rem", "5": "1.25rem", "6": "1.5rem", "8": "2rem", "10": "2.5rem", "12": "3rem", "16": "4rem" },
+    "fontSize": { "xs": "0.75rem", "sm": "0.8125rem", "base": "0.9375rem", "md": "1rem", "lg": "1.125rem", "xl": "1.375rem", "2xl": "1.75rem", "3xl": "2.25rem", "4xl": "3rem" },
+    "hairline": "1px"
+  },
+
+  "motion": {
+    "duration": { "fast": "120ms", "base": "180ms", "expressive": "280ms" },
+    "easing": {
+      "standard": "cubic-bezier(0.2, 0, 0, 1)",
+      "entrance": "cubic-bezier(0, 0, 0, 1)",
+      "spring": "cubic-bezier(0.34, 1.4, 0.64, 1)"
+    },
+    "properties": ["transform", "opacity"],
+    "note": "spring solo para eventos raros y satisfactorios (logro, subir de nivel, WO completada). prefers-reduced-motion: reduce -> sin animacion."
+  },
+
+  "agents": {
+    "_note": "10 roles. Hue anclado al tono dominante del sprite fijo. solid=relleno (chip/dot/halo), text=para texto sobre canvas del tema (AA), bg=superficie tintada, border=borde de ficha. Mismo hue en light y dark; cambian L y C.",
+    "researcher":        { "hue": 145, "light": { "solid": "oklch(0.55 0.12 145)", "text": "oklch(0.45 0.12 145)", "bg": "oklch(0.95 0.04 145)", "border": "oklch(0.78 0.09 145)" }, "dark": { "solid": "oklch(0.68 0.13 145)", "text": "oklch(0.80 0.12 145)", "bg": "oklch(0.30 0.06 145)", "border": "oklch(0.52 0.10 145)" } },
+    "product-manager":   { "hue": 300, "light": { "solid": "oklch(0.52 0.16 300)", "text": "oklch(0.45 0.16 300)", "bg": "oklch(0.95 0.04 300)", "border": "oklch(0.76 0.11 300)" }, "dark": { "solid": "oklch(0.66 0.16 300)", "text": "oklch(0.80 0.13 300)", "bg": "oklch(0.30 0.07 300)", "border": "oklch(0.52 0.12 300)" } },
+    "designer":          { "hue": 355, "light": { "solid": "oklch(0.56 0.18 355)", "text": "oklch(0.47 0.18 355)", "bg": "oklch(0.95 0.04 355)", "border": "oklch(0.78 0.12 355)" }, "dark": { "solid": "oklch(0.68 0.18 355)", "text": "oklch(0.81 0.13 355)", "bg": "oklch(0.31 0.08 355)", "border": "oklch(0.54 0.14 355)" } },
+    "architect":         { "hue": 250, "light": { "solid": "oklch(0.52 0.15 250)", "text": "oklch(0.45 0.15 250)", "bg": "oklch(0.95 0.04 250)", "border": "oklch(0.76 0.10 250)" }, "dark": { "solid": "oklch(0.66 0.15 250)", "text": "oklch(0.81 0.12 250)", "bg": "oklch(0.30 0.07 250)", "border": "oklch(0.52 0.12 250)" } },
+    "backend-dev":       { "hue": 195, "light": { "solid": "oklch(0.54 0.10 195)", "text": "oklch(0.44 0.09 195)", "bg": "oklch(0.95 0.04 195)", "border": "oklch(0.77 0.08 195)" }, "dark": { "solid": "oklch(0.70 0.11 195)", "text": "oklch(0.82 0.10 195)", "bg": "oklch(0.30 0.05 195)", "border": "oklch(0.52 0.09 195)" } },
+    "frontend-dev":      { "hue": 232, "light": { "solid": "oklch(0.58 0.14 232)", "text": "oklch(0.47 0.14 232)", "bg": "oklch(0.95 0.04 232)", "border": "oklch(0.79 0.09 232)" }, "dark": { "solid": "oklch(0.72 0.13 232)", "text": "oklch(0.84 0.11 232)", "bg": "oklch(0.31 0.06 232)", "border": "oklch(0.54 0.11 232)" } },
+    "test-writer":       { "hue": 65,  "light": { "solid": "oklch(0.62 0.13 65)",  "text": "oklch(0.48 0.11 65)",  "bg": "oklch(0.95 0.05 65)",  "border": "oklch(0.80 0.10 65)" },  "dark": { "solid": "oklch(0.74 0.13 65)",  "text": "oklch(0.84 0.11 65)",  "bg": "oklch(0.31 0.06 65)",  "border": "oklch(0.56 0.11 65)" } },
+    "reviewer":          { "hue": 165, "light": { "solid": "oklch(0.55 0.11 165)", "text": "oklch(0.44 0.10 165)", "bg": "oklch(0.95 0.04 165)", "border": "oklch(0.78 0.08 165)" }, "dark": { "solid": "oklch(0.70 0.12 165)", "text": "oklch(0.82 0.11 165)", "bg": "oklch(0.30 0.05 165)", "border": "oklch(0.52 0.10 165)" } },
+    "security-auditor":  { "hue": 28,  "light": { "solid": "oklch(0.56 0.18 28)",  "text": "oklch(0.47 0.18 28)",  "bg": "oklch(0.95 0.04 28)",  "border": "oklch(0.78 0.13 28)" },  "dark": { "solid": "oklch(0.66 0.18 28)",  "text": "oklch(0.80 0.14 28)",  "bg": "oklch(0.31 0.08 28)",  "border": "oklch(0.54 0.15 28)" } },
+    "architect-pm-note": "PM y architect/designer no construyen; aparecen en pipeline/feed pero no en el mapa de construccion (MISSION-CONTROL.md).",
+    "guild": { "_note": "color del operador/gremio = el acento de la direccion elegida." }
+  },
+
+  "directions": {
+    "d1": {
+      "name": "Pergamino",
+      "tagline": "Dashboard sobrio con alma de pergamino. Calido clasico, serif humanista, acento terracota.",
+      "axes": { "marcoRpg": "sobrio", "paleta": "calida-clasica", "formas": "esquinas-suaves", "protagonista": "balance kanban/mapa" },
+      "fonts": { "display": "Spectral (serif)", "body": "Public Sans (sans)", "mono": "JetBrains Mono" },
+      "radius": { "sm": "5px", "md": "8px", "lg": "12px", "pill": "999px" },
+      "themes": {
+        "light": {
+          "root": { "base": "oklch(0.97 0.012 78)", "accent": "oklch(0.58 0.15 45)", "contrast": "oklch(0.26 0.02 60)" },
+          "surface": { "canvas": "oklch(0.97 0.012 78)", "panel": "oklch(0.99 0.008 80)", "card": "oklch(1 0 0)" },
+          "text": { "1": "oklch(0.26 0.02 60)", "2": "oklch(0.45 0.02 60)", "3": "oklch(0.60 0.02 60)" },
+          "border": { "hairline": "oklch(0.85 0.015 70)", "strong": "oklch(0.74 0.02 70)" },
+          "accentText": "oklch(0.46 0.15 45)", "accentBg": "oklch(0.95 0.04 50)", "onAccent": "oklch(0.99 0.01 80)",
+          "semantic": { "ok": "oklch(0.50 0.13 150)", "okBg": "oklch(0.95 0.05 150)", "warn": "oklch(0.55 0.12 75)", "warnBg": "oklch(0.95 0.06 80)", "danger": "oklch(0.52 0.18 28)", "dangerBg": "oklch(0.95 0.05 28)", "info": "oklch(0.50 0.12 240)", "infoBg": "oklch(0.95 0.04 240)" }
+        },
+        "dark": {
+          "root": { "base": "oklch(0.20 0.014 60)", "accent": "oklch(0.66 0.16 48)", "contrast": "oklch(0.93 0.01 80)" },
+          "surface": { "canvas": "oklch(0.18 0.014 55)", "panel": "oklch(0.23 0.015 58)", "card": "oklch(0.27 0.016 58)" },
+          "text": { "1": "oklch(0.93 0.01 80)", "2": "oklch(0.78 0.015 75)", "3": "oklch(0.62 0.015 70)" },
+          "border": { "hairline": "oklch(0.33 0.016 60)", "strong": "oklch(0.45 0.02 62)" },
+          "accentText": "oklch(0.76 0.15 52)", "accentBg": "oklch(0.32 0.06 48)", "onAccent": "oklch(0.18 0.02 55)",
+          "semantic": { "ok": "oklch(0.72 0.14 150)", "okBg": "oklch(0.30 0.06 150)", "warn": "oklch(0.78 0.12 80)", "warnBg": "oklch(0.31 0.06 80)", "danger": "oklch(0.68 0.18 28)", "dangerBg": "oklch(0.31 0.08 28)", "info": "oklch(0.72 0.12 240)", "infoBg": "oklch(0.30 0.06 240)" }
+        },
+        "high-contrast": {
+          "extends": "light",
+          "override": { "text.1": "oklch(0.18 0.02 60)", "border.hairline": "oklch(0.55 0.02 70)", "border.strong": "oklch(0.30 0.02 70)", "accentText": "oklch(0.40 0.16 45)" }
+        }
+      }
+    },
+
+    "d2": {
+      "name": "Cripta",
+      "tagline": "Gremio de noche inmersivo, menu JRPG. Tierra apagada, bordes pixel duros, acento oro de quest.",
+      "axes": { "marcoRpg": "inmersivo", "paleta": "tierra-apagada", "formas": "bordes-pixel-duros", "protagonista": "mapa vivo" },
+      "fonts": { "display": "Pixelify Sans (pixel, solo titulos/numeros grandes)", "body": "IBM Plex Sans", "mono": "IBM Plex Mono" },
+      "radius": { "sm": "0px", "md": "2px", "lg": "3px", "pill": "3px" },
+      "themes": {
+        "light": {
+          "root": { "base": "oklch(0.93 0.012 85)", "accent": "oklch(0.62 0.13 75)", "contrast": "oklch(0.28 0.02 80)" },
+          "surface": { "canvas": "oklch(0.91 0.014 85)", "panel": "oklch(0.95 0.012 85)", "card": "oklch(0.97 0.008 85)" },
+          "text": { "1": "oklch(0.28 0.02 80)", "2": "oklch(0.44 0.02 80)", "3": "oklch(0.58 0.02 80)" },
+          "border": { "hairline": "oklch(0.70 0.02 80)", "strong": "oklch(0.45 0.02 80)" },
+          "accentText": "oklch(0.46 0.12 70)", "accentBg": "oklch(0.92 0.06 80)", "onAccent": "oklch(0.22 0.03 80)",
+          "semantic": { "ok": "oklch(0.48 0.12 150)", "okBg": "oklch(0.93 0.05 150)", "warn": "oklch(0.52 0.12 70)", "warnBg": "oklch(0.93 0.06 75)", "danger": "oklch(0.50 0.18 28)", "dangerBg": "oklch(0.93 0.05 28)", "info": "oklch(0.48 0.10 230)", "infoBg": "oklch(0.93 0.04 230)" }
+        },
+        "dark": {
+          "root": { "base": "oklch(0.19 0.016 110)", "accent": "oklch(0.74 0.14 80)", "contrast": "oklch(0.91 0.012 90)" },
+          "surface": { "canvas": "oklch(0.16 0.014 110)", "panel": "oklch(0.22 0.018 108)", "card": "oklch(0.26 0.02 105)" },
+          "text": { "1": "oklch(0.91 0.012 90)", "2": "oklch(0.74 0.016 90)", "3": "oklch(0.58 0.016 95)" },
+          "border": { "hairline": "oklch(0.34 0.02 105)", "strong": "oklch(0.50 0.03 100)" },
+          "accentText": "oklch(0.80 0.14 82)", "accentBg": "oklch(0.30 0.05 85)", "onAccent": "oklch(0.16 0.03 100)",
+          "semantic": { "ok": "oklch(0.70 0.14 150)", "okBg": "oklch(0.28 0.06 150)", "warn": "oklch(0.78 0.13 82)", "warnBg": "oklch(0.29 0.06 85)", "danger": "oklch(0.66 0.19 28)", "dangerBg": "oklch(0.29 0.09 28)", "info": "oklch(0.70 0.11 230)", "infoBg": "oklch(0.28 0.05 230)" }
+        },
+        "high-contrast": {
+          "extends": "dark",
+          "override": { "text.1": "oklch(0.98 0.01 90)", "border.hairline": "oklch(0.52 0.03 105)", "surface.canvas": "oklch(0.12 0.012 110)", "accentText": "oklch(0.86 0.15 82)" }
+        }
+      }
+    },
+
+    "d3": {
+      "name": "Atelier",
+      "tagline": "SaaS limpio con RPG de guarnicion. Neutro calido moderno, aireado, acento teal-pino, kanban protagonista.",
+      "axes": { "marcoRpg": "guarnicion", "paleta": "neutro-calido + acento joya", "formas": "esquinas-suaves-amplias", "protagonista": "kanban / datos" },
+      "fonts": { "display": "Space Grotesk", "body": "Hanken Grotesk", "mono": "JetBrains Mono" },
+      "radius": { "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+      "themes": {
+        "light": {
+          "root": { "base": "oklch(0.98 0.005 85)", "accent": "oklch(0.52 0.09 195)", "contrast": "oklch(0.25 0.012 75)" },
+          "surface": { "canvas": "oklch(0.975 0.005 85)", "panel": "oklch(0.995 0.004 90)", "card": "oklch(1 0 0)" },
+          "text": { "1": "oklch(0.25 0.012 75)", "2": "oklch(0.46 0.012 75)", "3": "oklch(0.62 0.01 75)" },
+          "border": { "hairline": "oklch(0.90 0.006 80)", "strong": "oklch(0.80 0.01 80)" },
+          "accentText": "oklch(0.45 0.09 195)", "accentBg": "oklch(0.95 0.03 195)", "onAccent": "oklch(0.99 0.01 90)",
+          "semantic": { "ok": "oklch(0.52 0.12 155)", "okBg": "oklch(0.96 0.04 155)", "warn": "oklch(0.58 0.11 70)", "warnBg": "oklch(0.96 0.05 75)", "danger": "oklch(0.53 0.18 28)", "dangerBg": "oklch(0.96 0.04 28)", "info": "oklch(0.52 0.10 235)", "infoBg": "oklch(0.96 0.03 235)" }
+        },
+        "dark": {
+          "root": { "base": "oklch(0.21 0.01 220)", "accent": "oklch(0.70 0.10 195)", "contrast": "oklch(0.94 0.006 90)" },
+          "surface": { "canvas": "oklch(0.19 0.01 225)", "panel": "oklch(0.24 0.012 222)", "card": "oklch(0.28 0.013 220)" },
+          "text": { "1": "oklch(0.94 0.006 90)", "2": "oklch(0.78 0.01 88)", "3": "oklch(0.63 0.01 85)" },
+          "border": { "hairline": "oklch(0.33 0.012 220)", "strong": "oklch(0.46 0.015 215)" },
+          "accentText": "oklch(0.78 0.10 195)", "accentBg": "oklch(0.30 0.05 200)", "onAccent": "oklch(0.18 0.02 220)",
+          "semantic": { "ok": "oklch(0.74 0.13 155)", "okBg": "oklch(0.30 0.06 155)", "warn": "oklch(0.80 0.12 75)", "warnBg": "oklch(0.31 0.06 78)", "danger": "oklch(0.68 0.18 28)", "dangerBg": "oklch(0.31 0.08 28)", "info": "oklch(0.74 0.11 235)", "infoBg": "oklch(0.30 0.05 235)" }
+        },
+        "high-contrast": {
+          "extends": "dark",
+          "override": { "text.1": "oklch(0.98 0.005 90)", "border.hairline": "oklch(0.50 0.015 220)", "surface.canvas": "oklch(0.15 0.01 225)", "accentText": "oklch(0.84 0.11 195)" }
+        }
+      }
+    }
+  },
+
+  "operatorLevel": { "_note": "Barra de XP del gremio usa el acento. Endowed progress: arranca en el avance ya logrado.", "nivel": 6, "titulo": "Maestro del gremio", "xp": 1240, "next": 1500 },
+  "tiers": { "names": ["Bronce", "Plata", "Oro", "Platino", "Leyenda"], "colors_light": ["oklch(0.55 0.09 60)", "oklch(0.60 0.01 250)", "oklch(0.62 0.12 85)", "oklch(0.58 0.08 200)", "oklch(0.55 0.15 300)"], "colors_dark": ["oklch(0.68 0.10 60)", "oklch(0.74 0.01 250)", "oklch(0.76 0.13 85)", "oklch(0.72 0.09 200)", "oklch(0.70 0.16 300)"] }
+}

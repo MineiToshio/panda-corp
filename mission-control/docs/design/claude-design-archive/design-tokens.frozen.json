@@ -1,0 +1,85 @@
+{
+  "$schema": "https://tweakcn.com/schema/design-tokens.json",
+  "_meta": {
+    "name": "Pandacorp Cockpit — Design Tokens (CONGELADO)",
+    "status": "CONGELADO — Dirección elegida: ATELIER. Tema principal: DARK. Acento: azul-acero (hue 215).",
+    "frozenOn": "2026-06-14",
+    "colorSpace": "oklch",
+    "base": "shadcn/ui",
+    "decision": "Sergio eligió Atelier (SaaS limpio, aireado, kanban protagonista) en dark, con el acento desplazado de teal-pino (195) a azul-acero (215). Light y alto-contraste se conservan, derivados de los mismos tokens. Detalle del racional en decisiones-de-diseno.md.",
+    "fonts": { "display": "Space Grotesk", "body": "Hanken Grotesk", "mono": "JetBrains Mono" },
+    "radius": { "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+    "rules": [
+      "Tema desde pocos tokens OKLCH (base / acento / contraste + 3 superficies por elevación).",
+      "Un único acento racionado (azul-acero). Una sola acción primaria por pantalla.",
+      "font-variant-numeric: tabular-nums en TODO número.",
+      "Espaciado en múltiplos de 0.25rem; base 16px; hairline 1px.",
+      "Color persistente por agente, reusado en toda la UI; cada uno armoniza con su sprite fijo.",
+      "Ningún estado depende solo del color (icono/forma + etiqueta).",
+      "Motion: solo transform/opacity, <300ms, 2-3 easings. prefers-reduced-motion lo desactiva."
+    ]
+  },
+
+  "theme": {
+    "_primary": "dark",
+    "dark": {
+      "surface":   { "canvas": { "oklch": "oklch(0.19 0.01 225)",  "hex": "#0F1517" }, "panel": { "oklch": "oklch(0.24 0.012 222)", "hex": "#192123" }, "card": { "oklch": "oklch(0.28 0.013 220)", "hex": "#222A2D" } },
+      "text":      { "1": { "oklch": "oklch(0.94 0.006 90)", "hex": "#EDEBE7" }, "2": { "oklch": "oklch(0.78 0.01 88)", "hex": "#BAB7B0" }, "3": { "oklch": "oklch(0.69 0.01 85)", "hex": "#9E9B94" } },
+      "border":    { "hairline": { "oklch": "oklch(0.33 0.012 220)", "hex": "#2F373A" }, "strong": { "oklch": "oklch(0.46 0.015 215)", "hex": "#4F5A5D" } },
+      "accent":    { "base": { "oklch": "oklch(0.72 0.115 215)", "hex": "#33B6D1" }, "text": { "oklch": "oklch(0.80 0.105 215)", "hex": "#62CFE8" }, "bg": { "oklch": "oklch(0.30 0.06 218)", "hex": "#003542" }, "on": { "oklch": "oklch(0.18 0.02 225)", "hex": "#071318" } },
+      "semantic":  { "ok": { "oklch": "oklch(0.74 0.13 155)", "hex": "#5EC386" }, "okBg": "oklch(0.30 0.06 155)", "warn": { "oklch": "oklch(0.80 0.12 75)", "hex": "#EBB25F" }, "warnBg": "oklch(0.31 0.06 78)", "danger": { "oklch": "oklch(0.68 0.18 28)", "hex": "#F36356" }, "dangerBg": "oklch(0.31 0.08 28)", "info": { "oklch": "oklch(0.74 0.11 235)", "hex": "#5EB6E6" }, "infoBg": "oklch(0.30 0.05 235)" },
+      "shadow":    { "base": "0 1px 2px oklch(0 0 0 / .3), 0 8px 28px oklch(0 0 0 / .35)", "pop": "0 18px 50px oklch(0 0 0 / .5)" }
+    },
+    "light": {
+      "surface":   { "canvas": "oklch(0.975 0.005 85)", "panel": "oklch(0.995 0.004 90)", "card": "oklch(1 0 0)" },
+      "text":      { "1": "oklch(0.25 0.012 75)", "2": "oklch(0.46 0.012 75)", "3": "oklch(0.54 0.012 75)" },
+      "border":    { "hairline": "oklch(0.90 0.006 80)", "strong": "oklch(0.80 0.01 80)" },
+      "accent":    { "base": "oklch(0.52 0.11 215)", "text": "oklch(0.45 0.11 215)", "bg": "oklch(0.95 0.035 215)", "on": "oklch(0.99 0.01 90)" },
+      "semantic":  { "ok": "oklch(0.52 0.12 155)", "okBg": "oklch(0.96 0.04 155)", "warn": "oklch(0.58 0.11 70)", "warnBg": "oklch(0.96 0.05 75)", "danger": "oklch(0.53 0.18 28)", "dangerBg": "oklch(0.96 0.04 28)", "info": "oklch(0.52 0.10 235)", "infoBg": "oklch(0.96 0.03 235)" }
+    },
+    "high-contrast": {
+      "light": { "extends": "light", "override": { "text.1": "oklch(0.16 0.012 75)", "border.hairline": "oklch(0.70 0.01 80)", "border.strong": "oklch(0.45 0.012 80)", "accent.text": "oklch(0.40 0.12 215)" } },
+      "dark":  { "extends": "dark",  "override": { "text.1": "oklch(0.98 0.005 90)", "border.hairline": "oklch(0.52 0.015 220)", "surface.canvas": "oklch(0.15 0.01 225)", "accent.text": "oklch(0.84 0.11 215)" } }
+    }
+  },
+
+  "agents": {
+    "_note": "10 roles. Hue anclado al tono dominante del sprite fijo. Idénticos para las 3 direcciones (la identidad del agente no cambia con el tema). hex = resolución dark de 'solid'.",
+    "researcher":       { "hue": 145, "hex": "#60AD64", "dark": { "solid": "oklch(0.68 0.13 145)", "text": "oklch(0.80 0.12 145)", "bg": "oklch(0.30 0.06 145)", "border": "oklch(0.52 0.10 145)" }, "light": { "solid": "oklch(0.55 0.12 145)", "text": "oklch(0.45 0.12 145)", "bg": "oklch(0.95 0.04 145)", "border": "oklch(0.78 0.09 145)" } },
+    "product-manager":  { "hue": 300, "hex": "#A278E4", "dark": { "solid": "oklch(0.66 0.16 300)", "text": "oklch(0.80 0.13 300)", "bg": "oklch(0.30 0.07 300)", "border": "oklch(0.52 0.12 300)" }, "light": { "solid": "oklch(0.52 0.16 300)", "text": "oklch(0.45 0.16 300)", "bg": "oklch(0.95 0.04 300)", "border": "oklch(0.76 0.11 300)" } },
+    "designer":         { "hue": 355, "hex": "#E9609E", "dark": { "solid": "oklch(0.68 0.18 355)", "text": "oklch(0.81 0.13 355)", "bg": "oklch(0.31 0.08 355)", "border": "oklch(0.54 0.14 355)" }, "light": { "solid": "oklch(0.56 0.18 355)", "text": "oklch(0.47 0.18 355)", "bg": "oklch(0.95 0.04 355)", "border": "oklch(0.78 0.12 355)" } },
+    "architect":        { "hue": 250, "hex": "#3D96EA", "dark": { "solid": "oklch(0.66 0.15 250)", "text": "oklch(0.81 0.12 250)", "bg": "oklch(0.30 0.07 250)", "border": "oklch(0.52 0.12 250)" }, "light": { "solid": "oklch(0.52 0.15 250)", "text": "oklch(0.45 0.15 250)", "bg": "oklch(0.95 0.04 250)", "border": "oklch(0.76 0.10 250)" } },
+    "backend-dev":      { "hue": 195, "hex": "#2CB3B4", "dark": { "solid": "oklch(0.70 0.11 195)", "text": "oklch(0.82 0.10 195)", "bg": "oklch(0.30 0.05 195)", "border": "oklch(0.52 0.09 195)" }, "light": { "solid": "oklch(0.54 0.10 195)", "text": "oklch(0.44 0.09 195)", "bg": "oklch(0.95 0.04 195)", "border": "oklch(0.77 0.08 195)" } },
+    "frontend-dev":     { "hue": 232, "hex": "#37B2E8", "dark": { "solid": "oklch(0.72 0.13 232)", "text": "oklch(0.84 0.11 232)", "bg": "oklch(0.31 0.06 232)", "border": "oklch(0.54 0.11 232)" }, "light": { "solid": "oklch(0.58 0.14 232)", "text": "oklch(0.47 0.14 232)", "bg": "oklch(0.95 0.04 232)", "border": "oklch(0.79 0.09 232)" } },
+    "test-writer":      { "hue": 65,  "hex": "#E39849", "dark": { "solid": "oklch(0.74 0.13 65)",  "text": "oklch(0.84 0.11 65)",  "bg": "oklch(0.31 0.06 65)",  "border": "oklch(0.56 0.11 65)" },  "light": { "solid": "oklch(0.62 0.13 65)",  "text": "oklch(0.48 0.11 65)",  "bg": "oklch(0.95 0.05 65)",  "border": "oklch(0.80 0.10 65)" } },
+    "reviewer":         { "hue": 165, "hex": "#46B68C", "dark": { "solid": "oklch(0.70 0.12 165)", "text": "oklch(0.82 0.11 165)", "bg": "oklch(0.30 0.05 165)", "border": "oklch(0.52 0.10 165)" }, "light": { "solid": "oklch(0.55 0.11 165)", "text": "oklch(0.44 0.10 165)", "bg": "oklch(0.95 0.04 165)", "border": "oklch(0.78 0.08 165)" } },
+    "security-auditor": { "hue": 28,  "hex": "#EC5C50", "dark": { "solid": "oklch(0.66 0.18 28)",  "text": "oklch(0.80 0.14 28)",  "bg": "oklch(0.31 0.08 28)",  "border": "oklch(0.54 0.15 28)" },  "light": { "solid": "oklch(0.56 0.18 28)",  "text": "oklch(0.47 0.18 28)",  "bg": "oklch(0.95 0.04 28)",  "border": "oklch(0.78 0.13 28)" } },
+    "guild": { "_note": "El operador/gremio usa el acento (azul-acero #33B6D1)." }
+  },
+
+  "scale": {
+    "spacingBase": "0.25rem",
+    "spacing": { "1": "0.25rem", "2": "0.5rem", "3": "0.75rem", "4": "1rem", "5": "1.25rem", "6": "1.5rem", "8": "2rem", "10": "2.5rem", "12": "3rem", "16": "4rem" },
+    "fontSize": { "xs": "0.75rem", "sm": "0.8125rem", "base": "0.9375rem", "md": "1rem", "lg": "1.125rem", "xl": "1.375rem", "2xl": "1.75rem", "3xl": "2.25rem", "4xl": "3rem" },
+    "hairline": "1px"
+  },
+
+  "motion": {
+    "duration": { "fast": "120ms", "base": "180ms", "expressive": "280ms" },
+    "easing": { "standard": "cubic-bezier(0.2, 0, 0, 1)", "entrance": "cubic-bezier(0, 0, 0, 1)", "spring": "cubic-bezier(0.34, 1.4, 0.64, 1)" },
+    "properties": ["transform", "opacity"],
+    "note": "spring solo para eventos raros y satisfactorios. prefers-reduced-motion: reduce -> sin animación."
+  },
+
+  "tiers": {
+    "_note": "Estándar de rareza de videojuego (loot rarity): gris→verde→azul→morado→naranja. 'Leyenda' se mantiene como cima (= Legendario).",
+    "names": ["Común", "Poco común", "Raro", "Épico", "Leyenda"],
+    "rarity": ["gris", "verde", "azul", "morado", "naranja"],
+    "dark_hex": ["#989FA8", "#53BE70", "#339FEE", "#B474F4", "#F68C36"],
+    "dark_oklch": ["oklch(0.70 0.015 250)", "oklch(0.72 0.15 150)", "oklch(0.68 0.15 245)", "oklch(0.68 0.19 305)", "oklch(0.74 0.16 55)"],
+    "light_oklch": ["oklch(0.58 0.012 250)", "oklch(0.55 0.14 150)", "oklch(0.52 0.15 245)", "oklch(0.50 0.18 305)", "oklch(0.60 0.15 55)"],
+    "badgeText": { "dark": "oklch(0.16 0.012 230)", "light": "#FFFFFF", "_note": "texto oscuro sobre relleno claro en dark; blanco sobre relleno medio en light." }
+  },
+
+  "operatorLevel": { "_note": "Barra de XP del gremio usa el acento. Endowed progress: arranca en el avance ya logrado.", "nivel": 6, "titulo": "Maestro del gremio", "xp": 1240, "next": 1500 }
+}

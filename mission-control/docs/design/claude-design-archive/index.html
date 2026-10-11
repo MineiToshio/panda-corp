@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cockpit Pandacorp · 3 direcciones de diseño</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css">
+<style>
+:root{
+  --bg:oklch(0.17 0.014 60); --panel:oklch(0.22 0.015 58); --card:oklch(0.26 0.016 58);
+  --t1:oklch(0.94 0.01 80); --t2:oklch(0.78 0.015 75); --t3:oklch(0.64 0.015 70);
+  --bd:oklch(0.33 0.016 60); --bd2:oklch(0.45 0.02 62); --accent:oklch(0.7 0.15 50);
+  --serif:"Spectral",Georgia,serif; --sans:"Public Sans",system-ui,sans-serif; --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box} html,body{margin:0}
+body{background:
+  radial-gradient(120% 80% at 50% -10%, oklch(0.24 0.04 50 / .6), transparent 55%),
+  var(--bg);color:var(--t1);font-family:var(--sans);line-height:1.6;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;min-height:100vh}
+.wrap{max-width:1120px;margin:0 auto;padding:48px 22px 80px}
+h1,h2,h3{font-family:var(--serif);font-weight:600;line-height:1.15;letter-spacing:-.01em;margin:0}
+a{color:inherit}
+.hero{display:flex;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:8px}
+.mk{width:48px;height:48px;border-radius:11px;background:var(--accent);color:oklch(0.18 0.02 55);display:grid;place-items:center;font-size:28px;flex:0 0 auto;box-shadow:0 6px 20px oklch(0 0 0/.4)}
+.hero h1{font-size:30px;line-height:1.2}
+.lead{color:var(--t2);font-size:15.5px;max-width:760px;margin:10px 0 4px}
+.sprites{display:flex;gap:2px;margin:22px 0 30px}
+.sprites img{width:60px;height:60px;image-rendering:pixelated;filter:drop-shadow(0 3px 3px oklch(0 0 0/.4))}
+.note{font-size:12.5px;color:var(--t3);display:flex;align-items:center;gap:7px;margin-top:6px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:8px 0 34px}
+.dir{background:var(--card);border:1px solid var(--bd);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 8px 30px oklch(0 0 0/.25)}
+.swatch{height:88px;display:flex}
+.swatch span{flex:1}
+.dir .body{padding:16px 17px;display:flex;flex-direction:column;gap:9px;flex:1}
+.dir .n{display:flex;align-items:center;gap:9px}
+.dir .n{white-space:nowrap}
+.dir .n b{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.35}
+.dir .body>.tag{margin-top:0}
+.tag{font-size:10.5px;font-weight:600;color:var(--t3);text-transform:uppercase;letter-spacing:.06em}
+.attrs{font-size:12.5px;color:var(--t2);display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:2px 0}
+.attrs .k{color:var(--t3)}
+.go{margin-top:auto;display:flex;gap:7px}
+.btn{font-family:var(--sans);font-size:13px;font-weight:600;border:1px solid var(--bd2);background:var(--panel);color:var(--t1);border-radius:9px;padding:10px 13px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:7px;flex:1;justify-content:center}
+.btn:hover{border-color:var(--accent);background:oklch(0.3 0.03 55)}
+.btn.primary{background:var(--accent);color:oklch(0.18 0.02 55);border-color:transparent}
+.docs{background:var(--panel);border:1px solid var(--bd);border-radius:14px;padding:20px 22px}
+.docs h2{font-size:18px;margin-bottom:4px}
+.docs .row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-top:14px}
+.doclink{display:flex;gap:11px;align-items:flex-start;background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px 13px;text-decoration:none}
+.doclink:hover{border-color:var(--accent)}
+.doclink .ti{font-size:20px;color:var(--accent);margin-top:1px}
+.doclink .tt{font-weight:600;font-size:13.5px}
+.doclink .d{font-size:11.5px;color:var(--t3)}
+.callout{margin-top:26px;background:oklch(0.24 0.04 50 / .35);border:1px solid var(--bd2);border-radius:12px;padding:15px 17px;font-size:13.5px;color:var(--t2);display:flex;gap:11px;align-items:flex-start}
+.callout .ti{font-size:20px;color:var(--accent);flex:0 0 auto}
+.rules{font-size:12.5px;color:var(--t3);margin-top:10px;line-height:1.7}
+.rules code{font-family:var(--mono);font-size:11.5px;background:var(--card);padding:1px 5px;border-radius:4px;color:var(--t2)}
+@media(max-width:820px){.grid{grid-template-columns:1fr}.hero h1{font-size:28px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <div class="mk"><i class="ti ti-flame"></i></div>
+    <div>
+      <h1>Cockpit de Pandacorp — 3 direcciones de diseño</h1>
+      <p class="lead">Un panel de ingeniería con alma de RPG para operar tu fábrica de software 100% IA. Tres direcciones genuinamente distintas, las tres con <b style="color:var(--t1)">light + dark</b>, gamificación honesta, y convivencia fluida con los sprites pixel-art cálidos fijos. Elige una y la congelamos.</p>
+    </div>
+  </div>
+
+  <div class="sprites" aria-label="Sprites pixel-art fijos del party de agentes">
+    <img src="assets/agents/researcher.png" alt="Investigador">
+    <img src="assets/agents/architect.png" alt="Arquitecto">
+    <img src="assets/agents/backend-dev.png" alt="Backend">
+    <img src="assets/agents/frontend-dev.png" alt="Frontend">
+    <img src="assets/agents/test-writer.png" alt="Tester">
+    <img src="assets/agents/reviewer.png" alt="Revisor">
+    <img src="assets/agents/security-auditor.png" alt="Auditor de seguridad">
+  </div>
+  <p class="note" style="margin:-18px 0 28px"><i class="ti ti-lock"></i> Estos sprites y los fondos de zona son insumos fijos: las 3 direcciones se construyen para enmarcarlos sin que choquen.</p>
+
+  <div class="grid">
+    <div class="dir">
+      <div class="swatch"><span style="background:oklch(0.97 0.012 78)"></span><span style="background:oklch(0.55 0.155 42)"></span><span style="background:oklch(0.20 0.014 60)"></span></div>
+      <div class="body">
+        <div class="n"><b>1 · Pergamino</b></div>
+        <div class="tag">Cálido clásico · serif</div>
+        <div class="attrs"><span class="k">Acento</span><span>Terracota / ascua</span><span class="k">Formas</span><span>Esquinas suaves</span><span class="k">Tipo</span><span>Spectral + Public Sans</span><span class="k">Alma</span><span>Dashboard sobrio con pergamino</span></div>
+        <div class="go"><a class="btn primary" href="direction-1.html"><i class="ti ti-external-link"></i> Abrir</a></div>
+      </div>
+    </div>
+    <div class="dir">
+      <div class="swatch"><span style="background:oklch(0.91 0.014 85)"></span><span style="background:oklch(0.62 0.13 75)"></span><span style="background:oklch(0.16 0.014 110)"></span></div>
+      <div class="body">
+        <div class="n"><b>2 · Cripta</b></div>
+        <div class="tag">Tierra apagada · pixel</div>
+        <div class="attrs"><span class="k">Acento</span><span>Oro de quest</span><span class="k">Formas</span><span>Bordes pixel duros / bisel</span><span class="k">Tipo</span><span>Pixelify Sans + IBM Plex</span><span class="k">Alma</span><span>Gremio de noche, menú JRPG</span></div>
+        <div class="go"><a class="btn primary" href="direction-2.html"><i class="ti ti-external-link"></i> Abrir</a></div>
+      </div>
+    </div>
+    <div class="dir" style="border-color:oklch(0.72 0.115 215);box-shadow:0 0 0 1px oklch(0.72 0.115 215),0 8px 30px oklch(0 0 0/.3)">
+      <div class="swatch"><span style="background:oklch(0.19 0.01 225)"></span><span style="background:oklch(0.72 0.115 215)"></span><span style="background:oklch(0.28 0.013 220)"></span></div>
+      <div class="body">
+        <div class="n"><b>3 · Atelier</b> <span style="font-size:10px;font-weight:700;color:oklch(0.18 0.02 225);background:oklch(0.72 0.115 215);border-radius:5px;padding:2px 7px;letter-spacing:.04em">ELEGIDA · DARK</span></div>
+        <div class="tag">Neutro cálido · moderno</div>
+        <div class="attrs"><span class="k">Acento</span><span>Azul-acero (hue 215)</span><span class="k">Formas</span><span>Esquinas amplias, aireado</span><span class="k">Tipo</span><span>Space Grotesk + Hanken</span><span class="k">Alma</span><span>SaaS limpio, RPG de guarnición</span></div>
+        <div class="go"><a class="btn primary" href="direction-3.html" style="background:oklch(0.72 0.115 215)"><i class="ti ti-external-link"></i> Abrir</a><a class="btn" href="paleta-atelier.html"><i class="ti ti-color-swatch"></i> Paleta</a></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="docs">
+    <h2>Documentación del sistema</h2>
+    <p class="note" style="margin-top:6px"><i class="ti ti-info-circle"></i> Investigación, tokens y reglas que sostienen las 3 direcciones.</p>
+    <div class="row">
+      <a class="doclink" href="referencias.md"><i class="ti ti-search"></i><div><div class="tt">referencias.md</div><div class="d">Investigación: paletas, enmarcar pixel-art, refs externas</div></div></a>
+      <a class="doclink" href="design-tokens.frozen.json"><i class="ti ti-lock"></i><div><div class="tt">design-tokens.frozen.json</div><div class="d">CONGELADO · Atelier dark (azul-acero) + light + alto-contraste</div></div></a>
+      <a class="doclink" href="paleta-atelier.html"><i class="ti ti-color-swatch"></i><div><div class="tt">paleta-atelier.html</div><div class="d">Paleta visual congelada · surfaces, acento, semánticos, agentes</div></div></a>
+      <a class="doclink" href="decisiones-de-diseno.md"><i class="ti ti-clipboard-check"></i><div><div class="tt">decisiones-de-diseno.md</div><div class="d">Racional de la elección + ajuste de color + pendientes</div></div></a>
+      <a class="doclink" href="design-tokens.json"><i class="ti ti-color-swatch"></i><div><div class="tt">design-tokens.json</div><div class="d">Las 3 direcciones (exploración) en OKLCH</div></div></a>
+      <a class="doclink" href="DESIGN.md"><i class="ti ti-book"></i><div><div class="tt">DESIGN.md</div><div class="d">Tokens + componentes permitidos + prohibiciones</div></div></a>
+      <a class="doclink" href="a11y-report.md"><i class="ti ti-accessible"></i><div><div class="tt">a11y-report.md</div><div class="d">Contraste medido (AA), foco, teclado, aria, motion</div></div></a>
+    </div>
+  </div>
+
+  <div class="callout">
+    <i class="ti ti-target-arrow"></i>
+    <div>
+      <b style="color:var(--t1)">Pruébalas en vivo.</b> Cada mockup es navegable: cambia de pestaña (Mission Control, Tablero, Portfolio, Logros, Configuración, Documentación), alterna <b style="color:var(--t1)">claro/oscuro</b> y <b style="color:var(--t1)">alto-contraste</b> arriba a la derecha, cambia el modo de construcción del party, y prueba las celebraciones desde el dock inferior («Work order», «Fase», «Release», «Subir nivel», «Reduced-motion»).
+      <div class="rules"><b style="color:var(--t2)">Cuando elijas</b>, congelo <code>design-tokens.json</code> + un doc de decisiones de diseño con el racional. Dime también si quieres que ajuste algo de la dirección elegida.</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
