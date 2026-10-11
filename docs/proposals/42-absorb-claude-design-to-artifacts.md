@@ -157,3 +157,18 @@ Analogy: before, we were sending letters to a design studio across town and chec
     - cotizapdf is **left uncommitted**, because its checkout is on branch `codex/complete-mvp-flow`.
   - PandaCast's cards now render in-repo with `_ds_bundle.js` (verified live: Button and Panel cards, no console errors).
   - New risk for P2: **"Pandacorp Cockpit" is the org DEFAULT design system.** If it is migrated as-is, every new Design artifact would default to it. Before migrating, remove it as the org default, or don't migrate it at all.
+- 2026-10-11 — **Owner: merge the CotizaPDF branch, push everything, fix the org default, continue with all the steps.** Done:
+  - **Repos.**
+    - CotizaPDF: `codex/complete-mvp-flow` was fast-forwarded into `main` (main was its ancestor), the archive was committed and main pushed (`145d1ee`).
+    - The other four repos were pushed.
+    - Pandacorp Cockpit was **removed as the org default** (verified in the UI).
+  - **Step 2:** BL-0229 shipped as plugin **9.121.1** (`d8dcea90`).
+  - **Step 3, the spike:** see the verdict in `factory/backlog/BL-0117-*.md`.
+    - **A wins:** a static HTML artifact from a Playwright DOM snapshot (https://claude.ai/artifact/3CXVtSguC61VaeMgauagv8).
+    - **B loses:** the Design canvas (https://claude.ai/artifact/41xiwkbFNtVmUHMz3eMPe5) needs hand-ported inline-style `.dc.html`, and its HTML export is a 2.2 MB bundled runtime page.
+  - **Step 4:** BL-0117 shipped as plugin **9.122.0** (`b1797983`). Design Step 6 publishes the directions as private Artifacts, with local files as the fallback.
+  - **Step 6, memory:** 6 notes jotted to `factory/memory/_inbox.md`.
+  - **Step 7:** filed as BL-0230 (re-verify after 2026-12-14).
+  - **P6:** filed in Mission Control's change queue.
+  - **Still owner-attended:** open spike A on the phone and leave one comment, which the agent reads back with `ArtifactComments`.
+  - **Still pending:** step 5, validation on the next real UI project. It gates the replacing DR, the P5 sweep and P2.
