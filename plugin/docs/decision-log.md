@@ -4,6 +4,16 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.121.1 — 2026-10-11 (PATCH): BL-0229, design skill honesty patch for the standalone Claude Design sunset (proposal 42)
+
+**What:** standalone `claude.ai/design` closes 2026-12-14. Designs, design systems and decks are now Artifacts, and the `DesignSync` tool's own description now forbids generating designs with it.
+- `skills/design/SKILL.md` Step 0: EXPLORE routes to hand-authored HTML. An in-flight canvas is finished with the LEGACY procedure before the sunset and then archived. The "Claude Design = HIGH fidelity" rationale is withdrawn, and the fidelity sources are named instead (frozen tokens, per-FRD shards, the DR-056 gate). The native `/design` command is kept out of the lifecycle because it implements directly and bypasses the architecture and work-order gates.
+- `agents/designer.md`: no longer told to generate with DesignSync (Codex mirror regenerated).
+- `skills/design/references/canvas-procedure.md`: LEGACY banner plus the export/archive path.
+- Factory side: `standards/design.md` §1c banner; DR-058/DR-109 marked superseded-pending; BL-0058 closed as obsolete; BL-0117 reopened as the Artifact review-loop spike.
+
+**Why:** a third-party surface's state was encoded as a durable default with no re-check trigger. This is a minimal, truthful routing fix; the replacement engine waits for the BL-0117 spike and validation on a real UI project (proposal 42 Plan steps 3-5). Mission Control's Manual/app copy ("design uses Claude Design") is deliberately deferred to an MC `/pandacorp:change` once the wording settles (proposal 42 P6), so the DR-046 Manual sync is postponed on purpose, not forgotten.
+
 ## v9.121.0 — 2026-10-03 (MINOR): proposal 41, the fast-lane builder writes less, runs less, reads less (DR-126), plus BL-0223 (build agents never kill host-wide servers). `OVERLAY_VERSION` 8.97.2 -> 8.98.0 (the shipped engine artifact changed; new overlay helper `.pandacorp/serve-once.sh`). Mission Control's engine copy follows.
 
 **What:** `docs/proposals/41-builder-speed.md` C1-C7, fast lane only (`--lane classic` byte-identical; lanes unchanged except the builder prompt they share).

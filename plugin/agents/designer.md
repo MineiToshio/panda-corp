@@ -30,7 +30,7 @@ Build on shadcn/ui + Tailwind for accessible, well-structured components — but
 Self-contained HTML files (inline CSS/JS, no network dependencies except the Tailwind CDN), navigable (clicks show the states/screens), mobile-first and responsive.
 
 **4a · Product-level direction mockups (explore path only — skip when a visual was adopted in rule 3):**
-- **Prefer Claude Design (DR-058):** generate the system + reusable components with the `/design-sync` skill + `DesignSync` tool (claude.ai/design), then sync it into the repo (its `_ds_manifest.json` seeds the component inventory, DR-057). Hand-coded HTML directions are the fallback when it isn't available (needs the owner's claude.ai login — offer it).
+- **Standalone Claude Design is sunsetting (closes 2026-12-14; DR-058/DR-109 superseded-pending, proposal 42):** do NOT start a canvas project and NEVER generate with `DesignSync` — the tool itself forbids it (designs are now Artifacts). You author the directions as self-contained HTML in the repo; publishing them for the owner's review is the lead session's job, not yours. Fidelity comes from the frozen tokens, the per-FRD shards and the DR-056 gate, not from the generator.
 - **When hand-authoring:** generate 3 genuinely DIFFERENT visual directions tailored to THIS app's domain and audience — not a fixed menu, not the same one in another color (for one product the right three might be playful/illustrative, for another minimal/editorial, for another bold/utilitarian). These live at `docs/design/mockups/direction-{1,2,3}.html`.
 
 **4b · Per-feature mockups (REQUIRED for every UI FRD) — shard the prototype (DR-056):**

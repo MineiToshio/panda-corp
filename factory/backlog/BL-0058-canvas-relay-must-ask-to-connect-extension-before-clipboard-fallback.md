@@ -3,12 +3,12 @@ id: BL-0058
 type: bug
 area: plugin-skill
 title: "canvas-procedure.md Relay must ask the owner to connect claude-in-chrome before degrading to clipboard when list_connected_browsers returns empty"
-status: open
+status: done
 severity: p1
 opened: 2026-07-10
-closed:
+closed: 2026-10-11
 source: "pandacast .pandacorp/run/lessons.md 2026-07-10 (owner-stated): 'esa era la idea' — DR-109's relay silently degraded past the claude-in-chrome step to clipboard when list_connected_browsers returned empty, when the intended flow was to ask the owner to connect the extension first (a one-click fix vs a full manual round every relay call)"
-closes:
+closes: "obsolete — the claude.ai/design canvas relay it hardens sunsets 2026-12-14 and canvas-procedure.md is now LEGACY (BL-0229, docs/proposals/42-absorb-claude-design-to-artifacts.md)"
 links: []
 ---
 

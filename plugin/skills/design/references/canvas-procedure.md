@@ -1,5 +1,12 @@
 # Canvas procedure — EXPLORE path with Claude Design (DR-058, DR-101, DR-109)
 
+> **LEGACY — standalone Claude Design sunsets 2026-12-14** (verified 2026-10-10; proposal 42, BL-0229).
+> Use this procedure ONLY to finish a canvas project that was already in flight, and only before
+> 2026-12-14. New EXPLORE work uses hand-authored HTML (SKILL.md Step 0). The `DesignSync` tool now
+> forbids generating designs with it. Rescue/export path: open the project → Share → Project HTML →
+> "Project archive" → Export, then unpack it into `docs/design/claude-design-archive/` and commit.
+
+
 The numbered, stateful algorithm for generating a design system + the full screen set on the
 claude.ai/design canvas. The skill follows it **step by step, in order**; every checkpoint lives in a
 FILE, never only in the conversation — completeness is enforced by the tracker + the advance gate,

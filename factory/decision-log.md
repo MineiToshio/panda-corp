@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-11 — Claude Design sunset: DR-058/DR-109 superseded-pending, standards/design.md §1c legacy (BL-0229, proposal 42)
+
+**What:** `factory/standards/design.md` §1c got a LEGACY banner. Its canvas mechanics are only for finishing an in-flight project before 2026-12-14; the content rules still bind. DR-058 and DR-109 are noted superseded-pending. No replacing DR is written yet. BL-0058 is closed as obsolete and BL-0117 is reopened as the Artifact review-loop spike. Before this, all six non-empty canvas items (PandaCast, PersonalPage v2, Pandacorp Cockpit, PandaWatch DS + project, CotizaPDF DS) were exported and committed into their repos under `claude-design-archive/`. Pandacorp Cockpit was removed as the org default design system.
+**Why:** standalone `claude.ai/design` closes 2026-12-14 (https://support.claude.com/en/articles/17440474). A new DR waits for evidence (the BL-0117 spike plus one real UI project), per the red team in `docs/proposals/42-absorb-claude-design-to-artifacts.md`.
+
 ## 2026-10-10 — pandacorp-memory-review sweep: completed an abandoned personal-page-v2 harvest (BL-0089 pattern recurrence)
 
 **What:** the daily `pandacorp-memory-review` scheduled sweep found `factory/backlog/`/`factory/memory/`

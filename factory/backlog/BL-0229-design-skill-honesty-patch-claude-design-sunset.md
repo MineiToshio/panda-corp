@@ -3,12 +3,12 @@ id: BL-0229
 type: bug
 area: plugin-skill
 title: "Design skill + designer agent still route EXPLORE to standalone Claude Design (sunsets 2026-12-14) and tell the agent to generate WITH DesignSync, which the tool now forbids"
-status: open
+status: done
 severity: p1
 opened: 2026-10-11
-closed:
+closed: 2026-10-11
 source: "docs/proposals/42-absorb-claude-design-to-artifacts.md, Plan step 2 (owner-approved 2026-10-10)"
-closes:
+closes: "plugin v9.121.1 — design SKILL.md Step 0 routes EXPLORE to hand-authored HTML, designer.md no longer generates with DesignSync, canvas-procedure.md + standards/design.md §1c marked LEGACY, DR-058/DR-109 superseded-pending"
 links: [DR-058, DR-109, DR-081, BL-0058, BL-0117, LESSON-0141]
 ---
 

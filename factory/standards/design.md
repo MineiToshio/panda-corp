@@ -51,6 +51,16 @@ visual (§1). (Owner rule, 2026-06-27; reinforces the §1 EXPLORE "bespoke per d
 
 ## 1c. Generating with Claude Design — connection, an exhaustive brief, pull-and-review (DR-058)
 
+> **LEGACY — standalone Claude Design sunsets 2026-12-14** (verified 2026-10-10; proposal 42, BL-0229).
+> Use this procedure ONLY to finish a canvas project that was already in flight, and only before
+> 2026-12-14. New EXPLORE work uses hand-authored HTML (`plugin/skills/design/SKILL.md` Step 0). The `DesignSync` tool now
+> forbids generating designs with it. Rescue/export path: open the project → Share → Project HTML →
+> "Project archive" → Export, then unpack it into `docs/design/claude-design-archive/` and commit.
+
+> The CONTENT rules below (the anti-omission checklist, image placeholders, motion, breakpoints,
+> pull-and-review) stay binding for any engine; only the canvas mechanics are legacy.
+
+
 When the EXPLORE path uses **Claude Design** (claude.ai/design) to generate the system, the division of
 labour is fixed and the brief MUST be **exhaustive** — both learned the hard way (PersonalPage v2,
 2026-06-27): a thin brief let the canvas ship only tokens + brand and defer the whole component gallery and
