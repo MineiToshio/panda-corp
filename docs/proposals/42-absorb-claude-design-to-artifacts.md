@@ -148,3 +148,12 @@ Analogy: before, we were sending letters to a design studio across town and chec
 ## Iteration
 
 - 2026-10-10 — Memo created. Awaiting the owner's decision.
+- 2026-10-10 — **Owner approved the plan; step 1 (rescue) DONE.**
+  - The real canvas inventory, read live in the owner's Chrome, was wider than the repo scan suggested.
+    - 5 design systems: PandaCast, PersonalPage v2, **Pandacorp Cockpit** (an early Mission Control exploration, marked **org default**), PandaWatch and CotizaPDF.
+    - 2 projects: PandaWatch, plus PandaWatch v2, which is empty and had nothing to export.
+  - All 6 non-empty items were exported as Project archives and committed into their repos under `claude-design-archive/`:
+    - pandacast `faa7d78`, personal-page-v2 `cfbb0e6`, mission-control `32cc73b4`, manga-watch `8325578`.
+    - cotizapdf is **left uncommitted**, because its checkout is on branch `codex/complete-mvp-flow`.
+  - PandaCast's cards now render in-repo with `_ds_bundle.js` (verified live: Button and Panel cards, no console errors).
+  - New risk for P2: **"Pandacorp Cockpit" is the org DEFAULT design system.** If it is migrated as-is, every new Design artifact would default to it. Before migrating, remove it as the org default, or don't migrate it at all.
