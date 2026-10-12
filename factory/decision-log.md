@@ -1,5 +1,13 @@
 # Decision Log — Factory
 
+## 2026-10-12 — Board titles retain both a commercial name and a purpose (DR-127)
+
+**What:** Added [DR-127](decisions/registry.yaml) and updated the shared [idea template](ideas/_idea-template.md) to require `Commercial name — short general-purpose description` on capture and rename. The owner-facing description remains Spanish; approved brands and card identifiers are preserved. Applied the correction to the existing PandaSaga card and recorded the preference in the personal profile. Mission Control's capture guide reflects the rule.
+**Why:** The owner explicitly wants to recognize what an idea does months later without opening it. The earlier brand-only rename lost that context. A generic short-title placeholder is superseded; historical decision logs and other cards are not bulk rewritten.
+**Verification:** Parse the decision registry, check unique IDs and the card's two-part title, validate the capture guide syntax, and confirm the live board serves the updated title. Semantic clarity remains a capture/rename checklist, not a claimed automated branding judgment.
+**Scope:** Factory-internal authoring policy. Existing capture skills consume this shared template and the registry. No new skill, plugin code, project overlay or build state is changed.
+
+
 ## 2026-10-11 — Claude Design sunset: DR-058/DR-109 superseded-pending, standards/design.md §1c legacy (BL-0229, proposal 42)
 
 **What:** `factory/standards/design.md` §1c got a LEGACY banner. Its canvas mechanics are only for finishing an in-flight project before 2026-12-14; the content rules still bind. DR-058 and DR-109 are noted superseded-pending. No replacing DR is written yet. BL-0058 is closed as obsolete and BL-0117 is reopened as the Artifact review-loop spike. Before this, all six non-empty canvas items (PandaCast, PersonalPage v2, Pandacorp Cockpit, PandaWatch DS + project, CotizaPDF DS) were exported and committed into their repos under `claude-design-archive/`. Pandacorp Cockpit was removed as the org default design system.

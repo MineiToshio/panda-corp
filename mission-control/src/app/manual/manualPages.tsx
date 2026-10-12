@@ -416,7 +416,10 @@ function GuideCapturar(): React.JSX.Element {
       tip={
         <>
           Las fichas viven en <Code>factory/ideas/</Code>. El estado de cada idea vive SOLO en su
-          frontmatter; el Tablero solo lo lee.
+          frontmatter; el Tablero solo lo lee. El título siempre combina un nombre comercial
+          creativo y una descripción breve: <Code>Nombre — qué hace</Code> (DR-127). Así puedes
+          reconocer su propósito meses después. La descripción cubre el producto general, no solo su
+          primer catálogo; al renombrar se conserva también la descripción.
         </>
       }
     />

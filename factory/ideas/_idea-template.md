@@ -1,5 +1,5 @@
 ---
-title: "(short idea title)"
+title: "(Commercial name — short description of what it does)"
 project_type: web | mobile | desktop | ai | claude-code | prompt-system | automation | cli | rework | other
 origin: owner | discovery
 status: discovered
@@ -33,6 +33,14 @@ project: ""
 
 <!--
   RENDERING CONTRACT (Mission Control's Propuesta tab — IdeaPitch parses this body):
+  · Board title contract (DR-127): use a creative commercial name, a spaced em dash,
+    and a short, concrete description of the product's general purpose. Both parts
+    are required on capture and rename; never leave only a brand or only a description.
+    Describe the broader product, not merely its first catalog, franchise or medium.
+    The owner-facing description is Spanish (DR-009); preserve an approved brand and
+    the existing slug. If no brand is selected, propose a clearly provisional one.
+    Before saving, check both title segments and whether the purpose is understandable
+    months later without opening the card. Do not mass-rename historical cards.
   · The body is two labelled blocks ("De un vistazo" hot, "Profundizar" cold), each a set of `### subsections`.
     Each `### Label` renders as a row: the label on the left, its rich markdown on the right.
   · The `> **Badges:** a | b | c` line (PIPE-separated, so a badge may contain `·`) renders the hero pills,

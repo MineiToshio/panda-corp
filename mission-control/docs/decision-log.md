@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-12 — Capture guide reflects board title policy DR-127
+
+**What:** The capture guide documents the required commercial-name-plus-purpose format and preserving the description when renaming.
+**Why:** Reflect the factory registry and shared idea template so a board title stays understandable months later. Documentation-only copy update; no board behavior or project build state changed.
+
+
 ## 2026-10-03 — Pandacorp overlay 8.97.2 -> 8.98.0 (lighter fast-lane builder, scoped server kills)
 
 **What:** the build engine artifact `.claude/engines/pandacorp-build.js` is copied byte-identical from plugin 9.121.0 (DR-126, proposal 41: the fast-lane builder writes its tests with the code under a budget, gets a per-work-order brief, runs one narrowed self-verify and runs sonnet at effort medium; `--builder-effort default` opts out). New overlay helper `.pandacorp/serve-once.sh` (BL-0223: start a server on a free port in its own process group and kill exactly that group). The Manual documents both: the `builderEffort` arg and a "Builder más ligero" section in [DesatendidaDetail.tsx](../src/app/manual/_components/DesatendidaDetail.tsx), and the implement flow step in [skill-flows.ts](../src/lib/manual/skill-flows.ts); pinned by `manualPages.builder.test.tsx`.
