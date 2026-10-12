@@ -172,3 +172,5 @@ Analogy: before, we were sending letters to a design studio across town and chec
   - **P6:** filed in Mission Control's change queue.
   - **Still owner-attended:** open spike A on the phone and leave one comment, which the agent reads back with `ArtifactComments`.
   - **Still pending:** step 5, validation on the next real UI project. It gates the replacing DR, the P5 sweep and P2.
+- 2026-10-12 — **Spike A comment readback VERIFIED.** The owner left a comment on the static HTML artifact and sent it to Claude. This session read it with `ArtifactComments read`, which returned the thread, the exact text anchor ("Comparativa: reproducción vs original…") and its location, then resolved it. Side finding: Claude on the artifact page **already auto-replied** within a minute with concrete design feedback (the duplicated duration, the ambiguous "Publicado", a link under 44px). So the review loop has two readers: the page's own Claude, and the session that owns the repo copy. Only the repo session may change the source (DR-115). Proposal 42 step 3 is complete; only step 5 (a real UI project) remains.
+
