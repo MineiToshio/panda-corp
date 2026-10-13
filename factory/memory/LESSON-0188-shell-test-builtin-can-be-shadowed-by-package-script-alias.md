@@ -5,12 +5,12 @@ domain: tooling
 tags: [shell, bash, test, pnpm, alias, file-existence-check, enoent, shell-profile]
 context: "running a plain POSIX file-existence check (`test -f <path>` / `[ -f <path> ]`) from an agent's Bash tool inside ANY directory (project-local or the factory root) whose shell profile, project config, or a global alias shadows the `test` command — including directories with no package.json at all"
 trigger: "use this when you need to check whether a file exists from the Bash tool, especially chained with && / || (e.g. test -f X && ... || echo not-found) — prefer a non-shadowable check over the bare test/[ builtin; a nonzero exit from a shadowed test reads as a clean false in that chain, not as an error"
-source: "factory/memory/_inbox.md agent-inferred note (personal-page-v2 session) — `test -f <path>` run from the Bash tool inside `personal-page-v2/` silently invoked `pnpm test <path>` (a real `vitest run` filtered to that path) instead of the POSIX file-test builtin, printing \"No test files found, exiting with code 1\" instead of a true/false existence check. Corroborating instance (2026-09-18, panda-corp itself, scheduled pandacorp-memory-review PASO 0 run): at the repo root (`panda-corp/`, NO package.json present) `test` was shadowed by a GLOBAL shell-profile alias (`alias test='npm test'`, confirmed via `type test`/`alias | grep test`) — it fired even with no package.json in the directory. This instance's failure mode was also NOT the prior clean test-runner-shaped output: `npm test` hit `npm error code ENOENT ... Could not read package.json`, a nonzero exit that a `test -f X && ... || echo \"no existe\"` chain silently swallowed and misread as \"file does not exist\" for a file that demonstrably existed (`factory/memory/_inbox.md`, 868 lines). Nearly produced a wrong \"0 pending notes, file missing\" read in that same PASO 0 sweep before catching it."
+source: "factory/memory/_inbox.md agent-inferred note (personal-page-v2 session) — `test -f <path>` run from the Bash tool inside `personal-page-v2/` silently invoked `pnpm test <path>` (a real `vitest run` filtered to that path) instead of the POSIX file-test builtin, printing \"No test files found, exiting with code 1\" instead of a true/false existence check. Corroborating instance (2026-09-18, panda-corp itself, scheduled pandacorp-memory-review PASO 0 run): at the repo root (`panda-corp/`, NO package.json present) `test` was shadowed by a GLOBAL shell-profile alias (`alias test='npm test'`, confirmed via `type test`/`alias | grep test`) — it fired even with no package.json in the directory. This instance's failure mode was also NOT the prior clean test-runner-shaped output: `npm test` hit `npm error code ENOENT ... Could not read package.json`, a nonzero exit that a `test -f X && ... || echo \"no existe\"` chain silently swallowed and misread as \"file does not exist\" for a file that demonstrably existed (`factory/memory/_inbox.md`, 868 lines). Nearly produced a wrong \"0 pending notes, file missing\" read in that same PASO 0 sweep before catching it. THIRD corroborating instance (2026-10-10, pandacast project, architecture stack-proposal research, distinct project from both prior instances): the owner's zsh shell has `test` shadowed by an npm alias/function printing npm errors, caught before being relied on — same root cause (shell-level shadowing of the `test` builtin), third independent project."
 provenance: agent-inferred
 created: 2026-08-11
-status: candidate
+status: active
 promotion: none
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
 links: []
@@ -40,6 +40,11 @@ manager's test runner tends to print test-runner-shaped output (instance 1); a b
 package tends to exit nonzero with an ENOENT-style error (instance 2) — and that nonzero exit is exactly
 what a `test -f X && ... || echo "not found"` idiom is designed to interpret as "false", so it launders a
 tooling error into a wrong, confident negative with no visible sign anything went wrong.
+
+**Third instance (2026-10-10, pandacast, a third distinct project):** the same zsh-level `test` shadow by
+an npm alias/function recurred again, caught before being relied on. Three independent projects hitting
+the same root cause (shell-level shadowing, not a project-local fluke) is what promotes this lesson from
+`candidate` to `active` (DR-047 cross-corroboration).
 
 **Apply next time:** never rely on bare `test -f`/`[ -f ... ]` (or other POSIX test operators) from the
 Bash tool to check file existence — not even at the factory root, not even with no package.json in sight —
