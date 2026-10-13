@@ -15,8 +15,8 @@ created: 2026-09-25
 status: active
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [pandasaga]
 links: [LESSON-0092, LESSON-0219, LESSON-0235, LESSON-0265]
 ---
 
