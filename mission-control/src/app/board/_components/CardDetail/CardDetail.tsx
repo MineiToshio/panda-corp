@@ -9,7 +9,8 @@
  *                summary, key points, docs navigator. The next-step command now
  *                lives in the campaign ficha (CampaignPipeline), not here.
  *   AC-02-008.1  Idea with no documents → show only the summary, no project docs, no crash.
- *   AC-02-009.1  Three horizontal tabs (Propuesta · Documentos · Campaña); default = Propuesta.
+ *   AC-02-009.1  Three horizontal tabs (Propuesta · Documentos · Campaña); the default tab follows
+ *                the project's stage (research → Propuesta, product/design → Spec, later → Arquitectura).
  *                Propuesta renders the idea's hot→cold memo natively (IdeaPitch, discover redesign).
  *   AC-02-009.2  Clicking a tab activates it and shows its body.
  *   AC-02-009.3  Clicking a document entry switches the active tab to Documentos.
@@ -87,6 +88,25 @@ const ALL_TABS: TabDef[] = [
   { id: "docs", label: "Documentos", icon: "ti-files" },
   { id: "campana", label: "Campaña", icon: "ti-map-2" },
 ];
+
+/**
+ * Initial tab for a card, by campaign phase index (0 research … 5 release). A stage tab that has no
+ * digest is not rendered, so the default falls back along arquitectura → spec → propuesta.
+ *
+ * @param activePhase - campaign phase index from `phaseFromStatus`
+ * @param hasSpec - whether the Spec tab is rendered
+ * @param hasArchitecture - whether the Arquitectura tab is rendered
+ * @returns the tab to open on first render
+ */
+function defaultTabForPhase(
+  activePhase: number,
+  hasSpec: boolean,
+  hasArchitecture: boolean,
+): TabKey {
+  if (activePhase >= 3 && hasArchitecture) return "arquitectura";
+  if (activePhase >= 1 && hasSpec) return "spec";
+  return "propuesta";
+}
 
 /** Stable prefix so the shared Tabs primitive emits this screen's test ids. */
 const TAB_TEST_ID_PREFIX = "card-detail-tab-";
@@ -331,7 +351,7 @@ function noop(): void {
  * CardDetail — 3-tab idea card detail (Propuesta · Documentos · Campaña).
  *
  * Tabs:
- *   - Propuesta (default): IdeaPitch — the idea's hot→cold memo rendered natively
+ *   - Propuesta (default in research): IdeaPitch — the idea's hot→cold memo rendered natively
  *     (the /discover redesign output, plugin v9.9.0). The pitch that makes the owner decide.
  *   - Documentos: a file-browser rail (Resumen · Producto · per-FRD) + a reader.
  *     "Resumen" shows the card body; a project doc lazily loads its body.
@@ -365,13 +385,19 @@ export function CardDetail({
   isRunning,
   onEnterForge,
 }: CardDetailProps): React.JSX.Element {
-  // Active tab — defaults to Propuesta (AC-02-009.1, owner decision). Persists across re-renders.
-  const [activeTab, setActiveTab] = useState<TabKey>("propuesta");
-
   // "Spec" appears once the project has a spec digest; "Arquitectura" once it has an architecture
   // digest — each tab is filtered out before its phase produces the digest.
   const hasSpec = specContent != null && specContent !== "";
   const hasArchitecture = architectureContent != null && architectureContent !== "";
+
+  // Derive the active campaign phase index for CampaignPipeline and the default tab.
+  const activePhase = phaseFromStatus({ cardStatus: status, phase });
+
+  // Active tab — only the INITIAL value follows the stage (AC-02-009.1); the owner's later pick
+  // persists across re-renders (AC-02-009.4) because the initializer never runs again.
+  const [activeTab, setActiveTab] = useState<TabKey>(() =>
+    defaultTabForPhase(activePhase, hasSpec, hasArchitecture),
+  );
   const tabs = ALL_TABS.filter(
     (tab) => (tab.id !== "spec" || hasSpec) && (tab.id !== "arquitectura" || hasArchitecture),
   );
@@ -383,9 +409,6 @@ export function CardDetail({
   const [docContent, setDocContent] = useState<string | null>(null);
   // Whether a doc body load is in flight.
   const [docLoading, startDocLoad] = useTransition();
-
-  // Derive the active campaign phase index for CampaignPipeline.
-  const activePhase = phaseFromStatus({ cardStatus: status, phase });
 
   // Build the grouped rail sections (empty when no scoped docs).
   const sections = buildDocSections(docNodes ?? []);

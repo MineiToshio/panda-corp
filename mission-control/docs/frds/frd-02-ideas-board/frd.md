@@ -42,7 +42,11 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 - AC-02-009.1 — WHEN the owner opens a card, THE system SHALL render the card detail with **three
   horizontal tabs** — **Propuesta · Documentos · Campaña** (in that order) — using the **same tab
   pattern** as the Portfolio project pane (the `stab` selector row), and SHALL default the active tab
-  to **Propuesta**. (Owner decision, discover redesign 2026-06-26; the Comandos tab was folded into the
+  **by the project's stage** (campaign phase): research → **Propuesta**; product or design → **Spec**;
+  architecture, implementation or release (incl. shipped) → **Arquitectura**. When the stage's tab is
+  not rendered (its digest is absent), the default falls back to the previous available stage tab
+  (Arquitectura → Spec → Propuesta); Documentos and Campaña are never the default. Only the initial tab
+  is derived: the owner's later pick persists (AC-02-009.4). (Owner decision, discover redesign 2026-06-26; the Comandos tab was folded into the
   campaign ficha earlier.) A **Spec** tab is inserted **between Propuesta and Documentos** when the
   project has a spec digest (REQ-02-011), and an **Arquitectura** tab **after Spec** when it has an
   architecture digest (REQ-02-013) — absent each digest, that tab is not rendered and the structure is

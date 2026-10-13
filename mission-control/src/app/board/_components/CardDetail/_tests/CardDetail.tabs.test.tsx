@@ -3,7 +3,7 @@
  *
  * Traceability:
  *   CMP-02-card-detail → REQ-02-009
- *   AC-02-009.1 — 3 tabs (Propuesta · Documentos · Campaña); default active = Propuesta.
+ *   AC-02-009.1 — 3 tabs (Propuesta · Documentos · Campaña); default active follows the stage.
  *   AC-02-009.2 — clicking a tab activates it and shows its body.
  *   AC-02-009.3 — clicking a doc entry switches to Documentos tab.
  *   AC-02-009.4 — active tab persists across re-renders of the detail.
@@ -325,5 +325,96 @@ describe("frd-02: the Spec tab is conditional on a spec digest", () => {
     expect(screen.getByTestId("card-detail-tab-spec")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("card-detail-tab-spec"));
     expect(screen.getByText("Auth")).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AC-02-009.1 — the default tab follows the project's stage
+// ---------------------------------------------------------------------------
+
+const ARCH_DIGEST = "## Stack\n\nNext.js";
+
+function expectActiveTab(id: "propuesta" | "spec" | "arquitectura"): void {
+  const selected = screen
+    .getAllByRole("tab")
+    .filter((t) => t.getAttribute("aria-selected") === "true");
+  expect(selected).toHaveLength(1);
+  expect(selected[0]).toBe(screen.getByTestId(`card-detail-tab-${id}`));
+}
+
+describe("frd-02: AC-02-009.1 — default tab follows the project's stage", () => {
+  it("frd-02: WHEN a card is in research (recommended) THEN Propuesta is active", () => {
+    render(<CardDetail {...MINIMAL} status="recommended" specContent={SPEC_DIGEST} />);
+    expectActiveTab("propuesta");
+  });
+
+  it.each([
+    "product",
+    "design",
+  ] as const)("frd-02: WHEN an in-pipeline card is in %s with a spec digest THEN Spec is active", (phase) => {
+    render(
+      <CardDetail {...MINIMAL} status="in-pipeline" phase={phase} specContent={SPEC_DIGEST} />,
+    );
+    expectActiveTab("spec");
+  });
+
+  it.each([
+    "architecture",
+    "implementation",
+    "release",
+  ] as const)("frd-02: WHEN an in-pipeline card is in %s with an architecture digest THEN Arquitectura is active", (phase) => {
+    render(
+      <CardDetail
+        {...MINIMAL}
+        status="in-pipeline"
+        phase={phase}
+        specContent={SPEC_DIGEST}
+        architectureContent={ARCH_DIGEST}
+      />,
+    );
+    expectActiveTab("arquitectura");
+  });
+
+  it("frd-02: WHEN a shipped card has an architecture digest THEN Arquitectura is active", () => {
+    render(
+      <CardDetail
+        {...MINIMAL}
+        status="shipped"
+        phase={undefined}
+        specContent={SPEC_DIGEST}
+        architectureContent={ARCH_DIGEST}
+      />,
+    );
+    expectActiveTab("arquitectura");
+  });
+
+  it("frd-02: WHEN the phase is architecture with a spec digest but no architecture digest THEN Spec is active", () => {
+    render(
+      <CardDetail
+        {...MINIMAL}
+        status="in-pipeline"
+        phase="architecture"
+        specContent={SPEC_DIGEST}
+      />,
+    );
+    expectActiveTab("spec");
+  });
+
+  it("frd-02: WHEN the phase is architecture with neither digest THEN Propuesta is active", () => {
+    render(<CardDetail {...MINIMAL} status="in-pipeline" phase="architecture" />);
+    expectActiveTab("propuesta");
+  });
+
+  it("frd-02: WHEN the phase is product without a spec digest THEN Propuesta is active", () => {
+    render(<CardDetail {...MINIMAL} status="in-pipeline" phase="product" />);
+    expectActiveTab("propuesta");
+  });
+
+  it("frd-02: WHEN the owner picks another tab and the card re-renders THEN the picked tab stays", () => {
+    const props = { ...MINIMAL, status: "in-pipeline" as const, phase: "design" as const };
+    const { rerender } = render(<CardDetail {...props} specContent={SPEC_DIGEST} />);
+    fireEvent.click(screen.getByTestId("card-detail-tab-campana"));
+    rerender(<CardDetail {...props} specContent={SPEC_DIGEST} body="Updated." />);
+    expect(screen.getByTestId("card-detail-tab-campana")).toHaveAttribute("aria-selected", "true");
   });
 });
