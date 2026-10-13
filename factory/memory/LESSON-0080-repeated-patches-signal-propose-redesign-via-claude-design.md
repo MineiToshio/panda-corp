@@ -35,3 +35,12 @@ class (visual or otherwise), pause and propose a real design pass instead of the
 brief in the component's actual current source (props, CSS classes, real behavior) so the canvas result
 is portable back with minimal translation, then round-trip it via Claude Design + DesignSync
 (`get_file`) rather than iterating further in code alone.
+
+**Contradiction flagged (2026-10-13):** standalone Claude Design (`claude.ai/design`) closes on
+2026-12-14; its live tool description (verified 2026-10-10) already says "never use it to make a
+design" — generation now happens via the `Artifact` tool's Design/Design System types (see BL-0229,
+done; BL-0230, open; LESSON-0283). The underlying PATTERN here (2+ narrow patches on the same issue
+class signal a real redesign is needed, not another patch) still holds, but the specific escape-hatch
+mechanism ("round-trip via Claude Design + DesignSync") is superseded-pending — do not route a new
+redesign brief through DesignSync until BL-0230 resolves what replaces it post-sunset; until then prefer
+LESSON-0284's direct-capture approach or hand the brief to the Artifact tool's Design type instead.
