@@ -4,6 +4,12 @@ Decisions about the **idea base and its process** (scoring, discarding, discover
 
 > Note: the content and status of **each idea** lives in its own card (`factory/ideas/<slug>.md`, frontmatter). This file holds decisions about **how we manage ideas**, not the ideas themselves.
 
+## 2026-10-12 — PandaSaga handed off to Product with a cross-media vision
+
+**What:** Corrected the [PandaSaga card](book-memory-without-spoilers.md) throughout: the product covers narrative media generally; Mistborn Era 1 is only the pilot catalog. The owner authorized Product and chose an owner-only trial with an account and cross-device progress. Created the sibling project, full scaffold, nine always-on rules, port block 4040–4049 and private repository.
+**Why:** A narrow first dataset must not silently redefine the product. Card status is now `in-pipeline`; project `phase: product` is the board source of truth. No Design/build advance or narrative-content generation is implied.
+
+
 ## 2026-07-01 — Discovery process v2: verified sources, rotating lenses, two-phase funnel (owner-approved)
 **What:** The discovery process is reworked (DR-039 updated in place; plugin v9.42.0). The A/B 50/50 streams are replaced by **rotating hunting lenses** (app-enhancement extensions · the owner's identities beyond collecting · own-itch/QoL · incumbent challenger via AI-first rebuild and/or 80/20 unbundling; the **collector lens is dormant** — the board saturated its pains). The funnel becomes **two-phase**: a cheap teaser sweep (8-12 one-liners, persisted to `factory/ideas/_drafts/discover-<date>.md`) → the owner picks 2-3 → only the picks get the deep dive, gates and cards; reactions to passed-over teasers distil into the profile's attraction/rejection patterns (DR-053). Researchers mine only the live-verified source playbook (`plugin/skills/discover/sources.md`); trend listicles never generate ideas.
 **Why:** Every general-stream card had been discarded as low-alignment generic B2B (its sources were B2B directories, two of them not even fetchable — G2/Trustpilot 403), the profile stream kept producing collector duplicates the owner rejects, and his taste entered only after the full memo spend. Diagnosis, live source audit and the extension/challenger/unbundling research live in `docs/proposals/21` (owner approved the full plan 2026-07-01).
