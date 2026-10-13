@@ -277,7 +277,7 @@ export interface CardDetailProps {
   status: IdeaStatus;
   /** Markdown body (summary + key points). Rendered via react-markdown. */
   body: string;
-  /** Project phase from linked project's status.yaml (in-pipeline only). */
+  /** Project phase from the linked project's status.yaml (any project-linked card). */
   phase?: Phase;
   /** Deploy target (DR-085) — surfaced in the campaign's Release ficha (internal/external). */
   deployTarget?: DeployTarget;
@@ -301,13 +301,13 @@ export interface CardDetailProps {
   frdCount?: number;
   /**
    * Spanish high-level digest of the project's spec (PRD + research + FRDs), read from
-   * `.pandacorp/comms/spec-resumen.md` (in-pipeline projects past the product phase).
+   * `.pandacorp/comms/spec-resumen.md` (any project-linked card once the product phase wrote it).
    * Absent/empty → the "Spec" tab is hidden (the project hasn't reached that stage).
    */
   specContent?: string;
   /**
    * Spanish high-level digest of the project's architecture (stack, data model, services, per-FRD),
-   * read from `.pandacorp/comms/arquitectura-resumen.md` (in-pipeline projects past the design phase).
+   * read from `.pandacorp/comms/arquitectura-resumen.md` (any project-linked card once the architecture phase wrote it).
    * Absent/empty → the "Arquitectura" tab is hidden (the project hasn't reached that stage).
    */
   architectureContent?: string;

@@ -98,7 +98,7 @@ export interface BoardCardEntry extends IdeaCardProps {
   /** Pre-computed two-axis column (set by page.tsx via deriveColumn). */
   boardColumn?: BoardColumn;
   /**
-   * The linked project's phase (from readStatus in page.tsx), for in-pipeline cards.
+   * The linked project's phase (from readStatus in page.tsx), for any project-linked card.
    * Forwarded to CardDetail so the campaign's active phase matches the board column
    * (without it the card detail falls back to research → board/detail desync).
    */
@@ -109,7 +109,7 @@ export interface BoardCardEntry extends IdeaCardProps {
   targetPlatforms?: string;
   /**
    * Scoped doc STRUCTURE (PRD + research + per-FRD docs) from listProjectDocs in
-   * page.tsx, for in-pipeline cards. Forwarded to CardDetail's Documentos tab; the
+   * page.tsx, for any project-linked card. Forwarded to CardDetail's Documentos tab; the
    * doc body loads lazily on select (the board ships structure only, never bodies).
    */
   docNodes?: DocNode[];
@@ -122,13 +122,13 @@ export interface BoardCardEntry extends IdeaCardProps {
   frdCount?: number;
   /**
    * Spanish high-level spec digest (PRD + research + FRDs) from readSpecDigest in page.tsx,
-   * for in-pipeline projects past the product phase. Forwarded to CardDetail's Spec tab;
+   * for any project-linked card once the product phase wrote it. Forwarded to CardDetail's Spec tab;
    * absent → the tab is hidden.
    */
   specContent?: string;
   /**
-   * Spanish high-level architecture digest from readArchitectureDigest in page.tsx, for in-pipeline
-   * projects past the design phase. Forwarded to CardDetail's Arquitectura tab; absent → tab hidden.
+   * Spanish high-level architecture digest from readArchitectureDigest in page.tsx, for any
+   * project-linked card once the architecture phase wrote it. Forwarded to CardDetail's Arquitectura tab; absent → tab hidden.
    */
   architectureContent?: string;
   /** Live work orders (listWorkOrders) for the Arquitectura tab's implementation-plan DAG. */

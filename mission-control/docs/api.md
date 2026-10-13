@@ -735,7 +735,7 @@ export interface CardDetailProps {
   status: IdeaStatus;
   /** Markdown body (summary + key points). Rendered via react-markdown. */
   body: string;
-  /** Project phase from linked project's status.yaml (in-pipeline only). */
+  /** Project phase from the linked project's status.yaml (any project-linked card). */
   phase?: Phase;
   /** DR-032: true when a skill finished a phase and is awaiting "ok, advance". */
   advancePending?: boolean;
