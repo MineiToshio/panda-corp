@@ -5,10 +5,10 @@ domain: build-orchestration
 tags: [worktree, dr-096, isolation-hook, bash, scratchpad, sandbox]
 context: running a Bash command from an isolated git-worktree session where the DR-096 isolation enforcement hook rejects commands it judges too complex to statically verify as worktree-scoped
 trigger: use this when a Bash command is rejected inside an isolated worktree session as too complex, even though the command itself is not destructive
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-09 (agent-inferred) — the isolation hook rejected a node/python heredoc, a command using a variable as the program to run, `git -C <main-checkout>`, and `cd $(git rev-parse ...) && ...`. Corroborated 2026-09-15 (personal-page-v2, agent-inferred, second occurrence on this project): the hook also rejects a command that mixes a `git` invocation with a `cd`/shell-variable/computed-argument in the SAME compound line — fix confirmed to be splitting it into plain separate commands with literal paths (matching this lesson's existing Apply-next-time), rather than trying a different compound phrasing."
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-09 (agent-inferred) — the isolation hook rejected a node/python heredoc, a command using a variable as the program to run, `git -C <main-checkout>`, and `cd $(git rev-parse ...) && ...`. Corroborated 2026-09-15 (personal-page-v2, agent-inferred, second occurrence on this project): the hook also rejects a command that mixes a `git` invocation with a `cd`/shell-variable/computed-argument in the SAME compound line — fix confirmed to be splitting it into plain separate commands with literal paths (matching this lesson's existing Apply-next-time), rather than trying a different compound phrasing. CROSS-PROJECT corroboration (mission-control .pandacorp/run/lessons.md 2026-10-11, agent-inferred): inside a worktree-isolated session, the harness rejected composite `cd` + several chained `git` commands in one call; same fix — split into plain single commands run from the worktree, landing with a literal `git push origin HEAD:main`."
 provenance: agent-inferred
 created: 2026-09-10
-status: candidate  # single-project (personal-page-v2) corroboration x2, still awaits a DIFFERENT project before activation
+status: active  # cross-project corroboration (personal-page-v2 + mission-control) meets the eval-gate bar (DR-047)
 promotion: none
 confidence: medium
 times_applied: 0
