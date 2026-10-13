@@ -21,7 +21,7 @@ Re-paint the board **card detail** to match the approved prototype: a tabbed con
 trail with per-phase fichas. The `lib/campaign.ts` `phaseFromStatus` derivation is VERIFIED and
 consumed as-is; this WO is presentational.
 
-> **Reconciled from code 2026-07-05.** The container originally shipped as three tabs (Campaña · Documentos · Comandos, default Campaña); it since became up to **5 tabs** — **Propuesta · Spec? · Arquitectura? · Documentos · Campaña** (default Propuesta), with Comandos folded into La Campaña's ficha and Spec/Arquitectura added (REQ-02-009/011/013). See `CardDetail.tsx`.
+> **Reconciled from code 2026-07-05.** The container originally shipped as three tabs (Campaña · Documentos · Comandos, default Campaña); it since became up to **5 tabs** — **Propuesta · Spec? · Arquitectura? · Documentos · Campaña** (default tab by the project's stage since 2026-10-13, AC-02-009.1), with Comandos folded into La Campaña's ficha and Spec/Arquitectura added (REQ-02-009/011/013). See `CardDetail.tsx`.
 
 ## Scope (components from `docs/design/components.md`)
 

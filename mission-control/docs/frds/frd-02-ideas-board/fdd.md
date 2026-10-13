@@ -32,7 +32,7 @@ the prototype renders it, mapped to the frozen design system and the FRD-02 acce
 
 Clicking a card opens its detail with up to **five horizontal tabs** — **Propuesta · Spec · Arquitectura · Documentos · Campaña** (`CardDetail.tsx`)
 — rendered by the **shared `Tabs` primitive** (`level="sub"`, the same `.stab` pattern as the
-Portfolio project pane, `AC-02-009.1`), default **Propuesta**. Each tab carries its **icon**
+Portfolio project pane, `AC-02-009.1`); the default tab follows the project's stage (research → **Propuesta**, product/design → **Spec**, architecture onward → **Arquitectura**, falling back Arquitectura → Spec → Propuesta when a digest is absent). Each tab carries its **icon**
 (`ti-sparkles · ti-list-details · ti-affiliate · ti-files · ti-map-2`) — the `Tabs` primitive already supports `icon`
 (amendment, 2026-06-22). **Spec** is present only when the project has a spec digest and **Arquitectura** only with an architecture digest (REQ-02-011/013); absent each digest, that tab is not rendered. The active tab persists across re-renders of the detail (`AC-02-009.4`); a
 document click anywhere switches to **Documentos** (`AC-02-009.3`).
