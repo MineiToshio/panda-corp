@@ -234,7 +234,11 @@ tab (`ArchitectureDigest`) once the linked project's Spanish digests exist — e
 parsed from `.pandacorp/comms/{spec,arquitectura}-resumen.md`. Both surface a count badge, and both
 badges are **derived live from disk**, never from the digest's parsed prose (the digest is a gitignored
 narrative snapshot that can drift from what actually exists on disk):
-- **`SpecDigest`'s "N FRDs" badge** — sourced from `frdCount`, a prop computed in `page.tsx` via
+- **Per-card project read** — `readCardProject` (`app/board/_utils/readCardProject.ts`, called from
+  `page.tsx`) reads status, scoped docs, `frdCount` and both digests for ANY card with a `project`
+  (in-pipeline, shipped, discarded); the heavier live architecture artifacts load only when the
+  architecture digest exists. A card without a project reads nothing.
+- **`SpecDigest`'s "N FRDs" badge** — sourced from `frdCount`, a prop computed by that read via
   `countFrdFolders(listProjectDocs(projectPath))` (`src/lib/docs/tree.ts`): the number of distinct
   `docs/frds/frd-*` folders on disk. Falls back to `spec.frds.length` (the parsed digest count) only
   when the caller doesn't supply `frdCount` (older callers/tests). The FRD cards themselves still

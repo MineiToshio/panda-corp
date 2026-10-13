@@ -2,7 +2,7 @@
  * Board page — Server Component (CMP-02-board-view).
  *
  * WO-02-005: full two-axis board — reads all idea cards, resolves the project
- * status for each in-pipeline card via readStatus, and derives the board column
+ * status for each project-linked card via readStatus, and derives the board column
  * for every card via deriveColumn. The resulting `boardColumn` is passed to
  * BoardShell (client) which wires the interactive layer: category filter,
  * intake modal, card selection → CardDetail, discard action.
@@ -20,6 +20,7 @@
  */
 
 import { BoardShell } from "@/app/board/_components/BoardShell/BoardShell";
+import { readCardProject } from "@/app/board/_utils/readCardProject";
 import {
   discardIdeaAction,
   restoreIdeaAction,
@@ -27,33 +28,8 @@ import {
 } from "@/app/board/actions/actions";
 import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
-import { readAdrs } from "@/lib/architecture/adr";
-import { readEnvExample } from "@/lib/architecture/env";
-import { readArchitectureDigest } from "@/lib/architecture/read-architecture";
 import { deriveColumn } from "@/lib/board/board";
-import { resolveProjectPath } from "@/lib/config/config";
-import { countFrdFolders, type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
-import { readSpecDigest } from "@/lib/spec/read-spec";
-import { readStatus } from "@/lib/status/status";
-import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
-
-// ---------------------------------------------------------------------------
-// Scoped doc set (DR-046 / FRD-02): the Documentos tab surfaces ONLY the
-// PRD + research + per-FRD docs — never architecture.md, the Global group
-// (ADR, decision-log) or anything in .pandacorp/. Structure only (cheap):
-// listProjectDocs probes directories and reads no file content; bodies load
-// lazily via the read action.
-// ---------------------------------------------------------------------------
-
-/** Keep a DocNode only if it is the PRD, the research doc, or a per-FRD doc. */
-function isScopedBoardDoc(node: DocNode): boolean {
-  return (
-    node.relPath === "docs/product/prd.md" ||
-    node.relPath === "docs/product/research.md" ||
-    node.group.startsWith("Feature:")
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Server Component
@@ -64,7 +40,7 @@ function isScopedBoardDoc(node: DocNode): boolean {
  *
  * Two-axis column derivation (WO-02-005):
  *   1. readIdeas() — all idea cards.
- *   2. For each in-pipeline card: readStatus(projectPath) — project phase.
+ *   2. For each project-linked card: readCardProject — project status, docs and digests.
  *   3. deriveColumn(card, status) → BoardColumn.
  *   4. Pass boardColumn into BoardShell (client interactive boundary).
  *
@@ -80,42 +56,17 @@ export default function BoardPage(): React.JSX.Element {
 
   // 2 + 3. Resolve boardColumn for every card via two-axis deriveColumn.
   const cards: BoardCardEntry[] = rawCards.map((card) => {
-    // For in-pipeline cards: resolve project status to get the phase.
-    // Use the canonical resolveProjectPath (factory-root-relative, or absolute) — the
-    // SAME resolver the portfolio uses — so the board and portfolio agree on where a
-    // project lives. A hardcoded "factoryRoot/../slug" assumed every project is a
-    // sibling OUTSIDE the factory and missed Mission Control, which lives INSIDE it.
-    let projectStatus = null;
-    // Scoped doc structure for the card-detail Documentos tab (in-pipeline only).
-    let docNodes: DocNode[] | undefined;
-    // Real on-disk FRD folder count (docs/frds/frd-*) for the Spec tab's "N FRDs" badge —
-    // derived LIVE from disk (DR-092/DR-115), never from the spec digest's prose count.
-    let frdCount: number | undefined;
-    // Spanish spec digest for the card-detail Spec tab (in-pipeline, past product phase).
-    let specContent: string | undefined;
-    // Architecture digest + its live artifacts for the card-detail Arquitectura tab
-    // (in-pipeline, past the design phase). The DAG/ADRs/env are read live from the real
-    // artifacts so they never drift; the narrative comes from the digest.
-    let architectureContent: string | undefined;
-    let workOrders: WorkOrder[] | undefined;
-    let envVars: ReturnType<typeof readEnvExample> | undefined;
-    let adrs: ReturnType<typeof readAdrs> | undefined;
-    if (card.status === "in-pipeline" && card.project) {
-      const projectPath = resolveProjectPath(card.project);
-      projectStatus = readStatus(projectPath);
-      const allDocNodes = listProjectDocs(projectPath);
-      docNodes = allDocNodes.filter(isScopedBoardDoc);
-      frdCount = countFrdFolders(allDocNodes);
-      specContent = readSpecDigest(projectPath) ?? undefined;
-      architectureContent = readArchitectureDigest(projectPath) ?? undefined;
-      // Only read the (heavier) live architecture artifacts once the digest exists — i.e. the
-      // project reached the architecture phase and the tab will actually render them.
-      if (architectureContent != null) {
-        workOrders = listWorkOrders(projectPath);
-        envVars = readEnvExample(projectPath);
-        adrs = readAdrs(projectPath);
-      }
-    }
+    // Any card linked to a project (in-pipeline, shipped, discarded) keeps its docs and digests.
+    const {
+      projectStatus,
+      docNodes,
+      frdCount,
+      specContent,
+      architectureContent,
+      workOrders,
+      envVars,
+      adrs,
+    } = readCardProject(card);
 
     const boardColumn = deriveColumn(card, projectStatus);
 

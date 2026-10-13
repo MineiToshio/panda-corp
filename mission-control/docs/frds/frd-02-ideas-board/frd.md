@@ -195,6 +195,9 @@ campaign map) + `prototype/index.html` `detailView()`:
   present and non-empty), THE system SHALL render a **Spec** tab **between Propuesta and Documentos**;
   WHEN no digest exists, THE system SHALL NOT render the Spec tab (the project hasn't reached that
   stage). The reader is fail-loud (DR-078): a missing digest is the deliberate absent state, never a crash.
+  The digest (and the project's docs and status) SHALL be read for **any card linked to a project**
+  (`project` set): in-pipeline, shipped (launched) or discarded, not only in-pipeline, so a launched
+  or discarded project keeps its Spec, Arquitectura and Documentos tabs.
 - AC-02-011.2 — WHEN the **Spec** tab is active, THE system SHALL render the digest natively in three
   sections — **📋 PRD**, **🔬 Research**, **🧩 FRDs** — reusing the Propuesta tab's visual language
   (full-bleed tinted blocks, label rows, role/stat/reference cards, an amber callout for the open
@@ -249,7 +252,8 @@ campaign map) + `prototype/index.html` `detailView()`:
   (`.pandacorp/comms/arquitectura-resumen.md` present and non-empty), THE system SHALL render an
   **Arquitectura** tab **after Spec**; WHEN no digest exists, THE system SHALL NOT render it (the project
   hasn't reached the architecture phase). The reader is fail-loud (DR-078): a missing digest is the
-  deliberate absent state, never a crash.
+  deliberate absent state, never a crash. Like the Spec digest (AC-02-011.1), it is read for any card
+  linked to a project (in-pipeline, shipped or discarded), not only in-pipeline.
 - AC-02-013.2 — WHEN the **Arquitectura** tab is active, THE system SHALL render, top→bottom on ONE
   scannable screen, reusing the Spec tab's visual language (DR-062): a **hero** (stack one-liner + host ·
   coste · fase chips), a **Stack & tecnologías** table (capa · elección · por qué), a **CONDITIONAL
