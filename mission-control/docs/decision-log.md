@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-13 — Board card opens on its stage's tab; launched/discarded projects keep every tab
+
+**What:** (1) Opening a card on the board now lands on the tab of the project's current stage instead of always Propuesta: research → Propuesta, product/design → Spec, architecture/implementation/release (incl. shipped) → Arquitectura, falling back Arquitectura → Spec → Propuesta when that stage's digest does not exist yet (e.g. PandaCast, mid-architecture, opens on Spec). Only the initial tab is derived; the owner's later pick persists. Supersedes the old AC-02-009.1 rule "default = Propuesta". (2) The board now reads a card's linked project (status, scoped docs, FRD count, Spec/Arquitectura digests) for any project-linked card, not only `in-pipeline` ones, via `src/app/board/_utils/readCardProject.ts` — shipped and discarded projects keep their Spec, Arquitectura and Documentos tabs. Columns and `isRunning` are unchanged.
+**Why:** Owner request: the tab that matters is the one the current phase produced, and a launched project (personal-page-v2) showed no Spec/Arquitectura tab at all because the read was gated on `in-pipeline` — there was no reason to hide them once a project ships.
+**Impact:** [frd.md](frds/frd-02-ideas-board/frd.md) AC-02-009.1, AC-02-011.1, AC-02-013.1 and the discarded-detail line; [blueprint.md](frds/frd-02-ideas-board/blueprint.md); [fdd.md](frds/frd-02-ideas-board/fdd.md); [WO-02-007](frds/frd-02-ideas-board/work-orders/wo-02-007-card-detail.md) Status Note; `docs/api.md` prop comment; `docs/design/prototype/party-redesign-spec.md` superseded note. Closed via `/pandacorp:change --now` with an owner `--force-critical` over classifier false positives (factory BL-0231).
+
 ## 2026-10-12 — Always-on deploy reachable on the LAN again (bind 0.0.0.0:1987)
 
 **What:** The machine-local `.pandacorp/run/serve.sh` binds `next start` to `0.0.0.0` instead of `127.0.0.1`, so the always-on deploy is reachable from any device on the home LAN at `http://macbook-pro-de-sergio.local:1987` (Bonjour name, survives DHCP IP changes). The macOS firewall already allows incoming connections for the node binary.

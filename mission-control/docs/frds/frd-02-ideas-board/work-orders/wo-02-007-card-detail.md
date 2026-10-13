@@ -11,7 +11,7 @@ artifacts:
   - 'src/components/modules/CampaignPipeline/**'
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010]
 dependsOn: [WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005]
-last_updated: '2026-06-29'
+last_updated: '2026-10-13'
 ---
 # WO-02-007 — La Campaña card detail
 
@@ -117,6 +117,22 @@ primitive. It rolls a **bespoke per-screen tab switcher** — `<div role="tablis
 AgentSprite composition), phase done/current/locked derivation, fichas (LEE/ESCRIBE/team),
 "Entrar a La Fragua" onEnterForge bubbling, read-only invariant — all green in the integration suite
 and the runtime smoke (route 200, 6 rooms + 5 bridges + 3 tabs rendered, zero console errors).
+
+## Status Note — VERIFIED (2026-10-13, close-out `board-card-default-tab-by-phase`, `/pandacorp:change --now`)
+
+**What changed:** (1) The card detail's initial tab follows the project's stage (AC-02-009.1): research →
+Propuesta, product/design → Spec, architecture onward (incl. shipped) → Arquitectura, falling back
+Arquitectura → Spec → Propuesta when a digest is absent — pure `defaultTabForPhase` helper as a lazy
+`useState` initializer, so the owner's later pick still persists (AC-02-009.4). (2) The board reads a
+card's project (status, scoped docs, FRD count, Spec/Arquitectura digests) for ANY project-linked card —
+in-pipeline, shipped or discarded — via the new `src/app/board/_utils/readCardProject.ts`; before, only
+in-pipeline cards got them, so launched projects (e.g. personal-page-v2) showed no Spec/Arquitectura/docs.
+**Evidence:** `verify.sh --since 5c594bde --report-all` green, scope `since`, at `558823cd`; independent
+opus reviewer re-ran the gate on both increments, no blocking findings; adversarial suites
+`src/app/board/_tests/frd-02.stage-default-tab.reviewer.test.tsx` and
+`src/app/board/_utils/_tests/readCardProject.reviewer.test.ts`. Rigor `critical` by classifier false
+positives (S5 'Auth' in a fixture string — BL-0231; S8 test-tmpdir `rmSync`; S3 size of the extraction);
+closed with the owner's explicit `--force-critical`. *Reconciled-from-code close-out.*
 
 ## Status Note — reopened (2026-06-29, ambient roam — La Campaña liveliness)
 
