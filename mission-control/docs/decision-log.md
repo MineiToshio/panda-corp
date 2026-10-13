@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-12 — Always-on deploy reachable on the LAN again (bind 0.0.0.0:1987)
+
+**What:** The machine-local `.pandacorp/run/serve.sh` binds `next start` to `0.0.0.0` instead of `127.0.0.1`, so the always-on deploy is reachable from any device on the home LAN at `http://macbook-pro-de-sergio.local:1987` (Bonjour name, survives DHCP IP changes). The macOS firewall already allows incoming connections for the node binary.
+**Why:** The owner wants to review the board from their phone in another room. This restores the original 2026-06-21 deploy decision (LAN-reachable); the later regeneration to `127.0.0.1` had no recorded rationale. Accepted trade-off: MC has no auth, so anyone on the same Wi-Fi can read it and use its bounded writes (favorite, discard/restore). Off-LAN access stays the agreed Tailscale step.
+**Impact:** `.pandacorp/run/serve.sh` (gitignored, regenerable machinery: a regeneration that rewrites `HOST=127.0.0.1` silently undoes this).
+
 ## 2026-10-12 — Capture guide reflects board title policy DR-127
 
 **What:** The capture guide documents the required commercial-name-plus-purpose format and preserving the description when renaming.
