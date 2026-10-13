@@ -7,9 +7,9 @@ status: open
 severity: p2
 opened: 2026-07-10
 closed:
-source: "pandacast .pandacorp/run/lessons.md 2026-07-10 harvest (2 notes, agent-inferred): during Stage 1/Stage 2 of /pandacorp:design for a single-user utility PWA (login, connections, status panel), NO surface playbook applied and §1c/§7 obligations (shared closing cta-band, SocialLinks) had no product to attach to"
+source: "pandacast .pandacorp/run/lessons.md 2026-07-10 harvest (2 notes, agent-inferred): during Stage 1/Stage 2 of /pandacorp:design for a single-user utility PWA (login, connections, status panel), NO surface playbook applied and §1c/§7 obligations (shared closing cta-band, SocialLinks) had no product to attach to; corroborated funko-tracker .pandacorp/run/lessons.md 2026-10 harvest (owner-stated): a catalog/collection-tracker product (grid browse, item detail with variants, inventory, progress tracking, export, admin review queue) ALSO has no matching surface-playbooks.md entry — a second, distinct product shape the playbook library doesn't cover"
 closes:
-links: []
+links: [LESSON-0306, LESSON-0312]
 ---
 
 ## Problem
@@ -30,13 +30,27 @@ authored against the portfolio/conversion-oriented product shape (personal-page-
 generalized to a second product shape (an internal/utility tool with no public surface, no conversion
 funnel).
 
+**2026-10 corroboration (funko-tracker):** a THIRD product shape hit the same gap — a public
+catalog/collection-tracker (grid browse, item detail with variants, a private inventory/progress view, an
+export flow, an admin review queue). `surface-playbooks.md` has no entry for any of these screen classes,
+so the design pass had no canonical guidance on two concrete failure modes the owner caught by hand: (1)
+a catalog/browse screen's default viewport showed zero primary-content items above the fold behind a
+hero band + filter rail (see LESSON-0306), and (2) a dense grid grouped into categories via thin text
+dividers didn't read as a classification at all (see LESSON-0312). Both are exactly the kind of
+canonical-guidance gap this item already describes for the utility-app shape — one playbook library gap,
+now evidenced across 3 distinct product shapes (utility PWA, and now catalog/collection-tracker).
+
 ## Fix plan
 1. Add a "product type" axis, decided at Stage 0/brief time (e.g. `public-with-conversion` vs
    `internal-tool`), read from the PRD/blueprint (or asked once if ambiguous) and recorded in the design
    brief.
 2. `surface-playbooks.md`: add a set of utility-app playbooks — auth/login, connections-settings,
    item-list-with-per-channel-status, empty/offline shell — so rubric check 10 (§12) has something to
-   score against for this product shape.
+   score against for this product shape. ALSO add a catalog/collection-tracker playbook set — grid
+   browse/catalog (must name "primary content above the fold, default/unfiltered viewport" as a named
+   checklist item, LESSON-0306), item detail with variants, private inventory/progress view (grouping a
+   dense list into categories needs a structurally distinct container per group, not a text divider —
+   LESSON-0312), export flow, admin/curation review queue.
 3. `factory/standards/design.md` §1c/§7: condition the cta-band/SocialLinks/closing-frame obligations on
    `product type == public-with-conversion`; for `internal-tool`, substitute an equivalent obligation (a
    consistent primary-action pattern per screen, still ONE shared component, just not a marketing CTA) so
