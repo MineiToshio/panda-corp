@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — owner spotted
 provenance: owner-stated
 created: 2026-07-04
 status: active
-promotion: none
+promotion: proposed   # 2026-10-13 (librarian review) — target: factory/standards/performance.md (new "Static image assets" subsection, currently absent). Owner-stated, high confidence, corroborated across 2 distinct projects (personal-page-v2 2026-07-04 origin; pandasaga, independent occurrence) with zero contradicting evidence — the specific trap (palette-reduce a UI screenshot, lose gradients/text quality, for a size win the serving pipeline already captures) is cheap to codify as a standing "don't" before a project reaches for pngquant/`magick -colors` again.
 confidence: high
 times_applied: 2
 applied_in: [personal-page-v2, pandasaga]
