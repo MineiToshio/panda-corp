@@ -5,7 +5,11 @@
       "Bash(bash plugin/scripts/validate-backlog.sh:*)",
       "Bash(bash plugin/scripts/validate-memory.sh:*)",
       "Bash(git check-ignore:*)",
-      "mcp__scheduled-tasks__list_scheduled_tasks"
+      "mcp__scheduled-tasks__list_scheduled_tasks",
+      "mcp__Claude_Browser__find",
+      "mcp__claude-in-chrome__find",
+      "mcp__claude-in-chrome__get_page_text",
+      "mcp__claude-in-chrome__tabs_context_mcp"
     ],
     "deny": [
       "Bash(rm -rf:*)",
