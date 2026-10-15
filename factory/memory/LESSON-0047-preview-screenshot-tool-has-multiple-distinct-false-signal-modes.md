@@ -2,18 +2,20 @@
 id: LESSON-0047
 type: pattern
 domain: preview-tooling
-tags: [preview-screenshot, verification, worktree, false-negative, false-positive]
+tags: [preview-screenshot, verification, worktree, false-negative, false-positive, axe, animation]
 context: using the preview/screenshot verification tools (preview_screenshot, dev-server DOM checks) to confirm a UI change actually landed
 trigger: use this when a preview/screenshot verification tool returns an unexpected result (timeout, black/blank image, or stale content) and you are about to conclude that the UI itself is broken or unchanged
 source: "panda-corp + personal-page-v2 2026-07-03 harvest — synthesized from LESSON-0033 (canvas timeout), LESSON-0034 (worktree launch.json resolves to main), LESSON-0039 (next dev worktree lockfile confusion), LESSON-0041 (black screenshot on below-fold/opacity content). Folded in 2026-07-16 (librarian review): LESSON-0060 (personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — headless capture defaults to light `prefers-color-scheme` even when the shipped theme is dark), a 5th distinct failure mode created the day after this synthesis and never previously folded in. Folded in a SIXTH mode (personal-page-v2,
 2026-09-09, `.pandacorp/run/lessons.md`): a hidden Browser pane makes `computer.screenshot` return solid
 black regardless of DOM state, and the `playwright screenshot` CLI mis-times staggered reveal transitions.
 Eval-gate note (librarian, 2026-09-10): this lesson's evidence already spans panda-corp and personal-page-v2
-— activating `status: active`."
+— activating `status: active`. Folded in a SEVENTH mode (funko-tracker, 2026-10, `.pandacorp/run/lessons.md`
+2026-10 harvest): axe-core's color-contrast check can false-positive on cards still mid stagger/entrance
+animation — the contrast measurement samples a transient, partially-faded frame, not the settled color."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
-promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/debugging.md, add as a "preview/screenshot verification false-signal checklist" alongside DEBUG-1..4 (six named modes: animated canvas timeout, worktree launch.json resolving to main, Turbopack worktree-root confusion, below-fold/opacity black frame, prefers-color-scheme defaulting light, hidden Browser pane forcing solid black). Corroborated across 2 distinct projects (panda-corp + personal-page-v2), synthesizing 6 sibling lessons with zero contradicting evidence — before trusting a preview/screenshot tool's verdict, this checklist is cheaper than re-deriving each mode from scratch.
+promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/debugging.md, add as a "preview/screenshot verification false-signal checklist" alongside DEBUG-1..4 (seven named modes: animated canvas timeout, worktree launch.json resolving to main, Turbopack worktree-root confusion, below-fold/opacity black frame, prefers-color-scheme defaulting light, hidden Browser pane forcing solid black, axe color-contrast measured mid stagger-animation). Corroborated across 3 distinct projects (panda-corp + personal-page-v2 + funko-tracker), synthesizing 7 sibling lessons with zero contradicting evidence — before trusting a preview/screenshot/a11y tool's verdict, this checklist is cheaper than re-deriving each mode from scratch.
 confidence: medium
 times_applied: 1
 applied_in: [personal-page-v2]
@@ -63,3 +65,16 @@ it can capture mid-animation (only the first revealed child, hero H1 missing) be
 **Apply next time (addendum):** (6) is the Browser pane hidden, or are you relying on the `playwright
 screenshot` CLI on a page with staggered reveal transitions — prefer a Playwright script call that
 explicitly disables animations over either the pane-screenshot tool or the bare CLI command.
+
+**Seventh mode (2026-10, funko-tracker):** running an axe-core accessibility pass over cards that are
+still mid stagger/entrance animation (opacity/transform transitioning in on load or on scroll) can
+report a color-contrast VIOLATION that doesn't exist once the animation settles — axe samples the DOM's
+computed color at the instant it runs, and a card captured mid-fade genuinely has lower contrast than
+its final state, so the tool is not wrong about that instant, but that instant is not representative of
+what a user actually sees. Treating it as a real defect and "fixing" the settled colors would be
+chasing a symptom that isn't there.
+
+**Apply next time (addendum):** (7) before trusting an axe-core color-contrast violation on a page with
+entrance/stagger animations, wait for the animation to settle (or force `prefers-reduced-motion:
+reduce` so the browser skips the transition) before measuring, and re-run axe on the settled state —
+confirm the violation persists before changing any colors.
