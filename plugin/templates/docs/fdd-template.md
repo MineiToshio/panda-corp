@@ -51,3 +51,7 @@ feature (focus order, labels, keyboard) beyond the global baseline in `DESIGN.md
 
 Pointer to the microcopy / voice for this feature (the global voice lives in
 `docs/design/voice-and-tone.md`). *Omit if there's nothing feature-specific.*
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md`: the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file, and the whole-app prototype for states and motion.

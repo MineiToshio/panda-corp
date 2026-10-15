@@ -272,6 +272,16 @@ any app-wide skin/theme overrides + each embedded sub-view's own spec — not ju
 extraction silently drops the look; in Mission Control an app-wide RPG skin and the Party pixel-art spec
 were missed).
 
+## 5c. Freeze leaves a complete fidelity hand-off: web fonts, logo, measured references (DR-128)
+
+Mechanisms 1 to 4 above only work if the frozen design is complete and measurable. The PandaSaga freeze found three gaps that silently cause drift: the prototype used **system font stacks** (it looked right only on the designer's Mac and would never match CI screenshots), the **logo** had no exportable files, and agents had no numbers to compare against. So the design phase now ends with:
+
+1. **Web fonts** chosen by the owner from a side-by-side render (open licence; family, axes, weights and licence in `design-tokens.json` `fonts`); the build self-hosts them, and visual baselines are blessed only after they load.
+2. **The logo**, designed in the phase: principles from the PRD's future scope, Codex-generated concepts, the owner's choice, a hand-drawn SVG with size and tone variants (`plugin/skills/design/references/brand-and-logo.md`).
+3. **The prototype in `docs/design/prototype/`** on every path, tokens regenerated from its final CSS, and per-FRD shards that include every state the acceptance criteria name.
+4. **Fidelity references**: measured computed styles of every frozen component (light/dark × 1280/375), a component catalogue page, exact SVG exports of icons and logo, and `docs/design/fidelity-checklist.md` listing the product's easy-to-lose signature details; the build requirements (self-host fonts, exported SVGs only, an automated computed-style check, verbatim copy) go to `technical-assumptions.md`.
+5. **A mechanical gate**: `plugin/skills/design/scripts/check-design-gate.mjs` must print READY before the transition.
+
 ## 5b. The app shell is a captured foundation, never orphaned by the shard (DR-075)
 
 The shard in §5 deliberately gives each work order **only its own screen, never the whole app**. But a
@@ -477,4 +487,5 @@ the system gallery before the manifest is bridged to `components.md`.
 | Hierarchy/proportion, real content, full-screen-set cadence, per-screen rubric (DR-101 §9–§12) | `plugin/skills/design/SKILL.md` (EXPLORE path), `factory/standards/design.md` §9–§12, `plugin/agents/reviewer.md` |
 | Per-surface playbooks (case study / Now / blog / contact / archive / stack) (DR-101) | `plugin/skills/design/references/surface-playbooks.md` |
 | Canvas procedure — relay (poll/clipboard/browser), tracker, canvas journal, closing sweep, engine routing (DR-109) | `plugin/skills/design/references/canvas-procedure.md`, `plugin/skills/design/SKILL.md` (Step 0 + Step 9 gate), this file §1c/§11/§12 |
+| Web fonts, logo, fidelity hand-off and the mechanical gate (DR-128 §5c) | `plugin/skills/design/SKILL.md` (Steps 2, 2b, 7–9), `plugin/skills/design/references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`, `plugin/skills/design/scripts/`, `plugin/templates/docs/{fidelity-checklist-template,fdd-template}.md` |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

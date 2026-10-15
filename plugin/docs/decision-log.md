@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.123.0 — 2026-10-15 (MINOR): DR-128, the design phase freezes a complete fidelity hand-off (web fonts, Codex logo, measured references)
+
+**What:** `skills/design/SKILL.md` gains a phase-truth preflight, web-font typography chosen by the owner (Step 2), a brand and logo step with Codex image generation (Step 2b), the phone pass and motion rules (Step 5), a freeze that moves the prototype to `docs/design/prototype/` on every path and leaves measured references (Steps 7 and 8), and a mechanical Step-9 gate. New `references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`; new `scripts/` (`shard-prototype.mjs`, `measure-components.mjs`, `check-design-gate.mjs`, `codex-image.sh`, `lib-browser.mjs`); new `templates/docs/fidelity-checklist-template.md`; `fdd-template.md` ends with Fidelity references; `agents/designer.md` (Codex mirror regenerated); Mission Control's manual flow for `design` updated (DR-046).
+**Why:** the owner asked that every design phase leave what PandaSaga's 17-round design needed to be built faithfully: its prototype used system fonts (correct only on the designer's Mac), it had no exportable logo files, and agents had nothing measurable to compare against. The scripts were exercised on PandaSaga and on a scratch copy before landing.
+
 ## v9.122.0 — 2026-10-11 (MINOR): BL-0117, design visual gate publishes directions as private Artifacts (proposal 42 step 4)
 
 **What:** `skills/design/SKILL.md` Step 6. Once Step 5 passes on the local files, the lead session publishes each direction (or the ADOPT-VISUAL fidelity screens) as a private Artifact. The URLs go into `iteration.md`, and the owner reviews and comments from any device; the agent reads the feedback with `ArtifactComments`, refines the local file, re-verifies and republishes the same URL. Opening the local HTML or showing screenshots remains the fallback when Artifacts are unavailable (no claude.ai login, API-key/headless/`-p`, ZDR). The `Design` canvas and native `/design` are explicitly not used for this gate.

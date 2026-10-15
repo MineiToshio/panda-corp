@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-10-15 — The design freeze is a complete, measurable hand-off (DR-128)
+
+**What:** Added [DR-128](decisions/registry.yaml) and [standards/design.md §5c](standards/design.md): a design phase ends with web fonts chosen by the owner, a Codex-generated and hand-refined logo with SVG variants, the prototype in `docs/design/prototype/` on every path, tokens regenerated from its CSS, shards with every state, measured component styles, a component catalogue, exact SVG exports, a fidelity checklist and a mechanical gate (`check-design-gate.mjs`).
+**Why:** The owner has repeatedly seen implementations drift from approved designs. PandaSaga's freeze showed why: system font stacks, no logo files and nothing measurable to compare against.
+**Scope:** Wired in the design skill, its references, scripts and templates (plugin v9.123.0). Human gates: the font choice and the logo choice.
+
 ## 2026-10-12 — Board titles retain both a commercial name and a purpose (DR-127)
 
 **What:** Added [DR-127](decisions/registry.yaml) and updated the shared [idea template](ideas/_idea-template.md) to require `Commercial name — short general-purpose description` on capture and rename. The owner-facing description remains Spanish; approved brands and card identifiers are preserved. Applied the correction to the existing PandaSaga card and recorded the preference in the personal profile. Mission Control's capture guide reflects the rule.

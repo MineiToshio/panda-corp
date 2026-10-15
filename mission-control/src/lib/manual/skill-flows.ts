@@ -370,12 +370,20 @@ const FLOWS: SkillFlow[] = [
         title: "Sistema de diseño + voz",
         kind: "action",
         detail:
-          "El diseñador reúne referencias y fija los tokens (paleta/tipografía/espaciado) y DESIGN.md; el copywriter escribe en paralelo la voz y el microcopy real (nunca lorem).",
+          "El diseñador reúne referencias y fija los tokens (paleta, tipografía, espaciado) y DESIGN.md; la tipografía son fuentes web que eliges tú en una comparación lado a lado, nunca las del sistema. El copywriter escribe en paralelo la voz y el microcopy real (nunca lorem).",
         parallel: true,
         calls: [
           { ref: "designer", as: "agent", note: "referencias + sistema de diseño (tokens)" },
           { ref: "copywriter", as: "agent", note: "voz, tono y microcopy con claves i18n" },
         ],
+      },
+      {
+        title: "Marca y logo (Codex)",
+        kind: "gate",
+        detail:
+          "Principios de marca a partir del alcance futuro del PRD, 4 a 6 conceptos de logo generados en paralelo con Codex, eliges uno y se redibuja a mano en SVG con versiones de tamaño y tono (claro, oscuro, ícono, una tinta, favicon).",
+        note: "DR-128 — nunca se entrega la imagen generada por IA tal cual",
+        calls: [{ ref: "designer", as: "agent", note: "conceptos, refinado y página de marca" }],
       },
       {
         title: "3 direcciones (solo EXPLORE)",
@@ -393,7 +401,7 @@ const FLOWS: SkillFlow[] = [
         title: "Verificación automática (a11y)",
         kind: "safe",
         detail:
-          "Captura screenshots a 375/1280px y corre accesibilidad (axe-core); arregla las violaciones serias ANTES de enseñártelo.",
+          "Captura screenshots a 375/1280px y corre accesibilidad (axe-core) en todas las pantallas, anchos y temas; antes de congelar, una pasada de móvil a 375 y 320 px. Arregla las violaciones serias ANTES de enseñártelo.",
       },
       {
         title: "GATE VISUAL (eliges tú)",
@@ -406,7 +414,7 @@ const FLOWS: SkillFlow[] = [
         title: "Congelar el contrato + mocks por FRD + gate de avance",
         kind: "gate",
         detail:
-          "Fija los tokens finales, el inventario components.md y trocea el diseño en mocks por cada FRD con UI. Verifica que los artefactos existen de verdad y, con tu «ok», pasa a phase: architecture.",
+          "Fija los tokens finales, el inventario components.md y trocea el prototipo en mocks por cada FRD con UI, con todos sus estados. Deja la entrega de fidelidad: prototipo en docs/design/prototype/, medidas de cada componente, catálogo de componentes, iconos y logo en SVG y la guía de fidelidad. Un script verifica que todo existe y, con tu «ok», pasa a phase: architecture.",
         note: "Un artefacto faltante es un not-done, no avanzable. Siguiente: /blueprint.",
         calls: [{ ref: "blueprint", as: "skill", note: "siguiente paso" }],
       },
