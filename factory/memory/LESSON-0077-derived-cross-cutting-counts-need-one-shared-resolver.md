@@ -5,10 +5,10 @@ domain: data-modeling
 tags: [single-source-of-truth, derived-state, dr-092, dr-085, dashboard]
 context: more than one UI surface independently deriving the same cross-cutting count/status (e.g. "how many things are launched/shipped") from a source record that has more than one path to the same conceptual answer
 trigger: use this when a new surface needs to count/derive a fact that already has an existing bridge rule spanning more than one underlying state field (e.g. a status enum PLUS a separate phase field that both mean "done" under different conditions)
-source: "panda-corp Mission Control — Pulso showed 0 launched while Logros showed 2, both reading idea-card status alone and missing the DR-085 bridge (project phase=release also counts as launched); fixed via a single countLaunched resolver, 2026-07-02"
+source: "panda-corp Mission Control — Pulso showed 0 launched while Logros showed 2, both reading idea-card status alone and missing the DR-085 bridge (project phase=release also counts as launched); fixed via a single countLaunched resolver, 2026-07-02. Corroborated on a SECOND, distinct project (pandasaga, .pandacorp/run/lessons.md, 2026-10-14, agent-inferred) with the same root cause in a different concrete shape: (1) a reading-unit numbering scheme (prologue 0.5, interlude 5.5, encoded as fractional points to keep one gating rule) correctly resolved its own gate internally, but any UI surface that printed the raw point number directly leaked it (\"Número 5.5\") instead of a human label, because printing was not routed through a shared naming/formatting function; (2) a display MODE that changes how numbers read (a two-volume edition) was implemented only where it was first built (one dialog) — the band, toast and library surfaces kept the old numbering because none of them called through the same resolver."
 provenance: agent-inferred
 created: 2026-07-05
-status: candidate
+status: active
 promotion: none
 confidence: medium
 times_applied: 0
@@ -33,3 +33,16 @@ single field because it's tempting to read only the "obvious" half.
 **Apply next time:** before adding a new surface that counts/derives a concept governed by a documented
 bridge rule between two state fields, locate (or create) the single resolver that implements the full
 bridge and call it — never re-read just one of the two fields directly.
+
+**Corroborated in a broader form (pandasaga, 2026-10-14):** the same failure reproduces for ANY derived
+or mode-dependent DISPLAY value with more than one read/render surface, not only multi-field bridge
+counts. A raw internal encoding (a fractional "point" number) that is correct for gating but not meant
+for display leaked verbatim wherever a surface printed the number directly instead of calling a shared
+naming function; and a display mode that changes how a value is formatted (an edition-dependent
+numbering scheme) was wired into only the ONE surface where the feature was first built, leaving every
+other surface (a status band, a toast, a library list) silently out of sync. The general form of this
+lesson: whenever a value is both an internal encoding/state AND something read/rendered on more than one
+surface, route EVERY render site through one shared resolver/formatter, and when introducing such a
+value, grep for every place that currently prints the raw equivalent before shipping. Add a regression
+check on a surface deliberately far from where the feature was first built, since that is where the gap
+reliably hides.

@@ -11,8 +11,8 @@ created: 2026-10-13
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [pandasaga]
 links: [DR-032, DR-069, BL-0234]
 ---
 

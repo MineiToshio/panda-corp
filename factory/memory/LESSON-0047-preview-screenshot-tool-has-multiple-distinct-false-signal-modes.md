@@ -11,7 +11,14 @@ black regardless of DOM state, and the `playwright screenshot` CLI mis-times sta
 Eval-gate note (librarian, 2026-09-10): this lesson's evidence already spans panda-corp and personal-page-v2
 — activating `status: active`. Folded in a SEVENTH mode (funko-tracker, 2026-10, `.pandacorp/run/lessons.md`
 2026-10 harvest): axe-core's color-contrast check can false-positive on cards still mid stagger/entrance
-animation — the contrast measurement samples a transient, partially-faded frame, not the settled color."
+animation — the contrast measurement samples a transient, partially-faded frame, not the settled color.
+Folded in an EIGHTH and NINTH mode (pandasaga, 2026-10-13/14, `.pandacorp/run/lessons.md`): (8) the
+built-in browser pane's `computer scroll` sometimes does not move the page under an emulated viewport —
+`javascript_tool`'s `scrollTo()` is reliable where it isn't; also, after a click that re-renders (e.g. a
+theme toggle), re-querying the element is required — reading the previously-fetched node reports stale
+state; (9) a full-page screenshot of a page with `loading=\"lazy\"` images can capture them blank even
+after switching to eager loading — the fix is awaiting `img.decode()` (with a timeout) before capturing,
+not just changing the loading attribute."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
@@ -78,3 +85,23 @@ chasing a symptom that isn't there.
 entrance/stagger animations, wait for the animation to settle (or force `prefers-reduced-motion:
 reduce` so the browser skips the transition) before measuring, and re-run axe on the settled state —
 confirm the violation persists before changing any colors.
+
+**Eighth mode (2026-10-13/14, pandasaga):** the built-in browser pane under an emulated viewport can
+silently fail to move the page on a `computer scroll` command — the DOM doesn't change but no error is
+raised either. `javascript_tool`'s `scrollTo()`/`scrollIntoView()` reliably moves the page where the
+pane's own scroll command doesn't. Separately (a general interaction gotcha, not screenshot-specific):
+after any click that triggers a re-render (a theme toggle, a state change), a previously-fetched element
+reference can report stale attributes/text — re-query the element from the live DOM before asserting on
+it, rather than trusting a handle captured before the re-render.
+
+**Ninth mode (2026-10-14, pandasaga):** a full-page screenshot of a page containing `loading="lazy"`
+images (especially large PNGs) can capture them blank even when the loading strategy is switched to
+eager — eager loading starts the fetch sooner, but the screenshot can still fire before the image has
+finished DECODING, producing a visually blank portrait that looks like a missing-asset bug.
+
+**Apply next time (addendum):** (8) if a scroll command inside the browser pane appears to have no
+effect, retry via `javascript_tool`'s `scrollTo()` before concluding the page is stuck, and always
+re-query an element after any click that could trigger a re-render rather than reusing a captured
+reference. (9) before a full-page screenshot of a page with lazy-loaded images, await `img.decode()`
+(with a timeout) for each image rather than merely switching `loading` to eager — a blank captured
+portrait after a reveal/eager-load change is this race, not a layout regression.
