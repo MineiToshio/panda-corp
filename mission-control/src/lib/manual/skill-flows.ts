@@ -407,7 +407,7 @@ const FLOWS: SkillFlow[] = [
         title: "GATE VISUAL (eliges tú)",
         kind: "gate",
         detail:
-          "Te presenta las 3 direcciones (o el chequeo de fidelidad en ADOPT-VISUAL); eliges una o das feedback. Itera en sitio sin forzar avance; cada ronda se registra en iteration.md.",
+          "Te presenta las 3 direcciones (o el chequeo de fidelidad en ADOPT-VISUAL); eliges una o das feedback. Itera en sitio sin forzar avance; cada ronda actualiza el mismo artefacto (un solo enlace para compartir y abrir en cualquier dispositivo) y se registra en iteration.md.",
         note: "DR-032 — elegir no obliga a avanzar",
       },
       {

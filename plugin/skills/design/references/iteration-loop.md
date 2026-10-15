@@ -27,8 +27,8 @@ Motion: define tokens (`--ease-*`, `--dur-*` 120 to 320 ms), honour reduced moti
 ## Review and publish
 
 - An **independent reviewer** subagent (a different context, read-only) audits each substantial round against the FRDs and the owner's request; fix its findings and add regression checks before showing.
-- Publish each round as a private Artifact; copy every referenced asset with a script that reports missing files after copying (a shell `while read` over a file without a final newline silently skipped the last image once).
-- Append the round to `.pandacorp/comms/iteration.md` (Spanish): request, what was done, verification numbers, artifact URL, what stays open. Commit the round.
+- Publish each round by UPDATING the prototype's one artifact (same URL, version `label` "Ronda N"); never create a new artifact per round, so the owner's shared link always shows the latest. The URL lives at the top of `.pandacorp/comms/iteration.md`; a new conversation reads it with `Artifact` `read`, then publishes with `url`. Copy every referenced asset with a script that reports missing files after copying (a shell `while read` over a file without a final newline silently skipped the last image once).
+- Append the round to `.pandacorp/comms/iteration.md` (Spanish): request, what was done, verification numbers, what stays open (the artifact URL is the same every round). Commit the round.
 
 ## Answering the owner
 

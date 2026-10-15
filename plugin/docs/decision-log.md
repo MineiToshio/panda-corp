@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.124.0 — 2026-10-15 (MINOR): one stable artifact per design prototype
+
+**What:** `skills/design/SKILL.md` Step 6 and `references/iteration-loop.md`: every design round updates the prototype's existing artifact (same URL, a version label per round) instead of publishing a new one; the URL is recorded once at the top of `.pandacorp/comms/iteration.md`, and a later conversation reads it and publishes with `url`. Mission Control's manual step for the visual gate says so (DR-046).
+**Why:** owner rule: one link to share for feedback and to reopen on another device, without hunting for the latest round. PandaSaga published a new artifact per round (17 links).
+
 ## v9.123.0 — 2026-10-15 (MINOR): DR-128, the design phase freezes a complete fidelity hand-off (web fonts, Codex logo, measured references)
 
 **What:** `skills/design/SKILL.md` gains a phase-truth preflight, web-font typography chosen by the owner (Step 2), a brand and logo step with Codex image generation (Step 2b), the phone pass and motion rules (Step 5), a freeze that moves the prototype to `docs/design/prototype/` on every path and leaves measured references (Steps 7 and 8), and a mechanical Step-9 gate. New `references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`; new `scripts/` (`shard-prototype.mjs`, `measure-components.mjs`, `check-design-gate.mjs`, `codex-image.sh`, `lib-browser.mjs`); new `templates/docs/fidelity-checklist-template.md`; `fdd-template.md` ends with Fidelity references; `agents/designer.md` (Codex mirror regenerated); Mission Control's manual flow for `design` updated (DR-046).
