@@ -302,3 +302,24 @@ this is corroboration of why that approach must not ship, from a second edge cas
 memory-side change (checked against LESSON-0008 per the 2026-09-29 annotation's precedent — same
 already-cited incident family, not independent corroboration). Source: factory/memory/_inbox.md
 agent-inferred note (2026-10-06 harvest, harvested 2026-10-10).
+
+## Note (annotated 2026-10-14) — the tag-anchored formula's "factory inbox needs no provenance-prefix exception" assumption, from the 2026-09-13 annotation, is now ALSO false: the inbox itself grew a leading date prefix
+
+The 2026-09-13 annotation above explicitly exempted `factory/memory/_inbox.md` from the provenance-prefix
+fix it specified for project-level `lessons.md` files, reasoning that the factory inbox's own bullet shape
+was "paragraph-style, no such prefix" and so the plain tag-anchored formula
+(`grep -cE '^(gotcha|gap|pattern|lesson|verdict|nota|note)\s*·'`) remained safe there. A live PASO 0 run on
+2026-10-14 found this is now FALSE: the factory inbox's current live bullet shape is
+`- YYYY-MM-DD · <tag> · ...` (a leading date, added to the convention at some point after 2026-09-13), so
+the line-start-anchored regex returns 0 when 1 note is actually live — reproduced live and confirmed via
+`grep -n '^- 20[0-9]\{4\}-'`, which does match. This is the SAME false-ZERO failure mode the 2026-09-13
+annotation already proved for project `lessons.md` files, now reproduced on the one file that annotation
+explicitly carved out as exempt. Fix: whoever implements this item's Fix plan needs a THIRD regex variant,
+not just the two (plain tag-start vs. the `^\s*-\s*\((owner-stated|agent-inferred)\)\s*` provenance-prefix
+variant) the 2026-09-13 annotation already distinguishes — an optional
+`^-\s*\d{4}-\d{2}-\d{2}\s*·\s*` date-prefix anchor before the tag group, specific to the factory inbox's
+own current bullet shape. The practical implication: a single regex is no longer safe for ANY of the
+three file shapes encountered so far (factory inbox with date-prefix, project `lessons.md` with
+provenance-prefix, and whatever plain tag-start shape the 2026-08-11 original formula assumed) — the fix
+must either try all three anchors per file or detect the live shape before counting. Source:
+factory/memory/_inbox.md agent-inferred note (2026-10-14 scheduled sweep, harvested 2026-10-15).
