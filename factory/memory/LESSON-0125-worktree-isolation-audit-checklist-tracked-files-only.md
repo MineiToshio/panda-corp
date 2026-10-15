@@ -27,7 +27,7 @@ concrete workaround is `git rev-parse main` first, then realign the stale worktr
 provenance: agent-inferred
 created: 2026-07-09
 status: active
-promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the DR-096 worktree-isolation section), add as its debugging-checklist counterpart: the 8 audit facets this lesson folds (dispatch fidelity, gitignored-state backstop, daemon PATH/port/data-root, git-common-dir root resolution for derives, test-glob hygiene against sibling worktrees, the worktree-setup.sh bootstrap hook, shared-checkout landing serialization, EnterWorktree branching from origin/main not local). Richest synthesis in the store on this topic — corroborated across 2 distinct projects (mission-control + personal-page-v2, 8 folded facets, zero contradicting evidence) — codifying it as a standing pre-flight checklist would catch most of these before they reproduce as a debugging session.
+promotion: proposed   # 2026-09-10 (librarian review, updated 2026-10-15 after facets 9-10 folded) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the DR-096 worktree-isolation section), add as its debugging-checklist counterpart: the 10 audit facets this lesson folds (dispatch fidelity, gitignored-state backstop, daemon PATH/port/data-root, git-common-dir root resolution for derives, test-glob hygiene against sibling worktrees, the worktree-setup.sh bootstrap hook, shared-checkout landing serialization, EnterWorktree branching from origin/main not local, cleanup must skip locked/deploy-root worktrees, landing authority stays with the orchestrator). Richest synthesis in the store on this topic — corroborated across 2 distinct projects (mission-control + personal-page-v2, 10 folded facets, zero contradicting evidence) — codifying it as a standing pre-flight checklist would catch most of these before they reproduce as a debugging session.
 confidence: medium
 times_applied: 0
 applied_in: []
@@ -41,7 +41,7 @@ generic glob was told to skip.** Each incident was diagnosed and fixed independe
 noticed they were the same class; by the fifth instance the pattern was explicit and worth compressing
 into one checklist rather than re-discovering it a sixth time.
 
-**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of NINE separate guarantees
+**Lesson:** "isolate work in a worktree" is not one guarantee, it is a bundle of TEN separate guarantees
 that each have to be individually engineered — the DR-096 mechanism (a second checkout with its own
 working tree) does not automatically provide any of them:
 1. **Dispatch fidelity** (LESSON-0073) — a sub-agent told to work in a worktree can still resolve paths

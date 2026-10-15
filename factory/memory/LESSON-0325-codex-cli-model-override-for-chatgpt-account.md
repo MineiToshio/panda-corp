@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/comms/iteration.md ronda 18, 2026-10-13 (agent
 provenance: agent-inferred
 created: 2026-10-15
 status: active
-promotion: none
+promotion: proposed   # 2026-10-15 (librarian review) — target: factory/standards/agent-portability.md's Codex section, add as a short "codex exec CLI gotchas" appendix: (1) a model-not-supported 400 is an account-tier mismatch, not a missing capability — retry with an explicit `-m <older-generation id>`, verified against a recent working run since account-side availability can shift; (2) `-i <FILE>` is variadic and swallows a trailing prompt argument — pass the prompt via stdin with a literal `-`; (3) an image-generation 503 can exit 0 with no file written — retry with backoff and verify the output file exists, never trust the exit code alone. Corroborated across 2 distinct projects (funko-tracker, pandasaga) with the same fixes recurring. Caveat worth the owner's own judgment: this is CLI-version/account-tier specific and may go stale faster than most standards entries — a narrower "known gotchas" note rather than a MUST rule may be the right shape if promoted.
 confidence: medium
 times_applied: 0
 applied_in: []
