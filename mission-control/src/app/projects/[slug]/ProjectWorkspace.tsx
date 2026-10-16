@@ -270,16 +270,18 @@ export function ProjectWorkspace({
     case "architecture": {
       const architecture = readArchitectureArtifacts(projectPath);
       body = (
-        <ArchitectureDigest
-          key={projectPath}
-          title={title}
-          body={architecture.architectureContent ?? ""}
-          dataModel={architecture.dataModel}
-          workOrders={architecture.workOrders}
-          envVars={architecture.envVars}
-          adrs={architecture.adrs}
-          project={slug}
-        />
+        <div style={{ overflowX: "clip" }}>
+          <ArchitectureDigest
+            key={projectPath}
+            title={title}
+            body={architecture.architectureContent ?? ""}
+            dataModel={architecture.dataModel}
+            workOrders={architecture.workOrders}
+            envVars={architecture.envVars}
+            adrs={architecture.adrs}
+            project={slug}
+          />
+        </div>
       );
       break;
     }

@@ -19,6 +19,9 @@ test("portfolio reuses Architecture after Work orders with a draggable compact m
     "Comandos",
   ]);
   await expect(page.getByTestId("arch-data-model")).toContainText("Modelo de datos");
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+  ).toBe(true);
   const viewer = page.getByTestId("data-model-viewer");
   await expect(viewer.getByRole("tab", { name: "Diagrama", exact: true })).toHaveAttribute(
     "aria-selected",

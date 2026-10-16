@@ -29,3 +29,7 @@ The independent reviewer found and retained a regression for valid IDs such as `
 ## Data boundary
 
 Mission Control's own artifact explicitly says `persistence: none`. Six-entity/five-relationship test and preview models are illustrative. Real database projects must publish reviewed artifacts; factory-side automatic artifact generation/backfill is a separate dependency. No live database or implementation-schema comparison has been certified. The product labels ready artifacts **Modelo diseñado. Implementación sin verificar.**
+
+## Local deployment integration follow-up
+
+The production build and launchd restart succeeded. A real-project browser probe then exposed viewport-width bands escaping the asymmetric portfolio pane (1,407px document at a 1,280px viewport). The workspace mounting wrapper now contains horizontal painting without changing the shared Architecture component or the board presentation. The feature E2E explicitly checks document width; the canonical gate passed all 11 subgates again and the four feature E2E cases passed again for this bounded repair. An independent source review also approved the wrapper and checked modal/DAG containment implications. Live confirmation is retained in the owner’s private communication layer.

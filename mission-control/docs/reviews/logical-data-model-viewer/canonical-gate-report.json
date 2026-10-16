@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-16T23:03:55Z",
+  "at": "2026-10-16T23:12:48Z",
   "scope": "since",
   "green": true,
   "sha": "da0d3a8404fae6f82e66f2870e7e69cb0bdcef21",
@@ -7,13 +7,13 @@
     {
       "name": "structure-guard",
       "exit": 0,
-      "duration_ms": 37,
+      "duration_ms": 48,
       "failures": []
     },
     {
       "name": "data-layer",
       "exit": 0,
-      "duration_ms": 7,
+      "duration_ms": 8,
       "failures": []
     },
     {
@@ -25,49 +25,49 @@
     {
       "name": "doc-lint",
       "exit": 0,
-      "duration_ms": 4848,
+      "duration_ms": 5230,
       "failures": []
     },
     {
       "name": "residual-ambiguity",
       "exit": 0,
-      "duration_ms": 135,
+      "duration_ms": 132,
       "failures": []
     },
     {
       "name": "biome",
       "exit": 0,
-      "duration_ms": 3906,
+      "duration_ms": 1349,
       "failures": []
     },
     {
       "name": "tsc",
       "exit": 0,
-      "duration_ms": 11129,
+      "duration_ms": 2836,
       "failures": []
     },
     {
       "name": "knip",
       "exit": 0,
-      "duration_ms": 4810,
+      "duration_ms": 1817,
       "failures": []
     },
     {
       "name": "madge",
       "exit": 0,
-      "duration_ms": 4109,
+      "duration_ms": 4009,
       "failures": []
     },
     {
       "name": "vitest",
       "exit": 0,
-      "duration_ms": 13854,
+      "duration_ms": 12868,
       "failures": []
     },
     {
       "name": "playwright",
       "exit": 0,
-      "duration_ms": 42000,
+      "duration_ms": 59225,
       "failures": []
     }
   ],

@@ -77,3 +77,5 @@ itself is a real preference/affordance (it picks the displayed command), so it s
 but the build must make clear (as the prototype's copy already does) that **changing the mode here does
 not start or reconfigure a build** — it only updates the copyable command. The currently-selected mode
 is real surfaced data (the command), not a hidden demo value. No other workspace control is demo-only.
+
+Workspace integration contains Architecture’s existing full-bleed bands horizontally inside its selected-project pane, including when the portfolio rail makes that pane asymmetric. Board rendering retains its original full-bleed presentation.

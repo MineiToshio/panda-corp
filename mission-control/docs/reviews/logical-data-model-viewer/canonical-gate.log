@@ -36,7 +36,7 @@ biome.json:2:14 deserialize ━━━━━━━━━━━━━━━━━�
   i Run the command biome migrate to migrate the configuration file.
 
 
-Checked 903 files in 948ms. No fixes applied.
+Checked 903 files in 631ms. No fixes applied.
 Found 1 info.
 Configuration hints (8)
 **/*.d.ts                                                                   knip.json  Remove from ignore
@@ -48,32 +48,32 @@ src/proxy.ts                                                                knip
 src/instrumentation.ts                                                      knip.json  Refine entry pattern (no matches)
 playwright.config.ts                                                        knip.json  Remove redundant entry pattern
 - Finding files
-Processed 868 files (2.9s) (209 warnings)
+Processed 868 files (3.3s) (209 warnings)
 
 ✔ No circular dependency found!
 
 
  RUN  v4.1.9 /private/tmp/pandacorp-mc-model-20261016/mission-control
 
-(node:23182) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44984) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23184) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44986) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23177) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44978) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23178) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44982) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23183) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44977) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23175) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44987) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23180) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44983) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23181) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44981) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:23179) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:44985) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-······································································stderr | src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx > frd-02: AC-02-009.3 — doc entry click switches to Documentos tab > frd-02: WHEN a doc nav item is clicked THEN the Documentos tab becomes active
+·············································stderr | src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx > frd-02: AC-02-009.3 — doc entry click switches to Documentos tab > frd-02: WHEN a doc nav item is clicked THEN the Documentos tab becomes active
 An update to CardDetail inside a test was not wrapped in act(...).
 
 When testing, code that causes React state updates should be wrapped into act(...):
@@ -97,7 +97,7 @@ act(() => {
 
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 
-·········stderr | src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx > frd-02: AC-02-009.3 — doc entry click switches to Documentos tab > frd-02: WHEN a doc nav item is clicked from Campaña tab THEN Documentos tab becomes active
+stderr | src/app/board/_components/CardDetail/_tests/CardDetail.tabs.test.tsx > frd-02: AC-02-009.3 — doc entry click switches to Documentos tab > frd-02: WHEN a doc nav item is clicked from Campaña tab THEN Documentos tab becomes active
 An update to CardDetail inside a test was not wrapped in act(...).
 
 When testing, code that causes React state updates should be wrapped into act(...):
@@ -121,129 +121,127 @@ act(() => {
 
 This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
 
-·······(node:23258) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·······················································································fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-·····fatal: not a git repository (or any of the parent directories): .git
-fatal: not a git repository (or any of the parent directories): .git
-···(node:23271) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·······································(node:23286) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-······(node:23287) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·································································(node:23486) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:23542) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-············(node:23763) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·······(node:23966) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:24131) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-(node:24195) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·················(node:24197) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-·····(node:24199) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-··············································(node:24268) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-···········(node:24587) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
-(Use `node --trace-warnings ...` to show where the warning was created)
-stderr | src/app/board/_tests/frd-02.stage-default-tab.reviewer.test.tsx > FRD-02 reviewer · AC-02-009.1 stage default tab > a live refresh that advances the open card's stage keeps the owner's current tab
+·················································································stderr | src/app/board/_tests/frd-02.stage-default-tab.reviewer.test.tsx > FRD-02 reviewer · AC-02-009.1 stage default tab > a live refresh that advances the open card's stage keeps the owner's current tab
 Removing a style property during rerender (borderColor) when a conflicting property is set (border) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.
 
-····(node:24588) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+········(node:45048) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24589) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:45047) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24590) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+···········(node:45054) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24654) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(node:45053) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-··(node:24653) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+··························(node:45058) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-·············(node:24656) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+···················(node:45061) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24655) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+····(node:45060) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-·········(node:24657) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+·······················································(node:45069) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-·····(node:24660) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+······(node:45077) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-··(node:24666) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+········(node:45082) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24669) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+······(node:45100) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-(node:24671) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+···············fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+···(node:45117) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 (Use `node --trace-warnings ...` to show where the warning was created)
-·········
+····fatal: not a git repository (or any of the parent directories): .git
+fatal: not a git repository (or any of the parent directories): .git
+·················································(node:45119) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+·············(node:45882) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+·(node:46266) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46262) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+······(node:46395) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+···(node:46399) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46400) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+·············(node:46401) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46405) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+········(node:46471) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46473) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46472) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+···································(node:46517) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:46512) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+··············
 
  Test Files  35 passed (35)
       Tests  433 passed (433)
-   Start at  18:04:29
-   Duration  9.17s (transform 7.50s, setup 7.44s, import 16.34s, tests 29.57s, environment 18.96s)
+   Start at  18:13:09
+   Duration  8.34s (transform 6.26s, setup 7.67s, import 15.27s, tests 25.13s, environment 17.48s)
 
-[WebServer] (node:24784) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:46663) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:24790) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:46669) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:24799) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (node:46687) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 [WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:24800) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
-[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
-[WebServer] (node:24790) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+[WebServer] (node:46669) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
 
 Running 42 tests using 1 worker
 
-(node:24890) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(node:46714) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
-  ✓   1 [desktop] › e2e/shell.spec.ts:52:1 › shell harness present (3ms)
-  ✓   2 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on inicio (/) (1.1s)
-  ✓   3 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on tablero (/board) (958ms)
+  ✓   1 [desktop] › e2e/shell.spec.ts:52:1 › shell harness present (4ms)
+  ✓   2 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on inicio (/) (1.5s)
+  ✓   3 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on tablero (/board) (1.2s)
   ✓   4 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on portfolio (/portfolio) (2.3s)
-  ✓   5 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on propuestas (/proposals) (1.8s)
-  ✓   6 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on logros (/achievements) (2.3s)
-  ✓   7 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on documentacion (/manual) (1.7s)
-  ✓   8 [desktop] › e2e/shell.spec.ts:80:3 › shell · every nav destination is reachable from the shell (1.1s)
-  ✓   9 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination / resolves (830ms)
-  ✓  10 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /board resolves (605ms)
-  ✓  11 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /portfolio resolves (697ms)
-  ✓  12 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /proposals resolves (740ms)
-  ✓  13 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /achievements resolves (1.1s)
-  ✓  14 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /manual resolves (659ms)
-  ✓  15 [desktop] › e2e/smoke.spec.ts:15:1 › smoke harness present (1ms)
-  ✓  16 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · inicio (/) renders (690ms)
-  ✓  17 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · tablero (/board) renders (574ms)
-  ✓  18 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · portfolio (/portfolio) renders (693ms)
-  ✓  19 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · propuestas (/proposals) renders (793ms)
-  ✓  20 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · logros (/achievements) renders (1.1s)
-  ✓  21 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · documentacion (/manual) renders (600ms)
-(node:25530) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+  ✓   5 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on propuestas (/proposals) (2.2s)
+  ✓   6 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on logros (/achievements) (3.1s)
+  ✓   7 [desktop] › e2e/shell.spec.ts:68:5 › shell · landmark visible on documentacion (/manual) (1.6s)
+  ✓   8 [desktop] › e2e/shell.spec.ts:80:3 › shell · every nav destination is reachable from the shell (933ms)
+  ✓   9 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination / resolves (627ms)
+  ✓  10 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /board resolves (551ms)
+  ✓  11 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /portfolio resolves (652ms)
+  ✓  12 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /proposals resolves (602ms)
+  ✓  13 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /achievements resolves (1.2s)
+  ✓  14 [desktop] › e2e/shell.spec.ts:100:5 › shell · destination /manual resolves (622ms)
+  ✓  15 [desktop] › e2e/smoke.spec.ts:15:1 › smoke harness present (0ms)
+  ✓  16 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · inicio (/) renders (586ms)
+  ✓  17 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · tablero (/board) renders (970ms)
+  ✓  18 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · portfolio (/portfolio) renders (4.7s)
+  ✓  19 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · propuestas (/proposals) renders (7.2s)
+  ✓  20 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · logros (/achievements) renders (3.1s)
+  ✓  21 [desktop] › e2e/smoke.spec.ts:20:3 › smoke · documentacion (/manual) renders (763ms)
+(node:47616) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
 (Use `node --trace-warnings ...` to show where the warning was created)
   ✓  22 [mobile] › e2e/shell.spec.ts:52:1 › shell harness present (4ms)
   ✓  23 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on inicio (/) (1.1s)
-  ✓  24 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on tablero (/board) (960ms)
-  ✓  25 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on portfolio (/portfolio) (979ms)
-  ✓  26 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on propuestas (/proposals) (1.0s)
-  ✓  27 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on logros (/achievements) (1.3s)
-  ✓  28 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on documentacion (/manual) (972ms)
-  ✓  29 [mobile] › e2e/shell.spec.ts:80:3 › shell · every nav destination is reachable from the shell (1.1s)
-  ✓  30 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination / resolves (569ms)
-  ✓  31 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /board resolves (535ms)
-  ✓  32 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /portfolio resolves (603ms)
-  ✓  33 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /proposals resolves (561ms)
-  ✓  34 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /achievements resolves (961ms)
-  ✓  35 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /manual resolves (572ms)
+  ✓  24 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on tablero (/board) (974ms)
+  ✓  25 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on portfolio (/portfolio) (982ms)
+  ✓  26 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on propuestas (/proposals) (1.2s)
+  ✓  27 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on logros (/achievements) (2.7s)
+  ✓  28 [mobile] › e2e/shell.spec.ts:68:5 › shell · landmark visible on documentacion (/manual) (1.0s)
+  ✓  29 [mobile] › e2e/shell.spec.ts:80:3 › shell · every nav destination is reachable from the shell (924ms)
+  ✓  30 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination / resolves (565ms)
+  ✓  31 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /board resolves (566ms)
+  ✓  32 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /portfolio resolves (633ms)
+  ✓  33 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /proposals resolves (573ms)
+  ✓  34 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /achievements resolves (1.0s)
+  ✓  35 [mobile] › e2e/shell.spec.ts:100:5 › shell · destination /manual resolves (567ms)
   ✓  36 [mobile] › e2e/smoke.spec.ts:15:1 › smoke harness present (0ms)
-  ✓  37 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · inicio (/) renders (575ms)
-  ✓  38 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · tablero (/board) renders (534ms)
-  ✓  39 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · portfolio (/portfolio) renders (617ms)
-  ✓  40 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · propuestas (/proposals) renders (566ms)
-  ✓  41 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · logros (/achievements) renders (911ms)
-  ✓  42 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · documentacion (/manual) renders (572ms)
+  ✓  37 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · inicio (/) renders (573ms)
+  ✓  38 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · tablero (/board) renders (596ms)
+  ✓  39 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · portfolio (/portfolio) renders (711ms)
+  ✓  40 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · propuestas (/proposals) renders (587ms)
+  ✓  41 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · logros (/achievements) renders (1.1s)
+  ✓  42 [mobile] › e2e/smoke.spec.ts:20:3 › smoke · documentacion (/manual) renders (607ms)
 
-  42 passed (40.8s)
+  42 passed (58.1s)
