@@ -1,63 +1,47 @@
 #!/usr/bin/env node
 /**
- * Shards the approved whole-app prototype into one self-contained mock per UI FRD (DR-056 §1).
+ * Legacy wrapper: shards the frozen prototype into one mock per UI FRD through the fidelity toolset
+ * (fidelity/freeze.mjs stages split and shard). Prefer `node fidelity/freeze.mjs shard` with
+ * docs/design/freeze/fidelity.config.json.
  *
- * Usage: node shard-prototype.mjs <config.json>
- * Config:
- * {
- *   "prototype": "docs/design/prototype/app.html",           // the frozen whole-app prototype
- *   "widths": [1280, 375],                                     // screenshot widths (both are required at the gate)
- *   "frds": {
- *     "frd-01-slug": [
- *       { "id": "library", "title": "Library", "route": "#/library" },
- *       { "id": "library-loading", "title": "Library loading", "route": "#/library", "setup": "state.preview = 'loading'; render();" },
- *       { "id": "delete-confirm", "title": "Delete account", "route": "#/account", "click": "[data-action=\"account-delete\"]" }
- *     ]
- *   }
- * }
- * List EVERY state the FRD's acceptance criteria name (loading, empty, error, partial, dialogs), not only
- * the happy path: a state with no mock becomes an open question in the FDD and a blind spot for the build.
- * Output per FRD: docs/frds/<frd>/mocks/<slug>.html (one <section id="<id>"> per screen, the prototype's
- * own CSS inlined, open dialogs kept, asset paths rewritten) + mocks/screenshots/<id>-<width>.jpg.
+ * Usage (from the project root): node shard-prototype.mjs <config.json>
+ * The config is either a fidelity config (fidelity/config.schema.json) or the legacy shape
+ * { "prototype": "...", "widths": [1280, 375], "lang"?: "es", "frds": { "frd-01-slug": [{ "id", "title", "route", "setup"?, "click"? }] } },
+ * which is converted: setup -> a js action, click -> a click action.
+ * List EVERY state the FRD's acceptance criteria name (loading, empty, error, partial, dialogs), not only the happy
+ * path: a state with no mock becomes an open question in the FDD and a blind spot for the build.
+ * Output per FRD: docs/frds/<frd>/mocks/<slug>.html (visible screen + open dialogs per state, ids prefixed, the icon
+ * sprite inlined, the split reference CSS linked) and mocks/screenshots/<id>-<width>-<theme>.jpg.
  */
-import fs from "node:fs";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
-import { launchBrowser, applySetup, settle } from "./lib-browser.mjs";
+import fs from 'node:fs';
+import { ConfigError, loadConfig, loadSchema, resolveRoot, validate } from './fidelity/config.mjs';
+import { freeze } from './fidelity/freeze.mjs';
+import { BrowserUnavailable } from './fidelity/lib.mjs';
 
-const cfg = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
-const proto = path.resolve(cfg.prototype);
-const protoDir = path.dirname(proto);
-const html = fs.readFileSync(proto, "utf8");
-const head = html.slice(html.indexOf("<head>") + 6, html.indexOf("</head>")).replace(/<script[\s\S]*?<\/script>/g, "");
-const widths = cfg.widths || [1280, 375];
-const browser = await launchBrowser();
-for (const [frd, screens] of Object.entries(cfg.frds)) {
-  const dir = path.resolve("docs/frds", frd, "mocks");
-  fs.mkdirSync(path.join(dir, "screenshots"), { recursive: true });
-  const prefix = path.relative(dir, protoDir).split(path.sep).join("/") + "/";
-  const sections = [];
-  for (const s of screens) {
-    for (const w of widths) {
-      const page = await browser.newPage({ viewport: { width: w, height: 900 }, isMobile: w < 500, hasTouch: w < 500 });
-      await page.goto(pathToFileURL(proto).href + s.route);
-      await page.waitForTimeout(300);
-      await applySetup(page, s);
-      await settle(page);
-      await page.screenshot({ path: path.join(dir, "screenshots", `${s.id}-${w}.jpg`), fullPage: true, type: "jpeg", quality: 80 });
-      if (w === widths[0]) {
-        const snap = await page.evaluate(() => {
-          const main = document.querySelector("main") || document.body;
-          return main.outerHTML + [...document.querySelectorAll("dialog[open]")].map(d => d.outerHTML).join("");
-        });
-        const fixed = snap.replace(/(src="|url\(&quot;|url\(')(?!https?:|data:|\/)([^"')&]+)/g, `$1${prefix}$2`).replace(/<dialog([^>]*) open/g, '<dialog$1 open style="position:static;margin:24px auto"');
-        sections.push(`<section class="mock-screen" id="${s.id}"><h2 class="mock-title">${s.title} <code>${s.route}</code></h2>${fixed}</section>`);
-      }
-      await page.close();
-    }
+/**
+ * Converts a legacy shard config into a fidelity config (a fidelity config passes through).
+ * @param {object} raw parsed config
+ * @returns {object} a fidelity config
+ */
+export function fromLegacy(raw) {
+  if (validate(loadSchema(), raw).length === 0) return raw;
+  const states = {};
+  for (const [frd, list] of Object.entries(raw.frds || {})) {
+    states[frd] = list.map((s) => {
+      const actions = [...(s.setup ? [{ js: s.setup }] : []), ...(s.click ? [{ click: s.click }] : [])];
+      return { id: s.id, title: s.title, route: s.route, ...(actions.length ? { actions } : {}) };
+    });
   }
-  const slug = frd.replace(/^frd-\d+-/, "");
-  fs.writeFileSync(path.join(dir, `${slug}.html`), `<!doctype html><html lang="${cfg.lang || "es"}"><head>${head}<style>.mock-screen{border-top:4px solid currentColor;margin:0 0 64px}.mock-title{font:600 18px/1.3 system-ui,sans-serif;padding:16px;opacity:.85}</style></head><body><p class="mock-title">${frd}: static slice of ${path.relative(path.resolve("."), proto)}. The interactive prototype stays the reference for behaviour and motion.</p>${sections.join("\n")}</body></html>\n`);
-  console.log(frd, screens.length, "screens");
+  return { prototype: raw.prototype, ...(raw.lang ? { lang: raw.lang } : {}), ...(raw.widths ? { widths: raw.widths } : {}), states };
 }
-await browser.close();
+
+const file = process.argv[2];
+if (!file) { console.error('usage: node shard-prototype.mjs <config.json>'); process.exit(2); }
+try {
+  const cfg = loadConfig({ root: resolveRoot(), raw: fromLegacy(JSON.parse(fs.readFileSync(file, 'utf8'))) });
+  const res = await freeze({ cfg, stages: ['split', 'shard'], force: true });
+  process.exit(res.ok ? 0 : 1);
+} catch (e) {
+  if (e instanceof ConfigError || e instanceof BrowserUnavailable) { console.error(e.message); process.exit(2); }
+  throw e;
+}

@@ -445,9 +445,10 @@ The build engine reviews and tests **per FRD**, not per work order:
   last green** (fast, and scales as the suite grows — it does NOT re-run the whole suite every gate), and
   **scopes the browser layer the same way (DR-106)**: in `--since` mode only `smoke` + `shell` run — the e2e
   face of the DR-072 BLOCKING lenses (every route renders clean; the app shell is present) — while `visual` +
-  `responsive` belong to the **full** unscoped run (fidelity is ADVISORY at the gate and may never block, so
+  `responsive` belong to the **full** unscoped run (judged fidelity is ADVISORY at the gate and may never block, so
   paying the whole serialized Playwright suite per FRD bought nothing but wall-clock: 11 gates ran it in
-  the personal-page-v2 build). The **full** suite runs once at **close-out**; the intermediate re-verifiers
+  the personal-page-v2 build; a project's DR-129 *measured* fidelity gate blocks by default and runs where its
+  fidelity checklist's *How to verify* places it). The **full** suite runs once at **close-out**; the intermediate re-verifiers
   (Visual QA after its fixes, the hardening security pass) also run `--since`, never a second full suite.
   On pass → every work order + the FRD become `VERIFIED`.
   These two — the per-FRD `--since` gate and the close-out full suite — are where strict whole-project
@@ -1872,7 +1873,10 @@ rejects spuriously; an over-broad adversarial reviewer harms convergence by over
 - **VISUAL-FIDELITY NITS — ADVISORY, never block:** sizing (15px vs 16px), spacing, exact shade, density, "doesn't
   match 100%". The gate **never reopens a WO for a nit** — it appends each to `.pandacorp/comms/visual-punch-list.md`.
   A nit never gates `VERIFIED`. (The deterministic Playwright `toHaveScreenshot()` *regression* baseline stays a
-  hard gate — it's a regression guard, not a fidelity-vs-mock judgment.)
+  hard gate — it's a regression guard, not a fidelity-vs-mock judgment.) **Scope (DR-129 amends DR-072):** a nit
+  here is a *judged* gap. A **measured** L1–L4 mismatch reported by the project's fidelity gate
+  (`docs/design/fidelity-checklist.md` `## Fidelity target`, comparator `diff.mjs`; `design.md` §5d) is not a nit:
+  it **blocks by default** like any red gate, unless the owner recorded `Gate mode: advisory` for that project.
 
 **End-of-build VISUAL QA pass.** All the systematic fidelity work is consolidated into ONE dedicated phase at the
 end of the run, scoped to the FRDs touched that run whose work orders' declared `artifacts` touch a UI path (the

@@ -26,7 +26,18 @@ Build on shadcn/ui + Tailwind for accessible, well-structured components — but
 
 ## 4 · Mockups — two layers (DR-049)
 
-Self-contained HTML files (inline CSS/JS, no network dependencies except the Tailwind CDN), navigable (clicks show the states/screens), mobile-first and responsive.
+Self-contained HTML files (inline CSS/JS, fonts self-hosted when the licence allows, no other network dependency), navigable (clicks show the states/screens), mobile-first and responsive. From the first round they meet the **prototype contract** (DR-129, `${CLAUDE_PLUGIN_ROOT}/skills/design/references/iteration-loop.md`):
+- tokens-only CSS;
+- `data-demo-only` on every demo affordance, with `?demo=off` hiding them all (and `?host=page` if the page auto-detects an embedding host);
+- product text ≥ 12 px;
+- only transforms animate, and text never fades;
+- hover only inside `@media (hover: hover)`;
+- self-hosted web fonts;
+- sticky offsets from a product token that excludes demo chrome;
+- one stable file and one artifact;
+- every FRD-named state reachable and listed in `docs/design/freeze/fidelity.config.json`.
+
+The freeze extracts from this; it never repairs it.
 
 **4a · Product-level direction mockups (explore path only — skip when a visual was adopted in rule 3):**
 - **Standalone Claude Design is sunsetting (closes 2026-12-14; DR-058/DR-109 superseded-pending, proposal 42):** do NOT start a canvas project and NEVER generate with `DesignSync` — the tool itself forbids it (designs are now Artifacts). You author the directions as self-contained HTML in the repo; publishing them for the owner's review is the lead session's job, not yours. Fidelity comes from the frozen tokens, the per-FRD shards and the DR-056 gate, not from the generator.
@@ -44,19 +55,31 @@ Self-contained HTML files (inline CSS/JS, no network dependencies except the Tai
 
 **4e · Mark demo-only controls (DR-061):** any affordance a mockup adds purely to *preview states* (mode/effort pickers, play/pause, reset, state togglers) that will NOT exist in the real (often read-only, or skill/CI-driven) app MUST be wrapped in a dashed-border block with a small uppercase `DEMO` tag + a one-line note of how the real thing actually works; any real value the app will surface (e.g. the effort level) goes as **read-only data in a real UI surface**, never only inside the demo block. Canonical pattern: `factory/standards/design.md` §6.
 
-## 5 · Verify before the human gate
+## 5 · Verify every round, before the human gate
 
-Use Bash with Playwright for screenshots at 375px and 1280px, and axe-core for accessibility → `docs/design/a11y-report.md`. Fix serious violations before presenting.
+1. Run the **round preflight** first: `node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/preflight-round.mjs" <prototype.html> --save` (writes `docs/design/freeze/preflight.json`). Fix every finding in the same round. Never carry one to the freeze, and never edit or bypass the check.
+2. Then use Playwright for screenshots at 375px and 1280px, and axe-core for accessibility → `docs/design/a11y-report.md`. Fix serious violations before presenting.
+
+The full round suite is in `iteration-loop.md`.
 
 ## 6 · Heuristics you always apply
 
 Clear hierarchy (1 primary action per screen), designed empty/loading/error states, real text (not lorem ipsum), touch targets ≥44px, WCAG AA contrast.
 
-## 7 · Freeze the contract
+## 7 · Freeze the contract — as one task of the parallel plan
 
-Once a direction is chosen (or the approved visual is extracted):
-- Final `design-tokens.json` + `docs/design/design-decisions.md` with the rationale.
-- **Complete, measurable hand-off (DR-128)** — follow `${CLAUDE_PLUGIN_ROOT}/skills/design/references/freeze-and-fidelity.md`: web fonts the owner chose (never a system font stack), the logo exported as SVG variants, the prototype in `docs/design/prototype/`, tokens regenerated from its final CSS, shards with every state (`scripts/shard-prototype.mjs`), measured component styles + component catalogue + icon/logo SVGs (`scripts/measure-components.mjs`), `docs/design/fidelity-checklist.md`, and the build requirements in `technical-assumptions.md`. `scripts/check-design-gate.mjs` must print READY.
+The freeze is a staged DAG run by the lead session (`${CLAUDE_PLUGIN_ROOT}/skills/design/references/freeze-and-fidelity.md`, DR-128 + DR-129). You are dispatched for ONE task at a time: context packs, reconciliation, one FRD's FDD, the contract docs, the fidelity docs, fixtures, or one blocker fix. The tier is set by the dispatch, not by your frontmatter.
+- **Read your context pack** (`docs/design/freeze/packs/frd-NN.md` or `_global.md`), the files you own and the files they cite. Do not re-read the whole repo.
+- **Write only the outputs your task owns.** Another task's file is out of bounds. If you find a problem there, report it in your hand-off.
+- **Use the shipped tools; never improvise one.** These are `preflight-round.mjs`, `fidelity/freeze.mjs` (`split|measure|shard|screens|catalog|identity|all`, `--only frd-NN`; `split` also regenerates `design-tokens.json`) and `check-design-gate.mjs`, all driven by the one config `docs/design/freeze/fidelity.config.json` (schema `scripts/fidelity/config.schema.json`). If a tool is defective, report it; do not write a replacement.
+- **Stop rule.** There is one independent audit. If you fix blockers, fix only the listed blocker, with at most 3 attempts. Anything else is a backlog line for `.pandacorp/comms/visual-punch-list.md`, never scope creep.
+- **The finished hand-off (DR-128).** It holds:
+  - the web fonts the owner chose (never a system stack) and the logo SVG variants;
+  - the prototype in `docs/design/prototype/` and tokens regenerated from its final CSS;
+  - shards with every state, measured component styles, the catalogue and the icon/logo SVGs;
+  - `docs/design/fidelity-checklist.md` with `## Fidelity target` (DR-129 §5d), and the build requirements in `technical-assumptions.md`.
+
+  `check-design-gate.mjs` must print READY.
 - **Produce `docs/design/components.md`** (following `${CLAUDE_PLUGIN_ROOT}/templates/docs/components-inventory-template.md`) — the living component inventory (each shared primitive/module: name · purpose · path · key props/variants) the build's foundation work order implements and every later agent reuses (DR-057). **REQUIRED for any project with UI, not optional** — it is checked for existence at the design advance gate, and without it the build's reuse mechanism is inert. Seed it from the frozen system you just extracted/chose.
 - **With Claude Design (DR-058), bridge `_ds_manifest.json` → `docs/design/components.md`:** one inventory row per manifest entry — component name → name, description/role → purpose, synced repo path → path, variants/props → key props/variants (the manifest is the source; `components.md` is the build-facing inventory).
 - This global design system (the PDD) is ONE per project and is **never duplicated per feature**. A specific UI feature's design then lives in its FRD module: `docs/frds/frd-NN-<slug>/fdd.md` (the feature's design on the frozen tokens) with its prototypes in `docs/frds/frd-NN-<slug>/mocks/` — CONDITIONAL, only for features that have UI.
@@ -64,7 +87,7 @@ Once a direction is chosen (or the approved visual is extracted):
 ## 8 · Craft that protects a design-weak operator
 - **Typography and brand are yours to propose, the owner's to choose.** Show 2 or 3 web-font pairings side by side on a real screen, and 4 to 6 logo concepts generated with Codex (`${CLAUDE_PLUGIN_ROOT}/skills/design/references/brand-and-logo.md`), each with a recommendation. Base the brand on the PRD's future scope, not only v1.
 
-(See `docs/proposals/06-improvement-plan-2026.md`.) Theme from few variables in perceptual space (OKLCH: base/accent/contrast) instead of dozens of hex values; **one rationed accent** (punctuation, not paint) + neutrals; `tabular-nums` on every number; 3 elevation levels; motion only `transform`/`opacity` <300ms with a "frequency test" (the everyday sober, the expressive reserved for rare moments); respect `prefers-reduced-motion`; state by icon/shape **in addition to** color (not color alone).
+(See `docs/proposals/06-improvement-plan-2026.md`.) Theme from few variables in perceptual space (OKLCH: base/accent/contrast) instead of dozens of hex values; **one rationed accent** (punctuation, not paint) + neutrals; `tabular-nums` on every number; 3 elevation levels; motion only on transforms (text never fades; opacity only on decorative layers), 120–320 ms tokens, with a "frequency test" (the everyday sober, the expressive reserved for rare moments); respect `prefers-reduced-motion`; state by icon/shape **in addition to** color (not color alone).
 
 ## 9 · Technical feasibility flags
 
@@ -76,7 +99,7 @@ Before settling on a UI library, an animation/charting dependency or an interact
 
 ## Before the human gate (SOP)
 
-Confirm: (1) **path-correct** — if an approved visual exists, you EXTRACTED it faithfully (tokens/`DESIGN.md` match the prototype; no alternative directions generated, no palette/type "relaxed"; embedded sub-views and their assets staged) and the gate is a fidelity check; otherwise the 3 directions are **genuinely different**, not the same one in another color; (2) you ran axe-core and fixed serious violations (contrast ≥4.5:1, visible focus, `aria-label`); (3) there is real text, not lorem ipsum; (4) empty/loading/error states designed; (5) every UI FRD has its `fdd.md` + `mocks/`. The owner's gate should be just "look and give an opinion", not catching problems you should have caught.
+Confirm: (1) **path-correct** — if an approved visual exists, you EXTRACTED it faithfully (tokens/`DESIGN.md` match the prototype; no alternative directions generated, no palette/type "relaxed"; embedded sub-views and their assets staged) and the gate is a fidelity check; otherwise the 3 directions are **genuinely different**, not the same one in another color; (2) you ran axe-core and fixed serious violations (contrast ≥4.5:1, visible focus, `aria-label`); (3) there is real text, not lorem ipsum; (4) empty/loading/error states designed; (5) every UI FRD has its `fdd.md` + `mocks/`; (6) the round preflight is clean. The owner's gate should be just "look and give an opinion", not catching problems you should have caught.
 
 ## Factory memory — retrieve before you build (DR-047, audit-20)
 Before starting non-trivial work, read `factory/memory/INDEX.md` FIRST (the path is stamped in the

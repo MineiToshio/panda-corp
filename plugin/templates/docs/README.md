@@ -27,6 +27,8 @@ given, so a fat template yields padded, low-signal docs (DR-077).
 | `change-request-template.md` | `.pandacorp/inbox/changes/<slug>.md` (owner channel) | `change` · `bug` · `iterate` |
 | `api-contract-template.md` | `docs/api/<wo-id>.md` (per backend WO, DR-060) | **`backend-dev`** (agent, not a skill) |
 | `components-inventory-template.md` | `docs/design/components.md` (DR-057) | `design` · **`designer`** (agent) |
+| `fidelity-checklist-template.md` | `docs/design/fidelity-checklist.md` (the fidelity target and the executable gate, DR-128/DR-129) | `design` (freeze, S2.5) |
+| `design-freeze-tracker-template.md` | `docs/design/freeze/tracker.md` (the freeze's checkpoint, read by `check-design-gate.mjs`, DR-129) | `design` (freeze, S0.2) |
 | `changes-readme-template.md` | `.pandacorp/inbox/changes/README.md` (queue index) | `change` · `bug` |
 | `decisions-inbox-template.md` | `.pandacorp/inbox/decisions.md` (owner channel) | `decide` (+ agents that raise a decision) |
 

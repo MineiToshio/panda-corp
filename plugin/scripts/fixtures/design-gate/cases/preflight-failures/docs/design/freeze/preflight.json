@@ -1,0 +1,1 @@
+{"tool": "preflight-round", "schema": 1, "prototype": "docs/design/prototype/app.html", "prototypeSha256": "8f91554c222b56d7409816c8bb244d5967da6dbf1824179927d2ebce7c1191fd", "complete": true, "browser": "ran", "status": "fail", "counts": {"fail": 1, "warn": 0}, "findings": [{"check": "smallText", "severity": "fail", "message": "1 element style(s) with text under 12px"}]}

@@ -1,0 +1,1 @@
+{"prototype": "docs/design/prototype/app.html", "widths": [375, 1280], "states": {"frd-01-home": [{"id": "home", "title": "Home", "route": "#home"}, {"id": "sheet", "title": "Sheet", "route": "#home", "widths": [375]}]}}

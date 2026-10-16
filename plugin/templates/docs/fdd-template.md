@@ -54,4 +54,8 @@ Pointer to the microcopy / voice for this feature (the global voice lives in
 
 ## Fidelity references
 
-Build against `docs/design/fidelity-checklist.md`: the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file, and the whole-app prototype for states and motion.
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate): the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file, and the whole-app prototype for states and motion.
+
+- **Mock screenshots** in `mocks/screenshots/` are named `<id>-<width>-<theme>.jpg` (`<id>` = the screen or state id from the Screens table, `<width>` = 375, 768 or 1280, `<theme>` = light or dark). One file per screen and state the acceptance criteria name, at every width and theme the feature supports.
+- **Binding comparison URL:** `docs/design/prototype/<name>.html?demo=off&host=page&theme=<theme>#<route>`. `demo=off` removes every demo-only element and `host=page` turns off host auto-detection (if the prototype has it), so the render is the product's own, at the real viewport. Screenshots, mocks and any side-by-side check use this URL; a render without both parameters is not a valid reference.
+- **Screen ids in the oracle table:** list here which `oracle-states.json` entries realize each screen of this feature, so the gate and the reviewer test the same states the Screens table promises.

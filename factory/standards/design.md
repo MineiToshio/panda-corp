@@ -1,6 +1,6 @@
-# Design standard (DR-054, DR-055, DR-064)
+# Design standard (DR-054, DR-055, DR-064, DR-129)
 
-> Domain: Design · Severity: **MUST** · Enforcement: CI gate (design-token gate DR-056, prototype-fidelity + shell-presence gates DR-074/075) + human gate (owner's visual gate) — **factory-internal (process)**: the process itself doesn't ship; its project-facing parts ship via `rules/styling-and-ui.md` + `rules/accessibility.md` and the verbatim e2e gate specs (DR-051/DR-059).
+> Domain: Design · Severity: **MUST** · Enforcement: CI gate (design-token gate DR-056, prototype-fidelity + shell-presence gates DR-074/075, the build's fidelity gate DR-129) + script gate (`check-design-gate.mjs`, `preflight-round.mjs`) + human gate (owner's visual gate) — **factory-internal (process)**: the process itself doesn't ship; its project-facing parts ship via `rules/styling-and-ui.md` + `rules/accessibility.md`, the verbatim e2e gate specs (DR-051/DR-059) and the project's own `docs/design/fidelity-checklist.md` written at freeze from `plugin/templates/docs/fidelity-checklist-template.md` (a per-project artifact, not the rule library).
 
 How the factory produces a project's look, freezes it as a contract, and **guarantees the build
 reproduces it**. Born from a failure: Mission Control was adopted with an owner-approved prototype
@@ -280,7 +280,138 @@ Mechanisms 1 to 4 above only work if the frozen design is complete and measurabl
 2. **The logo**, designed in the phase: principles from the PRD's future scope, Codex-generated concepts, the owner's choice, a hand-drawn SVG with size and tone variants (`plugin/skills/design/references/brand-and-logo.md`).
 3. **The prototype in `docs/design/prototype/`** on every path, tokens regenerated from its final CSS, and per-FRD shards that include every state the acceptance criteria name.
 4. **Fidelity references**: measured computed styles of every frozen component (light/dark × 1280/375), a component catalogue page, exact SVG exports of icons and logo, and `docs/design/fidelity-checklist.md` listing the product's easy-to-lose signature details; the build requirements (self-host fonts, exported SVGs only, an automated computed-style check, verbatim copy) go to `technical-assumptions.md`.
-5. **A mechanical gate**: `plugin/skills/design/scripts/check-design-gate.mjs` must print READY before the transition.
+5. **A mechanical gate**: `plugin/skills/design/scripts/check-design-gate.mjs` must print READY before the transition. §5d to §5f (DR-129) extend this hand-off: how much fidelity is enough (a layered, measured target), the prototype contract every round must meet, and the stop rule and time box of the freeze.
+
+## 5d. How much fidelity is enough: a layered target (DR-129)
+
+"Reproduce the prototype 100%" is not testable, and a single headline percentage is the wrong way to
+make it testable: **95% of pixels** lets a whole missing card pass (a card is well under 5% of a
+page), while **95% of style properties** means one value in twenty is wrong. So the target is layered,
+each layer with its own metric, and every layer is measured, not eyeballed:
+
+| Layer | What | Target |
+|---|---|---|
+| **L1 Typography and colour** | Computed `font-family`, `font-size`, `font-weight`, `line-height`, `letter-spacing`, `color`, `background-color`, border colours, shadow, opacity, of every frozen component and state, light and dark | **100% exact** |
+| **L2 Geometry** | Box sizes; spacing and radius; the anchor offset of every floating panel (menu, select, popover) from its trigger | **sizes exact; spacing and radius +-1 px; anchor offsets +-1 px** |
+| **L3 Pixels** | Screenshot of each oracle state vs the live prototype, cut into consecutive **viewport-height slices** | **per slice, at most 0.5% of pixels differ** above YIQ threshold **0.1**, anti-aliased pixels ignored |
+| **L4 Coverage** | Every state the FDD lists, at every width and theme; accessibility | **100% of listed states x widths (375 touch / 768 / 1280) x themes (light / dark)**; axe **0 serious/critical** |
+
+**Rules.**
+- **The prototype is rendered live as the oracle**, with `?demo=off&host=page` and the touch emulation
+  of a real phone at 375; the gate never compares the build with its own earlier screenshots (a
+  self-baseline is a regression guard that may exist only after the oracle check passed; DR-080).
+- **Comparator pinned: pixelmatch 7.x semantics** (YIQ colour distance, `threshold: 0.1`,
+  `includeAA: false`), pinned exact in the toolkit. pixelmatch 8 replaced the metric (OKLab HyAB
+  distance), so 0.1 means a different tolerance there; the pin moves only with a re-measured flake
+  and a new DR.
+- **Slices, not one whole-page ratio**: a global ratio dilutes a defect into a tall page. A height
+  mismatch between the two captures is a failure (layout drift), never absorbed.
+- **No loosening without a measured flake.** A tolerance is relaxed only after the same render, run
+  twice on an unchanged build, produced the difference, with the two runs recorded; "the diff is
+  annoying" is not evidence. Tightening is always allowed. The implementer never edits the oracle,
+  the references, the tolerances or the gate (DR-080).
+- **Infrastructure is fail-closed; a measured mismatch blocks by default.** A missing prototype,
+  font, fixture image, browser, reference file or touch emulation is always RED (DR-055). A
+  **measured** L1-L4 mismatch reported by the fidelity gate **blocks the FRD by default**
+  (`Gate mode: blocking`, owner decision 2026-10-16). This amends DR-072 for measured fidelity-gate
+  mismatches only: DR-072's advisory class still covers *judged* nits (a reviewer's or a VLM's "looks
+  15px instead of 16px"), which go to `.pandacorp/comms/visual-punch-list.md`, and a deterministic
+  comparator is not the noisy judge DR-072 was protecting against. What stays non-blocking is the
+  backlog of leftovers below the gate's bar (and the freeze's time-boxed backlog, §5f), in that same
+  punch list, worked by the end-of-build Visual QA. A project may declare `Gate mode: advisory` in its
+  checklist's `## Fidelity target` only with the owner's decision recorded in
+  `docs/design/design-decisions.md`; infrastructure failures stay RED in both modes.
+- **Owner-facing sentence (Spanish, said at the freeze gate):** *"a simple vista no se distingue del
+  prototipo, con fuentes y colores exactos"*. It is the plain-language meaning of L1 to L4; the owner
+  approves the numbers through that sentence, not through the metrics.
+
+**Capture conditions are part of the contract** (a capture taken outside them is invalid whatever
+the diff says; the executable detail is the checklist template's *How to verify*): demo chrome off
+(`?demo=off`) and the host auto-detection off (`?host=page`); the 375 render is a touch phone
+(emulated `hover: none` / `pointer: coarse`, probed on every capture); a tall page is captured by
+**growing the viewport to the document height**, never Playwright `fullPage` (it drops the touch
+emulation mid-capture); lazy images are forced to load and an incomplete or broken image is RED, not
+skipped; infinite animations are paused before reading or shooting; volatile regions (generated
+output, timers, legal text) are masked by painting magenta `#FF00FF` on the two captured PNGs, never
+in the page, and the mask boxes must coincide within 1 px.
+
+**Verified by:** the build's fidelity gate, which runs the design toolkit's
+`plugin/skills/design/scripts/fidelity/diff.mjs` against the live prototype for every oracle state
+of the FRD under test, and the project's `docs/design/fidelity-checklist.md` `## Fidelity target`
+section (the numbers, the gate mode, the masks, the property list, the floating-panel geometry),
+which is where the project can tighten but not loosen this section. The gate report lists, per
+state and context, the media probe, slice results, style mismatches and floating-panel offsets.
+
+**Why these numbers.** Surveyed defaults of the visual-regression tools: Playwright
+`toHaveScreenshot` (colour `threshold` 0.2, **no pixel-count tolerance by default**), Chromatic
+(`diffThreshold` 0.063), pixelmatch (`threshold` 0.1, anti-aliasing ignored) and BackstopJS
+(`misMatchThreshold` 0.1 **percent**). The consensus is a strict per-pixel colour distance and a
+near-zero pixel budget, which is what L3 takes: the pixelmatch colour distance (0.1) and a budget of
+0.5% per slice, above BackstopJS's 0.1% because the two sides are independent implementations of one
+design rather than one page against its own earlier shot. The per-property layers L1/L2 carry the
+exactness a pixel budget cannot: a 1 px font-size drift is far under 0.5% of a slice yet is the
+kind of drift the owner cannot unsee. (The pixelmatch 7 vs 8 metric difference was verified
+2026-10-16 by diffing the published 7.2.0 and 8.0.0 packages; the other tools' defaults are the
+approved research brief's, not re-measured here.)
+
+## 5e. The prototype is built to be reproducible from round 1 (DR-129)
+
+Fidelity is cheapest to get right in the prototype, and the freeze found the same defects every time
+(tokens bypassed by hardcoded values, demo chrome baked into the layout, hover that breaks on touch,
+text that fades, system fonts). Every prototype round, not only the final one, follows this contract:
+
+1. **Tokens only in the CSS** (colour, type, space, radius, shadow, motion, layout): zero literal
+   values outside the token definitions, so `design-tokens.json` is regenerable mechanically.
+2. **Demo-only marks and `?demo=off`**: every demo affordance carries `data-demo-only` (DR-061) and
+   the page renders without any of them under `?demo=off`; the oracle and the mocks are captured that
+   way.
+3. **`?host=page` if the prototype auto-detects an embedding host** (any mode that changes layout when
+   the page is shown inside a tall frame); the parameter turns the detection off and every capture
+   URL carries it.
+4. **Minimum product text 12 px**; smaller text is allowed only in demo chrome.
+5. **Only transforms animate**: entrances translate or scale, and text never fades (opacity animates
+   only on decorative layers and controls revealed on hover devices).
+6. **Hover only inside `@media (hover: hover)`**, with the touch branch as the default styles (no
+   `hover: none` branch needed), so a phone never shows a stuck hover state.
+7. **Web fonts, self-hosted where the licence allows**: the files in the prototype are the files the
+   build ships (DR-128).
+8. **Sticky offsets come from a product token that excludes the demo chrome** (for example
+   `--sticky-top`), so the demo strip never shifts the layout the build must reproduce.
+
+**Verified by:** `plugin/skills/design/scripts/preflight-round.mjs`, run after **every** round of the
+prototype (not just at the freeze); its JSON result is saved at `docs/design/freeze/preflight.json`
+and the freeze gate reads it. A failing preflight is fixed in the next round; it is never carried to
+the audit.
+
+## 5f. The freeze has a stop rule and a time box (DR-129)
+
+The PandaSaga freeze took 17 design rounds because every audit found new things and every fix was
+followed by another audit. The freeze is now a bounded, staged procedure:
+
+- **A parallel staged plan**, written to `docs/design/freeze/tracker.md` at the start
+  (`plugin/skills/design/references/freeze-and-fidelity.md` holds the stages and the tracker
+  template): independent stages (fonts and tokens, shards, measured references, icon and logo
+  exports, checklist) run in parallel; only the ones with a real dependency are sequenced.
+- **Exactly ONE independent audit**, by a different model from the authors where possible, over the
+  finished hand-off. **Fix its blockers only.** A non-blocker goes to the fidelity backlog. **No
+  re-audit**, unless a blocker fix touched shared CSS or the tokens (a change that can move every
+  screen); then only the affected measurements are re-run, and the audit is not repeated in full.
+- **Time box.** Target **60 to 100 minutes** wall-clock for the whole freeze; **hard limit 2 hours**.
+  On hitting the limit the freeze ships: the blockers are fixed, everything else becomes the
+  **fidelity backlog**, one line per item in the visual punch-list format, in
+  `.pandacorp/comms/visual-punch-list.md` (the file the end-of-build Visual QA already merges, dedupes
+  and works through), and the tracker records `shipped with backlog`. The backlog holds only what the
+  freeze's audit classed as non-blocking or what the time box left unfinished; it does not make the
+  build's fidelity gate advisory (a measured mismatch still blocks the FRD, §5d).
+- **One Spanish owner status per milestone** (tracker milestones: plan, stages done, audit result,
+  ready to advance), in `.pandacorp/comms/iteration.md`: concise, no per-fix narration. The owner
+  keeps the final advance gate (DR-032).
+
+**Verified by:** `plugin/skills/design/scripts/check-design-gate.mjs` reads
+`docs/design/freeze/tracker.md` (stages done, `time_box`, `elapsed`, and `shipped with backlog` when
+`elapsed` exceeds `time_box`) and `docs/design/freeze/preflight.json`; the freeze does not report
+READY with a stage open, a missing or failing preflight, or an over-time freeze that was not marked
+as shipped with a backlog.
 
 ## 5b. The app shell is a captured foundation, never orphaned by the shard (DR-075)
 
@@ -488,4 +619,7 @@ the system gallery before the manifest is bridged to `components.md`.
 | Per-surface playbooks (case study / Now / blog / contact / archive / stack) (DR-101) | `plugin/skills/design/references/surface-playbooks.md` |
 | Canvas procedure — relay (poll/clipboard/browser), tracker, canvas journal, closing sweep, engine routing (DR-109) | `plugin/skills/design/references/canvas-procedure.md`, `plugin/skills/design/SKILL.md` (Step 0 + Step 9 gate), this file §1c/§11/§12 |
 | Web fonts, logo, fidelity hand-off and the mechanical gate (DR-128 §5c) | `plugin/skills/design/SKILL.md` (Steps 2, 2b, 7–9), `plugin/skills/design/references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`, `plugin/skills/design/scripts/`, `plugin/templates/docs/{fidelity-checklist-template,fdd-template}.md` |
+| Layered fidelity target, comparator pin, capture conditions (DR-129 §5d) | `plugin/skills/design/scripts/fidelity/` (the toolkit: `freeze.mjs` runs split + tokens, measure, shard, screens, catalog, identity; `lib.mjs` the fail-closed capture protocol; `diff.mjs` the comparator; one config `docs/design/freeze/fidelity.config.json`, schema `config.schema.json`), `plugin/templates/docs/fidelity-checklist-template.md` (`## Fidelity target` + *How to verify*), `plugin/skills/design/references/freeze-and-fidelity.md`, `plugin/agents/reviewer.md` + `factory/standards/build-orchestration.md` §9 (a measured mismatch blocks; judged nits stay advisory) |
+| Prototype contract from round 1 (DR-129 §5e) | `plugin/skills/design/scripts/preflight-round.mjs` (run after every round; JSON at `docs/design/freeze/preflight.json`), `plugin/skills/design/SKILL.md` (iteration steps), `plugin/templates/docs/fdd-template.md` (`## Fidelity references`: mock names and the binding `?demo=off&host=page` URL) |
+| Freeze stop rule, one audit, time box, backlog (DR-129 §5f) | `plugin/skills/design/references/freeze-and-fidelity.md` (staged plan), the freeze tracker template (`plugin/templates/docs/design-freeze-tracker-template.md` → `docs/design/freeze/tracker.md`), `plugin/skills/design/scripts/check-design-gate.mjs` (reads tracker + preflight), `plugin/agents/reviewer.md` + `plugin/runtime/engine/pandacorp-build.src.js` (`visualQaPromptBody`: the end-of-build Visual QA merges and works `.pandacorp/comms/visual-punch-list.md`, DR-072) |
 | Functional reconciliation prototype ↔ FRD, bidirectional (DR-064) | `plugin/skills/design/SKILL.md`, `plugin/skills/adopt/SKILL.md`, `plugin/agents/designer.md` |

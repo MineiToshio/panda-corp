@@ -21,7 +21,7 @@ A standard that isn't injected is dead on arrival (Mission Control once violated
 |---|---|
 | **Programming / Conventions** | [conventions.md](conventions.md) · [api-design.md](api-design.md) · [error-handling.md](error-handling.md) · [ai-implementation.md](ai-implementation.md) (how AI agents write code here) |
 | **Architecture / Structure** | [structure.md](structure.md) · [patterns.md](patterns.md) |
-| **Design / Design system** | [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
+| **Design / Design system** | [design.md](design.md) (factory-internal: how a look is frozen and reproduced — frozen contract, fidelity gates, layered fidelity target, prototype contract, freeze time box — DR-054..DR-129) · [patterns.md](patterns.md) (tokens, theme, a11y); the design system is generated per project in `/pandacorp:design` |
 | **Accessibility** | [accessibility.md](accessibility.md) (WCAG 2.2 AA, tap-target tiers, focus, motion — canonical behind `rules/accessibility.md`) |
 | **Technology / Stack** | [stack.md](stack.md) (golden paths A/B/C) |
 | **Quality / Testing** | [quality.md](quality.md) · [debugging.md](debugging.md) (incident investigation SOP: reproduce-first, suspects incl. parallel writers/the harness, attribution guards) · [performance.md](performance.md) · [build-orchestration.md](build-orchestration.md) (how a build is planned/run — DR-050) |

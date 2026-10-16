@@ -1,0 +1,52 @@
+{
+ "source": "app.html",
+ "widths": [
+  375,
+  1280
+ ],
+ "themes": [
+  "light",
+  "dark"
+ ],
+ "components": {
+  "Button": {
+   "route": "#home",
+   "selector": ".btn",
+   "children": [],
+   "states": {
+    "default": {
+     "light-1280": {
+      "root": {
+       "size": "96x36",
+       "font-size": "14px"
+      },
+      "children": {}
+     },
+     "dark-1280": {
+      "root": {
+       "size": "96x36",
+       "font-size": "14px"
+      },
+      "children": {}
+     }
+    },
+    "hover": {
+     "light-1280": {
+      "root": {
+       "size": "96x36",
+       "font-size": "14px"
+      },
+      "children": {}
+     },
+     "dark-1280": {
+      "root": {
+       "size": "96x36",
+       "font-size": "14px"
+      },
+      "children": {}
+     }
+    }
+   }
+  }
+ }
+}

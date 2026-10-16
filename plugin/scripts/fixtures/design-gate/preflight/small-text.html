@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Preflight fixture small-text</title>
+<style>
+@font-face{font-family:'Fixture Sans';src:url(fonts/fixture.woff2) format('woff2');font-display:swap}
+:root{--font-sans:'Fixture Sans',sans-serif;--bg:#ffffff;--fg:#111111;--accent:#0a6b66;--fs-body:16px;--sp:8px}
+[data-theme="dark"]{--bg:#111111;--fg:#f5f5f5;--accent:#33b5aa}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-sans);font-size:var(--fs-body)}
+[data-screen][hidden]{display:none}
+.demo-strip{padding:var(--sp)}
+.demo-badge{font-size:10px}
+[data-demo="off"] .demo-strip{display:none}
+.scroller{overflow-x:auto;width:100%}
+.scroller .strip{width:900px;height:20px}
+.tiny{font-size:10px}
+
+</style></head><body>
+<div class="demo-strip"><span class="demo-badge">Solo demo</span></div>
+<section data-screen="home"><h1>Home</h1><p>Readable body text on the home screen.</p><div class="scroller"><div class="strip">carousel</div></div><p class="tiny">Tiny legal line</p></section>
+<section data-screen="about" hidden><h1>About</h1><p>Readable body text on the about screen.</p></section>
+<script>
+function route(){var id=(location.hash||'#home').slice(1);document.querySelectorAll('[data-screen]').forEach(function(s){s.hidden=s.dataset.screen!==id})}
+addEventListener('hashchange',route);route();
+if(new URLSearchParams(location.search).get('demo')==='off')document.documentElement.dataset.demo='off';
+</script>
+</body></html>

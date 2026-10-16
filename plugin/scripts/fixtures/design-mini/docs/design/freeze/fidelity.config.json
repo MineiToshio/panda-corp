@@ -1,0 +1,50 @@
+{
+  "prototype": "docs/design/prototype/mini.html",
+  "lang": "en",
+  "widths": [375, 1280],
+  "workers": 2,
+  "settle": { "waitMs": 50 },
+  "probe": { "demoOff": "document.documentElement.dataset.demo === 'off'" },
+  "screens": ["home", "list"],
+  "css": {
+    "families": [
+      { "name": "tokens", "description": "Design tokens: custom properties and the dark theme" },
+      { "name": "demo-only", "description": "Prototype-only scaffolding", "note": "DO NOT BUILD: kept only so the reference pages render like the prototype." },
+      { "name": "button", "description": "Button", "component": "Button" },
+      { "name": "popover", "description": "Popover panel", "component": "Menu" }
+    ],
+    "rules": [
+      { "family": "demo-only", "match": "^(\\.demo-|\\[data-demo)" },
+      { "family": "button", "match": "^\\.btn" },
+      { "family": "popover", "match": "^\\.pop" }
+    ],
+    "overrides": { ":root": "tokens", "[data-theme=\"dark\"]": "tokens" },
+    "closingComments": [{ "contains": "end PROTOTYPE-ONLY", "family": "demo-only" }]
+  },
+  "states": {
+    "frd-01-home": [
+      { "id": "home", "title": "Home", "route": "#home" },
+      { "id": "home-menu", "title": "Home: menu open", "route": "#home", "actions": [{ "click": "#menuBtn" }], "capture": "viewport" }
+    ],
+    "frd-02-list": [
+      { "id": "list", "title": "List", "route": "#list" }
+    ]
+  },
+  "shard": {
+    "extras": [
+      { "selector": "dialog[open]", "label": "Dialog (top layer in the app)", "style": "position:static;margin:24px auto" },
+      { "selector": ".pop:not([hidden])", "label": "Popover (anchored to its trigger in the app)", "style": "position:static;width:max-content" }
+    ]
+  },
+  "components": [
+    { "name": "Button", "route": "#home", "root": "#menuBtn", "children": [".ic"], "states": {
+      "default": {},
+      "hover": { "force": [["$", ["hover"]]] },
+      "open": { "click": "#menuBtn" }
+    } },
+    { "name": "Card", "route": "#home", "root": ".card", "children": [".photo"], "states": { "default": {} } }
+  ],
+  "floating": [{ "component": "Button", "state": "open", "panel": "doc:#menuPop", "anchor": "$" }],
+  "identity": { "screens": ["home", "list"], "attempts": 2 },
+  "exports": "({ 'icons/star.svg': '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">' + document.querySelector('#i-star').innerHTML + '</svg>' })"
+}

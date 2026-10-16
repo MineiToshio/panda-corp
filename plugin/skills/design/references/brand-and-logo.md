@@ -36,4 +36,4 @@ Never ship the AI raster. Redraw the chosen concept as SVG from named geometry c
 
 ## 4. Freeze and hand-off
 
-At freeze, export every variant as standalone SVG files (`docs/design/prototype/logo/*.svg`, CSS variables resolved to literal colours) with `scripts/measure-components.mjs` `exports`. Record in `DESIGN.md` → Logo: sizes, surfaces, lockups, don'ts. Add "trademark check of the name and mark before production" to the release checklist (technical assumptions); it is not a design-phase blocker.
+At freeze, export every variant as standalone SVG files (`docs/design/prototype/logo/*.svg`, CSS variables resolved to literal colours) through the `exports` key of `docs/design/freeze/fidelity.config.json`, written by the toolkit's catalog stage (`node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/fidelity/freeze.mjs" catalog`, or `all`; see `scripts/fidelity/README.md`). Record in `DESIGN.md` → Logo: sizes, surfaces, lockups, don'ts. Add "trademark check of the name and mark before production" to the release checklist (technical assumptions); it is not a design-phase blocker.

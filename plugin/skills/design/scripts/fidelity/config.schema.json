@@ -1,0 +1,325 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pandacorp.local/design/fidelity.config.schema.json",
+  "title": "Pandacorp design-freeze fidelity config",
+  "description": "docs/design/freeze/fidelity.config.json: drives every fidelity tool (split + tokens, measure, shard, screens, catalog, identity, diff) and is read by preflight-round.mjs (preflight) and check-design-gate.mjs (widths, themes, states, validated against this file). Paths are relative to the project root. Validated by config.mjs against this file (a JSON-Schema subset: type, enum, properties, required, additionalProperties, items, minItems, minimum, maximum, minProperties, maxProperties, $ref).",
+  "type": "object",
+  "required": ["prototype"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "prototype": { "type": "string", "description": "The frozen whole-app prototype, e.g. docs/design/prototype/app.html." },
+    "lang": { "type": "string", "description": "lang attribute of the generated pages (default en)." },
+    "widths": { "type": "array", "items": { "type": "integer", "minimum": 200, "maximum": 4000 }, "minItems": 1, "description": "Capture widths (default [375, 768, 1280])." },
+    "touchBelow": { "type": "integer", "minimum": 1, "description": "Widths below this are touch phones: isMobile + hasTouch + hover:none + pointer:coarse (default 768)." },
+    "themes": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Themes (default [light, dark]); each is passed as the theme URL param and as prefers-color-scheme when it is light or dark." },
+    "themeAttribute": { "type": "string", "description": "<html> attribute the prototype stores its theme in; the generated pages' theme toggle flips it (default data-theme)." },
+    "params": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "URL params added to every prototype URL. An empty string disables one.",
+      "properties": {
+        "demoOff": { "type": "string", "description": "Demo scaffolding off (default demo=off)." },
+        "host": { "type": "string", "description": "Normal-page host mode, so a grown viewport does not switch on an auto-height frame mode (default host=page)." },
+        "theme": { "type": "string", "description": "Name of the theme param (default theme)." }
+      }
+    },
+    "hostAutoClass": { "type": ["string", "null"], "description": "Class on <html> that means the prototype switched to its auto-height host mode; any capture taken with it fails (default host-auto; null disables the check)." },
+    "baseHeight": { "type": "integer", "minimum": 200, "description": "Viewport height between captures and of viewport-only captures (default 900)." },
+    "maxCaptureHeight": { "type": "integer", "minimum": 1000, "description": "Tallest full-height capture (default 65000, Chromium's cap)." },
+    "workers": { "type": "integer", "minimum": 1, "maximum": 32, "description": "P: parallel browser workers (default 4; env FIDELITY_WORKERS and --workers override)." },
+    "hashNavigation": { "type": "boolean", "description": "A warm page whose document is unchanged moves to the next route by setting location.hash instead of reloading (default true)." },
+    "settle": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "waitMs": { "type": "integer", "minimum": 0, "description": "Fixed wait after fonts and images (default 500)." },
+        "imageTimeoutMs": { "type": "integer", "minimum": 0, "description": "Longest wait for images (default 8000); a visible image still not decoded then fails the run." },
+        "scrollPass": { "type": "boolean", "description": "Also scroll the page top to bottom once (for scroll-triggered content; default false, lazy images are forced eager instead)." }
+      }
+    },
+    "probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Page expressions recorded with every capture.",
+      "properties": {
+        "demoOff": { "type": ["string", "null"], "description": "JS expression true when the demo scaffolding is off; when set, a capture where it is false fails." },
+        "theme": { "type": ["string", "null"], "description": "JS expression returning the rendered theme (default: the themeAttribute of <html>)." }
+      }
+    },
+    "screens": {
+      "type": "array",
+      "description": "Whole-app screens. A string is a screen id routed as #id. Omitted: every <tag screenAttribute=id> of the prototype not marked demoOnlyAttribute.",
+      "items": {
+        "type": ["string", "object"],
+        "additionalProperties": false,
+        "required": ["id"],
+        "properties": {
+          "id": { "type": "string" },
+          "route": { "type": "string" },
+          "widths": { "$ref": "#/$defs/widths" }
+        }
+      }
+    },
+    "screenSelector": { "type": "string", "description": "Selector of the screen containers; the visible one is the screen a mock shows (default 'main > [data-screen]')." },
+    "screenAttribute": { "type": "string", "description": "Attribute naming a screen (default data-screen)." },
+    "demoOnlyAttribute": { "type": "string", "description": "Attribute marking prototype-only markup (default data-demo-only)." },
+    "sprite": { "type": ["string", "null"], "description": "Regex (source) matching the icon sprite in the prototype HTML, inlined into mocks and the catalogue (default: the first <svg> with width=0 and height=0; null: no sprite)." },
+    "screenshots": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "prefix": { "type": "string", "description": "File prefix of the whole-app screenshots (default: the prototype file name without extension)." },
+        "jpegQuality": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Default 85." }
+      }
+    },
+    "css": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How split-css.mjs files the prototype's <style> rules. Without families/rules every rule is filed by the heuristic.",
+      "properties": {
+        "out": { "type": "string", "description": "Output folder (default <prototype dir>/reference/css)." },
+        "numbered": { "type": "boolean", "description": "Prefix each file with its two-digit load position, NN-<family>.css (default true)." },
+        "families": {
+          "type": "array",
+          "description": "Families in cascade (load) order.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "note": { "type": "string", "description": "Extra header line of the file." },
+              "component": { "type": "string", "description": "The component(s) of docs/design/components.md this file styles (README table)." }
+            }
+          }
+        },
+        "rules": {
+          "type": "array",
+          "description": "Classification, first match wins: the regex is tested against the key selector (first selector of the prelude, prefixStrip removed; an @keyframes prelude is its own key).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "match"],
+            "properties": { "family": { "type": "string" }, "match": { "type": "string" } }
+          }
+        },
+        "overrides": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Normalised prelude (a wrapper: its prelude + ' { ' + its first rule's prelude) -> family. Checked first; a wrapper listed here is kept whole." },
+        "prefixStrip": { "type": "string", "description": "Regex (source) of context prefixes removed from a key selector before matching (default: html, :root, theme and host-mode prefixes)." },
+        "verbatim": {
+          "type": "array",
+          "description": "Blocks copied line for line into one family, delimited by comments containing begin/end.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "begin", "end"],
+            "properties": { "family": { "type": "string" }, "begin": { "type": "string" }, "end": { "type": "string" }, "pendingCommentsTo": { "type": "string", "description": "Family that receives the comments still pending when the block starts (default: the block's family)." } }
+          }
+        },
+        "closingComments": {
+          "type": "array",
+          "description": "A top-level comment containing `contains` closes a block and is filed in `family` (other comments travel with the next rule).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["contains", "family"],
+            "properties": { "contains": { "type": "string" }, "family": { "type": "string" } }
+          }
+        },
+        "unmatched": { "enum": ["heuristic", "fail"], "description": "A rule no family claims: filed by the heuristic (default) or a hard failure." }
+      }
+    },
+    "states": {
+      "type": "object",
+      "description": "Per UI FRD (its docs/frds/<frd> folder name): every state its mock shows, in order.",
+      "additionalProperties": { "type": "array", "items": { "$ref": "#/$defs/state" } }
+    },
+    "shard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "extras": {
+          "type": "array",
+          "description": "Open overlays shown below the screen in a mock (default: dialog[open]).",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["selector"],
+            "properties": { "selector": { "type": "string" }, "label": { "type": "string" }, "style": { "type": "string" } }
+          }
+        },
+        "strip": { "type": "string", "description": "Selector of demo-only markup removed from every mock (default [demoOnlyAttribute])." },
+        "gateAttributes": { "type": "array", "items": { "type": "string" }, "description": "Session-gating attributes: an element carrying one is dropped when hidden, else the attribute is removed." },
+        "sectionAttributes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["routeMatch", "attribute", "value"],
+            "properties": { "routeMatch": { "type": "string" }, "attribute": { "type": "string" }, "value": { "type": "string" } }
+          }
+        },
+        "htmlAttributes": { "type": "object", "additionalProperties": { "type": "string" }, "description": "Attributes of the mock pages' <html> (default {themeAttribute: light})." },
+        "jpegQuality": { "type": "integer", "minimum": 1, "maximum": 100, "description": "Default 88." }
+      }
+    },
+    "components": { "type": "array", "items": { "$ref": "#/$defs/component" }, "description": "Components measured into computed-styles.json, in catalogue order." },
+    "floating": {
+      "type": "array",
+      "description": "Floating panels whose box offset from their anchor is recorded (anchor_offset).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["component", "state", "panel", "anchor"],
+        "properties": {
+          "component": { "type": "string" },
+          "state": { "type": "string" },
+          "panel": { "type": "string", "description": "'$' the root, '$ sel' inside it, 'doc:sel' in the document." },
+          "anchor": { "type": "string" }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "enum": ["pareto", "full"], "description": "pareto (default): every state at the primary width light; layout states at the touch width; dark records carry the colour properties only (every state at the primary width, the default state at the touch width); component images at the touch and primary widths light plus dark for the default state. full: every state x width x theme, every property, every image." },
+        "primaryWidth": { "type": "integer", "description": "Default: the widest width." },
+        "touchWidth": { "type": "integer", "description": "Default: the narrowest width." }
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string" },
+        "sheetMax": { "type": "integer", "minimum": 2000, "description": "Tallest catalogue sheet before it is cut into parts (default 30000)." }
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "screens": { "type": "array", "items": { "type": "string" }, "description": "Screen ids compared (default: every screen)." },
+        "widths": { "$ref": "#/$defs/widths" },
+        "theme": { "type": "string" },
+        "attempts": { "type": "integer", "minimum": 1, "maximum": 10, "description": "Fresh capture pairs a screen gets to come out identical (default 3)." }
+      }
+    },
+    "diff": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1, "description": "YIQ threshold (default 0.1)." },
+        "maxRatio": { "type": "number", "minimum": 0, "maximum": 1, "description": "Largest share of differing pixels per slice (default 0.005)." },
+        "sliceHeight": { "type": "integer", "minimum": 1, "description": "Default baseHeight." }
+      }
+    },
+    "exports": { "type": "string", "description": "JS expression evaluated in the prototype returning {relativePath: content}: exact SVG assets written next to the prototype by the catalog stage." },
+    "tokens": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the split stage groups the extracted custom properties in docs/design/design-tokens.json (tokens.mjs).",
+      "properties": {
+        "groups": {
+          "type": "array",
+          "description": "Checked first, first match wins: a token whose name matches the regex goes to this group. Unmatched tokens fall back to the built-in name prefixes (typography, space, radius, stroke, zIndex, motion, elevation, brand, color), then a colour value, then the first name segment.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["group", "match"],
+            "properties": { "group": { "type": "string" }, "match": { "type": "string" } }
+          }
+        }
+      }
+    },
+    "preflight": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Thresholds of preflight-round.mjs (the per-round prototype contract check). The mock widths and themes the design gate requires are the top-level widths/themes (a state's own widths narrows them), not a key here.",
+      "properties": {
+        "minFontPx": { "type": "number", "minimum": 1, "description": "Smallest product text size (default 12)." },
+        "textWidths": { "$ref": "#/$defs/widths", "description": "Widths the text-size and demo-leak checks render at (default [375, 1280])." },
+        "overflowWidth": { "type": "integer", "minimum": 200, "maximum": 4000, "description": "Width of the horizontal-overflow check (default 375)." },
+        "demoSelectors": { "type": "array", "items": { "type": "string" }, "description": "Demo scaffolding that must be hidden under demo=off (default [data-demo-only], .demo-badge, .demo-controls, .demo-strip)." },
+        "demoText": { "type": "string", "description": "Regex (source, case-insensitive) of visible demo wording that must not render under demo=off." },
+        "maxLiteralColors": { "type": "integer", "minimum": 0, "description": "Colour literals allowed outside the token blocks (default 0)." },
+        "maxLiteralLengths": { "type": "integer", "minimum": 0, "description": "px length literals allowed outside the token blocks before a warning (default 150)." },
+        "screens": { "type": ["array", "null"], "items": { "type": "string" }, "description": "Screen ids checked (default: every [data-screen])." },
+        "skipScreens": { "type": "array", "items": { "type": "string" }, "description": "Screen ids left out." },
+        "smallTextIgnore": { "type": "array", "items": { "type": "string" }, "description": "Selectors exempt from the text-size floor (the poster block's own classes are exempt automatically)." }
+      }
+    }
+  },
+  "$defs": {
+    "widths": { "type": "array", "items": { "type": "integer", "minimum": 200, "maximum": 4000 }, "minItems": 1 },
+    "action": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "description": "One step: click (a real pointer click), domClick (element.click(), reaches hidden elements), fill [selector, value] (real typing), wait (ms), waitFor (selector that must become visible), scroll (y or selector), removeAttr [selector, name], setAttr [selector, name, value], js (page code).",
+      "properties": {
+        "click": { "type": "string" },
+        "domClick": { "type": "string" },
+        "fill": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+        "wait": { "type": "integer", "minimum": 0 },
+        "waitFor": { "type": "string" },
+        "scroll": { "type": ["integer", "string"] },
+        "removeAttr": { "type": "array", "items": { "type": "string" }, "minItems": 2 },
+        "setAttr": { "type": "array", "items": { "type": "string" }, "minItems": 3 },
+        "js": { "type": "string" }
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "route"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "route": { "type": "string", "description": "'#screen' or '?param=v#screen'." },
+        "actions": { "type": "array", "items": { "$ref": "#/$defs/action" } },
+        "settleMs": { "type": "integer", "minimum": 0, "description": "Wait after the actions (default 450)." },
+        "widths": { "$ref": "#/$defs/widths" },
+        "capture": { "enum": ["full", "viewport"], "description": "viewport: an overlay or a popover that closes on scroll or resize; the page is settled before the actions and shot without growing or scrolling." },
+        "note": { "type": "string" }
+      }
+    },
+    "componentState": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "force [[target, [pseudo...]]] (CDP CSS.forcePseudoState), attr [[target, name, value|null]], cls [[target, class, on]], js (page code), click (a real click; '$ sel' inside the root), spre (page code after the click), scroll (y), route (another URL), root (another root), wait (ms, default 450), widths, layout (true: measured at the touch width under pareto; default: false for a state made only of forced pseudo-classes).",
+      "properties": {
+        "force": { "type": "array" },
+        "attr": { "type": "array" },
+        "cls": { "type": "array" },
+        "js": { "type": "string" },
+        "click": { "type": "string" },
+        "spre": { "type": "string" },
+        "scroll": { "type": "integer" },
+        "route": { "type": "string" },
+        "root": { "type": "string" },
+        "wait": { "type": "integer", "minimum": 0 },
+        "widths": { "$ref": "#/$defs/widths" },
+        "layout": { "type": "boolean" }
+      }
+    },
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "route", "root", "states"],
+      "properties": {
+        "name": { "type": "string" },
+        "route": { "type": "string" },
+        "root": { "type": "string", "description": "Selector of the component root (the first visible match)." },
+        "children": { "type": "array", "items": { "type": "string" }, "description": "Key descendants ('doc:' = anywhere in the document). Omitted: up to 6 descendants with distinct first classes." },
+        "pre": { "type": "string", "description": "Page code run before every state." },
+        "show": { "type": "string", "description": "Ancestor selector shown in the catalogue and the crops instead of the bare root." },
+        "note": { "type": "string" },
+        "states": { "type": "object", "minProperties": 1, "additionalProperties": { "$ref": "#/$defs/componentState" } }
+      }
+    }
+  }
+}
