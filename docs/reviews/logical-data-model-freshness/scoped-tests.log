@@ -1,0 +1,75 @@
+
+ RUN  v4.1.9 /Users/Shared/Proyectos/panda-corp/mission-control
+
+(node:75028) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75041) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75035) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75037) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75043) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75039) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75038) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75031) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:75024) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+··································stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-002.1/.2 — the page mounts shell + nav + reader and renders the Reference group
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+···········stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-003.1/.4 — commands catalog is DERIVED end-to-end: a skill defined only in the factory appears in the reader
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+·······stderr | src/app/manual/_tests/visual-reanchor.test.tsx > DR-062 — page H1 is 'Documentación' (the nav label) > ManualPage renders a H1 with text 'Documentación' via PageTitle
+[standards.ts] No frontmatter and no derivation map entry for "accessibility.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/accessibility.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "agent-portability.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/agent-portability.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "ai-implementation.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/ai-implementation.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "auth.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/auth.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "background-jobs.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/background-jobs.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "data-modeling.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/data-modeling.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "debugging.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/debugging.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "dependency-lifecycle.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/dependency-lifecycle.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "document-consistency.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/document-consistency.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "error-handling.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/error-handling.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "feature-flags.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/feature-flags.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "memory-harvesting.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/memory-harvesting.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "prompting-conventions.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/prompting-conventions.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "resilience.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/resilience.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "rule-registry.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/rule-registry.md (option A, DR-046) or add it to the derivation map.
+[standards.ts] No frontmatter and no derivation map entry for "single-source-of-truth.md". Using defaults (domain: "Other", severity: "SHOULD", enforcement: "checklist"). Add frontmatter to factory/standards/single-source-of-truth.md (option A, DR-046) or add it to the derivation map.
+
+························stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-003.2 — agents catalog is derived end-to-end with name + model badge
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+·········stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-004.1 — decision rules are derived end-to-end; requiereHumano is a TEXT label, not color alone
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+······stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-004.2/.4 — standards are derived end-to-end; structure.md (DR-049) surfaces; README.md is skipped
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+·········stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-004.3 (DR-046 swap) — removing a rule from the registry removes it from the Manual with no Manual edit
+[reference] Skipped skill "no-desc": missing description frontmatter
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+·stderr | src/app/manual/_tests/manual.reviewer.integration.test.tsx > FRD-08 reviewer — Manual derivation integration (DR-046, anti-orphan) > AC-08-001/.005 — authored content pages reach the reader: selecting one renders its body
+[reference] Skipped skill "no-desc": missing description frontmatter
+
+···(node:77137) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77109) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77164) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:77332) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+····················································
+
+ Test Files  13 passed (13)
+      Tests  156 passed (156)
+   Start at  18:20:16
+   Duration  13.57s (transform 23.94s, setup 15.87s, import 32.83s, tests 25.76s, environment 24.78s)

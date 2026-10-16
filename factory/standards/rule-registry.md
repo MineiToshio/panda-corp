@@ -138,6 +138,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | DATA-4 | N+1 prevention: include/select in one query in the data layer; never query in a loop | MUST | data-modeling.md | reviewer correctness lens over queries/ (isolation substrate: STRUCT-2, wired) | manual |
 | DATA-5 | Denormalize only with a measured reason + an ADR | SHOULD | data-modeling.md | blueprint review + reviewer (ADR presence) | manual |
 | DATA-6 | Deterministic dev-only seed script; tests use factories, not the seed | SHOULD | data-modeling.md | reviewer | manual |
+| DATA-7 | Publish the logical model at architecture; every schema change updates the shared artifact in the same change/commit, on every stack | MUST | data-modeling.md | architecture readiness + reviewer correctness lens + sync/iterate closure; source-to-artifact comparison | manual |
 | AUTH-1 | RBAC declared in the blueprint data model; resource-level authz in data layer/action, never UI-only | MUST | auth.md | blueprint readiness gate (DR-100) + reviewer/adversarial wrong-user tests (PAT-2) | manual |
 | AUTH-2 | No homemade auth; Better Auth cookie sessions with defaults (httpOnly/secure/sameSite) | MUST | auth.md | blueprint review (STACK-3) + security-auditor hardening checklist | manual |
 | AUTH-3 | OAuth scopes minimal | MUST | auth.md | security-auditor hardening checklist | manual |

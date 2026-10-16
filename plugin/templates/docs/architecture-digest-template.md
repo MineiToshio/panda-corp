@@ -3,10 +3,13 @@
   NATIVELY by Mission Control's "Arquitectura" tab (after Spec). It lives at
   `.pandacorp/comms/arquitectura-resumen.md` (gitignored Spanish layer — the underlying
   architecture.md / ADRs / blueprints stay English in `docs/`). It is a HIGH-LEVEL, visual,
-  scannable overview — NOT a copy of the docs. The tab shows it only when this file exists, so the
-  column appears once the project reaches the architecture phase.
+  scannable overview — NOT a copy of the docs. The tab is available when this digest or the structured
+  logical-model artifact exists. Portfolio reuses full Architecture immediately after Work orders.
 
   WHAT THE TAB READS LIVE (do NOT duplicate it here — the tab reads the real artifacts so they never drift):
+  · The logical model — from `docs/product/data-model.json` (DATA-7); Diagram and Esquema consume this
+    one source. Publish it at architecture and update it with every logical schema change in the same
+    change/commit. The narrative below is only context, never a second structured schema.
   · The implementation-plan DAG — from the work-order frontmatter (`docs/frds/*/work-orders/*.md`:
     `id`, `parent`, `implementation_status`, `dependsOn`).
   · The ADRs — from `docs/adr/*.md` (title + the decision; clickable → the ADR body).

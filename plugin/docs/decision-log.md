@@ -4,6 +4,12 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.126.0 — 2026-10-16 (MINOR): keep the published logical model current (DATA-7)
+
+**What:** Added the all-stack `templates/rules/logical-data-model.md` (`applies_when: always`), its version-1 publication contract/examples and a cross-reference from documentation rules. Architecture creates `docs/product/data-model.json` and includes it in schema-owning WO scopes; iterations, sync close-out/reconciliation and the reviewer require same-change updates plus independent schema-to-artifact comparison. Architecture/digest templates identify the actual structured viewer input. The compatible rule propagation bump is overlay 8.99.1. Source: [data-modeling standard](../../factory/standards/data-modeling.md), DATA-7; Manual guide updated (DR-046).
+**Why:** Owner instruction: whenever the data model changes, the model shown in Architecture must change too, across every project. A source-grounded projection is maintained once for both entry points/modes. Untouched legacy projects stay pending until reviewed publication; no fake none state or schema-verification badge. No new skill, schema extractor, state writer or build-engine change is introduced.
+**Verification:** Contract examples pass Mission Control's real parser; standards catalog, generated mirrors/manifests and scoped Manual/model tests are checked. Semantic freshness is a named reviewer correctness checklist with source-path evidence, rather than a timestamp-based automated claim.
+
 ## v9.124.0 — 2026-10-15 (MINOR): one stable artifact per design prototype
 
 **What:** `skills/design/SKILL.md` Step 6 and `references/iteration-loop.md`: every design round updates the prototype's existing artifact (same URL, a version label per round) instead of publishing a new one; the URL is recorded once at the top of `.pandacorp/comms/iteration.md`, and a later conversation reads it and publishes with `url`. Mission Control's manual step for the visual gate says so (DR-046).

@@ -21,8 +21,15 @@ test framework, lint/format). One line on *why* this path (link the deciding ADR
 
 ## Data model
 
-The core entities and their relationships (a small diagram or list). The persistence layer and the
-isolated-data-layer boundary (where DB access lives). *Omit for a stateless project.*
+Describe the persistence layer, canonical schema/model source paths and isolated-data-layer boundary.
+Publish the complete logical projection at **`docs/product/data-model.json`** following the injected
+`docs/rules/logical-data-model.md` (DATA-7): entities/attributes/types, keys/composite groups,
+explicit mappings and both endpoint cardinalities. This artifact powers Mission Control's existing
+**Modelo de datos** section, shared by board and portfolio. Link it rather than maintaining another
+diagram by hand. A stateless/no-database project publishes explicit `persistence: none` with empty
+arrays; never omit the fact or invent entities. Name the project-local exporter/validation command
+when available, otherwise require source-grounded update + independent review. Every logical schema
+change refreshes the artifact in the same change/commit, including fixes and post-launch edits.
 
 ## Service boundaries / module map
 

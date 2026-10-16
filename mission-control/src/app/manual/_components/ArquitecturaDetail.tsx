@@ -72,6 +72,22 @@ export function ArquitecturaDetail(): React.JSX.Element {
         duplica.
       </NotePanel>
 
+      <DocH title="Modelo de datos siempre actualizado" />
+      <Body>
+        Cada proyecto publica <Code>docs/product/data-model.json</Code>. Ese archivo alimenta la
+        sección <B weight={500}>Modelo de datos</B> de Arquitectura, tanto en el Tablero como en el
+        Portafolio. La fase de arquitectura lo crea; cada cambio posterior de tablas, atributos,
+        claves o relaciones lo actualiza en el mismo cambio y commit. También aplica a correcciones
+        y cambios hechos después del lanzamiento.
+      </Body>
+      <Body>
+        La persona o agente que modifica el esquema actualiza el modelo publicado, y la revisión
+        independiente comprueba que coincidan. Si no hay base de datos, se declara explícitamente.
+        Esta regla llega a todos los proyectos con sus reglas generales; los existentes la reciben
+        al actualizar su integración. Un proyecto antiguo sin modelo publicado sigue mostrando el
+        estado pendiente hasta que se complete con evidencia.
+      </Body>
+
       <DocH title="Arquitectura de Mission Control" />
       <Body margin="0 0 8px">
         Mission Control es una aplicación Next.js con App Router. Sus principios:

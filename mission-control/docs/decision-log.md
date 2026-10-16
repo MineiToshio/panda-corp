@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Explain factory-wide logical-model freshness in the Manual
+
+**What:** The Architecture concept guide now explains DATA-7: architecture publishes `docs/product/data-model.json`, each schema-changing change refreshes it in the same commit, and independent review compares the schema and artifact. Clarifies no-database declarations, pending legacy models and safe-upgrade propagation. The always-injected rule is copied into Mission Control's own `docs/rules/` as well.
+**Why:** The owner wants the model shown in Architecture to remain current for every project. The Manual reflects the newly operative factory rule (DR-046); no viewer contract, UI navigation or project machine-state change is introduced. Canonical factory rule: [DATA-7](../../factory/standards/data-modeling.md). Contract examples are tested against this application's real validator.
+
 ## 2026-10-16 — Implement compact logical models inside shared Architecture
 
 **What:** Implemented the owner's revised model viewer within the existing **Modelo de datos** section. The board and portfolio/direct-project workspace reuse the full `ArchitectureDigest` and one validated artifact reader. Arquitectura follows Work orders. Diagram is the default at every width; compact entity cards sit on a native pointer-pan DOM/SVG surface without diagram scrollbars. Esquema presents compact Prisma-like logical code blocks. Added explicit artifact/schema contracts, cardinality/key semantics, search, zoom, selection, keyboard alternatives, an accessible expanded view and honest missing/none/invalid/designed states. Mission Control itself declares no database; relational fixtures remain illustrative.

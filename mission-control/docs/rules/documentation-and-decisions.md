@@ -20,6 +20,7 @@ The doc alone loses the why; the log alone leaves the doc lying. A behavior chan
 | App behavior / feature (what it does, acceptance criteria) | the feature's FRD (`docs/frds/frd-NN-<slug>/frd.md`); new feature → new FRD |
 | Feature implementation design | that feature's `blueprint.md` |
 | Platform-wide architecture / stack / data model | `docs/product/architecture.md` + an ADR |
+| Logical schema (entities, attributes/types, keys, relationships, optionality/cardinalities) | Also update `docs/product/data-model.json` in the same change/commit; follow `logical-data-model.md` (DATA-7), including manual edits and post-launch changes |
 | Product scope / goals / metrics | `docs/product/prd.md` |
 | Visual design, tokens, components | `DESIGN.md` / design tokens |
 | External-facing overview (what it does, how to run it) | root `README.md` |

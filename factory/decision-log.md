@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-10-16 — Publish and refresh the shared logical model with every schema change (DATA-7)
+
+**What:** Extended [data-modeling](standards/data-modeling.md) with DATA-7 and an [always-injected rule](../plugin/templates/rules/logical-data-model.md), independent of Prisma or any stack. Architecture publishes `docs/product/data-model.json`; the schema-changing agent updates it in the same work order/change and commit, with all affected entities, fields/types, optionality, keys, mappings and both endpoint cardinalities. The independent reviewer compares the artifact with canonical definitions before closure. Manual edits through sync, fixes, post-launch changes and explicit no-database models are included.
+**Why:** The owner explicitly requires the model in Mission Control's Architecture tab to stay current whenever a project's model changes. A diagram that silently falls behind the schema defeats its purpose. One artifact feeds Diagram/Esquema and board/portfolio; no duplicate presentation schema or live-production data access is introduced.
+**Propagation and evidence:** The rule ships with `applies_when: always`, the rule catalog and compatible overlay bump. Architecture/iteration/sync/reviewer instructions and architecture templates enforce creation, same-change ownership and correctness review; Mission Control's Architecture guide reflects the policy. Existing projects receive it on their next safe upgrade/skill preflight; no bulk rewrite or fabricated backfill. Contract examples are exercised through the actual Mission Control validator. Semantic correspondence remains an explicitly manual correctness gate, not a claimed universal exporter/CI proof. Catalog entry: DATA-7.
+
 ## 2026-10-15 — The design freeze is a complete, measurable hand-off (DR-128)
 
 **What:** Added [DR-128](decisions/registry.yaml) and [standards/design.md §5c](standards/design.md): a design phase ends with web fonts chosen by the owner, a Codex-generated and hand-refined logo with SVG variants, the prototype in `docs/design/prototype/` on every path, tokens regenerated from its CSS, shards with every state, measured component styles, a component catalogue, exact SVG exports, a fidelity checklist and a mechanical gate (`check-design-gate.mjs`).
