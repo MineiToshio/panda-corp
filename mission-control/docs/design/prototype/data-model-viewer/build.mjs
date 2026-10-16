@@ -1,0 +1,15 @@
+import {readFile,writeFile} from 'node:fs/promises';
+const root=new URL('./',import.meta.url);
+const copy=JSON.parse(await readFile(new URL('copy.es.json',root),'utf8'));
+let template=await readFile(new URL('template.html',root),'utf8');
+const required=["title", "skip", "brand", "guild", "nav", "demo", "demoHelp", "screen", "architecture", "database", "theme", "dark", "light", "state", "states", "project", "tagline", "sample", "boardBreadcrumb", "portfolioBreadcrumb", "architecturePhase", "buildPhase", "boardTabs", "portfolioTabs", "projects", "activeProjects", "otherProjects", "selectedProject", "stackTitle", "stack", "model", "databaseTitle", "intro", "count", "provenance", "provenanceHelp", "source", "search", "clear", "diagram", "list", "expand", "close", "zoomIn", "zoomOut", "fit", "zoom", "diagramName", "selectTable", "seeRelation", "fields", "type", "keys", "value", "required", "optional", "relationships", "explore", "selectHelp", "relationship", "table", "legend", "legendKeys", "legendRequired", "legendNumbers", "many", "minimum", "noResults", "matches", "emptyTitle", "emptyBody", "diagnostic", "retry", "entities", "relations", "portfolioHeading", "portfolioIntro", "brandAlt", "servicesHeading", "servicesBody", "decisionsHeading", "decisionsBody", "planHeading", "planBody", "detailsLabel", "heroTitle", "heroIntro", "stackColumns", "stackRows", "services", "envHeading", "envNote", "envVars", "adrs", "planNote", "planNodes", "frdHeading", "frds"];
+for(const key of required)if(copy[key]===undefined)throw Error(`Missing copy key: ${key}`);
+for(const entity of copy.entities)for(const key of ['id','label','description','fields'])if(entity[key]===undefined)throw Error(`Missing entity copy key ${entity.id}.${key}`);
+for(const relation of copy.relations)for(const key of ['id','from','to','a','b','label','explanation','mapping'])if(relation[key]===undefined)throw Error(`Missing relationship copy key ${relation.id}.${key}`);
+for(const name of ['loading','missing','none','error'])for(const group of ['emptyTitle','emptyBody'])if(typeof copy[group][name]!=='string')throw Error(`Missing copy key: ${group}.${name}`);
+if(JSON.stringify(copy).includes('—'))throw Error('Banned em dash in product copy');
+template=template.replace(/\{\{(\w+)\}\}/g,(_,key)=>{if(typeof copy[key]!=='string')throw Error(`Missing string copy key: ${key}`);return copy[key].replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')});
+for(const match of template.matchAll(/\bC\.([A-Za-z][A-Za-z0-9]*)/g))if(copy[match[1]]===undefined)throw Error(`Missing runtime copy key: ${match[1]}`);
+const result=template.replace('__COPY__',JSON.stringify(copy).replaceAll('<','\\u003c'));
+await writeFile(new URL('index.html',root),result);
+console.log('Built data-model-viewer/index.html from keyed Spanish copy');

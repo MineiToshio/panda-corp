@@ -1,0 +1,294 @@
+{
+  "base": "http://127.0.0.1:8769/data-model-viewer/",
+  "results": [
+    {
+      "view": "architecture",
+      "theme": "dark",
+      "width": 320,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "dark",
+      "width": 375,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "dark",
+      "width": 768,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "dark",
+      "width": 1280,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "light",
+      "width": 320,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "light",
+      "width": 375,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "light",
+      "width": 768,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "architecture",
+      "theme": "light",
+      "width": 1280,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "dark",
+      "width": 320,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "dark",
+      "width": 375,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "dark",
+      "width": 768,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "dark",
+      "width": 1280,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "light",
+      "width": 320,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "light",
+      "width": 375,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "light",
+      "width": 768,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    },
+    {
+      "view": "portfolio",
+      "theme": "light",
+      "width": 1280,
+      "horizontalOverflow": false,
+      "visibleH1s": 1,
+      "demoLeaks": 0,
+      "smallText": [],
+      "smallControls": [],
+      "fontFacesLoaded": [
+        "Space",
+        "JetBrains",
+        "Pixel"
+      ],
+      "runtimeErrors": [],
+      "badResponses": [],
+      "violations": []
+    }
+  ],
+  "failures": []
+}

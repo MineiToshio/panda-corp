@@ -1,0 +1,55 @@
+{
+  "checks": [
+    {
+      "view": "architecture",
+      "flow": "shared architecture, selection, neighbors, optional relation, search, list, clear, zoom, fullscreen axe and focus, navigation without demo",
+      "effectiveMinFont": 12.118421052631579
+    },
+    {
+      "view": "portfolio",
+      "flow": "shared architecture, selection, neighbors, optional relation, search, list, clear, zoom, fullscreen axe and focus, navigation without demo",
+      "effectiveMinFont": 12.118421052631579
+    },
+    {
+      "view": "architecture",
+      "state": "loading",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "architecture",
+      "state": "missing",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "architecture",
+      "state": "none",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "architecture",
+      "state": "error",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "portfolio",
+      "state": "loading",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "portfolio",
+      "state": "missing",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "portfolio",
+      "state": "none",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    },
+    {
+      "view": "portfolio",
+      "state": "error",
+      "flow": "distinct empty state, no contradictory ready facts, axe clean"
+    }
+  ],
+  "errors": []
+}

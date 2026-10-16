@@ -1,0 +1,246 @@
+[
+  {
+    "view": "architecture",
+    "metrics": {
+      "zoom": "100%",
+      "scale": 1,
+      "fieldFont": 12,
+      "renderedFieldFont": 12,
+      "canvas": {
+        "width": 1156,
+        "height": 540,
+        "scrollWidth": 1220,
+        "scrollHeight": 680
+      },
+      "overflow": false,
+      "tabs": "Propuesta\nSpec\nArquitectura\nDocumentos\nCampaña"
+    },
+    "relatedAfterEntity": 2,
+    "neighbors": [
+      "collections",
+      "profiles"
+    ],
+    "selectedEdges": 2,
+    "focusOnOpen": "close-expanded",
+    "focusAfterTab": "canvas",
+    "focusOnClose": "expand",
+    "search": "Coincidencias: profiles",
+    "inspector": "Tabla seleccionadaprofilesInformación opcional de cada usuario. user_id es único: un usuario tiene como máximo un perfil.4 camposRelacionesusers → profiles1 ↔ 0..1",
+    "listEntities": 6,
+    "errors": [],
+    "mappings": [
+      {
+        "id": "ownership",
+        "ends": [
+          {
+            "field": "users.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collections.user_id",
+            "declaredY": 164,
+            "renderedY": 165
+          }
+        ]
+      },
+      {
+        "id": "profile",
+        "ends": [
+          {
+            "field": "users.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "profiles.user_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      },
+      {
+        "id": "note",
+        "ends": [
+          {
+            "field": "collections.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "notes.collection_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      },
+      {
+        "id": "collectionlink",
+        "ends": [
+          {
+            "field": "collections.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collection_items.collection_id",
+            "declaredY": 494,
+            "renderedY": 495
+          }
+        ]
+      },
+      {
+        "id": "itemlink",
+        "ends": [
+          {
+            "field": "items.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collection_items.item_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "view": "database",
+    "metrics": {
+      "zoom": "100%",
+      "scale": 1,
+      "fieldFont": 12,
+      "renderedFieldFont": 12,
+      "canvas": {
+        "width": 900,
+        "height": 540,
+        "scrollWidth": 1220,
+        "scrollHeight": 680
+      },
+      "overflow": false,
+      "tabs": "Resumen\nWork orders\nCambios\nParty\nObservabilidad\nDocumentos\nComandos\nArquitectura"
+    },
+    "relatedAfterEntity": 2,
+    "neighbors": [
+      "collections",
+      "profiles"
+    ],
+    "selectedEdges": 2,
+    "focusOnOpen": "close-expanded",
+    "focusAfterTab": "canvas",
+    "focusOnClose": "expand",
+    "search": "Coincidencias: profiles",
+    "inspector": "Tabla seleccionadaprofilesInformación opcional de cada usuario. user_id es único: un usuario tiene como máximo un perfil.4 camposRelacionesusers → profiles1 ↔ 0..1",
+    "listEntities": 6,
+    "errors": [],
+    "mappings": [
+      {
+        "id": "ownership",
+        "ends": [
+          {
+            "field": "users.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collections.user_id",
+            "declaredY": 164,
+            "renderedY": 165
+          }
+        ]
+      },
+      {
+        "id": "profile",
+        "ends": [
+          {
+            "field": "users.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "profiles.user_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      },
+      {
+        "id": "note",
+        "ends": [
+          {
+            "field": "collections.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "notes.collection_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      },
+      {
+        "id": "collectionlink",
+        "ends": [
+          {
+            "field": "collections.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collection_items.collection_id",
+            "declaredY": 494,
+            "renderedY": 495
+          }
+        ]
+      },
+      {
+        "id": "itemlink",
+        "ends": [
+          {
+            "field": "items.id",
+            "declaredY": 124,
+            "renderedY": 125
+          },
+          {
+            "field": "collection_items.item_id",
+            "declaredY": 534,
+            "renderedY": 535
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "unavailable": [
+      {
+        "state": "missing",
+        "readyFactsVisible": 0,
+        "title": "Modelo lógico pendiente"
+      },
+      {
+        "state": "none",
+        "readyFactsVisible": 0,
+        "title": "Este proyecto no usa base de datos"
+      },
+      {
+        "state": "error",
+        "readyFactsVisible": 0,
+        "title": "No se pudo leer el modelo"
+      }
+    ]
+  },
+  {
+    "mobile": {
+      "mode": "list",
+      "overflow": false,
+      "font": "12px",
+      "entityCount": 6
+    }
+  },
+  {
+    "sha256": "d9666e7febc8d0633b8334218f1d102925fc78f4674d6a68706d9cb31370af35"
+  }
+]

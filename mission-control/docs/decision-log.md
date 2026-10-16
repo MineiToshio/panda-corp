@@ -1,5 +1,19 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Mock up full Architecture reuse across board and portfolio
+
+**What:** The owner approved the ER-viewer concept and then revised the navigation: reuse the complete Arquitectura tab in the portfolio, keeping the existing Modelo de datos section and replacing its entity-list presentation with the diagram. This supersedes the proposal's initial standalone Base de datos tab. Updated the [proposal](proposals/logical-data-model-viewer.md) and produced one [standalone mockup](design/prototype/data-model-viewer/README.md) with shared architecture content, two entry contexts, illustrative schema, graph/list interactions, themes and unavailable states. The change card stays `draft` until visual approval.
+
+**Why:** Architecture remains important during implementation and after launch. Reusing its full content preserves context and avoids fragmenting project documentation into a narrow database-only tab. The remaining architecture sections are included in the preview so the model can be reviewed in context.
+
+**Evidence:** [Round report](design/verification/data-model-viewer/a11y-report.md): clean design preflight, 16 viewport/theme/context cases, 10 interaction/state flows, zero axe violations and a targeted independent visual regression. Corrected unreadable automatic fit and field-port mismatches before presentation. These are mockup checks, not a production feature gate; app source, dependencies and project build state are unchanged.
+
+## 2026-10-16 — Logical database model viewer research proposal captured
+
+**What:** Recorded the owner's request for a shared logical entity–relationship viewer in the board's Arquitectura tab and the portfolio's project workspace. The [research proposal](proposals/logical-data-model-viewer.md) compares Mermaid, React Flow/ELK and the existing graph foundation; recommends an explicit structured model with cardinalities; and defines visual, provenance and compatibility requirements. The proposed technology and artifact contract remain unapproved. The project change queue holds `logical-data-model-viewer` as `draft`, pending design and owner visual approval.
+
+**Why:** The current architecture digest exposes only entity names/descriptions, so rendering it cannot reliably supply attributes or relationship semantics. A shared reader/viewer would keep both entry points consistent, while provenance distinguishes a designed model from an implementation-verified schema. Factory-side artifact production is an explicit separate dependency. This is research/capture only; no app behavior, canonical FRD or build state changed.
+
 ## 2026-10-13 — Board card opens on its stage's tab; launched/discarded projects keep every tab
 
 **What:** (1) Opening a card on the board now lands on the tab of the project's current stage instead of always Propuesta: research → Propuesta, product/design → Spec, architecture/implementation/release (incl. shipped) → Arquitectura, falling back Arquitectura → Spec → Propuesta when that stage's digest does not exist yet (e.g. PandaCast, mid-architecture, opens on Spec). Only the initial tab is derived; the owner's later pick persists. Supersedes the old AC-02-009.1 rule "default = Propuesta". (2) The board now reads a card's linked project (status, scoped docs, FRD count, Spec/Arquitectura digests) for any project-linked card, not only `in-pipeline` ones, via `src/app/board/_utils/readCardProject.ts` — shipped and discarded projects keep their Spec, Arquitectura and Documentos tabs. Columns and `isRunning` are unchanged.
