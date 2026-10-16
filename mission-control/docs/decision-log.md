@@ -1,5 +1,11 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Pandacorp overlay 8.98.0 -> 8.100.0 (measured fidelity blocks) and the Manual's design freeze
+
+**What:** the build engine artifact `.claude/engines/pandacorp-build.js` is copied byte-identical from plugin 9.127.0 (which also carries 9.126.0's compatible overlay 8.99.1; its project rule `docs/rules/logical-data-model.md` is already here). Its FRD-gate prompts now say that a MEASURED fidelity mismatch from a project's fidelity gate blocks, and judged nits stay advisory (DR-129 amends DR-072). `overlay_version` follows. The Manual documents the new design flow in [skill-flows.ts](../src/lib/manual/skill-flows.ts): the round preflight, the parallel freeze stages with a 60 to 100 min target and a 2 h hard limit, and the single audit with blockers only before the advance gate. The Design section of [PipelineDetail.tsx](../src/app/manual/_components/PipelineDetail.tsx) gets a short paragraph and a list on the same points.
+
+**Why:** plugin 9.127.0 (DR-129). The Manual is the factory's navigable face (DR-046).
+
 ## 2026-10-16 — Explain factory-wide logical-model freshness in the Manual
 
 **What:** The Architecture concept guide now explains DATA-7: architecture publishes `docs/product/data-model.json`, each schema-changing change refreshes it in the same commit, and independent review compares the schema and artifact. Clarifies no-database declarations, pending legacy models and safe-upgrade propagation. The always-injected rule is copied into Mission Control's own `docs/rules/` as well.

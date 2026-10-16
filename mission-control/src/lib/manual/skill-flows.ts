@@ -398,10 +398,11 @@ const FLOWS: SkillFlow[] = [
         ],
       },
       {
-        title: "Verificación automática (a11y)",
+        title: "Verificación automática (preflight de ronda + a11y)",
         kind: "safe",
         detail:
-          "Captura screenshots a 375/1280px y corre accesibilidad (axe-core) en todas las pantallas, anchos y temas; antes de congelar, una pasada de móvil a 375 y 320 px. Arregla las violaciones serias ANTES de enseñártelo.",
+          "Cada ronda empieza con el preflight del prototipo (preflight-round.mjs): CSS solo con tokens, nada de demo con ?demo=off, texto de 12 px o más, hover solo en dispositivos con hover, fuentes web propias. Lo que encuentra se arregla en esa misma ronda, nunca se arrastra a la congelación. Después, screenshots a 375/1280px y accesibilidad (axe-core) en todas las pantallas, anchos y temas; antes de congelar, una pasada de móvil a 375 y 320 px.",
+        note: "DR-129 §5e: el contrato del prototipo rige desde la ronda 1",
       },
       {
         title: "GATE VISUAL (eliges tú)",
@@ -411,12 +412,32 @@ const FLOWS: SkillFlow[] = [
         note: "DR-032 — elegir no obliga a avanzar",
       },
       {
-        title: "Congelar el contrato + mocks por FRD + gate de avance",
+        title: "Congelación en paralelo (60 a 100 min, tope 2 h)",
+        kind: "action",
+        detail:
+          "Un plan por etapas con su tracker (docs/design/freeze/tracker.md): las tareas sin dependencias corren a la vez, cada una con el modelo que merece. La herramienta de fidelidad del plugin (freeze.mjs) extrae los tokens y el CSS portable, mide cada componente, trocea el prototipo en mocks por FRD con todos sus estados y captura el catálogo, mientras el diseñador reconcilia prototipo y FRDs, el copywriter el texto y el PM enmienda los FRDs. Se puede cortar y retomar donde quedó. Recibes un estado corto en cada hito.",
+        note: "DR-129 §5f: al llegar a 2 h se entrega con los bloqueantes arreglados y el resto va a la lista de QA visual del final de la construcción",
+        parallel: true,
+        calls: [
+          {
+            ref: "designer",
+            as: "agent",
+            note: "paquetes de contexto, reconciliación, FDD por FRD, documentos de fidelidad",
+          },
+          { ref: "copywriter", as: "agent", note: "reconciliación del texto por FRD" },
+          { ref: "product-manager", as: "agent", note: "enmiendas de los FRDs" },
+        ],
+      },
+      {
+        title: "Una sola auditoría, solo bloqueantes + gate de avance",
         kind: "gate",
         detail:
-          "Fija los tokens finales, el inventario components.md y trocea el prototipo en mocks por cada FRD con UI, con todos sus estados. Deja la entrega de fidelidad: prototipo en docs/design/prototype/, medidas de cada componente, catálogo de componentes, iconos y logo en SVG y la guía de fidelidad. Un script verifica que todo existe y, con tu «ok», pasa a phase: architecture.",
-        note: "Un artefacto faltante es un not-done, no avanzable. Siguiente: /blueprint.",
-        calls: [{ ref: "blueprint", as: "skill", note: "siguiente paso" }],
+          "Un revisor independiente audita la entrega UNA vez: lo que bloquea se arregla (máximo 3 intentos) y todo lo demás va a la lista de QA visual. No hay segunda auditoría; solo el chequeo mecánico (check-design-gate.mjs) vuelve a mirar: artefactos, preflight limpio, tracker cerrado y tiempo registrado. Con READY y tu «ok», pasa a phase: architecture.",
+        note: "Un artefacto faltante es un not-done, no avanzable. En la construcción, una diferencia MEDIDA de fidelidad bloquea por defecto. Siguiente: /blueprint.",
+        calls: [
+          { ref: "reviewer", as: "agent", note: "la auditoría única, de solo lectura" },
+          { ref: "blueprint", as: "skill", note: "siguiente paso" },
+        ],
       },
     ],
     loop: "El gate visual se repite: cada ronda refina los mockups en sitio y añade una entrada a iteration.md (re-correr /design retoma, no regenera).",

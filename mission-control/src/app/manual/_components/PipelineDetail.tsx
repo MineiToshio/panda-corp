@@ -93,6 +93,33 @@ export function PipelineDetail(): React.JSX.Element {
       <NotePanel icon="ti-hand-click" iconColor="var(--color-accent)">
         Tú solo tomas decisiones (aprobar, corregir o diferir); nunca haces de mensajero.
       </NotePanel>
+      <Body margin="0 0 8px">
+        Cada ronda empieza con un <B weight={500}>preflight del prototipo</B> (tokens en el CSS,
+        nada de demo con <Code>?demo=off</Code>, texto de 12 px o más, hover solo donde hay hover):
+        lo que encuentra se arregla en esa ronda. Al aprobar, la <B weight={500}>congelación</B> es
+        un plan acotado (DR-129):
+      </Body>
+      <Ul>
+        <li>
+          Etapas en paralelo con su tracker: la herramienta del plugin extrae tokens y CSS, mide los
+          componentes y trocea los mocks por FRD mientras los agentes reconcilian FRDs y textos. Si
+          se corta, retoma donde quedó.
+        </li>
+        <li>
+          <B weight={500}>Una sola auditoría</B> independiente: se arreglan solo los bloqueantes y
+          el resto va a la lista de QA visual del final de la construcción. No hay segunda
+          auditoría.
+        </li>
+        <li>
+          Objetivo de 60 a 100 minutos, <B weight={500}>tope de 2 horas</B>: al llegar al tope se
+          entrega con los bloqueantes arreglados. Recibes un estado corto por hito.
+        </li>
+        <li>
+          La meta de fidelidad es por capas y medida (tipografía y colores exactos, tamaños exactos,
+          espaciados a ±1 px, píxeles por franja): en la construcción, una diferencia medida bloquea
+          por defecto.
+        </li>
+      </Ul>
 
       <DocH title="Architecture" />
       <Body>
