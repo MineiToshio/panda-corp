@@ -6,7 +6,7 @@ parent: frds/frd-04-project-workspace/frd.md
 ui: true
 visual_source: docs/design/prototype/index.html
 status: ACTIVE
-last_updated: '2026-06-19'
+last_updated: '2026-10-16'
 ---
 # FDD-04 — Project workspace (feature design)
 
@@ -28,25 +28,13 @@ FRD-04's acceptance criteria.
 
 ## 1. Layout
 
-`projectPane(i)` renders, top → bottom, inside the right column of the portfolio:
+The portfolio's selected-project pane and `/projects/<slug>` use one tabs-first workspace:
 
-1. **Header `.panel`** (`padding 12px 16px`) — the project title (18px/500, with a live
-   `ti-player-play` `var(--ok)` pip when running), a right cluster with the **status chip**
-   (`chip2()`) + version, the `progreso` line below, and the **"Objetivos de la misión" bar**
-   (`progressBar()`): a labelled `ti-sword` row + a thin accent (or `var(--ok)` at 100%) bar of
-   `done / tot · pct%` work orders. The header is visible on **all tabs**.
-2. **Snapshot banner** (`snapshotPanel()`, conditional) — when a green build snapshot exists: a `.panel`
-   with `ti-circle-check` `var(--ok)`, the last-probable-green FRD + "verde" chip, the commit sha, and a
-   copyable `git worktree add …` command to test it in another folder without stopping the build.
-3. **Subtabs** — a flex-wrap row of `.stab` pills in this order: **Resumen · Work orders · Party ·
-   Documentos · Comandos** (Commands last, contextual). Active pill = `.stab.on`.
-4. **Tab body** — switched by `ST.projectTab`:
-   - **Resumen** (`projResumen`) — a doc `.panel` (Resumen + Puntos clave list), then
-     **Puntos de decisión** (`decisionesBox()`) and the **Actividad** log (`logBox()`).
-   - **Work orders** — `projWO()` (FDD-05).
-   - **Party** — `missionBody()` (FDD-06).
-   - **Documentos** (`projDocs`) — a 200px `.navitem` doc-nav `.panel` + a rendered-markdown `.panel doc`.
-   - **Comandos** (`projComandos`) — `buildModePanel()` + `commandsBox()`.
+1. A compact project header with the project H1, stage/version and thin work-order progress; it remains visible across tabs. Detailed overview and Mission Objectives live within **Resumen**.
+2. A reachable shared `Tabs` row in this exact order: **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Default is Resumen; `tab=architecture` selects Arquitectura while retaining the current project.
+3. Selected content: Resumen (summary, decisions and activity), Work orders (FDD-05), Arquitectura (the complete shared `ArchitectureDigest`, FDD-02 §12), Cambios (queue/detail modal), Party (FDD-06), Observabilidad (FDD-12), Documentos (nav/reader) or Comandos (FRD-11 selector and command rows).
+
+The Architecture tab sits immediately after Work orders. It preserves **Modelo de datos** inside the complete Architecture surface, using the compact shared **Diagrama / Esquema** viewer; it is never a database-only tab. Its scoped visual reference is `docs/design/prototype/data-model-viewer/index.html` (round 2), layered onto the whole-app visual source. All model interaction/dimensions/states in [FDD-02 §12](../frd-02-ideas-board/fdd.md#12-shared-architecture--logical-model-2026-10-16) apply identically here.
 
 ## 2. Components used (all on the frozen tokens / PDD)
 
@@ -56,7 +44,7 @@ FRD-04's acceptance criteria.
 | Status / version / "verde" pills | `Chip` | ok-bg / info-bg variants (`chip2`, `frdChip`) |
 | Mission-objectives bar | `ProgressBar` | accent fill, `var(--ok)` at 100%; `done/tot · pct%` |
 | Green-snapshot banner | `Banner` | ok-accented `.panel` + copyable `git worktree` `CommandChip` |
-| Subtab switcher | `SubTabs` (`.stab`) | Resumen · Work orders · Party · Documentos · Comandos; `.on` active |
+| Subtab switcher | `SubTabs` (`.stab`) | Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos; `.on` active |
 | Decision points | `DecisionCard` (`decisionesBox`) | warn-bg cards, AI recommendation, `/pandacorp:decide` command |
 | Activity log | `ActivityLog` (`logBox`) | dotted-rule rows of high-level AI activity |
 | Build-mode selector | `BuildModeSelector` (`.stab` group, FRD-11) | 4 modes; surfaces the matching `/pandacorp:implement…` command |
@@ -71,8 +59,8 @@ FRD-05; this FDD only places them in the tab shell.
 ## 3. States
 
 - **Decisions present** — `decisionesBox()` highlights pending decisions with a warn count chip, each
-  card carrying the AI recommendation + an "Aprobar la recomendación" copy button and the
-  `/pandacorp:decide` command (`AC`: "WHEN there are pending decisions, it SHALL highlight them").
+  card carrying the AI recommendation as context and the scoped
+  `/pandacorp:decide <id>` command (no one-click recommendation approval) (`AC`: "WHEN there are pending decisions, it SHALL highlight them").
 - **Empty** — no decisions → the calm "Sin puntos pendientes" `.panel`; no activity → "Aún sin actividad
   registrada"; no work orders → the bar/`projWO` empty message (FDD-05).
 - **Loading** — the Next.js build streams the header + active tab; tab bodies read project state under

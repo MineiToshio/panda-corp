@@ -15,7 +15,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-01](../frds/frd-01-data-reading/frd.md) | Data reading layer | Reads the factory's and each project's state from disk, read-only, never calling Claude. |
 | [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the only bounded writes (discard / restore `status`, and the visual `favorite` flag). |
 | [FRD-03](../frds/frd-03-portfolio/frd.md) | Portfolio and project navigation | Lists created projects with their state and links into each project's workspace. |
-| [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Per-project view with docs, commands and the build-mode selector. |
+| [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Eight-tab per-project workspace with the complete shared Architecture surface, logical data-model viewer, docs, commands and the build-mode selector. |
 | [FRD-05](../frds/frd-05-work-orders/frd.md) | Work orders (live view) | Read-only kanban of a project's work orders, grouped by FRD, with the full document. |
 | [FRD-06](../frds/frd-06-party/frd.md) | Party (live RPG map) | The live RPG map of the agents building a concrete project. |
 | [FRD-07](../frds/frd-07-configuration/frd.md) | Configuration | Factory/agent configuration surface, including agent levels. |
@@ -57,17 +57,24 @@ A read-only view that shows state + documentation + the next command, wrapped in
 4. Follow the agents building live, in a fun way (RPG-style **Party**).
 5. Feel progress: **achievements**, **stats** that grow, **guild level** and **agent levels**.
 6. Let another person understand the whole system (internal documentation).
+7. Understand a project's complete architecture and logical model from either the board or portfolio, including attributes, keys and explicit relationship cardinalities.
 
 ## Scope v1
 The **Dashboard / "Inicio"** as the landing command center ([FRD-18](../frds/frd-18-dashboard/frd.md): the *since-last-visit* digest, the *Tu turno* human-gate queue, the *Pulso* funnel with the one metric that matters, the enriched *Construcción y cartera*, and the honest progress strip) + five tabs — **Board, Portfolio, Achievements, Configuration, Documentation** — + the **per-project workspace** + **Party RPG** + **gamification** (achievements/stats/XP/levels) + **build modes** + **probable snapshot and feedback channels** ([FRD-14](../frds/frd-14-snapshot-and-feedback/frd.md): a "last probable point / building now" panel with a worktree command, decision/bug chips per project), per the FRDs (`docs/frds/`, FRD-01 through FRD-18). The navigable prototype (`mission-control/prototype/index.html`) is the approved design. Cross-cutting across all tabs: **observability and data-viz** ([FRD-12](../frds/frd-12-observability-dataviz/frd.md): KPIs, data freshness, RPG↔timeline toggle, DAG) and the **visual and accessibility system** ([FRD-13](../frds/frd-13-visual-system-accessibility/frd.md): OKLCH tokens, rationed accent, `tabular-nums`, restrained motion, `prefers-reduced-motion`, state by icon+color).
 
+### Shared architecture and logical model (FRD-02 / FRD-04)
+The board detail and both embedded and direct project workspaces reuse the complete `ArchitectureDigest`. The workspace order is **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Inside **Modelo de datos**, a compact, read-only ER diagram is the default at every viewport width; the **Esquema** alternative is a compact Prisma-like textual representation of the same logical artifact, not executable Prisma. Pan, zoom, fit, expansion, search and selection never edit the project. Missing, invalid and explicitly no-persistence sources remain distinguishable. The designed model is never presented as a verified operational database.
+
+The scoped visual reference is [the data-model viewer prototype, round 2](../design/prototype/data-model-viewer/index.html), layered onto the existing whole-app design. The project-owned contract is `docs/product/data-model.json` (`schemaVersion: 1`); its producer in the factory architecture tooling is a separate dependency. MC itself declares `persistence: none`; illustrative models stay in fixtures/previews.
+
 ## Non-goals (v1)
 - It does not execute commands or agents (the owner pastes them into Claude Code).
 - It is not multi-user nor deployed to the internet. No leaderboards.
-- It does not edit the projects' documentation.
+- It does not edit the projects' documentation or database schemas, execute schema code, inspect a live database, or infer relationships from field names.
 
 ## Success metrics
 - See the state of each idea/project and get the next-step command, without opening files.
+- Read a project's entities, attributes, keys and both relationship endpoints from either Architecture entry point without opening source files.
 - Zero calls to Claude from Pandacorp.
 - The operator comes back daily: the gamification sustains the habit without fatigue.
 

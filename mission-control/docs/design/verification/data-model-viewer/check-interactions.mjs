@@ -21,6 +21,19 @@ try {
     assert.equal(await page.locator('.edge[data-relation]').count(), 5);
     const effectiveMinFont = await page.locator('.field-name').evaluateAll(elements => Math.min(...elements.map(el => parseFloat(getComputedStyle(el).fontSize) * el.getBoundingClientRect().height / el.offsetHeight)));
     assert(effectiveMinFont >= 12, `Unreadable rendered font: ${effectiveMinFont}`);
+    assert.equal(await page.locator('#mode-diagram').getAttribute('aria-pressed'), 'true');
+    if (view === 'portfolio') assert.equal((await page.locator('#project-tabs').innerText()).replace(/\s+/g, ' ').includes('Work orders Arquitectura'), true);
+    const canvas = page.locator('#canvas');
+    await canvas.scrollIntoViewIfNeeded();
+    assert.equal(await canvas.evaluate(el => getComputedStyle(el).overflow), 'hidden');
+    const beforePan = await page.locator('#stage').getAttribute('style');
+    const box = await canvas.boundingBox();
+    await page.mouse.move(box.x + 8, box.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 78, box.y + 48, { steps: 5 });
+    await page.mouse.up();
+    assert.notEqual(await page.locator('#stage').getAttribute('style'), beforePan);
+    await page.locator('#fit').click();
     await page.getByRole('button', { name: 'Seleccionar tabla users', exact: true }).click();
     assert.equal(await page.locator('#inspector h3').first().innerText(), 'users');
     assert(await page.locator('.entity.related').count() >= 1);
@@ -34,6 +47,8 @@ try {
     assert.equal(await page.locator('#list-view [data-list-entity]').count(), 0);
     await page.locator('#clear-search').click();
     assert.equal(await page.locator('#list-view [data-list-entity]').count(), 6);
+    assert.equal(await page.locator('#list-view pre').count(), 6);
+    assert.equal(await page.locator('#list-view table').count(), 0);
     await page.locator('#mode-diagram').click();
     await page.locator('#expand').click();
     assert(await page.locator('#expanded').evaluate(el => el.open));
@@ -48,7 +63,7 @@ try {
     assert(await page.locator('#zoom-level').innerText());
     await page.getByRole('link', { name: view === 'architecture' ? 'Portfolio' : 'Tablero', exact: true }).click();
     assert.equal(await page.locator('#project-tabs .selected').innerText(), 'Arquitectura');
-    checks.push({ view, flow: 'shared architecture, selection, neighbors, optional relation, search, list, clear, zoom, fullscreen axe and focus, navigation without demo', effectiveMinFont });
+    checks.push({ view, flow: 'shared architecture, selection, neighbors, optional relation, search, schema code blocks, clear, native pointer pan without scrollbars, zoom, fullscreen axe and focus, navigation without demo', effectiveMinFont });
     await context.close();
   }
   for (const view of ['architecture', 'portfolio']) {

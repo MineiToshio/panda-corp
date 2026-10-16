@@ -63,6 +63,7 @@ export default function BoardPage(): React.JSX.Element {
       frdCount,
       specContent,
       architectureContent,
+      dataModel,
       workOrders,
       envVars,
       adrs,
@@ -110,6 +111,7 @@ export default function BoardPage(): React.JSX.Element {
       specContent,
       // Spanish high-level architecture digest + its live artifacts for the Arquitectura tab.
       architectureContent,
+      dataModel,
       workOrders,
       envVars,
       adrs,

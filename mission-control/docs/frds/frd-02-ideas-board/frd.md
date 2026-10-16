@@ -44,13 +44,12 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   pattern** as the Portfolio project pane (the `stab` selector row), and SHALL default the active tab
   **by the project's stage** (campaign phase): research → **Propuesta**; product or design → **Spec**;
   architecture, implementation or release (incl. shipped) → **Arquitectura**. When the stage's tab is
-  not rendered (its digest is absent), the default falls back to the previous available stage tab
+  not rendered (the corresponding artifacts are absent), the default falls back to the previous available stage tab
   (Arquitectura → Spec → Propuesta); Documentos and Campaña are never the default. Only the initial tab
   is derived: the owner's later pick persists (AC-02-009.4). (Owner decision, discover redesign 2026-06-26; the Comandos tab was folded into the
   campaign ficha earlier.) A **Spec** tab is inserted **between Propuesta and Documentos** when the
   project has a spec digest (REQ-02-011), and an **Arquitectura** tab **after Spec** when it has an
-  architecture digest (REQ-02-013) — absent each digest, that tab is not rendered and the structure is
-  unchanged. Full order when both exist: Propuesta · Spec · Arquitectura · Documentos · Campaña.
+  architecture digest or a present structured model artifact (REQ-02-013) — absent the corresponding source artifacts, that tab is not rendered. Full order when both exist: Propuesta · Spec · Arquitectura · Documentos · Campaña.
 - AC-02-009.5 — WHEN the **Propuesta** tab is active, THE system SHALL render the idea's **memo-pitch**
   (the card's hot→cold body produced by `/discover`/`/new-idea`, plugin v9.9.0) natively via the
   `IdeaPitch` component (CMP-02-idea-pitch) using the design tokens — the on-brand pitch that makes the
@@ -161,7 +160,7 @@ campaign map) + `prototype/index.html` `detailView()`:
   (`🔍 research.md`, `📋 PRD + FRDs`, …); the "entrega ▸" label + arrow were dropped. The inter-phase
   connectors render as the prototype's striped **road** (done ✓ / flowing → / locked), not the Fragua
   stone PNG.
-- **AC-02-009.1** — the three tabs carry their icons (`ti-map-2 · ti-files · ti-wand`).
+- **AC-02-009.1** — every rendered tab carries its icon (Propuesta `ti-sparkles`, Spec `ti-list-details`, Arquitectura `ti-affiliate`, Documentos `ti-files`, Campaña `ti-map-2`).
 - **AC-02-009.2/.3 Documentos** is a **rail (210px) + reader**: the rail always lists **Resumen** (the
   summary reader) plus one item per project document; selecting an item shows it in the reader (a board
   card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
@@ -248,19 +247,8 @@ campaign map) + `prototype/index.html` `detailView()`:
 > rendering contract) for the NARRATIVE, plus the project's LIVE artifacts for the machine-truth blocks.
 > Read-only over the factory.
 
-- AC-02-013.1 — WHEN the open card's linked project has an architecture digest
-  (`.pandacorp/comms/arquitectura-resumen.md` present and non-empty), THE system SHALL render an
-  **Arquitectura** tab **after Spec**; WHEN no digest exists, THE system SHALL NOT render it (the project
-  hasn't reached the architecture phase). The reader is fail-loud (DR-078): a missing digest is the
-  deliberate absent state, never a crash. Like the Spec digest (AC-02-011.1), it is read for any card
-  linked to a project (in-pipeline, shipped or discarded), not only in-pipeline.
-- AC-02-013.2 — WHEN the **Arquitectura** tab is active, THE system SHALL render, top→bottom on ONE
-  scannable screen, reusing the Spec tab's visual language (DR-062): a **hero** (stack one-liner + host ·
-  coste · fase chips), a **Stack & tecnologías** table (capa · elección · por qué), a **CONDITIONAL
-  Modelo de datos** section (rendered only when present — the "Sin base de datos — contenido como código"
-  branch with the content entities for a content-as-code project, or the DB entities otherwise), a
-  **Comunicación & servicios** + **Variables de entorno** two-up, a **Decisiones (ADRs)** list, the
-  **Plan de implementación** centrepiece, and **per-FRD** cards.
+- AC-02-013.1 — WHEN the open card's linked project has a non-empty architecture digest OR a present structured model artifact (including explicit none or invalid input), THE system SHALL render an **Arquitectura** tab after Spec when available, otherwise after Propuesta. WHEN both artifacts are absent, THE system SHALL omit the tab. Availability SHALL NOT depend on the digest when the model artifact is present. This applies to every project-linked card, including shipped and discarded cards.
+- AC-02-013.2 — WHEN **Arquitectura** is active, THE system SHALL reuse the complete `ArchitectureDigest`: hero, **Stack & tecnologías**, **Modelo de datos**, **Comunicación & servicios**, **Variables de entorno**, **Decisiones (ADRs)**, **Plan de implementación**, and per-FRD cards. The **Modelo de datos** heading SHALL remain present and host the shared logical-model viewer (REQ-02-015); existing narrative/content-entity context SHALL remain readable. Missing narrative SHALL NOT suppress an available model or its error/none state.
 - AC-02-013.3 — THE **Plan de implementación** SHALL render the implementation-plan **DAG** by reusing
   the work-order dependency graph component (`WoDag`/`DagCanvas`, dagre + SVG — no new graph library):
   nodes = work orders grouped by FRD, edges = `dependsOn`, node state = `implementation_status`, so the
@@ -278,8 +266,22 @@ campaign map) + `prototype/index.html` `detailView()`:
   /parallelism. WHEN the FRD has a single work order, THE system SHALL NOT render the DAG (there is no
   dependency/parallelism to show).
 
+### REQ-02-015 — Shared logical data-model viewer (CMP-02-data-model-viewer)
+
+The project-owned source is `docs/product/data-model.json`. Contract and reader details live in [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) and the [platform architecture](../../product/architecture.md). The architecture tooling producer/backfill is a separate factory dependency; this consumer never fabricates the source.
+
+- AC-02-015.1 — WHEN a valid version-1 relational or document model is available, THE viewer SHALL display every declared entity, ordered attribute, logical type, optionality, PK/FK/UQ membership and composite-key group, preserving isolated entities, self-relations, parallel edges and declared association entities without inventing joins.
+- AC-02-015.2 — WHEN a relationship is displayed or selected, THE viewer SHALL preserve attribute mappings and both endpoint cardinalities, explicitly labelled `1`, `0..1`, `0..*` or `1..*`, and SHALL explain both directions in Spanish.
+- AC-02-015.3 — WHEN the viewer opens at any viewport width, THE default SHALL be **Diagrama**, using 248px entity cards, 24px attribute rows and 12px field text; THE viewer SHALL offer native pointer-drag panning of the canvas background, zoom, fit/reset, keyboard arrows and labelled directional buttons without requiring scrollbars to navigate the diagram.
+- AC-02-015.4 — WHEN the owner chooses **Esquema**, THE viewer SHALL display compact Prisma-like textual model blocks and explicit relationship/cardinality text from the same artifact; this SHALL be a viewing representation, not an executable Prisma schema or an HTML attribute table.
+- AC-02-015.5 — WHEN the owner searches an entity/attribute or selects an entity/relation, THE viewer SHALL reveal matching entities, center diagram search results and expose selection details without editing or dropping model data.
+- AC-02-015.6 — WHEN the owner expands or closes the model, THE viewer SHALL preserve its model and selection, provide modal keyboard navigation/Escape, restore trigger focus on close, and prevent another selected project's model from leaking into the view.
+- AC-02-015.7 — WHEN the source is absent, explicitly `persistence: none`, valid with no entities, malformed, oversized, unreadable or unsupported, THE viewer SHALL show the corresponding missing/none/empty/error state and keep the rest of Architecture usable; invalid input SHALL never appear as a valid empty diagram.
+- AC-02-015.8 — WHEN a usable designed model is displayed without independent schema verification, THE viewer SHALL state **Modelo diseñado. Implementación sin verificar.**; phase, timestamps and work-order state SHALL NOT imply operational-schema verification.
+- AC-02-015.9 — WHEN identical project artifacts are opened from the board, portfolio workspace or direct project page, THE system SHALL use the same reader and viewer and SHALL retain all other Architecture sections (REQ-02-013).
+
 ## Edge cases
-- Idea with no architecture digest → the Arquitectura tab is simply absent; the other tabs render unchanged (AC-02-013.1).
+- Idea with neither architecture digest nor structured model artifact → Arquitectura is absent; a present model without a digest keeps the tab reachable (AC-02-013.1).
 - Idea with no spec digest → the Spec tab is simply absent; the other tabs render unchanged (AC-02-011.1).
 - Favourite is orthogonal to the column: a card keeps its derived column whether or not it is a favourite; toggling the star never moves it (REQ-02-012).
 - Idea with no documents → the Documentos rail still shows **Resumen** (the reader = the summary); there
@@ -292,6 +294,6 @@ campaign map) + `prototype/index.html` `detailView()`:
 
 ## Does NOT include
 - No live agent chat or simulation backed by real-time events in La Campaña — it is a faithful, read-only depiction of the per-phase team and the document hand-off across time (the live build animation belongs to FRD-06 / La Fragua, fed by `~/.claude/dashboard-events.ndjson`).
-- No new write *from La Campaña*: the three-tab restructure and La Campaña add **zero** mutations. The app's writes are a small, bounded, human-triggered set — discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012) — all isolated to `lib/discard/` + `lib/favorite/` (architecture §7, ADR-0003).
+- No new write *from La Campaña*: the tabbed detail and La Campaña add **zero** mutations. The app's writes are a small, bounded, human-triggered set — discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012) — all isolated to `lib/discard/` + `lib/favorite/` (architecture §7, ADR-0003).
 - No mode selector / pause / reset controls in La Campaña (those are demo-only in the prototype; MC is read-only).
 - No regeneration of room art or new sprites — assets are reused/added by the design phase, not specified here.

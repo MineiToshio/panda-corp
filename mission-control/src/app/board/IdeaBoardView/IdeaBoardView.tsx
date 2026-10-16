@@ -29,6 +29,7 @@ import { FavoriteButton } from "@/components/core/FavoriteButton/FavoriteButton"
 import type { IdeaCardProps } from "@/components/modules/IdeaCard/IdeaCard";
 import { IdeaCard } from "@/components/modules/IdeaCard/IdeaCard";
 import type { Adr } from "@/lib/architecture/adr";
+import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
 import type { BoardColumn } from "@/lib/board/board";
 import type { DocNode } from "@/lib/docs/tree";
@@ -131,6 +132,7 @@ export interface BoardCardEntry extends IdeaCardProps {
    * project-linked card once the architecture phase wrote it. Forwarded to CardDetail's Arquitectura tab; absent → tab hidden.
    */
   architectureContent?: string;
+  dataModel?: DataModelResult;
   /** Live work orders (listWorkOrders) for the Arquitectura tab's implementation-plan DAG. */
   workOrders?: WorkOrder[];
   /** Live env vars (`.env.example`) for the Arquitectura tab. */

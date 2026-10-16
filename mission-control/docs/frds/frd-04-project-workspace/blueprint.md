@@ -38,7 +38,7 @@ mode selector is FRD-11's component slotted in).
 
 | REQ | EARS (from `frd.md`) |
 |---|---|
-| REQ-04-001 | The workspace SHALL offer tabs in order **Summary · Work orders · Changes · Party · Observability · Documents · Commands**. |
+| REQ-04-001 | The workspace SHALL offer tabs in order **Summary · Work orders · Architecture · Changes · Party · Observability · Documents · Commands**. |
 | REQ-04-002 | The header SHALL show title, stage, version, the `progress` line and a **"Mission Objectives"** bar (% of work orders completed), visible on all tabs. |
 | REQ-04-003 | The **Summary** tab SHALL show summary, key points, **decision points** (highlighted, with a count) and a high-level **activity log**, read from `.pandacorp/inbox/decisions.md` and `.pandacorp/comms/progress.md`. |
 | REQ-04-004 | WHEN there are pending decisions, the workspace SHALL highlight them. |
@@ -50,8 +50,8 @@ mode selector is FRD-11's component slotted in).
 
 ### Acceptance criteria (EARS, expanded)
 
-- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly seven tabs in the
-  order Summary, Work orders, Changes, Party, Observability, Documents, Commands.
+- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly eight tabs in the
+  order Resumen, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Summary**.
 - **AC-04-002.1** The header SHALL render `title`, the stage label (from `phase`) and `version`. (The
   old `progress` status.yaml line was removed — dead field, no writer anywhere — DR-092/DR-115.)
@@ -204,6 +204,16 @@ portfolio rail. In the prototype this is `projectPane`; here it is decomposed in
 `CMP-06-*`; the Commands tab slots `CMP-11-mode-selector`. The workspace passes `projectPath`/slug
 down; it does not implement those panels.
 
+### Shared Architecture seam — IF-04-architecture / CMP-04-tab-architecture
+
+`ProjectWorkspace.tsx` uses `lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` — the same server seam as board `readCardProject`. It passes the existing digest, validated `DataModelResult`, live work orders, environment-variable names and ADRs into the complete existing `ArchitectureDigest`. It does not fork its stack/services/plan panels. The workspace tab is always offered; absent artifacts yield an honest partial state. Both URL resolvers accept `architecture` in the same eight-tab order; portfolio links retain `project` and direct-page links retain the route slug.
+
+The component identity is keyed to the selected project so viewer state cannot leak. The compact ERD and **Esquema** representation are shared modules owned by FRD-02 REQ-02-015. The viewer imports no filesystem APIs. See [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) for the versioned model contract and native DOM/SVG + existing Dagre decision.
+
+| Requirement | Acceptance criteria | Components / interfaces |
+|---|---|---|
+| REQ-04-012 | AC-04-012.1–.5 | `CMP-04-tabbar`, `CMP-04-tab-architecture`, shared `ArchitectureDigest` / `DataModelViewer`, `IF-04-architecture` |
+
 ## 4. Cross-cutting
 
 - **Read-only**: all access via `lib/**` readers; no writes (the only write in the app is FRD-02
@@ -213,7 +223,7 @@ down; it does not implement those panels.
   never crashes (architecture §7, FRD-01 edge cases).
 - **Tokens & a11y**: UI strings in Spanish (i18n), `tabular-nums` on the objectives counts, tabs are
   `role=tablist`/`aria-selected`, no state-by-color-alone (FRD-13).
-- **Server-first**: only `CMP-04-tabbar` is `"use client"`; everything else is a Server Component.
+- **Server-first**: filesystem reads stay server-side. Tab state, changes interactions and the shared Architecture/model viewer use client components with serializable, already-validated props.
 
 ## 5. Traceability matrix
 
@@ -239,7 +249,7 @@ is **not** rebuilt. The Comandos tab moved to FRD-11; the Documentos tab folded 
 
 | WO | Surface | Disjoint artifacts |
 |---|---|---|
-| WO-04-004 | Shell: header + tabbar (6 tabs incl. **Observabilidad**) + objectives bar | `src/app/projects/[slug]/page.tsx`, `_components/{workspace-header,tabbar,objectives-bar}.tsx` |
+| WO-04-004 | Shell: header + tabbar (8 tabs incl. **Arquitectura** and **Cambios**) + objectives bar | `src/app/projects/[slug]/page.tsx`, `_components/{workspace-header,tabbar,objectives-bar}.tsx` |
 | WO-04-005 | Resumen tab + Documentos tab | `_components/tab-summary/**`, `_components/tab-documents/**` |
 
 **DAG & parallelism:**
@@ -248,7 +258,7 @@ WO-04-001 (VERIFIED) ─┐
 WO-04-003 (VERIFIED) ─┼─► WO-04-004 (shell, provides Tabbar seam) ─► WO-04-005 (Resumen + Documentos)
 FRD-13 foundation ────┘
 ```
-- **WO-04-004 runs first** — it is the **provider**: it defines the Tabbar (the six-tab mount seam) that
+- **WO-04-004 runs first** — it is the **provider**: it defines the Tabbar (the eight-tab mount seam) that
   the tab FRDs plug into. It is sequential before WO-04-005 (which mounts into its tab bodies).
 - **WO-04-005** runs after the shell. Its two tabs touch **disjoint** subfolders
   (`tab-summary/**` vs `tab-documents/**`), so its internals are independently testable.

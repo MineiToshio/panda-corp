@@ -32,9 +32,9 @@ the prototype renders it, mapped to the frozen design system and the FRD-02 acce
 
 Clicking a card opens its detail with up to **five horizontal tabs** — **Propuesta · Spec · Arquitectura · Documentos · Campaña** (`CardDetail.tsx`)
 — rendered by the **shared `Tabs` primitive** (`level="sub"`, the same `.stab` pattern as the
-Portfolio project pane, `AC-02-009.1`); the default tab follows the project's stage (research → **Propuesta**, product/design → **Spec**, architecture onward → **Arquitectura**, falling back Arquitectura → Spec → Propuesta when a digest is absent). Each tab carries its **icon**
+Portfolio project pane, `AC-02-009.1`); the default tab follows the project's stage (research → **Propuesta**, product/design → **Spec**, architecture onward → **Arquitectura**, falling back Arquitectura → Spec → Propuesta when the corresponding stage artifacts are absent). Each tab carries its **icon**
 (`ti-sparkles · ti-list-details · ti-affiliate · ti-files · ti-map-2`) — the `Tabs` primitive already supports `icon`
-(amendment, 2026-06-22). **Spec** is present only when the project has a spec digest and **Arquitectura** only with an architecture digest (REQ-02-011/013); absent each digest, that tab is not rendered. The active tab persists across re-renders of the detail (`AC-02-009.4`); a
+(amendment, 2026-06-22). **Spec** is present only when the project has a spec digest and **Arquitectura** with its digest or a present structured model artifact (REQ-02-011/013); only total absence omits that tab. The active tab persists across re-renders of the detail (`AC-02-009.4`); a
 document click anywhere switches to **Documentos** (`AC-02-009.3`).
 
 **The tabs are bare pills above a bordered body panel** (amendment, 2026-06-22). The card-detail
@@ -119,7 +119,7 @@ The **active phase is derived from the real project state** (`AC-02-010.2`): car
 
 | On screen | Component (see `docs/design/components.md`) | Notes |
 |---|---|---|
-| the three tabs | `Tabs` (`level="sub"`) | bare `.stab` pills with icons (`ti-map-2 · ti-files · ti-wand`) |
+| the card-detail tabs | `Tabs` (`level="sub"`) | bare `.stab` pills with icons (`ti-map-2 · ti-files · ti-wand`) |
 | each of the 6 phase rooms | `Room` | 250×208 pixel-art zone + badge; `labelNode` = accent phase number + name (13px) |
 | room→room connectors, the active one flowing | `StoneBridge` (`variant="road"`) | the CSS striped doc-handoff **road** (not the stone PNG); the deliverable `.doc` chip travels along the active one (done ✓ / flow → / locked) |
 | the active room's roaming cast | `RoamingCast` | rAF roam (walk/idle bob, lead halo, speech-on-meet) **only when running**; idle-bobs when done; static+dimmed when locked |
@@ -261,8 +261,8 @@ stand out, in **any** column. Design (`docs/design/design-tokens.json`):
 
 ## Traceability
 
-Maps `frd.md` REQs → this design: `REQ-02-009` (three-tab detail) → §1, §5b (Documentos rail+reader,
-Comandos `CmdRow` + project box); `REQ-02-010` (La Campaña) → §2–§5, §7–§8 — `AC-02-010.1` §2,
+Maps `frd.md` REQs → this design: `REQ-02-009` (stage-aware tabbed detail) → §1, §5b (Documentos rail+reader,
+copyable commands in the Campaña ficha); `REQ-02-010` (La Campaña) → §2–§5, §7–§8 — `AC-02-010.1` §2,
 `.2` §3/§8, `.3` §2/§3 (deliverable icon+name; road connectors), `.4` §5 (ficha by default + pinned,
 header), `.5` §7, `.6` §2/§6, `.7` §3/§5/§8 (locked phase shows full info; only the build action is
 gated). The 2026-06-22 card-detail fidelity amendments in `frd.md` are reflected in §1–§5b. The board
@@ -271,3 +271,15 @@ derivation / intake / filter / discard (REQ-02-001…008) are unchanged and out 
 (`1 Investigación … 6 Release` + `Descartada`); that is a label-only change recorded in `frd.md` and
 the blueprint, the two-axis derivation untouched. `REQ-02-012` (favourite highlight) → §10 — a
 board-card visual added here.
+
+## 12. Shared Architecture / logical model (2026-10-16)
+
+**Scoped visual source:** `docs/design/prototype/data-model-viewer/index.html` (round 2); the existing whole-app `visual_source` remains the reference for the surrounding shell/campaign. This section defines REQ-02-013/015's revised model presentation, reused unchanged by FDD-04.
+
+Keep the full existing Architecture hierarchy: hero, stack, **Modelo de datos**, services/environment, decisions, implementation-plan DAG and per-FRD cards. The data-model heading is never replaced by a new standalone tab. Below it place designed-model provenance, **Diagrama / Esquema**, search and **Ampliar modelo**. The quiet canvas uses a restrained grid and selected accent; entity cards are **248px** wide with **38px** headers, **24px** rows and **12px** field text. Names, logical types, PK/FK/UQ and `?` remain legible; row truncation must not lose the full value in the textual/selection view.
+
+**Diagrama is the default on desktop and narrow screens.** Dragging background with a pointer pans the transformed DOM/SVG stage; the viewport does not depend on horizontal/vertical canvas scrollbars. Labelled pan buttons and keyboard arrows offer the same movement, alongside zoom, fit and reset. Explicit `1`, `0..1`, `0..*`, `1..*` endpoints sit with the connectors, which use mapped fields where declared. Search by entity/attribute centers a match; entity/relationship selection opens readable Spanish detail. Expanded mode uses the same viewer with modal focus containment, Escape and trigger-focus restoration.
+
+**Esquema** is a compact textual Prisma-like block view of the logical model, with ordered attributes, key groups and explicit relationship endpoint labels. It is never an HTML attribute table and never promises executable Prisma/schema export. The same model powers both views. Narrow widths preserve usable controls and readable text rather than silently switching modes or shrinking the entire diagram.
+
+A missing source, explicit no-persistence declaration, valid empty model and invalid source have distinct text states. An invalid/unreadable source uses an alert with a bounded diagnostic, retaining every other Architecture panel. A usable model states **Modelo diseñado. Implementación sin verificar.** No real database schema is invented for MC, which declares no persistence. These design requirements need separate implementation/browser evidence; the prototype's verification evidence covers the prototype only.

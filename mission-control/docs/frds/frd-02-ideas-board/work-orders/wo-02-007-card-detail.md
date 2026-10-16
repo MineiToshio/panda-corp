@@ -9,7 +9,7 @@ implementation_status: VERIFIED
 artifacts:
   - 'src/app/board/_components/CardDetail/**'
   - 'src/components/modules/CampaignPipeline/**'
-source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010]
+source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010, REQ-02-013, REQ-02-015]
 dependsOn: [WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005]
 last_updated: '2026-10-13'
 ---
@@ -26,10 +26,9 @@ consumed as-is; this WO is presentational.
 ## Scope (components from `docs/design/components.md`)
 
 - **`CardDetail`** (`src/app/board/_components/CardDetail/CardDetail.tsx`) — the tabbed shell using
-  the shared **`Tabs`** primitive (the ONE tab pattern, DR-062 — `.stab` level), three tabs
-  Campaña · Documentos · Comandos, default Campaña, active tab persisted across re-renders. Documentos
-  renders the existing doc navigator (summary + key points + idea docs); Comandos renders the
-  next-step / iterate command panel via `CmdRow` + `Button`. Clicking a doc entry switches to
+  the shared **`Tabs`** primitive (DR-062), up to five tabs:
+  Propuesta · Spec? · Arquitectura? · Documentos · Campaña. Initial selection follows the project phase, falling back to available earlier stages; later choices persist. Documentos
+  renders the doc navigator; runnable commands live in La Campaña's ficha. Clicking a doc entry switches to
   Documentos. Reuse `Panel`, `DocHeading`, `CmdRow`, `Button` — no bespoke switcher.
 - **`CampaignPipeline`** (`src/components/modules/CampaignPipeline/CampaignPipeline.tsx`) — the
   **6-room pixel-art trail** faithful to `mocks/la-campana.html`, **NOT a flat row list**. It MUST be
@@ -52,9 +51,7 @@ is verified ≥2 viewports against `mocks/la-campana.html` before close.
 
 ## Acceptance criteria (anchored in FRD-02 EARS)
 
-- AC-02-009.1/.2 — Card detail renders **three tabs** (Campaña · Documentos · Comandos) with the same
-  tab pattern as the Portfolio project pane; default Campaña; Documentos/Comandos keep the existing
-  doc-navigator / next-step behavior.
+- AC-02-009.1/.2 — WHEN a card opens, THE detail SHALL render the phase-aware Propuesta · Spec? · Arquitectura? · Documentos · Campaña tabs using shared Tabs; only initial selection derives from phase.
 - AC-02-009.3 — Clicking a document entry switches the active tab to **Documentos** and shows it.
 - AC-02-009.4 — The active tab persists across re-renders of the open card.
 - AC-02-010.1/.2/.3 — La Campaña renders the 6 phases in fixed order; the active phase is derived from
@@ -66,7 +63,7 @@ is verified ≥2 viewports against `mocks/la-campana.html` before close.
 - AC-02-010.5 — "Entrar a La Fragua" host-navigates to Portfolio → project → Party tab, no inner
   reload.
 - AC-02-010.6/.7 — Read-only (no Claude, no write, no build trigger); locked future phases render a
-  graceful empty state.
+  full informational ficha, with the build action gated until reached.
 - Matches `prototype/party-pipeline.html` embedded in the board card detail; light + dark; the Preview
   Smoke Gate is green.
 
@@ -240,3 +237,21 @@ One non-blocking note (not a defect): in `CampaignPipeline.tsx` the team-member 
 uses `member.role as ValidAgentRole`, while the room sprites use the `isValidAgentRole` guard — the cast
 is safe (the static `PHASES` roles are all valid) but for consistency a future touch should route both
 through the guard. Tolerated under the rule of three; not gate-blocking.
+
+## Shared logical model extension — 2026-10-16
+
+This coarse capability now also owns `src/lib/architecture/data-model/**`, shared `src/lib/architecture/read-artifacts.ts`, `src/components/modules/DataModelViewer/**`, board artifact propagation and the `ArchitectureDigest` data-model body. Preserve the complete existing Architecture surface, with **Modelo de datos**, and expose it for a present structured artifact even without the narrative digest. FRD-04 WO-04-004 reuses these modules for workspace mounting.
+
+- WHEN a version-1 model is read/rendered, THE implementation SHALL satisfy AC-02-015.1–.9: bounded validated JSON, explicit states, all attributes/keys and endpoint cardinalities, native pointer pan, zoom/fit/reset, keyboard/buttons, search, selection, expanded dialog and compact Prisma-like **Esquema**.
+- WHEN the viewer opens at any viewport width, THE default SHALL be compact **Diagrama** with 248px cards, 24px attribute rows and 12px field text.
+- WHEN other Architecture content is available, THE extension SHALL preserve stack/services/environment/ADRs/work-order plan/per-FRD panels and live readers.
+
+Use existing Dagre and native DOM/SVG; no React Flow/ELK installation. Exact artifact/interface contract: [ADR-0006](../../../adr/ADR-0006-shared-logical-data-model-viewer.md). Scoped visual oracle: `docs/design/prototype/data-model-viewer/index.html` (round 2). MC's own model declares no persistence; illustrative relational fixtures never stand in for real MC data.
+
+**Evidence boundary:** existing implementation_status and historical reviewer notes cover the previous delivery, not these new criteria. This extension requires current independent valid/malformed fixture checks, edge-case/cardinality tests and board/workspace browser review; this documentation update does not record them as passed or write build state. Factory producer/backfill remains a separate dependency.
+
+## Delivery verification — 2026-10-16
+
+Reconciled from code and current checks by `/pandacorp:sync` on 2026-10-16, under the owner's explicit direct-implementation instruction. This note covers the extension, separately from the historical delivery above. Shared reader/viewer and both surfaces are implemented. The canonical isolated-worktree `verify.sh --since da0d3a8404fae6f82e66f2870e7e69cb0bdcef21 --report-all` passed all 11 subgates (433 unit/integration tests and 42 shell/smoke browser cases). The additional feature E2E suite passed four desktop/mobile cases, including actual pointer pan, compact schema, tab order and modal focus. An independent reviewer passed 1,897 affected regression tests and authored adversarial cases; the graph adapter now isolates opaque authored IDs from Dagre's object-key internals.
+
+Evidence: [delivery report](../../../reviews/logical-data-model-viewer/delivery.md), [independent review](../../../reviews/logical-data-model-viewer/review.md). Existing machine-status fields are preserved; this scoped manual change does not launch or impersonate a build-engine run. Factory artifact production and reviewed project backfill remain separate from the implemented consumer.

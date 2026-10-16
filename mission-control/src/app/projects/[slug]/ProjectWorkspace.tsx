@@ -20,6 +20,8 @@
  */
 
 import path from "node:path";
+import { ArchitectureDigest } from "@/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest";
+import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
 
 import { readBuildTimeline } from "@/lib/build-track/build-track";
 import { readChangeQueue } from "@/lib/changes/changes";
@@ -60,6 +62,7 @@ export interface WorkspaceSelection {
 const VALID_TABS = new Set<string>([
   "summary",
   "work-orders",
+  "architecture",
   "changes",
   "party",
   "observabilidad",
@@ -264,6 +267,22 @@ export function ProjectWorkspace({
     case "work-orders":
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;
+    case "architecture": {
+      const architecture = readArchitectureArtifacts(projectPath);
+      body = (
+        <ArchitectureDigest
+          key={projectPath}
+          title={title}
+          body={architecture.architectureContent ?? ""}
+          dataModel={architecture.dataModel}
+          workOrders={architecture.workOrders}
+          envVars={architecture.envVars}
+          adrs={architecture.adrs}
+          project={slug}
+        />
+      );
+      break;
+    }
     case "changes":
       body = (
         <TabChanges result={readChangeQueue(projectPath)} projectPath={projectPath} slug={slug} />

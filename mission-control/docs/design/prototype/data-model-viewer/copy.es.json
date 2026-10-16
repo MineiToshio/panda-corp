@@ -44,12 +44,12 @@
   "portfolioTabs": [
     "Resumen",
     "Work orders",
+    "Arquitectura",
     "Cambios",
     "Party",
     "Observabilidad",
     "Documentos",
-    "Comandos",
-    "Arquitectura"
+    "Comandos"
   ],
   "projects": "Proyectos",
   "activeProjects": "EN TU TALLER",
@@ -74,7 +74,7 @@
   "search": "Buscar tabla o campo",
   "clear": "Limpiar búsqueda",
   "diagram": "Diagrama",
-  "list": "Lista",
+  "list": "Esquema",
   "expand": "Ampliar modelo",
   "close": "Cerrar vista ampliada",
   "zoomIn": "Acercar",
@@ -122,8 +122,8 @@
       "id": "users",
       "label": "Usuarios",
       "description": "Personas que organizan colecciones.",
-      "x": 80,
-      "y": 40,
+      "x": 52,
+      "y": 24,
       "fields": [
         [
           "id",
@@ -155,8 +155,8 @@
       "id": "collections",
       "label": "Colecciones",
       "description": "Cada colección pertenece a una persona y reúne al menos un elemento.",
-      "x": 470,
-      "y": 40,
+      "x": 370,
+      "y": 24,
       "fields": [
         [
           "id",
@@ -188,8 +188,8 @@
       "id": "items",
       "label": "Elementos",
       "description": "Piezas que pueden formar parte de distintas colecciones.",
-      "x": 860,
-      "y": 40,
+      "x": 688,
+      "y": 24,
       "fields": [
         [
           "id",
@@ -221,8 +221,8 @@
       "id": "profiles",
       "label": "Perfiles",
       "description": "Información opcional de cada usuario. user_id es único: un usuario tiene como máximo un perfil.",
-      "x": 80,
-      "y": 410,
+      "x": 52,
+      "y": 266,
       "fields": [
         [
           "id",
@@ -254,8 +254,8 @@
       "id": "notes",
       "label": "Notas",
       "description": "Anotaciones sobre una colección.",
-      "x": 470,
-      "y": 410,
+      "x": 370,
+      "y": 266,
       "fields": [
         [
           "id",
@@ -287,8 +287,8 @@
       "id": "collection_items",
       "label": "Vínculos",
       "description": "Tabla de unión. collection_id e item_id forman una clave primaria compuesta.",
-      "x": 860,
-      "y": 410,
+      "x": 688,
+      "y": 266,
       "fields": [
         [
           "collection_id",
@@ -325,19 +325,19 @@
       "a": "1",
       "b": "0..*",
       "label": "Posee",
-      "path": "M350 124 H410 V164 H470",
-      "ax": 365,
-      "ay": 110,
-      "bx": 435,
-      "by": 150,
+      "path": "M292 82 H330 V110 H370",
+      "ax": 304,
+      "ay": 68,
+      "bx": 332,
+      "by": 96,
       "start": [
-        350,
-        124,
+        292,
+        82,
         "right"
       ],
       "end": [
-        470,
-        164,
+        370,
+        110,
         "left"
       ],
       "explanation": "Cada usuario puede tener ninguna o varias colecciones. Cada colección pertenece a un usuario.",
@@ -350,19 +350,19 @@
       "a": "1",
       "b": "0..1",
       "label": "Tiene perfil",
-      "path": "M80 124 H40 V534 H80",
-      "ax": 48,
-      "ay": 110,
-      "bx": 43,
-      "by": 520,
+      "path": "M52 82 H26 V352 H52",
+      "ax": 22,
+      "ay": 68,
+      "bx": 14,
+      "by": 338,
       "start": [
-        80,
-        124,
+        52,
+        82,
         "left"
       ],
       "end": [
-        80,
-        534,
+        52,
+        352,
         "left"
       ],
       "explanation": "Cada usuario puede tener un perfil. Cada perfil pertenece a un usuario.",
@@ -375,19 +375,19 @@
       "a": "1",
       "b": "0..*",
       "label": "Tiene notas",
-      "path": "M470 124 H430 V534 H470",
-      "ax": 442,
-      "ay": 110,
-      "bx": 432,
-      "by": 520,
+      "path": "M370 82 H344 V352 H370",
+      "ax": 346,
+      "ay": 68,
+      "bx": 326,
+      "by": 338,
       "start": [
-        470,
-        124,
+        370,
+        82,
         "left"
       ],
       "end": [
-        470,
-        534,
+        370,
+        352,
         "left"
       ],
       "explanation": "Cada colección puede tener ninguna o varias notas. Cada nota pertenece a una colección.",
@@ -400,19 +400,19 @@
       "a": "1",
       "b": "1..*",
       "label": "Reúne",
-      "path": "M740 124 H810 V494 H860",
-      "ax": 755,
-      "ay": 110,
-      "bx": 818,
-      "by": 480,
+      "path": "M610 82 H646 V324 H688",
+      "ax": 622,
+      "ay": 68,
+      "bx": 646,
+      "by": 310,
       "start": [
-        740,
-        124,
+        610,
+        82,
         "right"
       ],
       "end": [
-        860,
-        494,
+        688,
+        324,
         "left"
       ],
       "explanation": "Cada colección contiene uno o varios vínculos con elementos. Cada vínculo pertenece a una colección.",
@@ -425,19 +425,19 @@
       "a": "1",
       "b": "0..*",
       "label": "Se incluye",
-      "path": "M1130 124 H1170 V534 H1130",
-      "ax": 1140,
-      "ay": 110,
-      "bx": 1138,
-      "by": 520,
+      "path": "M928 82 H954 V352 H928",
+      "ax": 936,
+      "ay": 68,
+      "bx": 932,
+      "by": 338,
       "start": [
-        1130,
-        124,
+        928,
+        82,
         "right"
       ],
       "end": [
-        1130,
-        534,
+        928,
+        352,
         "right"
       ],
       "explanation": "Cada elemento puede aparecer en ninguna o varias colecciones. Cada vínculo corresponde a un elemento.",
@@ -536,5 +536,11 @@
       "title": "Notas de colección",
       "body": "Anotaciones vinculadas a una colección existente."
     }
-  ]
+  ],
+  "schemaHelp": "Vista compacta: campos, claves y relaciones como un esquema de código.",
+  "navigationHelp": "Arrastra el fondo para moverte. También puedes usar las flechas del teclado o los botones.",
+  "panLeft": "Mover vista a la izquierda",
+  "panRight": "Mover vista a la derecha",
+  "panUp": "Mover vista hacia arriba",
+  "panDown": "Mover vista hacia abajo"
 }

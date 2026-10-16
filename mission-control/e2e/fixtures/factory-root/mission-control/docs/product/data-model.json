@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "persistence": "relational",
+  "entities": [
+    {
+      "id": "users",
+      "name": "users",
+      "description": "Personas que organizan colecciones.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK"]
+        },
+        {
+          "id": "email",
+          "name": "email",
+          "type": "text",
+          "optional": false,
+          "keys": ["UQ"]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": []
+        },
+        {
+          "id": "created_at",
+          "name": "created_at",
+          "type": "timestamp",
+          "optional": false,
+          "keys": []
+        }
+      ]
+    },
+    {
+      "id": "collections",
+      "name": "collections",
+      "description": "Cada colección pertenece a una persona y reúne al menos un elemento.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK"]
+        },
+        {
+          "id": "user_id",
+          "name": "user_id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["FK"]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": []
+        },
+        {
+          "id": "description",
+          "name": "description",
+          "type": "text",
+          "optional": true,
+          "keys": []
+        }
+      ]
+    },
+    {
+      "id": "items",
+      "name": "items",
+      "description": "Piezas que pueden formar parte de distintas colecciones.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK"]
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false,
+          "keys": []
+        },
+        {
+          "id": "category",
+          "name": "category",
+          "type": "text",
+          "optional": true,
+          "keys": []
+        },
+        {
+          "id": "created_at",
+          "name": "created_at",
+          "type": "timestamp",
+          "optional": false,
+          "keys": []
+        }
+      ]
+    },
+    {
+      "id": "profiles",
+      "name": "profiles",
+      "description": "Información opcional de cada usuario. user_id es único: un usuario tiene como máximo un perfil.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK"]
+        },
+        {
+          "id": "user_id",
+          "name": "user_id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["FK", "UQ"]
+        },
+        {
+          "id": "bio",
+          "name": "bio",
+          "type": "text",
+          "optional": true,
+          "keys": []
+        },
+        {
+          "id": "avatar_url",
+          "name": "avatar_url",
+          "type": "text",
+          "optional": true,
+          "keys": []
+        }
+      ]
+    },
+    {
+      "id": "notes",
+      "name": "notes",
+      "description": "Anotaciones sobre una colección.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK"]
+        },
+        {
+          "id": "collection_id",
+          "name": "collection_id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["FK"]
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false,
+          "keys": []
+        },
+        {
+          "id": "created_at",
+          "name": "created_at",
+          "type": "timestamp",
+          "optional": false,
+          "keys": []
+        }
+      ]
+    },
+    {
+      "id": "collection_items",
+      "name": "collection_items",
+      "description": "Tabla de unión. collection_id e item_id forman una clave primaria compuesta.",
+      "attributes": [
+        {
+          "id": "collection_id",
+          "name": "collection_id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK", "FK"]
+        },
+        {
+          "id": "item_id",
+          "name": "item_id",
+          "type": "uuid",
+          "optional": false,
+          "keys": ["PK", "FK"]
+        },
+        {
+          "id": "added_at",
+          "name": "added_at",
+          "type": "timestamp",
+          "optional": false,
+          "keys": []
+        },
+        {
+          "id": "position",
+          "name": "position",
+          "type": "integer",
+          "optional": true,
+          "keys": []
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": ["collection_id", "item_id"]
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "ownership",
+      "name": "Posee",
+      "description": "Cada usuario puede tener ninguna o varias colecciones. Cada colección pertenece a un usuario.",
+      "from": {
+        "entity": "users",
+        "attributes": ["id"],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collections",
+        "attributes": ["user_id"],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "profile",
+      "name": "Tiene perfil",
+      "description": "Cada usuario puede tener un perfil. Cada perfil pertenece a un usuario.",
+      "from": {
+        "entity": "users",
+        "attributes": ["id"],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "profiles",
+        "attributes": ["user_id"],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "note",
+      "name": "Tiene notas",
+      "description": "Cada colección puede tener ninguna o varias notas. Cada nota pertenece a una colección.",
+      "from": {
+        "entity": "collections",
+        "attributes": ["id"],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "notes",
+        "attributes": ["collection_id"],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "collectionlink",
+      "name": "Reúne",
+      "description": "Cada colección contiene uno o varios vínculos con elementos. Cada vínculo pertenece a una colección.",
+      "from": {
+        "entity": "collections",
+        "attributes": ["id"],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collection_items",
+        "attributes": ["collection_id"],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "itemlink",
+      "name": "Se incluye",
+      "description": "Cada elemento puede aparecer en ninguna o varias colecciones. Cada vínculo corresponde a un elemento.",
+      "from": {
+        "entity": "items",
+        "attributes": ["id"],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collection_items",
+        "attributes": ["item_id"],
+        "min": 0,
+        "max": "many"
+      }
+    }
+  ]
+}

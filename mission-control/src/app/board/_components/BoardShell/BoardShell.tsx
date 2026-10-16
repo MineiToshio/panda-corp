@@ -494,6 +494,7 @@ export function BoardShell({
               frdCount={openCard.frdCount}
               specContent={openCard.specContent}
               architectureContent={openCard.architectureContent}
+              dataModel={openCard.dataModel}
               workOrders={openCard.workOrders}
               envVars={openCard.envVars}
               adrs={openCard.adrs}

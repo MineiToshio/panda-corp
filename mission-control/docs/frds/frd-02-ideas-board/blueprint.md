@@ -42,7 +42,7 @@ heart of the feature (`lib/board.ts`).
 | `CMP-02-board-view` | UI (Server) | `app/board/page.tsx` | Render the kanban columns + cards from `readIdeas` + `readStatus` + `lib/board`. | REQ-02-001, REQ-02-002, REQ-02-005 |
 | `CMP-02-card` | UI (Server) | `components/IdeaCard.tsx` | One card: title, score, category + return chips, recommended/building badges. | REQ-02-005, REQ-02-006 |
 | `CMP-02-intake-modal` | UI (client) | `components/IntakeModal.tsx` | Modal overlay (backdrop + blur) with the 4 intake commands. | REQ-02-003 |
-| `CMP-02-card-detail` | UI (client) | `app/board/_components/CardDetail/CardDetail.tsx` (+ `CardDetail.styles.ts`) | The **tabbed card-detail container** (Campaña · Documentos · Comandos) via the shared `Tabs` primitive (icons, `level="sub"`); default tab by the project's stage (research → Propuesta, product/design → Spec, architecture onward → Arquitectura; falls back Arquitectura → Spec → Propuesta when a digest is absent), via the pure `defaultTabForPhase` helper as a lazy `useState` initializer; tab state persists. Root is transparent layout (each tab's own content is the bordered panel below the bare pills). Documentos = rail (Resumen + project docs) + reader; Comandos = `CmdRow` next-step + (building/release) `workspaceCommands` box. Threads `isRunning` → `CampaignPipeline.running`. | REQ-02-004, REQ-02-008, REQ-02-009 |
+| `CMP-02-card-detail` | UI (client) | `app/board/_components/CardDetail/CardDetail.tsx` (+ `CardDetail.styles.ts`) | The **tabbed card-detail container** (Campaña · Documentos · Comandos) via the shared `Tabs` primitive (icons, `level="sub"`); default tab by the project's stage (research → Propuesta, product/design → Spec, architecture onward → Arquitectura; falls back Arquitectura → Spec → Propuesta when the corresponding architecture/spec artifacts are absent), via the pure `defaultTabForPhase` helper as a lazy `useState` initializer; tab state persists. Root is transparent layout (each tab's own content is the bordered panel below the bare pills). Documentos = rail (Resumen + project docs) + reader; Comandos = `CmdRow` next-step + (building/release) `workspaceCommands` box. Threads `isRunning` → `CampaignPipeline.running`. | REQ-02-004, REQ-02-008, REQ-02-009 |
 | `CMP-02-campaign-pipeline` | UI (client) | `components/modules/CampaignPipeline/CampaignPipeline.tsx` (+ `phases.ts`, `RoamingCast.tsx`) | **La Campaña** view: the 6-phase pipeline (full-width stage, rooms centred in an inner layer), derived active phase, road connectors **under** the rooms, per-phase ficha (header `{n · name} — state` + description + reads/writes + the WHOLE team) shown **by default + pinned**, "en curso"/roam gated on `running`, Construcción → host-navigate to Party, read-only. `PHASE_META` (emoji · short deliverable · accent) feeds rooms + connectors. | REQ-02-010 |
 | `CMP-02-roaming-cast` | UI (client) | `components/modules/CampaignPipeline/RoamingCast.tsx` | The active room's cast: a `requestAnimationFrame` roam loop (walk/idle bob, lead halo, speech-on-meet) that runs **only when `state==="current" && running`**; done → idle-bob in place; locked → static + dimmed. Honors `prefers-reduced-motion` (and jsdom/SSR — no `matchMedia` → static). | REQ-02-010 |
 | `CMP-02-phase-from-status` | module | `lib/campaign/campaign.ts` | Pure `phaseFromStatus(input)` derivation: card status / project phase → active phase index (0–5), with a safe fallback to `research`. | REQ-02-010 |
@@ -137,19 +137,12 @@ command strings come from the pipeline (CLAUDE.md operation table); enumerated i
 > iframe). The production build replaces the iframe with a native React `CampaignPipeline`.
 
 **Tabbed container (`CMP-02-card-detail`, REQ-02-009).** `CardDetail` is a tabbed shell rendered with
-the **shared `Tabs` primitive** (`level="sub"`, the one `.stab` pattern, DR-062) carrying the three
-tabs' icons (`ti-map-2 · ti-files · ti-wand`): **Campaña · Documentos · Comandos** (historical; the current tabs and the stage-based default are in
-the REQ-02-009 row below). The root is **transparent layout** (`ROOT_STYLE`: a flex column with a 14px gap, no
-border/bg); the tab pills are bare, and each tab's own content panel carries the border/padding (so
-the body reads as the bordered container *below* the pills) — `PANEL_STYLE` padding is 0.
-- **Campaña** (default) → `<CampaignPipeline running={isRunning} …>` (one bordered panel).
-- **Documentos** → a **rail (210px) + reader** (`.card-detail-docs-grid`, stacks under ~640px). The
-  rail always lists **Resumen** (the summary reader = the markdown body) first, then one item per
-  project document (`buildNavEntries` over `ProjectDocsIndex`). For a board card the reader shows the
-  summary in full and, for a project doc, a short "open it in the project workspace" pointer.
-- **Comandos** → the shared **`CmdRow`** "Siguiente paso · avanzar" (from `nextStep`) plus, for
-  building/release cards (phase `implementation`/`release`), a **project-command box**
-  from `workspaceCommands(phase)` (the prototype `commandsBox`).
+the **shared `Tabs` primitive** (`level="sub"`, the one `.stab` pattern, DR-062) with up to five icon-bearing tabs: **Propuesta · Spec? · Arquitectura? · Documentos · Campaña**. Initial selection follows project phase, with availability fallback (REQ-02-009); the owner's later choice persists. The transparent flex-column root places bare pills above each tab's bordered content panel.
+- **Propuesta** → native `IdeaPitch` memo-pitch.
+- **Spec** → `SpecDigest` when its narrative digest exists.
+- **Arquitectura** → complete shared `ArchitectureDigest` when a narrative digest or structured model artifact exists, including **Modelo de datos** (REQ-02-013/015).
+- **Documentos** → a **rail (210px) + reader**, stacking at narrow widths. The rail starts with Resumen, followed by available project-document entries.
+- **Campaña** → `CampaignPipeline` with pinned phase ficha and its copyable runnable commands. There is no separate Comandos tab in the card detail.
 - Tab state is local client state on the open card and **persists across re-renders** (AC-02-009.4);
   a separate `selectedDocKey` drives the Documentos rail/reader.
 - Clicking a document entry **selects the Documentos tab** and shows that doc (AC-02-009.3).
@@ -230,8 +223,8 @@ component receives the project `slug` and the `onEnterForge(slug)` callback wire
 
 **Spec/Arquitectura badges derive from disk, not digest prose (DR-092/DR-115, 2026-07-05).** Beyond
 the tabs described above, `CardDetail` also renders a **Spec** tab (`SpecDigest`) and an **Arquitectura**
-tab (`ArchitectureDigest`) once the linked project's Spanish digests exist — each a high-level summary
-parsed from `.pandacorp/comms/{spec,arquitectura}-resumen.md`. Both surface a count badge, and both
+tab (`ArchitectureDigest`). Spec requires its digest; Architecture accepts its digest or a present structured model artifact. The narrative summaries
+come from `.pandacorp/comms/{spec,arquitectura}-resumen.md`; the data model is a separate validated JSON source. Both surface a count badge, and both
 badges are **derived live from disk**, never from the digest's parsed prose (the digest is a gitignored
 narrative snapshot that can drift from what actually exists on disk):
 - **Per-card project read** — `readCardProject` (`app/board/_utils/readCardProject.ts`, called from
@@ -262,7 +255,7 @@ narrative snapshot that can drift from what actually exists on disk):
 | REQ-02-006 | Filter by category; recommended card shows a "recommended" badge. | `CMP-02-category-filter`, `CMP-02-card` |
 | REQ-02-007 | Discard → rewrite `status: discarded`, preserving the rest of the file (the only write). | `CMP-02-discard`, `CMP-02-discard-action`, `IF-02-discardIdea` |
 | REQ-02-008 | Building indicator while `running: true`; legend explaining category/return/score; card with no docs → summary only. | `CMP-02-card` (badge), `CMP-02-legend`, `CMP-02-card-detail` |
-| REQ-02-009 | Card detail = up to 5 tabs (Propuesta · Spec? · Arquitectura? · Documentos · Campaña) via shared `Tabs` (icons), default tab by the project's stage (research → Propuesta, product/design → Spec, architecture onward → Arquitectura; falls back Arquitectura → Spec → Propuesta when a digest is absent); Spec/Arquitectura shown only with their digest (REQ-02-011/013); Comandos folded into La Campaña ficha; doc click → Documentos; tab persists; Documentos = rail+reader. *(Reconciled 2026-07-05.)* | `CMP-02-card-detail` |
+| REQ-02-009 | Card detail = up to 5 tabs (Propuesta · Spec? · Arquitectura? · Documentos · Campaña) via shared `Tabs` (icons), default tab by the project's stage (research → Propuesta, product/design → Spec, architecture onward → Arquitectura; falls back Arquitectura → Spec → Propuesta when the corresponding architecture/spec artifacts are absent); Spec shown with its digest; Arquitectura shown with its digest or a present structured model artifact (REQ-02-011/013); Comandos folded into La Campaña ficha; doc click → Documentos; tab persists; Documentos = rail+reader. *(Reconciled 2026-07-05.)* | `CMP-02-card-detail` |
 | REQ-02-010 | La Campaña: 6-phase pipeline (full-width stage, road under rooms), active phase derived from status, done/current/locked, per-phase ficha (by default + pinned) with the whole team, "en curso"/roam gated on running, build→host-navigate to Party, read-only; a locked phase's ficha shows full info (only the build action is gated). | `CMP-02-campaign-pipeline`, `CMP-02-roaming-cast`, `CMP-02-phase-from-status`, `CMP-02-go-party`, `IF-02-phaseFromStatus`, `IF-02-goParty` |
 | REQ-02-012 | Mark a card as favourite (visual-only, any column): `favorite: true` frontmatter write, star toggle (optimistic) on every card + the detail header, gold card highlight; never changes status/column. | `CMP-02-favorite`, `CMP-02-favorite-action`, `IF-02-setFavorite`, `CMP-02-card` (gold highlight) |
 
@@ -346,3 +339,32 @@ frd-13 (foundation, VERIFIED)
 > gained the `RoamingCast`/road-connector/pinned-ficha/Documentos-rail/Comandos-`CmdRow` shape above
 > (see §1/§4b and the canonical contract in [`frd.md`](frd.md)). The artifact boxes above record the
 > plan **as originally executed**; the components/§4b sections describe current reality.
+
+## Shared Architecture and logical model — REQ-02-013 / REQ-02-015
+
+`src/lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` is the common server seam for board `readCardProject` and `ProjectWorkspace`. It reads the narrative digest, the structured model through `readDataModel`, live work orders, `.env.example` names and ADRs. The board forwards this serializable bundle through `BoardShell`/`IdeaBoardView` to `CardDetail`; no parallel model parser exists in the workspace.
+
+The complete existing `ArchitectureDigest` keeps its stack, **Modelo de datos**, services, environment, ADR, implementation-plan and per-FRD sections. Only the data-model body adopts `src/components/modules/DataModelViewer/`. A model-only project still exposes Architecture; missing narrative does not block model/error/none rendering. When the JSON source is absent, an existing narrative explicitly declaring no database may retain the no-persistence branch; malformed JSON never falls back silently to that branch.
+
+### Artifact and interface ownership
+
+| Contract | Module / artifact | Responsibility |
+|---|---|---|
+| IF-02-data-model-types | `src/lib/architecture/data-model/types.ts` | Version-1 logical model and discriminated `DataModelResult` |
+| IF-02-validate-data-model | `src/lib/architecture/data-model/model.ts` | Pure, bounded shape/reference validation; distinct none/ready/error |
+| IF-02-read-data-model | `src/lib/architecture/data-model/read-data-model.ts` | Server-only bounded UTF-8 JSON read; missing distinct from invalid/unreadable |
+| IF-02-architecture-artifacts | `src/lib/architecture/read-artifacts.ts` | One artifact bundle reused by board and workspace |
+| CMP-02-data-model-viewer | `src/components/modules/DataModelViewer/` | Shared read-only diagram, Esquema, controls, selection and state messages |
+| Project source | `docs/product/data-model.json` | Explicit schemaVersion 1 designed model, never inferred from narrative |
+
+The exact JSON contract and technical decision are in [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) and [API contracts](../../api.md). No React Flow/ELK dependency is added: use native DOM/SVG with the installed `@dagrejs/dagre` for deterministic layout, retaining field ports, self/parallel edges and explicit endpoint labels.
+
+### Layout and interaction contract
+
+Use 248px entity cards, 38px headers, 24px attribute rows and 12px field text. Default to the compact **Diagrama** at every width. Pointer capture pans by dragging the canvas background; keyboard arrows and directional buttons provide alternatives, with zoom/fit/reset and accessible expanded-dialog focus/Escape. Search centers matches and selection explains links. The **Esquema** alternative is textual Prisma-like model blocks, not HTML attribute tables or executable Prisma. Both modes consume the same validated object and preserve composite keys/cardinalities. Theme and dimensions resolve through feature tokens.
+
+### Work-order and verification mapping
+
+Extend the existing coarse WO-02-007 for the reader/viewer/board integration; WO-04-004 owns only the workspace mounting/tab seam. AC-02-015.1–.9 cover the capability; AC-04-012.1–.5 cover workspace parity and project isolation. Scoped visual oracle: [round-2 model viewer](../../design/prototype/data-model-viewer/index.html). Verification must exercise independently authored valid and malformed artifacts, key/cardinality edge cases, both navigation contexts, both themes and narrow widths. Mockup checks and existing VERIFIED frontmatter are not proof that the new acceptance criteria passed.
+
+Factory architecture producer/templates and real-project backfill remain separate factory tooling work. MC's own artifact declares `persistence: none`; no illustrative database is shipped as MC's real data model. Generalized operational-schema verification and live database access remain outside this delivery.

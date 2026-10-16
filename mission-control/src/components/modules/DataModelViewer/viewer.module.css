@@ -1,0 +1,335 @@
+.viewer {
+  --model-unit: calc(var(--space-base) / 4);
+  --model-font: 12px;
+  color: var(--color-text);
+  min-width: 0;
+  font-size: var(--model-font);
+}
+.provenance,
+.toolbar,
+.diagramControls,
+.controlsGroup {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: calc(var(--model-unit) * 2);
+}
+.provenance {
+  color: var(--color-text2);
+  gap: var(--model-unit) calc(var(--model-unit) * 3);
+  margin-bottom: calc(var(--model-unit) * 3);
+}
+.provenance code {
+  overflow-wrap: anywhere;
+  color: var(--color-text3);
+}
+.toolbar {
+  margin-bottom: calc(var(--model-unit) * 2);
+}
+.search {
+  flex: 1;
+  min-width: min(100%, 180px);
+}
+.search input {
+  width: 100%;
+  min-height: calc(var(--model-unit) * 9);
+  padding: calc(var(--model-unit) * 2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-base);
+  color: var(--color-text);
+  font: inherit;
+}
+.diagramControls {
+  justify-content: space-between;
+  padding: calc(var(--model-unit) * 2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--color-card);
+}
+.controlsGroup {
+  gap: var(--model-unit);
+}
+.controlsGroup button {
+  min-width: calc(var(--model-unit) * 8);
+  min-height: calc(var(--model-unit) * 8);
+}
+.controlsGroup output {
+  min-width: calc(var(--model-unit) * 12);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.canvas {
+  position: relative;
+  overflow: hidden;
+  height: 440px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-top: 0;
+  background: var(--color-base);
+  cursor: grab;
+  touch-action: none;
+  overscroll-behavior: contain;
+}
+.canvas:active {
+  cursor: grabbing;
+}
+.stage {
+  position: absolute;
+  transform-origin: 0 0;
+}
+.edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+.edge {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.edgeLine {
+  fill: none;
+  stroke: var(--color-text3);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+.edgeHit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+}
+.edge text {
+  font: var(--model-font) var(--font-mono);
+  fill: var(--color-text2);
+  stroke: var(--color-base);
+  stroke-width: 4;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.edge[data-active="true"] .edgeLine,
+.edge:focus-visible .edgeLine {
+  stroke: var(--color-accent);
+  stroke-width: 2.5;
+}
+.entity {
+  position: absolute;
+  background: var(--color-card);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: var(--model-font);
+}
+.entity[data-related="true"] {
+  border-color: var(--color-accent);
+}
+.entity[data-selected="true"],
+.entity[data-match="true"] {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.entityHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 37px;
+  gap: calc(var(--model-unit) * 2);
+  padding: 0 calc(var(--model-unit) * 2);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-card2);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  text-align: left;
+}
+.entityHead strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+.entityHead span {
+  color: var(--color-text3);
+}
+.entity table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-mono);
+}
+.entity td {
+  height: 24px;
+  padding: 0 var(--model-unit);
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entity tr:last-child td {
+  border-bottom: 0;
+}
+.entity td:first-child {
+  width: 41%;
+  padding-left: calc(var(--model-unit) * 2);
+}
+.entity td:nth-child(2) {
+  width: 28%;
+  color: var(--color-text2);
+}
+.entity td:nth-child(3) {
+  width: 23%;
+  color: var(--color-accent-text);
+  font-size: var(--model-font);
+}
+.entity td:last-child {
+  width: 8%;
+  text-align: center;
+  color: var(--color-text2);
+}
+.help,
+.legend,
+.searchStatus {
+  color: var(--color-text2);
+  margin: calc(var(--model-unit) * 2) 0;
+  line-height: 1.5;
+}
+.inspector {
+  margin-top: calc(var(--model-unit) * 3);
+  border-top: 1px solid var(--color-border);
+  padding-top: calc(var(--model-unit) * 3);
+  line-height: 1.6;
+}
+.inspector p {
+  margin: var(--model-unit) 0 calc(var(--model-unit) * 2);
+}
+.inspector code {
+  overflow-wrap: anywhere;
+}
+.relationList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--model-unit) * 2);
+  margin-top: calc(var(--model-unit) * 2);
+}
+.relationList button {
+  color: var(--color-text2);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: calc(var(--model-unit) * 2);
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  min-height: calc(var(--model-unit) * 9);
+}
+.relationList button span {
+  color: var(--color-text3);
+  margin-left: calc(var(--model-unit) * 2);
+  white-space: nowrap;
+}
+.relationList button[aria-pressed="true"] {
+  border-color: var(--color-accent);
+}
+.muted {
+  color: var(--color-text2);
+}
+.schema {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: calc(var(--model-unit) * 3);
+}
+.schema section {
+  min-width: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-base);
+  overflow: hidden;
+}
+.schemaName {
+  color: var(--color-text);
+  background: var(--color-card2);
+  border: 0;
+  border-bottom: 1px solid var(--color-border);
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-weight: 600;
+  padding: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
+  cursor: pointer;
+}
+.schema p {
+  color: var(--color-text2);
+  margin: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
+}
+.schema pre {
+  font: var(--model-font) / 1.7 var(--font-mono);
+  margin: 0;
+  padding: calc(var(--model-unit) * 3);
+  overflow: auto;
+  max-height: 560px;
+}
+.dialog {
+  width: calc(100vw - var(--space-base) * 2);
+  max-width: none;
+  height: calc(100dvh - var(--space-base) * 2);
+  max-height: none;
+  margin: auto;
+  padding: var(--space-base);
+  color: var(--color-text);
+  background: var(--color-card);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+.dialog::backdrop {
+  background: var(--color-base);
+  opacity: 0.85;
+}
+.dialog .canvas {
+  height: clamp(320px, 60dvh, 900px);
+}
+.expandedPlaceholder {
+  min-height: 440px;
+}
+.state {
+  padding: var(--space-base);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text2);
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.viewer :is(button, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .search {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .canvas {
+    height: 400px;
+  }
+  .diagramControls {
+    gap: calc(var(--model-unit) * 2);
+  }
+  .dialog {
+    width: calc(100vw - var(--space-base));
+    height: calc(100dvh - var(--space-base));
+    padding: calc(var(--space-base) / 2);
+  }
+}

@@ -38,3 +38,7 @@ FRD-13 foundation primitives. Notes:
 - **FRD-02** (`lib/next-step.ts` base) — WO-04-003 extends it.
 - **FRD-03** (portfolio rail) — provides the selected `slug` that opens this workspace.
 - **FRD-05 / FRD-06 / FRD-11 / FRD-12 / FRD-14** — mounted tabs/panels/selector; FRD-04 provides the seam.
+
+## Architecture extension (2026-10-16)
+
+WO-04-004 now also owns the eight-tab order **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos** and the complete shared Architecture mount (REQ-04-012). It depends on WO-02-007's shared reader/viewer contract. Existing VERIFIED frontmatter remains historical evidence, not a claim that new model/navigation checks passed; see the updated acceptance criteria and extension evidence boundary in each work order.

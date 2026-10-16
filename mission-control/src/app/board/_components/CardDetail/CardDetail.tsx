@@ -44,6 +44,7 @@ import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
 import type { Adr } from "@/lib/architecture/adr";
+import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
 import { phaseFromStatus } from "@/lib/campaign/campaign";
 import { classifyDocLink } from "@/lib/docs/links";
@@ -311,6 +312,7 @@ export interface CardDetailProps {
    * Absent/empty → the "Arquitectura" tab is hidden (the project hasn't reached that stage).
    */
   architectureContent?: string;
+  dataModel?: DataModelResult;
   /** Live work orders (listWorkOrders) — the architecture tab's implementation-plan DAG. */
   workOrders?: WorkOrder[];
   /** Live env vars (`.env.example`) — the architecture tab's "Variables de entorno" block. */
@@ -377,6 +379,7 @@ export function CardDetail({
   frdCount,
   specContent,
   architectureContent,
+  dataModel,
   workOrders,
   envVars,
   adrs,
@@ -388,7 +391,9 @@ export function CardDetail({
   // "Spec" appears once the project has a spec digest; "Arquitectura" once it has an architecture
   // digest — each tab is filtered out before its phase produces the digest.
   const hasSpec = specContent != null && specContent !== "";
-  const hasArchitecture = architectureContent != null && architectureContent !== "";
+  const hasArchitecture =
+    (architectureContent != null && architectureContent !== "") ||
+    (dataModel !== undefined && dataModel.kind !== "missing");
 
   // Derive the active campaign phase index for CampaignPipeline and the default tab.
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
@@ -524,7 +529,7 @@ export function CardDetail({
 
       {/* ---- Arquitectura panel — the native stack/data-model/services/ADR/DAG/per-FRD digest
               (only when an architecture digest exists) ---- */}
-      {architectureContent != null && architectureContent !== "" && (
+      {hasArchitecture && (
         <div
           data-testid="card-detail-panel-arquitectura"
           role="tabpanel"
@@ -533,7 +538,8 @@ export function CardDetail({
         >
           <ArchitectureDigest
             title={title}
-            body={architectureContent}
+            body={architectureContent ?? ""}
+            dataModel={dataModel}
             projectType={projectType}
             targetPlatforms={targetPlatforms}
             workOrders={workOrders}

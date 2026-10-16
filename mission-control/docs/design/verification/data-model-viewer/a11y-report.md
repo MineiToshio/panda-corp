@@ -1,20 +1,17 @@
-# Shared Architecture mockup — round 1 verification
+# Shared Architecture mockup — round 2 verification
 
-Date: 2026-10-16. Scope: standalone design preview only.
+Date: 2026-10-16. Scope: standalone compact-interaction refinement. Product verification is recorded separately in [delivery](../../../reviews/logical-data-model-viewer/delivery.md).
 
 Artifact: `docs/design/prototype/data-model-viewer/index.html`
 
-SHA-256: `d9666e7febc8d0633b8334218f1d102925fc78f4674d6a68706d9cb31370af35`.
+SHA-256: `9d9a7509aa9ead32b2f721a151a61b32b6225703dce07cf47ca8560f96d8c9ba`.
 
 | Script | Observed result |
-|---|---|
-| Factory `preflight-round.mjs` with installed Playwright | Complete, CLEAN; no fail/warn findings |
-| `check-round.mjs` | 16 cases: board/portfolio × dark/light × 320/375/768/1280px; zero axe violations, document overflow, runtime errors, missing asset responses, undersized visible controls or demo leaks |
-| `check-interactions.mjs` | 10 flows: both contexts, table/neighbors, optional relation, attribute search, list filtering/clear, zoom, expanded-dialog axe and Escape/focus, navigation without DEMO, and four unavailable states per context; zero runtime errors |
-| Independent `reviewer/probe.cjs` | Final stable-hash regression green; actual rendered text ≥12px, all ten relationship endpoints align with mapped field rows, neighbors/links highlighted, unavailable states exclude ready-only facts |
+| --- | --- |
+| Factory `preflight-round.mjs` | Complete, CLEAN; zero findings; [round-2 report](preflight-round2.json) |
+| `check-round.mjs` | 16 context/theme/width cases (320/375/768/1280px), diagram default and hidden canvas overflow at every width; zero axe violations, page overflow, runtime/asset errors, demo leaks or undersized visible controls |
+| `check-interactions.mjs` | 10 flows/states, including actual pointer drag, portfolio tab position, compact schema with zero attribute tables, search/clear, neighbors/cardinalities, zoom and modal Escape/focus; zero runtime errors |
 
-The initial rendered review found unreadable auto-fit, incorrect field-row endpoints, missing neighbor highlighting and contradictory ready-state facts. These were corrected and independently rechecked. The first matrix also found a narrow clear-search button and an inappropriate nested complementary landmark; both were fixed. Phone inspection found split technology names in the stack matrix, corrected with a non-wrapping technology column.
+Current raw evidence: [matrix](matrix.json), [interactions](interactions.json), [screenshots](screenshots/). Round-1 [verification](../../mockups/data-model-viewer/round1-verification.md), [independent review](reviewer/review.md), earlier preflight and supplemental screenshots are historical evidence, not claims about the current source hash.
 
-Evidence: [matrix.json](matrix.json), [interactions.json](interactions.json), [preflight.json](preflight.json), [independent review](reviewer/review.md), and [screenshots](screenshots/). Full-page phone captures cover both contexts at 320 and 375px in each theme; the phone contact sheets and focused viewport capture accompany them. Desktop full-page and expanded-model captures are included. The live application's portfolio reference was captured before authoring and retained in the gitignored communication layer, to anchor the shell to the actual app rather than the historical prototype's old behavior.
-
-The reviewer report records its own bounded scope. This does not certify real project artifact ingestion, dense-model performance, live schema verification or production accessibility. Optional manual fit-to-view intentionally permits an overview below reading scale; the initial diagram and mobile textual view remain readable. No project phase, work-order state or app source was changed. Owner visual approval remains pending.
+The owner then explicitly requested implementation of the compact refinement and complete canonical-document alignment. The actual product uses the same native DOM/SVG pan approach with existing Dagre layout, but this mockup's six-entity example remains illustrative. Automatic artifact production for real projects and schema comparison are outside these mockup checks.

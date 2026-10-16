@@ -46,7 +46,7 @@ internal read-only tool. The full justification and the discarded alternatives a
 | Frontmatter | **gray-matter** | `^4.0.3` | Parses idea-card frontmatter (FRD-01/02). |
 | YAML | **yaml** | `^2.8.1` | Parses `.pandacorp/status.yaml` and `factory/decisions/registry.yaml`. |
 | Markdown | **react-markdown** | `^10.1.0` | Renders docs (PRD/FRD/work orders/Manual). |
-| Graph layout (future) | **Dagre** | — | FRD-12 DAG; cheap (~39KB), NOT ELK.js. Added in the FRD-12 work orders, not now. |
+| Graph layout | **Dagre** (`@dagrejs/dagre`) | Existing locked dependency | Work-order DAG and native DOM/SVG logical-model layout; no React Flow or ELK addition (ADR-0006). |
 
 **Package manager:** `pnpm`. **Node:** ≥20.9 (Next 16 minimum).
 
@@ -100,7 +100,7 @@ frontmatter; FRD-02 favourite (REQ-02-012) rewrites its `favorite:` flag. All in
 `lib/**`. Client Components (`"use client"`) are added only where interaction demands it: the
 **Copy** button (clipboard), the **discard** action (a Server Action), the Party RPG engine
 (`requestAnimationFrame` animation), auto-refresh, the `visto_hasta` digest marker
-(`localStorage`), and theme toggle. Everything that can be a Server Component is one.
+(`localStorage`), theme toggle, and the read-only Architecture/model viewer interactions. Everything that can be a Server Component is one.
 
 **Why filesystem reads belong on the server.** Reading `factory/` and `~/.claude/` is privileged
 local I/O — it must never be exposed to the client. Server Components (and a thin set of route
@@ -152,7 +152,7 @@ cards (the card `status` is just a pointer).
 
 ### 4.5 Per-project docs (feature-centric, DR-049) — `<projectPath>/docs/` and `.pandacorp/`
 Read for the workspace, work-orders and documentation views (FRD-04/05/08):
-- Product layer: `docs/product/prd.md` (+ feature-landscape table), `docs/product/architecture.md`.
+- Product layer: `docs/product/prd.md` (+ feature-landscape table), `docs/product/architecture.md`, and the versioned logical model `docs/product/data-model.json` (see §4.9).
 - Per-feature module: `docs/frds/frd-NN-<slug>/{frd.md, fdd.md?, blueprint.md?, mocks/?, work-orders/?}`.
 - Global: `docs/adr/`, `docs/analytics/`, `docs/decision-log.md`.
 - Owner-facing layer (Spanish, gitignored): `.pandacorp/comms/progress.md`, `.pandacorp/inbox/decisions.md`, `.pandacorp/inbox/bugs/`.
@@ -172,6 +172,18 @@ Read for the workspace, work-orders and documentation views (FRD-04/05/08):
 - `visto_hasta` digest marker (FRD-18) and theme/mode preference → `localStorage`. Survives
   refresh and tab close; advances only on acknowledge/act. Explicitly consistent with the
   read-only constraint (FRD-01).
+
+---
+
+### 4.9 Designed logical model — `<projectPath>/docs/product/data-model.json`
+
+This artifact describes a monitored project's designed persistence model; it does not turn MC's filesystem inventory into a database schema. **MC itself has no database** and its own artifact declares `schemaVersion: 1`, `persistence: none`, empty `entities` and empty `relationships`.
+
+The exact version-1 contract is [ADR-0006](../adr/ADR-0006-shared-logical-data-model-viewer.md). It stores relational/document/none persistence, stable entities with ordered attributes (logical type, optionality, PK/FK/UQ), composite PK/UQ groups, and relationships with both explicit endpoint entity/field references and `min: 0 | 1`, `max: 1 | many`. Validation rejects invalid/unknown/oversized data, dangling/duplicate IDs and malformed mappings; it never infers links from names. The server reads at most 1 MiB of UTF-8 JSON and returns distinct ready/none/missing/error states. No project code is executed.
+
+The board and embedded/direct workspace use `readArchitectureArtifacts` and the same complete `ArchitectureDigest`. The **Modelo de datos** body hosts the compact shared `DataModelViewer` (native DOM/SVG + existing Dagre; diagram default at every width, textual **Esquema** alternative). Narrative-only legacy projects remain readable; a present model remains reachable without a digest. No-persistence, missing, valid empty and invalid input are distinct. The viewer shows designed-model provenance and never claims operational-schema verification from phase/work-order state.
+
+The factory architecture-tooling producer and reviewed project backfill are separate dependencies, not implicit product writes. This delivery adds no database credentials, live introspection or project/schema editing.
 
 ---
 
@@ -218,6 +230,8 @@ their owning FRD's work orders.
 | `lib/next-step.ts` | Pure map: status/phase → next command + folder to open. | FRD-02, FRD-03, FRD-04 |
 | `lib/docs.ts` | Discover & read per-project docs (feature-centric tree). | FRD-04, FRD-05, FRD-08 |
 | `lib/work-orders.ts` | Read per-FRD work orders; aggregate progress. | FRD-05 |
+| `lib/architecture/data-model/{types,model,read-data-model}.ts` | Version-1 logical-model types, pure validation and bounded server-only read. | FRD-02 REQ-02-015 |
+| `lib/architecture/read-artifacts.ts` | One complete Architecture bundle (digest/model/live WOs/env/ADRs) reused by board and workspace. | FRD-02 / FRD-04 |
 | `lib/events.ts` | Tail & parse `dashboard-events.ndjson` (capped); diffs. | FRD-06, FRD-12, FRD-18 |
 | `lib/tasks.ts` | Read `~/.claude/tasks/` task state. | FRD-06 |
 | `lib/plugin-sync.ts` | Installed `version` (`installed_plugins.json`) vs source `version` (`plugin/.claude-plugin/plugin.json`); banner only when strictly behind (FRD-15 amended 2026-06-22 — version-based, no git/SHA). | FRD-15 |

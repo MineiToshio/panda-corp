@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pandacorp project data model v1",
+  "description": "Canonical docs/product/data-model.json contract. Reader cap: 1 MiB UTF-8 JSON. The runtime validator additionally enforces unique entity, attribute (per entity), and relationship IDs; existing entity/attribute references; paired endpoint attribute mappings of equal length; at most one PK group per entity; and duplicate-free key groups. Endpoint min/max are multiplicities at that endpoint. Attribute optional is nullability, independent of relationship minimum. Missing artifact, explicit no persistence, empty persistent model, and invalid artifact are distinct states.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "persistence",
+    "entities",
+    "relationships"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "persistence": {
+      "enum": [
+        "relational",
+        "document",
+        "none"
+      ]
+    },
+    "entities": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "$ref": "#/$defs/entity"
+      }
+    },
+    "relationships": {
+      "type": "array",
+      "maxItems": 400,
+      "items": {
+        "$ref": "#/$defs/relationship"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "persistence": {
+            "const": "none"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "entities": {
+            "maxItems": 0
+          },
+          "relationships": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "\\S"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "pattern": "\\S"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000,
+      "pattern": "\\S"
+    },
+    "attribute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "type",
+        "optional"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "pattern": "\\S"
+        },
+        "optional": {
+          "type": "boolean"
+        },
+        "keys": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "PK",
+              "FK",
+              "UQ"
+            ]
+          }
+        }
+      }
+    },
+    "keyGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "attributes"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "PK",
+            "UQ"
+          ]
+        },
+        "attributes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        }
+      }
+    },
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "attributes"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "$ref": "#/$defs/description"
+        },
+        "attributes": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/attribute"
+          }
+        },
+        "keyGroups": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/keyGroup"
+          }
+        }
+      }
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entity",
+        "min",
+        "max"
+      ],
+      "properties": {
+        "entity": {
+          "$ref": "#/$defs/id"
+        },
+        "attributes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/id"
+          }
+        },
+        "min": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "max": {
+          "enum": [
+            1,
+            "many"
+          ]
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "from",
+        "to"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "name": {
+          "$ref": "#/$defs/name"
+        },
+        "description": {
+          "$ref": "#/$defs/description"
+        },
+        "from": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "to": {
+          "$ref": "#/$defs/endpoint"
+        }
+      }
+    }
+  }
+}

@@ -56,3 +56,7 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 - `data-testid` on interactive elements; UI copy in Spanish via i18n; design tokens only.
 - **Only the bounded writes touch the filesystem** — `lib/discard/` (discard + restore) and
   `lib/favorite/` (favourite, ADR-0003); every other artifact is read-only and adds no AI dependency.
+
+## Logical-model extension (2026-10-16)
+
+WO-02-007 also owns the shared structured-model reader/viewer and board integration (REQ-02-013/015). WO-04-004 mounts that complete Architecture surface in the workspace. See those work orders for current scope and evidence boundaries; earlier table/status evidence does not certify the extension. No new build-state transition is recorded by this documentation change.

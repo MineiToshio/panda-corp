@@ -13,7 +13,7 @@ artifacts:
   - 'src/lib/changes/_tests/formatChangeDate.test.ts'
   - 'src/app/projects/[slug]/_components/tab-changes/ChangeCard.tsx'
   - 'src/app/projects/[slug]/_components/tab-changes/_tests/ChangeCard.test.tsx'
-source_requirements: [REQ-04-011, REQ-04-007]
+source_requirements: [REQ-04-011]
 dependsOn: [WO-04-004]
 last_updated: '2026-09-24'
 change_ref: canario-d-paralelismo-portfolio-board-changes-wo.md

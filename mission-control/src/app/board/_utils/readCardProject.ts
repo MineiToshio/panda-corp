@@ -1,12 +1,13 @@
-import { readAdrs } from "@/lib/architecture/adr";
-import { readEnvExample } from "@/lib/architecture/env";
-import { readArchitectureDigest } from "@/lib/architecture/read-architecture";
+import type { readAdrs } from "@/lib/architecture/adr";
+import type { DataModelResult } from "@/lib/architecture/data-model/types";
+import type { readEnvExample } from "@/lib/architecture/env";
+import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
 import { resolveProjectPath } from "@/lib/config/config";
 import { countFrdFolders, type DocNode, listProjectDocs } from "@/lib/docs/tree";
 import type { IdeaCard } from "@/lib/ideas/ideas";
 import { readSpecDigest } from "@/lib/spec/read-spec";
 import { readStatus, type StatusResult } from "@/lib/status/status";
-import { listWorkOrders, type WorkOrder } from "@/lib/work-orders/work-orders";
+import type { WorkOrder } from "@/lib/work-orders/work-orders";
 
 /** Everything the board reads from a card's linked project (all absent for a card with none). */
 export type CardProjectData = {
@@ -17,6 +18,7 @@ export type CardProjectData = {
   frdCount: number | undefined;
   specContent: string | undefined;
   architectureContent: string | undefined;
+  dataModel?: DataModelResult;
   workOrders: WorkOrder[] | undefined;
   envVars: ReturnType<typeof readEnvExample> | undefined;
   adrs: ReturnType<typeof readAdrs> | undefined;
@@ -62,18 +64,12 @@ export function readCardProject(card: IdeaCard): CardProjectData {
 
   const projectPath = resolveProjectPath(card.project);
   const allDocNodes = listProjectDocs(projectPath);
-  const architectureContent = readArchitectureDigest(projectPath) ?? undefined;
-  // The (heavier) live architecture artifacts are read only once the digest exists, i.e. when
-  // the Arquitectura tab will actually render them.
-  const hasArchitecture = architectureContent != null;
+  const architecture = readArchitectureArtifacts(projectPath);
   return {
     projectStatus: readStatus(projectPath),
     docNodes: allDocNodes.filter(isScopedBoardDoc),
     frdCount: countFrdFolders(allDocNodes),
     specContent: readSpecDigest(projectPath) ?? undefined,
-    architectureContent,
-    workOrders: hasArchitecture ? listWorkOrders(projectPath) : undefined,
-    envVars: hasArchitecture ? readEnvExample(projectPath) : undefined,
-    adrs: hasArchitecture ? readAdrs(projectPath) : undefined,
+    ...architecture,
   };
 }

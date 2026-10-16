@@ -12,7 +12,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/workspace-header.tsx'
   - 'src/app/projects/[slug]/_components/tabbar.tsx'
   - 'src/app/projects/[slug]/_components/objectives-bar.tsx'
-source_requirements: [REQ-04-001, REQ-04-002]
+source_requirements: [REQ-04-001, REQ-04-002, REQ-04-012]
 dependsOn: [WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-20'
 ---
@@ -21,7 +21,7 @@ last_updated: '2026-06-20'
 ## Goal
 Re-implement the **project workspace chrome** so it renders pixel-faithfully to the approved
 prototype `projectPane()`: a **compact, light header** (DR-062 — its **H1 is the project name**, NOT a
-heavy panel), the **6-tab bar** below it, and the **"Objetivos de la misión"** progress bar — all
+heavy panel), the **8-tab bar** below it, and the **"Objetivos de la misión"** progress bar — all
 visible on every tab. This is the mount seam the per-tab FRDs plug into.
 
 The `lib/**` data layer (`lib/status.ts`, `lib/docs.ts`, `lib/next-step.ts`) is correct and VERIFIED —
@@ -37,9 +37,9 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
   `ti-player-play` `var(--ok)` running pip), a right cluster with the **status `Chip`** + version, and
   the thin progress line. **NOT a `PageTitle`** and **not a heavy `Panel`** — it is the workspace's own
   light `compactProjectHeader` per DR-062 / `components.md`.
-- **`CMP-04-tabbar` / `Tabbar`** (`tabbar.tsx`, Client `"use client"`) — the **six-tab bar** built on
+- **`CMP-04-tabbar` / `Tabbar`** (`tabbar.tsx`, Client `"use client"`) — the **eight-tab bar** built on
   the shared **`Tabs`** primitive (the project-scoped `.stab` pills), in this order:
-  **Resumen · Work orders · Party · Observabilidad · Documentos · Comandos**. The new **Observabilidad**
+  **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. The new **Observabilidad**
   tab (FRD-12, sibling of Party) is included. `role=tablist`, keyboard-navigable, `aria-selected`,
   default Resumen, selection URL-driven (`?tab=`) so Server Component bodies render.
 - **`CMP-04-objectives-bar` / `ObjectivesBar`** (`objectives-bar.tsx`, Server) — the **"Objetivos de la
@@ -51,8 +51,8 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
   — do not fork a second tab bar, progress bar or pill.
 
 ## Acceptance criteria
-- **AC-04-001.1** GIVEN a selected project, the workspace SHALL render exactly six tabs in order
-  Resumen, Work orders, Party, Observabilidad, Documentos, Comandos.
+- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly eight tabs in order
+  Resumen, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Resumen**.
 - **AC-04-002.1** The header SHALL render the project name as the H1, the stage label (from `phase`)
   and `version`. The
@@ -79,7 +79,7 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
 
 **What was built:**
 - `WorkspaceHeader` (`workspace-header.tsx`, Server Component): compact light header rendering title as H1 at 16px/500, optional `ti-player-play` running pip in `var(--color-ok)`, stage `Chip` (accent tone, shared primitive WO-13-007), version at 12px/text2, optional progress line with `ti-hammer` icon. Padding `10px 14px` matches prototype `compactProjectHeader()`. No `PageTitle` — this is the workspace's own compact header per DR-062.
-- `TabBar` (`tabbar.tsx`, Client Component `"use client"`): 6-tab bar built on shared `SubTabs` primitive (WO-13-006, DR-062). Tabs in order: Resumen · Work orders · Party · Observabilidad · Documentos · Comandos. URL-driven via `router.push("?tab=<id>")` onChange. `testIdPrefix="tab-"` for stable test ids. `data-testid="tabbar"` on the nav container.
+- `TabBar` (`tabbar.tsx`, Client Component `"use client"`): original tab bar built on shared `SubTabs` primitive (WO-13-006, DR-062). The order described in this historical delivery predates the Architecture extension; current order is specified above. URL-driven via `router.push("?tab=<id>")` onChange. `testIdPrefix="tab-"` for stable test ids. `data-testid="tabbar"` on the nav container.
 - `ObjectivesBar` (`objectives-bar.tsx`, Server Component): persistent "Objetivos de la misión" section between header and tabs (visible on all tabs per AC-04-002.3). Consumer of shared `ProgressBar` primitive (WO-13-007, DR-057). Shows sword icon, label row with done/total/pct, and full-width ProgressBar. Omitted when total is 0/absent. `data-testid="objectives-bar"` on root, `"objectives-bar-counts"`, `"objectives-bar-pct"`, `"objectives-bar-fill"` on children.
 - `page.tsx` updated: `VALID_TABS` set extended to include `"observabilidad"`; `resolveTabBody()` switch extended with `"observabilidad"` case rendering a placeholder `data-testid="tab-observabilidad-body"` pending FRD-12.
 
@@ -101,12 +101,27 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
 - `vi.mock("next/navigation", ...)` was added to 4 test files after TabBar switched from `<a href>` links to `useRouter().push()` — this is the required pattern for all tests that render the workspace page or TabBar.
 
 **Test files covering this WO:**
-- `src/app/projects/[slug]/_components/_tests/workspace-shell.test.tsx` — 30 tests covering all ACs (6-tab order, default tab, header fields, objectives bar, running pip, omit-when-zero, tab persistence)
+- `src/app/projects/[slug]/_components/_tests/workspace-shell.test.tsx` — 30 tests covering all ACs (original tab order, default tab, header fields, objectives bar, running pip, omit-when-zero, tab persistence)
 - `src/app/projects/[slug]/_tests/page.reviewer.test.tsx` — page-level reviewer tests (updated with navigation mock)
 - `src/app/projects/[slug]/_tests/page.reviewer.integration.test.tsx` — integration reviewer tests (updated with navigation mock)
 - `src/app/projects/[slug]/_components/wo-detail/_tests/wo-detail.integration.test.tsx` — WO detail integration (updated with navigation mock)
 
 **Fidelity check (DR-056):**
-Cycle 1 performed via `/preview-wo04004` route (portfolio slug resolution for `mission-control` is blocked by WO-03-002's pre-existing portfolio parser bug with Spanish headers). Preview shows header, objectives bar, and 6-tab bar rendering correctly against the prototype. The ObjectivesBar-below-header layout differs from the prototype's in-Resumen placement by design (WO-04-004 AC-04-002.3).
+Cycle 1 performed via `/preview-wo04004` route (portfolio slug resolution for `mission-control` is blocked by WO-03-002's pre-existing portfolio parser bug with Spanish headers). Preview shows header, objectives bar, and original tab bar rendering correctly against the prototype. The ObjectivesBar-below-header layout differs from the prototype's in-Resumen placement by design (WO-04-004 AC-04-002.3).
 
 **Preview route:** `/preview-wo04004` (`src/app/preview-wo04004/page.tsx`) — exists for the fidelity check; not shipped behavior.
+
+## Architecture extension scope — 2026-10-16
+
+The current goal includes the eight-tab order above plus mounting the **complete** existing `ArchitectureDigest` in `ProjectWorkspace`, using `readArchitectureArtifacts` from the same server seam as board cards. Preserve all panels, the **Modelo de datos** heading, selected project and `tab=architecture` in embedded/direct navigation. Do not fork a database-only panel. The shared reader/viewer implementation belongs to WO-02-007.
+
+- WHEN either workspace entry point selects Arquitectura, THE shell SHALL satisfy AC-04-012.1–.5 and FRD-02's shared model criteria.
+- WHEN the selected project changes, THE workspace SHALL replace project-local Architecture state and keep models isolated.
+
+**Evidence boundary:** existing implementation_status and earlier Status Notes describe their original delivery. This extension does not mark new checks complete; targeted type/unit/browser evidence must be recorded separately before claiming the new acceptance criteria passed. Scoped visual reference: `docs/design/prototype/data-model-viewer/index.html`, round 2.
+
+## Delivery verification — 2026-10-16
+
+Reconciled from code and current checks by `/pandacorp:sync` on 2026-10-16, under the owner's explicit direct-implementation instruction. This note covers the extension, separately from the historical delivery above. Shared reader/viewer and both surfaces are implemented. The canonical isolated-worktree `verify.sh --since da0d3a8404fae6f82e66f2870e7e69cb0bdcef21 --report-all` passed all 11 subgates (433 unit/integration tests and 42 shell/smoke browser cases). The additional feature E2E suite passed four desktop/mobile cases, including actual pointer pan, compact schema, tab order and modal focus. An independent reviewer passed 1,897 affected regression tests and authored adversarial cases; the graph adapter now isolates opaque authored IDs from Dagre's object-key internals.
+
+Evidence: [delivery report](../../../reviews/logical-data-model-viewer/delivery.md), [independent review](../../../reviews/logical-data-model-viewer/review.md). Existing machine-status fields are preserved; this scoped manual change does not launch or impersonate a build-engine run. Factory artifact production and reviewed project backfill remain separate from the implemented consumer.

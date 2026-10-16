@@ -1,0 +1,540 @@
+{
+  "title": "Modelo de datos · Mission Control",
+  "skip": "Saltar al contenido",
+  "brand": "Pandacorp Mission Control",
+  "guild": "EL GREMIO · ATELIER",
+  "nav": [
+    "Inicio",
+    "Tablero",
+    "Portfolio",
+    "Propuestas",
+    "Logros",
+    "Documentación"
+  ],
+  "demo": "DEMO · ejemplo ilustrativo",
+  "demoHelp": "Datos de muestra para revisar el diseño. No describen un proyecto real.",
+  "screen": "Pantalla",
+  "architecture": "Tablero · Arquitectura",
+  "database": "Portafolio · Arquitectura",
+  "theme": "Tema",
+  "dark": "Oscuro",
+  "light": "Claro",
+  "state": "Estado",
+  "states": {
+    "ready": "Modelo diseñado",
+    "loading": "Cargando",
+    "missing": "Modelo pendiente",
+    "none": "Sin base de datos",
+    "error": "Error de lectura"
+  },
+  "project": "Colección",
+  "tagline": "Tus colecciones, sus piezas y las historias que las acompañan.",
+  "sample": "Ejemplo ilustrativo",
+  "boardBreadcrumb": "Tablero / Arquitectura / Colección",
+  "portfolioBreadcrumb": "Portafolio / Colección / Arquitectura",
+  "architecturePhase": "Arquitectura",
+  "buildPhase": "En construcción",
+  "boardTabs": [
+    "Propuesta",
+    "Spec",
+    "Arquitectura",
+    "Documentos",
+    "Campaña"
+  ],
+  "portfolioTabs": [
+    "Resumen",
+    "Work orders",
+    "Cambios",
+    "Party",
+    "Observabilidad",
+    "Documentos",
+    "Comandos",
+    "Arquitectura"
+  ],
+  "projects": "Proyectos",
+  "activeProjects": "EN TU TALLER",
+  "otherProjects": [
+    "Mission Control",
+    "Bitácora"
+  ],
+  "selectedProject": "Proyecto seleccionado",
+  "stackTitle": "Stack y tecnologías",
+  "stack": [
+    "Next.js · interfaz",
+    "PostgreSQL · datos",
+    "Drizzle · acceso a datos"
+  ],
+  "model": "Modelo de datos",
+  "databaseTitle": "Modelo de datos",
+  "intro": "La estructura de Colección, de un vistazo. Explora sus tablas y cómo se conectan.",
+  "count": "6 tablas · 5 relaciones",
+  "provenance": "Modelo diseñado · implementación sin verificar",
+  "provenanceHelp": "Describe la estructura prevista. Aún no se ha comparado con la implementación.",
+  "source": "Fuente: modelo lógico del proyecto",
+  "search": "Buscar tabla o campo",
+  "clear": "Limpiar búsqueda",
+  "diagram": "Diagrama",
+  "list": "Lista",
+  "expand": "Ampliar modelo",
+  "close": "Cerrar vista ampliada",
+  "zoomIn": "Acercar",
+  "zoomOut": "Alejar",
+  "fit": "Ajustar a la vista",
+  "zoom": "Escala del diagrama",
+  "diagramName": "Modelo de datos de Colección",
+  "selectTable": "Seleccionar tabla",
+  "seeRelation": "Ver relación",
+  "fields": "Campos",
+  "type": "Tipo",
+  "keys": "Claves",
+  "value": "Valor",
+  "required": "Obligatorio",
+  "optional": "Opcional",
+  "relationships": "Relaciones",
+  "explore": "Explora el modelo",
+  "selectHelp": "Selecciona una tabla o una relación para ver sus detalles.",
+  "relationship": "Relación seleccionada",
+  "table": "Tabla seleccionada",
+  "legend": "Cómo leer el modelo",
+  "legendKeys": "PK Clave primaria · FK Clave foránea · UQ Valor único",
+  "legendRequired": "● Obligatorio · ○ Opcional",
+  "legendNumbers": "1 Exactamente uno · 0..1 Ninguno o uno · 0..* Ninguno o varios · 1..* Uno o varios",
+  "many": "Una colección puede reunir varios elementos y un elemento puede aparecer en varias colecciones. collection_items registra cada vínculo.",
+  "minimum": "Cada colección debe incluir al menos un elemento.",
+  "noResults": "Sin resultados. Busca por nombre de tabla o campo.",
+  "matches": "Coincidencias",
+  "emptyTitle": {
+    "loading": "Cargando modelo…",
+    "missing": "Modelo lógico pendiente",
+    "none": "Este proyecto no usa base de datos",
+    "error": "No se pudo leer el modelo"
+  },
+  "emptyBody": {
+    "loading": "Preparando tablas y relaciones.",
+    "missing": "Este proyecto todavía no tiene un modelo estructurado. El resumen de arquitectura seguirá disponible.",
+    "none": "Su arquitectura no requiere persistencia en una base de datos.",
+    "error": "El archivo contiene datos que no podemos representar."
+  },
+  "diagnostic": "Detalle de muestra: la relación hace referencia a una tabla que no existe.",
+  "retry": "Volver al ejemplo válido",
+  "entities": [
+    {
+      "id": "users",
+      "label": "Usuarios",
+      "description": "Personas que organizan colecciones.",
+      "x": 80,
+      "y": 40,
+      "fields": [
+        [
+          "id",
+          "uuid",
+          "PK",
+          false
+        ],
+        [
+          "email",
+          "text",
+          "UQ",
+          false
+        ],
+        [
+          "name",
+          "text",
+          "",
+          false
+        ],
+        [
+          "created_at",
+          "timestamp",
+          "",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "collections",
+      "label": "Colecciones",
+      "description": "Cada colección pertenece a una persona y reúne al menos un elemento.",
+      "x": 470,
+      "y": 40,
+      "fields": [
+        [
+          "id",
+          "uuid",
+          "PK",
+          false
+        ],
+        [
+          "user_id",
+          "uuid",
+          "FK",
+          false
+        ],
+        [
+          "name",
+          "text",
+          "",
+          false
+        ],
+        [
+          "description",
+          "text",
+          "",
+          true
+        ]
+      ]
+    },
+    {
+      "id": "items",
+      "label": "Elementos",
+      "description": "Piezas que pueden formar parte de distintas colecciones.",
+      "x": 860,
+      "y": 40,
+      "fields": [
+        [
+          "id",
+          "uuid",
+          "PK",
+          false
+        ],
+        [
+          "title",
+          "text",
+          "",
+          false
+        ],
+        [
+          "category",
+          "text",
+          "",
+          true
+        ],
+        [
+          "created_at",
+          "timestamp",
+          "",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "profiles",
+      "label": "Perfiles",
+      "description": "Información opcional de cada usuario. user_id es único: un usuario tiene como máximo un perfil.",
+      "x": 80,
+      "y": 410,
+      "fields": [
+        [
+          "id",
+          "uuid",
+          "PK",
+          false
+        ],
+        [
+          "user_id",
+          "uuid",
+          "FK · UQ",
+          false
+        ],
+        [
+          "bio",
+          "text",
+          "",
+          true
+        ],
+        [
+          "avatar_url",
+          "text",
+          "",
+          true
+        ]
+      ]
+    },
+    {
+      "id": "notes",
+      "label": "Notas",
+      "description": "Anotaciones sobre una colección.",
+      "x": 470,
+      "y": 410,
+      "fields": [
+        [
+          "id",
+          "uuid",
+          "PK",
+          false
+        ],
+        [
+          "collection_id",
+          "uuid",
+          "FK",
+          false
+        ],
+        [
+          "body",
+          "text",
+          "",
+          false
+        ],
+        [
+          "created_at",
+          "timestamp",
+          "",
+          false
+        ]
+      ]
+    },
+    {
+      "id": "collection_items",
+      "label": "Vínculos",
+      "description": "Tabla de unión. collection_id e item_id forman una clave primaria compuesta.",
+      "x": 860,
+      "y": 410,
+      "fields": [
+        [
+          "collection_id",
+          "uuid",
+          "PK · FK",
+          false
+        ],
+        [
+          "item_id",
+          "uuid",
+          "PK · FK",
+          false
+        ],
+        [
+          "added_at",
+          "timestamp",
+          "",
+          false
+        ],
+        [
+          "position",
+          "integer",
+          "",
+          true
+        ]
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "id": "ownership",
+      "from": "users",
+      "to": "collections",
+      "a": "1",
+      "b": "0..*",
+      "label": "Posee",
+      "path": "M350 124 H410 V164 H470",
+      "ax": 365,
+      "ay": 110,
+      "bx": 435,
+      "by": 150,
+      "start": [
+        350,
+        124,
+        "right"
+      ],
+      "end": [
+        470,
+        164,
+        "left"
+      ],
+      "explanation": "Cada usuario puede tener ninguna o varias colecciones. Cada colección pertenece a un usuario.",
+      "mapping": "users.id → collections.user_id"
+    },
+    {
+      "id": "profile",
+      "from": "users",
+      "to": "profiles",
+      "a": "1",
+      "b": "0..1",
+      "label": "Tiene perfil",
+      "path": "M80 124 H40 V534 H80",
+      "ax": 48,
+      "ay": 110,
+      "bx": 43,
+      "by": 520,
+      "start": [
+        80,
+        124,
+        "left"
+      ],
+      "end": [
+        80,
+        534,
+        "left"
+      ],
+      "explanation": "Cada usuario puede tener un perfil. Cada perfil pertenece a un usuario.",
+      "mapping": "users.id → profiles.user_id"
+    },
+    {
+      "id": "note",
+      "from": "collections",
+      "to": "notes",
+      "a": "1",
+      "b": "0..*",
+      "label": "Tiene notas",
+      "path": "M470 124 H430 V534 H470",
+      "ax": 442,
+      "ay": 110,
+      "bx": 432,
+      "by": 520,
+      "start": [
+        470,
+        124,
+        "left"
+      ],
+      "end": [
+        470,
+        534,
+        "left"
+      ],
+      "explanation": "Cada colección puede tener ninguna o varias notas. Cada nota pertenece a una colección.",
+      "mapping": "collections.id → notes.collection_id"
+    },
+    {
+      "id": "collectionlink",
+      "from": "collections",
+      "to": "collection_items",
+      "a": "1",
+      "b": "1..*",
+      "label": "Reúne",
+      "path": "M740 124 H810 V494 H860",
+      "ax": 755,
+      "ay": 110,
+      "bx": 818,
+      "by": 480,
+      "start": [
+        740,
+        124,
+        "right"
+      ],
+      "end": [
+        860,
+        494,
+        "left"
+      ],
+      "explanation": "Cada colección contiene uno o varios vínculos con elementos. Cada vínculo pertenece a una colección.",
+      "mapping": "collections.id → collection_items.collection_id"
+    },
+    {
+      "id": "itemlink",
+      "from": "items",
+      "to": "collection_items",
+      "a": "1",
+      "b": "0..*",
+      "label": "Se incluye",
+      "path": "M1130 124 H1170 V534 H1130",
+      "ax": 1140,
+      "ay": 110,
+      "bx": 1138,
+      "by": 520,
+      "start": [
+        1130,
+        124,
+        "right"
+      ],
+      "end": [
+        1130,
+        534,
+        "right"
+      ],
+      "explanation": "Cada elemento puede aparecer en ninguna o varias colecciones. Cada vínculo corresponde a un elemento.",
+      "mapping": "items.id → collection_items.item_id"
+    }
+  ],
+  "portfolioHeading": "Portfolio",
+  "portfolioIntro": "Tus proyectos en obra y lanzados. Explora la arquitectura del proyecto seleccionado.",
+  "brandAlt": "Pandacorp",
+  "servicesHeading": "Comunicación y servicios",
+  "servicesBody": "PostgreSQL guarda colecciones y vínculos. El almacenamiento de objetos conserva las imágenes de las piezas.",
+  "decisionsHeading": "Decisiones / ADR",
+  "decisionsBody": "Modelo relacional para conservar la integridad de los vínculos. La unión collection_items evita duplicar una pieza al incluirla en varias colecciones.",
+  "planHeading": "Plan de implementación",
+  "planBody": "Primero, identidad y colecciones. Después, catálogo de piezas, vínculos y notas. El modelo diseñado todavía no se ha contrastado con código.",
+  "detailsLabel": "Detalles del modelo",
+  "heroTitle": "Arquitectura de Colección",
+  "heroIntro": "Aplicación web adaptable. Una estructura relacional sencilla para organizar colecciones, piezas y notas.",
+  "stackColumns": [
+    "Capa",
+    "Elección",
+    "Por qué"
+  ],
+  "stackRows": [
+    [
+      "Interfaz",
+      "Next.js",
+      "Navegación y vistas en una sola aplicación."
+    ],
+    [
+      "Datos",
+      "PostgreSQL",
+      "Integridad entre usuarios, colecciones y piezas."
+    ],
+    [
+      "Acceso a datos",
+      "Drizzle",
+      "Consultas tipadas y migraciones explícitas."
+    ]
+  ],
+  "services": [
+    {
+      "name": "PostgreSQL",
+      "body": "Persistencia de usuarios, colecciones y vínculos."
+    },
+    {
+      "name": "Almacenamiento de objetos",
+      "body": "Imágenes de las piezas, separadas del modelo relacional."
+    }
+  ],
+  "envHeading": "Variables de entorno",
+  "envNote": "Solo nombres y propósito. Los valores no se muestran.",
+  "envVars": [
+    {
+      "name": "DATABASE_URL",
+      "body": "Conexión a PostgreSQL."
+    },
+    {
+      "name": "STORAGE_BUCKET",
+      "body": "Contenedor para imágenes."
+    }
+  ],
+  "adrs": [
+    {
+      "id": "ADR-001",
+      "title": "Persistencia relacional",
+      "body": "PostgreSQL conserva claves y relaciones explícitas. La integridad de los vínculos se expresa con restricciones del esquema."
+    },
+    {
+      "id": "ADR-002",
+      "title": "Unión explícita de colecciones y piezas",
+      "body": "collection_items permite incluir una pieza en distintas colecciones, conservando fecha y posición en cada vínculo."
+    }
+  ],
+  "planNote": "Dependencias previstas del ejemplo. Las tarjetas no indican trabajo ejecutado.",
+  "planNodes": [
+    "Identidad",
+    "Colecciones",
+    "Catálogo y vínculos",
+    "Notas"
+  ],
+  "frdHeading": "Por FRD",
+  "frds": [
+    {
+      "id": "FRD-01",
+      "title": "Identidad y perfil",
+      "body": "Usuarios y perfil opcional. Base común para las colecciones."
+    },
+    {
+      "id": "FRD-02",
+      "title": "Colecciones y catálogo",
+      "body": "Colecciones, piezas y vínculos con sus atributos propios."
+    },
+    {
+      "id": "FRD-03",
+      "title": "Notas de colección",
+      "body": "Anotaciones vinculadas a una colección existente."
+    }
+  ]
+}

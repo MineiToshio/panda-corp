@@ -2,12 +2,12 @@
   "checks": [
     {
       "view": "architecture",
-      "flow": "shared architecture, selection, neighbors, optional relation, search, list, clear, zoom, fullscreen axe and focus, navigation without demo",
+      "flow": "shared architecture, selection, neighbors, optional relation, search, schema code blocks, clear, native pointer pan without scrollbars, zoom, fullscreen axe and focus, navigation without demo",
       "effectiveMinFont": 12.118421052631579
     },
     {
       "view": "portfolio",
-      "flow": "shared architecture, selection, neighbors, optional relation, search, list, clear, zoom, fullscreen axe and focus, navigation without demo",
+      "flow": "shared architecture, selection, neighbors, optional relation, search, schema code blocks, clear, native pointer pan without scrollbars, zoom, fullscreen axe and focus, navigation without demo",
       "effectiveMinFont": 12.118421052631579
     },
     {

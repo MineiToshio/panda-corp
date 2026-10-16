@@ -1,0 +1,74 @@
+{
+  "tool": "preflight-round",
+  "schema": 1,
+  "prototype": "mission-control/docs/design/prototype/data-model-viewer/index.html",
+  "prototypeSha256": "9d9a7509aa9ead32b2f721a151a61b32b6225703dce07cf47ca8560f96d8c9ba",
+  "generatedAt": "2026-10-16T23:04:09.093Z",
+  "durationMs": 1609,
+  "browser": "ran",
+  "complete": true,
+  "status": "clean",
+  "counts": {
+    "fail": 0,
+    "warn": 0
+  },
+  "thresholds": {
+    "minFontPx": 12,
+    "maxLiteralColors": 0,
+    "maxLiteralLengths": 150
+  },
+  "literals": {
+    "colors": 0,
+    "lengths": 1
+  },
+  "screens": [
+    "(page)"
+  ],
+  "widths": [
+    375,
+    1280
+  ],
+  "checks": {
+    "smallText": {
+      "status": "ok",
+      "findings": 0
+    },
+    "demoLeaks": {
+      "status": "ok",
+      "findings": 0
+    },
+    "literalColors": {
+      "status": "ok",
+      "findings": 0
+    },
+    "literalLengths": {
+      "status": "ok",
+      "findings": 0
+    },
+    "unguardedHover": {
+      "status": "ok",
+      "findings": 0
+    },
+    "textFades": {
+      "status": "ok",
+      "findings": 0
+    },
+    "overflow": {
+      "status": "ok",
+      "findings": 0
+    },
+    "fonts": {
+      "status": "ok",
+      "findings": 0
+    },
+    "tokens": {
+      "status": "ok",
+      "findings": 0
+    },
+    "screens": {
+      "status": "ok",
+      "findings": 0
+    }
+  },
+  "findings": []
+}

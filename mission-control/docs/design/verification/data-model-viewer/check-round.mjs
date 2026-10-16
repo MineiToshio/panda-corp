@@ -27,6 +27,8 @@ try {
           const visible = el => el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
           return {
             horizontalOverflow: document.documentElement.scrollWidth > innerWidth + 1,
+            diagramDefault: document.querySelector('#mode-diagram').getAttribute('aria-pressed') === 'true',
+            canvasOverflow: getComputedStyle(document.querySelector('#canvas')).overflow,
             visibleH1s: [...document.querySelectorAll('h1')].filter(visible).length,
             demoLeaks: [...document.querySelectorAll('[data-demo-only]')].filter(visible).length,
             smallText: [...document.querySelectorAll('body *')].filter(el => visible(el) && [...el.childNodes].some(n => n.nodeType === Node.TEXT_NODE && n.textContent.trim()) && parseFloat(getComputedStyle(el).fontSize) < 12).slice(0, 8).map(el => el.textContent.trim().slice(0, 90)),
@@ -38,7 +40,7 @@ try {
         const violations = audit.violations.map(v => ({ id: v.id, impact: v.impact, nodes: v.nodes.map(n => n.target) }));
         const row = { view, theme, width, ...metrics, runtimeErrors, badResponses, violations };
         results.push(row);
-        if (metrics.horizontalOverflow || metrics.visibleH1s !== 1 || metrics.demoLeaks || metrics.smallText.length || metrics.smallControls.length || runtimeErrors.length || badResponses.length || violations.length) failures.push(row);
+        if (!metrics.diagramDefault || metrics.canvasOverflow !== 'hidden' || metrics.horizontalOverflow || metrics.visibleH1s !== 1 || metrics.demoLeaks || metrics.smallText.length || metrics.smallControls.length || runtimeErrors.length || badResponses.length || violations.length) failures.push(row);
         if ([320, 375, 1280].includes(width)) await page.screenshot({ path: `${output}screenshots/${view}-${theme}-${width}.png`, fullPage: true });
         await context.close();
       }

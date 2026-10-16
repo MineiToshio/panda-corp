@@ -21,9 +21,11 @@ import { useState } from "react";
 import { WoDag } from "@/app/projects/[slug]/_observability/WoDag/WoDag";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Modal } from "@/components/core/Modal/Modal";
+import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import type { Adr } from "@/lib/architecture/adr";
 import { type ArchFrd, type ArchItem, parseArchitecture } from "@/lib/architecture/architecture";
+import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import {
@@ -95,6 +97,8 @@ import {
 export interface ArchitectureDigestProps {
   /** The `.pandacorp/comms/arquitectura-resumen.md` digest markdown. */
   body: string;
+  /** Validated project-owned logical schema, read through the shared architecture boundary. */
+  dataModel?: DataModelResult;
   /** Card title (fallback when the digest has no `proyecto`). */
   title: string;
   /** App type (web / mobile / api …) — a "qué es" chip next to the phase chip. */
@@ -470,6 +474,7 @@ function PlanBand({ workOrders, project }: { workOrders: WorkOrder[]; project?: 
 
 export function ArchitectureDigest({
   body,
+  dataModel,
   title,
   projectType,
   targetPlatforms,
@@ -506,7 +511,16 @@ export function ArchitectureDigest({
         </section>
       )}
 
-      {arch.dataModel != null && <DataModel model={arch.dataModel} />}
+      {dataModel !== undefined ? (
+        <section className="arch-block" style={BLOCK_DATA_STYLE} data-testid="arch-data-model">
+          <div style={INNER_STYLE}>
+            <p style={blockLabel("var(--color-ok)")}>🗄️ Modelo de datos</p>
+            <DataModelViewer result={dataModel} />
+          </div>
+        </section>
+      ) : arch.dataModel != null ? (
+        <DataModel model={arch.dataModel} />
+      ) : null}
 
       {hasServicesEnv && <ServicesEnvBand services={arch.services} env={env} />}
 

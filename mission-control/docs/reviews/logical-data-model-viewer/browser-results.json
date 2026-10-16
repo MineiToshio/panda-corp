@@ -1,0 +1,27 @@
+{
+  "results": [
+    {
+      "surface": "portfolio",
+      "drag": {
+        "before": "translate(-12px, -208px) scale(1)",
+        "after": "translate(63px, -166px) scale(1)"
+      },
+      "phone": {
+        "width": 375,
+        "scroll": 375
+      }
+    },
+    {
+      "surface": "board",
+      "drag": {
+        "before": "translate(-12px, -208px) scale(1)",
+        "after": "translate(63px, -166px) scale(1)"
+      },
+      "phone": {
+        "width": 375,
+        "scroll": 375
+      }
+    }
+  ],
+  "pageErrors": []
+}

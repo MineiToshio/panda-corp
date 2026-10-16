@@ -4164,3 +4164,56 @@ The regex is case-insensitive and matches both markdown heading (`## Status: …
 | Serializability | `JSON.stringify` + `JSON.parse` → equal to original |
 | relPath correctness | Every relPath exists on disk; matches `docs/frds/<frd>/work-orders/wo-*.md` pattern; `relPath.split("/")[2]` === `frd` field |
 | AC-05-006.1 — no work orders → `[]` | No `docs/frds/` → `[]`; all FRDs lack `work-orders/` → `[]` |
+
+## Shared logical model / Architecture contracts — FRD-02 / FRD-04 (2026-10-16)
+
+**Traces:** REQ-02-013/015; REQ-04-012. **Ownership:** WO-02-007 (shared reader/viewer + board), WO-04-004 (workspace mount/tab seam). Contract publication is not a verification receipt.
+
+```ts
+// src/lib/architecture/data-model/types.ts
+export const DATA_MODEL_SOURCE = "docs/product/data-model.json";
+export const MAX_DATA_MODEL_BYTES = 1024 * 1024;
+export interface DataModelAttribute {
+  readonly id: string; readonly name: string; readonly type: string;
+  readonly optional: boolean; readonly keys?: readonly ("PK" | "FK" | "UQ")[];
+}
+export interface DataModelKeyGroup {
+  readonly kind: "PK" | "UQ"; readonly attributes: readonly string[];
+}
+export interface DataModelEntity {
+  readonly id: string; readonly name: string; readonly description?: string;
+  readonly attributes: readonly DataModelAttribute[];
+  readonly keyGroups?: readonly DataModelKeyGroup[];
+}
+export interface DataModelEndpoint {
+  readonly entity: string; readonly attributes?: readonly string[];
+  readonly min: 0 | 1; readonly max: 1 | "many";
+}
+export interface DataModelRelationship {
+  readonly id: string; readonly name?: string; readonly description?: string;
+  readonly from: DataModelEndpoint; readonly to: DataModelEndpoint;
+}
+export interface DataModel {
+  readonly schemaVersion: 1; readonly persistence: "relational" | "document";
+  readonly entities: readonly DataModelEntity[];
+  readonly relationships: readonly DataModelRelationship[];
+}
+export type DataModelResult =
+  | { readonly kind: "ready"; readonly model: DataModel; readonly source: typeof DATA_MODEL_SOURCE }
+  | { readonly kind: "none" }
+  | { readonly kind: "missing" }
+  | { readonly kind: "error"; readonly message: string };
+
+// Pure validator: src/lib/architecture/data-model/model.ts
+export function validateDataModel(raw: unknown): DataModelResult;
+// Server-only boundary: src/lib/architecture/data-model/read-data-model.ts
+export function readDataModel(projectPath: string): DataModelResult;
+// Client module: src/components/modules/DataModelViewer/DataModelViewer.tsx
+export function DataModelViewer(props: { readonly result: DataModelResult }): React.JSX.Element;
+```
+
+The stored artifact additionally permits `persistence: "none"`, requiring empty entity/relationship arrays; the validator returns `kind: "none"` rather than a fake ready model. Array order is display order. Keys/groups reference attribute IDs scoped to their entity; endpoint mappings reference ordered attribute IDs on both ends with equal arity. Entity/relation IDs are unique, unknown fields/versions and unresolved references are invalid. Isolated entities, self-relations and multiple edges are supported. File reads are bounded and distinguish absence from malformed/unreadable input. Parser errors become bounded display diagnostics, never raw HTML/project-code execution.
+
+`src/lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` returns a serializable bundle with `architectureContent`, `dataModel`, `workOrders`, `envVars`, and `adrs`. Board `readCardProject` and `ProjectWorkspace` call this same seam. Live WOs/env/ADRs retain their existing interfaces; the model does not replace those panels. If the artifact is missing and the narrative explicitly declares no database, compatibility can yield `none`; a present invalid artifact remains an error. Model availability is independent of the digest. The client receives shaped data and performs no filesystem reads.
+
+Workspace URL contract: `/portfolio?project=<slug>&tab=architecture` and `/projects/<slug>?tab=architecture`; order **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. A project change resets local viewer state. Diagrama is default at every width; **Esquema** is a Prisma-like textual view, not a schema generator. See [ADR-0006](adr/ADR-0006-shared-logical-data-model-viewer.md) for technical rationale and provenance/producer boundaries.
