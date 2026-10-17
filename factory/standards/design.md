@@ -506,11 +506,18 @@ for **BEHAVIOUR too**, so the reconciliation runs **both directions before the p
   screen, affordance or flow the prototype shows that no FRD documents is surfaced and **written into
   the owning FRD** (acceptance criteria + FDD), so the build actually produces it. A demo-only control
   (DR-061) is the exception — it is marked, not promoted to a requirement.
-- **Group B — the FRD WANTS it, the prototype LACKS it → build it into the prototype (or flag the
-  hole).** Every behaviour an FRD specifies that the prototype doesn't show is either **built into the
-  prototype** (so the visual gate has a real screen to verify against) or **explicitly flagged as a
-  gap** — never silently grounded on a screen that doesn't exist. A visual/fidelity gate anchored on a
-  missing screen is a false gate.
+- **Group B — the FRD WANTS it, the prototype LACKS it → build it into the prototype, or take it out.**
+  Every behaviour an FRD specifies that the prototype doesn't show is either **built into the
+  prototype as a configured, captured state** (so the visual gate has a real screen to verify against)
+  or **taken out of the FRD for this version by the owner**. Since DR-130 there is no "flagged gap":
+  in funko-tracker the flagged gaps became pictureless FDD states, a whole operator console the
+  blocking fidelity gate could never pass. A visual/fidelity gate anchored on a missing screen is a
+  false gate.
+- **The FDD specifies only what the oracle captures (DR-130).** Every FDD screen/state row cites its
+  captured state; every control, region and string it names is drawn in that FRD's captured states;
+  where the FDD and the prototype disagree, the prototype wins for visuals and the FDD (or the
+  prototype, re-captured) is amended before freeze. `check-fdd-coverage.mjs` enforces it at the design
+  gate and again at architecture readiness (`--plan`, over blueprints and work orders).
 
 The reconciliation is **explicit and itemized** (in Mission Control we found ~7 of each), surfaced to
 the owner, and resolved BEFORE the prototype is frozen as canonical — a visual-only re-anchor that

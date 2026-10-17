@@ -5,6 +5,10 @@ id: FDD-01
 
 ## Screens
 
+| ID | Screen | Oracle state |
+|---|---|---|
+| S1 | Home, titled "Home" (`home.title`) | `home` |
+
 Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. Lorem ipsum design fixture line. 
 
 ## Fidelity references

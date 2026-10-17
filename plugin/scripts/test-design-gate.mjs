@@ -50,6 +50,7 @@ console.log('design-gate: the ready fixture passes every check and prints READY'
   ok(r.status === 0 && /^READY$/m.test(r.out), `ready fixture: exit 0 and READY (got ${r.status})`)
   ok(!/^(MISSING|FAIL|WARN)/m.test(r.out), 'ready fixture: no MISSING, FAIL or WARN line')
   ok(/^OK\s+DESIGN\.md exists/m.test(r.out) && /^OK\s+frd-01-home: fdd\.md$/m.test(r.out), 'the existing checks still print as before')
+  ok(/^OK\s+frd-01-home: every UI string the FDD names is drawn in its captured states$/m.test(r.out), 'the FDD <-> oracle coverage checks run inside the gate (DR-130)')
   const j = runGate(mkProject(), '--json')
   const parsed = JSON.parse(j.out)
   ok(parsed.ready === true && parsed.missing === 0 && Array.isArray(parsed.checks) && parsed.checks.every((c) => c.status === 'OK'), '--json: ready true, no missing, every check OK')
@@ -106,6 +107,13 @@ const GATE_CASES = [
   ['preflight-failures', 1, [/^FAIL\s+preflight has no failures/m, /\[smallText\]/]],
   ['preflight-warn-unacked', 1, [/unacknowledged: literalLengths, textFades/]],
   ['preflight-warn-acked', 0, [/^READY$/m]],
+  // FDD <-> oracle coverage (DR-130, BL-0239): an FDD may only specify UI the captured prototype states draw
+  ['fdd-gap-state', 1, [/^FAIL\s+frd-01-home: every FDD screen and state row cites a captured oracle state/m, /"S2": cites no captured state \(a GAP with no capture/]],
+  ['fdd-undrawn-copy', 1, [/^FAIL\s+frd-01-home: every UI string the FDD names is drawn in its captured states/m, /`home\.newRun` "New run" \(not in the prototype at all/]],
+  ['fdd-override', 1, [/^FAIL\s+frd-01-home: the FDD does not overrule the prototype/m, /is a demonstration/]],
+  ['fdd-no-copy-file', 1, [/^FAIL\s+machine-readable copy file/m]],
+  ['fdd-oracle-missing', 1, [/^FAIL\s+frd-01-home: every FDD screen and state row cites an oracle-states\.json entry/m, /cites home, none of which is an oracle-states\.json entry/]],
+  ['fdd-oracle-ready', 0, [/^READY$/m, /^OK\s+frd-01-home: every FDD screen and state row cites an oracle-states\.json entry/m]],
 ]
 
 for (const [name, exit, must, mustNot = []] of GATE_CASES) {

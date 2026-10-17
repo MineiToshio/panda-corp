@@ -1,0 +1,10 @@
+{
+  "states": [
+    {
+      "key": "frd-01-home/other",
+      "frd": "FRD-01",
+      "frd_slug": "frd-01-home",
+      "state_id": "other"
+    }
+  ]
+}

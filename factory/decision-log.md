@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-17 — An FDD specifies only UI the frozen prototype captures (DR-130)
+
+**What:** New registry rule [DR-130](decisions/registry.yaml) and rule [DES-8](standards/rule-registry.md); [design.md](standards/design.md) §8 rewrites DR-064 Group B: UI an FRD wants and the prototype lacks is drawn as a configured, captured state or taken out of the FRD by the owner, never "flagged as a gap", and the FDD cites a captured state on every screen/state row, names only drawn UI and yields to the prototype on visuals. Enforced by `check-fdd-coverage.mjs` inside the design gate and again, with `--plan`, in the architecture readiness gate (plugin v9.128.0, BL-0239).
+**Why:** funko-tracker's design gate said READY while its FRD-06/07 FDDs specified an operator console the prototype never drew, which made DR-129's blocking fidelity gate unpassable for those FRDs. The owner ruled that FDD, prototype and blueprint must be fully synchronized and that this must never happen again.
+
 ## 2026-10-16 — Finish source publication without mixing personal discovery drafts
 
 **What:** Completed the owner's commit/push close-out on main. The framework ignore rule now covers the entire personal discovery-draft subtree (except its versioned README), including nested archives, reference images and probe/results; those files are preserved through the private vault overlay. The existing [infra boundary](standards/infra.md) remains unchanged: framework source belongs in panda-corp; personal state belongs in the vault.

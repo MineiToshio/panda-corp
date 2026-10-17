@@ -33,6 +33,7 @@ The goal: the build gets everything it needs to reproduce the approved design, p
 | `node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/preflight-round.mjs" <prototype.html> --save` | the prototype contract check; `--save` writes `docs/design/freeze/preflight.json` (exit 0 clean, 1 findings, 2 could not run) |
 | `node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/fidelity/freeze.mjs" <split\|measure\|shard\|screens\|catalog\|identity\|all> [--only frd-NN] [--all-states]` | the capture toolkit: config `docs/design/freeze/fidelity.config.json`, resumable state `docs/design/freeze/state.json` (a re-run skips what is done), comparator `diff.mjs` |
 | `node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/check-design-gate.mjs"` | the quality gate: artifacts, preflight, tracker stages, time record, `## Fidelity target` |
+| `node "${CLAUDE_PLUGIN_ROOT}/skills/design/scripts/check-fdd-coverage.mjs" [--frd frd-NN] [--plan]` | FDD ↔ oracle coverage (DR-130): every FDD row cites a captured state, every named control/string is drawn there, no override of the prototype; also run inside the gate |
 
 A tool defect is fixed in the factory, not in the project: note it in the tracker, capture a lesson in `.pandacorp/run/lessons.md`, mention it at the next milestone. Never write a project-local replacement.
 
@@ -58,9 +59,9 @@ Status per row in `docs/design/freeze/tracker.md` (template `${CLAUDE_PLUGIN_ROO
 | **S1.3** | S0.3 | Functional reconciliation (DR-064), both directions, a recommended resolution per item, and the AC id pre-assigned to each Group A item | `freeze/reconciliation.md` | JUDGE·high | `designer` |
 | **S1.4-NN** | S0.3 | Copy reconciliation for FRD-NN: judge ONLY the pack's listed mismatches (FRD quote stale · copy wrong · both fine) | `freeze/copy/frd-NN.md` | STANDARD·medium | `copywriter` |
 | **M1** | S1.* | Owner status 1 + the A/B list to confirm (below) | `comms/iteration.md` entry | — | lead |
-| **S2.1** | M1 | ONE batch of prototype/copy changes (owner-approved Group B builds, copy fixes), rebuild, preflight, `freeze.mjs all --only frd-NN` per touched FRD. Usually empty → mark done | prototype HTML, copy file, touched FRDs' mocks | STANDARD·medium | `designer` |
+| **S2.1** | M1 | ONE batch of prototype/copy changes (owner-approved Group B builds, each added as a configured state in `fidelity.config.json`; copy fixes), rebuild, preflight, `freeze.mjs all --only frd-NN` per touched FRD. Empty only when M1 left no Group B item to build → mark done | prototype HTML, copy file, touched FRDs' mocks | STANDARD·medium | `designer` |
 | **S2.2** | M1 | FRD amendments: Group A as ACs with the pre-assigned ids, stale quotes from S1.4, `ui`/`visual_source` frontmatter | `docs/frds/*/frd.md` | STANDARD·medium | `product-manager` |
-| **S2.3-NN** | M1, S1.2 | FDD for FRD-NN (`fdd-template.md`): AC ids per screen, GAP states for flagged Group B items, ends with `## Fidelity references` | `docs/frds/frd-NN-*/fdd.md` | STANDARD·medium | `designer` (one subagent per FRD) |
+| **S2.3-NN** | M1, S1.2 | FDD for FRD-NN (`fdd-template.md`): AC ids per screen; the captured state id (in backticks) on every Screens/States row; only UI those captured states draw (no pictureless GAP); ends with `## Fidelity references`; `check-fdd-coverage.mjs --frd frd-NN` green before done | `docs/frds/frd-NN-*/fdd.md` | STANDARD·medium | `designer` (one subagent per FRD) |
 | **S2.4** | M1, S1.1 | Contract docs: `DESIGN.md` FROZEN with rules that match the CSS, `design-decisions.md` (freeze entry + the resolved DR-064 section), `components.md` (DR-057/062/075) | `DESIGN.md`, `design-decisions.md`, `components.md` | STANDARD·medium | `designer` |
 | **S2.5** | S1.1, S1.2 | Fidelity docs: `fidelity-checklist.md` (template, `## Fidelity target`, binding references, signature details with selectors, how to verify), `technical-assumptions.md` build requirements | `fidelity-checklist.md`, `technical-assumptions.md` | STANDARD·medium | `designer` |
 | **S2.6** | S1.2, S2.1 | Fixtures, oracle states and build recipes: the prototype side of each oracle state is copied from the config's `states` (route, actions, capture mode) and `computed-styles.json` (`anchor_offset`); the build-side columns (route, profile, seed, doubles) are written | `prototype/reference/{fixtures/,oracle-states.*,*recipes*}` | STANDARD·medium | `designer` |
@@ -73,11 +74,22 @@ Status per row in `docs/design/freeze/tracker.md` (template `${CLAUDE_PLUGIN_ROO
 
 Tasks that do not depend on the owner's M1 answer (S1.2, S2.5) keep running while the owner reads it. An S2.3-NN whose FRD S2.1 touches waits for S2.1. On the EXPLORE path without a whole-app prototype, S1.2's shard step is replaced by `designer` mocks drawn from the frozen tokens (one task per FRD, STANDARD·medium). A non-UI project skips the plan: only `DESIGN.md` with "no UI — design phase N/A".
 
+## FDD ↔ oracle coverage (DR-130)
+
+The build's fidelity gate blocks (DR-129 Gate mode) and compares the build with the captured states only, so an FDD that specifies UI outside them is unpassable: the build either follows the FDD and fails the gate, or follows the prototype and violates the FDD. funko-tracker shipped a design gate READY with FRD-06/07 FDDs specifying an operator console ("Nueva carga", the "Ver ejecución" select, a per-source progress table, "Configurar"...) whose strings were only in the copy file, and one `operator` capture for both FRDs. Hence:
+
+- **No pictureless GAP.** UI an FRD needs and the prototype lacks is drawn in S2.1 as a configured state (shard section + screenshots + `oracle-states.json` entry) or taken out of the FRD/FDD by the owner at M1. A state that only a click, hover or error reveals is a configured state with its actions, like any other.
+- **Every Screens/States row cites its captured state id** in backticks (`operator`, or `mocks/<file>.html#operator`); a gallery card cites its own oracle entry id, not the gallery section.
+- **Every control, region and string the FDD names is drawn in that FRD's captured states.** A string drawn only in another FRD's states is named with that FRD on the same line ("FRD-01's Explorar").
+- **The prototype wins for visuals.** An FDD never says the prototype is a demonstration, wrong or not the initial state; it is amended, or the prototype is changed in S2.1 and re-captured.
+
+`scripts/check-fdd-coverage.mjs` checks the mechanical part (rows, named copy against the shard's visible text, override sentences; it needs `docs/design/microcopy.<locale>.json`) and runs inside `check-design-gate.mjs`; behaviour agreement beyond it is an S3 BLOCKER. Architecture re-runs it with `--plan` over the blueprints and work orders (its step 9).
+
 ## S3 — the one audit, and the stop rule
 
 The auditor gets the gate's current output, `preflight.json`, `packs/_global.md` and the hand-off files, and classifies every finding:
 
-- **BLOCKER** (fixed in S4): a doc contradicts the prototype's CSS/JS; an AC-named state with neither a prototype state nor a recorded GAP; an invalid capture (demo leak, host mode on, undecoded image, a missing listed state × width × theme); a missing reference the build needs (font files, SVGs, tokens, fixtures); an unresolved DR-064 item; any gate item NOT READY.
+- **BLOCKER** (fixed in S4): a doc contradicts the prototype's CSS/JS; an FDD behaviour statement that contradicts the prototype (enabled vs disabled, an error shown at rest vs only after a press, column or field order: the FDD is amended, or the prototype changed and re-captured); an AC-named state with no captured state; any `check-fdd-coverage.mjs` finding; an invalid capture (demo leak, host mode on, undecoded image, a missing listed state × width × theme); a missing reference the build needs (font files, SVGs, tokens, fixtures); an unresolved DR-064 item; any gate item NOT READY.
 - **BACKLOG** (everything else: wording, wider coverage, tooling ideas, finer tolerances): one line each in `.pandacorp/comms/visual-punch-list.md`, the file the end-of-build Visual QA merges and works, in its format `- [ ] <frd|global> · <screen/state> · <gap> · <reference file>`, tagged `(design freeze)`.
 
 The auditor checks each recommendation against the owner's recorded decisions before listing it (an audit once proposed 2 columns on phones against an owner rule of 1).

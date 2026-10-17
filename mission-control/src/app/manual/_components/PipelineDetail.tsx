@@ -119,6 +119,12 @@ export function PipelineDetail(): React.JSX.Element {
           espaciados a ±1 px, píxeles por franja): en la construcción, una diferencia medida bloquea
           por defecto.
         </li>
+        <li>
+          <B weight={500}>El FDD solo especifica lo que el prototipo dibuja</B> (DR-130): cada
+          pantalla y estado del FDD cita su captura, y cada control o texto que nombra aparece en
+          ella. Lo que falta se dibuja como estado capturado o sale del FRD contigo; el chequeo{" "}
+          <Code>check-fdd-coverage.mjs</Code> lo exige antes de READY.
+        </li>
       </Ul>
 
       <DocH title="Architecture" />
@@ -132,6 +138,8 @@ export function PipelineDetail(): React.JSX.Element {
         forma superlineal) y un <B weight={500}>piso</B> de unos 20 minutos (el gate por FRD cuesta
         unos 9 minutos fijos, así que una feature diminuta pagaría más gate que build: se fusiona
         con la feature que extiende).
+        El gate de preparación vuelve a pasar el mismo chequeo sobre blueprints y work orders: no
+        se planifica interfaz que el prototipo congelado no dibuja; si falta, vuelve a diseño.
       </Body>
       <Body>
         El Build Plan del blueprint lleva una <B weight={500}>tabla DAG obligatoria</B> (WO,

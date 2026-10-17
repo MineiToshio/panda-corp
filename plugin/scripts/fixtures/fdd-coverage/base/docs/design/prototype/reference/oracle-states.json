@@ -1,0 +1,16 @@
+{
+  "states": [
+    {
+      "key": "frd-01-catalog/explore",
+      "frd": "FRD-01",
+      "frd_slug": "frd-01-catalog",
+      "state_id": "explore"
+    },
+    {
+      "key": "frd-06-operator/operator",
+      "frd": "FRD-06",
+      "frd_slug": "frd-06-operator",
+      "state_id": "operator"
+    }
+  ]
+}

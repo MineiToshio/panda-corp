@@ -10,10 +10,13 @@
  * the mock matrix is 375/1280 x light/dark. Measured styles are checked against the scope recorded in
  * computed-styles.json itself (pareto: the default state at the touch and primary widths in every theme), narrowed by
  * a component state's own `widths` in the config. Demo markers come from the toolkit's one definition (fidelity/demo.mjs).
+ * FDD <-> oracle coverage (DR-130) comes from check-fdd-coverage.mjs: every FDD screen/state row cites a captured state,
+ * every UI string it names is drawn there, and no FDD line overrules the prototype.
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fddCoverage } from "./check-fdd-coverage.mjs";
 import { DEFAULT_THEMES, DEFAULT_WIDTHS, loadSchema, validate } from "./fidelity/config.mjs";
 import { demoMarkers } from "./fidelity/demo.mjs";
 
@@ -340,6 +343,7 @@ function qualityChecks() {
   const csFile = path.join(protoDir, "reference/computed-styles.json");
   if (nonEmpty(csFile)) quality("measured styles are state-complete (non-default states, required widths/themes, no 0x0 roots)", computedStylesProblems(csFile));
   for (const dir of uiFrds) mockChecks(dir);
+  results.push(...fddCoverage({ root: "." }));
   contractChecks();
   freezeChecks();
 }

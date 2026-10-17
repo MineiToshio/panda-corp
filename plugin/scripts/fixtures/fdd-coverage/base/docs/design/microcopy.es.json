@@ -1,0 +1,34 @@
+{
+  "catalog": {
+    "title": "Explorar",
+    "retry": "Reintentar"
+  },
+  "common": {
+    "cancel": "Cancelar"
+  },
+  "ops": {
+    "title": "Operación",
+    "run": {
+      "resume": "Reanudar pendientes",
+      "select": {
+        "label": "Ver ejecución"
+      }
+    },
+    "backfill": {
+      "new": "Nueva carga"
+    },
+    "candidate": {
+      "back": "Volver a la cola"
+    },
+    "queue": {
+      "more": "Ver más candidatos",
+      "count": "{n, plural, one {# candidato} other {# candidatos}} por revisar"
+    },
+    "motivo": {
+      "error": "Escribe el motivo de la decisión."
+    },
+    "delta": {
+      "configure": "Configurar"
+    }
+  }
+}

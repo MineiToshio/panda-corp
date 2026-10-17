@@ -18,8 +18,15 @@ prototype_blessed_at: ''  # DR-080: git SHA of docs/design/prototype/ when the r
 
 ## Screens
 
-Each screen this feature has, and the `mocks/` file it realizes (the binding visual spec the build
-**reproduces**, DR-054). One row per screen: name · purpose · `mocks/<file>`.
+Each screen this feature has, and the captured state that realizes it (the binding visual spec the build
+**reproduces**, DR-054). One table row per screen: name · purpose · **oracle state** — the captured state id in
+backticks (a `mock-screen` section id of `mocks/<file>`, e.g. `` `home` ``, and its `oracle-states.json` entry).
+
+> **Specify only what the oracle captures (DR-130).** Every row of this table and of `## States` cites a captured
+> state; every control, region and string this FDD names is drawn in this FRD's captured states (name another FRD on
+> the same line when you refer to its UI). UI the prototype lacks is drawn as a configured state before freeze or
+> left out with the owner: there is no "GAP, no picture" row. The prototype wins for visuals; never describe it as a
+> demonstration or as wrong. `check-fdd-coverage.mjs` checks this at the design gate and at architecture readiness.
 
 > **Bless provenance (DR-080) — the visual baseline's independent oracle.** When the reviewer blesses a
 > screen's baseline, it records here the `mocks/<file>` / prototype shard it was blessed against + its
@@ -30,8 +37,9 @@ Each screen this feature has, and the `mocks/` file it realizes (the binding vis
 
 ## States
 
-For each screen: the **empty / loading / error / success** states and how they look. Don't leave
-states to improvisation — they are part of the contract.
+For each screen: the **empty / loading / error / success** states and how they look, one table row per state
+with its captured state id (same rule as Screens). Don't leave states to improvisation — they are part of the
+contract, and a state the oracle does not capture is a state the fidelity gate cannot verify.
 
 ## Components used
 
