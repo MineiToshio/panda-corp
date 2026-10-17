@@ -1,0 +1,67 @@
+{
+  "checks": [
+    {
+      "device": "Móvil",
+      "section": "Work orders",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Móvil",
+      "section": "Cambios",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Móvil",
+      "section": "Estadísticas",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Tablet",
+      "section": "Work orders",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Tablet",
+      "section": "Cambios",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Tablet",
+      "section": "Estadísticas",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Escritorio",
+      "section": "Work orders",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Escritorio",
+      "section": "Cambios",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "device": "Escritorio",
+      "section": "Estadísticas",
+      "overflow": 0,
+      "violations": []
+    }
+  ],
+  "errors": [],
+  "interactions": [
+    "Device widths apply to the actual iframe viewport",
+    "Screen picker changes actual view",
+    "Navigation inside preview synchronizes screen picker",
+    "Theme picker applies inside preview",
+    "Phone reader exposes index disclosure",
+    "Clicked sample idea name is preserved in its detail"
+  ]
+}

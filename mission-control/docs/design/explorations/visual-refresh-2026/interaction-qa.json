@@ -1,0 +1,218 @@
+{
+  "nested": [
+    {
+      "route": "portfolio",
+      "label": "Resumen",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Spec",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Work orders",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Arquitectura",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Cambios",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Party",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Observabilidad",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Documentos",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "portfolio",
+      "label": "Comandos",
+      "width": 390,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "logros",
+      "label": "Resumen",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "logros",
+      "label": "Misiones",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "logros",
+      "label": "Trofeos",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "logros",
+      "label": "Estadísticas",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "logros",
+      "label": "Rangos",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "configuracion",
+      "label": "Habilidades",
+      "width": 768,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "configuracion",
+      "label": "Agentes",
+      "width": 768,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "configuracion",
+      "label": "Reglas de decisión",
+      "width": 768,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "configuracion",
+      "label": "Estándares",
+      "width": 768,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "propuestas",
+      "label": "Memoria",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "propuestas",
+      "label": "Backlog",
+      "width": 390,
+      "theme": "light",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "idea",
+      "label": "Propuesta",
+      "width": 1440,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "idea",
+      "label": "Spec",
+      "width": 1440,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "idea",
+      "label": "Arquitectura",
+      "width": 1440,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "idea",
+      "label": "Documentos",
+      "width": 1440,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    },
+    {
+      "route": "idea",
+      "label": "Campaña",
+      "width": 1440,
+      "theme": "dark",
+      "overflow": 0,
+      "violations": []
+    }
+  ],
+  "interactions": [
+    "Mobile menu opens; Escape closes and restores focus",
+    "Idea search filters and clears",
+    "Capture dialog has accessible name; Escape restores opener focus",
+    "Phone index opens, document selection uses full reading width and returns focus",
+    "Schema entity details initially collapsed",
+    "Demo build mode changes displayed copy text without executing",
+    "Theme/font preview controls update appearance"
+  ],
+  "openDialogViolations": [],
+  "errors": [],
+  "rechecked": [
+    "Party scroll region: labelled and keyboard focusable after axe finding"
+  ]
+}

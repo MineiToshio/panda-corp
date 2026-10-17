@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-17",
+  "artifact": "index.html",
+  "sha256": "af64765b55e22b443c8ae6838abb1b8cf537c70d75f969ffe8dafb4aef635347",
+  "baseChecks": 64,
+  "nestedChecks": 25,
+  "interactionChecks": 7,
+  "note": "Original matrix is historical round-1 evidence. The navigable review follow-up has scoped checks in preview-qa.json; see verification.md.",
+  "round1_sha256": "0476be971196cceca7a81d2250488d8443ffc7fc84b40698c37105b36993b5e1",
+  "preview_sha256": "4f90916f9a8ab6d1a8457545e60f3c59d3501f71e6677e63b74181e51cca0412",
+  "followUpChecks": 9
+}

@@ -1,5 +1,21 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Populate the next Órbita iteration with real project journeys
+
+**Owner feedback:** The visual direction is liked, but examples and placeholders do not show the final experience. The next iteration must complete Board/Portfolio Spec, Architecture, documents and work-order journeys and improve project selection.
+
+**What:** The same [review URL](design/explorations/visual-refresh-2026/preview.html) now embeds a template-built prototype with shared project surfaces, searchable five-project picker and a timestamped, private read-only snapshot. Canonical readers export 22 ideas, 718 complete documents, 170 work orders, 52 FRDs, 23 ADRs, changes, activity, commands and 38 Manual pages. Real models, source distinctions, FRD/document links, full order text and local history are reachable in both contexts. YAML metadata is collapsed without dropping the full source. The old round is archived under the exploration.
+
+**Boundary and evidence:** [DESIGN.md](../DESIGN.md) still retains the current production contract. The owner has not requested implementation or a final freeze; application code, readers, URLs, tokens and build state are untouched. Snapshot data stays local/ignored. [Round-3 verification](design/explorations/visual-refresh-2026/round-3-verification.md) records preflight, responsive/a11y checks and independent real-click coverage.
+
+## 2026-10-17 — Explore a complete visual refresh without changing functionality
+
+**Request and proposed direction:** The owner considers the current appearance dated and explicitly authorizes exploration of colors, typography, composition and responsive presentation while preserving all features. [Órbita](design/explorations/visual-refresh-2026/proposal.md) proposes quieter graphite/porcelain surfaces with a lilac accent, Manrope/Inter, decision-first hierarchy and responsive readers, while retaining guild/Party/XP/rank identity. The source inventory covers all eight route families and their nested sections; live captures reproduce phone overflow in the board, project documents and statistics, and the Manual's clipped reader.
+
+**Navigable review follow-up:** At the owner’s request, add an [HTML review surface](design/explorations/visual-refresh-2026/preview.html) with desktop/tablet/phone framing, screen selection and theme comparison. Enrich sample work-order, change and statistics screens so the composition is visible through actual navigation. The review frame is outside the depicted product and uses no real data or write actions.
+
+**Boundary:** A navigable illustrative study, a source/preservation matrix and scoped browser/a11y evidence are produced for review. [DESIGN.md](../DESIGN.md) points to the exploration without replacing its existing approved contract. No production source, canonical tokens, URLs, feature semantics, FRD/work-order status or project/build state changes. This is the requested proposal, not approval to implement or a completed design freeze. Private live captures stay local and ignored; the durable proposal and illustrative assets are versionable.
+
 ## 2026-10-17 — Make every meaningful location addressable
 
 **What:** Implement the owner-approved [FRD-25](frds/frd-25-persistent-navigation/frd.md): shared path/query codec, dynamic page adapters, URL-owned nested selection, legacy compatibility, immutable resource catalog and lifecycle registration. Preserve existing shared layouts and standalone/Portfolio contexts.

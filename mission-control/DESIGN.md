@@ -5,6 +5,10 @@
 >
 > Re-anchored 2026-06-18 under DR-054 (ADOPT-VISUAL). The job here was **fidelity, not novelty** — this contract extracts the prototype's real visual language; nothing was invented or modernized. The canonical token values live in `docs/design/design-tokens.json`; this file is the human-readable contract on top.
 
+## Proposed refresh under review — 2026-10-17
+
+The owner requested a comprehensive visual modernization proposal while preserving every existing feature. [Órbita: proposal and preservation inventory](docs/design/explorations/visual-refresh-2026/proposal.md) explores a new visual system and responsive compositions. Its [navigable preview](docs/design/explorations/visual-refresh-2026/preview.html) and [study](docs/design/explorations/visual-refresh-2026/index.html) now includes a timestamped local capture of complete project documents and a searchable project picker. The visual direction is liked by the owner for further iteration; the study is **not finally approved or frozen**; it does not supersede the binding contract below. No application tokens, behavior or build state are changed by this study.
+
 ## Source of truth
 
 - **Tokens (machine):** `docs/design/design-tokens.json` — the build reads this; `src/app/globals.css` `@theme` mirrors it.
