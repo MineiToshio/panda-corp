@@ -69,6 +69,8 @@ const GATE_CASES = [
   ['computed-no-375', 1, [/default state lacks 375/]],
   ['computed-zero-root', 1, [/1 component\(s\) have a 0x0 root and no "note"/]],
   ['computed-zero-root-noted', 0, [/^READY$/m]],
+  ['computed-state-widths', 0, [/^READY$/m, /^OK\s+measured styles are state-complete/m]],
+  ['computed-note-width-gap', 1, [/Bulk bar \(default state lacks light-375, dark-375\)/]],
   ['computed-config-gap', 1, [/not measured at the required widths\/themes/, /lacks light-768/]],
   ['config-ready', 0, [/^READY$/m, /^OK\s+docs\/design\/freeze\/fidelity\.config\.json matches the toolkit schema/m]],
   ['config-legacy-mocks', 1, [/^FAIL\s+docs\/design\/freeze\/fidelity\.config\.json matches the toolkit schema/m, /unknown key "mocks"/]],
@@ -85,6 +87,7 @@ const GATE_CASES = [
   ['mock-unresolved-use', 1, [/^FAIL\s+frd-01-home: mock <use href="#\.\.\."> all resolve/m, /home\.html: #i-check/]],
   ['mock-demo-marker', 1, [/^FAIL\s+frd-01-home: mock HTML has no demo-only markers/m, /data-demo-only attribute/]],
   ['mock-demo-text', 1, [/"Solo demo" text/]],
+  ['mock-demo-class', 1, [/^FAIL\s+frd-01-home: mock HTML has no demo-only markers/m, /demo-\* class/]],
   ['fdd-no-fidelity-refs', 1, [/^FAIL\s+frd-01-home: fdd\.md has "## Fidelity references"/m]],
   ['decisions-no-reconciliation', 1, [/^FAIL\s+design-decisions\.md has "## Functional reconciliation \(DR-064\)"/m]],
   ['components-no-nav-contract', 1, [/no "## AppShell nav contract" section/]],
@@ -202,6 +205,11 @@ console.log('preflight-round reads its thresholds from the shared toolkit config
   const r = spawnSync(process.execPath, [PREFLIGHT, 'docs/design/prototype/app.html', '--json', '--static'], { cwd: project, encoding: 'utf8' })
   const report = JSON.parse(r.stdout)
   ok(report.checks.literalColors.status === 'ok' && report.thresholds.maxLiteralColors === 4 && report.thresholds.minFontPx === 11, `preflight.maxLiteralColors and minFontPx from the project config apply (got ${JSON.stringify(report.thresholds)})`)
+  const cov = findingsOf(report, 'configCoverage')[0]
+  ok(report.checks.configCoverage.status === 'warn' && cov.total > 0 && /claimed by no css\.families\/rules\/overrides/.test(cov.message), `CSS rules the config's css map does not claim warn (configCoverage, ${cov?.total} rule(s))`)
+  writeFileSync(path.join(project, 'docs/design/freeze/fidelity.config.json'), JSON.stringify({ ...cfg, css: { families: [{ name: 'app', description: 'All rules' }], rules: [{ family: 'app', match: '^' }] } }))
+  const claimed = JSON.parse(spawnSync(process.execPath, [PREFLIGHT, 'docs/design/prototype/app.html', '--json', '--static'], { cwd: project, encoding: 'utf8' }).stdout)
+  ok(claimed.checks.configCoverage.status === 'ok', 'a css map that claims every rule is clean')
 }
 
 console.log('preflight-round: bad usage is refused')
@@ -250,6 +258,10 @@ if (!(await browserAvailable())) {
     ok(r.report.checks.demoLeaks.status === 'fail' && kinds.has('element') && kinds.has('text') === false, `a demo strip still visible with demo=off fails as an element (kinds ${[...kinds]})`)
     const text = runPreflight('demo-leak', '--demo-selectors', '.nothing')
     ok(text.report.checks.demoLeaks.status === 'fail' && findingsOf(text.report, 'demoLeaks')[0].items.some((i) => i.kind === 'text' && /Solo demo/.test(i.text)), 'with no selector match, the visible "Solo demo" text is still caught')
+    const unmarked = runPreflight('demo-unmarked')
+    const dm = findingsOf(unmarked.report, 'demoMarkup')[0]
+    ok(unmarked.report.checks.demoLeaks.status === 'ok' && unmarked.report.checks.demoMarkup.status === 'warn' && dm?.total === 1 && dm.items[0].sel === 'div.demo-strip', `demo markup hidden by its class but without data-demo-only warns once, at its outermost element (got ${JSON.stringify(dm?.items)})`)
+    ok(runPreflight('clean').report.checks.demoMarkup.status === 'ok', 'the same markup marked data-demo-only is clean')
   }
 
   console.log('preflight-round (browser): text fades, overflow and fonts')

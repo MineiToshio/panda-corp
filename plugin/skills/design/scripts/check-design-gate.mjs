@@ -8,12 +8,14 @@
  * against its schema (fidelity/config.schema.json). The gate reads `widths` and `themes` (the toolkit's defaults when
  * omitted) and `states.<frd>[]` (every configured mock id, with its own `widths` narrowing the matrix). Without a config
  * the mock matrix is 375/1280 x light/dark. Measured styles are checked against the scope recorded in
- * computed-styles.json itself (pareto: the default state at the touch and primary widths in every theme).
+ * computed-styles.json itself (pareto: the default state at the touch and primary widths in every theme), narrowed by
+ * a component state's own `widths` in the config. Demo markers come from the toolkit's one definition (fidelity/demo.mjs).
  */
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_THEMES, DEFAULT_WIDTHS, loadSchema, validate } from "./fidelity/config.mjs";
+import { demoMarkers } from "./fidelity/demo.mjs";
 
 const exists = p => fs.existsSync(p);
 const nonEmpty = (p, min = 200) => exists(p) && fs.statSync(p).size >= min;
@@ -94,7 +96,29 @@ function requiredContexts(data) {
   return { wanted: widths.length && themes.length ? themes.flatMap(t => widths.map(w => `${t}-${w}`)) : null, problems };
 }
 
-/** Problems with computed-styles.json: no components, no non-default states, missing widths/themes, 0x0 roots. */
+/** The `widths` the config restricts one component state to, or null (every width). */
+function stateWidths(component, state) {
+  const comp = Array.isArray(config?.components) ? config.components.find(c => c && c.name === component) : null;
+  const widths = comp?.states?.[state]?.widths;
+  return Array.isArray(widths) && widths.length ? widths : null;
+}
+
+/**
+ * The required contexts narrowed to a state's own `widths`, as the measure stage plans them: the required widths it
+ * allows, else (in each theme) its widest allowed width.
+ */
+function contextsForState(wanted, allowed) {
+  if (!allowed) return wanted;
+  const byTheme = new Map();
+  for (const k of wanted) { const i = k.lastIndexOf("-"); const t = k.slice(0, i); byTheme.set(t, [...(byTheme.get(t) || []), Number(k.slice(i + 1))]); }
+  return [...byTheme].flatMap(([t, ws]) => { const kept = ws.filter(w => allowed.includes(w)); return (kept.length ? kept : [Math.max(...allowed)]).map(w => `${t}-${w}`); });
+}
+
+/**
+ * Problems with computed-styles.json: no components, no non-default states, missing widths/themes, 0x0 roots. A
+ * state's own `widths` in the config narrow the widths its records must cover; a component `note` exempts only a 0x0
+ * root or a component with no records at all, never missing widths.
+ */
 function computedStylesProblems(file) {
   const data = readJson(file);
   if (!data) return ["does not parse as JSON"];
@@ -106,13 +130,14 @@ function computedStylesProblems(file) {
   const zeroRoots = [];
   for (const [name, comp] of entries) {
     const states = Object.entries(comp.states || {});
-    if (comp.note) continue;
-    const [, base] = states.find(([s]) => isDefaultState(s)) || states[0] || [null, {}];
+    if (comp.note && !states.some(([, rec]) => Object.keys(rec || {}).length)) continue;
+    const [baseName, base] = states.find(([s]) => isDefaultState(s)) || states[0] || [null, {}];
     const keys = Object.keys(base || {});
-    const missing = wanted ? wanted.filter(k => !keys.includes(k)) : [1280, 375].filter(w => !keys.some(k => k.endsWith(`-${w}`))).map(String);
+    const need = wanted ? contextsForState(wanted, stateWidths(name, baseName)) : null;
+    const missing = need ? need.filter(k => !keys.includes(k)) : [1280, 375].filter(w => !keys.some(k => k.endsWith(`-${w}`))).map(String);
     if (missing.length) unmeasured.push(`${name} (default state lacks ${missing.join(", ")})`);
     const zero = states.some(([, rec]) => Object.values(rec).some(r => r && (r.root === null || isZeroBox(r.root?.size))));
-    if (zero) zeroRoots.push(name);
+    if (zero && !comp.note) zeroRoots.push(name);
   }
   if (unmeasured.length) problems.push(`${unmeasured.length} component(s) not measured at the required widths${wanted ? "/themes" : " (1280 and 375)"}: ${head(unmeasured, 4).join("; ")}`);
   if (zeroRoots.length) problems.push(`${zeroRoots.length} component(s) have a 0x0 root and no "note" explaining it: ${head(zeroRoots, 4).join("; ")}`);
@@ -171,21 +196,12 @@ function mockChecks(dir) {
     const html = read(`${mocks}/${f}`);
     const ids = new Set([...html.matchAll(/\sid\s*=\s*["']([^"']+)["']/g)].map(m => m[1]));
     for (const m of html.matchAll(/<use\b[^>]*?href\s*=\s*["']#([^"']+)["']/gi)) if (!ids.has(m[1])) unresolved.push(`${f}: #${m[1]}`);
-    for (const marker of demoMarkers(html)) demo.push(`${f}: ${marker}`);
+    for (const marker of demoMarkers(html, config?.demoOnlyAttribute)) demo.push(`${f}: ${marker}`);
   }
   quality(`${dir}: mock <use href="#..."> all resolve (the sprite is present)`, unresolved.length ? [`${unresolved.length} unresolved: ${head([...new Set(unresolved)], 5).join(", ")}`] : []);
   quality(`${dir}: mock HTML has no demo-only markers`, demo.length ? head(demo) : []);
   const fdd = read(`docs/frds/${dir}/fdd.md`);
   check(`${dir}: fdd.md has "## Fidelity references"`, /^##\s+Fidelity references\b/m.test(fdd), { failAs: "FAIL" });
-}
-
-/** Demo scaffolding that must not survive into a mock: data-demo-only attributes, demo-* classes, "Solo demo" text. */
-function demoMarkers(html) {
-  const out = [];
-  if (/<[a-z][^>]*\sdata-demo-only(?=[\s=>/])/i.test(html)) out.push("data-demo-only attribute");
-  if (/<[a-z][^>]*\sclass\s*=\s*["'][^"']*\bdemo-[\w-]+/i.test(html)) out.push("demo-* class");
-  if (/>[^<]*\b(solo demo|demo only)\b[^<]*</i.test(html)) out.push('"Solo demo" text');
-  return out;
 }
 
 // ---------------------------------------------------------------- quality: contract documents

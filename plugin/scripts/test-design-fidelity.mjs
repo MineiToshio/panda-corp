@@ -18,7 +18,8 @@ import { fileURLToPath } from 'node:url'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const FIDELITY = path.join(HERE, '../skills/design/scripts/fidelity')
 const FIXTURE = path.join(HERE, 'fixtures/design-mini')
-const { ConfigError, loadConfig, loadSchema, validate } = await import(path.join(FIDELITY, 'config.mjs'))
+const { ConfigError, loadConfig, loadSchema, prototypeHash, validate } = await import(path.join(FIDELITY, 'config.mjs'))
+const { DEMO_SELECTORS, demoMarkers } = await import(path.join(FIDELITY, 'demo.mjs'))
 const { buildSplit } = await import(path.join(FIDELITY, 'split-css.mjs'))
 const { multisetDiff } = await import(path.join(FIDELITY, 'cssparse.mjs'))
 const { planComponent } = await import(path.join(FIDELITY, 'measure.mjs'))
@@ -56,6 +57,9 @@ const rawConfig = () => JSON.parse(fs.readFileSync(path.join(FIXTURE, 'docs/desi
   check(errs({ floating: [{ component: 'Nope', state: 'open', panel: '$', anchor: '$' }] }).some((e) => /unknown component "Nope"/.test(e)), 'config: a floating panel naming an unknown component is rejected')
   check(errs({ states: { 'frd-01-home': [{ id: 'a', title: 'A', route: '#home', actions: [{ click: '#x', wait: 5 }] }] } }).some((e) => /at most 1 key/.test(e)), 'config: an action with two verbs is rejected')
   check(errs({ scope: { mode: 'everything' } }).some((e) => /must be one of pareto, full/.test(e)), 'config: an unknown scope mode is rejected')
+  check(cfg.shard.strip === DEMO_SELECTORS.join(', ') && DEMO_SELECTORS.includes('[class^="demo-"]'), 'demo: shard.strip defaults to the one shared demo-selector list (attribute + any demo-* class)')
+  check(demoMarkers('<div class="ftr demo-controls">x</div>').length === 1 && demoMarkers('<p>Solo demo</p>')[0] === '"Solo demo" text' && demoMarkers('<div class="nodemo-x">Home</div>').length === 0, 'demo: the gate\'s markers come from the same definition (class token prefix, demo wording)')
+  check(cfg.exportPaths.join() === 'icons' && errs({ exportPaths: ['../out'] }).some((e) => /exportPaths\[0\]/.test(e)), 'config: exportPaths defaults to icons when exports is set and must stay inside the prototype folder')
   const noProto = { ...rawConfig() }; delete noProto.prototype
   check(throwsLike(() => loadConfig({ root: FIXTURE, raw: noProto }), /missing required "prototype"/), 'config: a config without prototype is rejected')
 }
@@ -164,8 +168,10 @@ if (browser) {
     const { freeze } = await import(path.join(FIDELITY, 'freeze.mjs'))
     const measure = await import(path.join(FIDELITY, 'measure.mjs'))
     const screens = await import(path.join(FIDELITY, 'screens.mjs'))
-    const root = freshProject()
+    // a hand-made icons/ folder already there and no exports.json yet: the first and later hashes must agree
+    const root = freshProject((d) => { fs.mkdirSync(path.join(d, 'docs/design/prototype/icons')); fs.writeFileSync(path.join(d, 'docs/design/prototype/icons/star.svg'), '<svg>hand-made</svg>\n') })
     const cfg = loadConfig({ root })
+    const hash0 = prototypeHash(cfg)
     const lines = []
     const res = await freeze({ cfg, stages: ['split', 'measure', 'shard', 'screens', 'catalog', 'identity'], log: (s) => lines.push(s) })
     check(res.ok && res.results.every((r) => r.status === 'ran'), `freeze all: every stage ran green (${res.results.map((r) => `${r.stage}:${r.status}`).join(' ')})${res.ok ? '' : `\n${lines.join('\n')}`}`)
@@ -173,6 +179,7 @@ if (browser) {
     check(['split', 'measure', 'shard', 'screens', 'catalog', 'identity'].every((s) => state.stages[s].status === 'ok' && state.stages[s].inputHash && Number.isFinite(state.stages[s].durationMs)), 'freeze: state.json records status, input hash and duration per stage')
     const again = await freeze({ cfg: loadConfig({ root }), stages: ['split', 'measure', 'shard', 'screens', 'catalog', 'identity'], log: () => {} })
     check(again.results.every((r) => r.status === 'up-to-date'), 'freeze: a second run skips every up-to-date stage')
+    check(prototypeHash(loadConfig({ root })) === hash0, 'freeze: the prototype hash ignores the export outputs from the first run on (an icons/ folder present before exports.json existed)')
     check(fs.existsSync(path.join(root, 'docs/design/design-tokens.json')) && fs.existsSync(path.join(root, 'docs/design/design-tokens-history.json')), 'freeze split: writes design-tokens.json and design-tokens-history.json')
 
     // the toolkit's real outputs pass the design gate's quality checks (one config, one contract)
@@ -208,6 +215,7 @@ if (browser) {
     check(mock.includes('<symbol id="i-star"') && mock.includes('<use href="#i-star"'), 'shard: the icon sprite is inlined and icon references keep pointing at it')
     check(mock.includes('id="home--home-title"') && mock.includes('for="home--q"') && mock.includes('id="home--q"') && mock.includes('#home--home-title{letter-spacing:.5px}'), 'shard: ids are prefixed per section, references rewritten, id rules repeated for the prefixed ids')
     check(!/Demo controls|Demo note|Review gallery/.test(mock), 'shard: no demo-only content in the mock')
+    check(!mock.includes('demo-badge') && !/Solo demo/.test(mock), 'shard: a demo-* element without data-demo-only is stripped by the shared default')
     check(/<link rel="stylesheet" href="\.\.\/\.\.\/\.\.\/design\/prototype\/reference\/css\/00-tokens\.css">/.test(mock) && !/<style>[^<]*\.btn\{/.test(mock), 'shard: the mock links the reference CSS instead of inlining the prototype style')
     check(mock.includes('Popover: go to the list') && mock.includes('Popover (anchored to its trigger in the app)'), 'shard: the open popover of a state is kept below its screen')
     const jpgH = (f) => { const b2 = fs.readFileSync(f); for (let i = 2; i < b2.length;) { const mk = b2[i + 1]; const len = b2.readUInt16BE(i + 2); if (mk >= 0xc0 && mk <= 0xc2) return b2.readUInt16BE(i + 5); i += 2 + len } return -1 }
@@ -217,8 +225,34 @@ if (browser) {
     check(fs.readdirSync(path.join(root, 'docs/design/prototype/screenshots')).filter((f) => /^mini--(home|list)--\d+--(light|dark)\.jpg$/.test(f)).length === 8, 'screens: every screen x width x theme')
     const catalog = fs.readFileSync(path.join(root, 'docs/design/prototype/components.html'), 'utf8')
     check(catalog.includes('<symbol id="i-star"') && catalog.includes('data-cat-root="Button|hover|') && catalog.includes('[data-st~="hover"]') && fs.existsSync(path.join(root, 'docs/design/prototype/reference/components-light.png')), 'catalog: live markup per state with the state shim, sprite inlined, sheets captured')
-    check(fs.readFileSync(path.join(root, 'docs/design/prototype/icons/star.svg'), 'utf8').startsWith('<svg'), 'catalog: config exports are written as exact SVG files')
+    const star = fs.readFileSync(path.join(root, 'docs/design/prototype/icons/star.svg'), 'utf8')
+    check(star.startsWith('<svg') && star.includes('viewBox="0 0 10 10"') && star.includes('fill="currentColor"') && state.stages.catalog.summary.exportWarnings.length === 0, 'catalog: config exports are written as exact SVG files carrying the symbol\'s attributes, no lossy-export warning')
     check(state.stages.identity.summary.identical === 4 && state.stages.identity.summary.total === 4, 'identity: the linked copy renders pixel-identical to the prototype (4/4)')
+
+    // exports: stale files removed, lossy SVGs reported, writes outside exportPaths refused
+    const catalogMod = await import(path.join(FIDELITY, 'catalog.mjs'))
+    const exportsList = path.join(root, 'docs/design/freeze/exports.json')
+    fs.writeFileSync(exportsList, JSON.stringify(['icons/gone.svg', 'icons/star.svg']))
+    fs.writeFileSync(path.join(root, 'docs/design/prototype/icons/gone.svg'), '<svg></svg>\n')
+    const lossyRaw = { ...rawConfig(), exports: "({ 'icons/star.svg': '<svg xmlns=\"http://www.w3.org/2000/svg\">' + document.querySelector('#i-star').innerHTML + '</svg>' })" }
+    const cat = await catalogMod.run({ cfg: loadConfig({ root, raw: lossyRaw }), browser })
+    check(cat.staleRemoved.join() === 'icons/gone.svg' && !fs.existsSync(path.join(root, 'docs/design/prototype/icons/gone.svg')) && JSON.parse(fs.readFileSync(exportsList, 'utf8')).join() === 'icons/star.svg', 'catalog: a file a previous run exported that the list no longer returns is removed')
+    check(cat.exportWarnings.length === 1 && /icons\/star\.svg \(from #i-star\) lacks viewBox, fill \(CSS: rgb/.test(cat.exportWarnings[0]), `catalog: an export that drops the symbol's viewBox and its CSS fill warns (${cat.exportWarnings[0]})`)
+    const outside = await rejectsLike(catalogMod.run({ cfg: loadConfig({ root, raw: { ...rawConfig(), exports: "({ 'logo/x.svg': '<svg/>' })" } }), browser }), /outside exportPaths \[icons\]/)
+    check(outside.ok && !fs.existsSync(path.join(root, 'docs/design/prototype/logo/x.svg')), `catalog: an export outside exportPaths is refused before anything is written (${outside.msg.split('\n')[0]})`)
+
+    // identity: a broken cascade fails after one attempt, pointing at css.families
+    const identityMod = await import(path.join(FIDELITY, 'identity.mjs'))
+    const splitMod = await import(path.join(FIDELITY, 'split-css.mjs'))
+    const broken3 = freshProject()
+    const bcfg = loadConfig({ root: broken3 })
+    await splitMod.run({ cfg: bcfg })
+    const last = identityMod.loadOrder(bcfg.paths.css).at(-1)
+    fs.appendFileSync(path.join(bcfg.paths.css, last), '\nh1{color:#f00}\n')
+    let idErr = null
+    try { await identityMod.run({ cfg: bcfg, browser }) } catch (e) { idErr = e }
+    check(idErr && /computed styles differ/.test(idErr.message) && /h1#home-title [a-z-]*color: rgb\(22, 28, 34\) \(prototype\) vs rgb\(255, 0, 0\) \(linked\)/.test(idErr.message) && /css\.families/.test(idErr.message) && /Troubleshooting/.test(idErr.message), `identity: a cascade change is reported as computed-style differences with the css.families pointer (${idErr?.message.split('\n')[0]})`)
+    check(idErr?.summary?.differing.every((r) => r.attempts === 1), 'identity: a computed-style difference is not retried (1 attempt, not identity.attempts)')
 
     // touch emulation probe
     const h375 = await openHandle(browser, cfg, { width: 375, theme: 'light' })

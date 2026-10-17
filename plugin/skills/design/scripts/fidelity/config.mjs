@@ -7,6 +7,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEMO_ATTRIBUTE, demoSelectors } from './demo.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const SCHEMA_PATH = path.join(HERE, 'config.schema.json');
@@ -131,7 +132,7 @@ function normalise(c, root) {
   c.probe = { demoOff: null, theme: null, ...c.probe };
   c.screenSelector ??= 'main > [data-screen]';
   c.screenAttribute ??= 'data-screen';
-  c.demoOnlyAttribute ??= 'data-demo-only';
+  c.demoOnlyAttribute ??= DEMO_ATTRIBUTE;
   c.spriteRequired = c.sprite !== undefined && c.sprite !== null;
   if (c.sprite === undefined) c.sprite = DEFAULT_SPRITE;
   c.states ??= {};
@@ -143,11 +144,12 @@ function normalise(c, root) {
   c.catalog = { title: 'Components', sheetMax: 30000, ...c.catalog };
   c.identity = { widths: [c.scope.touchWidth, c.scope.primaryWidth].filter((w, i, a) => a.indexOf(w) === i), theme: c.themes[0], attempts: 3, ...c.identity };
   c.diff = { threshold: 0.1, maxRatio: 0.005, sliceHeight: c.baseHeight, ...c.diff };
-  c.shard = { extras: [{ selector: 'dialog[open]', label: 'Dialog (top layer in the app)', style: 'position:static;margin:24px auto;transform:none' }], strip: `[${c.demoOnlyAttribute}]`, gateAttributes: [], sectionAttributes: [], htmlAttributes: { [c.themeAttribute]: 'light' }, jpegQuality: 88, ...c.shard };
+  c.shard = { extras: [{ selector: 'dialog[open]', label: 'Dialog (top layer in the app)', style: 'position:static;margin:24px auto;transform:none' }], strip: demoSelectors(c.demoOnlyAttribute).join(', '), gateAttributes: [], sectionAttributes: [], htmlAttributes: { [c.themeAttribute]: 'light' }, jpegQuality: 88, ...c.shard };
   const protoAbs = path.resolve(root, c.prototype);
   const protoDir = path.dirname(protoAbs);
   c.screenshots = { prefix: path.basename(protoAbs).replace(/\.[^.]+$/, ''), jpegQuality: 85, ...c.screenshots };
   c.tokens = { groups: [], ...c.tokens };
+  c.exportPaths = c.exports ? (c.exportPaths || ['icons']).map((p) => p.replace(/\/+$/, '')) : [];
   c.css = { numbered: true, families: [], rules: [], overrides: {}, prefixStrip: DEFAULT_PREFIX_STRIP, verbatim: [], closingComments: [], unmatched: 'heuristic', ...c.css };
   const reference = path.join(protoDir, 'reference');
   c.paths = {
@@ -163,6 +165,7 @@ function normalise(c, root) {
     freeze: path.join(root, FREEZE_REL),
     tokens: path.join(root, 'docs/design/design-tokens.json'),
     tokensHistory: path.join(root, 'docs/design/design-tokens-history.json'),
+    exports: c.exportPaths.map((p) => path.resolve(protoDir, p)),
   };
   return c;
 }
@@ -182,6 +185,7 @@ function semanticChecks(c) {
     if (!comp) errs.push(`floating: unknown component "${f.component}"`);
     else if (!comp.states[f.state]) errs.push(`floating: "${f.component}" has no state "${f.state}"`);
   }
+  for (const [i, p] of c.paths.exports.entries()) if (p === c.paths.protoDir || !p.startsWith(c.paths.protoDir + path.sep)) errs.push(`exportPaths[${i}]: "${c.exportPaths[i]}" must be a file or folder inside the prototype folder`);
   const fams = new Set(c.css.families.map((f) => f.name));
   for (const r of c.css.rules) if (!fams.has(r.family)) errs.push(`css.rules: unknown family "${r.family}"`);
   for (const [k, fam] of Object.entries(c.css.overrides)) if (!fams.has(fam)) errs.push(`css.overrides["${k}"]: unknown family "${fam}"`);
@@ -207,15 +211,14 @@ export function hashOf(...parts) {
 
 /**
  * Fingerprint of the prototype: its HTML bytes plus every other file under its folder (content up to 2 MB, size and
- * mtime above) except the generated outputs, so an edited image or font invalidates the stages that render it.
+ * mtime above) except the generated outputs, so an edited image or font invalidates the stages that render it. The
+ * `exportPaths` (what the catalog stage's `exports` write) are excluded by path from the first run on, whether or not
+ * they exist yet, so writing them never changes the hash.
  * @param {object} cfg normalised config
  * @returns {string} hash
  */
 export function prototypeHash(cfg) {
-  const skip = new Set([cfg.paths.reference, cfg.paths.screenshots, cfg.paths.catalog, path.join(cfg.paths.protoDir, '.linked-check.html')]);
-  // files the catalog stage exported (config `exports`) are outputs, not inputs
-  const exported = path.join(cfg.paths.freeze, 'exports.json');
-  if (fs.existsSync(exported)) for (const rel of JSON.parse(fs.readFileSync(exported, 'utf8'))) skip.add(path.resolve(cfg.paths.protoDir, rel));
+  const skip = new Set([cfg.paths.reference, cfg.paths.screenshots, cfg.paths.catalog, path.join(cfg.paths.protoDir, '.linked-check.html'), ...cfg.paths.exports]);
   const entries = [];
   const walk = (dir, depth) => {
     for (const d of fs.readdirSync(dir, { withFileTypes: true })) {

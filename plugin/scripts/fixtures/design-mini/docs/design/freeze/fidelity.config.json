@@ -46,5 +46,5 @@
   ],
   "floating": [{ "component": "Button", "state": "open", "panel": "doc:#menuPop", "anchor": "$" }],
   "identity": { "screens": ["home", "list"], "attempts": 2 },
-  "exports": "({ 'icons/star.svg': '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 10 10\">' + document.querySelector('#i-star').innerHTML + '</svg>' })"
+  "exports": "Object.fromEntries([...document.querySelectorAll('svg symbol[id^=\"i-\"]')].map((s) => ['icons/' + s.id.slice(2) + '.svg', '<svg xmlns=\"http://www.w3.org/2000/svg\"' + [...s.attributes].filter((a) => a.name !== 'id').map((a) => ' ' + a.name + '=\"' + a.value.replace(/\"/g, '&quot;') + '\"').join('') + ' fill=\"currentColor\">' + s.innerHTML + '</svg>']))"
 }

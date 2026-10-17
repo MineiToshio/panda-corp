@@ -8,7 +8,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-sans);
 [data-screen][hidden]{display:none}
 .demo-strip{padding:var(--sp)}
 .demo-badge{font-size:10px}
-[data-demo="off"] .demo-strip{display:none}
+[data-demo="off"] [data-demo-only]{display:none}
 .scroller{overflow-x:auto;width:100%}
 .scroller .strip{width:900px;height:20px}
 /* poster:css:begin. Export poster, scaled by --u. */
@@ -21,7 +21,7 @@ body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font-sans);
 .btn{padding:var(--sp)}
 
 </style></head><body>
-<div class="demo-strip"><span class="demo-badge">Solo demo</span></div>
+<div class="demo-strip" data-demo-only><span class="demo-badge">Solo demo</span></div>
 <section data-screen="home"><h1>Home</h1><p>Readable body text on the home screen.</p><div class="scroller"><div class="strip">carousel</div></div><div class="pz"><span class="pz-l">poster glyphs</span></div><button class="btn">Go</button><span class="dot"></span></section>
 <section data-screen="about" hidden><h1>About</h1><p>Readable body text on the about screen.</p></section>
 <script>

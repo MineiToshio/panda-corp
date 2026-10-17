@@ -7,9 +7,12 @@
  *        [--config FILE] [--min-font N] [--max-colors N] [--max-lengths N] [--demo-selectors "a,b"] [--demo-text REGEX]
  * Exit:  0 clean (no findings), 1 findings (any fail or warn), 2 could not run the browser checks and nothing else was found.
  *
- * Static checks (CSS and markup): literals outside tokens, unguarded :hover, fonts, token blocks.
+ * Static checks (CSS and markup): literals outside tokens, unguarded :hover, fonts, token blocks, and (with the project's
+ *   fidelity.config.json) CSS rules no `css` family claims, so the config grows with the rounds instead of at the freeze.
  * Browser checks (Chromium through lib-browser.mjs; the prototype is served over loopback HTTP at ?demo=off&host=page):
- *   small text, demo leaks and horizontal overflow on every [data-screen], plus which keyframed opacity fades hit text.
+ *   small text, demo leaks and horizontal overflow on every [data-screen], which keyframed opacity fades hit text, and
+ *   demo-looking markup (a demo-* class or demo wording) that lacks data-demo-only. The demo defaults are the toolkit's
+ *   one definition (fidelity/demo.mjs), shared with the shard stage's strip and the design gate.
  * `--static` skips the browser; the result is then `complete: false` and the design gate refuses it.
  *
  * Config (optional): `--config FILE` (a bare preflight object) or the project's `docs/design/freeze/fidelity.config.json`
@@ -21,14 +24,17 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
+import { ConfigError, loadConfig as loadFidelityConfig } from "./fidelity/config.mjs";
+import { DEMO_ATTRIBUTE, DEMO_CLASS_PREFIX, DEMO_SELECTORS, DEMO_TEXT } from "./fidelity/demo.mjs";
+import { buildSplit } from "./fidelity/split-css.mjs";
 import { launchBrowser, settle } from "./lib-browser.mjs";
 
 const DEFAULTS = {
   minFontPx: 12,
   textWidths: [375, 1280],
   overflowWidth: 375,
-  demoSelectors: ["[data-demo-only]", ".demo-badge", ".demo-controls", ".demo-strip"],
-  demoText: "\\b(solo demo|demo only|demo mode|modo demo)\\b",
+  demoSelectors: [...DEMO_SELECTORS],
+  demoText: DEMO_TEXT,
   maxLiteralColors: 0,
   maxLiteralLengths: 150,
   screens: null,
@@ -526,7 +532,7 @@ async function runBrowser(protoPath, model, cfg) {
         const all = await page.evaluate(() => [...document.querySelectorAll("[data-screen]")].map(e => ({ id: e.dataset.screen, demo: Boolean(e.closest("[data-demo-only]")) })));
         screens = cfg.screens || all.filter(s => !s.demo).map(s => s.id).filter(id => !cfg.skipScreens.includes(id));
         if (!screens.length) screens = ["(page)"];
-        extras = [...(await textFadeFindings(page, model.fadeUses))];
+        extras = [...(await textFadeFindings(page, model.fadeUses)), ...demoMarkupFindings(await page.evaluate(demoMarkupScan, { attribute: DEMO_ATTRIBUTE, prefix: DEMO_CLASS_PREFIX, text: cfg.demoText || DEMO_TEXT }))];
       }
       const run = await runWidth(page, width, screens, cfg, demoSelector, width === cfg.overflowWidth);
       scans.push(...run.results);
@@ -545,10 +551,47 @@ async function playwrightAvailable() {
   try { await import(process.env.PLAYWRIGHT_MODULE || "playwright"); return true; } catch { return false; }
 }
 
+/**
+ * CSS rules the project's fidelity config does not claim (css.families/rules/overrides): the split files them by the
+ * selector-stem heuristic. Run from the toolkit's own splitter, so the count is exactly what the freeze would see.
+ */
+function configCoverageFindings(root, protoPath) {
+  if (!root || !fs.existsSync(path.join(root, "docs/design/freeze/fidelity.config.json"))) return [];
+  let cfg;
+  try { cfg = loadFidelityConfig({ root }); } catch (err) {
+    if (err instanceof ConfigError) return [finding("configCoverage", "warn", `fidelity.config.json does not load: ${err.errors[0]}`, { errors: err.errors.slice(0, 20) })];
+    throw err;
+  }
+  if (fs.realpathSync(cfg.paths.prototype) !== protoPath) return [];
+  const { report } = buildSplit(cfg);
+  if (!report.heuristic.rules) return [];
+  return [finding("configCoverage", "warn", `${report.heuristic.rules} CSS rule(s) are claimed by no css.families/rules/overrides entry of fidelity.config.json (filed by the heuristic as ${report.heuristic.families.slice(0, 6).join(", ")}); e.g. ${report.heuristic.examples.slice(0, 2).join("; ")}. Add their family and rule in this round`, { total: report.heuristic.rules, families: report.heuristic.families, examples: report.heuristic.examples })];
+}
+
+/** Runs inside the page, once: demo-looking elements (demo-* class, demo wording) with no demo-only attribute on them or an ancestor. */
+function demoMarkupScan({ attribute, prefix, text }) {
+  const re = new RegExp(text, "i");
+  const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE"]);
+  const found = [];
+  for (const el of document.body.querySelectorAll("*")) {
+    if (SKIP.has(el.tagName) || el.closest(`[${attribute}]`) || found.some(f => f.contains(el))) continue;
+    const own = [...el.childNodes].filter(n => n.nodeType === 3).map(n => n.nodeValue).join(" ");
+    if ([...el.classList].some(c => c.startsWith(prefix)) || re.test(own)) found.push(el);
+  }
+  const label = el => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${[...el.classList].slice(0, 2).map(c => `.${c}`).join("")}`;
+  return found.map(el => ({ sel: label(el), text: el.textContent.trim().slice(0, 40) }));
+}
+
+function demoMarkupFindings(items) {
+  if (!items.length) return [];
+  const bySel = top(items.reduce((m, i) => m.set(i.sel, (m.get(i.sel) || 0) + 1), new Map()), 5);
+  return [finding("demoMarkup", "warn", `${items.length} demo-looking element(s) (a ${DEMO_CLASS_PREFIX}* class or demo wording) carry no ${DEMO_ATTRIBUTE}: ${bySel.map(([s, n]) => `${s} (${n})`).join("; ")}. Mark them ${DEMO_ATTRIBUTE} so ?demo=off, the shard strip and the gate treat them by contract, not by class name`, { total: items.length, items: items.slice(0, 60) })];
+}
+
 // ---------------------------------------------------------------- report
 
-const CHECKS = ["smallText", "demoLeaks", "literalColors", "literalLengths", "unguardedHover", "textFades", "overflow", "fonts", "tokens", "screens"];
-const BROWSER_CHECKS = new Set(["smallText", "demoLeaks", "textFades", "overflow", "screens"]);
+const CHECKS = ["smallText", "demoLeaks", "demoMarkup", "literalColors", "literalLengths", "unguardedHover", "textFades", "overflow", "fonts", "tokens", "configCoverage", "screens"];
+const BROWSER_CHECKS = new Set(["smallText", "demoLeaks", "demoMarkup", "textFades", "overflow", "screens"]);
 
 function summarize(findings, browserRan) {
   const checks = {};
@@ -597,7 +640,7 @@ async function main() {
     tokens: analyzeTokens(rules),
     fadeUses: analyzeFadeKeyframes(rules),
   };
-  let findings = staticFindings(model, cfg);
+  let findings = [...staticFindings(model, cfg), ...configCoverageFindings(root, protoPath)];
   let browser = "skipped";
   let meta = {};
   if (!flags.static) {

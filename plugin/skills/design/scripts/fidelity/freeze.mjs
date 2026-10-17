@@ -41,7 +41,7 @@ function stageSpec(cfg, name, protoHash, tools) {
     case 'measure': return { input: () => hashOf(...common, cfg.components, cfg.floating, cfg.scope), output: measureOut, exists: () => fs.existsSync(cfg.paths.computedStyles) };
     case 'shard': return { input: () => hashOf(...common, splitOut(), cfg.states, cfg.shard, cfg.sprite, cfg.screenSelector, cfg.lang), output: () => hashOf(Object.keys(cfg.states)), exists: () => Object.keys(cfg.states).every((f) => fs.existsSync(path.join(cfg.paths.frds, f, 'mocks'))) };
     case 'screens': return { input: () => hashOf(...common, listScreens(cfg), cfg.screenshots), output: () => dirHash(cfg.paths.screenshots, /\.jpg$/), exists: () => fs.existsSync(cfg.paths.screenshots) };
-    case 'catalog': return { input: () => hashOf(tools, measureOut(), splitOut(), cfg.catalog, cfg.exports, cfg.sprite, cfg.shard.htmlAttributes), output: () => fileHash(cfg.paths.catalog), exists: () => fs.existsSync(cfg.paths.catalog) };
+    case 'catalog': return { input: () => hashOf(tools, measureOut(), splitOut(), cfg.catalog, cfg.exports, cfg.exportPaths, cfg.sprite, cfg.shard.htmlAttributes), output: () => fileHash(cfg.paths.catalog), exists: () => fs.existsSync(cfg.paths.catalog) };
     case 'identity': return { input: () => hashOf(...common, splitOut(), cfg.identity, cfg.screens), output: () => null, exists: () => true };
     default: throw new Error(`unknown stage ${name}`);
   }

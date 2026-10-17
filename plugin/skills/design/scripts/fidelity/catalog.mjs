@@ -238,20 +238,61 @@ async function sheets(cfg, browser, stage) {
   return reports;
 }
 
-/** Evaluates cfg.exports in the prototype and writes the returned files under the prototype folder. */
-async function writeExports(cfg, browser) {
-  if (!cfg.exports) return 0;
-  const [files] = await runPool({
-    browser, cfg, units: [{ key: { width: cfg.scope.primaryWidth, theme: cfg.themes[0] }, label: 'exports' }],
-    run: async (u, h) => { await navigate(h, urlFor(cfg, '', { theme: u.key.theme })); await settle(h); return h.page.evaluate(new Function(`return (${cfg.exports});`)); },
-  });
+const PRESENTATION = ['viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-dasharray', 'fill-rule', 'clip-rule', 'opacity', 'fill-opacity', 'stroke-opacity', 'color', 'style'];
+const PAINT_INITIAL = { fill: 'rgb(0, 0, 0)', stroke: 'none', 'stroke-width': '1px' };
+
+/**
+ * Runs in the page: for each exported SVG built from a <symbol> (its content contains the symbol's markup), the
+ * presentation the icon renders with that the file does not carry: an attribute of the symbol, or a fill/stroke the
+ * page's CSS gives the <svg> that uses it.
+ */
+function lossyExports({ files, attrs, initial }) {
+  const out = [];
+  const symbols = [...document.querySelectorAll('symbol[id]')].filter((s) => s.innerHTML.trim()).sort((a, b) => b.innerHTML.length - a.innerHTML.length);
   for (const [rel, content] of Object.entries(files)) {
-    const f = path.resolve(cfg.paths.protoDir, rel);
-    if (!f.startsWith(cfg.paths.protoDir + path.sep)) throw new Error(`exports: ${rel} leaves the prototype folder`);
-    writeIfChanged(f, content.endsWith('\n') ? content : `${content}\n`);
+    const sym = symbols.find((s) => content.includes(s.innerHTML));
+    if (!sym) continue;
+    const root = new DOMParser().parseFromString(content, 'image/svg+xml').documentElement;
+    if (root.localName !== 'svg') continue;
+    const missing = attrs.filter((a) => sym.hasAttribute(a) && !root.hasAttribute(a));
+    const host = [...document.querySelectorAll('use')].find((u) => (u.getAttribute('href') || u.getAttribute('xlink:href')) === `#${sym.id}`)?.closest('svg');
+    if (host && !root.hasAttribute('style')) {
+      const cs = getComputedStyle(host);
+      for (const [p, v] of Object.entries(initial)) if (cs.getPropertyValue(p) !== v && !root.hasAttribute(p) && !missing.includes(p)) missing.push(`${p} (CSS: ${cs.getPropertyValue(p)})`);
+    }
+    if (missing.length) out.push(`${rel} (from #${sym.id}) lacks ${missing.join(', ')}`);
   }
-  writeIfChanged(path.join(cfg.paths.freeze, 'exports.json'), `${JSON.stringify(Object.keys(files).sort(), null, 1)}\n`);
-  return Object.keys(files).length;
+  return out;
+}
+
+/**
+ * Evaluates cfg.exports in the prototype and writes the returned files under the prototype folder, inside
+ * `exportPaths` only (the prototype hash excludes those paths). Files a previous run exported that the list no longer
+ * returns are removed, and an SVG that drops presentation its source symbol renders with is reported.
+ */
+async function writeExports(cfg, browser) {
+  if (!cfg.exports) return { count: 0, removed: [], warnings: [] };
+  const [{ files, warnings }] = await runPool({
+    browser, cfg, units: [{ key: { width: cfg.scope.primaryWidth, theme: cfg.themes[0] }, label: 'exports' }],
+    run: async (u, h) => {
+      await navigate(h, urlFor(cfg, '', { theme: u.key.theme }));
+      await settle(h);
+      const out = await h.page.evaluate(new Function(`return (${cfg.exports});`));
+      return { files: out, warnings: await h.page.evaluate(lossyExports, { files: out, attrs: PRESENTATION, initial: PAINT_INITIAL }) };
+    },
+  });
+  const inside = (f) => cfg.paths.exports.some((e) => f === e || f.startsWith(e + path.sep));
+  for (const rel of Object.keys(files)) {
+    if (!inside(path.resolve(cfg.paths.protoDir, rel))) throw new Error(`exports: ${rel} is outside exportPaths [${cfg.exportPaths.join(', ')}]: add its folder to exportPaths (the prototype hash skips only those paths)`);
+  }
+  const listFile = path.join(cfg.paths.freeze, 'exports.json');
+  const previous = fs.existsSync(listFile) ? JSON.parse(fs.readFileSync(listFile, 'utf8')) : [];
+  for (const [rel, content] of Object.entries(files)) writeIfChanged(path.resolve(cfg.paths.protoDir, rel), content.endsWith('\n') ? content : `${content}\n`);
+  const removed = previous.filter((rel) => !(rel in files) && inside(path.resolve(cfg.paths.protoDir, rel)) && fs.existsSync(path.resolve(cfg.paths.protoDir, rel)));
+  for (const rel of removed) fs.rmSync(path.resolve(cfg.paths.protoDir, rel));
+  writeIfChanged(listFile, `${JSON.stringify(Object.keys(files).sort(), null, 1)}\n`);
+  for (const w of warnings) console.log(`WARN exports: ${w}`);
+  return { count: Object.keys(files).length, removed, warnings };
 }
 
 /**
@@ -268,8 +309,8 @@ export async function run({ cfg, browser }) {
   try {
     const report = await sheets(cfg, b, stage);
     writeIfChanged(path.join(cfg.paths.freeze, 'components-sheet.json'), `${JSON.stringify(report, null, 1)}\n`);
-    const exported = await writeExports(cfg, b);
-    return { units: report.length + (cfg.exports ? 1 : 0), components: built.components, stateRules: built.stateRules, sheets: report.map((r) => `${r.theme}:${r.parts.length}`).join(' '), exported };
+    const exp = await writeExports(cfg, b);
+    return { units: report.length + (cfg.exports ? 1 : 0), components: built.components, stateRules: built.stateRules, sheets: report.map((r) => `${r.theme}:${r.parts.length}`).join(' '), exported: exp.count, staleRemoved: exp.removed, exportWarnings: exp.warnings };
   } finally {
     fs.rmSync(stage, { recursive: true, force: true });
     if (own) await b.close();

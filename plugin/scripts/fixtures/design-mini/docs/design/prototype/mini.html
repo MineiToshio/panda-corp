@@ -15,6 +15,7 @@ h1{margin:0 0 12px;font-size:28px}
 /* PROTOTYPE-ONLY: demo scaffolding */
 .demo-strip{background:#fc0;color:#000;padding:8px 16px}
 [data-demo="off"] [data-demo-only]{display:none}
+[data-demo="off"] .demo-badge{display:none}
 /* end PROTOTYPE-ONLY */
 .hdr{display:flex;gap:16px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
 .hdr a{color:var(--fg)}
@@ -52,6 +53,7 @@ html.host-auto .pop{position:static}
   <section class="screen" data-screen="home">
     <h1 id="home-title">Home</h1>
     <p class="demo-note" data-demo-only>Demo note: only in the prototype</p>
+    <span class="demo-badge">Solo demo</span>
     <label for="q">Search</label> <input id="q" name="q">
     <p class="probe">Pointer: </p>
     <div class="spacer"></div>

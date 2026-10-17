@@ -149,7 +149,7 @@
             "properties": { "selector": { "type": "string" }, "label": { "type": "string" }, "style": { "type": "string" } }
           }
         },
-        "strip": { "type": "string", "description": "Selector of demo-only markup removed from every mock (default [demoOnlyAttribute])." },
+        "strip": { "type": "string", "description": "Selector of demo-only markup removed from every mock (default: the shared demo selectors of fidelity/demo.mjs, [demoOnlyAttribute] plus any demo-* class)." },
         "gateAttributes": { "type": "array", "items": { "type": "string" }, "description": "Session-gating attributes: an element carrying one is dropped when hidden, else the attribute is removed." },
         "sectionAttributes": {
           "type": "array",
@@ -216,7 +216,8 @@
         "sliceHeight": { "type": "integer", "minimum": 1, "description": "Default baseHeight." }
       }
     },
-    "exports": { "type": "string", "description": "JS expression evaluated in the prototype returning {relativePath: content}: exact SVG assets written next to the prototype by the catalog stage." },
+    "exports": { "type": "string", "description": "JS expression evaluated in the prototype returning {relativePath: content}: exact SVG assets written next to the prototype by the catalog stage. Carry each symbol's presentation attributes (viewBox, fill, stroke, stroke-width...) onto the exported <svg>, and select only icon symbols (e.g. by an id prefix); the stage warns when a file drops presentation its symbol renders with." },
+    "exportPaths": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Files or folders, relative to the prototype folder, that `exports` writes (default [\"icons\"]). The prototype hash never reads them, from the first run on; an export outside them fails the catalog stage; a file a previous run exported that the list no longer returns is removed." },
     "tokens": {
       "type": "object",
       "additionalProperties": false,
@@ -242,7 +243,7 @@
         "minFontPx": { "type": "number", "minimum": 1, "description": "Smallest product text size (default 12)." },
         "textWidths": { "$ref": "#/$defs/widths", "description": "Widths the text-size and demo-leak checks render at (default [375, 1280])." },
         "overflowWidth": { "type": "integer", "minimum": 200, "maximum": 4000, "description": "Width of the horizontal-overflow check (default 375)." },
-        "demoSelectors": { "type": "array", "items": { "type": "string" }, "description": "Demo scaffolding that must be hidden under demo=off (default [data-demo-only], .demo-badge, .demo-controls, .demo-strip)." },
+        "demoSelectors": { "type": "array", "items": { "type": "string" }, "description": "Demo scaffolding that must be hidden under demo=off (default: the shared demo selectors of fidelity/demo.mjs, [data-demo-only] plus any demo-* class)." },
         "demoText": { "type": "string", "description": "Regex (source, case-insensitive) of visible demo wording that must not render under demo=off." },
         "maxLiteralColors": { "type": "integer", "minimum": 0, "description": "Colour literals allowed outside the token blocks (default 0)." },
         "maxLiteralLengths": { "type": "integer", "minimum": 0, "description": "px length literals allowed outside the token blocks before a warning (default 150)." },

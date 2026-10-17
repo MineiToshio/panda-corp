@@ -23,11 +23,11 @@ node ".../freeze.mjs" measure --all-states    # the full matrix instead of the s
 | `shard` | `shard.mjs` | `docs/frds/<frd>/mocks/<slug>.html`, `mocks/screenshots/<id>-<width>-<theme>.jpg`; `freeze/shard-cache.json` | split |
 | `screens` | `screens.mjs` | `<prototype dir>/screenshots/<prefix>--<screen>--<width>--<theme>.jpg` | the prototype |
 | `catalog` | `catalog.mjs` | `<prototype dir>/components.html`, `reference/components-<theme>[-N].png`, the `exports` files; `freeze/components-sheet.json`, `freeze/exports.json` | split, measure |
-| `identity` | `identity.mjs` | nothing (a check): the prototype with its `<style>` replaced by `<link>`s to `reference/css/` must render pixel-identical | split |
+| `identity` | `identity.mjs` | nothing (a check): the prototype with its `<style>` replaced by `<link>`s to `reference/css/` must render pixel-identical; a first differing pair whose computed styles also differ fails at once (a broken cascade is deterministic, retries only help pixel noise) | split |
 
 `freeze.mjs <stage|all> [--only <frd>] [--all-states] [--all] [--force] [--workers N] [--config file]` runs them in
 that order on one shared browser. It is resumable: `docs/design/freeze/state.json` records, per stage, the status,
-the input hash (prototype + assets + the config sections the stage reads + the tools' own code), the output hash, the
+the input hash (prototype + assets, never the `exportPaths` the catalog writes, + the config sections the stage reads + the tools' own code), the output hash, the
 duration and a summary, plus the last 20 runs. A stage whose inputs did not change since its last success, and whose
 outputs exist, is skipped (`up-to-date`). A failed stage marks its dependents `blocked`; independent stages still run;
 the exit code is 1. `--force` re-runs stages anyway; `--all` also ignores the measure and shard caches.
@@ -85,22 +85,61 @@ metric and in-Chromium decoding), `diff.mjs` (the comparator). The legacy `../sh
 | `screens` | every `[data-screen]` not `data-demo-only` | Route ids of the whole-app set (`"id"` routes `#id`; or `{id, route, widths}`). |
 | `css` | heuristic only | The component map: `families` (load order), `rules` (regex on the key selector, first match wins), `overrides` (by normalised prelude), `verbatim` blocks, `closingComments`, `prefixStrip`, `unmatched` (`heuristic` or `fail`), `numbered`. |
 | `states` | `{}` | Per FRD folder: `{id, title, route, actions?, settleMs?, widths?, capture?, note?}`. Actions run in order: `click` (real), `domClick` (`element.click()`), `fill [sel, value]`, `wait ms`, `waitFor sel`, `scroll y|sel`, `removeAttr [sel, name]`, `setAttr [sel, name, value]`, `js`. |
-| `shard` | dialogs only | `extras` (overlays shown below a screen), `strip` (demo-only markup), `gateAttributes`, `sectionAttributes`, `htmlAttributes`, `jpegQuality`. |
+| `shard` | dialogs only | `extras` (overlays shown below a screen), `strip` (demo-only markup; default the shared demo selectors), `gateAttributes`, `sectionAttributes`, `htmlAttributes`, `jpegQuality`. |
 | `components` | `[]` | `{name, route, root, children?, pre?, show?, note?, states}`; a state: `force`, `attr`, `cls`, `js`, `click`, `spre`, `scroll`, `route`, `root`, `wait`, `widths`, `layout`. Target `$` = root, `$ sel` inside it, `doc:sel` anywhere. |
 | `floating` | `[]` | `{component, state, panel, anchor}`: recorded as `anchor_offset` (panel box minus anchor box, `top_left` and `top_right`, viewport px). |
 | `scope` | `{mode: "pareto"}` | The scope cap, below. |
 | `workers` | `4` | P. |
 | `catalog`, `identity`, `diff`, `screenshots` | see schema | Sheet height cap; identity screens, widths, theme, attempts; comparator thresholds; screenshot prefix and quality. |
-| `exports` | none | JS expression evaluated in the prototype returning `{relativePath: content}` (icon and logo SVGs). |
+| `exports` | none | JS expression evaluated in the prototype returning `{relativePath: content}` (icon SVGs). See "Icon exports" below. |
+| `exportPaths` | `["icons"]` | Files or folders (relative to the prototype folder) that `exports` writes: never part of the prototype hash, from the first run on; an export outside them fails the stage; files a previous run exported that the list no longer returns are deleted. |
 | `tokens` | built-in groups | `groups`: `[{group, match}]`, regexes on the token name checked before the built-in prefixes (typography, space, radius, stroke, zIndex, motion, elevation, brand, color). |
-| `preflight` | see `../preflight-round.mjs` | `minFontPx`, `textWidths`, `overflowWidth`, `demoSelectors`, `demoText`, `maxLiteralColors`, `maxLiteralLengths`, `screens`, `skipScreens`, `smallTextIgnore`. |
+| `preflight` | see `../preflight-round.mjs` | `minFontPx`, `textWidths`, `overflowWidth`, `demoSelectors`, `demoText` (default the shared demo selectors and wording), `maxLiteralColors`, `maxLiteralLengths`, `screens`, `skipScreens`, `smallTextIgnore`. |
+
+**Demo scaffolding, one definition.** `demo.mjs` holds the demo contract the three tools share: the selectors
+`[data-demo-only]`, `[class^="demo-"]`, `[class*=" demo-"]` (the shard stage's `strip` default, the preflight's
+`demoSelectors` default) and the wording `solo demo | demo only | demo mode | modo demo` (the preflight's `demoText`),
+which the design gate also uses to refuse a mock that still carries any of them. The attribute is the contract; the
+class prefix and the wording are the markers a missed attribute leaves, so the preflight warns (`demoMarkup`) on every
+demo-looking element without `data-demo-only`.
+
+**Who writes the config, and when.** The config grows with the rounds, not at the freeze: every round that adds or
+changes a component, a CSS block, an icon or demo markup updates `components` (+ `states`, `floating`), `css`
+(`families`/`rules`/`overrides` for the new block), `states.<frd>`, `exports`/`exportPaths` and marks the demo markup
+`data-demo-only` in the same round (`../../references/iteration-loop.md`, the prototype contract). The `designer`
+owns it. The preflight warns (`configCoverage`) when a CSS rule is claimed by no family; component coverage is not
+checked automatically (what counts as a component is a design judgment). A project that reaches the freeze without
+it authors the config by hand from this example before the freeze clock starts (an estimate: 1 to 2 h for a prototype
+of funko-tracker's size); a `bootstrap` generator is factory backlog BL-0238.
 
 **What the design gate requires from this file.** The mock matrix is `widths` x `themes` (the defaults above when
 omitted); a mock state's own `widths` (in `states`) narrows it for that id, and every configured state id must have
 its `<id>-<width>-<theme>.jpg` set. The measured styles are checked against the scope `computed-styles.json` records
-(pareto: the default state of each component at the touch and primary widths in every theme). A component with a
-`note` is exempt from the width and 0x0 checks. Per-mock widths live only on the state: there is no separate `mocks`
-block.
+(pareto: the default state of each component at the touch and primary widths in every theme). A component state's own
+`widths` narrows that requirement the way the measure stage plans it (the required widths the state allows, else its
+widest allowed width): a component that exists only at 1280 sets `widths: [1280]` on its states and needs no `note`. A
+`note` exempts only a 0x0 root (a component the viewport hides at some width) or a component with no records at all;
+it never excuses a missing width. Per-mock widths live only on the state: there is no separate `mocks` block.
+
+## Icon exports
+
+The example's `exports` turns each icon `<symbol>` into a standalone SVG and copies the symbol's attributes (except
+`id`) onto the `<svg>`, so `viewBox`, `fill`, `stroke`, `stroke-width` and the rest survive:
+
+```js
+Object.fromEntries([...document.querySelectorAll('svg symbol[id^="i-"]')].map((s) => ['icons/' + s.id.slice(2) + '.svg',
+  '<svg xmlns="http://www.w3.org/2000/svg"' + [...s.attributes].filter((a) => a.name !== 'id')
+    .map((a) => ' ' + a.name + '="' + a.value.replace(/"/g, '&quot;') + '"').join('') + '>' + s.innerHTML + '</svg>']))
+```
+
+- **Only icons.** Select the icon symbols by their id prefix (`[id^="i-"]`), or exclude the others
+  (`symbol[id]:not(#brand-mark)`): a brand mark or illustration in the sprite is not an icon; the logo SVGs live in
+  `logo/`.
+- **Presentation from CSS.** When the page styles the icons through CSS on the using `<svg>` (`.ic { fill: none;
+  stroke: currentColor; stroke-width: 1.75 }`) the symbol has no such attributes: append them in the expression
+  (`'<svg xmlns=... fill="none" stroke="currentColor" stroke-width="1.75"' + ...`), or move them onto the symbols.
+- The catalog stage warns (`WARN exports: ...`, `exportWarnings` in the summary) when an exported SVG lacks an
+  attribute its source symbol has, or a `fill`/`stroke`/`stroke-width` the page's CSS gives the icon.
 
 ## The scope cap
 
@@ -166,7 +205,9 @@ changed components while the prototype is unchanged, and `shard --only` re-shard
 | `host-auto class ... was on` | The prototype switched to its auto-height host mode on a tall viewport: it must honour the host param (`host=page`), or set `params.host`/`hostAutoClass` to match it. |
 | `css split is not complete` | The splitter dropped or duplicated a rule (an unbalanced brace, a rule inside an unsupported at-rule). The counts and the first missing/extra rules are printed; nothing was written. |
 | `match no family` | `css.unmatched` is `fail` and a rule matches no `css.rules` entry: add a rule or an override. |
-| `identity: N of M captures differ` | The load order changed the cascade: two families with equal-specificity rules on the same element are in the wrong order. Reorder `css.families`, or move one rule with an override. |
+| `identity: the linked CSS changes the cascade, computed styles differ` | Deterministic, so it fails after the first attempt. The split filed rules into a load order that breaks the cascade, usually because no `css.families` were declared and the heuristic filed every rule by selector stem: declare `css.families` in the prototype's own order (one per CSS section) and claim each section's rules with `css.rules` (a regex on the key selector) or `css.overrides`; then `freeze.mjs split identity`. The message lists the first differing elements and properties. |
+| `identity: N of M captures differ` | Pixels differ in every attempt while the computed styles match: a non-style difference (a font or `url()` the linked copy resolves differently), or equal-specificity rules whose order only shows in paint. Reorder `css.families`, or move one rule with an override. |
 | `measure: N state(s) failed` | A root or state target is missing (the list says which). Successful components are cached; fix the config and re-run: only the failing ones are measured again. |
-| A stage re-runs every time | Something under the prototype folder changes on every run (a generated file the tools do not know): move it out or regenerate it from `exports`. |
+| A stage re-runs every time | Something under the prototype folder changes on every run (a generated file the tools do not know): move it out, or write it from `exports` into `exportPaths`. |
+| `exports: X is outside exportPaths` | The expression writes outside the declared folders: add the folder to `exportPaths` (the hash skips only those). |
 | Slow runs | Raise `workers` (CPU bound; about one per core), lower `settle.waitMs`, keep `scope.mode` at `pareto`, and avoid `pre` code on components (each `pre` state is its own page load). |

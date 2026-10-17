@@ -44,7 +44,6 @@
   },
   "shard": {
     "extras": [{ "selector": "dialog[open]", "label": "Dialog (top layer in the app)", "style": "position:static;margin:24px auto;transform:none" }],
-    "strip": "[data-demo-only]",
     "sectionAttributes": [{ "routeMatch": "session=out", "attribute": "data-session", "value": "out" }]
   },
   "components": [
@@ -70,5 +69,6 @@
   "identity": { "screens": ["library", "settings"], "widths": [375, 1280], "theme": "light", "attempts": 3 },
   "tokens": { "groups": [{ "group": "imageViewer", "match": "^--iv-" }] },
   "preflight": { "minFontPx": 12, "maxLiteralColors": 0, "maxLiteralLengths": 150, "smallTextIgnore": [".poster-legal"] },
-  "exports": "Object.fromEntries([...document.querySelectorAll('svg symbol[id]')].map((s) => ['icons/' + s.id + '.svg', '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"' + s.getAttribute('viewBox') + '\">' + s.innerHTML + '</svg>']))"
+  "exports": "Object.fromEntries([...document.querySelectorAll('svg symbol[id^=\"i-\"]')].map((s) => ['icons/' + s.id.slice(2) + '.svg', '<svg xmlns=\"http://www.w3.org/2000/svg\"' + [...s.attributes].filter((a) => a.name !== 'id').map((a) => ' ' + a.name + '=\"' + a.value.replace(/\"/g, '&quot;') + '\"').join('') + '>' + s.innerHTML + '</svg>']))",
+  "exportPaths": ["icons"]
 }
