@@ -1,8 +1,10 @@
 ---
-last_verified: 2026-07-01
+last_verified: 2026-10-11
 ---
 
 # Discovery sources playbook
+
+Spot-check on **2026-10-11**: Microns listings and a public Canny request fetched successfully; Algolia returned valid JSON through direct HTTPS (`curl`, 20 hits) although the web reader could not open it. Reddit search returned first-hand threads. This is a partial access refresh, not a re-verification of every ledger row or the July payments table. Read request status: the sampled Hudu export request was already **complete**, so its historical complaint is not a current opportunity.
 
 Operational mining guide for `/pandacorp:discover` researchers. Every source below was **live access-tested on 2026-07-01** (WebFetch/WebSearch, no login, no API keys). If a fetch pattern stops working, note it here and in the run report — do not silently fall back to trend listicles.
 

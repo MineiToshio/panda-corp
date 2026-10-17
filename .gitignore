@@ -25,7 +25,7 @@ factory/ports.yaml
 factory/ideas/*.md
 !factory/ideas/_idea-template.md
 !factory/ideas/decision-log.md
-factory/ideas/_drafts/*.md
+factory/ideas/_drafts/**
 !factory/ideas/_drafts/README.md
 
 # Mission Control integration layer — gitignored parts (Spanish comms, inbox, runtime). .pandacorp/status.yaml stays committed.

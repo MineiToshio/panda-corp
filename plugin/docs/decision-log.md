@@ -4,6 +4,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).
 
+## v9.127.2 — 2026-10-16 (PATCH): publish the pending discovery access note
+
+**What:** Commit the existing partial 2026-10-11 access refresh in [discover/sources.md](../skills/discover/sources.md), together with its historical decision record. The note explicitly limits the refresh to sampled sources and retains the original full-ledger/payment dates. Regenerate both runtime manifests from canonical metadata.
+**Why:** The owner requests all pending work committed and pushed to main. This is a documentation close-out; no skill flow, engineering rule, build engine or Manual behavior changes.
+
 ## v9.127.1 — 2026-10-16 (PATCH): design freeze toolkit, fixes from the timed end-to-end validation
 
 **What:** `skills/design/scripts/fidelity/`: (1) the prototype hash skips the new `exportPaths` (default `["icons"]`) by path from the first run, so writing the `exports` no longer changes it; the catalog stage refuses an export outside them and deletes files a previous run exported that the list no longer returns. (2) New `demo.mjs` holds the one demo contract: `[data-demo-only]` plus any `demo-*` class, and the demo wording. `shard.strip`, the preflight's `demoSelectors`/`demoText` and the gate's mock check all default to it. The preflight warns (`demoMarkup`) when demo-looking markup has no `data-demo-only`, and (`configCoverage`) when a CSS rule is claimed by no `css` family. (3) `check-design-gate.mjs` narrows a component's required widths by its state's own `widths`; a `note` now exempts only a 0x0 root or an unmeasured component. (4) The example `exports` copies the symbol's attributes and selects icon symbols by id prefix, the README documents CSS-driven presentation, and the catalog warns about a lossy export. (5) After a first differing pair, `identity` compares computed styles: a cascade difference fails at once, with no retries, and points to `css.families`. (6) `references/iteration-loop.md` item 10: the `designer` accumulates `fidelity.config.json` in every round (components, CSS families, states, exports, demo marks). `freeze-and-fidelity.md`: S0.3 only checks and completes the config; a project without one authors it before the clock starts, as a task budgeted in hours. A `bootstrap` generator is filed as BL-0238. There are regression tests in `test-design-fidelity.mjs` and `test-design-gate.mjs`.
@@ -20,6 +25,7 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 **Why:** Owner instruction: whenever the data model changes, the model shown in Architecture must change too, across every project. A source-grounded projection is maintained once for both entry points/modes. Untouched legacy projects stay pending until reviewed publication; no fake none state or schema-verification badge. No new skill, schema extractor, state writer or build-engine change is introduced.
 **Verification:** Contract examples pass Mission Control's real parser; standards catalog, generated mirrors/manifests and scoped Manual/model tests are checked. Semantic freshness is a named reviewer correctness checklist with source-path evidence, rather than a timestamp-based automated claim.
 
+
 ## v9.124.0 — 2026-10-15 (MINOR): one stable artifact per design prototype
 
 **What:** `skills/design/SKILL.md` Step 6 and `references/iteration-loop.md`: every design round updates the prototype's existing artifact (same URL, a version label per round) instead of publishing a new one; the URL is recorded once at the top of `.pandacorp/comms/iteration.md`, and a later conversation reads it and publishes with `url`. Mission Control's manual step for the visual gate says so (DR-046).
@@ -29,6 +35,11 @@ Decisions about the plugin: skills, agents, hooks, templates and the factory flo
 
 **What:** `skills/design/SKILL.md` gains a phase-truth preflight, web-font typography chosen by the owner (Step 2), a brand and logo step with Codex image generation (Step 2b), the phone pass and motion rules (Step 5), a freeze that moves the prototype to `docs/design/prototype/` on every path and leaves measured references (Steps 7 and 8), and a mechanical Step-9 gate. New `references/{brand-and-logo,iteration-loop,freeze-and-fidelity}.md`; new `scripts/` (`shard-prototype.mjs`, `measure-components.mjs`, `check-design-gate.mjs`, `codex-image.sh`, `lib-browser.mjs`); new `templates/docs/fidelity-checklist-template.md`; `fdd-template.md` ends with Fidelity references; `agents/designer.md` (Codex mirror regenerated); Mission Control's manual flow for `design` updated (DR-046).
 **Why:** the owner asked that every design phase leave what PandaSaga's 17-round design needed to be built faithfully: its prototype used system fonts (correct only on the designer's Mac), it had no exportable logo files, and agents had nothing measurable to compare against. The scripts were exercised on PandaSaga and on a scratch copy before landing.
+
+## 2026-10-11 — Discovery source access spot-check
+
+**What:** Refreshed the partial live-access check in [discover/sources.md](../skills/discover/sources.md): Microns and Canny fetched, Algolia worked via direct HTTPS after the web reader failed, and Reddit search exposed first-hand threads. The original payments verification date remains unchanged.
+**Why:** The playbook exceeded its 60-day refresh window. A completed Canny request also demonstrated why historical requests must be checked for resolution before using them as current demand. No lifecycle or Manual behavior changed.
 
 ## v9.122.0 — 2026-10-11 (MINOR): BL-0117, design visual gate publishes directions as private Artifacts (proposal 42 step 4)
 

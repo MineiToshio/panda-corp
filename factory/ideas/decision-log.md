@@ -4,11 +4,42 @@ Decisions about the **idea base and its process** (scoring, discarding, discover
 
 > Note: the content and status of **each idea** lives in its own card (`factory/ideas/<slug>.md`, frontmatter). This file holds decisions about **how we manage ideas**, not the ideas themselves.
 
+## 2026-10-15: Discovery sweep awaits owner selection
+
+**What:** Recorded six Phase 1 teasers in the personal run sheet, after checking all 22 cards and both historical discovery sheets. No cards, project state or owner preferences were changed. The audiovisual repair candidate is proposed as an extension of the existing editing module.
+**Why:** The target of eight to twelve did not justify adding duplicates or generic clones. Technical flags describe preliminary access paths; personal fit, competitive gaps and willingness to pay remain unvalidated until selection and Phase 2. Unselected options have no inferred rejection reason.
+
 ## 2026-10-12 — PandaSaga handed off to Product with a cross-media vision
 
 **What:** Corrected the [PandaSaga card](book-memory-without-spoilers.md) throughout: the product covers narrative media generally; Mistborn Era 1 is only the pilot catalog. The owner authorized Product and chose an owner-only trial with an account and cross-device progress. Created the sibling project, full scaffold, nine always-on rules, port block 4040–4049 and private repository.
 **Why:** A narrow first dataset must not silently redefine the product. Card status is now `in-pipeline`; project `phase: product` is the board source of truth. No Design/build advance or narrative-content generation is implied.
 
+## 2026-10-12 — Funko Tracker selected and handed off to Product
+
+**What:** The owner selected **Funko Tracker** as the current name and authorized `spec`. The [existing card](funko-tracker.md) now points to the sibling project, with `in-pipeline` status; its project is born in `product`. Reserved port block 4030–4039, copied the full overlay and always-on rules, and created the private GitHub repository.
+**Why:** Exploration was approved for product definition. The default owner-origin clarification gate remains open before PRD/FRD generation; no design or build advance is authorized.
+
+## 2026-10-12 — Funko tracker exploration crystallized in its existing card
+
+**What:** Updated [funko-tracker](funko-tracker.md) with the agreed catalog, variant/reissue identity, independent inventory and goals, Faltantes/Wishlist tabs, and three high-resolution checklist export modes. Preserved its slug, creation date and discovered status. PandaFolio is explicitly provisional; brand/domain remain undecided. Preserved the exploration and attached reference under `_drafts/archive/` instead of deleting owner state.
+**Why:** The owner explicitly requested a reviewable board proposal before authorizing the next phase. Exporting all/owned/missing with a visible product URL supports the existing community checklist behavior; image permissions and catalog coverage remain validation gaps. No project or build state was created.
+
+## 2026-10-12 — Owner selects PandaSaga as the product name
+
+**What:** Renamed the existing [idea card](book-memory-without-spoilers.md) to **PandaSaga**, preserving its identifier and Research status. Recorded the selected name in the naming draft.
+**Why:** The owner explicitly selected a bilingual-friendly Panda-family brand for the broader, multi-format story companion rather than a descriptive name tied to the initial Cosmere catalog.
+
+## 2026-10-12 — Owner crystallizes the story companion and restores its research card
+
+**What:** Updated the existing [book-memory card](book-memory-without-spoilers.md), changed origin to owner and status to discovered (Research), and cleared obsolete discard fields. Consolidated the initial trilogy, progressive references, spoiler boundaries, artwork permissions, free-access preference, expansion path and deferred EPUB scope. Verdict remains validate (72/100), with public-content rights unresolved. Preserved the exploration and initial rejected memo as dated history under `_drafts/`; no duplicate card or project was created.
+**Why:** The owner explicitly requested consolidation into the Research board after several exploration rounds. The earlier generic-market rejection does not override this authorized, concrete personal-use refinement. Validation is a recommendation, not a claim of build readiness; no project phase was advanced.
+**Canonical record:** [story companion](book-memory-without-spoilers.md).
+
+## 2026-10-12 — Selected book-memory discovery candidate fails the competition gate
+
+**What:** Recorded the investigated `book-memory-without-spoilers` pick as discarded, preserving the full memo, official competitor evidence and a reproducible local EPUB boundary probe. The October 11 teaser sheet records the owner's October 12 selection and outcome. No project or build state was created.
+**Why:** The need is real, but official products already advertise the central workflow, including physical-page capture and Spanish summaries. The access probe confirms bounded extraction on one fixture, not spoiler-free generation. Under discover §3f the selected candidate's evidence-backed kill must persist in the exclusion set. A later concrete personal gap should reopen the same card, not create a duplicate.
+**Canonical records:** [card](book-memory-without-spoilers.md), [run sheet](_drafts/discover-2026-10-11.md), [probe](_drafts/discover-book-memory-spike.py).
 
 ## 2026-07-01 — Discovery process v2: verified sources, rotating lenses, two-phase funnel (owner-approved)
 **What:** The discovery process is reworked (DR-039 updated in place; plugin v9.42.0). The A/B 50/50 streams are replaced by **rotating hunting lenses** (app-enhancement extensions · the owner's identities beyond collecting · own-itch/QoL · incumbent challenger via AI-first rebuild and/or 80/20 unbundling; the **collector lens is dormant** — the board saturated its pains). The funnel becomes **two-phase**: a cheap teaser sweep (8-12 one-liners, persisted to `factory/ideas/_drafts/discover-<date>.md`) → the owner picks 2-3 → only the picks get the deep dive, gates and cards; reactions to passed-over teasers distil into the profile's attraction/rejection patterns (DR-053). Researchers mine only the live-verified source playbook (`plugin/skills/discover/sources.md`); trend listicles never generate ideas.

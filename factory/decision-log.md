@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-16 — Finish source publication without mixing personal discovery drafts
+
+**What:** Completed the owner's commit/push close-out on main. The framework ignore rule now covers the entire personal discovery-draft subtree (except its versioned README), including nested archives, reference images and probe/results; those files are preserved through the private vault overlay. The existing [infra boundary](standards/infra.md) remains unchanged: framework source belongs in panda-corp; personal state belongs in the vault.
+**Why:** The old Markdown-only, one-level pattern left archived personal notes and attached/probe files visible as untracked framework source. Finishing all commits must preserve both sets without placing owner drafts into the shared repository. No personal data is deleted or moved, and no project build state changes.
+
 ## 2026-10-16 — Publish and refresh the shared logical model with every schema change (DATA-7)
 
 **What:** Extended [data-modeling](standards/data-modeling.md) with DATA-7 and an [always-injected rule](../plugin/templates/rules/logical-data-model.md), independent of Prisma or any stack. Architecture publishes `docs/product/data-model.json`; the schema-changing agent updates it in the same work order/change and commit, with all affected entities, fields/types, optionality, keys, mappings and both endpoint cardinalities. The independent reviewer compares the artifact with canonical definitions before closure. Manual edits through sync, fixes, post-launch changes and explicit no-database models are included.
