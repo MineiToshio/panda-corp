@@ -11,8 +11,8 @@ created: 2026-10-15
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 2
+applied_in: [funko-tracker, pandasaga]
 links: [LESSON-0322]
 ---
 
