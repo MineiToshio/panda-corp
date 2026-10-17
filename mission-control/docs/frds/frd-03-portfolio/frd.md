@@ -32,3 +32,7 @@ The Portfolio rail shows ONLY projects that **have started development** — tho
 
 ## Out of scope / Future
 - **Per-project business snapshot (deferred).** Showing each `shipped` project's business snapshot (active users / return metric / last review verdict from `/pandacorp:review-launch`, DR-043) is **out of scope for now**: it is premature (no deployed, monetizing projects yet, so the metrics are undefined) and would render empty. When sellable products are live, the snapshot returns — sourced from PostHog (product telemetry) for monetary/mixed projects. The rail keeps space for it conceptually but renders nothing today.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

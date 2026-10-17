@@ -96,6 +96,8 @@ function fallbackColumn(status: IdeaCardProps["status"]): BoardColumn {
  * When absent, the component falls back to status-based routing.
  */
 export interface BoardCardEntry extends IdeaCardProps {
+  /** Registered public idea slug, independent of the card filename. */
+  navigationSlug?: string;
   /** Pre-computed two-axis column (set by page.tsx via deriveColumn). */
   boardColumn?: BoardColumn;
   /**

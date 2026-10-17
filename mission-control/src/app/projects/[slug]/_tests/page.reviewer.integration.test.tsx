@@ -29,7 +29,8 @@ import { render, screen } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (actual) => ({
+  ...(await actual<typeof import("next/navigation")>()),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/projects/demo",
   useSearchParams: () => new URLSearchParams(),
@@ -150,31 +151,19 @@ describe("FRD-04 reviewer — Documents tab security boundary (real fs)", () => 
     expect(screen.getByTestId("documents-body").textContent).toContain("MARKER-PRD");
   });
 
-  it("?doc= traversal id ('../../secret') does NOT leak out-of-tree content", async () => {
-    render(await renderPage({ tab: "documents", doc: "../../secret" }));
-    const body = screen.queryByTestId("documents-body");
-    // Either falls back to the first valid doc or shows nothing — but NEVER the secret.
-    const text = body?.textContent ?? "";
-    expect(text).not.toContain("THIS_MUST_NOT_LEAK");
-    expect(text).not.toContain("API_KEY");
-    // Falls back to a valid, listed doc (first node), not a crash / blank.
-    expect(text).toContain("MARKER-PRD");
+  it("rejects a traversal document id without opening an out-of-tree document", async () => {
+    const ui = await renderPage({ tab: "documents", doc: "../../secret" });
+    expect(() => render(ui)).toThrow("404");
   });
 
-  it("?doc= absolute path to the secret file does NOT leak it", async () => {
-    render(await renderPage({ tab: "documents", doc: secretPath }));
-    const text = screen.queryByTestId("documents-body")?.textContent ?? "";
-    expect(text).not.toContain("THIS_MUST_NOT_LEAK");
+  it("rejects an absolute document path", async () => {
+    const ui = await renderPage({ tab: "documents", doc: secretPath });
+    expect(() => render(ui)).toThrow("404");
   });
 
-  it("?doc= unlisted-but-existing id (.pandacorp comms) is NOT surfaced as a doc", async () => {
-    // decisions.md exists on disk but is a comms file, never a DocNode.
-    render(await renderPage({ tab: "documents", doc: ".pandacorp/inbox/decisions" }));
-    const text = screen.queryByTestId("documents-body")?.textContent ?? "";
-    expect(text).not.toContain("MARKER-DEC");
-    // and the nav must not list it
-    const navItems = screen.getAllByTestId("doc-nav-item").map((n) => n.textContent ?? "");
-    expect(navItems.some((l) => l.includes("decisions"))).toBe(false);
+  it("rejects an unlisted-but-existing comms file", async () => {
+    const ui = await renderPage({ tab: "documents", doc: ".pandacorp/inbox/decisions" });
+    expect(() => render(ui)).toThrow("404");
   });
 
   it("a SYMLINK doc node pointing out of tree is rejected (not read)", async () => {
@@ -187,9 +176,8 @@ describe("FRD-04 reviewer — Documents tab security boundary (real fs)", () => 
       symlinkOk = false; // platform without symlink permission — skip assertion below
     }
     if (symlinkOk) {
-      render(await renderPage({ tab: "documents", doc: "docs/product/leak" }));
-      const text = screen.queryByTestId("documents-body")?.textContent ?? "";
-      expect(text).not.toContain("THIS_MUST_NOT_LEAK");
+      const ui = await renderPage({ tab: "documents", doc: "docs/product/leak" });
+      expect(() => render(ui)).toThrow("404");
       fs.rmSync(linkPath, { force: true });
     }
     expect(true).toBe(true);

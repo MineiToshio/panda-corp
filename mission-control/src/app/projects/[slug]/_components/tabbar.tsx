@@ -26,6 +26,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
+import { navigationHref } from "@/lib/navigation/urls";
 
 // ---------------------------------------------------------------------------
 // Tab definitions (AC-04-001.1 — nine tabs in exact order; Resumen · Spec · Work orders ·
@@ -68,6 +69,7 @@ export interface TabBarProps {
    * when the param is absent or invalid (AC-04-001.2).
    */
   activeTab: TabId;
+  navigationBaseHref?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -94,7 +96,7 @@ const WRAPPER_STYLE: React.CSSProperties = {
  *
  * Uses the shared SubTabs primitive (DR-062 — the one tab pattern, level="sub").
  */
-export function TabBar({ activeTab }: TabBarProps): React.JSX.Element {
+export function TabBar({ activeTab, navigationBaseHref }: TabBarProps): React.JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -106,7 +108,18 @@ export function TabBar({ activeTab }: TabBarProps): React.JSX.Element {
     next.delete("doc");
     next.delete("wo");
     next.delete("wotab");
-    router.push(`?${next.toString()}`);
+    const liveHref = `${window.location.pathname}${window.location.search}`;
+    const baseHref = /^\/(portfolio|projects)\//.test(liveHref) ? liveHref : navigationBaseHref;
+    router.push(
+      baseHref
+        ? navigationHref(baseHref, {
+            tab: id,
+            doc: null,
+            wo: null,
+            wotab: null,
+          })
+        : `?${next.toString()}`,
+    );
   }
 
   return (

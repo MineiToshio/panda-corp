@@ -88,7 +88,8 @@ describe("frd-05: AC-05-003.1 — board cards have click targets for detail view
 // ---------------------------------------------------------------------------
 
 // Mock Next.js router — TabBar uses useRouter for URL-driven tab navigation.
-vi.mock("next/navigation", () => ({
+vi.mock("next/navigation", async (actual) => ({
+  ...(await actual<typeof import("next/navigation")>()),
   useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
   usePathname: () => "/projects/demo",
   useSearchParams: () => new URLSearchParams(),
@@ -192,12 +193,9 @@ describe("frd-05: AC-05-003.1 — page renders WorkOrderDetail when ?wo=<id> is 
     expect(detail.textContent).toContain("WO-05-001");
   });
 
-  it("frd-05: WHEN tab=work-orders&wo=<unknown-id> THEN falls back to the board (graceful)", async () => {
+  it("frd-05: WHEN tab=work-orders&wo=<unknown-id> THEN rejects the unknown detail", async () => {
     const el = await renderPage({ tab: "work-orders", wo: "WO-99-999" });
-    render(el);
-    // Unknown id → board shown, no crash
-    expect(screen.getByTestId("wo-board")).toBeDefined();
-    expect(screen.queryByTestId("wo-detail")).toBeNull();
+    expect(() => render(el)).toThrow("404");
   });
 });
 
@@ -243,7 +241,7 @@ describe("frd-05: back affordance — detail view back link", () => {
     render(el);
     const back = screen.getByTestId("wo-detail-back");
     const href = back.getAttribute("href") ?? "";
-    expect(href).toContain("tab=work-orders");
+    expect(href).toBe("/projects/demo/work-orders");
     // Back must not carry the wo= param (it returns to the board, not another detail)
     expect(href).not.toContain("wo=");
   });

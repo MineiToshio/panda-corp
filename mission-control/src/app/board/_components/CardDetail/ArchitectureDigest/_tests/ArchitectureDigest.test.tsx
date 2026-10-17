@@ -222,3 +222,18 @@ describe("ArchitectureDigest — per-FRD dependency DAG", () => {
     expect(screen.queryByTestId("arch-frd-dag")).not.toBeInTheDocument();
   });
 });
+
+it("restores a published ADR dialog from its copied URL", () => {
+  window.history.replaceState({}, "", "/portfolio/registered/architecture?adr=ADR-0001");
+  renderDigest();
+  expect(screen.getByRole("dialog")).toHaveTextContent("full body.");
+  fireEvent.click(screen.getByRole("button", { name: "Cerrar modal" }));
+  expect(window.location.search).not.toContain("adr");
+});
+
+it("shows an unavailable state for an unknown ADR instead of opening another item", () => {
+  window.history.replaceState({}, "", "/portfolio/registered/architecture?adr=ADR-404");
+  renderDigest();
+  expect(screen.getByRole("status")).toHaveTextContent("El ADR seleccionado no está disponible.");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});

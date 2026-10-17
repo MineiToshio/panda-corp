@@ -17,8 +17,8 @@
  *   CMP-22-tabs → REQ-22-002 (in-page tab split), AC-22-002.x
  */
 
-import { useState } from "react";
 import { Tabs } from "@/components/core/Tabs/Tabs";
+import { updateNavigation, useCanonicalSelection, useUrlState } from "@/lib/navigation/useUrlState";
 
 type ProposalsTabId = "memoria" | "backlog";
 
@@ -44,7 +44,11 @@ export function ProposalsTabs({
   backlogPanel,
   backlogOpenCount,
 }: ProposalsTabsProps): React.JSX.Element {
-  const [active, setActive] = useState<ProposalsTabId>("memoria");
+  const [activeValue] = useUrlState("proposalsTab", "memoria");
+  const active: ProposalsTabId = activeValue === "backlog" ? "backlog" : "memoria";
+  useCanonicalSelection("proposals", "proposalsTab", active);
+  const [stream] = useUrlState("stream", "");
+  const unknownStream = stream && !["candidate-lesson", "prune", "promotions"].includes(stream);
 
   return (
     <div>
@@ -52,7 +56,9 @@ export function ProposalsTabs({
         level="sub"
         ariaLabel="Memoria o backlog"
         active={active}
-        onChange={(id) => setActive(id as ProposalsTabId)}
+        onChange={(id) =>
+          updateNavigation({ proposalsTab: id, backlogItem: null, lesson: null, stream: null })
+        }
         testIdPrefix="proposals-tab-"
         tabIdPrefix={TAB_ID_PREFIX}
         tabs={[
@@ -73,7 +79,7 @@ export function ProposalsTabs({
         data-volatile
         style={active === "memoria" ? PANEL_STYLE : undefined}
       >
-        {memoryPanel}
+        {unknownStream ? <p role="status">Esta colección no está disponible.</p> : memoryPanel}
       </div>
 
       <div

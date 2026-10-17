@@ -4236,3 +4236,9 @@ Graph navigation amendment (ADR-0008): GraphControls shares the dependency map�
 ## Presentation-only usability amendment — 2026-10-17
 
 ADR-0009 changes shared Architecture ordering, relationship selection, schema accordion and responsive shell/panel layout. No endpoint, logical-model JSON contract, schema producer, filesystem reader or project source changes. All authored operational/service bullets remain visible under Integraciones y operación, separately from stack choices. Board/Portfolio/direct workspace continue to share the same digest and model inputs.
+
+## Persistent navigation interface (FRD-25)
+
+`lib/navigation/urls.ts` exports `parseNavigationUrl(href)` and `navigationHref(href, patch)`; null/empty patch values remove state. Fixed route words are English; keys preserve source-case IDs and encoded project-relative document keys. Paths win over legacy query selection. Query filters and anchors survive serialization. Client views use `useUrlState`/atomic `updateNavigation`; server-owned workspace navigation uses Next router with the same href codec. Dynamic adapters validate bounded route grammar and reuse existing pages.
+
+`lib/navigation/identities.ts` exposes synchronous `getIdeaNavigation(cardSlug)`, `getProjectNavigation(projectPath,displayName)`, `resolveIdeaNavigation(token,cards)` and `resolveProjectNavigation(token,items)`. IDs/slugs come from the private catalog; aliases are namespace-scoped and ambiguity returns unresolved. Catalog errors fail loudly; reads never allocate. Factory producer/backup contract: `factory/standards/navigation-identities.md`. Public navigation identity is not the SSE project basename key. Complete behavior: [FRD-25](frds/frd-25-persistent-navigation/frd.md).

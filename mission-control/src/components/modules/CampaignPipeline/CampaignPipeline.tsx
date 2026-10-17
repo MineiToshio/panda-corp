@@ -33,13 +33,14 @@
  *   rgba(12,17,19,.82) — room scrim background (Room primitive uses this directly).
  */
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { AgentSprite } from "@/components/modules/party/AgentSprite/AgentSprite";
 import { Room } from "@/components/modules/party/Room/Room";
 import { StoneBridge } from "@/components/modules/party/StoneBridge/StoneBridge";
 import type { CampaignPhase } from "@/lib/campaign/campaign";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import type { DeployTarget } from "@/lib/status/status";
 import type { PhaseDefinition } from "./phases";
 import { PHASES } from "./phases";
@@ -806,9 +807,17 @@ export function CampaignPipeline({
 }: CampaignPipelineProps): React.JSX.Element {
   // Default the open ficha to the ACTIVE phase so the "investigación en curso" team
   // panel shows by default (the prototype initialises sel=active), not only after a click.
-  const [selectedPhaseKey, setSelectedPhaseKey] = useState<string | null>(
-    () => PHASES[activePhase]?.key ?? null,
-  );
+  const [phaseKey, setSelectedPhaseKey] = useUrlState("phase", "");
+  const [boardTab] = useUrlState("boardTab", "");
+  const selectedPhaseKey = PHASES.some((phase) => phase.key === phaseKey)
+    ? phaseKey
+    : (PHASES[activePhase]?.key ?? null);
+
+  useEffect(() => {
+    if (boardTab === "campana" && !phaseKey && selectedPhaseKey) {
+      updateNavigation({ phase: selectedPhaseKey }, { replace: true });
+    }
+  }, [boardTab, phaseKey, selectedPhaseKey]);
 
   // The ficha stays open: clicking a phase selects it; clicking the open one does
   // NOT toggle it closed (owner: the detail below must always stay visible).

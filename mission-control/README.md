@@ -34,6 +34,10 @@ pnpm install
 # configure (optional — defaults work when run from mission-control/)
 cp .env.example .env.local   # only needed to point at a different factory root or events file
 
+# register stable navigation identities (preview, then apply; from mission-control/)
+bash ../plugin/scripts/navigation-identities.sh --dry-run
+bash ../plugin/scripts/navigation-identities.sh --apply
+
 # run
 pnpm dev                     # served at http://127.0.0.1:3000
 
@@ -55,3 +59,7 @@ Product docs and the decision history live in [`docs/`](docs/product/prd.md); en
 - Architecture: [`docs/product/architecture.md`](docs/product/architecture.md)
 - Decision history: [`docs/decision-log.md`](docs/decision-log.md)
 - This is a **Pandacorp** factory project — see [`.pandacorp/guide.md`](.pandacorp/guide.md) for how it's built and iterated.
+
+## Persistent links
+
+All main views and meaningful nested selections have copyable URLs that restore on reload and browser history navigation. Existing query links remain compatible. Resource slugs are registered once in the owner-private factory identity catalog and survive display-name changes; lifecycle skills register future resources without a dashboard rebuild. See [FRD-25](docs/frds/frd-25-persistent-navigation/frd.md) and `factory/standards/navigation-identities.md` for alias/backup/reconciliation rules. Navigation never executes a build command.

@@ -1,6 +1,6 @@
 # Persistent navigation URLs — research and proposed contract
 
-Date: 2026-10-17. Status: PROPOSED; research only, no application or factory behavior implemented. Audited source baseline: `91821c015e06f9dfbf9045637baf24fcf19160b4`. Owner asks for a complete inventory before implementation. Preserve the centered application frame and current shared content components.
+Date: 2026-10-17. Status: APPROVED for implementation by the owner. Canonical behavior is now specified in [FRD-25](../frds/frd-25-persistent-navigation/frd.md); the observations below record the pre-change research baseline. Audited source baseline: `91821c015e06f9dfbf9045637baf24fcf19160b4`. Owner asks for a complete inventory before implementation. Preserve the centered application frame and current shared content components.
 
 ## Findings and evidence boundary
 

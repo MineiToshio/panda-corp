@@ -1,5 +1,14 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Make every meaningful location addressable
+
+**What:** Implement the owner-approved [FRD-25](frds/frd-25-persistent-navigation/frd.md): shared path/query codec, dynamic page adapters, URL-owned nested selection, legacy compatibility, immutable resource catalog and lifecycle registration. Preserve existing shared layouts and standalone/Portfolio contexts.
+
+**Why:** Refresh and history navigation were losing local selections, while name-derived and bare WO links could break or change projects. Persisted public slugs and a single routing contract prevent those failures without rebuilding for new projects.
+
+**Alignment:** PRD, platform architecture, [ADR-0010](adr/ADR-0010-persistent-navigation-identity.md), owning FRDs/FDDs/blueprints and [manual work-order scope](frds/frd-25-persistent-navigation/work-orders.md). No executor build state is written. Verification and release receipts belong in [delivery evidence](reviews/persistent-navigation-urls.md).
+
+
 ## 2026-10-17 — Inventory persistent navigation before implementation
 
 **Research outcome:** Audit all eight page families and nested selections for URL-backed navigation. Live browser checks reproduce lost board project/Spec, Proposals Backlog and Achievements Rangos on refresh. Source audit also finds name-derived project URLs and bare WO query links that omit the Portfolio project context.

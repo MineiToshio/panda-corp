@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * FrdDriftBadge (FRD-12 AC-12-003.3): "Verificado · N derivas" beside a verified FRD whose `drift:`
  * frontmatter lists pre-existing drift the build gate proved but did not block on (DR-122).
@@ -11,6 +13,8 @@ import Link from "next/link";
 import { Chip } from "@/components/core/Chip/Chip";
 import type { TLState } from "@/lib/build-track/build-track";
 import type { FrdDriftResult } from "@/lib/frds/frd-drift";
+import { navigationHref } from "@/lib/navigation/urls";
+import { useWorkspaceNavigation } from "../../_components/WorkspaceNavigation";
 
 export interface FrdDriftBadgeProps {
   /** FRD folder slug (test id + identity). */
@@ -34,6 +38,7 @@ export function FrdDriftBadge({
   drift,
   project,
 }: FrdDriftBadgeProps): React.JSX.Element | null {
+  const navigationBaseHref = useWorkspaceNavigation();
   if (drift === undefined || (!drift.ok && drift.reason === "missing")) return null;
 
   if (!drift.ok) {
@@ -55,7 +60,11 @@ export function FrdDriftBadge({
   const count = drift.ids.length;
   return (
     <Link
-      href={`?project=${encodeURIComponent(project)}&tab=changes`}
+      href={
+        navigationBaseHref
+          ? navigationHref(navigationBaseHref, { tab: "changes", wo: null, wotab: null, doc: null })
+          : `?project=${encodeURIComponent(project)}&tab=changes`
+      }
       data-testid={`frd-drift-badge-${frdId}`}
       title={`Deriva preexistente demostrada por el gate, no bloqueante: ${drift.ids.join(", ")}. Las cards están en Cambios.`}
       style={{

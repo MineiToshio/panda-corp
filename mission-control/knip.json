@@ -9,9 +9,10 @@
     "next.config.{js,mjs,ts}",
     "e2e/**/*.spec.ts",
     "playwright.config.ts",
-    "vitest.config.{ts,mts}"
+    "vitest.config.{ts,mts}",
+    "scripts/navigation/identities.mjs"
   ],
-  "project": ["src/**/*.{ts,tsx}"],
+  "project": ["src/**/*.{ts,tsx}", "scripts/navigation/*.{ts,mjs}"],
   "ignore": ["**/*.d.ts", ".next/**", "src/test/**"],
   "ignoreDependencies": ["tailwindcss", "@axe-core/playwright"],
   "next": true,

@@ -60,3 +60,7 @@ See the feature blueprint ([`../blueprint.md`](../blueprint.md)) and the platfor
 ## Logical-model extension (2026-10-16)
 
 WO-02-007 also owns the shared structured-model reader/viewer and board integration (REQ-02-013/015). WO-04-004 mounts that complete Architecture surface in the workspace. See those work orders for current scope and evidence boundaries; earlier table/status evidence does not certify the extension. No new build-state transition is recorded by this documentation change.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

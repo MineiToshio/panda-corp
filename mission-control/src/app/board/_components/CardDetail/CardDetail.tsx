@@ -39,7 +39,7 @@
  *   files continue to find elements in all panels, not only the active one.
  */
 
-import { useState, useTransition } from "react";
+import { useEffect } from "react";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import { CampaignPipeline } from "@/components/modules/CampaignPipeline/CampaignPipeline";
@@ -50,6 +50,7 @@ import { phaseFromStatus } from "@/lib/campaign/campaign";
 import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
 import type { IdeaStatus } from "@/lib/ideas/ideas";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import type { DeployTarget, Phase } from "@/lib/status/status";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { ArchitectureDigest } from "./ArchitectureDigest/ArchitectureDigest";
@@ -66,6 +67,7 @@ import {
 } from "./CardDetail.styles";
 import { IdeaPitch } from "./IdeaPitch/IdeaPitch";
 import { SpecDigest } from "./SpecDigest/SpecDigest";
+import { useCardDocument } from "./useCardDocument";
 
 // ---------------------------------------------------------------------------
 // Tab definitions (AC-02-009.1)
@@ -213,13 +215,15 @@ function buildDocSections(docNodes: readonly DocNode[]): DocRailSection[] {
 function makeCardLinkResolver(
   currentRelPath: string,
   knownDocPaths: ReadonlySet<string>,
-  onSelectDoc: (relPath: string) => void,
+  onSelectDoc: (relPath: string, anchor?: string) => void,
 ): LinkResolver {
   return (href) => {
     const target = classifyDocLink(href, currentRelPath, knownDocPaths);
     switch (target.kind) {
       case "doc":
-        return { onSelect: () => onSelectDoc(target.relPath) };
+        return { onSelect: () => onSelectDoc(target.relPath, target.anchor) };
+      case "anchor":
+        return { href: target.href, external: false };
       case "external":
         return { href: target.href, external: true };
       default:
@@ -263,6 +267,32 @@ function DocReaderBody({
     return <Markdown resolveLink={resolveLink}>{docContent}</Markdown>;
   }
   return <p style={READER_STATE_STYLE}>No se pudo leer este documento.</p>;
+}
+
+function useCardTabs(
+  activePhase: number,
+  specContent: string | undefined,
+  architectureContent: string | undefined,
+  dataModel: DataModelResult | undefined,
+) {
+  const hasSpec = specContent != null && specContent !== "";
+  const hasArchitecture =
+    (architectureContent != null && architectureContent !== "") ||
+    (dataModel !== undefined && dataModel.kind !== "missing");
+  const [tabKey] = useUrlState("boardTab", "");
+  const fallbackTab = defaultTabForPhase(activePhase, hasSpec, hasArchitecture);
+  const activeTab = ALL_TABS.find((tab) => tab.id === tabKey)?.id ?? fallbackTab;
+  const tabs = ALL_TABS.filter(
+    (tab) =>
+      (tab.id !== "spec" || hasSpec || activeTab === "spec") &&
+      (tab.id !== "arquitectura" || hasArchitecture || activeTab === "arquitectura"),
+  );
+  useEffect(() => {
+    if (!ALL_TABS.some((tab) => tab.id === tabKey)) {
+      updateNavigation({ boardTab: fallbackTab }, { replace: true });
+    }
+  }, [tabKey, fallbackTab]);
+  return { activeTab, tabs, hasSpec, hasArchitecture };
 }
 
 // ---------------------------------------------------------------------------
@@ -364,7 +394,7 @@ function noop(): void {
  * via the clip technique (PANEL_HIDDEN_STYLE) so existing getByTestId /
  * getByRole test contracts remain stable regardless of the active tab.
  *
- * "use client" because: useState (tab/reader state) + useTransition (lazy load).
+ * "use client" because URL selections and document reads react to browser navigation.
  */
 export function CardDetail({
   slug,
@@ -377,8 +407,8 @@ export function CardDetail({
   targetPlatforms,
   docNodes,
   frdCount,
-  specContent,
-  architectureContent,
+  specContent = "",
+  architectureContent = "",
   dataModel,
   workOrders,
   envVars,
@@ -388,32 +418,20 @@ export function CardDetail({
   isRunning,
   onEnterForge,
 }: CardDetailProps): React.JSX.Element {
-  // "Spec" appears once the project has a spec digest; "Arquitectura" once it has an architecture
-  // digest — each tab is filtered out before its phase produces the digest.
-  const hasSpec = specContent != null && specContent !== "";
-  const hasArchitecture =
-    (architectureContent != null && architectureContent !== "") ||
-    (dataModel !== undefined && dataModel.kind !== "missing");
-
-  // Derive the active campaign phase index for CampaignPipeline and the default tab.
   const activePhase = phaseFromStatus({ cardStatus: status, phase });
-
-  // Active tab — only the INITIAL value follows the stage (AC-02-009.1); the owner's later pick
-  // persists across re-renders (AC-02-009.4) because the initializer never runs again.
-  const [activeTab, setActiveTab] = useState<TabKey>(() =>
-    defaultTabForPhase(activePhase, hasSpec, hasArchitecture),
+  const { activeTab, tabs, hasSpec, hasArchitecture } = useCardTabs(
+    activePhase,
+    specContent,
+    architectureContent,
+    dataModel,
   );
-  const tabs = ALL_TABS.filter(
-    (tab) => (tab.id !== "spec" || hasSpec) && (tab.id !== "arquitectura" || hasArchitecture),
+  const [selectedDocKey] = useUrlState("doc", SUMMARY_KEY);
+  const { docContent, docLoading } = useCardDocument(
+    selectedDocKey,
+    docNodes,
+    project,
+    readDocAction,
   );
-
-  // Selected document in the Documentos rail — SUMMARY_KEY ("summary") or a doc relPath.
-  const [selectedDocKey, setSelectedDocKey] = useState<string>(SUMMARY_KEY);
-
-  // Lazy-loaded body of the selected project doc (null until a doc is selected).
-  const [docContent, setDocContent] = useState<string | null>(null);
-  // Whether a doc body load is in flight.
-  const [docLoading, startDocLoad] = useTransition();
 
   // Build the grouped rail sections (empty when no scoped docs).
   const sections = buildDocSections(docNodes ?? []);
@@ -425,36 +443,30 @@ export function CardDetail({
    * Select the always-present "Resumen" item: show the card body, keep on Documentos.
    */
   const handleSelectSummary = () => {
-    setSelectedDocKey(SUMMARY_KEY);
-    setDocContent(null);
-    setActiveTab("docs");
+    updateNavigation({ boardTab: "docs", doc: null });
   };
-
-  /**
-   * Select a project doc: switch to the Documentos tab and lazily load its body
-   * via the injected read action (AC-02-009.3). Resets the previous content/loading
-   * so a stale body never flashes when switching docs. When no read action is
-   * present (older callers/tests), leave content null → the reader shows the
-   * graceful workspace fallback instead of crashing.
-   */
-  const handleSelectDoc = (relPath: string) => {
-    setSelectedDocKey(relPath);
-    setActiveTab("docs");
-    setDocContent(null);
-    if (readDocAction == null || project == null) return;
-    startDocLoad(async () => {
-      const content = await readDocAction(project, relPath);
-      setDocContent(content);
-    });
+  const handleSelectDoc = (relPath: string, anchor = "") => {
+    updateNavigation({ boardTab: "docs", doc: relPath });
+    if (window.location.hash !== anchor) {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${window.location.pathname}${window.location.search}${anchor}`,
+      );
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    }
   };
-
-  /**
-   * Tab selection from the shared Tabs primitive. The primitive emits a string
-   * id; narrow it back to the TabKey union (the ids come from our own TABS list).
-   */
   const handleTabChange = (id: string) => {
     const match = tabs.find((tab) => tab.id === id);
-    if (match != null) setActiveTab(match.id);
+    if (match != null)
+      updateNavigation({
+        boardTab: match.id,
+        doc: null,
+        specFrd: null,
+        architectureFrd: null,
+        adr: null,
+        expanded: null,
+      });
   };
 
   /** Return the correct style for a panel — active (visible) or inactive (clipped). */
@@ -509,45 +521,53 @@ export function CardDetail({
       </div>
 
       {/* ---- Spec panel — the native PRD/research/FRDs digest (only when a digest exists) ---- */}
-      {specContent != null && specContent !== "" && (
+      {(hasSpec || activeTab === "spec") && (
         <div
           data-testid="card-detail-panel-spec"
           role="tabpanel"
           aria-labelledby="card-detail-tab-spec"
           style={panelStyle("spec")}
         >
-          <SpecDigest
-            title={title}
-            body={specContent}
-            projectType={projectType}
-            targetPlatforms={targetPlatforms}
-            frdCount={frdCount}
-            resolveLink={resolveDocLink}
-          />
+          {hasSpec ? (
+            <SpecDigest
+              title={title}
+              body={specContent}
+              projectType={projectType}
+              targetPlatforms={targetPlatforms}
+              frdCount={frdCount}
+              resolveLink={resolveDocLink}
+            />
+          ) : (
+            <p style={READER_STATE_STYLE}>El spec todavía no está publicado.</p>
+          )}
         </div>
       )}
 
       {/* ---- Arquitectura panel — the native stack/data-model/services/ADR/DAG/per-FRD digest
               (only when an architecture digest exists) ---- */}
-      {hasArchitecture && (
+      {(hasArchitecture || activeTab === "arquitectura") && (
         <div
           data-testid="card-detail-panel-arquitectura"
           role="tabpanel"
           aria-labelledby="card-detail-tab-arquitectura"
           style={panelStyle("arquitectura")}
         >
-          <ArchitectureDigest
-            title={title}
-            body={architectureContent ?? ""}
-            dataModel={dataModel}
-            projectType={projectType}
-            targetPlatforms={targetPlatforms}
-            workOrders={workOrders}
-            envVars={envVars}
-            adrs={adrs}
-            project={project}
-            resolveLink={resolveDocLink}
-          />
+          {hasArchitecture ? (
+            <ArchitectureDigest
+              title={title}
+              body={architectureContent}
+              dataModel={dataModel}
+              projectType={projectType}
+              targetPlatforms={targetPlatforms}
+              workOrders={workOrders}
+              envVars={envVars}
+              adrs={adrs}
+              project={project}
+              resolveLink={resolveDocLink}
+            />
+          ) : (
+            <p style={READER_STATE_STYLE}>La arquitectura todavía no está publicada.</p>
+          )}
         </div>
       )}
 

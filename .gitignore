@@ -21,6 +21,10 @@ node_modules/
 # generates the real versions below. The idea cards are personal too.
 factory/profile.md
 factory/portfolio.md
+# Persistent URL identities are owner data; the lifecycle CLI is their only writer.
+factory/navigation-identities.json
+factory/navigation-identities.json.lock
+factory/navigation-identities.json.*.tmp
 factory/ports.yaml
 factory/ideas/*.md
 !factory/ideas/_idea-template.md
@@ -32,6 +36,8 @@ factory/ideas/_drafts/**
 mission-control/.pandacorp/comms/
 mission-control/.pandacorp/inbox/
 mission-control/.pandacorp/run/
+# This in-factory project identity belongs to the owner, not the shared framework.
+mission-control/.pandacorp/navigation-identity.json
 
 # Factory self-learning raw capture inbox (provisional notes; the librarian refines them into committed factory/memory/LESSON-*.md)
 factory/memory/_inbox.md

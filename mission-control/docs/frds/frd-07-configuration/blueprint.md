@@ -136,3 +136,7 @@ are already done.
 before** WO-07-005; `frd-09` provides the agent XP/avatar. WO-07-005's cards are then **reused
 verbatim** by FRD-08's Referencia — so FRD-07's UI WO builds **before** FRD-08's UI WO.
 
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

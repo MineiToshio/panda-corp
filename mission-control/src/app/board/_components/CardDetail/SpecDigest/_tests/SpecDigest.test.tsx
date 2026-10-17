@@ -155,3 +155,18 @@ Si lo reemplazas, te contactan en vez de cerrar la pestaña.
     expect(label.textContent).not.toMatch(/\(\d+\)/);
   });
 });
+
+it("restores the read-only FRD dialog from its copied URL", () => {
+  window.history.replaceState({}, "", "/portfolio/registered/spec?specFrd=FRD-01");
+  render(<SpecDigest title="fallback" body={DIGEST} />);
+  expect(screen.getByRole("dialog")).toHaveTextContent("Site shell, i18n & theming");
+  fireEvent.click(screen.getByRole("button", { name: "Cerrar modal" }));
+  expect(window.location.search).not.toContain("specFrd");
+});
+
+it("shows an unavailable state for an unknown FRD instead of opening another item", () => {
+  window.history.replaceState({}, "", "/portfolio/registered/spec?specFrd=FRD-404");
+  render(<SpecDigest title="fallback" body={DIGEST} />);
+  expect(screen.getByRole("status")).toHaveTextContent("El FRD seleccionado no está disponible.");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});

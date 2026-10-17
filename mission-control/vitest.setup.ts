@@ -1,7 +1,12 @@
 import "@testing-library/jest-dom/vitest";
 import { act } from "@testing-library/react";
-import { vi } from "vitest";
+import { beforeEach, vi } from "vitest";
 import "vitest";
+
+// Every test starts at a fresh location; navigation state belongs to its own browser session.
+beforeEach(() => {
+  window.history.replaceState({}, "", "/");
+});
 
 /**
  * Web Storage polyfill for the jsdom test environment.

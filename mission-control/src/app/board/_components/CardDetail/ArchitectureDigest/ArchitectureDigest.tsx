@@ -17,7 +17,6 @@
  * visible only when the project has an architecture digest).
  */
 
-import { useState } from "react";
 import { WoDag } from "@/app/projects/[slug]/_observability/WoDag/WoDag";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Modal } from "@/components/core/Modal/Modal";
@@ -27,6 +26,7 @@ import type { Adr } from "@/lib/architecture/adr";
 import { type ArchFrd, parseArchitecture } from "@/lib/architecture/architecture";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import {
   BLABEL_FRD_STYLE,
@@ -404,6 +404,10 @@ function PlanBand({ workOrders, project }: { workOrders: WorkOrder[]; project?: 
   );
 }
 
+function isUnavailableSelection(id: string, selection: unknown): boolean {
+  return id !== "" && selection == null;
+}
+
 // --- Root -------------------------------------------------------------------
 
 export function ArchitectureDigest({
@@ -412,20 +416,22 @@ export function ArchitectureDigest({
   title,
   projectType,
   targetPlatforms,
-  workOrders,
-  envVars,
-  adrs,
+  workOrders = [],
+  envVars = [],
+  adrs = [],
   project,
   resolveLink,
 }: ArchitectureDigestProps): React.JSX.Element {
   const arch = parseArchitecture(body);
   const metaChips = projectMetaChips(projectType, targetPlatforms);
-  const [openAdr, setOpenAdr] = useState<Adr | null>(null);
-  const [openFrd, setOpenFrd] = useState<ArchFrd | null>(null);
+  const adrList = adrs;
+  const [adrId, setAdrId] = useUrlState("adr", "");
+  const [frdId, setFrdId] = useUrlState("architectureFrd", "");
+  const openAdr = adrList.find((adr) => adr.id === adrId) ?? null;
+  const openFrd = arch.frds.find((frd) => frd.id === frdId) ?? null;
 
-  const wos = workOrders ?? [];
-  const adrList = adrs ?? [];
-  const env = envVars ?? [];
+  const wos = workOrders;
+  const env = envVars;
   const hasServicesEnv = arch.services.length > 0 || env.length > 0;
 
   return (
@@ -463,7 +469,7 @@ export function ArchitectureDigest({
 
       {hasServicesEnv && <EnvBand env={env} />}
 
-      {adrList.length > 0 && <AdrBand adrs={adrList} onOpen={setOpenAdr} />}
+      {adrList.length > 0 && <AdrBand adrs={adrList} onOpen={(adr) => setAdrId(adr.id)} />}
 
       <PlanBand workOrders={wos} project={project} />
 
@@ -477,7 +483,7 @@ export function ArchitectureDigest({
                   key={frd.id}
                   frd={frd}
                   liveWorkOrders={workOrdersForFrd(frd, wos)}
-                  onOpen={setOpenFrd}
+                  onOpen={(frd) => setFrdId(frd.id)}
                 />
               ))}
             </div>
@@ -485,15 +491,21 @@ export function ArchitectureDigest({
         </section>
       )}
 
+      {isUnavailableSelection(adrId, openAdr) && (
+        <p role="status">El ADR seleccionado no está disponible.</p>
+      )}
+      {isUnavailableSelection(frdId, openFrd) && (
+        <p role="status">El FRD seleccionado no está disponible.</p>
+      )}
       {openAdr != null && (
-        <AdrModal adr={openAdr} onClose={() => setOpenAdr(null)} resolveLink={resolveLink} />
+        <AdrModal adr={openAdr} onClose={() => setAdrId("")} resolveLink={resolveLink} />
       )}
       {openFrd != null && (
         <FrdModal
           frd={openFrd}
           liveWorkOrders={workOrdersForFrd(openFrd, wos)}
           project={project}
-          onClose={() => setOpenFrd(null)}
+          onClose={() => setFrdId("")}
         />
       )}
     </article>

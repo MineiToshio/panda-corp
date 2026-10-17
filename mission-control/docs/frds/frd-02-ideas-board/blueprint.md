@@ -382,3 +382,7 @@ Camera performance: useFrameView accumulates wheel/pointer updates and commits o
 ## Usability amendment — ADR-0009 (2026-10-17)
 
 `DataModelViewer` owns a stable functional selection callback: only repeating the selected relationship ID clears it. Entity-neighborhood highlighting never substitutes for selection identity. `useViewport` clears retained browser ranges on pointer-down; entity-only `user-select:none` (including WebKit) prevents accidental diagram text selection. `ModelSchema` uses native `details[name]`, with a unique `useId` group per viewer; all entities start closed and one opens at a time. The code remains selectable and has natural height with local horizontal overflow. No model/reader/layout/worker contract changes. Shared IdeaPitch/SpecDigest inner containers fill the available width; prose caps remain. AC-02-015.1–.14 apply; tests must prove real browser accordion exclusivity in addition to DOM contracts.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

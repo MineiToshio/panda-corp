@@ -74,3 +74,7 @@ Retain the original centered 1240px maximum outer application frame, including i
 ## Out of scope (this FDD)
 - Responsive certification of every destination’s own kanban/table/canvas remains separate; this correction qualifies the shared header and scoped model surfaces.
 - Any change to the destinations' own pages beyond exposing a skip target.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

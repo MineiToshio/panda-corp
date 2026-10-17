@@ -43,3 +43,7 @@ the prototype and reusing the shared primitives.
 > Because FRD-18 only composes, the surface can be built against a fixture version of any not-yet-shipped
 > reader and lit up when it lands — but the FULL dashboard (WO-18-001) is "done" only once its upstream
 > readers, the FRD-13 primitives, the FRD-01 live transport, and the FRD-15/16 hosted banners exist.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

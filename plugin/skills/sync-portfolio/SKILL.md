@@ -39,6 +39,14 @@ Factory ↔ projects synchronization. Runs IN panda-corp.
    ```
    Run `stats:factory` **first**: it is the single writer (DR-115) of the factory-scoped store (`phaseTransitions`, `scalars.{projects,decisions}`, `lessons`), and `sync-portfolio` — which already walks the whole factory — is its only invoker until the universal per-commit trigger (`scripts/read-model/README.md`) is wired; without this step the factory store decays to stale after any commit. Both CLIs degrade honestly (DR-078): an un-derivable store / a missing or corrupt portada is reported and skipped — never a silent empty; MC's seal validation + live-git fallback covers a skipped scope. This is why the Informe's cost stays independent of the number of projects.
 
+
+**Persistent URL identity registration (required).** After saving the card and any portfolio row, run the single writer against the factory root stamped in the guide:
+```bash
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --dry-run
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --apply
+```
+Inspect the dry-run for unresolved pointers/collisions; an error blocks identity registration and is reported, never bypassed by deleting metadata. The writer reserves separate immutable idea/project IDs, writes the card's `navigation_id` and the project's `.pandacorp/navigation-identity.json`, and records their explicit bridge in the private `factory/navigation-identities.json`. Existing IDs, public slugs and aliases survive reruns; preserve those references on rename/move and never put them into `status.yaml`. Run `backup-pandacorp-state.sh` and `vault-overlay-sync.sh` with the factory root after applying, preserving the private catalog outside framework git. Mission Control reads registrations at request time: no dashboard build/restart is required. Full contract: `factory/standards/navigation-identities.md`.
+
 ## Part 3 — Report
 
 6. Short summary: cards moved and action taken, state of each active project, discrepancies found.

@@ -1,5 +1,9 @@
 # Decision log — Plugin pandacorp
 
+## v9.129.0 — 2026-10-17 (MINOR): Register navigation identities at factory lifecycle boundaries
+
+`new-idea`, `scaffold`, `adopt` and `sync-portfolio` call the same `scripts/navigation-identities.sh` writer after their card/portfolio updates. Dry-run exposes ambiguity before apply; apply reserves IDs and references without changing `status.yaml`. Backup/vault sync preserve the catalog and the owner-private in-factory Mission Control reference, which is excluded from framework git to keep fresh clones independently bootstrappable. The [canonical producer contract](../../factory/standards/navigation-identities.md) also governs explicit URL renames and recovery.
+
 Decisions about the plugin: skills, agents, hooks, templates and the factory flow. Most recent on top. See the index and format in [DECISION-LOG.md](../../DECISION-LOG.md).
 
 > Reminder: after editing `plugin/`, commit and run `claude plugin update pandacorp@panda-corp` (see `CLAUDE.md`).

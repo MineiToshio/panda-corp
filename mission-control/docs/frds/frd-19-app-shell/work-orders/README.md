@@ -26,3 +26,7 @@ renders inside, so it is foundation-first.
   design tokens, WCAG — reuse-before-create; the new `Nav` replicates the `.tab` look as real links.
 - The six destinations (`/`, `/board`, `/portfolio`, `/proposals`, `/achievements`, `/manual`) are
   already-built surfaces; this WO only adds the persistent shell that links them.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

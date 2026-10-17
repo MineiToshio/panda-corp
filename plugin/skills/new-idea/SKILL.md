@@ -32,6 +32,14 @@ This is the owner's OWN idea — **document + improve, don't sell** (owner rule;
    - **Rendering contract** — write the body following **`_idea-template.md`'s rendering contract EXACTLY** and **mirror the byte-authoritative worked example at `plugin/templates/idea-card-example.md`** verbatim: the `### subsection` markers, the `> **Badges:**` line, the `> blockquote` testimonial, the `- **Title** — desc` feature bullets + `- ✓`/`- !` mock, the `| Riesgo | Mitigación |` table, evidence as `descripción — [fuente](url)` (colours/charts/bold are applied automatically by the component from the markers). So Mission Control's Propuesta tab renders it rich.
    - **Tone** — **clear documentation + improvement, not a hard sell**: state the idea plainly, fill *De un vistazo* and *Profundizar* with what's true, and use *Gaps y fuente de la verdad* + *El ask* to surface the gates' findings and **how to improve the idea**.
    - If an exploration draft existed (`factory/ideas/_drafts/<slug>.md`), **delete it** — the card now replaces it.
+
+**Persistent URL identity registration (required).** After saving the card and any portfolio row, run the single writer against the factory root stamped in the guide:
+```bash
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --dry-run
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --apply
+```
+Inspect the dry-run for unresolved pointers/collisions; an error blocks identity registration and is reported, never bypassed by deleting metadata. The writer reserves separate immutable idea/project IDs, writes the card's `navigation_id` and the project's `.pandacorp/navigation-identity.json`, and records their explicit bridge in the private `factory/navigation-identities.json`. Existing IDs, public slugs and aliases survive reruns; preserve those references on rename/move and never put them into `status.yaml`. Run `backup-pandacorp-state.sh` and `vault-overlay-sync.sh` with the factory root after applying, preserving the private catalog outside framework git. Mission Control reads registrations at request time: no dashboard build/restart is required. Full contract: `factory/standards/navigation-identities.md`.
+
 6. Report to the owner: card summary, score and whether you recommend it or not (with a short rationale).
 
 ## Rules

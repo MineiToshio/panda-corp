@@ -22,9 +22,9 @@
  *   CMP-12-toggle → REQ-12-002/003/005 → AC-12-002.1/2/3, AC-12-003.1/2, AC-12-005.1/2
  */
 
-import { useState } from "react";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { BuildTimeline } from "@/lib/build-track/build-track";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import { WoLiveRefresh } from "../../_components/tab-work-orders/wo-live-refresh";
 import { TimelineView } from "../TimelineView/TimelineView";
@@ -42,8 +42,6 @@ export interface ObservabilidadTabProps {
   /** Project slug — scopes the live-refresh subscription. */
   project: string;
 }
-
-type ObsView = "timeline" | "dag";
 
 // ---------------------------------------------------------------------------
 // Tab definitions (shared SubTabs pattern — DR-062)
@@ -68,7 +66,8 @@ export function ObservabilidadTab({
   project,
 }: ObservabilidadTabProps): React.JSX.Element {
   // View state: "timeline" (default) or "dag" (AC-12-002.3)
-  const [view, setView] = useState<ObsView>("timeline");
+  const [rawView, setView] = useUrlState("view", "timeline");
+  const view = rawView === "dag" ? "dag" : "timeline";
 
   return (
     <div data-testid="obs-shell" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
@@ -120,7 +119,7 @@ export function ObservabilidadTab({
             <SubTabs
               tabs={OBS_TABS}
               active={view}
-              onChange={(id) => setView(id as ObsView)}
+              onChange={setView}
               ariaLabel="Vista de observabilidad"
             />
           </div>

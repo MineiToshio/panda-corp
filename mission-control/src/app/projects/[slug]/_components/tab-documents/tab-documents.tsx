@@ -54,6 +54,7 @@ export interface TabDocumentsProps {
    * tab. So each nav link carries `?project=<slug>&tab=documents&doc=<id>` (AC-04-006.4).
    */
   project: string;
+  navigationBaseHref?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -188,6 +189,7 @@ export function TabDocuments({
   selectedId,
   content,
   project,
+  navigationBaseHref,
 }: TabDocumentsProps): React.JSX.Element {
   // AC-04-006.3 — empty state when no docs are available
   if (nodes.length === 0) {
@@ -217,7 +219,9 @@ export function TabDocuments({
   // in THIS reader (owner choice "cablear al lector"); dead relative links render as text.
   const currentRelPath = nodes.find((n) => n.id === selectedId)?.relPath;
   const resolveLink =
-    currentRelPath !== undefined ? makeLinkResolver(currentRelPath, nodes, project) : undefined;
+    currentRelPath !== undefined
+      ? makeLinkResolver(currentRelPath, nodes, project, navigationBaseHref)
+      : undefined;
 
   return (
     <section aria-label="Documentos del proyecto" style={ROOT_STYLE}>
@@ -234,7 +238,7 @@ export function TabDocuments({
                   return (
                     <a
                       key={node.id}
-                      href={docHref(project, node.id)}
+                      href={workspaceDocHref(project, node.id, navigationBaseHref)}
                       data-testid="doc-nav-item"
                       aria-current={isSelected ? "page" : undefined}
                       aria-label={`Abrir ${node.label} del grupo ${group}`}

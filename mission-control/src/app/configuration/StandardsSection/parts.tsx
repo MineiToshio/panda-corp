@@ -20,6 +20,7 @@ import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Panel } from "@/components/core/Panel/Panel";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { Standard, StandardDomain } from "@/lib/standards/standards";
 import {
   BADGES_STYLE,
@@ -102,7 +103,8 @@ const DETAIL_VIEW_TABS = [
 ] as const;
 
 function DetailPanel({ standard }: DetailPanelProps): React.JSX.Element {
-  const [view, setView] = useState<"summary" | "detail">("summary");
+  const [viewValue, setView] = useUrlState("standardView", "summary");
+  const view = viewValue === "detail" ? "detail" : "summary";
 
   return (
     <div style={DETAIL_PANEL_STYLE} data-testid={`standard-detail-${standard.id}`}>

@@ -284,3 +284,7 @@ The shared model viewer now follows the owner-selected dependency-map navigation
 ## Shared usability amendment — 2026-10-17
 
 The same complete Architecture now orders Stack (choices/why), Integraciones y operación (authored flows/tasks), Modelo de datos, then environment variables, ADRs and plan. Reuse FRD-02 AC-02-015.1–.14: repeated relationship click clears selection, diagram cards prevent text selection while schema code permits it, and the single-column schema opens with all entities collapsed and allows one expanded entity at a time. Shared Spec/Architecture panels fill their host; prose alone retains readable line lengths. Portfolio and direct-project behavior remain identical, with no new database-only tab or data source. ADR-0009 records the current design.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

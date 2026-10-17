@@ -60,6 +60,8 @@ import { durableEvents, readLedger } from "@/lib/gamification/ledger";
 import { countIdeas, countLaunched, type IdeaCard, readIdeas } from "@/lib/ideas/ideas";
 import type { MemoryHealth } from "@/lib/memory/memory-health";
 import { memoryHealth } from "@/lib/memory/memory-health";
+import { getProjectNavigation } from "@/lib/navigation/identities";
+import { navigationHref } from "@/lib/navigation/urls";
 import { getPendingMerge } from "@/lib/pendingMerge/pendingMerge";
 import { activeProjects, type ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readProfile } from "@/lib/profile/profile";
@@ -206,7 +208,14 @@ function deriveTurnItems(
 
   const shippedAwaitingReview = projects
     .filter((p) => p.stage === "release")
-    .map((p) => ({ name: p.name, path: p.path }));
+    .map((p) => ({
+      name: p.name,
+      path: p.path,
+      href: navigationHref("/projects", {
+        project: getProjectNavigation(p.path, p.name).slug,
+        tab: "summary",
+      }),
+    }));
 
   const memoryNeedsAttention =
     memHealth.rawNotes >= MEMORY_RAW_NOTES_THRESHOLD ||
@@ -318,7 +327,13 @@ export default function HomePage(): React.JSX.Element {
     ownerWaiting: turnItems.length,
     nowMs,
   });
-  const cards = projects.map((p) => deriveProjectCard(p, eventsSnapshot.byProject, nowMs));
+  const cards = projects.map((p) => ({
+    ...deriveProjectCard(p, eventsSnapshot.byProject, nowMs),
+    href: navigationHref("/projects", {
+      project: getProjectNavigation(p.path, p.name).slug,
+      tab: "summary",
+    }),
+  }));
 
   const readerData: ReaderData = {
     ideas,

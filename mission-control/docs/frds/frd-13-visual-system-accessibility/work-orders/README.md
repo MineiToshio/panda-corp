@@ -40,3 +40,7 @@ See `../blueprint.md` for components (`CMP-13-*`), interfaces (`IF-13-*`) and th
 
 These WOs gate the UI WOs of FRD-06 and FRD-12 (agent colors, tabular-nums, motion, reduced-motion,
 state badges, focus ring). Prioritize 13-001/002/003.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

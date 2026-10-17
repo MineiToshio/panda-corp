@@ -6,7 +6,8 @@
  *
  * Selection rules (AC-03-004.1, AC-03-005.1):
  *   - ?project=<name> and that name matches an active project → that project selected.
- *   - No param (or unmatched param) → first active project selected by default.
+ *   - No param → first active project, normalized to an explicit identity URL.
+ *   - Unknown explicit project → not found; never switches to an unrelated project.
  *   - No active projects → empty state (WorkspaceSlot + ProjectRail empty).
  *
  * Layout (FDD-03 §1, prototype portfolioView()):
@@ -31,16 +32,16 @@
  *   DR-057 (one rail, not two)
  */
 
-import {
-  ProjectWorkspace,
-  resolveWorkspaceTab,
-  type WorkspaceSelection,
-} from "@/app/projects/[slug]/ProjectWorkspace";
+import { notFound } from "next/navigation";
+import { ProjectWorkspace } from "@/app/projects/[slug]/ProjectWorkspace";
+import { workspaceHref, workspaceSelection } from "@/app/projects/[slug]/workspace-route";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
+import { getProjectNavigation, resolveProjectNavigation } from "@/lib/navigation/identities";
+import { NavigationCanonical } from "@/lib/navigation/NavigationCanonical";
+import { routeHref } from "@/lib/navigation/routeState";
 import { railProjects } from "@/lib/portfolio/portfolio";
 import { PortfolioLayout } from "./PortfolioLayout";
-import { deriveSelectedSlug } from "./selection";
 import { WorkspaceSlot } from "./WorkspaceSlot";
 
 // ---------------------------------------------------------------------------
@@ -49,6 +50,7 @@ import { WorkspaceSlot } from "./WorkspaceSlot";
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  routeState?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
@@ -78,30 +80,42 @@ const RAIL_LABEL_STYLE: React.CSSProperties = {
 
 export default async function PortfolioPage({
   searchParams,
+  routeState = {},
 }: PageProps): Promise<React.JSX.Element> {
   // Read-only: railProjects() never writes, never calls Claude (architecture §7).
   const items = railProjects();
 
   // Resolve the searchParams promise (Next.js 16 requirement).
-  const params = await searchParams;
+  const rawQuery = await searchParams;
+  routeHref("/portfolio", [], rawQuery);
+  const params = { ...rawQuery, ...routeState };
   const rawParam = params.project;
   const projectParam = typeof rawParam === "string" ? rawParam : undefined;
 
   // Derive selected slug: ?project=<name> → match → else first item → else undefined.
-  const selectedSlug = deriveSelectedSlug(items, projectParam);
+  const selectedItem =
+    projectParam === undefined ? items[0] : resolveProjectNavigation(projectParam, items);
+  if (projectParam !== undefined && selectedItem === undefined) notFound();
+  const selection = workspaceSelection(params, selectedItem?.path);
+  const selectedSlug = selectedItem?.name;
+  const identity = selectedItem
+    ? getProjectNavigation(selectedItem.path, selectedItem.name)
+    : undefined;
+  const publicSlug = identity?.slug;
+  const href = workspaceHref("/portfolio", params, publicSlug, selection);
 
   // Resolve the selected project's workspace (prototype projectPane embedded in the right pane, DEC-4).
   // URL-driven tab selection shares the page's searchParams (?tab/?doc/?wo) — TabBar preserves ?project.
-  const selectedItem = items.find((p) => p.name === selectedSlug);
   let workspace: React.ReactNode;
   if (selectedItem !== undefined) {
-    const selection: WorkspaceSelection = {
-      activeTab: resolveWorkspaceTab(params.tab),
-      docParam: typeof params.doc === "string" ? params.doc : undefined,
-      woParam: typeof params.wo === "string" && params.wo.length > 0 ? params.wo : undefined,
-      woTabParam: typeof params.wotab === "string" && params.wotab === "full" ? "full" : "summary",
-    };
-    workspace = <ProjectWorkspace item={selectedItem} selection={selection} headingLevel={2} />;
+    workspace = (
+      <ProjectWorkspace
+        item={selectedItem}
+        selection={selection}
+        headingLevel={2}
+        navigationBaseHref={href}
+      />
+    );
   }
 
   return (
@@ -111,6 +125,7 @@ export default async function PortfolioPage({
       subtitle="Tus proyectos en obra y lanzados. Elige uno para su workspace: resumen, work orders, party y documentación."
       testId="portfolio-page"
     >
+      {selectedItem && <NavigationCanonical href={href} />}
       {/* Responsive grid with a user-collapsible projects rail (PortfolioLayout owns the toggle +
           persistence; the grid track-template + mobile single-column stack live in globals.css). */}
       <PortfolioLayout
@@ -122,7 +137,12 @@ export default async function PortfolioPage({
             </div>
             {/* Shared ProjectRail in selectable mode — URL-driven selection, per-row Link nav,
                 data-selected on the active row (DR-057 reuse-before-create). */}
-            <ProjectRail items={items} selectedSlug={selectedSlug ?? ""} />
+            <ProjectRail
+              items={items}
+              selectedSlug={selectedSlug ?? ""}
+              navigationBaseHref={href}
+              selectedNavigationId={identity?.id}
+            />
           </div>
         }
         workspace={

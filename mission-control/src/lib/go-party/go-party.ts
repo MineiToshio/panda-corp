@@ -37,6 +37,8 @@ export const PARTY_TAB_PARAM = "party" as const;
 /** Route segment for the project workspace. */
 const PROJECTS_BASE = "/projects" as const;
 
+import { navigationHref } from "@/lib/navigation/urls";
+
 // ---------------------------------------------------------------------------
 // Pure URL builder — deterministic, no side effects
 // ---------------------------------------------------------------------------
@@ -56,7 +58,9 @@ export function partyUrl(slug: string): string {
   if (trimmed.length === 0) {
     return "";
   }
-  return `${PROJECTS_BASE}/${trimmed}?tab=${PARTY_TAB_PARAM}`;
+  return navigationHref(`${PROJECTS_BASE}/${encodeURIComponent(trimmed)}`, {
+    tab: PARTY_TAB_PARAM,
+  });
 }
 
 // ---------------------------------------------------------------------------

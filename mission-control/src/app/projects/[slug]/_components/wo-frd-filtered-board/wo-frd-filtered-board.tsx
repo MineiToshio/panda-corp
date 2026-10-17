@@ -26,7 +26,8 @@
  *   REQ-05-007 / AC-05-007.1 / AC-05-007.2 / AC-05-007.3  Secondary state filter, AND-combined.
  */
 
-import { useState } from "react";
+import { navigationHref } from "@/lib/navigation/urls";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 import { WorkOrderBoard } from "../wo-board/wo-board";
@@ -57,6 +58,7 @@ function distinctFrds(orders: WorkOrder[]): string[] {
 export interface WoFrdFilteredBoardProps {
   /** All work orders for this project (from listWorkOrders). */
   orders: WorkOrder[];
+  navigationBaseHref?: string;
 }
 
 /**
@@ -68,9 +70,16 @@ export interface WoFrdFilteredBoardProps {
  * AC-05-007.2: both filters combine with logical AND; selecting "All" (null) on either
  * restores the OTHER filter's view (not the full set) — the two states are independent.
  */
-export function WoFrdFilteredBoard({ orders }: WoFrdFilteredBoardProps): React.JSX.Element {
-  const [selectedFrd, setSelectedFrd] = useState<string | null>(null);
-  const [selectedState, setSelectedState] = useState<WorkOrderState | null>(null);
+export function WoFrdFilteredBoard({
+  orders,
+  navigationBaseHref,
+}: WoFrdFilteredBoardProps): React.JSX.Element {
+  const [rawFrd, setFrd] = useUrlState("frd", "");
+  const [rawState, setState] = useUrlState("state", "");
+  const selectedFrd = orders.some((order) => order.frd === rawFrd) ? rawFrd : null;
+  const selectedState = orders.find((order) => order.state === rawState)?.state ?? null;
+  const setSelectedFrd = (value: string | null) => setFrd(value ?? "");
+  const setSelectedState = (value: WorkOrderState | null) => setState(value ?? "");
 
   const frds = distinctFrds(orders);
 
@@ -82,7 +91,14 @@ export function WoFrdFilteredBoard({ orders }: WoFrdFilteredBoardProps): React.J
     <div data-testid="wo-frd-filtered-board" style={{ display: "flex", flexDirection: "column" }}>
       <WoFrdFilter frds={frds} selected={selectedFrd} onSelect={setSelectedFrd} />
       <WoStateFilter selected={selectedState} onSelect={setSelectedState} />
-      <WorkOrderBoard orders={visibleOrders} />
+      <WorkOrderBoard
+        orders={visibleOrders}
+        navigationBaseHref={
+          navigationBaseHref
+            ? navigationHref(navigationBaseHref, { frd: selectedFrd, state: selectedState })
+            : undefined
+        }
+      />
     </div>
   );
 }

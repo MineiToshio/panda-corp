@@ -7,7 +7,7 @@
  *   (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.
  *
  * Acceptance criteria verified here:
- *   AC-02-010.5 — calling goToParty(slug) produces a navigation to /projects/<slug>?tab=party
+ *   AC-02-010.5 — calling goToParty(slug) produces a navigation to /projects/<slug>/party
  *   DoD 1  — calling with a slug sets the host to Portfolio → project → Party tab (assert URL/route)
  *   DoD 2  — unknown/empty slug → safe no-op (no crash, no navigation)
  *   DoD 3  — read-only: no fs, no write, no Claude call (pure navigation/UI state only)
@@ -26,18 +26,18 @@ import { goToParty, PARTY_TAB_PARAM, partyUrl } from "../go-party";
 // ---------------------------------------------------------------------------
 
 describe("partyUrl — pure URL builder for the Party tab route", () => {
-  it("returns /projects/<slug>?tab=party for a standard slug", () => {
-    expect(partyUrl("mission-control")).toBe("/projects/mission-control?tab=party");
+  it("returns /projects/<slug>/party for a standard slug", () => {
+    expect(partyUrl("mission-control")).toBe("/projects/mission-control/party");
   });
 
-  it("returns /projects/<slug>?tab=party for any non-empty slug", () => {
-    expect(partyUrl("my-project")).toBe("/projects/my-project?tab=party");
-    expect(partyUrl("awesome-app-v2")).toBe("/projects/awesome-app-v2?tab=party");
+  it("returns /projects/<slug>/party for any non-empty slug", () => {
+    expect(partyUrl("my-project")).toBe("/projects/my-project/party");
+    expect(partyUrl("awesome-app-v2")).toBe("/projects/awesome-app-v2/party");
   });
 
   it("includes the tab=party search param (FRD-04 / TabBar convention)", () => {
     const url = partyUrl("some-slug");
-    expect(url).toContain("tab=party");
+    expect(url.endsWith("/party")).toBe(true);
     expect(url).toContain("/projects/some-slug");
   });
 
@@ -112,11 +112,11 @@ describe("partyUrl — purity / no side effects", () => {
 // ---------------------------------------------------------------------------
 
 describe("goToParty — wired host-navigation action (AC-02-010.5)", () => {
-  it("calls push with /projects/<slug>?tab=party for a valid slug", () => {
+  it("calls push with /projects/<slug>/party for a valid slug", () => {
     const push = vi.fn();
     goToParty("mission-control", push);
     expect(push).toHaveBeenCalledOnce();
-    expect(push).toHaveBeenCalledWith("/projects/mission-control?tab=party");
+    expect(push).toHaveBeenCalledWith("/projects/mission-control/party");
   });
 
   it("does NOT call push for an empty slug (safe no-op)", () => {
@@ -142,8 +142,8 @@ describe("goToParty — wired host-navigation action (AC-02-010.5)", () => {
     goToParty("project-a", push);
     goToParty("project-b", push);
     expect(push).toHaveBeenCalledTimes(2);
-    expect(push).toHaveBeenNthCalledWith(1, "/projects/project-a?tab=party");
-    expect(push).toHaveBeenNthCalledWith(2, "/projects/project-b?tab=party");
+    expect(push).toHaveBeenNthCalledWith(1, "/projects/project-a/party");
+    expect(push).toHaveBeenNthCalledWith(2, "/projects/project-b/party");
   });
 
   it("navigates WITHOUT an inner reload — push is used, not window.location.href assign", () => {
@@ -152,6 +152,6 @@ describe("goToParty — wired host-navigation action (AC-02-010.5)", () => {
     const push = vi.fn();
     goToParty("my-project", push);
     // push was called — SPA navigation, no full reload.
-    expect(push).toHaveBeenCalledWith("/projects/my-project?tab=party");
+    expect(push).toHaveBeenCalledWith("/projects/my-project/party");
   });
 });

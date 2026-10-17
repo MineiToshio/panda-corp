@@ -13,7 +13,7 @@
  *     reaches BOTH the rail (data-selected) AND the WorkspaceSlot (data-slug). The prior
  *     bug class was "rail and slot disagree" / "default never reaches the slot".
  *   - AC-03-004.1 — ?project=<name> → that project selected in rail AND slot together.
- *   - unmatched ?project → graceful fall back to the first project (no blank slot).
+ *   - unmatched explicit project → not found without selecting the first project.
  *   - AC-03-003.1 + AC-03-006.2/.3 reach the LIVE page (not just the rail in isolation):
  *     a shipped row's snapshot and a missing-path row's badge+recovery are in the DOM.
  *   - snapshot leakage guard: a NON-release row carrying a snapshot would still render
@@ -126,14 +126,8 @@ describe("FRD-03 page assembly — the LIVE PortfolioPage (reviewer)", () => {
     expect(screen.getByTestId("workspace-slot").getAttribute("data-slug")).toBe("beta-shipped");
   });
 
-  it("an unmatched ?project falls back to the first project (no blank slot)", async () => {
-    await renderPage({ project: "does-not-exist" });
-
-    expect(screen.getByRole("article", { name: /alpha/i }).getAttribute("data-selected")).toBe(
-      "true",
-    );
-    const slot = screen.getByTestId("workspace-slot");
-    expect(slot.getAttribute("data-slug")).toBe("alpha");
+  it("an unmatched explicit project fails without selecting an unrelated project", async () => {
+    await expect(renderPage({ project: "does-not-exist" })).rejects.toThrow("404");
   });
 
   it("a shipped project's rail row carries NO business snapshot on the LIVE page (prototype `.rail`)", async () => {

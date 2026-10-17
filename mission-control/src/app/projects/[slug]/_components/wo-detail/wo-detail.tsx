@@ -35,10 +35,11 @@
  *   - tabular-nums on state badge counts.
  */
 
-import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Chip } from "@/components/core/Chip/Chip";
 import { Markdown } from "@/components/core/Markdown/Markdown";
 import { Tabs } from "@/components/core/Tabs/Tabs";
+import { navigationHref } from "@/lib/navigation/urls";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,7 @@ export interface WorkOrderDetailProps {
   content: string | null;
   /** Active tab — URL-driven (parent reads ?wotab=). Defaults to "summary". */
   activeWoTab: WoDetailTab;
+  navigationBaseHref?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -286,18 +288,18 @@ export function WorkOrderDetail({
   order,
   content,
   activeWoTab,
+  navigationBaseHref,
 }: WorkOrderDetailProps): React.JSX.Element {
   // Tab switching is URL-driven (?wotab=): the parent page (a Server Component)
   // reads ?wotab= and renders the correct pane. The shared Tabs primitive (DR-062)
   // drives selection through onChange; we translate the tab id into a navigation.
   // No useRouter dependency — so the component renders standalone in any context.
-  const handleTabChange = useCallback(
-    (id: string) => {
-      if (typeof window === "undefined") return;
-      window.location.assign(`?tab=work-orders&wo=${order.id}&wotab=${id}`);
-    },
-    [order.id],
-  );
+  const router = useRouter();
+  function handleTabChange(id: string): void {
+    const currentHref =
+      navigationBaseHref ?? `${window.location.pathname}${window.location.search}`;
+    router.push(navigationHref(currentHref, { tab: "work-orders", wo: order.id, wotab: id }));
+  }
 
   // A useful body excerpt for the Summary tab (#23) — replaces the old file-path.
   const excerpt = summaryExcerpt(content);
@@ -309,7 +311,11 @@ export function WorkOrderDetail({
         {/* Back to board */}
         <a
           data-testid="wo-detail-back"
-          href="?tab=work-orders"
+          href={
+            navigationBaseHref
+              ? navigationHref(navigationBaseHref, { tab: "work-orders", wo: null, wotab: null })
+              : "?tab=work-orders"
+          }
           aria-label="Volver al tablero de work orders"
           style={BACK_STYLE}
         >

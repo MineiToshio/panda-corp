@@ -1,6 +1,7 @@
 import type { LinkResolver } from "@/components/core/Markdown/Markdown";
 import { classifyDocLink } from "@/lib/docs/links";
 import type { DocNode } from "@/lib/docs/tree";
+import { navigationHref } from "@/lib/navigation/urls";
 
 /**
  * Build the in-app reader href for a document, PRESERVING the embedding context.
@@ -11,7 +12,14 @@ import type { DocNode } from "@/lib/docs/tree";
  * standalone `/projects/<slug>` route reads its slug from the path and ignores the extra
  * `project` param, so the SAME href is correct there too (AC-04-006.4).
  */
-export function docHref(project: string, docId: string): string {
+export function docHref(project: string, docId: string, navigationBaseHref?: string): string {
+  if (navigationBaseHref)
+    return navigationHref(navigationBaseHref, {
+      tab: "documents",
+      doc: docId,
+      wo: null,
+      wotab: null,
+    });
   const q = new URLSearchParams({ project, tab: "documents", doc: docId });
   return `?${q.toString()}`;
 }
@@ -30,6 +38,7 @@ export function makeLinkResolver(
   currentRelPath: string,
   nodes: DocNode[],
   project: string,
+  navigationBaseHref?: string,
 ): LinkResolver {
   const idByRelPath = new Map(nodes.map((n) => [n.relPath, n.id]));
   const known = new Set(idByRelPath.keys());
@@ -38,7 +47,12 @@ export function makeLinkResolver(
     switch (target.kind) {
       case "doc": {
         const id = idByRelPath.get(target.relPath);
-        return id !== undefined ? { href: docHref(project, id), external: false } : null;
+        return id !== undefined
+          ? {
+              href: `${docHref(project, id, navigationBaseHref)}${target.anchor ?? ""}`,
+              external: false,
+            }
+          : null;
       }
       case "external":
         return { href: target.href, external: true };

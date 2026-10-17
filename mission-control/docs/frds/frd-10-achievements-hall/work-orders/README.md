@@ -82,3 +82,7 @@ WO-10-015 (Informe UI: 6 bands + 8-row ledger + records 2×3)   ← WO-10-014
 | WO-10-014 | Informe data layer: flow-series (WO-verified/wk + ideas/wk, git) + phase-transitions/project (git) + scalars (FRDs/commits/tests/DR/projects) + usage+effort + funnel/WIP/conversion + lessons + verdict/next-action rules — fail-loud, read-only | `lib/achievements/report/**` | PLANNED | — |
 | WO-10-015 | Informe UI: 6 sober bands (pulse+KPIs · time-series · usage+effort · funnel+flow · health · next-actions) + ledger to 8 rows/column + records 2×3 — DR-062 sober, "no cableado" for unwired | `app/achievements/Informe/**`, `app/achievements/{StatsPanel,_components/HallTabs}.tsx` | PLANNED | WO-10-014 |
 </content>
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

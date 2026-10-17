@@ -28,12 +28,12 @@
  *                  REQ-22-008 (priority ordering), REQ-22-009 (implement command)
  */
 
-import { useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { Modal } from "@/components/core/Modal/Modal";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import type { BacklogItem, BacklogReadResult, BacklogStatus } from "@/lib/backlog/backlog";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { BacklogCard } from "./BacklogCard";
 import { BacklogDetail } from "./BacklogDetail";
 
@@ -130,17 +130,23 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
   const actionableCount = byStatus(items, "open").length + byStatus(items, "doing").length;
 
   // Selected item → detail modal (null = closed).
-  const [selected, setSelected] = useState<BacklogItem | null>(null);
+  const [selectedId] = useUrlState("backlogItem", "");
+  const [tab] = useUrlState("proposalsTab", "backlog");
+  const selected =
+    tab === "backlog" ? (items.find((item) => item.id === selectedId) ?? null) : null;
+  const setSelected = (item: BacklogItem | null): void =>
+    updateNavigation({ proposalsTab: "backlog", backlogItem: item?.id ?? null });
   // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-22-006, REQ-22-007)
   // so the active backlog doesn't grow unboundedly cluttered as the factory ages.
-  const [openToggles, setOpenToggles] = useState<ReadonlySet<BacklogStatus>>(new Set());
+  const [groups, setGroups] = useUrlState("backlogGroups", "");
+  const openToggles = new Set(groups.split(","));
 
   function toggleGroup(status: BacklogStatus): void {
-    setOpenToggles((prev) => {
-      const next = new Set(prev);
+    setGroups((prev) => {
+      const next = new Set(prev.split(",").filter(Boolean));
       if (next.has(status)) next.delete(status);
       else next.add(status);
-      return next;
+      return [...next].join(",");
     });
   }
 
@@ -150,6 +156,9 @@ export function BacklogPanel({ result }: { result: BacklogReadResult }): React.J
 
   return (
     <section data-testid="backlog-panel" aria-label="Backlog de la fábrica">
+      {selectedId && tab === "backlog" && !selected && (
+        <p role="status">El elemento solicitado no está disponible.</p>
+      )}
       {/* Read-only note — how these get worked (REQ-22-003) */}
       <p style={NOTE_STYLE}>
         La cola accionable de la fábrica: defectos y cambios a su propio tooling (plugin, motor de

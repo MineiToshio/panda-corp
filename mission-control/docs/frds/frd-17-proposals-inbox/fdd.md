@@ -129,3 +129,7 @@ group-level activating command** → §3; **candidate vs active + eval-gate stat
 staleness nudge + refine trigger** → §2; **self-suggestions computed locally, no Claude** → §3, §6;
 **honest & dismissible (White-Hat)** → §3, §7, §8. Visual provenance: `propuestasView()`,
 `bPropGroup`/`bPropCard`, `BPROPOSALS`, `MEM` and `tabProp` in `docs/design/prototype/index.html`.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

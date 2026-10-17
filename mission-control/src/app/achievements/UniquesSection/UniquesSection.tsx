@@ -30,13 +30,13 @@
 
 "use client";
 
-import { useState } from "react";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { Unique } from "@/lib/achievements/achievements";
 import type { UniqueCategory } from "@/lib/achievements/catalogue/types";
 import { rarityBlurb, rarityColor, rarityLabel } from "@/lib/achievements/tiers";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 
 // ─── RarityTag — per-trophy rarity gem + label (FRD-10 v2; not color alone, WCAG 1.4.1) ──
 function RarityTag({ rarity }: { rarity: Unique["rarity"] }): React.JSX.Element {
@@ -388,7 +388,10 @@ export type UniquesSectionProps = {
  * Category order (filter chips): Discovery → Speed → Quality → Consistency → Mastery.
  */
 export function UniquesSection({ uniques }: UniquesSectionProps): React.JSX.Element {
-  const [activeCategory, setActiveCategory] = useState<UniqueCategory | "all">("all");
+  const [categoryValue, setActiveCategory] = useUrlState("trophyCategory", "all");
+  const activeCategory =
+    CATEGORY_ORDER.find((category) => category.toLowerCase() === categoryValue.toLowerCase()) ??
+    "all";
 
   // Counts per category — for the filter chips only.
   const countByCat = new Map<UniqueCategory, number>();

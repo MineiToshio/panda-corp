@@ -1,5 +1,6 @@
 /** Spanish copy for the read-only architecture model viewer. */
 export const COPY = {
+  unavailableSelection: "La selección del modelo no está disponible.",
   loading: "Organizando modelo…",
   layoutError:
     "No se pudo organizar el modelo. Vuelve a abrir Arquitectura para intentarlo de nuevo.",

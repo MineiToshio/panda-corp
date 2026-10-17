@@ -1,5 +1,6 @@
 import { useId } from "react";
 import type { DataModel, DataModelEntity } from "@/lib/architecture/data-model/types";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { COPY } from "./copy.es";
 import styles from "./viewer.module.css";
 
@@ -41,6 +42,7 @@ export function ModelSchema({
   onSelect: (id: string) => void;
 }): React.JSX.Element {
   const group = useId();
+  const [selectedTable, setSelectedTable] = useUrlState("schemaTable", "");
   return (
     <div className={styles.schema}>
       {model.entities
@@ -49,9 +51,15 @@ export function ModelSchema({
           <details
             key={entity.id}
             name={`${group}-schema`}
+            open={selectedTable === entity.id}
             aria-label={entity.name}
             onToggle={(event) => {
-              if (event.currentTarget.open) onSelect(entity.id);
+              if (event.currentTarget.open && selectedTable !== entity.id) {
+                updateNavigation({ schemaTable: entity.id, entity: entity.id, relationship: null });
+                onSelect(entity.id);
+              } else if (!event.currentTarget.open && selectedTable === entity.id) {
+                setSelectedTable("");
+              }
             }}
           >
             <summary className={styles.schemaName}>

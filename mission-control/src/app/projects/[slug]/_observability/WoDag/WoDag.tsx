@@ -28,6 +28,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { firstError, toDag } from "@/app/_observability/dag/dag/dag";
 import { useLiveSnapshot } from "@/hooks/useLiveSnapshot";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 import { Controls } from "./Controls";
 import { DagCanvas } from "./DagCanvas";
@@ -125,27 +126,35 @@ export function WoDag({ workOrders, project }: WoDagProps): React.JSX.Element {
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(panelRef);
 
   // Pin (click) vs hover. Pin wins; hover only lights when nothing is pinned.
-  const [pinnedId, setPinnedId] = useState<string | null>(null);
+  const [pinnedKey, setPinnedKey] = useUrlState("dag-wo", "");
+  const pinnedId = workOrders.some((order) => order.id === pinnedKey) ? pinnedKey : null;
   const [hoverId, setHoverId] = useState<string | null>(null);
-  const [followActive, setFollowActive] = useState(false);
+  const [follow, setFollow] = useUrlState("dag-follow", "");
+  const followActive = follow === "1";
 
   // The active selection: pinned beats hover (matches the prototype).
   const selectedId = pinnedId ?? hoverId;
 
-  const handleSelect = useCallback((id: string) => {
-    setPinnedId((prev) => (prev === id ? null : id));
-  }, []);
+  const handleSelect = useCallback(
+    (id: string) => {
+      setPinnedKey((prev) => (prev === id ? "" : id));
+    },
+    [setPinnedKey],
+  );
   const handleHover = useCallback((id: string | null) => setHoverId(id), []);
-  const handleClearChain = useCallback(() => setPinnedId(null), []);
+  const handleClearChain = useCallback(() => setPinnedKey(""), [setPinnedKey]);
   const handleJumpError = useCallback(() => {
-    if (firstErrorId !== null) setPinnedId(firstErrorId);
-  }, [firstErrorId]);
-  const handleFollowToggle = useCallback(() => setFollowActive((p) => !p), []);
+    if (firstErrorId !== null) setPinnedKey(firstErrorId);
+  }, [firstErrorId, setPinnedKey]);
+  const handleFollowToggle = useCallback(
+    () => setFollow((previous) => (previous === "1" ? "" : "1")),
+    [setFollow],
+  );
   const handleFit = useCallback(
     () => fitToView(layout.width, layout.height),
     [fitToView, layout.width, layout.height],
   );
-  const handleBackgroundClick = useCallback(() => setPinnedId(null), []);
+  const handleBackgroundClick = useCallback(() => setPinnedKey(""), [setPinnedKey]);
 
   if (nodes.length === 0) {
     return (

@@ -11,37 +11,49 @@
  */
 
 import { notFound } from "next/navigation";
+import { getProjectNavigation, resolveProjectNavigation } from "@/lib/navigation/identities";
+import { NavigationCanonical } from "@/lib/navigation/NavigationCanonical";
+import { routeHref } from "@/lib/navigation/routeState";
 import { activeProjects } from "@/lib/portfolio/portfolio";
-import { nameToSlug } from "@/lib/slug";
-import { ProjectWorkspace, resolveWorkspaceTab, type WorkspaceSelection } from "./ProjectWorkspace";
+import { ProjectWorkspace } from "./ProjectWorkspace";
+import { workspaceHref, workspaceSelection } from "./workspace-route";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<Record<string, string | string[] | undefined>>;
+  routeState?: Record<string, string>;
 }
 
 export default async function ProjectWorkspacePage({
   params,
   searchParams,
+  routeState = {},
 }: PageProps): Promise<React.JSX.Element> {
   const { slug } = await params;
-  const sp = await searchParams;
+  const rawQuery = await searchParams;
+  routeHref("/projects", [slug], rawQuery);
+  const sp = { ...rawQuery, ...routeState };
 
   // Resolve the project from the portfolio (selection.ts pattern). 404 when unknown.
   // The dashboard/portfolio links route to a kebab slug (nameToSlug), so match on
   // that; tolerate a raw-name slug too for older/direct links. (Without the slug
   // match, every project deep-link 404s — the links are kebab, names are not.)
-  const item = activeProjects().find((p) => nameToSlug(p.name) === slug || p.name === slug);
+  const item = resolveProjectNavigation(routeState.project ?? slug, activeProjects());
   if (item === undefined) {
     notFound();
   }
 
-  const selection: WorkspaceSelection = {
-    activeTab: resolveWorkspaceTab(sp.tab),
-    docParam: typeof sp.doc === "string" ? sp.doc : undefined,
-    woParam: typeof sp.wo === "string" && sp.wo.length > 0 ? sp.wo : undefined,
-    woTabParam: typeof sp.wotab === "string" && sp.wotab === "full" ? "full" : "summary",
-  };
-
-  return <ProjectWorkspace item={item} selection={selection} />;
+  const selection = workspaceSelection(sp, item.path);
+  const href = workspaceHref(
+    "/projects",
+    sp,
+    getProjectNavigation(item.path, item.name).slug,
+    selection,
+  );
+  return (
+    <>
+      <NavigationCanonical href={href} />
+      <ProjectWorkspace item={item} selection={selection} navigationBaseHref={href} />
+    </>
+  );
 }

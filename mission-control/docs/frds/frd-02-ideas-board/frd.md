@@ -309,3 +309,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 ### REQ-02-015 graph-control consistency amendment
 
 The dependency map is the owner-selected visual oracle for graph navigation. Both render the same GraphControls component and shared browser-fullscreen hook (ADR-0008). Model wheel and pointer camera updates are animation-frame batched; fine wheel deltas are normalized, button zoom steps are 15%, and stable entity/edge content is retained during camera movement. Existing model/source/layout/cardinality requirements remain unchanged.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

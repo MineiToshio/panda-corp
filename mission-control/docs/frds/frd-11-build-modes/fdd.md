@@ -77,3 +77,7 @@ command to copy. It does **not** trigger the build (MC is read-only; the build i
 `buildModePanel` (~L801), `projComandos` (~L807), `BUILDMODES` (~L795), `cmdRow` (~L570),
 `commandsBox` (~L729). CSS: `.stab`/`.stab.on` (L64-65), `.cmd`/`.cmd .t` (L71-72, override L158),
 `.panel` (rpgSkin.overrides.panel).
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

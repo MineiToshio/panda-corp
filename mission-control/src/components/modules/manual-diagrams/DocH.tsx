@@ -18,15 +18,18 @@
  */
 
 import type React from "react";
+import { headingId } from "@/components/core/Markdown/headingAnchors";
 
 export interface DocHProps {
   /** Heading text. */
   title: string;
+  /** Explicit stable fragment override when a document repeats a heading. */
+  id?: string;
   /** Heading level (1–3). Defaults to 2. */
   level?: 1 | 2 | 3;
 }
 
-export function DocH({ title, level = 2 }: DocHProps): React.JSX.Element {
+export function DocH({ title, id, level = 2 }: DocHProps): React.JSX.Element {
   const HeadingTag = `h${level}` as "h1" | "h2" | "h3";
 
   return (
@@ -53,6 +56,7 @@ export function DocH({ title, level = 2 }: DocHProps): React.JSX.Element {
         }}
       />
       <HeadingTag
+        id={id ?? headingId(title)}
         style={{
           margin: 0,
           fontSize: "18px",

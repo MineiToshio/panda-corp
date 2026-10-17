@@ -171,3 +171,7 @@ three workspace tabs re-paint in parallel with no file collision.
 **Cross-FRD deps:** `frd-13` (foundation primitives — KanbanColumn/Chip/Panel/Button/Tabs/DocHeading),
 `frd-04` (the workspace Tabbar this mounts into; `readDoc`/`DocView`), `frd-01` (live — `useLiveSnapshot`
 + SSE transport, WO-01-009).
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

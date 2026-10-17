@@ -28,7 +28,7 @@
  */
 
 import type React from "react";
-import { useState } from "react";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { Standard, StandardDomain } from "@/lib/standards/standards";
 import { DomainGroup, NewStandardButton } from "./parts";
 import {
@@ -47,6 +47,8 @@ import {
 export interface StandardsSectionProps {
   /** Pre-read standards from readStandards() — passed from server parent. */
   standards: Standard[];
+  /** URL field used by the hosting catalog. */
+  selectionKey?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -66,12 +68,15 @@ export interface StandardsSectionProps {
  * AC-07-009.4: "New standard" button → copies /pandacorp:learn (no exec)
  * AC-07-009.5: graceful for missing metadata / Other domain / empty list
  */
-export function StandardsSection({ standards }: StandardsSectionProps): React.JSX.Element {
+export function StandardsSection({
+  standards,
+  selectionKey = "configItem",
+}: StandardsSectionProps): React.JSX.Element {
   // Currently open standard id (one at a time — AC-07-009.3 close-on-reopen)
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [openId, setOpenId] = useUrlState(selectionKey, "");
 
   const handleToggle = (id: string) => {
-    setOpenId((prev) => (prev === id ? null : id));
+    setOpenId((prev) => (prev === id ? "" : id));
   };
 
   // --- Group standards by domain (AC-07-009.1) ---
@@ -90,6 +95,9 @@ export function StandardsSection({ standards }: StandardsSectionProps): React.JS
 
   return (
     <div data-testid="standards-section" style={SECTION_STYLE}>
+      {openId && !standards.some((item) => item.id === openId) && (
+        <p role="status">El elemento solicitado no está disponible.</p>
+      )}
       {/* Section header with intro + "New standard" button */}
       <div style={HEADER_STYLE}>
         <div

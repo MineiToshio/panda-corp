@@ -54,6 +54,7 @@ export const SHELL_EXEMPT: readonly string[] = [
   // Mirrored by the app in src/components/modules/AppShell/shellScope.ts — keep in sync.
   "/projects/**",
   "/configuration",
+  "/configuration/**",
 ] as const;
 
 /**

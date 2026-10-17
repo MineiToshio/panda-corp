@@ -32,6 +32,14 @@ Creates the project for the idea indicated in `$ARGUMENTS` (card name or slug).
    - Idea's card: `status: in-pipeline`, `project:` field with the path.
    - `factory/portfolio.md`: add the row (project, path, repo pending, source idea, `product` phase, date).
    - The project's `CLAUDE.md` imports `.pandacorp/guide.md` (which carries the "Origin — Pandacorp" section) — both come from the template.
+
+**Persistent URL identity registration (required).** After saving the card and any portfolio row, run the single writer against the factory root stamped in the guide:
+```bash
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --dry-run
+bash "<factory>/plugin/scripts/navigation-identities.sh" --factory-root "<factory>" --apply
+```
+Inspect the dry-run for unresolved pointers/collisions; an error blocks identity registration and is reported, never bypassed by deleting metadata. The writer reserves separate immutable idea/project IDs, writes the card's `navigation_id` and the project's `.pandacorp/navigation-identity.json`, and records their explicit bridge in the private `factory/navigation-identities.json`. Existing IDs, public slugs and aliases survive reruns; preserve those references on rename/move and never put them into `status.yaml`. Run `backup-pandacorp-state.sh` and `vault-overlay-sync.sh` with the factory root after applying, preserving the private catalog outside framework git. Mission Control reads registrations at request time: no dashboard build/restart is required. Full contract: `factory/standards/navigation-identities.md`.
+
 7. **GitHub repo** (DR-010: private auto-approved): if `gh` is authenticated, create the private repo and do the initial push; if not, leave it noted as pending in `.pandacorp/status.yaml`.
 8. **Initial commit** in the project: `chore: scaffold project from pandacorp factory`.
 9. Report: created path, what was configured and the next step — open a session in the project and run `/pandacorp:spec`.

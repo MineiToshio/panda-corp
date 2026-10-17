@@ -301,3 +301,7 @@ Stack explains technology/provider choices and rationale. **Integraciones y oper
 ### Relationship focus presentation — 2026-10-17
 
 Selection and keyboard focus accent the relationship's routed line and endpoint strokes only. Suppress the rectangular outline on the SVG relationship group in both inline and expanded diagrams: its bounding box spans distant endpoints and looks like an unwanted overlay. Retain the existing accent/thicker line on `:focus-visible`, labelled button semantics, Enter/Space selection and repeated-activation deselection. Button/search/canvas focus indicators are unchanged. This is a scoped presentation correction to AC-02-015.5; artifact, layout and selection logic are unchanged.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

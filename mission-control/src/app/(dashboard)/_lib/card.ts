@@ -85,6 +85,7 @@ type WoProgress = {
 
 /** Derived card data — everything the Cartera component needs to render. */
 export type CardData = {
+  href?: string;
   /** Project name. */
   name: string;
   /** Current phase label. */

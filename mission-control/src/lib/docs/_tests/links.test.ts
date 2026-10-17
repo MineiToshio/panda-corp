@@ -48,10 +48,11 @@ describe("lib/docs/links — classifyDocLink", () => {
     });
   });
 
-  it("ignores a trailing #anchor / ?query when resolving a doc link", () => {
+  it("preserves a heading fragment while resolving an allowlisted document", () => {
     expect(classifyDocLink("../decision-log.md#dr-085", FROM, KNOWN)).toEqual({
       kind: "doc",
       relPath: "docs/decision-log.md",
+      anchor: "#dr-085",
     });
   });
 

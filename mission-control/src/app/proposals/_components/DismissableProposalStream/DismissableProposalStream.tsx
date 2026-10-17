@@ -40,6 +40,7 @@ import {
   getDismissedIds,
 } from "@/components/modules/ProposalsDismiss/proposalsDismissStore";
 import type { Lesson } from "@/lib/memory/memory";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import type { Suggestion } from "@/lib/self-suggest/self-suggest";
 import { LessonDetailModal } from "../LessonDetailModal";
 import { ProposalCard } from "../ProposalCard/ProposalCard";
@@ -240,6 +241,17 @@ function toRenderable(
  *   - Toggle expands in-place to show all cards; clicking again collapses
  *   - Dismissing cards updates the visible/hidden count and hides the toggle if <= 6 remain
  */
+function selectedLesson(
+  props: DismissableProposalStreamProps,
+  id: string,
+  collection: string,
+  tab: string,
+): Lesson | null {
+  if (props.kind === "self-suggestion" || tab !== "memoria" || collection !== props.kind)
+    return null;
+  return props.lessons.find((lesson) => lesson.id === id) ?? null;
+}
+
 export function DismissableProposalStream(
   props: DismissableProposalStreamProps,
 ): React.JSX.Element {
@@ -255,10 +267,28 @@ export function DismissableProposalStream(
 
   // Lesson streams (candidate/prune) open a detail modal on card click; self-suggestions don't.
   const isLessonStream = props.kind !== "self-suggestion";
-  const [selected, setSelected] = useState<Lesson | null>(null);
+  const [selectedId] = useUrlState("lesson", "");
+  const [collection] = useUrlState("stream", "");
+  const [tab] = useUrlState("proposalsTab", "memoria");
+  const selected = selectedLesson(props, selectedId, collection, tab);
+  const setSelected = (lesson: Lesson | null): void =>
+    updateNavigation({
+      proposalsTab: "memoria",
+      lesson: lesson?.id ?? null,
+      stream: lesson ? props.kind : null,
+    });
 
   // Collapse toggle state for long streams (AC-17-010)
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedStreams, setExpandedStreams] = useUrlState("expandedStreams", "");
+  const isExpanded = expandedStreams.split(",").includes(props.kind);
+  function setIsExpanded(expanded: boolean): void {
+    setExpandedStreams((previous) => {
+      const streams = new Set(previous.split(",").filter(Boolean));
+      if (expanded) streams.add(props.kind);
+      else streams.delete(props.kind);
+      return [...streams].join(",");
+    });
+  }
 
   const handleDismiss = useCallback((id: string) => {
     dismissProposal(id);
@@ -282,6 +312,9 @@ export function DismissableProposalStream(
   return (
     <>
       <section data-testid={testId} style={SECTION_STYLE} aria-labelledby={`${testId}-heading`}>
+        {selectedId && collection === props.kind && !selected && (
+          <p role="status">La lección solicitada no está disponible.</p>
+        )}
         {/* THE one SectionHead — DR-062, no bespoke per-screen section header */}
         <SectionHead
           icon={SECTION_ICON[props.kind]}

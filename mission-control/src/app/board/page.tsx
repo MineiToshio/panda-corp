@@ -30,6 +30,7 @@ import { readBoardDoc } from "@/app/board/actions/read-doc";
 import type { BoardCardEntry } from "@/app/board/IdeaBoardView/IdeaBoardView";
 import { deriveColumn } from "@/lib/board/board";
 import { readIdeas } from "@/lib/ideas/ideas";
+import { getIdeaNavigation } from "@/lib/navigation/identities";
 
 // ---------------------------------------------------------------------------
 // Server Component
@@ -81,6 +82,7 @@ export default function BoardPage(): React.JSX.Element {
 
     return {
       slug: card.slug,
+      navigationSlug: getIdeaNavigation(card.slug).slug,
       title: card.title,
       status: card.status,
       projectType: card.projectType,

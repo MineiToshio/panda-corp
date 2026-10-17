@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-10-17 — Persistent URL identity is private, immutable lifecycle metadata
+
+Added [the navigation identity producer contract](standards/navigation-identities.md): one atomic CLI owns the owner-private catalog, separate idea/project IDs, explicit handoff bridges, references that survive rename/move, permanently reserved public aliases and fail-loud reads. The catalog and the in-factory Mission Control reference join the private vault overlay and additive backup manifest; exact ignore rules keep another owner's project ID out of fresh framework clones. This keeps mutable names and filesystem locations out of permanent public identity without writing project build state.
+
 ## 2026-10-17 — An FDD specifies only UI the frozen prototype captures (DR-130)
 
 **What:** New registry rule [DR-130](decisions/registry.yaml) and rule [DES-8](standards/rule-registry.md); [design.md](standards/design.md) §8 rewrites DR-064 Group B: UI an FRD wants and the prototype lacks is drawn as a configured, captured state or taken out of the FRD by the owner, never "flagged as a gap", and the FDD cites a captured state on every screen/state row, names only drawn UI and yields to the prototype on visuals. Enforced by `check-fdd-coverage.mjs` inside the design gate and again, with `--plan`, in the architecture readiness gate (plugin v9.128.0, BL-0239).

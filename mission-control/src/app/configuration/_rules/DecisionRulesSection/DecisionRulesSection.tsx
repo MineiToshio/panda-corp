@@ -26,11 +26,11 @@
  *   Reuses CopyButton (FRD-02, CMP-02-copy-button).
  */
 
-import { useState } from "react";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { ItemSlot } from "@/components/core/ItemSlot/ItemSlot";
 import { Panel } from "@/components/core/Panel/Panel";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { DecisionRule } from "@/lib/registry/registry";
 
 // ---------------------------------------------------------------------------
@@ -317,6 +317,8 @@ function RuleDetail({ rule }: RuleDetailProps): React.JSX.Element {
 export interface DecisionRulesSectionProps {
   /** All decision rules from readDecisionRules(). Passed from the Server Component. */
   rules: DecisionRule[];
+  /** URL field used by the hosting catalog. */
+  selectionKey?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -329,16 +331,22 @@ export interface DecisionRulesSectionProps {
  * Owns the selectedRuleId state. Renders intro, list, optional detail, and
  * the "New decision rule" CopyButton.
  */
-export function DecisionRulesSection({ rules }: DecisionRulesSectionProps): React.JSX.Element {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+export function DecisionRulesSection({
+  rules,
+  selectionKey = "configItem",
+}: DecisionRulesSectionProps): React.JSX.Element {
+  const [selectedId, setSelectedId] = useUrlState(selectionKey, "");
 
   function handleRuleClick(id: string): void {
     // Toggle: click same rule again → close detail (AC-07-008.3)
-    setSelectedId((prev) => (prev === id ? null : id));
+    setSelectedId((prev) => (prev === id ? "" : id));
   }
 
   return (
     <div data-testid="rules-section" style={SECTION_STYLE}>
+      {selectedId && !rules.some((item) => item.id === selectedId) && (
+        <p role="status">El elemento solicitado no está disponible.</p>
+      )}
       {/* Header row: intro + "New decision rule" button */}
       <div style={HEADER_ROW_STYLE}>
         {/* AC-07-008.1 — short intro explaining what a decision rule IS */}
@@ -381,6 +389,8 @@ export function DecisionRulesSection({ rules }: DecisionRulesSectionProps): Reac
 
 interface RuleGroupedListProps {
   rules: DecisionRule[];
+  /** URL field used by the hosting catalog. */
+  selectionKey?: string;
   selectedId: string | null;
   onRuleClick: (id: string) => void;
 }

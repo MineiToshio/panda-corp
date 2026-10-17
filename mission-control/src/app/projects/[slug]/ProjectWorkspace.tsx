@@ -20,6 +20,7 @@
  */
 
 import path from "node:path";
+import { notFound } from "next/navigation";
 import { ArchitectureDigest } from "@/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest";
 import { readArchitectureArtifacts } from "@/lib/architecture/read-artifacts";
 
@@ -45,6 +46,7 @@ import { TabSummary } from "./_components/tab-summary/tab-summary";
 import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
 import { WoLiveRefresh } from "./_components/tab-work-orders/wo-live-refresh";
 import { TabBar, type TabId } from "./_components/tabbar";
+import { WorkspaceNavigationProvider } from "./_components/WorkspaceNavigation";
 import { type WoDetailTab, WorkOrderDetail } from "./_components/wo-detail/wo-detail";
 import { WorkspaceHeader } from "./_components/workspace-header";
 import { ObservabilidadTab } from "./_observability/ObservabilidadTab/ObservabilidadTab";
@@ -89,6 +91,7 @@ export interface ProjectWorkspaceProps {
   selection: WorkspaceSelection;
   /** Title heading level — 1 standalone (default), 2 when embedded under Portfolio's h1. */
   headingLevel?: 1 | 2;
+  navigationBaseHref?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -100,6 +103,7 @@ function renderSpecTab(
   projectPath: string,
   title: string,
   targetPlatforms: string | undefined,
+  navigationBaseHref?: string,
 ): React.JSX.Element {
   const body = readSpecDigest(projectPath);
   if (body === null) {
@@ -114,6 +118,7 @@ function renderSpecTab(
         body={body}
         title={title}
         project={title}
+        navigationBaseHref={navigationBaseHref}
         nodes={nodes}
         projectType={card?.projectType}
         targetPlatforms={targetPlatforms}
@@ -126,12 +131,14 @@ function renderSpecTab(
 function renderWorkOrdersTab(
   projectPath: string,
   slug: string,
-  woParam: string | undefined,
-  woTabParam: WoDetailTab,
+  selection: WorkspaceSelection,
+  navigationBaseHref?: string,
 ): React.JSX.Element {
+  const { woParam, woTabParam } = selection;
   const orders = listWorkOrders(projectPath);
   const selectedOrder =
     woParam !== undefined ? (orders.find((o) => o.id === woParam) ?? null) : null;
+  if (woParam !== undefined && selectedOrder === null) notFound();
   if (selectedOrder !== null) {
     const woContent = readWorkOrderDoc(projectPath, selectedOrder.relPath);
     // Mount the invisible live refresher alongside the detail pane so a backward
@@ -140,11 +147,16 @@ function renderWorkOrdersTab(
     return (
       <>
         <WoLiveRefresh project={slug} />
-        <WorkOrderDetail order={selectedOrder} content={woContent} activeWoTab={woTabParam} />
+        <WorkOrderDetail
+          order={selectedOrder}
+          content={woContent}
+          activeWoTab={woTabParam}
+          navigationBaseHref={navigationBaseHref}
+        />
       </>
     );
   }
-  return <TabWorkOrders orders={orders} project={slug} />;
+  return <TabWorkOrders orders={orders} project={slug} navigationBaseHref={navigationBaseHref} />;
 }
 
 /** Match the idea's canonical project pointer once for shared summary and Spec metadata. */
@@ -163,16 +175,26 @@ function renderDocumentsTab(
   projectPath: string,
   slug: string,
   docParam: string | undefined,
+  navigationBaseHref?: string,
 ): React.JSX.Element {
   const nodes = listProjectDocs(projectPath);
   const firstNodeId = nodes[0]?.id ?? null;
+  if (docParam !== undefined && !nodes.some((node) => node.id === docParam)) notFound();
   const selectedId =
     nodes.find((n) => n.id === docParam) !== undefined ? (docParam ?? null) : firstNodeId;
   const content =
     selectedId !== null
       ? readDoc(projectPath, nodes.find((n) => n.id === selectedId)?.relPath ?? selectedId)
       : null;
-  return <TabDocuments nodes={nodes} selectedId={selectedId} content={content} project={slug} />;
+  return (
+    <TabDocuments
+      nodes={nodes}
+      selectedId={selectedId}
+      content={content}
+      project={slug}
+      navigationBaseHref={navigationBaseHref}
+    />
+  );
 }
 
 /**
@@ -258,6 +280,7 @@ export function ProjectWorkspace({
   item,
   selection,
   headingLevel = 1,
+  navigationBaseHref,
 }: ProjectWorkspaceProps): React.JSX.Element {
   const slug = item.name;
   // Resolve against the factory root (item.path is the raw portfolio cell, relative to that root —
@@ -287,15 +310,15 @@ export function ProjectWorkspace({
   // FRD-14 snapshot — null when last_green_sha is absent (AC-14-001.3). Rendered inside Summary.
   const snapshot = buildSnapshot(slug, status, Date.now());
 
-  const { activeTab, docParam, woParam, woTabParam } = selection;
+  const { activeTab, docParam } = selection;
 
   let body: React.JSX.Element;
   switch (activeTab) {
     case "spec":
-      body = renderSpecTab(projectPath, title, status.targetPlatforms);
+      body = renderSpecTab(projectPath, title, status.targetPlatforms, navigationBaseHref);
       break;
     case "work-orders":
-      body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
+      body = renderWorkOrdersTab(projectPath, slug, selection, navigationBaseHref);
       break;
     case "architecture": {
       const architecture = readArchitectureArtifacts(projectPath);
@@ -337,7 +360,7 @@ export function ProjectWorkspace({
       break;
     }
     case "documents":
-      body = renderDocumentsTab(projectPath, slug, docParam);
+      body = renderDocumentsTab(projectPath, slug, docParam, navigationBaseHref);
       break;
     case "commands":
       body = <TabCommands phase={stage} slug={slug} />;
@@ -347,27 +370,29 @@ export function ProjectWorkspace({
   }
 
   return (
-    <section data-testid="workspace-page" data-slug={slug}>
-      {/* Header + objectives bar live in ONE rounded panel (prototype compactProjectHeader).
+    <WorkspaceNavigationProvider href={navigationBaseHref}>
+      <section data-testid="workspace-page" data-slug={slug}>
+        {/* Header + objectives bar live in ONE rounded panel (prototype compactProjectHeader).
           The objectives bar is passed as children so it renders inside that same panel. */}
-      <WorkspaceHeader
-        title={title}
-        stage={stage}
-        deployTarget={deployTarget}
-        version={version}
-        running={running}
-        headingLevel={headingLevel}
-      >
-        <ObjectivesBar done={woDone} total={woTotal} />
-      </WorkspaceHeader>
+        <WorkspaceHeader
+          title={title}
+          stage={stage}
+          deployTarget={deployTarget}
+          version={version}
+          running={running}
+          headingLevel={headingLevel}
+        >
+          <ObjectivesBar done={woDone} total={woTotal} />
+        </WorkspaceHeader>
 
-      {/* Breathing room between the header panel and the tabs (prototype: panel margin-bottom:12px).
+        {/* Breathing room between the header panel and the tabs (prototype: panel margin-bottom:12px).
           The tabs are NOT flush against the header; TabBar owns its own bottom padding. */}
-      <div style={{ marginTop: "12px" }}>
-        <TabBar activeTab={activeTab} />
-      </div>
+        <div style={{ marginTop: "12px" }}>
+          <TabBar activeTab={activeTab} navigationBaseHref={navigationBaseHref} />
+        </div>
 
-      <div data-testid="workspace-tab-body">{body}</div>
-    </section>
+        <div data-testid="workspace-tab-body">{body}</div>
+      </section>
+    </WorkspaceNavigationProvider>
   );
 }

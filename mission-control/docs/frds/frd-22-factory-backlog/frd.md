@@ -62,3 +62,7 @@ Surfaces the factory's **actionable work queue** — `factory/backlog/BL-*` (DR-
 
 ## Relationship
 Shares the Propuestas route with [FRD-17](../frd-17-proposals-inbox/frd.md) (the memory self-learning inbox) — the two are the Memoria and Backlog sub-tabs of one page. Uses the `Tabs` primitive from FRD-13 (DR-062). The backlog store and its routing rule are factory-level doctrine (DR-103); this FRD is only the read-only Mission Control surface over it.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

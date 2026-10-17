@@ -27,9 +27,9 @@
  */
 
 import type React from "react";
-
 import { Chip } from "@/components/core/Chip/Chip";
 import { KanbanColumn } from "@/components/core/KanbanColumn/KanbanColumn";
+import { navigationHref } from "@/lib/navigation/urls";
 import type { WorkOrder, WorkOrderState } from "@/lib/work-orders/work-orders";
 
 // ---------------------------------------------------------------------------
@@ -164,6 +164,7 @@ const EMPTY_PLACEHOLDER_STYLE: React.CSSProperties = {
 
 interface WoCardProps {
   order: WorkOrder;
+  navigationBaseHref?: string;
 }
 
 /**
@@ -174,7 +175,7 @@ interface WoCardProps {
  * Fail variant: danger bg + danger border + alert icon + danger title.
  * Accessibility: icon + label (never color alone) per FRD-13.
  */
-function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
+function WorkOrderCard({ order, navigationBaseHref }: WoCardProps): React.JSX.Element {
   const isFail = order.state === "fail";
   const cardStyle = isFail ? CARD_FAIL_STYLE : CARD_STYLE;
   const titleStyle = isFail ? CARD_TITLE_FAIL_STYLE : CARD_TITLE_STYLE;
@@ -182,7 +183,15 @@ function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
   return (
     <a
       data-testid="wo-card-link"
-      href={`?tab=work-orders&wo=${encodeURIComponent(order.id)}`}
+      href={
+        navigationBaseHref
+          ? navigationHref(navigationBaseHref, {
+              tab: "work-orders",
+              wo: order.id,
+              wotab: "summary",
+            })
+          : `?tab=work-orders&wo=${encodeURIComponent(order.id)}`
+      }
       aria-label={`Ver detalle: ${order.title}`}
     >
       {/* `wo-card` class carries the :hover treatment (globals.css) — inline styles
@@ -223,6 +232,7 @@ function WorkOrderCard({ order }: WoCardProps): React.JSX.Element {
 export interface WorkOrderBoardProps {
   /** All work orders for the current project (from listWorkOrders). */
   orders: WorkOrder[];
+  navigationBaseHref?: string;
 }
 
 /**
@@ -240,7 +250,10 @@ export interface WorkOrderBoardProps {
  * Fail treatment: danger bg + border + ⚠ icon prefix + danger title; Fail column header
  *   uses danger label override via aria-label (column label "Falló" already conveys it).
  */
-export function WorkOrderBoard({ orders }: WorkOrderBoardProps): React.JSX.Element {
+export function WorkOrderBoard({
+  orders,
+  navigationBaseHref,
+}: WorkOrderBoardProps): React.JSX.Element {
   // Bucket orders into columns by state
   const byColumn = new Map<string, WorkOrder[]>();
   for (const col of COLUMNS) {
@@ -276,7 +289,13 @@ export function WorkOrderBoard({ orders }: WorkOrderBoardProps): React.JSX.Eleme
               danger={col.isFail}
             >
               {colOrders.length > 0 ? (
-                colOrders.map((order) => <WorkOrderCard key={order.id} order={order} />)
+                colOrders.map((order) => (
+                  <WorkOrderCard
+                    key={order.id}
+                    order={order}
+                    navigationBaseHref={navigationBaseHref}
+                  />
+                ))
               ) : (
                 <div aria-hidden="true" style={EMPTY_PLACEHOLDER_STYLE}>
                   —

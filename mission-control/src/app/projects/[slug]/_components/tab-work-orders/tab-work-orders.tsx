@@ -53,6 +53,7 @@ export interface TabWorkOrdersProps {
    * (e.g. in tests that don't need live updates).
    */
   project?: string;
+  navigationBaseHref?: string;
 }
 
 /**
@@ -68,7 +69,11 @@ export interface TabWorkOrdersProps {
  *   new events, causing the Server Component tree to re-run and re-read files.
  * AC-05-006.1: empty state with /pandacorp:architecture command + copy button.
  */
-export function TabWorkOrders({ orders, project }: TabWorkOrdersProps): React.JSX.Element {
+export function TabWorkOrders({
+  orders,
+  project,
+  navigationBaseHref,
+}: TabWorkOrdersProps): React.JSX.Element {
   if (orders.length === 0) {
     return (
       <div data-testid="tab-work-orders" style={ROOT_STYLE}>
@@ -82,7 +87,7 @@ export function TabWorkOrders({ orders, project }: TabWorkOrdersProps): React.JS
     <div data-testid="tab-work-orders" style={ROOT_STYLE}>
       {/* Live SSE connector — invisible, triggers router.refresh() on new events */}
       {project !== undefined && <WoLiveRefresh project={project} />}
-      <WoFrdFilteredBoard orders={orders} />
+      <WoFrdFilteredBoard orders={orders} navigationBaseHref={navigationBaseHref} />
     </div>
   );
 }

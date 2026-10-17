@@ -46,3 +46,7 @@ WO-04-004 now also owns the nine-tab order **Resumen · Spec · Work orders · A
 ## Shared Spec extension (2026-10-16)
 
 WO-04-004 additionally owns REQ-04-013 / AC-04-013.1–.5: Spec second in the nine-tab order, full shared digest/count rendering, empty state, project-scoped links and state isolation. The same coarse shell work order owns these mounting seams; no new work-order machine-state transition is introduced by this manual extension.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

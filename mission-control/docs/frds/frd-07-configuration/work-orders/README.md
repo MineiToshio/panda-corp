@@ -36,3 +36,7 @@ WO-07-005 (Configuración UI surface)   ← foundation-first: FRD-13 (WO-13-006/
 | WO-07-004 | `lib/standards.ts` — read standards (+ derivation fallback) | `lib/standards.ts` | VERIFIED | WO-01-001 |
 | WO-07-005 | Configuración UI surface (re-anchor to prototype) | `src/app/configuration/**` | PLANNED | WO-07-001, WO-07-003, WO-07-004, WO-09-002, WO-01-007, WO-13-006, WO-13-007, WO-13-008 |
 </content>
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

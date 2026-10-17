@@ -1,11 +1,12 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useCallback, useId, useState } from "react";
+import { useCallback, useId } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/core/Button/Button";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
 import type { DataModel, DataModelResult } from "@/lib/architecture/data-model/types";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import { COPY } from "./copy.es";
 import { DiagramControls } from "./DiagramControls";
 import type { ModelLayout, ModelSelection } from "./layout";
@@ -64,6 +65,18 @@ function LayoutViewer({ model, source }: { model: DataModel; source: string }) {
   return <ReadyViewer model={model} source={source} layout={result.layout} />;
 }
 
+function hasUnavailableSelection(
+  model: DataModel,
+  entityIds: string[],
+  relationshipId: string,
+): boolean {
+  return (
+    entityIds.some((id) => id !== "" && !model.entities.some((entity) => entity.id === id)) ||
+    (relationshipId !== "" &&
+      !model.relationships.some((relation) => relation.id === relationshipId))
+  );
+}
+
 function ReadyViewer({
   model,
   source,
@@ -73,16 +86,37 @@ function ReadyViewer({
   source: string;
   layout: ModelLayout;
 }) {
-  const [mode, setMode] = useState("diagram");
-  const [query, setQuery] = useState("");
-  const [selection, setSelection] = useState<ModelSelection>(null);
-  const select = useCallback((next: ModelSelection) => {
-    setSelection((previous) =>
-      next?.kind === "relationship" && previous?.kind === "relationship" && previous.id === next.id
-        ? null
-        : next,
+  const [modelMode, setMode] = useUrlState("model", "diagram");
+  const mode = modelMode === "schema" ? "schema" : "diagram";
+  const [query, setQuery] = useUrlState("modelQuery", "");
+  const [entityId] = useUrlState("entity", "");
+  const [relationshipId] = useUrlState("relationship", "");
+  const [schemaTable] = useUrlState("schemaTable", "");
+  const unavailableSelection = hasUnavailableSelection(
+    model,
+    [entityId, schemaTable],
+    relationshipId,
+  );
+  const selection: ModelSelection = model.entities.some((entity) => entity.id === entityId)
+    ? { kind: "entity", id: entityId }
+    : model.relationships.some((relation) => relation.id === relationshipId)
+      ? { kind: "relationship", id: relationshipId }
+      : null;
+  const setSelection = useCallback((next: ModelSelection, replace = false) => {
+    updateNavigation(
+      {
+        entity: next?.kind === "entity" ? next.id : null,
+        relationship: next?.kind === "relationship" ? next.id : null,
+      },
+      { replace },
     );
   }, []);
+  const select = useCallback(
+    (next: ModelSelection) => {
+      setSelection(next?.kind === "relationship" && relationshipId === next.id ? null : next);
+    },
+    [relationshipId, setSelection],
+  );
   const expansion = useModelExpansion();
   const isExpanded = expansion.expanded;
   const viewport = useViewport(layout, isExpanded, mode);
@@ -98,7 +132,7 @@ function ReadyViewer({
     .map((entity) => entity.id);
   function handleSearch(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
-    setQuery(next);
+    setQuery(next, true);
     if (!next.trim()) return;
     const match = layout.nodes.find((node) =>
       [
@@ -108,7 +142,7 @@ function ReadyViewer({
       ].some((text) => text.toLocaleLowerCase().includes(next.trim().toLocaleLowerCase())),
     );
     if (match) {
-      setSelection({ kind: "entity", id: match.entity.id });
+      setSelection({ kind: "entity", id: match.entity.id }, true);
       viewport.focusNode(match);
     }
   }
@@ -143,6 +177,7 @@ function ReadyViewer({
           <code>{source}</code>
           <span>{model.persistence === "relational" ? COPY.relational : COPY.document}</span>
         </div>
+        {unavailableSelection && <p role="status">{COPY.unavailableSelection}</p>}
         <div className={styles.toolbar}>
           <SubTabs
             tabs={[

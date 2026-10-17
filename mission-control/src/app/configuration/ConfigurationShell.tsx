@@ -30,9 +30,9 @@
  */
 
 import type React from "react";
-import { useState } from "react";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
+import { updateNavigation, useCanonicalSelection, useUrlState } from "@/lib/navigation/useUrlState";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
@@ -231,26 +231,36 @@ export interface ConfigurationShellProps {
  * WO-07-008: accepts `rules` prop to pass to DecisionRulesSection.
  * WO-07-009: accepts `standards` prop to pass to StandardsSection.
  */
+function resolveSection(value: string): SectionId {
+  switch (value) {
+    case "agents":
+    case "rules":
+    case "standards":
+      return value;
+    default:
+      return "skills";
+  }
+}
+
 export function ConfigurationShell({
   skills = [],
   agentsData,
   rules = [],
   standards = [],
 }: ConfigurationShellProps): React.JSX.Element {
-  const [activeSection, setActiveSection] = useState<SectionId>("skills");
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  // Reverse cross-nav state: when jumping from agent detail → skill detail,
-  // store the target skill slug; cleared when the user leaves the skills tab.
-  const [crossNavSkillSlug, setCrossNavSkillSlug] = useState<string | null>(null);
+  const [sectionValue] = useUrlState("configSection", "skills");
+  const activeSection = resolveSection(sectionValue);
+  useCanonicalSelection("configuration", "configSection", activeSection);
+  const [itemId, setItemId] = useUrlState("configItem", "");
+  const selectedAgentId = activeSection === "agents" ? itemId : null;
+  const crossNavSkillSlug = activeSection === "skills" ? itemId : null;
 
   // Resolve agents + levels from the prop (empty defaults = honest zero state, AC-07-007.3)
   const agents = agentsData?.agents ?? [];
   const levels = agentsData?.levels ?? {};
 
   // Find the selected agent's full ref + level for the detail panel
-  const selectedAgent = selectedAgentId
-    ? (agents.find((a) => a.id === selectedAgentId) ?? null)
-    : null;
+  const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null;
   const selectedLevel = selectedAgentId ? (levels[selectedAgentId] ?? null) : null;
 
   // Derive using-skills for the selected agent: invert skills[].agents (derive-don't-sync).
@@ -260,31 +270,20 @@ export function ConfigurationShell({
       ? skills.filter((s) => (s.agents ?? []).includes(selectedAgentId)).map((s) => s.slug)
       : [];
 
-  // Reset agent selection when leaving the agents tab
   function handleSectionChange(id: SectionId): void {
-    if (id !== "agents") setSelectedAgentId(null);
-    if (id !== "skills") setCrossNavSkillSlug(null);
-    setActiveSection(id);
+    updateNavigation({ configSection: id, configItem: null, standardView: null });
   }
 
-  // Forward cross-navigation (FRD-07 EARS): clicking an agent chip in a skill's
-  // mini-flow jumps to the agents tab with that agent's detail open.
   function handleAgentCrossNav(role: string): void {
-    setSelectedAgentId(role);
-    setActiveSection("agents");
+    updateNavigation({ configSection: "agents", configItem: role });
   }
 
-  // Reverse cross-navigation (FRD-07 EARS): clicking a using-skill chip in an
-  // agent's detail jumps to the skills tab with that skill's detail open.
   function handleSkillCrossNav(slug: string): void {
-    setCrossNavSkillSlug(slug);
-    setActiveSection("skills");
+    updateNavigation({ configSection: "skills", configItem: slug });
   }
 
-  // Back from a cross-nav-opened skill detail clears the reverse-cross-nav state
-  // (the prop that forces the detail open) so the Back button actually closes it.
   function handleClearCrossNav(): void {
-    setCrossNavSkillSlug(null);
+    setItemId("");
   }
 
   return (
@@ -301,6 +300,10 @@ export function ConfigurationShell({
       {/* Tab bar — always visible (AC-07-005.1) */}
       <SectionTabs activeSection={activeSection} onSectionChange={handleSectionChange} />
 
+      {selectedAgentId && !selectedAgent && (
+        <p role="status">El agente solicitado no está disponible.</p>
+      )}
+
       {/* Active section panel — only one mounted at a time (AC-07-005.2) */}
       {activeSection === "skills" ? (
         <SkillsPanel
@@ -314,7 +317,7 @@ export function ConfigurationShell({
           agents={agents}
           levels={levels}
           selectedAgentId={selectedAgentId}
-          onSelectAgent={setSelectedAgentId}
+          onSelectAgent={setItemId}
           selectedAgent={selectedAgent}
           selectedLevel={selectedLevel}
           usingSkills={usingSkills}

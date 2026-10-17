@@ -123,3 +123,7 @@ This FRD covers the global shell: persistent identity, six destinations and resp
 - **Independent verification:** the Shell-Presence Gate (`e2e/shell.spec.ts`, DR-075) is the
   author-independent fidelity check — it asserts the rendered app against this FRD's nav contract
   seeded into `e2e/shell.ts`, so the contract here and the running shell cannot silently diverge.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

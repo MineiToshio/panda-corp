@@ -27,9 +27,11 @@
  */
 
 import type React from "react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { PageTitle } from "@/components/core/PageTitle/PageTitle";
 import type { ManualPage } from "@/lib/manual/manual";
+import { parseNavigationUrl } from "@/lib/navigation/urls";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
@@ -122,8 +124,8 @@ const READER_COLUMN_STYLE: React.CSSProperties = {
  *
  * Returns null only when no authored pages exist at all.
  */
-function deriveDefaultPage(pages: ManualPage[]): ActivePage | null {
-  const PRIORITY_ORDER = ["tutorial", "guides", "concepts"] as const;
+function deriveDefaultPage(pages: ManualPage[]): Extract<ActivePage, { type: "authored" }> | null {
+  const PRIORITY_ORDER = ["tutorial", "guides", "concepts", "workflows"] as const;
   for (const group of PRIORITY_ORDER) {
     const groupPages = pages.filter((p) => p.group === group).sort((a, b) => a.order - b.order);
     if (groupPages.length > 0) {
@@ -166,6 +168,41 @@ function resolveActivePage(
 // ManualShell
 // ---------------------------------------------------------------------------
 
+function referenceCatalog(value: string): "commands" | "agents" | "rules" | "standards" | null {
+  switch (value) {
+    case "commands":
+    case "agents":
+    case "rules":
+    case "standards":
+      return value;
+    default:
+      return null;
+  }
+}
+
+function manualSelection(group: string, slug: string, reference: string): ActivePage | null {
+  if (reference) {
+    const catalog = referenceCatalog(reference);
+    return catalog ? { type: "reference", catalog } : null;
+  }
+  return group && slug ? { type: "authored", group, slug } : null;
+}
+
+function useCanonicalManualDefault(group: string, slug: string): void {
+  useEffect(() => {
+    const state = parseNavigationUrl(window.location.href);
+    if (
+      !state.manualGroup &&
+      !state.reference &&
+      group &&
+      slug &&
+      window.location.pathname === "/manual"
+    ) {
+      updateNavigation({ manualGroup: group, manualPage: slug }, { replace: true });
+    }
+  }, [group, slug]);
+}
+
 export function ManualShell({
   pages,
   skills,
@@ -173,41 +210,50 @@ export function ManualShell({
   rules,
   standards,
 }: ManualShellProps): React.JSX.Element {
-  // Initialize to the first authored page (mirrors prototype MANUALNAV[0].items[0].id
-  // fallback). null only when there are zero authored pages (empty content tree).
-  const [activePage, setActivePage] = useState<ActivePage | null>(() => deriveDefaultPage(pages));
-  // Reference cross-nav selection: which skill/agent detail is open inside the Reference catalogs.
-  // Set by the flow-graph clickable nodes (goToSkill/goToAgent); a plain nav selection clears them.
-  const [refSkill, setRefSkill] = useState<string | null>(null);
-  const [refAgent, setRefAgent] = useState<string | null>(null);
-
+  const defaultPage = deriveDefaultPage(pages);
+  const [group] = useUrlState("manualGroup", defaultPage?.group ?? "");
+  const [slug] = useUrlState("manualPage", defaultPage?.slug ?? "");
+  const [reference] = useUrlState("reference", "");
+  const [referenceItem, setReferenceItem] = useUrlState("referenceItem", "");
+  const catalog = referenceCatalog(reference);
+  const activePage = manualSelection(group, slug, reference);
   const resolvedPage = resolveActivePage(activePage, pages);
+  useCanonicalManualDefault(defaultPage?.group ?? "", defaultPage?.slug ?? "");
 
-  // A nav-menu selection always resets the cross-nav detail (fresh page).
+  const refSkill = catalog === "commands" ? referenceItem : null;
+  const refAgent = catalog === "agents" ? referenceItem : null;
+
   const handleNavSelect = useCallback((page: ActivePage): void => {
-    setActivePage(page);
-    setRefSkill(null);
-    setRefAgent(null);
+    updateNavigation(
+      page.type === "reference"
+        ? { reference: page.catalog, referenceItem: null, manualGroup: null, manualPage: null }
+        : { manualGroup: page.group, manualPage: page.slug, reference: null, referenceItem: null },
+    );
   }, []);
 
-  // The in-Manual navigation the flow graphs use: jump to a skill/agent's Reference detail.
   const nav = useMemo<ManualNav>(
     () => ({
-      goToSkill: (slug: string): void => {
-        setActivePage({ type: "reference", catalog: "commands" });
-        setRefSkill(slug);
-        setRefAgent(null);
-      },
-      goToAgent: (id: string): void => {
-        setActivePage({ type: "reference", catalog: "agents" });
-        setRefAgent(id);
-        setRefSkill(null);
-      },
-      goToManual: (group: string, slug: string): void => {
-        setActivePage({ type: "authored", group, slug });
-        setRefSkill(null);
-        setRefAgent(null);
-      },
+      goToSkill: (skill: string): void =>
+        updateNavigation({
+          reference: "commands",
+          referenceItem: skill,
+          manualGroup: null,
+          manualPage: null,
+        }),
+      goToAgent: (agent: string): void =>
+        updateNavigation({
+          reference: "agents",
+          referenceItem: agent,
+          manualGroup: null,
+          manualPage: null,
+        }),
+      goToManual: (nextGroup: string, nextSlug: string): void =>
+        updateNavigation({
+          manualGroup: nextGroup,
+          manualPage: nextSlug,
+          reference: null,
+          referenceItem: null,
+        }),
     }),
     [],
   );
@@ -241,6 +287,9 @@ export function ManualShell({
 
           {/* Reading area — min-width:0 prevents grid overflow (AC-08-002.1, AC-08-002.3) */}
           <div data-testid="manual-reader-area" style={READER_COLUMN_STYLE}>
+            {((activePage && !resolvedPage) || (reference && !catalog)) && (
+              <p role="status">La página solicitada no está disponible.</p>
+            )}
             <DocReader
               activePage={resolvedPage}
               skills={skills}
@@ -249,8 +298,8 @@ export function ManualShell({
               standards={standards}
               selectedSkillSlug={refSkill}
               selectedAgentId={refAgent}
-              onClearSkill={() => setRefSkill(null)}
-              onClearAgent={() => setRefAgent(null)}
+              onClearSkill={() => setReferenceItem("")}
+              onClearAgent={() => setReferenceItem("")}
             />
           </div>
         </div>

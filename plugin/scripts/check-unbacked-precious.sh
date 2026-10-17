@@ -51,8 +51,8 @@ is_backed_up() {
   case "$1" in
     */.pandacorp/inbox/*|*/.pandacorp/comms/*) return 0 ;;
     */.pandacorp/run/*.sh|*/.pandacorp/run/lessons.md) return 0 ;;
-    */.pandacorp/status.yaml) return 0 ;;                              # backup-pandacorp-state.sh:82
-    factory/profile.md|factory/portfolio.md|factory/ports.yaml|factory/gamification-ledger.json) return 0 ;;
+    */.pandacorp/status.yaml|*/.pandacorp/navigation-identity.json) return 0 ;;                              # backup-pandacorp-state.sh:82
+    factory/profile.md|factory/portfolio.md|factory/navigation-identities.json|factory/ports.yaml|factory/gamification-ledger.json) return 0 ;;
     factory/memory/_inbox.md|factory/memory/_last-sweep|factory/ideas/*) return 0 ;;
     *) return 1 ;;
   esac

@@ -33,6 +33,9 @@ import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 // Props
 // ---------------------------------------------------------------------------
 
+import { getProjectNavigation } from "@/lib/navigation/identities";
+import { navigationHref } from "@/lib/navigation/urls";
+
 export interface ProjectRailProps {
   /** Rail project list from railProjects(). */
   items: ProjectListItem[];
@@ -41,6 +44,8 @@ export interface ProjectRailProps {
    * and the accent fill; pass "" when nothing is selectable (empty list).
    */
   selectedSlug: string;
+  selectedNavigationId?: string;
+  navigationBaseHref?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,12 +248,24 @@ function deriveSelectableRowView(item: ProjectListItem, isSelected: boolean): Se
  * rail item is the click target). RecoveryHint is a SIBLING of the Link (its
  * CopyButton must not be a <button> nested inside <a>; WCAG 4.1.2).
  */
+function projectRailHref(item: ProjectListItem, navigationBaseHref?: string): string {
+  return navigationHref(navigationBaseHref?.startsWith("/projects/") ? "/projects" : "/portfolio", {
+    project: getProjectNavigation(item.path, item.name).slug,
+    tab: "summary",
+    wo: null,
+    wotab: null,
+    doc: null,
+  });
+}
+
 function SelectableRow({
   item,
   isSelected,
+  navigationBaseHref,
 }: {
   item: ProjectListItem;
   isSelected: boolean;
+  navigationBaseHref?: string;
 }): React.JSX.Element {
   const {
     rowStyle,
@@ -274,7 +291,7 @@ function SelectableRow({
           The count dots are plain spans (non-interactive), so they are valid inside <a>.
           RecoveryHint (with its CopyButton) is a sibling, never a descendant. */}
       <Link
-        href={`?project=${encodeURIComponent(item.name)}`}
+        href={projectRailHref(item, navigationBaseHref)}
         style={LINK_STYLE}
         aria-label={`Seleccionar proyecto: ${item.name}`}
         aria-current={isSelected ? "page" : undefined}
@@ -379,7 +396,12 @@ function SelectableRow({
  *   IF-03-activeProjects (docs/api.md WO-03-001)
  *   DR-057 (reuse-before-create): ONE rail, not two
  */
-export function ProjectRail({ items, selectedSlug }: ProjectRailProps): React.JSX.Element {
+export function ProjectRail({
+  items,
+  selectedSlug,
+  selectedNavigationId,
+  navigationBaseHref,
+}: ProjectRailProps): React.JSX.Element {
   if (items.length === 0) {
     return (
       <nav data-testid="selectable-project-rail" style={RAIL_STYLE} aria-label="Proyectos activos">
@@ -391,7 +413,16 @@ export function ProjectRail({ items, selectedSlug }: ProjectRailProps): React.JS
   return (
     <nav data-testid="selectable-project-rail" style={RAIL_STYLE} aria-label="Proyectos activos">
       {items.map((item) => (
-        <SelectableRow key={item.name} item={item} isSelected={item.name === selectedSlug} />
+        <SelectableRow
+          key={item.path}
+          item={item}
+          isSelected={
+            selectedNavigationId
+              ? getProjectNavigation(item.path, item.name).id === selectedNavigationId
+              : item.name === selectedSlug
+          }
+          navigationBaseHref={navigationBaseHref}
+        />
       ))}
     </nav>
   );

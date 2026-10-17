@@ -25,6 +25,8 @@ ovl() { git --git-dir="$GD" --work-tree="$ROOT" -C "$ROOT" "$@"; }
 # Re-track the personal set with -f (the main repo gitignores them) so NEW idea cards get picked up,
 # then stage modifications/deletions of already-tracked files.
 FILES=(factory/profile.md factory/portfolio.md factory/ports.yaml factory/gamification-ledger.json factory/memory/_inbox.md)
+[ -f "$ROOT/factory/navigation-identities.json" ] && FILES+=(factory/navigation-identities.json)
+[ -f "$ROOT/mission-control/.pandacorp/navigation-identity.json" ] && FILES+=(mission-control/.pandacorp/navigation-identity.json)
 while IFS= read -r card; do FILES+=("$card"); done < <(find "$ROOT/factory/ideas" -maxdepth 1 -name '*.md' \
   ! -name '_idea-template.md' ! -name 'decision-log.md' 2>/dev/null | sed "s#^$ROOT/##")
 [ -d "$ROOT/factory/ideas/_drafts" ] && while IFS= read -r d; do FILES+=("$d"); done < <(find "$ROOT/factory/ideas/_drafts" -name '*.md' ! -name 'README.md' 2>/dev/null | sed "s#^$ROOT/##")

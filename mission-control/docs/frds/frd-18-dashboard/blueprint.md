@@ -195,3 +195,7 @@ WO-16-004). No intra-FRD parallelism (one WO). Its artifact globs are **disjoint
 real-time transport — WO-01-009; this surface is event-driven, NOT polling), `frd-15` and `frd-16` (it
 **hosts** both health banners, both `Banner` consumers). The dashboard composes — it must NOT re-implement
 live/no-signal, the next-step map, the board derivation, the memory-health read, or the banners.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

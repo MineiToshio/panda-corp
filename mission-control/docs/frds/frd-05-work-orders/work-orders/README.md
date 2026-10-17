@@ -36,3 +36,7 @@ and **live off `useLiveSnapshot`** (WO-01-009, event-driven, not polling).
 - **FRD-04** (`lib/docs.ts` `readDoc` for the full-document tab; `CMP-04-workspace` mounts the board).
 - **Producer contract:** the per-WO state marker written by `/pandacorp:implement` (factory plugin) —
   WO-05-001 fixtures must match it (see blueprint §5 flag).
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

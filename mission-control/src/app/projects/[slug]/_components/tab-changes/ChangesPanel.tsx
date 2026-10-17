@@ -29,7 +29,6 @@
  *                          REQ-04-009 (default-hidden Hechos/Descartados)
  */
 
-import { useState } from "react";
 import { Chip } from "@/components/core/Chip/Chip";
 import { Modal } from "@/components/core/Modal/Modal";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
@@ -38,6 +37,7 @@ import type {
   ChangeQueueReadResult,
   ChangeQueueStatus,
 } from "@/lib/changes/changes";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import { ChangeCard } from "./ChangeCard";
 import { ChangeDetail } from "./ChangeDetail";
 
@@ -144,18 +144,21 @@ export function ChangesPanel({ result, projectPath, slug }: ChangesPanelProps): 
   const hasItems = items.length > 0;
 
   // Selected item → detail modal (null = closed).
-  const [selected, setSelected] = useState<ChangeQueueItem | null>(null);
+  const [selectedKey, setSelectedKey] = useUrlState("change", "");
+  const selected = items.find((item) => item.id === selectedKey) ?? null;
+  function setSelected(item: ChangeQueueItem | null): void {
+    setSelectedKey(item?.id ?? "");
+  }
   // Toggleable groups (Hechos, Descartados) — hidden by default (REQ-04-009) so the
   // active queue doesn't grow unboundedly cluttered as a project ages.
-  const [openToggles, setOpenToggles] = useState<ReadonlySet<ChangeQueueStatus>>(new Set());
+  const [disclosed, setDisclosed] = useUrlState("change-status", "");
+  const openToggles = new Set(disclosed.split(","));
 
   function toggleGroup(status: ChangeQueueStatus): void {
-    setOpenToggles((prev) => {
-      const next = new Set(prev);
-      if (next.has(status)) next.delete(status);
-      else next.add(status);
-      return next;
-    });
+    const next = new Set(openToggles);
+    if (next.has(status)) next.delete(status);
+    else next.add(status);
+    setDisclosed([...next].filter(Boolean).sort().join(","));
   }
 
   function handleDiscarded(): void {

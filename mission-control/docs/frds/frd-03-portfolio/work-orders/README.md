@@ -46,3 +46,7 @@ data layer; hosts the FRD-04 workspace in its right panel. See the feature bluep
 - `data-testid` on interactive elements; Spanish UI copy via i18n; design tokens only;
   `tabular-nums` on metrics.
 - **Read-only:** never clones, never writes the portfolio, never calls Claude; no AI dependency added.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

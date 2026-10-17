@@ -35,3 +35,7 @@ FRD-07's readers (DR-046), so WO-08-002 builds **after** FRD-07's UI WO.
 | WO-08-001 | `lib/manual.ts` — index authored Manual content | `lib/manual.ts` | VERIFIED | WO-01-001 |
 | WO-08-002 | Documentación UI surface (re-anchor to prototype) | `src/app/manual/**` | VERIFIED | WO-08-001, WO-07-005, WO-07-001, WO-07-003, WO-07-004, WO-13-006, WO-13-007, WO-13-008 |
 </content>
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

@@ -52,6 +52,7 @@ import type { BoardColumn } from "@/lib/board/board";
 import type { DiscardResult } from "@/lib/discard/discard";
 import type { RestoreResult } from "@/lib/discard/restore";
 import type { FavoriteResult } from "@/lib/favorite/favorite";
+import { updateNavigation, useUrlState } from "@/lib/navigation/useUrlState";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -340,11 +341,14 @@ export function BoardShell({
   readDocAction,
   favoriteAction,
 }: BoardShellProps): React.JSX.Element {
-  const [query, setQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [query, setQuery] = useUrlState("boardQuery", "");
+  const [category, setCategory] = useUrlState("category", "");
+  const selectedCategory = category || null;
   const [intakeOpen, setIntakeOpen] = useState(false);
-  const [discardedOpen, setDiscardedOpen] = useState(false);
-  const [openSlug, setOpenSlug] = useState<string | null>(null);
+  const [discarded, setDiscarded] = useUrlState("discarded", "");
+  const discardedOpen = discarded === "1";
+  const setDiscardedOpen = (open: boolean) => setDiscarded(open ? "1" : "");
+  const [openSlug] = useUrlState("idea", "");
 
   // Discarded ideas are NOT a board column — they live behind the "Ver descartadas"
   // button (DiscardedModal). Split them out so the board never shows them.
@@ -363,7 +367,10 @@ export function BoardShell({
   );
 
   // When a card is open, locate it by slug.
-  const openCard = openSlug != null ? (cards.find((c) => c.slug === openSlug) ?? null) : null;
+  const openCard =
+    openSlug != null
+      ? (cards.find((c) => (c.navigationSlug ?? c.slug) === openSlug) ?? null)
+      : null;
 
   // Whether the discard button should appear (not discarded or shipped).
   const canDiscard =
@@ -376,15 +383,30 @@ export function BoardShell({
   // Handlers
   // ----------------------------------------------------------
   function handleCardClick(slug: string): void {
-    setOpenSlug(slug);
+    const card = cards.find((entry) => entry.slug === slug);
+    updateNavigation({
+      idea: card?.navigationSlug ?? slug,
+      boardTab: null,
+      doc: null,
+      phase: null,
+      specFrd: null,
+      architectureFrd: null,
+      adr: null,
+      model: null,
+      modelQuery: null,
+      entity: null,
+      relationship: null,
+      expanded: null,
+      schemaTable: null,
+      discarded: null,
+    });
     // Close any overlay (only one at a time): intake + the discarded-ideas modal.
     setIntakeOpen(false);
     setDiscardedOpen(false);
   }
 
   function handleClearFilters(): void {
-    setQuery("");
-    setSelectedCategory(null);
+    updateNavigation({ boardQuery: null, category: null });
   }
 
   // Conditional page-title chrome (DR-062): the open card's own head, or the board title.
@@ -433,7 +455,23 @@ export function BoardShell({
                 variant="secondary"
                 size="sm"
                 data-testid="card-detail-back"
-                onClick={() => setOpenSlug(null)}
+                onClick={() =>
+                  updateNavigation({
+                    idea: null,
+                    boardTab: null,
+                    doc: null,
+                    phase: null,
+                    specFrd: null,
+                    architectureFrd: null,
+                    adr: null,
+                    model: null,
+                    modelQuery: null,
+                    entity: null,
+                    relationship: null,
+                    expanded: null,
+                    schemaTable: null,
+                  })
+                }
                 ariaLabel="Volver al tablero"
               >
                 ← Volver al tablero
@@ -482,6 +520,7 @@ export function BoardShell({
 
             {/* Card detail — Campaña · Documentos tabs */}
             <CardDetail
+              key={openCard.navigationSlug ?? openCard.slug}
               slug={openCard.slug}
               title={openCard.title}
               status={openCard.status}
@@ -553,7 +592,7 @@ export function BoardShell({
                   data-testid="board-search"
                   type="search"
                   value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  onChange={(e) => setQuery(e.target.value, true)}
                   placeholder="Buscar ideas…"
                   aria-label="Buscar ideas por título o resumen"
                   style={SEARCH_INPUT_STYLE}
@@ -565,7 +604,7 @@ export function BoardShell({
                 data-testid="category-filter"
                 aria-label="Filtrar por categoría"
                 value={selectedCategory ?? ""}
-                onChange={(e) => setSelectedCategory(e.target.value === "" ? null : e.target.value)}
+                onChange={(e) => setCategory(e.target.value)}
                 style={SELECT_STYLE}
               >
                 <option value="">Todas las categorías</option>

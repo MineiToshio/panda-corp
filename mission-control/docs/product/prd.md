@@ -34,6 +34,8 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-23](../frds/frd-23-materialized-stats-read-model/frd.md) | Materialized stats read-model | The Informe reads a materialized `.pandacorp/stats.json` (honest cache + freshness seal) instead of deriving git on every render, falling back to live git when the snapshot is missing/stale/corrupt. |
 | [FRD-24](../frds/frd-24-decision-id-emitter/frd.md) | Shared decision-id emitter | Extracts the `decisions.md` id-derivation into a pure function + CLI so the factory's `/pandacorp:decide` skill can invoke the same rule instead of re-deriving it in prose; golden vectors prove both paths agree. |
 
+| [FRD-25](../frds/frd-25-persistent-navigation/frd.md) | Persistent navigation URLs | Stable resource/tab/detail URLs across all views, legacy links and history/refresh restoration. |
+
 ## Problem
 Operating the factory from the terminal alone is dry: there is no view of the overall state, you have to open files by hand, it's not obvious which skill is next, and nothing sustains the motivation of the solo operator day to day.
 
@@ -57,6 +59,7 @@ A read-only view that shows state + documentation + the next command, wrapped in
 4. Follow the agents building live, in a fun way (RPG-style **Party**).
 5. Feel progress: **achievements**, **stats** that grow, **guild level** and **agent levels**.
 6. Let another person understand the whole system (internal documentation).
+8. Return to the same project, tab and meaningful detail after refresh or a copied URL, with addresses stable across renames.
 7. Understand a project's complete architecture and logical model from either the board or portfolio, including attributes, keys and explicit relationship cardinalities.
 
 ## Scope v1

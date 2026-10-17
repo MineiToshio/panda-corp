@@ -11,7 +11,7 @@
 const SHELL_EXEMPT_EXACT: readonly string[] = ["/configuration"] as const;
 
 /** Prefixes whose whole subtree renders without the shell (mirrors `/projects/**`). */
-const SHELL_EXEMPT_PREFIXES: readonly string[] = ["/projects/"] as const;
+const SHELL_EXEMPT_PREFIXES: readonly string[] = ["/projects/", "/configuration/"] as const;
 
 /** True when `pathname` is a drill-in that renders without the global topbar. */
 export function isShellExempt(pathname: string): boolean {

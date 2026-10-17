@@ -24,7 +24,6 @@
 
 "use client";
 
-import { useState } from "react";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
 import { Tabs } from "@/components/core/Tabs/Tabs";
 import type { ChainState, Seal, Secret, Unique } from "@/lib/achievements/achievements";
@@ -35,6 +34,7 @@ import type { ReportScalars } from "@/lib/achievements/report/types";
 import type { ReaderData } from "@/lib/achievements/stats";
 import { rarityColor } from "@/lib/achievements/tiers";
 import type { GuildLevel } from "@/lib/gamification/gamification";
+import { useCanonicalSelection, useUrlState } from "@/lib/navigation/useUrlState";
 import { AlmostThere } from "../AlmostThere";
 import { ChainCard } from "../ChainCard/ChainCard";
 import { InformeBands, InformePulse } from "../Informe/Informe";
@@ -539,7 +539,9 @@ export function HallTabs({
   statsScalars,
   statsRecords,
 }: HallTabsProps): React.JSX.Element {
-  const [activeTab, setActiveTab] = useState<TabId>("resumen");
+  const [tabValue, setActiveTab] = useUrlState("hallTab", "resumen");
+  const activeTab = isTabId(tabValue) ? tabValue : "resumen";
+  useCanonicalSelection("achievements", "hallTab", activeTab);
 
   const handleTabChange = (id: string): void => {
     if (isTabId(id)) setActiveTab(id);

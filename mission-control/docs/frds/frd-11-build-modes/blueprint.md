@@ -148,3 +148,7 @@ FRD-04 Tabbar seam +   │
 `commandsBox`, `cmdRow`) on the frozen tokens; the selector stays a copy-command affordance (no run
 button — DR-061). The browser fidelity/smoke gate must be clean before VERIFIED. Reuse
 `docs/design/components.md` rows — no bespoke command-row/pill/panel fork.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

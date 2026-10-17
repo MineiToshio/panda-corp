@@ -46,6 +46,7 @@ import { CmdRow } from "@/components/core/CmdRow/CmdRow";
 import { CopyButton } from "@/components/core/CopyButton/CopyButton";
 import { Panel } from "@/components/core/Panel/Panel";
 import { SectionHead } from "@/components/core/SectionHead/SectionHead";
+import { navigationHref } from "@/lib/navigation/urls";
 
 // CardData is imported from @/app/(dashboard)/_lib/card — not re-declared here (DR-057).
 export type { CardData };
@@ -316,7 +317,7 @@ function ProjectCard({ card }: { card: CardData }): React.JSX.Element {
             command's CopyButton is a SIBLING of this Link (below), never nested
             inside the anchor (a11y + hydration). */}
         <Link
-          href={`/projects/${slug}`}
+          href={card.href ?? navigationHref(`/projects/${slug}`, { tab: "summary" })}
           data-testid="cartera-card-link"
           aria-label={`Abrir ${card.name}`}
           style={{ textDecoration: "none", color: "inherit", display: "block" }}

@@ -35,12 +35,12 @@ describe("useGoToParty hook — wires goToParty to Next.js router (AC-02-010.5)"
     expect(typeof result.current).toBe("function");
   });
 
-  it("calling the returned function with a valid slug pushes /projects/<slug>?tab=party", () => {
+  it("calling the returned function with a valid slug pushes /projects/<slug>/party", () => {
     mockPush.mockClear();
     const { result } = renderHook(() => useGoToParty());
     result.current("my-project");
     expect(mockPush).toHaveBeenCalledOnce();
-    expect(mockPush).toHaveBeenCalledWith("/projects/my-project?tab=party");
+    expect(mockPush).toHaveBeenCalledWith("/projects/my-project/party");
   });
 
   it("does NOT call router.push for an empty slug (safe no-op)", () => {
@@ -69,7 +69,7 @@ describe("useGoToParty hook — wires goToParty to Next.js router (AC-02-010.5)"
     result.current("project-a");
     result.current("project-b");
     expect(mockPush).toHaveBeenCalledTimes(2);
-    expect(mockPush).toHaveBeenNthCalledWith(1, "/projects/project-a?tab=party");
-    expect(mockPush).toHaveBeenNthCalledWith(2, "/projects/project-b?tab=party");
+    expect(mockPush).toHaveBeenNthCalledWith(1, "/projects/project-a/party");
+    expect(mockPush).toHaveBeenNthCalledWith(2, "/projects/project-b/party");
   });
 });

@@ -266,3 +266,7 @@ The core `Modal` (`src/components/core/Modal/Modal.tsx`) captures the active ope
 | `AppShell` | Centered 1240px maximum outer frame, consistent gutters, one header grid; inline nav above 1100px, integrated three-column disclosure through 1100px and two columns through 600px. All disclosed links 44px minimum. |
 
 Current owner amendment: ADR-0009. Shared IdeaPitch/SpecDigest inner panels fill available width. This amends earlier schema-block and narrow inner-panel visuals while retaining tokens and prose reading widths.
+
+### Persistent navigation composition (FRD-25)
+
+Existing BoardShell/CardDetail, ProjectWorkspace, global tab shells and shared readers own no duplicate selected-tab store: semantic selection derives from the URL through `useUrlState`. `NavigationSeedProvider` supplies exact server hydration state; `NavigationCanonical` replaces default/legacy addresses. These are behavior adapters around the approved components, with no new visual theme or width token. Expanded model restores its existing dialog; native fullscreen remains gesture-bound.

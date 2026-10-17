@@ -11,10 +11,10 @@
  * Documentos; visible only when the project has a spec digest).
  */
 
-import { useState } from "react";
 import { type LinkResolver, Markdown } from "@/components/core/Markdown/Markdown";
 import { Modal } from "@/components/core/Modal/Modal";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import {
   parseSpec,
   type SpecBlock,
@@ -434,7 +434,9 @@ export function SpecDigest({
 }: SpecDigestProps): React.JSX.Element {
   const spec = parseSpec(body);
   const metaChips = projectMetaChips(projectType, targetPlatforms);
-  const [openFrd, setOpenFrd] = useState<SpecFrd | null>(null);
+  const [frdId, setFrdId] = useUrlState("specFrd", "");
+  const openFrd = spec.frds.find((frd) => frd.id === frdId) ?? null;
+  const setOpenFrd = (frd: SpecFrd | null) => setFrdId(frd?.id ?? "");
   // The badge count is the real on-disk FRD folder count (derived live from disk —
   // DR-092/DR-115); the digest prose is narrative only. No caller-supplied live count
   // → no count shown: falling back to the parsed prose would silently resurrect the
@@ -499,6 +501,9 @@ export function SpecDigest({
         </section>
       )}
 
+      {frdId !== "" && openFrd == null && (
+        <p role="status">El FRD seleccionado no está disponible.</p>
+      )}
       {openFrd != null && <FrdModal frd={openFrd} onClose={() => setOpenFrd(null)} />}
     </article>
   );

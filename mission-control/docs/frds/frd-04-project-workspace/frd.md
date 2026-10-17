@@ -43,3 +43,7 @@ On opening a project from the portfolio, its workspace: a **tabs-first** surface
 - **AC-04-013.3** — WHEN the owner selects Spec, follows its deep link or opens a known document link in the digest, THE system SHALL retain the selected project and route context; known document links SHALL open that project's Documents reader, external links in a new tab and unknown relative targets as plain text.
 - **AC-04-013.4** — WHEN no nonempty spec digest is available, THE workspace SHALL retain the tab and state **Todavía no hay una especificación publicada.**, without borrowing another project's digest or inventing specification content.
 - **AC-04-013.5** — WHEN the selected project changes, THE Spec view SHALL reset project-local FRD/modal state and read only the new project's digest and real FRD count. Full-bleed digest bands SHALL remain contained in the embedded panel on desktop and mobile.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

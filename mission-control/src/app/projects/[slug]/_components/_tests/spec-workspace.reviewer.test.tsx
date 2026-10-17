@@ -5,6 +5,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { readCardProject } from "@/app/board/_utils/readCardProject";
 import PortfolioPage from "@/app/portfolio/page";
+import { parseNavigationUrl } from "@/lib/navigation/urls";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { readSpecDigest } from "@/lib/spec/read-spec";
 import ProjectWorkspacePage from "../../page";
@@ -12,7 +13,13 @@ import ProjectWorkspacePage from "../../page";
 const navigation = vi.hoisted(() => ({ push: vi.fn(), query: "" }));
 vi.mock("next/navigation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/navigation")>()),
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({
+    push: navigation.push,
+    replace: (href: string) => {
+      window.history.replaceState({}, "", href);
+      window.dispatchEvent(new PopStateEvent("popstate"));
+    },
+  }),
   useSearchParams: () => new URLSearchParams(navigation.query),
 }));
 
@@ -168,10 +175,10 @@ describe("Spec workspace independent review", () => {
     );
     const article = screen.getByRole("article", { name: "Resumen del spec" });
     const link = within(article).getByRole("link", { name: "Documento existente" });
-    const query = new URLSearchParams(link.getAttribute("href") ?? "");
-    expect(query.get("project")).toBe("Selected project");
-    expect(query.get("tab")).toBe("documents");
-    expect(query.get("doc")).toBe("docs/frds/frd-01-a/frd");
+    const query = parseNavigationUrl(link.getAttribute("href") ?? "");
+    expect(query.project).toBe("selected-project");
+    expect(query.tab).toBe("documents");
+    expect(query.doc).toBe("docs/frds/frd-01-a/frd");
     expect(link).not.toHaveAttribute("target", "_blank");
     expect(within(article).queryByRole("link", { name: "Documento desconocido" })).toBeNull();
     expect(within(article).getByText("Documento desconocido")).toBeInTheDocument();
@@ -221,10 +228,10 @@ describe("Spec workspace independent review", () => {
       }),
     );
     fireEvent.click(screen.getByRole("tab", { name: "Spec" }));
-    const next = new URLSearchParams(navigation.push.mock.calls[0]?.[0]);
-    expect(next.get("project")).toBe("Selected project");
-    expect(next.get("tab")).toBe("spec");
-    for (const stale of ["wo", "wotab", "doc"]) expect(next.has(stale)).toBe(false);
+    const next = parseNavigationUrl(navigation.push.mock.calls[0]?.[0] ?? "/");
+    expect(next.project).toBe("selected-project");
+    expect(next.tab).toBe("spec");
+    for (const stale of ["wo", "wotab", "doc"]) expect(next[stale]).toBeUndefined();
   });
 
   it("keeps Summary as the default and does not read Spec eagerly", async () => {

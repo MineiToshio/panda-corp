@@ -162,12 +162,26 @@ describe("ProjectRail selectable mode — rows", () => {
 // ---------------------------------------------------------------------------
 
 describe("ProjectRail selectable mode — Link navigation", () => {
-  it("each row has a link with href containing ?project=<name>", () => {
+  it("each row links to its explicit public project summary", () => {
     render(<ProjectRail items={[ITEM_ALPHA, ITEM_BETA]} selectedSlug="proj-alpha" />);
     const links = screen.getAllByRole("link");
     const hrefs = links.map((l) => l.getAttribute("href") ?? "");
-    expect(hrefs.some((h) => h.includes("project=proj-alpha"))).toBe(true);
-    expect(hrefs.some((h) => h.includes("project=proj-beta"))).toBe(true);
+    expect(hrefs.some((h) => h === "/portfolio/proj-alpha/summary")).toBe(true);
+    expect(hrefs.some((h) => h === "/portfolio/proj-beta/summary")).toBe(true);
+  });
+
+  it("switching projects clears another project's model and read-detail state", () => {
+    render(
+      <ProjectRail
+        items={[ITEM_ALPHA, ITEM_BETA]}
+        selectedSlug="proj-alpha"
+        navigationBaseHref="/portfolio/proj-alpha/architecture?entity=Alpha&expanded=1&adr=ADR-0001&specFrd=FRD-02"
+      />,
+    );
+    const beta = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href")?.includes("proj-beta"));
+    expect(beta).toHaveAttribute("href", "/portfolio/proj-beta/summary");
   });
 
   it("selected row's link has aria-current='page'", () => {

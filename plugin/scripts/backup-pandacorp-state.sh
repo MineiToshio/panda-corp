@@ -79,6 +79,7 @@ while IFS= read -r PD; do
   for SH in "$PD"/run/*.sh; do
     [ -f "$SH" ] && try_to "$DEST/$REL/run/$(basename "$SH")" rsync -a "$SH"
   done
+  [ -f "$PD/navigation-identity.json" ] && try_to "$DEST/$REL/navigation-identity.json" rsync -a "$PD/navigation-identity.json"
   [ -f "$PD/status.yaml" ] && try_to "$DEST/$REL/status.yaml" rsync -a "$PD/status.yaml"
 done < <(find "$ROOT" -maxdepth 3 -type d -name .pandacorp \
            -not -path '*/node_modules/*' -not -path '*/.git/*' 2>/dev/null)
@@ -88,7 +89,7 @@ done < <(find "$ROOT" -maxdepth 3 -type d -name .pandacorp \
 #    (Fable-audit 2026-07-04 #2): the gamification ledger, the ports ledger, the sweep stamp.
 if [ -d "$ROOT/factory" ]; then
   for F in "$ROOT/factory/profile.md" "$ROOT/factory/portfolio.md" "$ROOT/factory/memory/_inbox.md" \
-           "$ROOT/factory/memory/_last-sweep" "$ROOT/factory/ports.yaml" "$ROOT/factory/gamification-ledger.json"; do
+           "$ROOT/factory/navigation-identities.json" "$ROOT/factory/memory/_last-sweep" "$ROOT/factory/ports.yaml" "$ROOT/factory/gamification-ledger.json"; do
     [ -f "$F" ] && try_to "$DEST/factory/${F#"$ROOT"/factory/}" rsync -a "$F"
   done
   [ -d "$ROOT/factory/ideas" ] && try_to "$DEST/factory/ideas/" rsync -a \

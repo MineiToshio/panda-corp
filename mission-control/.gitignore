@@ -28,6 +28,8 @@ test-results/
 .pandacorp/comms/
 .pandacorp/inbox/
 .pandacorp/run/
+# Mission Control ships inside the framework; its registered identity is owner-private.
+.pandacorp/navigation-identity.json
 # Materialized stats read-model (FRD-23) — re-derivable runtime caches, never committed.
 .pandacorp/stats.json
 .pandacorp/stats-aggregate.json

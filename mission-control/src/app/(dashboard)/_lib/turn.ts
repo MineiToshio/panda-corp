@@ -71,7 +71,7 @@ export type TurnInput = {
    * Shipped projects awaiting /pandacorp:review-launch (DR-043).
    * One item per project entry.
    */
-  shippedAwaitingReview: Array<{ name: string; path: string }>;
+  shippedAwaitingReview: Array<{ name: string; path: string; href?: string }>;
   /**
    * True when the memory backlog nudge should fire (FRD-17 memoryHealth).
    * Computed upstream: rawNotes >= threshold OR staleDays >= threshold.
@@ -130,7 +130,7 @@ export function buildTurnQueue(input: TurnInput): TurnItem[] {
       kind: "review-launch",
       label: `Revisar lanzamiento: ${project.name}`,
       command: "/pandacorp:review-launch",
-      href: `/projects/${project.name}`,
+      href: project.href ?? `/projects/${encodeURIComponent(project.name)}/summary`,
     });
   }
 

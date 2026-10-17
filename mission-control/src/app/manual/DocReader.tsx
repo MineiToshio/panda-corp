@@ -1,4 +1,5 @@
 "use client";
+
 /**
  * app/manual/DocReader.tsx — WO-08-002 (CMP-08-doc-reader)
  *
@@ -22,16 +23,17 @@
  */
 
 import type React from "react";
-import { useState } from "react";
 import { DecisionRulesSection } from "@/app/configuration/_rules/DecisionRulesSection/DecisionRulesSection";
 import { AgentDetail } from "@/app/configuration/AgentDetail";
 import { AgentList } from "@/app/configuration/AgentList";
 import { SkillsSection } from "@/app/configuration/SkillsSection";
 import { StandardsSection } from "@/app/configuration/StandardsSection/StandardsSection";
 import { Markdown } from "@/components/core/Markdown/Markdown";
+import { MarkdownAnchorScope } from "@/components/core/Markdown/MarkdownAnchorScope";
 import { DocH } from "@/components/modules/manual-diagrams/DocH";
 import type { AgentLevelResult } from "@/lib/gamification/agents";
 import type { ManualPage } from "@/lib/manual/manual";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 import type { AgentRef, SkillRef } from "@/lib/reference/reference";
 import type { DecisionRule } from "@/lib/registry/registry";
 import type { Standard } from "@/lib/standards/standards";
@@ -124,7 +126,7 @@ function ReferenceAgentsCatalog({
   controlledAgentId?: string | null;
   onClear?: () => void;
 }): React.JSX.Element {
-  const [localAgentId, setLocalAgentId] = useState<string | null>(null);
+  const [localAgentId, setLocalAgentId] = useUrlState("referenceItem", "");
   const levels: Record<string, AgentLevelResult> = {};
   // Derive-don't-sync: controlled cross-nav selection wins over local clicks.
   const selectedAgentId = controlledAgentId != null ? controlledAgentId : localAgentId;
@@ -134,12 +136,15 @@ function ReferenceAgentsCatalog({
 
   // Any list interaction drops the controlled override so local selection takes over (incl. Back → null).
   function handleSelect(id: string | null): void {
-    onClear?.();
-    setLocalAgentId(id);
+    if (id === null) onClear?.();
+    setLocalAgentId(id ?? "");
   }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "calc(var(--space-base) * 1.5)" }}>
+      {selectedAgentId && !selectedAgent && (
+        <p role="status">El agente solicitado no está disponible.</p>
+      )}
       <AgentList
         agents={agents}
         levels={levels}
@@ -220,7 +225,9 @@ export function DocReader({
            chips + concept diagrams), render it. Otherwise fall back to the
            markdown reader (authored pages without a bespoke layout still render). */
         <article data-testid="doc-reader-authored">
-          <AuthoredBody page={activePage.page} />
+          <MarkdownAnchorScope style={{}} className="">
+            <AuthoredBody page={activePage.page} />
+          </MarkdownAnchorScope>
         </article>
       ) : (
         /* Reference catalog view — AC-08-002.3: render derived catalog by REUSING
@@ -228,6 +235,7 @@ export function DocReader({
         <article data-testid="doc-reader-reference">
           {activePage.catalog === "commands" && (
             <SkillsSection
+              selectionKey="referenceItem"
               skills={skills}
               selectedSkillSlug={selectedSkillSlug}
               onClearCrossNav={onClearSkill}
@@ -241,8 +249,12 @@ export function DocReader({
               onClear={onClearAgent}
             />
           )}
-          {activePage.catalog === "rules" && <DecisionRulesSection rules={rules} />}
-          {activePage.catalog === "standards" && <StandardsSection standards={standards} />}
+          {activePage.catalog === "rules" && (
+            <DecisionRulesSection rules={rules} selectionKey="referenceItem" />
+          )}
+          {activePage.catalog === "standards" && (
+            <StandardsSection standards={standards} selectionKey="referenceItem" />
+          )}
         </article>
       )}
     </main>

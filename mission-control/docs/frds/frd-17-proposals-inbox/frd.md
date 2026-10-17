@@ -48,3 +48,7 @@ The owner-facing surface of the factory's self-learning loop (DR-047) and the pl
 
 ## Relationship
 It extends [FRD-14](../frd-14-snapshot-and-feedback/frd.md) (the chips/feedback channels) with the proposals stream, consumes the event tail of [FRD-12](../frd-12-observability-dataviz/frd.md), and routes promotions into `/pandacorp:learn` (DR-047). The catalog of lessons and rules is surfaced read-only in the Manual ([FRD-08](../frd-08-documentation/frd.md)), which gains a "Self-learning loop" Concept page (DR-046). The state is written by the skills and the `librarian`, never by Mission Control.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

@@ -31,7 +31,7 @@ export function navTabStyle(active: boolean): React.CSSProperties {
   };
 }
 
-/** Exact active-match for a destination: `/` is exact; the other five match their own path. */
+/** Match a destination and its descendants at a complete path-segment boundary. */
 export function isNavActive(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href;
+  return pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
 }

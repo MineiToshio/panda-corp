@@ -40,3 +40,7 @@ the four UI WOs (page + streams/card, memory-health panel, promotions queue, bad
 > If a cross-feature reader (`lib/board`, `lib/events`, `lib/registry`, `lib/reference`) is not yet
 > shipped when WO-17-003 starts, stub the corresponding derivation behind its reader and light it up
 > when the reader lands — each of the 6 derivations is independently testable.
+
+## Navigation scope alignment (2026-10-17)
+
+Earlier local tab/detail selection, display-name URLs and bare nested query-link behavior in these historical work orders is superseded by [FRD-25](../../frd-25-persistent-navigation/frd.md). The approved manual slices NAV-01..04 in [its work-order scope](../../frd-25-persistent-navigation/work-orders.md) implement URL/history restoration and identity preservation for this feature. Existing WO status/verification fields remain historical executor-owned state; delivery evidence is recorded separately.

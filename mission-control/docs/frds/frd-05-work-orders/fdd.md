@@ -82,3 +82,7 @@ None. The kanban is **read-only** — the owner does not edit it; columns and ca
 written by the build agents. There are no state-preview/demo controls, no drag-to-move (the board is
 view-only, which also satisfies the WCAG "dragging has a single-pointer alternative" rule trivially —
 there is no drag). Clicking a card opens its read-only detail; nothing mutates state.
+
+## Persistent navigation integration — FRD-25 (2026-10-17)
+
+The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.

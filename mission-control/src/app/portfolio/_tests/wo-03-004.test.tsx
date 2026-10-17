@@ -151,8 +151,8 @@ describe("SelectableProjectRail — clickable rows (AC-03-004.1)", () => {
     render(<SelectableProjectRail items={[ITEM_ALPHA, ITEM_BETA]} selectedSlug="proj-alpha" />);
     const links = screen.getAllByRole("link");
     const hrefs = links.map((l) => l.getAttribute("href") ?? "");
-    expect(hrefs.some((h) => h.includes("project=proj-alpha"))).toBe(true);
-    expect(hrefs.some((h) => h.includes("project=proj-beta"))).toBe(true);
+    expect(hrefs.some((h) => h === "/portfolio/proj-alpha/summary")).toBe(true);
+    expect(hrefs.some((h) => h === "/portfolio/proj-beta/summary")).toBe(true);
   });
 
   it("selected row has data-selected='true'", () => {

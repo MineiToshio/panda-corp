@@ -16,6 +16,8 @@
 import type { CSSProperties } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { remarkHeadingAnchors } from "./headingAnchors";
+import { MarkdownAnchorScope } from "./MarkdownAnchorScope";
 
 // ---------------------------------------------------------------------------
 // Root — body scale (prototype: 15px / 1.6) + overflow safety
@@ -159,12 +161,36 @@ const IMG_STYLE: CSSProperties = { maxWidth: "100%", borderRadius: "var(--radius
 // ---------------------------------------------------------------------------
 
 const COMPONENTS: Components = {
-  h1: ({ children }) => <h2 style={H1_STYLE}>{children}</h2>,
-  h2: ({ children }) => <h3 style={H2_STYLE}>{children}</h3>,
-  h3: ({ children }) => <h4 style={H3_STYLE}>{children}</h4>,
-  h4: ({ children }) => <h5 style={H4_STYLE}>{children}</h5>,
-  h5: ({ children }) => <h6 style={H4_STYLE}>{children}</h6>,
-  h6: ({ children }) => <h6 style={H4_STYLE}>{children}</h6>,
+  h1: ({ children, id }) => (
+    <h2 id={id} style={H1_STYLE}>
+      {children}
+    </h2>
+  ),
+  h2: ({ children, id }) => (
+    <h3 id={id} style={H2_STYLE}>
+      {children}
+    </h3>
+  ),
+  h3: ({ children, id }) => (
+    <h4 id={id} style={H3_STYLE}>
+      {children}
+    </h4>
+  ),
+  h4: ({ children, id }) => (
+    <h5 id={id} style={H4_STYLE}>
+      {children}
+    </h5>
+  ),
+  h5: ({ children, id }) => (
+    <h6 id={id} style={H4_STYLE}>
+      {children}
+    </h6>
+  ),
+  h6: ({ children, id }) => (
+    <h6 id={id} style={H4_STYLE}>
+      {children}
+    </h6>
+  ),
   p: ({ children }) => <p style={P_STYLE}>{children}</p>,
   ul: ({ children }) => <ul style={UL_STYLE}>{children}</ul>,
   ol: ({ children }) => <ol style={OL_STYLE}>{children}</ol>,
@@ -172,7 +198,12 @@ const COMPONENTS: Components = {
   strong: ({ children }) => <strong style={STRONG_STYLE}>{children}</strong>,
   em: ({ children }) => <em style={{ fontStyle: "italic" }}>{children}</em>,
   a: ({ href, children }) => (
-    <a href={href} style={A_STYLE} target="_blank" rel="noreferrer noopener">
+    <a
+      href={href}
+      style={A_STYLE}
+      target={href?.startsWith("#") ? undefined : "_blank"}
+      rel="noreferrer noopener"
+    >
       {children}
     </a>
   ),
@@ -199,7 +230,7 @@ const COMPONENTS: Components = {
   ),
 };
 
-const REMARK_PLUGINS = [remarkGfm];
+const REMARK_PLUGINS = [remarkGfm, remarkHeadingAnchors];
 
 // ---------------------------------------------------------------------------
 // Link resolution (opt-in) — lets a caller rewrite where a markdown link points.
@@ -302,14 +333,13 @@ export function Markdown({
 }: MarkdownProps): React.JSX.Element {
   const components = resolveLink ? { ...COMPONENTS, a: makeAnchor(resolveLink) } : COMPONENTS;
   return (
-    <div
-      className="pc-markdown"
+    <MarkdownAnchorScope
       style={style ? { ...ROOT_STYLE, ...style } : ROOT_STYLE}
-      data-testid={rest["data-testid"]}
+      testId={rest["data-testid"]}
     >
       <ReactMarkdown remarkPlugins={REMARK_PLUGINS} components={components}>
         {children}
       </ReactMarkdown>
-    </div>
+    </MarkdownAnchorScope>
   );
 }

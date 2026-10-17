@@ -32,7 +32,7 @@ export type DocLinkTarget =
   /** In-page anchor (#section). */
   | { kind: "anchor"; href: string }
   /** A relative path that resolves to a doc the reader surfaces (by relPath). */
-  | { kind: "doc"; relPath: string }
+  | { kind: "doc"; relPath: string; anchor?: string }
   /** A relative path that does NOT resolve to a surfaced doc (render as plain text). */
   | { kind: "unknown" };
 
@@ -58,5 +58,9 @@ export function classifyDocLink(
   const noAnchor = href.split("#")[0] ?? href;
   const cleanPath = noAnchor.split("?")[0] ?? noAnchor;
   const resolved = resolveRelativePath(currentDir, cleanPath);
-  return knownRelPaths.has(resolved) ? { kind: "doc", relPath: resolved } : { kind: "unknown" };
+  if (!knownRelPaths.has(resolved)) return { kind: "unknown" };
+  const fragmentAt = href.indexOf("#");
+  return fragmentAt >= 0
+    ? { kind: "doc", relPath: resolved, anchor: href.slice(fragmentAt) }
+    : { kind: "doc", relPath: resolved };
 }

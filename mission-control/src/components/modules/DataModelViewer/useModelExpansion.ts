@@ -1,11 +1,17 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { flushSync } from "react-dom";
 import { useFullscreen } from "@/hooks/useFullscreen";
+import { useUrlState } from "@/lib/navigation/useUrlState";
 
 /** Native browser fullscreen with a model-only full-window fallback and modal focus lifecycle. */
 export function useModelExpansion() {
-  const [expanded, setExpanded] = useState(false);
+  const [expandedKey, setExpandedKey] = useUrlState("expanded", "");
+  const expanded = expandedKey === "1";
+  const setExpanded = useCallback(
+    (next: boolean) => setExpandedKey(next ? "1" : ""),
+    [setExpandedKey],
+  );
   const dialogRef = useRef<HTMLDialogElement>(null);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLSpanElement>(null);
@@ -18,7 +24,7 @@ export function useModelExpansion() {
       enteredNative.current = false;
       setExpanded(false);
     }
-  }, [native.isFullscreen]);
+  }, [native.isFullscreen, setExpanded]);
   useEffect(() => {
     if (!expanded) return;
     const dialog = dialogRef.current;
