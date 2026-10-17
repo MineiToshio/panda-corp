@@ -21,31 +21,31 @@
 biome.json:2:14 deserialize ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   i The configuration schema version does not match the CLI version 2.5.2
-  
+
     1 │ {
   > 2 │   "$schema": "https://biomejs.dev/schemas/2.5.1/schema.json",
       │              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     3 │   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     4 │   "files": {
-  
+
   i   Expected:                     2.5.2
       Found:                        2.5.1
-  
-  
+
+
   i Run the command biome migrate to migrate the configuration file.
-  
+
 
 Checked 910 files in 323ms. No fixes applied.
 Found 1 info.
 Configuration hints (8)
-**/*.d.ts                                                                   knip.json  Remove from ignore               
-.next/**                                                                    knip.json  Remove from ignore               
-src/test/**                                                                 knip.json  Remove from ignore               
+**/*.d.ts                                                                   knip.json  Remove from ignore
+.next/**                                                                    knip.json  Remove from ignore
+src/test/**                                                                 knip.json  Remove from ignore
 …p/**/{sitemap,robots,manifest,opengraph-image,icon,apple-icon}.{ts,tsx}    knip.json  Refine entry pattern (no matches)
 src/middleware.ts                                                           knip.json  Refine entry pattern (no matches)
 src/proxy.ts                                                                knip.json  Refine entry pattern (no matches)
 src/instrumentation.ts                                                      knip.json  Refine entry pattern (no matches)
-playwright.config.ts                                                        knip.json  Remove redundant entry pattern   
+playwright.config.ts                                                        knip.json  Remove redundant entry pattern
 - Finding files
 Processed 874 files (1.5s) (211 warnings)
 

@@ -91,4 +91,3 @@ fatal: not a git repository (or any of the parent directories): .git
       Tests  144 passed (144)
    Start at  20:34:49
    Duration  1.47s (transform 1.31s, setup 1.60s, import 2.09s, tests 1.46s, environment 3.32s)
-
