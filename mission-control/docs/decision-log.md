@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Keep full Spec accessible from Portfolio
+
+**What:** The shared Portfolio/direct-project workspace now exposes **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Spec reuses the board's complete `SpecDigest`, canonical project-local digest reader and live FRD-folder count. A thin client adapter shares Documents' existing safe link resolver, retaining the selected project when opening an allowed document. Unpublished digests show a pending explanation; switching projects resets FRD modal state. Summary remains the default. Browser testing also exposed missing focus restoration in the existing shared Modal; it now returns focus to a connected opener on close/unmount, with independent regressions and FRD-13 documentation.
+
+**Why:** The owner wants product specification available alongside work orders and architecture throughout implementation. Reuse preserves one presentation and one source; no copied specification/parser or phase-dependent loss of access is introduced.
+
+**Documentation and authorization:** Reconciled [PRD](product/prd.md), [architecture](product/architecture.md), FRD-02 and FRD-04 requirements/blueprints/FDDs, workspace work orders, [API](api.md), [components](design/components.md) and the model-viewer proposal. The owner's explicit direct-implementation instruction authorizes this bounded continuation; no build executor, project phase or work-order machine-status update is performed. PandaSaga's approved designed model is published in that project's own canonical artifact and docs, independently reviewed separately.
+
+**Evidence:** [Delivery and review](reviews/portfolio-spec/delivery.md) records current tests, isolated canonical verification and browser evidence; historical work-order status is not used as proof for this extension.
+
 ## 2026-10-16 — Pandacorp overlay 8.98.0 -> 8.100.0 (measured fidelity blocks) and the Manual's design freeze
 
 **What:** the build engine artifact `.claude/engines/pandacorp-build.js` is copied byte-identical from plugin 9.127.0 (which also carries 9.126.0's compatible overlay 8.99.1; its project rule `docs/rules/logical-data-model.md` is already here). Its FRD-gate prompts now say that a MEASURED fidelity mismatch from a project's fidelity gate blocks, and judged nits stay advisory (DR-129 amends DR-072). `overlay_version` follows. The Manual documents the new design flow in [skill-flows.ts](../src/lib/manual/skill-flows.ts): the round preflight, the parallel freeze stages with a 60 to 100 min target and a 2 h hard limit, and the single audit with blockers only before the advance gate. The Design section of [PipelineDetail.tsx](../src/app/manual/_components/PipelineDetail.tsx) gets a short paragraph and a list on the same points.

@@ -244,3 +244,12 @@ The scoped design reference is `docs/design/prototype/data-model-viewer/index.ht
 | `ModelInspector` | Selected entity/relation detail and Spanish direction/cardinality explanation | `src/components/modules/DataModelViewer/ModelInspector.tsx` | Shared model/selection; `1`, `0..1`, `0..*`, `1..*` | Source present |
 
 Reuse core `Button`/`SubTabs` for controls; dimensions/appearance resolve through feature tokens. The model source/validator/server reader are documented in the platform/API contract, not duplicated as UI state. Distinguish missing, explicit none, empty and error; usable models say **Modelo diseñado. Implementación sin verificar.** Illustrative schema fixtures stay out of MC's own no-persistence artifact.
+
+### Shared workspace Spec adapter (2026-10-16)
+
+`TabSpec` (`src/app/projects/[slug]/_components/tab-spec.tsx`) reuses the existing board `SpecDigest` without another digest UI. It adds the same project-scoped document-link resolver as `TabDocuments`; live counts and metadata arrive from the server workspace. Spec's FRD modal remains owned by the shared component. Spec is second in the nine-tab workspace, with missing input represented explicitly.
+
+
+## Shared modal focus — 2026-10-16
+
+The core `Modal` (`src/components/core/Modal/Modal.tsx`) captures the active opener when opened and restores it on close/unmount only while connected. Spec FRD, Intake and Discarded consumers share this keyboard behavior. The Portfolio Spec browser flow exposed the missing restoration; no modal presentation changes.

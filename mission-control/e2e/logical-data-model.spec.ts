@@ -10,6 +10,7 @@ test("portfolio reuses Architecture after Work orders with a draggable compact m
   const tabs = page.getByRole("navigation", { name: "Pestañas del espacio de trabajo" });
   await expect(tabs.getByRole("tab")).toHaveText([
     "Resumen",
+    "Spec",
     "Work orders",
     "Arquitectura",
     "Cambios",

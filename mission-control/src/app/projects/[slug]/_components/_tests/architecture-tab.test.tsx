@@ -13,6 +13,7 @@ describe("shared Architecture workspace entry", () => {
     render(<TabBar activeTab="architecture" />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       "Resumen",
+      "Spec",
       "Work orders",
       "Arquitectura",
       "Cambios",

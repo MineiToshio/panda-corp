@@ -1,0 +1,16 @@
+{
+  "mission-control/e2e/fixtures/factory-root/mission-control/.pandacorp/comms/spec-resumen.md": "866ed3e16e3511b87d3d74e3cb00c88e6f8f291f425ed860cc96624a653e9e83",
+  "mission-control/e2e/logical-data-model.spec.ts": "8a8852069e96fa2567af7b427545808ecb2f512236b4d9914aaf2c7ae5c5b398",
+  "mission-control/e2e/portfolio-spec.spec.ts": "f067684fccf49c40fc7f71bc1b76569f5878f3a187030eecc58f8b3ffade675e",
+  "mission-control/src/app/projects/[slug]/ProjectWorkspace.tsx": "b973d4cae50ba5a3ae3dc31ce120efb195797d83b7c7e8f9a03b874da44468d1",
+  "mission-control/src/app/projects/[slug]/_components/_tests/architecture-tab.test.tsx": "34b06256a98b8b584c15b5540761670f292b7bf2f74c254123dd19a38e59f93b",
+  "mission-control/src/app/projects/[slug]/_components/_tests/spec-tab.test.tsx": "69ffda8acfb7db6cab3a3463649d1f27ce54a361e7ec49737d3ef7bf7d02ac38",
+  "mission-control/src/app/projects/[slug]/_components/_tests/spec-workspace.reviewer.test.tsx": "9ad296648f74b7d4586d4dd1fc3d2dc88c667e73b26a8379279eb1c77b19d757",
+  "mission-control/src/app/projects/[slug]/_components/_tests/workspace-shell.test.tsx": "e015a9787a7ba522da19e56a8e7b79e0c82b15a29322bc88a645f3bf2ecaef87",
+  "mission-control/src/app/projects/[slug]/_components/document-links.ts": "42d9daa5a506d3d433524c26e858c6b0d816120fdba66df091aad75852e7d824",
+  "mission-control/src/app/projects/[slug]/_components/tab-documents/tab-documents.tsx": "2accb133c365c95d16c0e4e4cbf8eccdb54e98c8f609d5dcf0dd646641dfc8e0",
+  "mission-control/src/app/projects/[slug]/_components/tab-spec.tsx": "3b42cb491fd53d623ebfda132bdf5c2e35d1bb1bd596de4a73465714de10b862",
+  "mission-control/src/app/projects/[slug]/_components/tabbar.tsx": "5983b8559437b322d34e289e03a1fa603f944c60d47429d77496ffcd22aaab0b",
+  "mission-control/src/components/core/Modal/Modal.tsx": "dca2e0a7d72df27a5ff4db21264f2b7d5e1ed9e2f9970d42e7d980f3a6b023d4",
+  "mission-control/src/components/core/Modal/_tests/Modal.focus.reviewer.test.tsx": "0641d368f6efebef9effc7ccf878b883c552d6f94cc96085a279b345d0664b89"
+}

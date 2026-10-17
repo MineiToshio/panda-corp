@@ -127,3 +127,8 @@ so it builds **FIRST** and every UI FRD (02–12, 14–18) declares `frd-13` in 
 - **Cross-FRD deps:** none upstream (tokens frozen). Downstream: **every UI FRD depends on this.**
 - **Gate:** the FRD-13 review/visual gate — primitives render in light+dark, AA contrast, tokens only,
   keyboard/focus, `prefers-reduced-motion`; `docs/design/components.md` flips these rows to *real*.
+
+
+## Shared modal focus — 2026-10-16
+
+`src/components/core/Modal/Modal.tsx` captures the active opener at the open transition, focuses its panel and restores the connected opener in effect cleanup on close/unmount. It does not restore detached controls after a project switch. Existing keydown trapping and dismissal stay in the shared primitive; callers do not duplicate focus management.

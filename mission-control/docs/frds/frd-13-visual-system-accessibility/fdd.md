@@ -98,3 +98,8 @@ moment), and the `a11y/` primitives (`LiveRegion`, `useKeyboardNav`).
 `docs/design/prototype/index.html` `<style>` block (the app-wide skin + a11y rules) + the frozen
 `docs/design/design-tokens.json` and root `DESIGN.md`. There is no single render function: this is the
 cross-cutting token/a11y layer every render function inherits.
+
+
+## Shared modal focus — 2026-10-16
+
+A shared modal focuses its panel on open, traps keyboard navigation, and returns focus to its still-connected opener on dismissal or unmount. Switching projects must not return focus to a removed FRD control. No visual tokens or modal chrome change.

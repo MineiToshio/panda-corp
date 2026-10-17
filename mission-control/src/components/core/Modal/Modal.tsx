@@ -167,11 +167,14 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // Focus the panel when the modal opens so keyboard users can interact with it.
+  // Focus the panel on open and return to its connected opener on close/unmount.
   useEffect(() => {
-    if (open && panelRef.current) {
-      panelRef.current.focus();
-    }
+    if (!open || !panelRef.current) return;
+    const opener = document.activeElement;
+    panelRef.current.focus();
+    return () => {
+      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+    };
   }, [open]);
 
   // Escape dismisses + Tab/Shift+Tab focus trap (a11y).

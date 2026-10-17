@@ -4,7 +4,7 @@ Date: 2026-10-16 · Status: implemented and independently reviewed · Product: M
 
 ## Decision and experience
 
-Reuse the complete **Arquitectura** surface in board cards, the portfolio's selected-project workspace and direct project pages. Keep the existing **Modelo de datos** heading and all stack, services, environment, ADR, implementation-plan and per-FRD sections. There is no separate database-only tab. The workspace order is **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**; deep links use `/portfolio?project=<slug>&tab=architecture` and `/projects/<slug>?tab=architecture`.
+Reuse the complete **Arquitectura** surface in board cards, the portfolio's selected-project workspace and direct project pages. Keep the existing **Modelo de datos** heading and all stack, services, environment, ADR, implementation-plan and per-FRD sections. There is no separate database-only tab. The workspace order is **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**; deep links use `/portfolio?project=<slug>&tab=architecture` and `/projects/<slug>?tab=architecture`.
 
 Inside **Modelo de datos**, show a compact read-only logical ER diagram by default at every viewport width. Entity cards are 248px wide, headers 38px, attribute rows 24px and field text 12px. Show all declared fields, logical types, optionality, PK/FK/UQ roles, composite groups and explicit `1`, `0..1`, `0..*`, `1..*` endpoint cardinalities. Preserve association entities, isolated entities, self-relations and parallel edges; never infer or invent joins.
 

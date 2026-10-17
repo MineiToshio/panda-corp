@@ -12,7 +12,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/workspace-header.tsx'
   - 'src/app/projects/[slug]/_components/tabbar.tsx'
   - 'src/app/projects/[slug]/_components/objectives-bar.tsx'
-source_requirements: [REQ-04-001, REQ-04-002, REQ-04-012]
+source_requirements: [REQ-04-001, REQ-04-002, REQ-04-012, REQ-04-013]
 dependsOn: [WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003]
 last_updated: '2026-06-20'
 ---
@@ -37,9 +37,9 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
   `ti-player-play` `var(--ok)` running pip), a right cluster with the **status `Chip`** + version, and
   the thin progress line. **NOT a `PageTitle`** and **not a heavy `Panel`** — it is the workspace's own
   light `compactProjectHeader` per DR-062 / `components.md`.
-- **`CMP-04-tabbar` / `Tabbar`** (`tabbar.tsx`, Client `"use client"`) — the **eight-tab bar** built on
+- **`CMP-04-tabbar` / `Tabbar`** (`tabbar.tsx`, Client `"use client"`) — the **nine-tab bar** built on
   the shared **`Tabs`** primitive (the project-scoped `.stab` pills), in this order:
-  **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. The new **Observabilidad**
+  **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. The new **Observabilidad**
   tab (FRD-12, sibling of Party) is included. `role=tablist`, keyboard-navigable, `aria-selected`,
   default Resumen, selection URL-driven (`?tab=`) so Server Component bodies render.
 - **`CMP-04-objectives-bar` / `ObjectivesBar`** (`objectives-bar.tsx`, Server) — the **"Objetivos de la
@@ -51,8 +51,8 @@ tokens, reusing the FRD-13 foundation primitives instead of bespoke markup.
   — do not fork a second tab bar, progress bar or pill.
 
 ## Acceptance criteria
-- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly eight tabs in order
-  Resumen, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos.
+- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly nine tabs in order
+  Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Resumen**.
 - **AC-04-002.1** The header SHALL render the project name as the H1, the stage label (from `phase`)
   and `version`. The
@@ -113,7 +113,7 @@ Cycle 1 performed via `/preview-wo04004` route (portfolio slug resolution for `m
 
 ## Architecture extension scope — 2026-10-16
 
-The current goal includes the eight-tab order above plus mounting the **complete** existing `ArchitectureDigest` in `ProjectWorkspace`, using `readArchitectureArtifacts` from the same server seam as board cards. Preserve all panels, the **Modelo de datos** heading, selected project and `tab=architecture` in embedded/direct navigation. Do not fork a database-only panel. The shared reader/viewer implementation belongs to WO-02-007.
+The current goal includes the nine-tab order above plus mounting the **complete** existing `ArchitectureDigest` in `ProjectWorkspace`, using `readArchitectureArtifacts` from the same server seam as board cards. Preserve all panels, the **Modelo de datos** heading, selected project and `tab=architecture` in embedded/direct navigation. Do not fork a database-only panel. The shared reader/viewer implementation belongs to WO-02-007.
 
 - WHEN either workspace entry point selects Arquitectura, THE shell SHALL satisfy AC-04-012.1–.5 and FRD-02's shared model criteria.
 - WHEN the selected project changes, THE workspace SHALL replace project-local Architecture state and keep models isolated.
@@ -125,3 +125,9 @@ The current goal includes the eight-tab order above plus mounting the **complete
 Reconciled from code and current checks by `/pandacorp:sync` on 2026-10-16, under the owner's explicit direct-implementation instruction. This note covers the extension, separately from the historical delivery above. Shared reader/viewer and both surfaces are implemented. The canonical isolated-worktree `verify.sh --since da0d3a8404fae6f82e66f2870e7e69cb0bdcef21 --report-all` passed all 11 subgates (433 unit/integration tests and 42 shell/smoke browser cases). The additional feature E2E suite passed four desktop/mobile cases, including actual pointer pan, compact schema, tab order and modal focus. An independent reviewer passed 1,897 affected regression tests and authored adversarial cases; the graph adapter now isolates opaque authored IDs from Dagre's object-key internals.
 
 Evidence: [delivery report](../../../reviews/logical-data-model-viewer/delivery.md), [independent review](../../../reviews/logical-data-model-viewer/review.md). Existing machine-status fields are preserved; this scoped manual change does not launch or impersonate a build-engine run. Factory artifact production and reviewed project backfill remain separate from the implemented consumer.
+
+## Shared Spec extension — 2026-10-16
+
+Owner-authorized continuation: add Spec immediately after Resumen in the nine-tab workspace, lazily read the same published digest/live FRD count as board, and reuse the complete `SpecDigest` via thin `TabSpec`. Same-project document links use the canonical workspace resolver shared with Documents. Missing digest is explicit pending; key by project path resets FRD/modal state. Applies to Portfolio embed and direct page, desktop/mobile. Source requirements: REQ-04-013 / AC-04-013.1–.5 and FRD-02 REQ-02-011.
+
+Artifacts: `ProjectWorkspace.tsx`, `_components/tabbar.tsx`, `_components/tab-spec.tsx`, `_components/document-links.ts`, plus the existing Documents adapter import/compatibility seam. Existing machine status is preserved; this extension's current independent/canonical/browser evidence is recorded separately in the feature delivery report.

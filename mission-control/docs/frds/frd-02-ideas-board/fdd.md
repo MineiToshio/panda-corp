@@ -283,3 +283,7 @@ Keep the full existing Architecture hierarchy: hero, stack, **Modelo de datos**,
 **Esquema** is a compact textual Prisma-like block view of the logical model, with ordered attributes, key groups and explicit relationship endpoint labels. It is never an HTML attribute table and never promises executable Prisma/schema export. The same model powers both views. Narrow widths preserve usable controls and readable text rather than silently switching modes or shrinking the entire diagram.
 
 A missing source, explicit no-persistence declaration, valid empty model and invalid source have distinct text states. An invalid/unreadable source uses an alert with a bounded diagnostic, retaining every other Architecture panel. A usable model states **Modelo diseñado. Implementación sin verificar.** No real database schema is invented for MC, which declares no persistence. These design requirements need separate implementation/browser evidence; the prototype's verification evidence covers the prototype only.
+
+## 13. Shared Spec workspace entry (2026-10-16)
+
+The complete existing Spec digest view also mounts in the Portfolio/direct-project workspace under FRD-04 REQ-04-013, between Resumen and Work orders. One `SpecDigest` owns PRD/Research/FRD-card/modal presentation and the same digest/count readers supply both surfaces. The workspace contains its full-bleed bands and adapts markdown links to its project document reader. This adds no second Spec design or copy of its content; the board's conditional availability is unchanged.

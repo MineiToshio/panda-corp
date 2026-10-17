@@ -120,3 +120,8 @@ export const FOCUS_RING_CLASS: "focus-ring";
 **Mutation testing (DR-016, FRD milestone):** killed both probes — (a) removing the empty-list `selectedIndex >= 0` activeDescendant guard → R1 fails; (b) `aria-live="polite"→"assertive"` in `LiveRegion.tsx` → R5 + acceptance suites fail. Tests are not decorative.
 
 **aria-label-in-Spanish clause of AC-13-008.1** is delivered by the consuming components (StateBadge / WO-13-005, VERIFIED) and the icon hosts, not by a 13-003 helper — the WO's optional "convention helper" did not materialize as a separate export, which is acceptable: 13-003 owns the primitives (LiveRegion, keyboard nav, tabular-nums, focus ring), not the per-icon labels. No blocking finding.
+
+
+## Shared modal focus — 2026-10-16
+
+Reconciled from the scoped Portfolio Spec continuation: the existing core Modal now restores focus to a connected opener on close/unmount, avoiding detached controls after project switches. Scope includes `src/components/core/Modal/Modal.tsx` and independent focus regressions. Historical implementation status above is unchanged; current evidence is in `docs/reviews/portfolio-spec/delivery.md`.

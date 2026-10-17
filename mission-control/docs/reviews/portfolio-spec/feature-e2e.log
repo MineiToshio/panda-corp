@@ -1,0 +1,28 @@
+[WebServer] (node:4537) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4543) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:4543) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+
+Running 8 tests using 1 worker
+
+(node:4561) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (2.0s)
+  ✓  2 [desktop] › e2e/logical-data-model.spec.ts:54:1 › board exposes the same published model even without a narrative architecture digest (1.5s)
+  ✓  3 [desktop] › e2e/portfolio-spec.spec.ts:4:1 › Portfolio Spec reuses the digest, FRD dialog and same-project document links (1.6s)
+[WebServer] (node:4652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [desktop] › e2e/portfolio-spec.spec.ts:44:1 › standalone project supports a direct Spec link (759ms)
+[WebServer] (node:4669) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:4670) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  5 [mobile] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (2.3s)
+  ✓  6 [mobile] › e2e/logical-data-model.spec.ts:54:1 › board exposes the same published model even without a narrative architecture digest (1.9s)
+  ✓  7 [mobile] › e2e/portfolio-spec.spec.ts:4:1 › Portfolio Spec reuses the digest, FRD dialog and same-project document links (1.4s)
+[WebServer] (node:4766) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  8 [mobile] › e2e/portfolio-spec.spec.ts:44:1 › standalone project supports a direct Spec link (522ms)
+
+  8 passed (13.9s)

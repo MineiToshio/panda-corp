@@ -27,18 +27,20 @@ import { readBuildTimeline } from "@/lib/build-track/build-track";
 import { readChangeQueue } from "@/lib/changes/changes";
 import { resolveProjectPath } from "@/lib/config/config";
 import { readActivityLog, readDecisions } from "@/lib/docs/activity";
-import { listProjectDocs, readDoc } from "@/lib/docs/tree";
+import { countFrdFolders, listProjectDocs, readDoc } from "@/lib/docs/tree";
 import { readIdeas } from "@/lib/ideas/ideas";
 import { getOverlayFreshness } from "@/lib/overlay-freshness/overlay-freshness";
 import { readPending } from "@/lib/pendingMerge/pendingMerge";
 import type { ProjectListItem } from "@/lib/portfolio/portfolio";
 import { buildSnapshot } from "@/lib/snapshot/snapshot";
+import { readSpecDigest } from "@/lib/spec/read-spec";
 import { type Phase, type ProjectStatus, readStatus } from "@/lib/status/status";
 import { aggregateProgress, listWorkOrders, readWorkOrderDoc } from "@/lib/work-orders/work-orders";
 import { ObjectivesBar } from "./_components/objectives-bar";
 import { TabChanges } from "./_components/tab-changes/tab-changes";
 import { TabCommands } from "./_components/tab-commands/tab-commands";
 import { TabDocuments } from "./_components/tab-documents/tab-documents";
+import { TabSpec } from "./_components/tab-spec";
 import { TabSummary } from "./_components/tab-summary/tab-summary";
 import { TabWorkOrders } from "./_components/tab-work-orders/tab-work-orders";
 import { WoLiveRefresh } from "./_components/tab-work-orders/wo-live-refresh";
@@ -61,6 +63,7 @@ export interface WorkspaceSelection {
 
 const VALID_TABS = new Set<string>([
   "summary",
+  "spec",
   "work-orders",
   "architecture",
   "changes",
@@ -92,6 +95,34 @@ export interface ProjectWorkspaceProps {
 // Per-tab body resolvers (lazy reads stay co-located with the branch that owns them)
 // ---------------------------------------------------------------------------
 
+/** Reuse the board's complete Spec digest and canonical live FRD-count resolver. */
+function renderSpecTab(
+  projectPath: string,
+  title: string,
+  targetPlatforms: string | undefined,
+): React.JSX.Element {
+  const body = readSpecDigest(projectPath);
+  if (body === null) {
+    return <p>Todavía no hay una especificación publicada.</p>;
+  }
+  const nodes = listProjectDocs(projectPath);
+  const card = resolveProjectCard(projectPath);
+  return (
+    <div style={{ overflowX: "clip" }}>
+      <TabSpec
+        key={projectPath}
+        body={body}
+        title={title}
+        project={title}
+        nodes={nodes}
+        projectType={card?.projectType}
+        targetPlatforms={targetPlatforms}
+        frdCount={countFrdFolders(nodes)}
+      />
+    </div>
+  );
+}
+
 function renderWorkOrdersTab(
   projectPath: string,
   slug: string,
@@ -116,19 +147,15 @@ function renderWorkOrdersTab(
   return <TabWorkOrders orders={orders} project={slug} />;
 }
 
-/**
- * Resolve the project's summary — the SAME markdown the board card-detail shows in its
- * Documentos → Resumen. Both read the idea card's markdown body from `factory/ideas/*.md`.
- * Match by the RESOLVED project path: the card's `project` field is a pointer like
- * "mission-control" (NOT the display name), so we compare `resolveProjectPath(card.project)`
- * to the project's own resolved path — the same key the board uses to link a card to its
- * project. Falls back to the title when no card / empty body exists, so it's never blank.
- */
-function resolveProjectSummary(projectPath: string, fallback: string): string {
-  const card = readIdeas().find(
+/** Match the idea's canonical project pointer once for shared summary and Spec metadata. */
+function resolveProjectCard(projectPath: string) {
+  return readIdeas().find(
     (c) => c.project != null && resolveProjectPath(c.project) === projectPath,
   );
-  const body = card?.body.trim();
+}
+
+function resolveProjectSummary(projectPath: string, fallback: string): string {
+  const body = resolveProjectCard(projectPath)?.body.trim();
   return body !== undefined && body.length > 0 ? body : fallback;
 }
 
@@ -264,6 +291,9 @@ export function ProjectWorkspace({
 
   let body: React.JSX.Element;
   switch (activeTab) {
+    case "spec":
+      body = renderSpecTab(projectPath, title, status.targetPlatforms);
+      break;
     case "work-orders":
       body = renderWorkOrdersTab(projectPath, slug, woParam, woTabParam);
       break;

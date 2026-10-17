@@ -368,3 +368,7 @@ Use 248px entity cards, 38px headers, 24px attribute rows and 12px field text. D
 Extend the existing coarse WO-02-007 for the reader/viewer/board integration; WO-04-004 owns only the workspace mounting/tab seam. AC-02-015.1–.9 cover the capability; AC-04-012.1–.5 cover workspace parity and project isolation. Scoped visual oracle: [round-2 model viewer](../../design/prototype/data-model-viewer/index.html). Verification must exercise independently authored valid and malformed artifacts, key/cardinality edge cases, both navigation contexts, both themes and narrow widths. Mockup checks and existing VERIFIED frontmatter are not proof that the new acceptance criteria passed.
 
 Factory architecture producer/templates and real-project backfill remain separate factory tooling work. MC's own artifact declares `persistence: none`; no illustrative database is shipped as MC's real data model. Generalized operational-schema verification and live database access remain outside this delivery.
+
+### Spec reuse in project workspace (2026-10-16)
+
+FRD-04 REQ-04-013 reuses `SpecDigest`, `readSpecDigest` and the canonical live FRD-count helpers. The board still owns its conditional card-detail mount; workspace placement/link adaptation lives in `ProjectWorkspace`/`TabSpec`. The narrative is `.pandacorp/comms/spec-resumen.md` on both entry points, never a duplicate or a reconstruction from PRD filenames. Missing workspace input is explicit pending; project-path identity isolates open FRD state.

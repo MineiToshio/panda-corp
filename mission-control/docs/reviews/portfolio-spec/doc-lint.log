@@ -1,0 +1,20 @@
+  • .pandacorp/status.yaml carries key '_release_prior_note' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'blocked' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'build_lease_epoch' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'build_run_id' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'build_runtime' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'pending_bugs' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'pending_changes' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'run_completed_at' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'work_orders_blocked' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'work_orders_in_progress' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'work_orders_in_review' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'work_orders_planned' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+  • .pandacorp/status.yaml carries key 'work_orders_verified' not declared by the canonical template — a fact with a writer but no schema home; declare it in status.yaml.tpl (+ this list) or stop writing it (DR-115 schema drift)
+════════════════════════════════════════════════════════════════════════
+⚠️  DOC-LINT: 13 advisory finding(s) — frontmatter / REQ-ID-spine drift.
+    ADVISORY (this does NOT block the gate), but BE PROACTIVE: if you are
+    touching docs, FIX these now in the same pass — correct the missing
+    frontmatter keys / broken REQ→WO links. Don't just report them; doc
+    drift is a defect (owner directive 2026-06-30).
+════════════════════════════════════════════════════════════════════════

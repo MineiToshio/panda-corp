@@ -389,3 +389,7 @@ platform — no FRD is flagged as unbuildable.
 - [x] `.pandacorp/verify.sh` exists with fail-closed gates and actionable messages (DR-019).
 - [x] The stack is approved by the owner and recorded in **ADR-0001** (DR-002).
 - [x] The Party event contract (§5) includes the new `project` field.
+
+### Shared Spec workspace integration
+
+`readSpecDigest` supplies the board and both workspace entry points. `ProjectWorkspace` uses the same complete `SpecDigest` via the thin client `TabSpec`, serializable doc nodes and canonical live FRD count. Both tab URL resolvers accept `spec`; the order is Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos. `_components/document-links.ts` is the one pure workspace URL/classification adapter used by Spec and Documents. No client filesystem access or nonserializable server callback is introduced. Keys scoped to resolved project path reset open FRD state; absent digest is explicit pending.

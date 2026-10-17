@@ -214,6 +214,8 @@ campaign map) + `prototype/index.html` `detailView()`:
   showing that FRD's detail — Overview, User stories, Reglas de negocio, Fuera de alcance and Open
   questions — colour-coded per section, consistent with the Spec page.
 
+- AC-02-011.4 — WHEN Spec is opened from the Portfolio workspace or a direct project page, THE system SHALL reuse this complete Spec component and digest/count readers under FRD-04 REQ-04-013. The board's conditional-tab behavior remains unchanged; the workspace retains an honest empty state when its digest is absent.
+
 ### REQ-02-012 — Mark a card as favourite (visual highlight, any column) (CMP-02-favorite-action)
 
 > A purely **visual** affordance: the owner pins the ideas/projects they care about so they stand
