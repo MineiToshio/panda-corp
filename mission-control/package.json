@@ -28,6 +28,7 @@
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
+    "elkjs": "0.12.0",
     "gray-matter": "^4.0.3",
     "next": "^16.2.7",
     "react": "^19.2.7",

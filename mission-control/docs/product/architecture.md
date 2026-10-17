@@ -46,7 +46,7 @@ internal read-only tool. The full justification and the discarded alternatives a
 | Frontmatter | **gray-matter** | `^4.0.3` | Parses idea-card frontmatter (FRD-01/02). |
 | YAML | **yaml** | `^2.8.1` | Parses `.pandacorp/status.yaml` and `factory/decisions/registry.yaml`. |
 | Markdown | **react-markdown** | `^10.1.0` | Renders docs (PRD/FRD/work orders/Manual). |
-| Graph layout | **Dagre** (`@dagrejs/dagre`) | Existing locked dependency | Work-order DAG and native DOM/SVG logical-model layout; no React Flow or ELK addition (ADR-0006). |
+| Graph layout | **Dagre** for work orders; **ELK** (`elkjs@0.12.0`) for logical models | Locked dependencies | ER layout uses an off-thread layered orthogonal router and fixed field ports; native DOM/SVG rendering (ADR-0007). |
 
 **Package manager:** `pnpm`. **Node:** ≥20.9 (Next 16 minimum).
 
@@ -181,7 +181,7 @@ This artifact describes a monitored project's designed persistence model; it doe
 
 The exact version-1 contract is [ADR-0006](../adr/ADR-0006-shared-logical-data-model-viewer.md). It stores relational/document/none persistence, stable entities with ordered attributes (logical type, optionality, PK/FK/UQ), composite PK/UQ groups, and relationships with both explicit endpoint entity/field references and `min: 0 | 1`, `max: 1 | many`. Validation rejects invalid/unknown/oversized data, dangling/duplicate IDs and malformed mappings; it never infers links from names. The server reads at most 1 MiB of UTF-8 JSON and returns distinct ready/none/missing/error states. No project code is executed.
 
-The board and embedded/direct workspace use `readArchitectureArtifacts` and the same complete `ArchitectureDigest`. The **Modelo de datos** body hosts the compact shared `DataModelViewer` (native DOM/SVG + existing Dagre; diagram default at every width, textual **Esquema** alternative). Narrative-only legacy projects remain readable; a present model remains reachable without a digest. No-persistence, missing, valid empty and invalid input are distinct. The viewer shows designed-model provenance and never claims operational-schema verification from phase/work-order state.
+The board and embedded/direct workspace use `readArchitectureArtifacts` and the same complete `ArchitectureDigest`. The **Modelo de datos** body hosts the compact shared `DataModelViewer` (native DOM/SVG + off-thread ELK orthogonal layout; diagram default at every width, textual **Esquema** alternative). Narrative-only legacy projects remain readable; a present model remains reachable without a digest. No-persistence, missing, valid empty and invalid input are distinct. The viewer shows designed-model provenance and never claims operational-schema verification from phase/work-order state.
 
 The factory architecture-tooling producer and reviewed project backfill are separate dependencies, not implicit product writes. This delivery adds no database credentials, live introspection or project/schema editing.
 
@@ -393,3 +393,5 @@ platform — no FRD is flagged as unbuildable.
 ### Shared Spec workspace integration
 
 `readSpecDigest` supplies the board and both workspace entry points. `ProjectWorkspace` uses the same complete `SpecDigest` via the thin client `TabSpec`, serializable doc nodes and canonical live FRD count. Both tab URL resolvers accept `spec`; the order is Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos. `_components/document-links.ts` is the one pure workspace URL/classification adapter used by Spec and Documents. No client filesystem access or nonserializable server callback is introduced. Keys scoped to resolved project path reset open FRD state; absent digest is explicit pending.
+
+The model viewer’s entity widths derive from complete text columns; no ellipsis is used for field/type/header content. Its initial camera centers a readable connected table, while Ajustar fits the whole layout. Expanded mode portals only the diagram into the entire browser viewport, with floating navigation/search/close controls and no lower inspector. ELK’s thin browser API owns one native algorithm worker; asynchronous work is model-scoped, cancelled on replacement and bounded to 20 seconds. See ADR-0007.

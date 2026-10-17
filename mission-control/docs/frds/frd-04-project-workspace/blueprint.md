@@ -208,7 +208,7 @@ down; it does not implement those panels.
 
 `ProjectWorkspace.tsx` uses `lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` — the same server seam as board `readCardProject`. It passes the existing digest, validated `DataModelResult`, live work orders, environment-variable names and ADRs into the complete existing `ArchitectureDigest`. It does not fork its stack/services/plan panels. The workspace tab is always offered; absent artifacts yield an honest partial state. Both URL resolvers accept `architecture` in the same nine-tab order; portfolio links retain `project` and direct-page links retain the route slug.
 
-The component identity is keyed to the selected project so viewer state cannot leak. The compact ERD and **Esquema** representation are shared modules owned by FRD-02 REQ-02-015. The viewer imports no filesystem APIs. See [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) for the versioned model contract and native DOM/SVG + existing Dagre decision.
+The component identity is keyed to the selected project so viewer state cannot leak. The compact ERD and **Esquema** representation are shared modules owned by FRD-02 REQ-02-015. The viewer imports no filesystem APIs. See [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) for the versioned model contract and native DOM/SVG artifact contract, with the ELK readable-layout correction in ADR-0007.
 
 | Requirement | Acceptance criteria | Components / interfaces |
 |---|---|---|

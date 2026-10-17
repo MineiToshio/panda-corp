@@ -357,11 +357,11 @@ The complete existing `ArchitectureDigest` keeps its stack, **Modelo de datos**,
 | CMP-02-data-model-viewer | `src/components/modules/DataModelViewer/` | Shared read-only diagram, Esquema, controls, selection and state messages |
 | Project source | `docs/product/data-model.json` | Explicit schemaVersion 1 designed model, never inferred from narrative |
 
-The exact JSON contract and technical decision are in [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) and [API contracts](../../api.md). No React Flow/ELK dependency is added: use native DOM/SVG with the installed `@dagrejs/dagre` for deterministic layout, retaining field ports, self/parallel edges and explicit endpoint labels.
+The exact JSON contract and technical decision are in [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) and [API contracts](../../api.md). Use native DOM/SVG with exact-pinned `elkjs@0.12.0` for deterministic layered orthogonal layout, fixed field ports and explicit endpoint labels (ADR-0007). Dagre remains the separate work-order DAG dependency.
 
 ### Layout and interaction contract
 
-Use 248px entity cards, 38px headers, 24px attribute rows and 12px field text. Default to the compact **Diagrama** at every width. Pointer capture pans by dragging the canvas background; keyboard arrows and directional buttons provide alternatives, with zoom/fit/reset and accessible expanded-dialog focus/Escape. Search centers matches and selection explains links. The **Esquema** alternative is textual Prisma-like model blocks, not HTML attribute tables or executable Prisma. Both modes consume the same validated object and preserve composite keys/cardinalities. Theme and dimensions resolve through feature tokens.
+Use content-sized entity cards without field/type/header truncation, 38px headers, 24px attribute rows and 12px field text. Default to the compact **Diagrama** at every width. Pointer capture pans by dragging the canvas background; keyboard arrows and directional buttons provide alternatives, with zoom/fit/reset and accessible expanded-dialog focus/Escape. Search centers matches and selection highlights links; remove the lower inspector and duplicate relation buttons. Full-window expansion portals only the diagram, with minimal floating controls. The **Esquema** alternative is textual Prisma-like model blocks, not HTML attribute tables or executable Prisma. Both modes consume the same validated object and preserve composite keys/cardinalities. Theme and dimensions resolve through feature tokens.
 
 ### Work-order and verification mapping
 
@@ -372,3 +372,7 @@ Factory architecture producer/templates and real-project backfill remain separat
 ### Spec reuse in project workspace (2026-10-16)
 
 FRD-04 REQ-04-013 reuses `SpecDigest`, `readSpecDigest` and the canonical live FRD-count helpers. The board still owns its conditional card-detail mount; workspace placement/link adaptation lives in `ProjectWorkspace`/`TabSpec`. The narrative is `.pandacorp/comms/spec-resumen.md` on both entry points, never a duplicate or a reconstruction from PRD filenames. Missing workspace input is explicit pending; project-path identity isolates open FRD state.
+
+### Readable layout execution
+
+`entityGeometry.ts` owns conservative 12px monospace column widths and the geometry used for DOM tables and layout. `layout.ts` maps opaque artifact IDs to safe graph/port tokens, uses ELK layered RIGHT with COFFMAN_GRAHAM bound 3, fixed attribute-row ports and ORTHOGONAL routing. `routing.ts` separates exactly coincident composite-reference routes only in obstacle-free corridors without changing endpoints. `elkEngine.ts` loads the thin ELK API with its actual algorithm worker in browsers; Node hosts use the bundled adapter. `useModelLayout` isolates asynchronous results by model identity, cancels prior work and times out at 20 seconds. Failure is an explicit alert. `useViewport` starts at a readable connected entity, centers on resize/expansion, preserves drag/wheel/keyboard alternatives, fits all on Ajustar and resets to the readable view. No schema/artifact or producer change.

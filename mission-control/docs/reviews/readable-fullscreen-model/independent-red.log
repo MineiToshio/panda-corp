@@ -1,0 +1,252 @@
+
+ RUN  v4.1.9 /Users/Shared/Proyectos/panda-corp/mission-control
+
+(node:56060) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:56059) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+xxxxx·
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx > diagram-only expanded UX independent acceptance > removes the lower relationship inspector and duplicate relationship buttons
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <aside
+  aria-label="Relaciones"
+  class="_inspector_21dc0b"
+>
+  <p
+    class="_muted_21dc0b"
+  >
+    Selecciona una entidad o una relación para explorar sus vínculos.
+  </p>
+  <div
+    class="_relationList_21dc0b"
+  >
+    <button
+      aria-label="Ver relación Account ↔ Entry · Propiedad"
+      aria-pressed="false"
+      type="button"
+    >
+      Account ↔ Entry · Propiedad
+
+      <span>
+        1
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+    <button
+      aria-label="Ver relación Account ↔ Entry · Revisión"
+      aria-pressed="false"
+      type="button"
+    >
+      Account ↔ Entry · Revisión
+
+      <span>
+        0
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+    <button
+      aria-label="Ver relación Entry ↔ Entry · Referencia propia"
+      aria-pressed="false"
+      type="button"
+    >
+      Entry ↔ Entry · Referencia propia
+
+      <span>
+        0
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+  </div>
+</aside> instead
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx:37:77
+     35|   it("removes the lower relationship inspector and duplicate relations…
+     36|     await renderReady();
+     37|     expect(screen.queryByRole("complementary", { name: "Relaciones" })…
+       |                                                                             ^
+     38|     expect(screen.queryByText("Modelo diseñado. Implementación sin ver…
+     39|     const relations = screen.getAllByRole("button", { name: /^Ver rela…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx > diagram-only expanded UX independent acceptance > expands only one diagram while keeping source, tabs, schema and search out of the modal
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <div
+  aria-label="Vista del modelo"
+  data-level="sub"
+  data-testid="tabs-root"
+  role="tablist"
+  style="display: flex; gap: 5px; flex-wrap: wrap;"
+>
+  <button
+    aria-selected="true"
+    data-active="true"
+    data-testid="tab-diagram"
+    id="_r_1_-tab-diagram"
+    role="tab"
+    style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text); font-weight: 500; background: var(--color-card2); transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"
+    tabindex="0"
+    type="button"
+  >
+    Diagrama
+  </button>
+  <button
+    aria-selected="false"
+    data-active="false"
+    data-testid="tab-schema"
+    id="_r_1_-tab-schema"
+    role="tab"
+    style="display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text2); font-weight: 400; background: transparent; transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"
+    tabindex="-1"
+    type="button"
+  >
+    Esquema
+  </button>
+</div> instead
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx:49:49
+     47|     const dialog = screen.getByRole("dialog");
+     48|     const expanded = within(dialog);
+     49|     expect(expanded.queryByRole("tablist")).not.toBeInTheDocument();
+       |                                                 ^
+     50|     expect(expanded.queryByRole("searchbox")).not.toBeInTheDocument();
+     51|     expect(expanded.queryByText("docs/product/data-model.json")).not.t…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx > diagram-only expanded UX independent acceptance > preserves independently keyboard-selectable edges and both endpoint cardinalities without an inspector
+Error: expect(element).not.toBeInTheDocument()
+
+expected document not to contain element, found <aside
+  aria-label="Relaciones"
+  class="_inspector_21dc0b"
+>
+  <div
+    class="_relationDetail_21dc0b"
+  >
+    <strong>
+      Entry ↔ Entry · Referencia propia
+    </strong>
+    <p>
+      Cada Entry se relaciona con cero o más de Entry.
+    </p>
+    <p>
+      Cada Entry se relaciona con cero o uno de Entry.
+    </p>
+    <code>
+      Entry (ownerId) → Entry (reviewerId)
+    </code>
+  </div>
+  <div
+    class="_relationList_21dc0b"
+  >
+    <button
+      aria-label="Ver relación Account ↔ Entry · Propiedad"
+      aria-pressed="false"
+      type="button"
+    >
+      Account ↔ Entry · Propiedad
+
+      <span>
+        1
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+    <button
+      aria-label="Ver relación Account ↔ Entry · Revisión"
+      aria-pressed="false"
+      type="button"
+    >
+      Account ↔ Entry · Revisión
+
+      <span>
+        0
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+    <button
+      aria-label="Ver relación Entry ↔ Entry · Referencia propia"
+      aria-pressed="true"
+      type="button"
+    >
+      Entry ↔ Entry · Referencia propia
+
+      <span>
+        0
+        ..
+        1
+         ↔
+        0
+        ..
+        *
+      </span>
+    </button>
+  </div>
+</aside> instead
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.ux.reviewer.test.tsx:66:53
+     64|     expect(edge.querySelectorAll("[data-cardinality]")).toHaveLength(2…
+     65|     expect([...edge.querySelectorAll("[data-cardinality]")].map((marke…
+     66|     expect(screen.queryByRole("complementary")).not.toBeInTheDocument(…
+       |                                                     ^
+     67|   });
+     68|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/layout.ux.reviewer.test.ts > readable card sizing independent acceptance > reserves space for a complete long attribute and long type on the same row
+AssertionError: expected 248 to be greater than 402
+ ❯ src/components/modules/DataModelViewer/_tests/layout.ux.reviewer.test.ts:20:24
+     18|     if (!node) throw new Error("Long-field entity disappeared");
+     19|     // 6px per glyph is a deliberately conservative floor for a 12px m…
+     20|     expect(node.width).toBeGreaterThan((attributeName.length + attribu…
+       |                        ^
+     21|     expect(node.entity.attributes[0]?.name).toBe(attributeName);
+     22|     expect(node.entity.attributes[0]?.type).toBe(attributeType);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/layout.ux.reviewer.test.ts > readable card sizing independent acceptance > preserves a full entity heading when its attributes are short
+AssertionError: expected 248 to be greater than 324
+ ❯ src/components/modules/DataModelViewer/_tests/layout.ux.reviewer.test.ts:31:36
+     29|     if (!entity) throw new Error("Fixture requires an entity");
+     30|     const layout = await layoutModel({ ...model, entities: [{ ...entit…
+     31|     expect(layout.nodes[0]?.width).toBeGreaterThan(name.length * 6);
+       |                                    ^
+     32|   });
+     33| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  5 failed | 1 passed (6)
+   Start at  22:17:41
+   Duration  729ms (transform 121ms, setup 253ms, import 132ms, tests 167ms, environment 529ms)

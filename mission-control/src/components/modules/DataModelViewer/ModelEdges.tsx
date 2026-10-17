@@ -1,8 +1,7 @@
 import type { KeyboardEvent } from "react";
 import type { DataModelEndpoint } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
-import type { ModelEdge, ModelLayout } from "./layout";
-import type { ModelSelection } from "./ModelInspector";
+import type { ModelEdge, ModelLayout, ModelSelection } from "./layout";
 import styles from "./viewer.module.css";
 
 function EndpointMarker({
@@ -70,7 +69,7 @@ function Edge({
     }
   }
   return (
-    // biome-ignore lint/a11y/useSemanticElements: SVG paths require an SVG group; equivalent HTML buttons are also present in the inspector.
+    // biome-ignore lint/a11y/useSemanticElements: SVG paths require a group with button semantics and keyboard selection.
     <g
       className={styles.edge}
       data-active={active}

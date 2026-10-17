@@ -4,17 +4,19 @@ import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import { dataModelFixture } from "@/test/dataModelFixture";
 import { DataModelViewer } from "../DataModelViewer";
 
-function renderModel() {
-  return render(
+async function renderModel() {
+  const rendered = render(
     <DataModelViewer
       result={{ kind: "ready", model: dataModelFixture(), source: "docs/product/data-model.json" }}
     />,
   );
+  await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
+  return rendered;
 }
 
 describe("data model independent acceptance", () => {
-  it("starts with the complete diagram and compact field tables", () => {
-    renderModel();
+  it("starts with the complete diagram and compact field tables", async () => {
+    await renderModel();
     expect(screen.getByRole("tab", { name: "Diagrama" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("application")).toBeVisible();
     expect(screen.getAllByRole("table")).toHaveLength(3);
@@ -27,8 +29,8 @@ describe("data model independent acceptance", () => {
     ).toBeVisible();
   });
 
-  it("switches to code schema without keeping giant alternative tables", () => {
-    renderModel();
+  it("switches to code schema without keeping giant alternative tables", async () => {
+    await renderModel();
     fireEvent.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
@@ -40,8 +42,8 @@ describe("data model independent acceptance", () => {
     expect(screen.getByText(/model Persona \{/)).toHaveTextContent('"Supervisión"');
   });
 
-  it("searches field labels and reports an honest no-match state", () => {
-    renderModel();
+  it("searches field labels and reports an honest no-match state", async () => {
+    await renderModel();
     const input = screen.getByRole("searchbox");
     fireEvent.change(input, { target: { value: "reviewer_id" } });
     expect(screen.getByRole("button", { name: "Seleccionar entidad Tarea" })).toHaveAttribute(
@@ -57,21 +59,16 @@ describe("data model independent acceptance", () => {
     expect(screen.getByText(/model Persona \{/)).toBeVisible();
   });
 
-  it("preserves independently selectable parallel and self relationships", () => {
-    renderModel();
-    fireEvent.click(
-      screen.getByRole("button", { name: "Ver relación Tarea ↔ Persona · Revisión" }),
-    );
-    const inspector = screen.getByRole("complementary", { name: "Relaciones" });
-    expect(inspector).toHaveTextContent(
-      "Tarea (organization_id, reviewer_id) → Persona (organization_id, person_id)",
-    );
-    expect(inspector).toHaveTextContent(/cada Tarea/i);
-    expect(inspector).toHaveTextContent(/cada Persona/i);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Ver relación Persona ↔ Persona · Supervisión" }),
-    );
-    expect(inspector).toHaveTextContent("Persona (manager_id) → Persona (person_id)");
+  it("preserves independently selectable parallel and self edges without duplicate inspector controls", async () => {
+    await renderModel();
+    const review = screen.getByRole("button", { name: "Ver relación Revisión" });
+    fireEvent.click(review);
+    expect(review).toHaveAttribute("aria-pressed", "true");
+    const self = screen.getByRole("button", { name: "Ver relación Supervisión" });
+    fireEvent.click(self);
+    expect(self).toHaveAttribute("aria-pressed", "true");
+    expect(review).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
   });
 
   it.each([

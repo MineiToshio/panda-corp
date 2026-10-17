@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Readable graph cards and diagram-only full-browser expansion
+
+**What:** Applied the owner's correction to the shared logical viewer: content-sized full-text tables; ELK layered orthogonal routing with actual field ports; readable connected-table starting camera; full-browser diagram-only expansion with floating controls; removed the lower relation inspector and duplicate buttons. Preserved inline designed-model truth, artifact/reader contracts, diagram/schema modes, model isolation, drag, search and keyboard/focus behavior. Layout runs in a cancellable algorithm worker with explicit pending/error status.
+
+**Why:** Actual PandaSaga exposed clipped attributes, a narrow vertical arrangement, poor initial framing and a cluttered inset expansion. Small fixtures had not qualified large-model usability. Actual browser rehearsal also exposed ELK's bundled-adapter worker incompatibility; the browser now uses the thin API and native algorithm worker directly.
+
+**Canonical alignment:** [ADR-0007](adr/ADR-0007-readable-full-window-model-layout.md) amends ADR-0006; updated PRD, platform architecture, FRD-02 requirements/FDD/blueprint/WO-02-007, FRD-04 integration/FDD/WO-04-004, API, component inventory and current proposal. Owner feedback explicitly supersedes the old 248px/whole-viewer/inspector prototype details. No model artifact, project phase or work-order machine state is changed. Continuation of the owner's authorized direct implementation, including main commit/push and local port-1987 update.
+
+**Evidence:** [Delivery and independent review](reviews/readable-fullscreen-model/delivery.md) separates deterministic graph checks from real browser geometry, production-worker integration and deployed behavior.
+
 ## 2026-10-16 — Keep full Spec accessible from Portfolio
 
 **What:** The shared Portfolio/direct-project workspace now exposes **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Spec reuses the board's complete `SpecDigest`, canonical project-local digest reader and live FRD-folder count. A thin client adapter shares Documents' existing safe link resolver, retaining the selected project when opening an allowed document. Unpublished digests show a pending explanation; switching projects resets FRD modal state. Summary remains the default. Browser testing also exposed missing focus restoration in the existing shared Modal; it now returns focus to a connected opener on close/unmount, with independent regressions and FRD-13 documentation.

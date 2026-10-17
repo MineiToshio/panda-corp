@@ -1,10 +1,8 @@
-import { Button } from "@/components/core/Button/Button";
 import type { DataModel } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import { EntityCard } from "./EntityCard";
-import type { ModelLayout } from "./layout";
+import type { ModelLayout, ModelSelection } from "./layout";
 import { ModelEdges } from "./ModelEdges";
-import type { ModelSelection } from "./ModelInspector";
 import type { useViewport } from "./useViewport";
 import styles from "./viewer.module.css";
 
@@ -18,6 +16,7 @@ export function ModelDiagram({
   query,
   viewport,
   helpId,
+  expanded = false,
 }: {
   model: DataModel;
   layout: ModelLayout;
@@ -27,6 +26,7 @@ export function ModelDiagram({
   query: string;
   viewport: ReturnType<typeof useViewport>;
   helpId: string;
+  expanded?: boolean;
 }): React.JSX.Element {
   const related = new Set(
     model.relationships
@@ -43,41 +43,10 @@ export function ModelDiagram({
   }
   return (
     <>
-      <div className={styles.diagramControls}>
-        <div className={styles.controlsGroup}>
-          <Button size="sm" ariaLabel={COPY.zoomOut} onClick={() => viewport.zoomBy(1 / 1.2)}>
-            −
-          </Button>
-          <output aria-label={COPY.zoom}>{Math.round(viewport.view.zoom * 100)}%</output>
-          <Button size="sm" ariaLabel={COPY.zoomIn} onClick={() => viewport.zoomBy(1.2)}>
-            +
-          </Button>
-          <Button size="sm" onClick={viewport.fit}>
-            {COPY.fit}
-          </Button>
-          <Button size="sm" onClick={viewport.reset}>
-            {COPY.reset}
-          </Button>
-        </div>
-        <div className={styles.controlsGroup}>
-          <Button size="sm" ariaLabel={COPY.left} onClick={() => viewport.pan(64, 0)}>
-            ←
-          </Button>
-          <Button size="sm" ariaLabel={COPY.up} onClick={() => viewport.pan(0, 64)}>
-            ↑
-          </Button>
-          <Button size="sm" ariaLabel={COPY.down} onClick={() => viewport.pan(0, -64)}>
-            ↓
-          </Button>
-          <Button size="sm" ariaLabel={COPY.right} onClick={() => viewport.pan(-64, 0)}>
-            →
-          </Button>
-        </div>
-      </div>
       <div
         ref={viewport.canvasRef}
         data-testid="model-viewport"
-        className={styles.canvas}
+        className={`${styles.canvas} ${expanded ? styles.expandedCanvas : ""}`}
         // biome-ignore lint/a11y/noNoninteractiveTabindex: Arrow-key pan requires a focusable graph viewport.
         tabIndex={0}
         role="application"
@@ -107,7 +76,7 @@ export function ModelDiagram({
           ))}
         </div>
       </div>
-      <p id={helpId} className={styles.help}>
+      <p id={helpId} className={styles.srOnly}>
         {COPY.help}
       </p>
     </>

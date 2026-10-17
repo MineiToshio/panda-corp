@@ -44,11 +44,14 @@ describe("published model viewer", () => {
     );
     expect(screen.getByText("El modelo publicado no contiene entidades.")).toBeVisible();
   });
-  it("starts with a readable diagram, exposes every field and never claims implementation", () => {
+  it("starts with a readable diagram, exposes every field and never claims implementation", async () => {
     render(<DataModelViewer result={readyFixture()} />);
+    await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     expect(screen.getByRole("tab", { name: "Diagrama" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("application", { name: "Diagrama del modelo de datos" })).toBeVisible();
-    expect(screen.getByRole("status", { name: "Zoom" })).toHaveTextContent("100%");
+    expect(
+      Number.parseInt(screen.getByRole("status", { name: "Zoom" }).textContent ?? "0", 10),
+    ).toBeGreaterThan(0);
     expect(screen.getByText("Modelo diseñado. Implementación sin verificar.")).toBeVisible();
     const fields = screen.getByRole("table", { name: "Atributos Entry" });
     expect(within(fields).getByRole("cell", { name: "reviewerId" })).toBeVisible();
@@ -59,6 +62,7 @@ describe("published model viewer", () => {
   it("searches attributes, focuses their entity and displays no-results feedback", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     const input = screen.getByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.type(input, "reviewerId");
     expect(screen.getByRole("button", { name: "Seleccionar entidad Entry" })).toHaveAttribute(
@@ -70,22 +74,20 @@ describe("published model viewer", () => {
     await user.type(input, "absent");
     expect(screen.getByText("Sin coincidencias")).toBeVisible();
   });
-  it("explains each relation in both directions and shows mapped display fields", async () => {
+  it("selects relations on the diagram without a lower inspector", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
-    await user.click(screen.getByRole("button", { name: "Ver relación Propiedad" }));
-    const inspector = screen.getByRole("complementary", { name: "Relaciones" });
-    expect(
-      within(inspector).getByText("Cada Account se relaciona con cero o más de Entry."),
-    ).toBeVisible();
-    expect(
-      within(inspector).getByText("Cada Entry se relaciona con exactamente uno de Account."),
-    ).toBeVisible();
-    expect(within(inspector).getByText("Account (accountId) → Entry (ownerId)")).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: "Ver relación Propiedad" }));
+    expect(screen.getByRole("button", { name: "Ver relación Propiedad" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByRole("complementary", { name: "Relaciones" })).not.toBeInTheDocument();
   });
   it("offers compact schema blocks with composite keys and relation declarations", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.getByText(/model Entry \{/)).toHaveTextContent("@@unique([ownerId, reviewerId])");
@@ -96,17 +98,22 @@ describe("published model viewer", () => {
   it("zooms with explicit controls and wheel without scrolling the document", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
+    const zoom = () =>
+      Number.parseInt(screen.getByRole("status", { name: "Zoom" }).textContent ?? "0", 10);
+    const original = zoom();
     await user.click(screen.getByRole("button", { name: "Acercar" }));
-    expect(screen.getByRole("status", { name: "Zoom" })).toHaveTextContent("120%");
+    expect(zoom()).toBeGreaterThan(original);
     const canvas = screen.getByRole("application", { name: "Diagrama del modelo de datos" });
     expect(fireEvent.wheel(canvas, { deltaY: -100, clientX: 100, clientY: 100 })).toBe(false);
-    expect(screen.getByRole("status", { name: "Zoom" })).toHaveTextContent("147%");
+    expect(zoom()).toBeGreaterThan(original);
     await user.click(screen.getByRole("button", { name: "Restablecer" }));
-    expect(screen.getByRole("status", { name: "Zoom" })).toHaveTextContent("100%");
+    expect(zoom()).toBe(original);
   });
   it("opens a modal, traps focus, closes with Escape and restores the expand control", async () => {
     const user = userEvent.setup();
     render(<DataModelViewer result={readyFixture()} />);
+    await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.click(screen.getByRole("button", { name: "Ampliar modelo" }));
     const dialog = screen.getByRole("dialog", { name: "Modelo de datos" });
     expect(dialog).toContainElement(
@@ -115,7 +122,9 @@ describe("published model viewer", () => {
     const buttons = within(dialog).getAllByRole("button");
     buttons[buttons.length - 1]?.focus();
     await user.tab();
-    expect(within(dialog).getByRole("tab", { name: "Diagrama" })).toHaveFocus();
+    expect(
+      within(dialog).getByRole("application", { name: "Diagrama del modelo de datos" }),
+    ).toHaveFocus();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ampliar modelo" })).toHaveFocus();

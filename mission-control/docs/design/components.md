@@ -239,9 +239,8 @@ The scoped design reference is `docs/design/prototype/data-model-viewer/index.ht
 |---|---|---|---|---|
 | `ArchitectureDigest` | Complete existing Architecture: stack, **Modelo de datos**, services/env, ADRs, work-order plan and per-FRD cards, shared by board/workspace | `src/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest.tsx` | Existing digest/artifact props plus `DataModelResult`; model-only and partial states | Source present; shared integration subject to scoped checks |
 | `DataModelViewer` | Read-only compact logical model, all viewport widths | `src/components/modules/DataModelViewer/DataModelViewer.tsx` | `result: DataModelResult`; **Diagrama** default / **Esquema**, search, selection, expanded dialog | Source present; scoped implementation/browser checks tracked separately |
-| `ModelDiagram` | Native DOM/SVG stage and existing-Dagre layout, field ports and explicit endpoints | `src/components/modules/DataModelViewer/ModelDiagram.tsx` | 248px cards, 38px headers, 24px rows, 12px field text; pointer-pan, zoom/fit/reset, arrows/buttons | Source present; same viewer in all contexts |
+| `ModelDiagram` | Native DOM/SVG stage with ELK orthogonal field ports and explicit endpoints | `src/components/modules/DataModelViewer/ModelDiagram.tsx` | Content-sized full-text cards, 38px headers, 24px rows, 12px field text; pointer-pan, zoom/fit/reset, arrows/buttons | Source present; same viewer in all contexts |
 | `ModelSchema` | Compact Prisma-like textual blocks of the same model; no HTML attribute tables | `src/components/modules/DataModelViewer/ModelSchema.tsx` | Entities, optionality/keys, composite groups and explicit cardinalities; viewing only, not executable Prisma | Source present |
-| `ModelInspector` | Selected entity/relation detail and Spanish direction/cardinality explanation | `src/components/modules/DataModelViewer/ModelInspector.tsx` | Shared model/selection; `1`, `0..1`, `0..*`, `1..*` | Source present |
 
 Reuse core `Button`/`SubTabs` for controls; dimensions/appearance resolve through feature tokens. The model source/validator/server reader are documented in the platform/API contract, not duplicated as UI state. Distinguish missing, explicit none, empty and error; usable models say **Modelo diseñado. Implementación sin verificar.** Illustrative schema fixtures stay out of MC's own no-persistence artifact.
 
@@ -253,3 +252,5 @@ Reuse core `Button`/`SubTabs` for controls; dimensions/appearance resolve throug
 ## Shared modal focus — 2026-10-16
 
 The core `Modal` (`src/components/core/Modal/Modal.tsx`) captures the active opener when opened and restores it on close/unmount only while connected. Spec FRD, Intake and Discarded consumers share this keyboard behavior. The Portfolio Spec browser flow exposed the missing restoration; no modal presentation changes.
+
+`DiagramControls` reuses core Button for zoom, fit/reset and directional navigation. Full-window mode renders the same diagram with floating search/close/control groups, filling the viewport; provenance/tabs remain inline. `entityGeometry` is the single source of card/text widths, and `useModelLayout`/`elkEngine` isolate the cancellable algorithm worker. The retired lower inspector has no replacement panel.

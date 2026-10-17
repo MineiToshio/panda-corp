@@ -88,3 +88,8 @@ Spec sits between Resumen and Work orders. Reuse the board's existing Spec visua
 ## Shared modal focus — 2026-10-16
 
 Spec FRD details use the shared Modal. On dismissal, return keyboard focus to the connected FRD-card opener; project changes discard the old modal/opener.
+
+
+## Shared model readability correction — 2026-10-16
+
+Reuse the same FRD-02 AC-02-015.1–.11 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.

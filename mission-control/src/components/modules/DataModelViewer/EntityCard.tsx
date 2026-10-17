@@ -1,5 +1,6 @@
 import type { DataModelEntity } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
+import { entityGeometry } from "./entityGeometry";
 import type { ModelNode } from "./layout";
 import styles from "./viewer.module.css";
 
@@ -18,6 +19,7 @@ export function EntityCard({
   onSelect: (id: string) => void;
 }): React.JSX.Element {
   const entity = node.entity;
+  const [nameWidth, typeWidth, keyWidth, optionalWidth] = entityGeometry(entity).columns;
   return (
     <section
       className={styles.entity}
@@ -39,6 +41,12 @@ export function EntityCard({
         <span>{entity.attributes.length}</span>
       </button>
       <table aria-label={`${COPY.fields} ${entity.name}`}>
+        <colgroup>
+          <col style={{ width: nameWidth }} />
+          <col style={{ width: typeWidth }} />
+          <col style={{ width: keyWidth }} />
+          <col style={{ width: optionalWidth }} />
+        </colgroup>
         <thead className={styles.srOnly}>
           <tr>
             <th>{COPY.fields}</th>

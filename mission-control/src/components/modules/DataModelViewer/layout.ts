@@ -1,114 +1,106 @@
-import dagre from "@dagrejs/dagre";
-import type {
-  DataModel,
-  DataModelEntity,
-  DataModelRelationship,
-} from "@/lib/architecture/data-model/types";
+import type { ElkNode, ElkPort } from "elkjs/lib/elk-api";
+import type { DataModel, DataModelEntity } from "@/lib/architecture/data-model/types";
+import { routeGraph } from "./elkEngine";
+import { entityGeometry, HEADER_HEIGHT, ROW_HEIGHT } from "./entityGeometry";
+import type { ModelLayout } from "./layoutTypes";
+import { separateParallelRoutes } from "./routing";
 
-const NODE_WIDTH = 248;
-export const HEADER_HEIGHT = 38;
-export const ROW_HEIGHT = 24;
-const PADDING = 36;
+export type { ModelEdge, ModelLayout, ModelNode, ModelSelection } from "./layoutTypes";
 
-/** A compact entity card positioned in graph coordinates. */
-export interface ModelNode {
-  entity: DataModelEntity;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-/** A routed relation, retaining the endpoint field mapping from its source. */
-export interface ModelEdge {
-  relationship: DataModelRelationship;
-  points: { x: number; y: number }[];
-}
-/** Deterministic layout dimensions and positioned model objects. */
-export interface ModelLayout {
-  nodes: ModelNode[];
-  edges: ModelEdge[];
-  width: number;
-  height: number;
-}
-
-function mappedPort(
-  node: ModelNode,
+function fieldPort(
+  node: ElkNode,
+  entity: DataModelEntity,
   attributes: readonly string[] | undefined,
-  fallback: { x: number; y: number },
-) {
-  const fieldIndex = node.entity.attributes.findIndex((field) => field.id === attributes?.[0]);
+  { id, side }: { id: string; side: "EAST" | "WEST" },
+): ElkPort {
+  const row = entity.attributes.findIndex((field) => field.id === attributes?.[0]);
   return {
-    x: fallback.x < node.x + node.width / 2 ? node.x : node.x + node.width,
-    y: fieldIndex < 0 ? fallback.y : node.y + HEADER_HEIGHT + ROW_HEIGHT * (fieldIndex + 0.5),
+    id,
+    width: 0,
+    height: 0,
+    x: side === "EAST" ? node.width : 0,
+    y: row < 0 ? HEADER_HEIGHT / 2 : HEADER_HEIGHT + ROW_HEIGHT * (row + 0.5),
+    layoutOptions: { "elk.port.side": side },
   };
 }
 
-/** Lay out all entities, including isolated entities, parallel edges and self-relations. */
-export function layoutModel(model: DataModel): ModelLayout {
-  // Dagre uses ordinary objects internally; source IDs remain opaque outside this boundary.
-  const nodeIds = new Map(model.entities.map((entity, index) => [entity.id, `n${index}`]));
-  const edgeIds = new Map(model.relationships.map((relation, index) => [relation.id, `r${index}`]));
-  function graphNodeId(id: string): string {
-    const token = nodeIds.get(id);
-    if (!token) throw new Error(`Unknown entity reference: ${id}`);
-    return token;
-  }
-  const graph = new dagre.graphlib.Graph({ multigraph: true });
-  graph.setGraph({
-    rankdir: "LR",
-    marginx: PADDING,
-    marginy: PADDING,
-    nodesep: 48,
-    ranksep: 112,
-    edgesep: 28,
-  });
-  graph.setDefaultEdgeLabel(() => ({}));
-  for (const entity of model.entities)
-    graph.setNode(graphNodeId(entity.id), {
-      width: NODE_WIDTH,
-      height: HEADER_HEIGHT + ROW_HEIGHT * entity.attributes.length,
+/** Layered, crossing-minimized orthogonal layout with fixed ports on the actual field rows. */
+export async function layoutModel(model: DataModel, signal?: AbortSignal): Promise<ModelLayout> {
+  const tokens = new Map(model.entities.map((entity, index) => [entity.id, index]));
+  const children: ElkNode[] = model.entities.map((entity, index) => ({
+    id: `n${index}`,
+    ...entityGeometry(entity),
+    ports: [],
+    layoutOptions: { "elk.portConstraints": "FIXED_POS" },
+  }));
+  const graphEdges = model.relationships.map((relation, index) => {
+    const ends = [relation.from, relation.to].map((endpoint, end) => {
+      const nodeIndex = tokens.get(endpoint.entity);
+      const node = nodeIndex === undefined ? undefined : children[nodeIndex];
+      const entity = nodeIndex === undefined ? undefined : model.entities[nodeIndex];
+      if (!node || !entity) throw new Error(`Unknown entity reference: ${endpoint.entity}`);
+      const port = fieldPort(node, entity, endpoint.attributes, {
+        id: `p${index}_${end}`,
+        side: end === 0 ? "EAST" : "WEST",
+      });
+      node.ports?.push(port);
+      return port.id;
     });
-  for (const relation of model.relationships)
-    graph.setEdge(
-      graphNodeId(relation.from.entity),
-      graphNodeId(relation.to.entity),
-      {},
-      edgeIds.get(relation.id),
-    );
-  dagre.layout(graph);
-  const nodes = model.entities.map((entity) => {
-    const node = graph.node(graphNodeId(entity.id));
+    return { id: `r${index}`, sources: [ends[0] ?? ""], targets: [ends[1] ?? ""] };
+  });
+  const graph = await routeGraph(
+    {
+      id: "model",
+      children,
+      edges: graphEdges,
+      layoutOptions: {
+        "elk.algorithm": "layered",
+        "elk.direction": "RIGHT",
+        "elk.edgeRouting": "ORTHOGONAL",
+        "elk.randomSeed": "7",
+        "elk.padding": "[top=40,left=40,bottom=40,right=40]",
+        "elk.spacing.nodeNode": "48",
+        "elk.spacing.componentComponent": "80",
+        "elk.layered.spacing.nodeNodeBetweenLayers": "100",
+        "elk.layered.layering.strategy": "COFFMAN_GRAHAM",
+        "elk.layered.layering.coffmanGraham.layerBound": "3",
+        "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+        "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
+        "elk.aspectRatio": "1.6",
+      },
+    },
+    signal,
+  );
+  const positions = new Map(graph.children?.map((node) => [node.id, node]));
+  const routes = new Map(graph.edges?.map((edge) => [edge.id, edge]));
+  const nodes = model.entities.map((entity, index) => {
+    const node = positions.get(`n${index}`);
+    if (node?.x === undefined || node.y === undefined) throw new Error("Missing entity geometry");
+    return { entity, x: node.x, y: node.y, width: node.width ?? 0, height: node.height ?? 0 };
+  });
+  const edges = model.relationships.map((relationship, index) => {
+    const sections = routes.get(`r${index}`)?.sections;
+    if (!sections?.length) throw new Error("Missing relationship route");
     return {
-      entity,
-      x: node.x - node.width / 2,
-      y: node.y - node.height / 2,
-      width: node.width,
-      height: node.height,
+      relationship,
+      points: sections.flatMap((section) => [
+        section.startPoint,
+        ...(section.bendPoints ?? []),
+        section.endPoint,
+      ]),
     };
   });
-  const edges = model.relationships.map((relationship) => {
-    const route = graph.edge({
-      v: graphNodeId(relationship.from.entity),
-      w: graphNodeId(relationship.to.entity),
-      name: edgeIds.get(relationship.id),
-    });
-    const points = route.points.map((point: { x: number; y: number }) => ({ ...point }));
-    const from = nodes.find((node) => node.entity.id === relationship.from.entity);
-    const to = nodes.find((node) => node.entity.id === relationship.to.entity);
-    if (from && to && points.length > 1) {
-      points[0] = mappedPort(from, relationship.from.attributes, points[0]);
-      points[points.length - 1] = mappedPort(
-        to,
-        relationship.to.attributes,
-        points[points.length - 1],
-      );
-    }
-    return { relationship, points };
-  });
+  const separated = separateParallelRoutes(edges, nodes);
   return {
     nodes,
-    edges,
-    width: graph.graph().width ?? NODE_WIDTH + PADDING * 2,
-    height: graph.graph().height ?? PADDING * 2,
+    edges: separated,
+    width: Math.max(
+      graph.width ?? 0,
+      ...separated.flatMap((edge) => edge.points.map((point) => point.x + 40)),
+    ),
+    height: Math.max(
+      graph.height ?? 0,
+      ...separated.flatMap((edge) => edge.points.map((point) => point.y + 40)),
+    ),
   };
 }

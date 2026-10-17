@@ -1,5 +1,8 @@
 /** Spanish copy for the read-only architecture model viewer. */
 export const COPY = {
+  loading: "Organizando modelo…",
+  layoutError:
+    "No se pudo organizar el modelo. Vuelve a abrir Arquitectura para intentarlo de nuevo.",
   diagram: "Diagrama",
   schema: "Esquema",
   views: "Vista del modelo",
@@ -29,25 +32,12 @@ export const COPY = {
   select: "Seleccionar entidad",
   relation: "Ver relación",
   relationships: "Relaciones",
-  inspect: "Selecciona una entidad o una relación para explorar sus vínculos.",
-  noRelationships: "Sin relaciones declaradas.",
   optional: "Opcional",
   required: "Obligatorio",
   fields: "Atributos",
   type: "Tipo",
   keys: "Claves",
   value: "Valor",
-  keyLegend: "PK: clave primaria · FK: clave foránea · UQ: valor único · ?: opcional",
   matches: (count: number) =>
     `${count} ${count === 1 ? "entidad encontrada" : "entidades encontradas"}`,
-  endpoint: (min: number, max: number | "many") =>
-    max === "many"
-      ? min === 0
-        ? "cero o más"
-        : "uno o más"
-      : min === 0
-        ? "cero o uno"
-        : "exactamente uno",
-  direction: (from: string, to: string, count: string) =>
-    `Cada ${from} se relaciona con ${count} de ${to}.`,
 } as const;

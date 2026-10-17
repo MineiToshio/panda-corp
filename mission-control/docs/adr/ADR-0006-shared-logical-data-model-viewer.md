@@ -11,7 +11,7 @@ Board cards already have a complete Architecture digest with stack, data-model n
 
 ## Decision
 
-Reuse the complete existing `ArchitectureDigest` in both contexts and a single `readArchitectureArtifacts(projectPath)` server reader. The workspace order is **Resumen · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Architecture is not replaced by a standalone database tab. A structured model can make board Architecture available even when no narrative digest exists.
+Reuse the complete existing `ArchitectureDigest` in both contexts and a single `readArchitectureArtifacts(projectPath)` server reader. The workspace order is **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Architecture is not replaced by a standalone database tab. A structured model can make board Architecture available even when no narrative digest exists.
 
 The canonical project-owned artifact is `docs/product/data-model.json`, validated against the version-1 consumer contract before crossing the server/client boundary:
 
@@ -40,11 +40,12 @@ IDs are stable and unique in their scope. Endpoint/entity, field and composite-k
 
 `src/lib/architecture/data-model/types.ts` owns serializable types, `model.ts` owns pure validation, and `read-data-model.ts` owns the server-only, read-only file boundary. The file is bounded to 1 MiB and the parser rejects unsupported versions, unknown properties, duplicate IDs, invalid key/cardinality/reference mappings and malformed JSON. `DataModelResult` discriminates `ready | none | missing | error`; usable models with zero entities remain an explicit empty view. Invalid sources never become missing or a valid empty graph. A missing JSON source may preserve an existing narrative's explicit no-database declaration; invalid JSON never silently falls back to it.
 
-Use native DOM/SVG plus the already-installed Dagre dependency. Keep entity cards 248px wide, headers 38px high, rows 24px high and field text 12px, expressed through feature tokens. **Diagrama** is the default at all widths. Native pointer capture pans the background-transformed stage; labelled controls and keyboard arrows give equivalent movement, with zoom/fit/reset, search, selection and expanded modal focus handling. **Esquema** shows compact Prisma-like textual model blocks and explicit cardinalities from the same data; it is not an HTML attribute table or an executable Prisma schema.
+The rendering and navigation decision is amended by [ADR-0007](ADR-0007-readable-full-window-model-layout.md): native DOM/SVG remains, while content-sized cards, off-thread ELK orthogonal layout, a readable central starting view and diagram-only full-window expansion replace fixed widths, first-node framing and the lower inspector. The artifact, reader and shared-surface decisions above remain current.
+
 
 ## Alternatives and trade-offs
 
-The initial proposal preferred React Flow + ELK for node controls and port-aware orthogonal routing. The owner's compact native-canvas direction supersedes that recommendation: the application already has Dagre and DOM/SVG experience, the model is read-only and fixed-layout, and adding two graph engines would increase dependency/interaction surface. Native rendering requires explicit accessibility, focus, selection, cardinality endpoints and edge-routing checks; those costs remain visible in the FRD. Mermaid is appropriate for portable static diagrams but does not provide this attribute/search/selection product contract. Reusing the work-order DAG as an ERD would lose field/key/cardinality semantics, so only the layout dependency/patterns are reused.
+The initial proposal preferred React Flow + ELK for node controls and port-aware orthogonal routing. The original compact native-canvas delivery used Dagre (subsequently amended by ADR-0007 after actual-project feedback): the application already has Dagre and DOM/SVG experience, the model is read-only and fixed-layout, and adding two graph engines would increase dependency/interaction surface. Native rendering requires explicit accessibility, focus, selection, cardinality endpoints and edge-routing checks; those costs remain visible in the FRD. Mermaid is appropriate for portable static diagrams but does not provide this attribute/search/selection product contract. Reusing the work-order DAG as an ERD would lose field/key/cardinality semantics, so only the layout dependency/patterns are reused.
 
 ## Consequences and boundaries
 

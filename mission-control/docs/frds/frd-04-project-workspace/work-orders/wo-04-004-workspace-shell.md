@@ -131,3 +131,8 @@ Evidence: [delivery report](../../../reviews/logical-data-model-viewer/delivery.
 Owner-authorized continuation: add Spec immediately after Resumen in the nine-tab workspace, lazily read the same published digest/live FRD count as board, and reuse the complete `SpecDigest` via thin `TabSpec`. Same-project document links use the canonical workspace resolver shared with Documents. Missing digest is explicit pending; key by project path resets FRD/modal state. Applies to Portfolio embed and direct page, desktop/mobile. Source requirements: REQ-04-013 / AC-04-013.1–.5 and FRD-02 REQ-02-011.
 
 Artifacts: `ProjectWorkspace.tsx`, `_components/tabbar.tsx`, `_components/tab-spec.tsx`, `_components/document-links.ts`, plus the existing Documents adapter import/compatibility seam. Existing machine status is preserved; this extension's current independent/canonical/browser evidence is recorded separately in the feature delivery report.
+
+
+## Shared model readability correction — 2026-10-16
+
+Reuse the same FRD-02 AC-02-015.1–.11 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
