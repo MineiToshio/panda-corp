@@ -11,8 +11,8 @@ created: 2026-07-12
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [pandasaga]
 links: [LESSON-0160, LESSON-0161, LESSON-0163, LESSON-0166, LESSON-0162]
 ---
 

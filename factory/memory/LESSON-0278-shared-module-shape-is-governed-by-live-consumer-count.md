@@ -11,8 +11,8 @@ created: 2026-10-01
 status: active
 promotion: proposed   # target: factory/standards/patterns.md (new "Shared-module lifecycle" section) or quality.md's review checklist — rationale: this 3-facet discipline (export-both-when-2-diverge / delete-when-drops-to-1 / derive-a-subset-don't-narrow-the-shared-contract) recurred independently across 2 distinct projects (personal-page-v2, mission-control) via 3 separate incidents, is cheap to state as a review checklist item ("grep every consumer of a shared helper before changing or deleting it"), and closes a real gap: knip/linters only see import counts, never WHY a module exists or whether a change silently narrows it for consumers the author didn't check.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [pandasaga]
 links: [LESSON-0252, LESSON-0266, LESSON-0272]
 ---
 

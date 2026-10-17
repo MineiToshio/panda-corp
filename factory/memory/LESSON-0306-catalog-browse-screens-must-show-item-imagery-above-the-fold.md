@@ -11,8 +11,8 @@ created: 2026-10-13
 status: active
 promotion: none
 confidence: high
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [pandasaga]
 links: [LESSON-0312, BL-0056, BL-0233]
 ---
 

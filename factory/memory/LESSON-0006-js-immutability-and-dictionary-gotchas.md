@@ -11,8 +11,8 @@ created: 2026-06-30
 status: active
 promotion: none
 confidence: high
-times_applied: 1
-applied_in: [personal-page-v2]
+times_applied: 2
+applied_in: [personal-page-v2, pandasaga]
 links: []
 ---
 
