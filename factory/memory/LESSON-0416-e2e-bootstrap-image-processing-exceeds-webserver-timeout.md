@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0185]
 ---
 
 **Situation:** an e2e bootstrap step (seeding/publishing ~40 images, AVIF-encoded via `sharp` at its

@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0185]
 ---
 
 **Situation:** a canary asserted that `:focus-visible`-gated styling appeared after focusing an element

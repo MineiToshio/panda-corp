@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/comms/iteration.md ronda 4, 2026-10 (owner-sta
 provenance: owner-stated
 created: 2026-10-13
 status: active
-promotion: none
+promotion: proposed   # 2026-10-17 (librarian review) — target: factory/standards/accessibility.md (add a "hover-reveal controls need a touch fallback" rule alongside the existing a11y review checklist). Corroborated across 2 distinct projects (funko-tracker, pandasaga) with zero contradicting evidence — `:hover`-only controls are silently undiscoverable on every touch device, a recurring class of bug worth a standing design-review rule.
 confidence: medium
 times_applied: 2
 applied_in: [funko-tracker, pandasaga]

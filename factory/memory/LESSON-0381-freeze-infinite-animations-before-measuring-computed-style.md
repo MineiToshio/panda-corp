@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0047]
 ---
 
 **Situation:** a computed-styles oracle recorded the live `transform`/size of elements for later

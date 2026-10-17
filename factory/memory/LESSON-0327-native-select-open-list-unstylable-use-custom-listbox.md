@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-10 harvest (owner-stated):
 provenance: owner-stated
 created: 2026-10-15
 status: active
-promotion: none
+promotion: proposed   # 2026-10-17 (librarian review) — target: factory/standards/design.md (add "never ship a native `<select>` as the dropdown in a designed app" as a standing rule, pointing to a custom-listbox pattern). Corroborated across 2 distinct projects (funko-tracker, pandasaga), both owner-stated as a standing personal rule — high confidence, zero contradicting evidence.
 confidence: high
 times_applied: 2
 applied_in: [funko-tracker, pandasaga]

@@ -23,7 +23,16 @@ agent-inferred): an ERD/diagram viewer's `fit-to-view` can apply a CSS `transfor
 rendered field text well below its computed font-size (e.g. 12px computed, ~6.7px effective on screen)
 while a deterministic min-font-size check and axe both pass, because both read the computed CSS value,
 not the cumulative-scale-adjusted effective size — a genuinely unreadable diagram can read as a clean
-gate pass."
+gate pass. Folded in an ELEVENTH and TWELFTH mode (librarian review, 2026-10-17, folding two standalone
+candidates from the funko-tracker 2026-10 harvest — LESSON-0380, LESSON-0381): (11) a Playwright
+`page.screenshot({ fullPage: true })` capture under touch/mobile emulation (`hasTouch`+`isMobile`) can
+drop that emulation context for the full-page capture path specifically, so the screenshot shows
+`:hover`-only styling that a real touch user would never see — the element isn't actually hover-active,
+the capture mode is lying about pointer context; (12) measuring an element's computed `transform`/size
+into a style oracle while it carries an infinite CSS animation (a busy spinner) captures whatever frame
+the animation happened to be on, so the same oracle re-run reports a different value each time — freeze
+the animation (`animation-play-state: paused` or `prefers-reduced-motion`) before reading any computed
+style meant to be a stable baseline."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
@@ -31,7 +40,7 @@ promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standa
 confidence: medium
 times_applied: 1
 applied_in: [personal-page-v2]
-links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0060, LESSON-0069, LESSON-0245]
+links: [LESSON-0033, LESSON-0034, LESSON-0039, LESSON-0041, LESSON-0060, LESSON-0069, LESSON-0245, LESSON-0380, LESSON-0381]
 ---
 
 **Situation:** across two projects, five *different* root causes each produced a misleading result from

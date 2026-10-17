@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0040]
+links: [LESSON-0040, LESSON-0185]
 ---
 
 **Situation:** Playwright 1.64's `webServer` option builds its child process environment as
