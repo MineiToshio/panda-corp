@@ -75,7 +75,7 @@ prototype `topbar()` the per-FRD sharding skipped.
 
 ### Responsive (`shell.module.css`, ADR-0009)
 
-A fluid `width:100%; min-width:0` frame uses 20px desktop/tablet and 12px phone side gutters. The header is a grid: brand, actions and nav above 1100px; brand plus actions with a full-width navigation row at/below 1100px. Nav stays hidden while closed and uses three columns when open, reduced to two at/below 600px. All descendant anchors (including ProposalsBadge's wrapped link) have at least 44px height. Mobile identity shrinks without moving the toggle below the brand.
+A centered `width:100%; max-width:1240px; margin-inline:auto; min-width:0` outer frame uses 20px desktop/tablet and 12px phone side gutters. The header is a grid: brand, actions and nav above 1100px; brand plus actions with a full-width navigation row at/below 1100px. Nav stays hidden while closed and uses three columns when open, reduced to two at/below 600px. All descendant anchors (including ProposalsBadge's wrapped link) have at least 44px height. Mobile identity shrinks without moving the toggle below the brand.
 
 `ShellNavigation.tsx` owns `open` state, keyed by pathname by AppShell. Pointer-down outside the navigation/toggle closes it, Escape closes and restores toggle focus, and anchor activation closes even on the same route. Effects clean up both document listeners. CSS controls desktop visibility regardless of the closed state. This is an in-header disclosure, not a separate overlay panel. `globals.css` retains only the default `.app-nav` flex display; scoped responsive rules own the grid. Propuesta/Spec digest inner containers drop the 920px panel cap while existing introductory prose caps remain.
 

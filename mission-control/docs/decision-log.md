@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Restore the original application maximum; keep tabs host-width
+
+**What:** Restore the centered 1240px maximum outer application frame, including page gutters. Keep Propuesta/Spec/Architecture inner panels at their host's full width without the old 920px inner cap. Mobile/tablet navigation and model-only browser fullscreen remain unchanged.
+
+**Why:** The owner clarifies that the application's original maximum was correct. The request targeted narrower content inside tabs; interpreting it as an unbounded browser-width application made wide-screen reading unwieldy.
+
+**Canonical alignment:** FRD-19 AC-19-003.5, FRD-02's host-width contract, PRD/platform architecture, FDDs/blueprints/work-order scope, components and ADR-0009 reflect the corrected outer-vs-inner distinction. Historical delivery evidence remains historical. Current evidence: [bounded application width](reviews/bounded-app-width.md). No build-state changes.
+
 ## 2026-10-17 — Highlight relationship lines without a bounding-box focus ring
 
 **What:** Suppress the SVG relationship group's focus outline while retaining the existing accent/thicker line and endpoint strokes for selection and keyboard focus. Scope the override to relationship groups, inline and expanded; other controls retain their focus indicators.

@@ -34,7 +34,7 @@ import { isShellExempt } from "./shellScope";
 // ---------------------------------------------------------------------------
 
 /**
- * The single page column — the prototype's `#pcapp` (fluid width with consistent page gutters).
+ * The single page column — the prototype's `#pcapp` (centered 1240px maximum with consistent page gutters).
  * It wraps topbar and page content at the same available width; prose limits belong to text blocks.
  */
 /** The rpgpanel topbar surface — the embossed pixel tile + dot grid (matches GuildBar / Panel). */

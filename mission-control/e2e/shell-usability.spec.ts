@@ -10,7 +10,7 @@ async function board(page: Page, width: number, theme: string) {
   await expect(header).toBeVisible();
   const box = await header.boundingBox();
   if (!box) throw new Error("Application header missing");
-  expect(box.width).toBeGreaterThan(width - 70);
+  expect(box.width).toBeGreaterThan(Math.min(width, 1240) - 70);
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(width);
   expect(await page.evaluate(() => document.body.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -74,11 +74,13 @@ for (const theme of ["light", "dark"]) {
     await expect(nav).toBeHidden();
   });
 
-  test(`wide desktop uses available application width and one inline destination row (${theme})`, async ({
+  test(`wide desktop centers the 1240px frame with 1200px content and one inline destination row (${theme})`, async ({
     page,
   }) => {
-    const { box, toggle, nav } = await board(page, 1600, theme);
-    expect(box.width).toBeGreaterThan(1500);
+    const { header, box, toggle, nav } = await board(page, 1600, theme);
+    expect(await header.locator("..").boundingBox()).toMatchObject({ x: 180, width: 1240 });
+    expect(box.width).toBe(1200);
+    expect(box.x).toBe(200);
     await expect(toggle).toBeHidden();
     await expect(nav).toBeVisible();
     const rows = await nav.getByRole("link").evaluateAll((links) =>

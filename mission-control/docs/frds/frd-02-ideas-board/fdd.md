@@ -296,7 +296,7 @@ GraphControls owns the shared visual CSS/labels; WoDag and Model DiagramControls
 
 ## Architecture hierarchy and available width — 2026-10-17
 
-Stack explains technology/provider choices and rationale. **Integraciones y operación**, immediately next, preserves the authored service bullets and operational flows/tasks in full; it is not a second vendor inventory. The model follows, then live environment-variable names, decisions and the plan. Introductory helper copy makes this distinction explicit. `IntegrationBands` separates service and environment rendering without changing their readers. Shared Propuesta/Spec inner panels use `width:100%; min-width:0`; the shell frame is fluid. Existing intro prose line-length limits remain for reading, not as caps on the panels. See ADR-0009; the owner correction supersedes the earlier schema-block and section-order visual oracle only.
+Stack explains technology/provider choices and rationale. **Integraciones y operación**, immediately next, preserves the authored service bullets and operational flows/tasks in full; it is not a second vendor inventory. The model follows, then live environment-variable names, decisions and the plan. Introductory helper copy makes this distinction explicit. `IntegrationBands` separates service and environment rendering without changing their readers. Shared Propuesta/Spec inner panels use `width:100%; min-width:0`; the shell retains its original centered 1240px maximum outer frame. Existing intro prose line-length limits remain for reading, not as caps on the panels. See ADR-0009; the owner correction supersedes the earlier schema-block and section-order visual oracle only.
 
 ### Relationship focus presentation — 2026-10-17
 

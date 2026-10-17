@@ -57,6 +57,10 @@ The nav links replicate this exact treatment (tokens only — `--color-accent-bg
 - **Onboarding gate.** When the profile is absent, `layout.tsx` renders `OnboardingGate` instead of
   the shell (FRD-01) — the shell never sits behind the gate.
 
+## Application frame and tab widths (owner clarification, 2026-10-17)
+
+Retain the original centered 1240px maximum outer application frame, including its page gutters. Below that size it shrinks to the viewport; above it, header and page content stay centered together. Propuesta/Spec/Architecture panels use their host's full content width without the narrower 920px inner-panel cap. Long introductory prose retains readable line lengths. This corrects the earlier interpretation of "full width" as an unbounded application; model-only fullscreen still fills the browser.
+
 ## Accessibility
 - Landmarks: `<header role="banner">` for the shell, `<nav aria-label="Navegación principal">` for the
   destinations; page content stays in each page's own single `<main>` (the shell does not add a second

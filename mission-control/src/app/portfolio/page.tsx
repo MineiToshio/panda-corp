@@ -56,7 +56,7 @@ interface PageProps {
 // ---------------------------------------------------------------------------
 
 // Width + outer padding + the page <main> come from PageLayout (DR-062) inside the
-// single AppShell container (#pcapp, fluid width).
+// single AppShell container (#pcapp, centered 1240px maximum).
 /**
  * Rail label — mirrors prototype `railLabel()` + `.px` class:
  * small uppercase label above a section list (PROYECTOS, DOCUMENTOS, CAPÍTULOS).

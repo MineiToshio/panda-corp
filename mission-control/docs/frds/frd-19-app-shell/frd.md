@@ -80,12 +80,12 @@ This FRD covers the global shell: persistent identity, six destinations and resp
   five; WHEN the route is an exempt drill-in (see REQ-19-004) or otherwise unmatched, no destination
   SHALL be marked active (no false highlight).
 
-### REQ-19-003 — Responsive integrated navigation and fluid frame
+### REQ-19-003 — Responsive integrated navigation and bounded frame
 - **AC-19-003.1** WHEN the viewport is wider than 1100px, THE shell SHALL display all six destinations inline and hide the disclosure toggle.
 - **AC-19-003.2** WHEN the viewport is 1100px or narrower, THE shell SHALL place a minimum 44px toggle beside the brand at the top-right of the same header, hide the closed navigation, and reveal all destinations in a full-width row within that header; the toggle SHALL expose an accessible open/close label, `aria-expanded` and `aria-controls`.
 - **AC-19-003.3** WHEN the navigation is open at 600px or narrower, THE shell SHALL use two destination columns; from 601px through 1100px it SHALL use three. Every link, including the nested Propuestas badge destination, SHALL have a minimum 44px target height and remain within the header bounds at 320px, 390px, 768px and 1024px.
 - **AC-19-003.4** WHEN Escape is pressed with the menu open, THE shell SHALL close it and restore toggle focus; outside pointer-down, destination activation (including the current route) and route changes SHALL also close it.
-- **AC-19-003.5** WHEN rendering page content, THE shell SHALL use the available viewport width with consistent header/content gutters, without the previous 1240px frame limit; shared digest panels SHALL fill their host while prose MAY retain a readable line-length cap.
+- **AC-19-003.5** WHEN rendering page content, THE shell SHALL retain the original centered 1240px maximum outer application frame, including its consistent header/content gutters, and shrink to narrower viewports; shared digest panels SHALL fill their host without the narrower 920px inner panel cap, while prose MAY retain a readable line-length cap. Model-only fullscreen SHALL continue to fill the browser viewport.
 
 ### REQ-19-004 — Shell scope and exemptions
 - **AC-19-004.1** The drill-in surfaces that navigate via their own in-context header + back control —

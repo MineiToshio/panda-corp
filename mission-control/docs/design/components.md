@@ -263,6 +263,6 @@ The core `Modal` (`src/components/core/Modal/Modal.tsx`) captures the active ope
 | `DataModelViewer` / `ModelDiagram` | Repeat selected connector toggles it off. Diagram entity text alone is nonselectable; canvas pointer-down clears retained ranges. |
 | `IntegrationBands` | Existing complete service and environment renderers split into ServicesBand and EnvBand. Integraciones y operación precedes Modelo de datos; environment follows. |
 | `ShellNavigation` | `AppShell/ShellNavigation.tsx`: pathname-keyed disclosure state, close on outside/Escape/link/route; Escape restores toggle focus. |
-| `AppShell` | Fluid page frame, consistent gutters, one header grid; inline nav above 1100px, integrated three-column disclosure through 1100px and two columns through 600px. All disclosed links 44px minimum. |
+| `AppShell` | Centered 1240px maximum outer frame, consistent gutters, one header grid; inline nav above 1100px, integrated three-column disclosure through 1100px and two columns through 600px. All disclosed links 44px minimum. |
 
-Current owner amendment: ADR-0009. Shared IdeaPitch/SpecDigest inner panels fill available width. This amends earlier schema-block and fixed-frame visuals while retaining tokens and prose reading widths.
+Current owner amendment: ADR-0009. Shared IdeaPitch/SpecDigest inner panels fill available width. This amends earlier schema-block and narrow inner-panel visuals while retaining tokens and prose reading widths.

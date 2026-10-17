@@ -1,5 +1,7 @@
 .container {
   width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
   min-width: 0;
   padding: calc(var(--space-base) * 1.5) calc(var(--space-base) * 1.25)
     calc(var(--space-base) * 3.75);
