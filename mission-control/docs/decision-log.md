@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Inventory persistent navigation before implementation
+
+**Research outcome:** Audit all eight page families and nested selections for URL-backed navigation. Live browser checks reproduce lost board project/Spec, Proposals Backlog and Achievements Rangos on refresh. Source audit also finds name-derived project URLs and bare WO query links that omit the Portfolio project context.
+
+**Proposed direction:** Stable internal entity identity plus a separately persisted readable URL slug; explicit idea→project references, alias-preserving renames, dynamic route families and one typed route codec. Include Manual/Configuration and nested documents, WOs, read dialogs, views and filters. Preserve standalone and embedded workspace contexts. New/adopted project registration needs a separate factory producer/backup contract; native fullscreen still needs a user gesture.
+
+**Boundary:** [Research and route map](proposals/persistent-navigation-urls.md) is PROPOSED, not an implemented FRD or accepted runtime contract. No navigation code, phase/work-order status, factory producer or served application changes. The request remains a draft for the subsequent implementation specification. Independent source review found no blocker; case-sensitive IDs/document keys are explicitly retained.
+
 ## 2026-10-17 — Restore the original application maximum; keep tabs host-width
 
 **What:** Restore the centered 1240px maximum outer application frame, including page gutters. Keep Propuesta/Spec/Architecture inner panels at their host's full width without the old 920px inner cap. Mobile/tablet navigation and model-only browser fullscreen remain unchanged.
