@@ -4,8 +4,8 @@ type: pattern
 domain: design-process
 tags: [design-verification, data-volume, catalog, qa]
 context: reviewing a grouped/collection/catalog UI design with sample data before it goes to the owner or into the build
-trigger: use this when preparing or reviewing a grouped list/grid/catalog UI mockup and the available sample data is a dozen or so items rather than the volume the real product will actually carry
-source: "funko-tracker .pandacorp/comms/iteration.md ronda 7, 2026-10 (owner-stated): the owner explicitly asked to populate the mockup with a realistic catalog size (~150-200 items for a single franchise) rather than a handful of samples, wanting to see how the grouping/layout held up \"a nivel real\""
+trigger: use this when preparing or reviewing a grouped list/grid/catalog UI mockup, OR a graph/diagram-layout algorithm, and the available sample/fixture data is far smaller or simpler than the real product's actual data
+source: "funko-tracker .pandacorp/comms/iteration.md ronda 7, 2026-10 (owner-stated): the owner explicitly asked to populate the mockup with a realistic catalog size (~150-200 items for a single franchise) rather than a handful of samples, wanting to see how the grouping/layout held up \"a nivel real\". Corroborated 2026-10-16 (Mission Control, owner-stated): the owner's logical-model viewer correction explicitly required validating the graph/ERD layout algorithm and initial centering against the ACTUAL PandaSaga schema, not only small fixtures, before accepting the layout as correct — same principle, a second project and a second UI shape (graph layout, not a catalog grid)."
 provenance: owner-stated
 created: 2026-10-15
 status: active
@@ -30,4 +30,7 @@ is validating a different product than the one that will ship.
 **Apply next time:** before presenting or shipping a list/grid/catalog-type UI for review, populate it
 with (or at least test against) a dataset at the real expected order of magnitude — not a convenient
 small sample — so layout, density, grouping and pagination decisions are validated against the shape
-of data the product will actually carry.
+of data the product will actually carry. The same applies to a graph/diagram-layout algorithm (ERD,
+dependency map): validate the layout, grouping and initial centering against an actual production-scale
+schema/dataset, not only a small hand-built fixture — small fixtures hide uneven node sizes, dense
+clusters, and centering failures that only appear at real scale.

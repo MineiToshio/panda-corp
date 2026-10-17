@@ -323,3 +323,24 @@ three file shapes encountered so far (factory inbox with date-prefix, project `l
 provenance-prefix, and whatever plain tag-start shape the 2026-08-11 original formula assumed) — the fix
 must either try all three anchors per file or detect the live shape before counting. Source:
 factory/memory/_inbox.md agent-inferred note (2026-10-14 scheduled sweep, harvested 2026-10-15).
+
+## Note (annotated 2026-10-17) — a THIRD, not-yet-recorded counting method fails on a different axis: boundary detection, not line-tag matching
+
+All prior annotations above sharpen either the naive-overcount formula or the tag-anchored-undercount
+formula — both are LINE-TAG matching approaches. A 2026-10-16 scheduled sweep tried a third, structurally
+different method: `awk '/^-->/{line=NR}' file` to find the last drained-block's closing boundary and treat
+everything after it as pending. This method silently reported pandacast's `lessons.md` as 48/48 pending
+(never drained) when the file was actually fully drained, because that file's drain-block closing `-->`
+is appended INLINE at the end of a prose sentence (e.g. "...no new lesson file. -->") rather than alone on
+its own line — the same isolated-line-anchor trap the 2026-09-26/27/29/10-06/10-10 annotations already
+converged on rejecting for exactly this reason, now reproduced by a fresh, independently-written attempt
+that didn't consult those prior annotations before being written. Only a manual tail-read of the raw file
+caught the false positive. This is a BOUNDARY-DETECTION failure (where does the drained content END), a
+different facet from the line-tag-matching formulas the 2026-08-11/09-05/09-06/09-13/10-14 annotations
+cover — whoever implements this item's Fix plan must treat "find where the pending region starts" and
+"count/classify lines within the pending region" as two SEPARATE sub-problems, and the boundary-detection
+sub-problem must reuse the already-converged "last literal `-->` occurrence, anchored or not, nearest EOF"
+rule (2026-09-26/27/29) rather than re-deriving an isolated-line-anchor approach from scratch again. No new
+backlog item — same item, same note-count scope, a sharper cross-check for whoever eventually implements
+the fix design that has now accumulated enough independent annotations to be unambiguous. Source:
+factory/memory/_inbox.md agent-inferred note (2026-10-16 scheduled sweep, harvested 2026-10-17).

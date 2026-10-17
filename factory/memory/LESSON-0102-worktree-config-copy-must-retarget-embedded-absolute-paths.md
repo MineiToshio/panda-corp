@@ -51,3 +51,18 @@ relative to the app's own workspace concept. **Process guard for any of these th
 handing a preview URL to the owner for review, curl-verify a distinctive string known to be new (from the
 actual change under review) on the served port — don't trust that the URL "should" be pointed correctly
 just because the bootstrap/config edits look right.
+
+**Fourth mechanism (2026-10-17, Mission Control):** an APFS-CLONED `node_modules` directory (e.g. via a
+copy-on-write clone for an isolated verification checkout) preserves the absolute `NODE_PATH` values baked
+into pnpm's `.bin` shim scripts, which still point at the SOURCE checkout's own absolute path rather than
+the clone's — the same "renaming is cosmetic, embedded absolute paths must be retargeted" failure, this
+time inside a package manager's own generated binaries rather than a hand-maintained config file. Fix:
+running `pnpm install --frozen-lockfile --offline` inside the isolated checkout regenerates the `.bin`
+shims with paths correct for that checkout's own location, without touching the lockfile or re-fetching
+packages.
+
+**Apply next time (addendum):** when cloning/copying a directory tree for isolation (APFS clone, `cp -a`,
+a disposable worktree) that includes a package manager's `node_modules`, assume its generated binary
+shims/launchers carry embedded absolute paths from the SOURCE location too — re-run the package manager's
+own install (offline, frozen lockfile) in the new location to regenerate them, rather than trusting a
+file-level copy to have retargeted anything automatically.

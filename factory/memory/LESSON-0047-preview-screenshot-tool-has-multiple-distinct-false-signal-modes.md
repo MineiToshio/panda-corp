@@ -18,7 +18,12 @@ built-in browser pane's `computer scroll` sometimes does not move the page under
 theme toggle), re-querying the element is required — reading the previously-fetched node reports stale
 state; (9) a full-page screenshot of a page with `loading=\"lazy\"` images can capture them blank even
 after switching to eager loading — the fix is awaiting `img.decode()` (with a timeout) before capturing,
-not just changing the loading attribute."
+not just changing the loading attribute. Folded in a TENTH mode (Mission Control, 2026-10-16,
+agent-inferred): an ERD/diagram viewer's `fit-to-view` can apply a CSS `transform: scale()` that shrinks
+rendered field text well below its computed font-size (e.g. 12px computed, ~6.7px effective on screen)
+while a deterministic min-font-size check and axe both pass, because both read the computed CSS value,
+not the cumulative-scale-adjusted effective size — a genuinely unreadable diagram can read as a clean
+gate pass."
 provenance: agent-inferred
 created: 2026-07-03
 status: active
@@ -105,3 +110,14 @@ re-query an element after any click that could trigger a re-render rather than r
 reference. (9) before a full-page screenshot of a page with lazy-loaded images, await `img.decode()`
 (with a timeout) for each image rather than merely switching `loading` to eager — a blank captured
 portrait after a reveal/eager-load change is this race, not a layout regression.
+
+**Tenth mode (2026-10-16, Mission Control):** a deterministic min-font-size check and axe both measure
+the element's COMPUTED CSS font-size, not its cumulative-scale-adjusted EFFECTIVE on-screen size — a
+diagram viewer's `fit-to-view` can apply `transform: scale()` to shrink a whole group well below
+readable size while every individual element's own computed font-size still passes the gate cleanly.
+
+**Apply next time (addendum):** (10) when auditing text rendered inside any scaled/transformed container
+(a diagram fit-to-view, a zoomed canvas), compute the EFFECTIVE size as declared font-size × the
+cumulative transform scale of every ancestor, not just the declared value, and visually confirm via a
+real screenshot — treat a scaled-to-fit view as an explicit "overview" mode and offer a 100%-scale view
+with scroll/expansion as the one that must pass readability checks.

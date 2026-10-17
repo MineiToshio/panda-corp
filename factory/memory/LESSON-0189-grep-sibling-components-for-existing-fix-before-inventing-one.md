@@ -5,7 +5,7 @@ domain: react
 tags: [debugging, overlay, popup, clipping, portal, code-reuse, diagnosis]
 context: "diagnosing a UI overlay/popup bug (clipping, z-index, positioning) in a component that has a sibling component solving the same underlying UI problem elsewhere in the same codebase"
 trigger: "use this when diagnosing an overlay/popup/dropdown clipping or z-index bug — before designing a new fix, check whether a sibling component in the same codebase already solves the same underlying positioning problem"
-source: "factory/memory/_inbox.md agent-inferred note (pandatrack project) — a date-picker popup rendered truncated inside a modal (`DatePickerInput.tsx`, positioned `position:absolute` as a plain DOM descendant of a modal with `overflow-hidden`/`overflow-y-auto`), while a sibling component in the same codebase, `DateRangePickerInput.tsx`, already had the correct fix (Portal-rendered + `position:fixed` computed from `getBoundingClientRect()` + reposition on open/resize/scroll + flip on both axes on overflow) — it had simply never been ported to the single-date component"
+source: "factory/memory/_inbox.md agent-inferred note (pandatrack project) — a date-picker popup rendered truncated inside a modal (`DatePickerInput.tsx`, positioned `position:absolute` as a plain DOM descendant of a modal with `overflow-hidden`/`overflow-y-auto`), while a sibling component in the same codebase, `DateRangePickerInput.tsx`, already had the correct fix (Portal-rendered + `position:fixed` computed from `getBoundingClientRect()` + reposition on open/resize/scroll + flip on both axes on overflow) — it had simply never been ported to the single-date component. Corroborated 2026-10-16 (Mission Control, owner-stated): asked for a logical-model fullscreen/zoom treatment, the owner required reusing the EXISTING Architecture dependency-map's presentation (true browser fullscreen + a compact top-corner icon toolbar) as the visual oracle, explicitly rejecting an independently-styled full-window overlay — the same reuse-a-sibling's-already-solved-pattern discipline, this time as an owner-mandated consistency requirement rather than an agent's own bug-diagnosis technique."
 provenance: agent-inferred
 created: 2026-08-11
 status: candidate
@@ -37,4 +37,8 @@ grep the codebase for sibling components solving the same underlying UI problem 
 name, same primitive — e.g. `Foo*Input.tsx` variants, `*Dropdown.tsx` variants). If a working reference
 implementation exists, port its technique rather than inventing a new one; if it doesn't, treat the
 absence itself as a signal these components have already drifted and consider extracting the shared
-positioning logic into one hook/utility so the next bug fix doesn't need porting at all.
+positioning logic into one hook/utility so the next bug fix doesn't need porting at all. The same
+discipline applies beyond bug-fixing: when ADDING a new presentation pattern (fullscreen, zoom, a toolbar)
+to one surface, check whether a sibling surface in the same app already shipped and validated that exact
+pattern — reuse its concrete implementation as the visual oracle before building an independently-styled
+version, since inconsistent siblings read as a quality defect even when each one works on its own.

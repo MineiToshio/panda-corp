@@ -5,7 +5,7 @@ domain: agent-orchestration
 tags: [prompt-engineering, parsing, contract, canary, r11]
 context: a deterministic parser/gate expects a specific heading or schema in model-generated output, and a live canary run is the first time real model output is checked against it
 trigger: use this when a prompt asks a model to produce a section a deterministic script will then parse (a heading, a fenced block, a required key)
-source: "panda-corp R11 first live canary, 2026-07-11 — factory/decision-log.md 'R11 separates accelerated, short-live and overnight evidence' entry ('a real canary also caught a prompt heading that disagreed with the deterministic gate')"
+source: "panda-corp R11 first live canary, 2026-07-11 — factory/decision-log.md 'R11 separates accelerated, short-live and overnight evidence' entry ('a real canary also caught a prompt heading that disagreed with the deterministic gate'). Corroborated 2026-10-16 (Mission Control, agent-inferred): the same mismatch recurred on the fixture side rather than the prompt side — SpecDigest test fixtures used a bold label the real parser vocabulary didn't define (expects '**Overview:**' for FRD detail), so an unknown label silently produced a title-only modal; caught only by opening the modal in a real browser and checking its populated content, not by the fixture's own presence."
 provenance: agent-inferred
 created: 2026-07-12
 status: active
@@ -33,4 +33,8 @@ reality can diverge on exactly this seam.
 **Apply next time:** when a prompt asks a model to produce output a deterministic script will parse,
 name the EXACT heading/schema/literal in the prompt itself (not a paraphrase of it), and keep at least
 one REAL (non-mocked) canary in the test matrix that exercises the actual prompt-to-parser round trip —
-a fully-mocked suite cannot catch this class of defect by construction.
+a fully-mocked suite cannot catch this class of defect by construction. The same wording-mismatch risk
+applies to TEST FIXTURES authored by hand for a parser's expected input: a fixture using a plausible but
+wrong label/heading (not the parser's actual published vocabulary) can produce a silently degraded
+result (e.g. a title-only modal) that looks present but isn't populated — verify the fixture's real
+rendered output in a browser, not just that the fixture file exists.
