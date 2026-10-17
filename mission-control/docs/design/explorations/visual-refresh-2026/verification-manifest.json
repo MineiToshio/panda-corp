@@ -1,15 +1,15 @@
 {
   "date": "2026-10-17",
   "artifact": "index.html",
-  "sha256": "9f58570d9682f75aa6ecb4cad5668e413a359a6fa1dea1e3a76039680d1c122c",
+  "sha256": "ed4c103fb98e9b4a0f3114c032e982e6523c6755b00ee58514a5411606494941",
   "baseChecks": 64,
   "nestedChecks": 25,
   "interactionChecks": 7,
-  "note": "Earlier matrix counts are historical; see round-3-verification.md for current scoped evidence. This is a local HTML mockup, not a production gate.",
+  "note": "Prior round counts are historical. See round-4-verification.md for current scoped evidence. This is a local HTML mockup, not a production gate.",
   "round1_sha256": "0476be971196cceca7a81d2250488d8443ffc7fc84b40698c37105b36993b5e1",
-  "preview_sha256": "68fefbbedc9417c8d977ff05afd11283e0c37b50271535a88fd2234ecde50c8f",
+  "preview_sha256": "fa550df9907084ce9be1c2f7941370d587bcf3138bba870edfe8ca6c3c82d55d",
   "followUpChecks": 9,
-  "round": 3,
+  "round": 4,
   "sourceSnapshotCapturedAt": "2026-10-17T14:43:38.902Z",
   "round3": {
     "matrixStates": 90,
@@ -17,5 +17,17 @@
     "targetedFinalStates": 8,
     "preflight": "clean",
     "independentReview": "no blockers in requested project-flow scope"
+  },
+  "round3_sha256": "9f58570d9682f75aa6ecb4cad5668e413a359a6fa1dea1e3a76039680d1c122c",
+  "round4": {
+    "matrixStates": 107,
+    "flowAssertions": 14,
+    "documentTypeStates": 20,
+    "wrapperChecks": 1,
+    "activeTabStates": 16,
+    "preflight": "clean",
+    "independentReview": "no remaining blockers; one semantic issue and three presentation nits resolved and checked",
+    "finalPaletteStates": 8,
+    "reviewFixStates": 33
   }
 }

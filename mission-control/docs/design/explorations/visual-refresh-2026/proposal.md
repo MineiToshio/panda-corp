@@ -4,23 +4,42 @@
 
 ## Recommendation
 
-Recompose Mission Control as a contemporary, calm operations workspace with a distinctive guild identity. Put the operator's next decision first, expose progress without a wall of equally important cards, and give each content type a suitable presentation. Use restrained lilac on graphite/porcelain, Manrope headings with Inter body text, lightweight surfaces and deliberate spacing. Preserve sprites, campaign, achievements, ranks, rarity, XP, all read surfaces and every existing action.
+Recompose Mission Control as a contemporary, calm operations workspace with a distinctive guild identity. Put the operator's next decision first, expose progress without a wall of equally important cards, and give each content type a suitable presentation. Use graphite/porcelain surfaces with a semantic multicolor palette, Manrope headings with Inter body text, lightweight surfaces and deliberate spacing. Lilac remains an identity accent; document purpose and attention have their own color cues. Preserve sprites, campaign, achievements, ranks, rarity, XP, all read surfaces and every existing action.
 
 The owner's current instruction explicitly authorizes exploration beyond the historical global RPG finish: color, fonts, placement and composition may change; functionality may not. This does not establish that the owner has approved Órbita or withdrawn the gamification itself. The product keeps its name and existing brand mark. Órbita is the working name of the proposed visual direction.
 
 ## Deliverables and boundaries
 
 - [Open the navigable review](preview.html): desktop/tablet/phone preview controls, direct screen selection and light/dark comparison. The preview embeds the same study below; it is review-only chrome, not a new product feature.
-- [Navigable design study](index.html): all main destinations, all real idea cards, the nine project sections, light/dark preview and three heading treatments. Round 3 populates the project and document flows from a private, timestamped read-only snapshot; ancillary guild/configuration/proposals examples retain illustrative layouts. None of the captured information is presented as a continuously live feed.
+- [Navigable design study](index.html): all main destinations, all real idea cards, the nine project sections, light/dark preview and three heading treatments. Round 4 builds on the real project and document flows from round 3, populated from a private, timestamped read-only snapshot; ancillary guild/configuration/proposals examples retain illustrative layouts. None of the captured information is presented as a continuously live feed.
 - [Source and preservation inventory](inventory.md): implementation touchpoints and the complete functional preservation matrix.
 - [Live evidence](evidence/): page captures and JSON observations of the running app at port 1987. Personal content is kept local through the exploration's evidence ignore file.
 - [Prototype verification](verification.md): measured viewport, accessibility and interaction checks, with their limits.
 
 Round 3 includes the full captured project documents, work orders, Spec blocks, architecture artifacts, changes and Manual pages. Scene artwork, ancillary guild/catalog examples and graph geometry remain design demonstrations. Its dialogs never modify factory files. It is deliberately not a production replica or a complete state oracle. The comprehensive preservation inventory, rather than the abbreviated examples, defines what a subsequent design pass must draw and retain. No feature is implicitly removed because its full state is not drawn here.
 
+## Round 4 — semantic color and visual hierarchy
+
+The owner likes the modern composition but finds the single-purple treatment too flat. Color now identifies purpose and draws attention at scanning distance, using the current app's Spec hierarchy as a reference. The same review URL opens PandaSaga Spec. All real snapshot content and round-3 navigation remain in place; no new features, statuses, priorities or source documents are invented.
+
+| Purpose | Color | Reinforcing cue |
+|---|---|---|
+| Product / Spec | Blue | Flag/book icon, labelled hero and section |
+| Research, findings, metrics and data | Teal | Search/bolt/model icon and explicit heading |
+| Functional contracts | Violet | FRD identifier and contract/book icon |
+| Design documents | Pink | Spark icon and Design label |
+| Architecture and technical decisions | Amber | Cube/shield icon, document type and heading |
+| Value and verified progress | Green | Value heading or actual verified count/check icon |
+| Problem context | Coral | Problem heading and flag icon; not a fabricated error status |
+| Reference, excluded scope and planned work | Slate | Explicit labels; no lower-opacity body text |
+
+Shared palette tokens live only in the exploration's `prototype.css`, with light/dark pairs. The same document classification supplies link buttons, index icons, current selection, reader type badge and section headings. Spec panels use colored heading icons, a purpose-tinted surface and top rule; open decisions remain labelled separately from other material. FRD cards retain their own identifiers and show verified/total work-order counts derived from the existing captured orders. Board phases and work-order columns use their real phase/state rather than arbitrary per-card colors. Architecture, Manual groups, project phase avatars and summary metrics adopt the same palette. Body text retains a readable neutral color; color is always reinforced by text or an icon.
+
+See [round-4 verification](round-4-verification.md). This is a further owner-review round, not final approval or a replacement of the production visual contract.
+
 ## Round 3 — real project journeys
 
-The owner likes the visual direction and requests a more complete iteration before judging the final result. Both Board detail and Portfolio now consume one shared project presentation for Spec, Architecture and Documents. A searchable project dialog shows all five projects with phase, FRD/document counts and actual work-order progress. The static local capture contains 22 ideas, 718 full documents, 170 work orders, 52 FRDs, 23 ADRs, 43 changes and 38 Manual pages. PandaSaga supplies a real 39-entity/95-relationship model; absent source artifacts remain explicit. Review uses the same stable `preview.html` URL, initially opening PandaSaga Architecture.
+The owner likes the visual direction and requests a more complete iteration before judging the final result. Both Board detail and Portfolio now consume one shared project presentation for Spec, Architecture and Documents. A searchable project dialog shows all five projects with phase, FRD/document counts and actual work-order progress. The static local capture contains 22 ideas, 718 full documents, 170 work orders, 52 FRDs, 23 ADRs, 43 changes and 38 Manual pages. PandaSaga supplies a real 39-entity/95-relationship model; absent source artifacts remain explicit. Review uses the same stable `preview.html` URL, initially opening PandaSaga Architecture in that archived round.
 
 This accepts the direction for further iteration, not the final freeze or a production change. The snapshot and private review evidence are ignored by Git and stay local. Regeneration uses existing canonical readers; no project status or source document is written. See [round-3 verification](round-3-verification.md).
 

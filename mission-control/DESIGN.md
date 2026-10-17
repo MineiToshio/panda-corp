@@ -7,7 +7,7 @@
 
 ## Proposed refresh under review — 2026-10-17
 
-The owner requested a comprehensive visual modernization proposal while preserving every existing feature. [Órbita: proposal and preservation inventory](docs/design/explorations/visual-refresh-2026/proposal.md) explores a new visual system and responsive compositions. Its [navigable preview](docs/design/explorations/visual-refresh-2026/preview.html) and [study](docs/design/explorations/visual-refresh-2026/index.html) now includes a timestamped local capture of complete project documents and a searchable project picker. The visual direction is liked by the owner for further iteration; the study is **not finally approved or frozen**; it does not supersede the binding contract below. No application tokens, behavior or build state are changed by this study.
+The owner requested a comprehensive visual modernization proposal while preserving every existing feature. [Órbita: proposal and preservation inventory](docs/design/explorations/visual-refresh-2026/proposal.md) explores a new visual system and responsive compositions. Its [navigable preview](docs/design/explorations/visual-refresh-2026/preview.html) and [study](docs/design/explorations/visual-refresh-2026/index.html) now includes a timestamped local capture of complete project documents, a searchable project picker, and a semantic multicolor iteration for Spec, document types, architecture and work states. The visual direction is liked by the owner for further iteration; the study is **not finally approved or frozen**; it does not supersede the binding contract below. No application tokens, behavior or build state are changed by this study.
 
 ## Source of truth
 

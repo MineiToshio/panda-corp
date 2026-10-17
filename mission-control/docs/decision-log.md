@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Add semantic color and scanning hierarchy to Órbita
+
+**Owner feedback:** The modern layout is an improvement, but the monochrome purple treatment feels flat. Preserve the current app's useful visual distinctions, especially in Spec lists and documentation.
+
+**What:** The exploration uses a shared blue/teal/violet/pink/amber/green/coral/slate palette with separate light/dark tokens, purpose-labelled panels and icons, document-type buttons/index/reader, actual work-order progress per FRD, phase-colored project avatars and status-colored workflow columns. Product, research, value, metrics, scope and open-decision sections have distinct visual weight without editing their content. The same review URL opens PandaSaga Spec. [Proposal](design/explorations/visual-refresh-2026/proposal.md) records the color meanings; [round-4 verification](design/explorations/visual-refresh-2026/round-4-verification.md) records the checks and limitations.
+
+**Boundary:** [DESIGN.md](../DESIGN.md) retains the production contract. This owner-review mockup iteration does not approve a final freeze, change production tokens/behavior, or write any build state.
+
 ## 2026-10-17 — Populate the next Órbita iteration with real project journeys
 
 **Owner feedback:** The visual direction is liked, but examples and placeholders do not show the final experience. The next iteration must complete Board/Portfolio Spec, Architecture, documents and work-order journeys and improve project selection.
