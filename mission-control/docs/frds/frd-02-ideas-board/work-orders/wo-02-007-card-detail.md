@@ -242,7 +242,7 @@ through the guard. Tolerated under the rule of three; not gate-blocking.
 
 This coarse capability now also owns `src/lib/architecture/data-model/**`, shared `src/lib/architecture/read-artifacts.ts`, `src/components/modules/DataModelViewer/**`, board artifact propagation and the `ArchitectureDigest` data-model body. Preserve the complete existing Architecture surface, with **Modelo de datos**, and expose it for a present structured artifact even without the narrative digest. FRD-04 WO-04-004 reuses these modules for workspace mounting.
 
-- WHEN a version-1 model is read/rendered, THE implementation SHALL satisfy AC-02-015.1–.11: bounded validated JSON, explicit states, all attributes/keys and endpoint cardinalities, native pointer pan, zoom/fit/reset, keyboard/buttons, search, selection, expanded dialog and compact Prisma-like **Esquema**.
+- WHEN a version-1 model is read/rendered, THE implementation SHALL satisfy AC-02-015.1–.12: bounded validated JSON, explicit states, all attributes/keys and endpoint cardinalities, native pointer pan, zoom/fit/reset, keyboard/buttons, search, selection, expanded dialog and compact Prisma-like **Esquema**.
 - WHEN the viewer opens at any viewport width, THE default SHALL be compact **Diagrama** with content-sized cards displaying full text, 24px attribute rows and 12px field text.
 - WHEN other Architecture content is available, THE extension SHALL preserve stack/services/environment/ADRs/work-order plan/per-FRD panels and live readers.
 
@@ -259,3 +259,7 @@ Evidence: [delivery report](../../../reviews/logical-data-model-viewer/delivery.
 ### Readability correction, current extension
 
 Own the shared content-sized geometry, ELK adapter/worker lifecycle, orthogonal distinct-route handling, readable initial camera and diagram-only 100vw/100dvh presentation. Validate full actual attribute/type cells and real PandaSaga geometry at desktop/mobile widths; preserve all 39 entities/95 relations and source truth. Prior machine status and historical delivery notes are unchanged; current scoped verification lives in `docs/reviews/readable-fullscreen-model/delivery.md`.
+
+### Owner correction — dependency-map navigation parity (2026-10-16)
+
+Own shared GraphControls integration, model-only native browser fullscreen with full-window fallback, gesture-synchronous mounting/request, actual text/icon focus restoration, native exit handling, top-right icon placement, collapsed click-pan alternatives, fine wheel scaling and frame-batched/memoized camera rendering. Canonical contract: AC-02-015.3/.6/.12 and ADR-0008. Historical machine status remains untouched. Current evidence belongs to docs/reviews/model-graph-consistency/delivery.md.

@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import { type KeyboardEvent, memo } from "react";
 import type { DataModelEndpoint } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import type { ModelEdge, ModelLayout, ModelSelection } from "./layout";
@@ -104,7 +104,7 @@ function Edge({
 }
 
 /** All relation paths remain independently selectable, including parallel and self edges. */
-export function ModelEdges({
+function ModelEdgesContent({
   layout,
   selection,
   onSelect,
@@ -136,3 +136,6 @@ export function ModelEdges({
     </svg>
   );
 }
+
+/** Camera transforms do not change routed relationship geometry. */
+export const ModelEdges = memo(ModelEdgesContent);

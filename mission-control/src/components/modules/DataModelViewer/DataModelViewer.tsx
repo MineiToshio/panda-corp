@@ -1,7 +1,7 @@
 "use client";
 
-import type { ChangeEvent, KeyboardEvent } from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/core/Button/Button";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
@@ -11,6 +11,7 @@ import { DiagramControls } from "./DiagramControls";
 import type { ModelLayout, ModelSelection } from "./layout";
 import { ModelDiagram } from "./ModelDiagram";
 import { ModelSchema } from "./ModelSchema";
+import { useModelExpansion } from "./useModelExpansion";
 import { useModelLayout } from "./useModelLayout";
 import { useViewport } from "./useViewport";
 import styles from "./viewer.module.css";
@@ -75,11 +76,10 @@ function ReadyViewer({
   const [mode, setMode] = useState("diagram");
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<ModelSelection>(null);
-  const [isExpanded, setExpanded] = useState(false);
+  const expansion = useModelExpansion();
+  const isExpanded = expansion.expanded;
   const viewport = useViewport(layout, isExpanded, mode);
   const id = useId();
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const expandButtonRef = useRef<HTMLSpanElement>(null);
   const matches = model.entities
     .filter((entity) =>
       [
@@ -89,20 +89,6 @@ function ReadyViewer({
       ].some((text) => text.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
     )
     .map((entity) => entity.id);
-  useEffect(() => {
-    if (!isExpanded) return;
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    dialog.showModal();
-    dialog.querySelector<HTMLButtonElement>('[data-testid="model-close"]')?.focus();
-    return () => {
-      dialog.close();
-      document.body.style.overflow = previousOverflow;
-      expandButtonRef.current?.querySelector("button")?.focus();
-    };
-  }, [isExpanded]);
   function handleSearch(event: ChangeEvent<HTMLInputElement>) {
     const next = event.target.value;
     setQuery(next);
@@ -117,29 +103,6 @@ function ReadyViewer({
     if (match) {
       setSelection({ kind: "entity", id: match.entity.id });
       viewport.focusNode(match);
-    }
-  }
-  function handleDialogKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      setExpanded(false);
-      return;
-    }
-    if (event.key !== "Tab") return;
-    const focusable = [
-      ...event.currentTarget.querySelectorAll<HTMLElement>(
-        'button:not([disabled]),input,[tabindex="0"]',
-      ),
-    ];
-    const first = focusable[0];
-    const last = focusable.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last?.focus();
-    }
-    if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first?.focus();
     }
   }
   function renderSearch() {
@@ -185,8 +148,8 @@ function ReadyViewer({
             tabIdPrefix={`${id}-tab-`}
           />
           {!isExpanded && renderSearch()}
-          <span ref={expandButtonRef}>
-            <Button size="sm" onClick={() => setExpanded(true)}>
+          <span ref={expansion.triggerRef}>
+            <Button size="sm" onClick={expansion.open}>
               {COPY.expand}
             </Button>
           </span>
@@ -200,10 +163,14 @@ function ReadyViewer({
           {isExpanded ? (
             <div className={styles.expandedPlaceholder} />
           ) : mode === "diagram" ? (
-            <>
-              <DiagramControls viewport={viewport} />
+            <div className={styles.surface} ref={expansion.surfaceRef}>
               {renderDiagram(false)}
-            </>
+              <DiagramControls
+                viewport={viewport}
+                expanded={false}
+                onToggleFullscreen={expansion.open}
+              />
+            </div>
           ) : (
             <ModelSchema
               model={model}
@@ -216,26 +183,26 @@ function ReadyViewer({
       {isExpanded &&
         createPortal(
           <dialog
-            ref={dialogRef}
+            ref={expansion.dialogRef}
             className={`${styles.dialog} ${styles.viewer}`}
             aria-label={COPY.title}
-            onCancel={() => setExpanded(false)}
-            onKeyDown={handleDialogKeyDown}
+            onCancel={expansion.close}
+            onKeyDown={expansion.onKeyDown}
           >
-            {renderDiagram(true)}
-            <div className={styles.expandedToolbar}>
-              <Button size="sm" data-testid="model-close" onClick={() => setExpanded(false)}>
-                {COPY.close}
-              </Button>
-              {renderSearch()}
-              {query && (
-                <p className={styles.searchStatus} role="status">
-                  {matches.length ? COPY.matches(matches.length) : COPY.noResults}
-                </p>
-              )}
-            </div>
-            <div className={styles.expandedControls}>
-              <DiagramControls viewport={viewport} />
+            <div
+              ref={expansion.surfaceRef}
+              className={`${styles.surface} ${styles.expandedSurface}`}
+            >
+              {renderDiagram(true)}
+              <DiagramControls viewport={viewport} expanded onToggleFullscreen={expansion.close} />
+              <div className={styles.expandedSearch}>
+                {renderSearch()}
+                {query && (
+                  <p className={styles.searchStatus} role="status">
+                    {matches.length ? COPY.matches(matches.length) : COPY.noResults}
+                  </p>
+                )}
+              </div>
             </div>
           </dialog>,
           document.body,

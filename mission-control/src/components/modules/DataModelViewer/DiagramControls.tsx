@@ -1,41 +1,30 @@
-import { Button } from "@/components/core/Button/Button";
+import { GraphControls } from "@/components/modules/GraphControls/GraphControls";
 import { COPY } from "./copy.es";
 import type { useViewport } from "./useViewport";
-import styles from "./viewer.module.css";
 
-/** Compact graph actions, floating over the diagram when expanded. */
-export function DiagramControls({ viewport }: { viewport: ReturnType<typeof useViewport> }) {
+/** The same corner toolbar as the dependency map, with optional click-pan alternatives. */
+export function DiagramControls({
+  viewport,
+  expanded,
+  onToggleFullscreen,
+}: {
+  viewport: ReturnType<typeof useViewport>;
+  expanded: boolean;
+  onToggleFullscreen: () => void;
+}) {
   return (
-    <div className={styles.diagramControls}>
-      <div className={styles.controlsGroup}>
-        <Button size="sm" ariaLabel={COPY.zoomOut} onClick={() => viewport.zoomBy(1 / 1.2)}>
-          −
-        </Button>
-        <output aria-label={COPY.zoom}>{Math.round(viewport.view.zoom * 100)}%</output>
-        <Button size="sm" ariaLabel={COPY.zoomIn} onClick={() => viewport.zoomBy(1.2)}>
-          +
-        </Button>
-        <Button size="sm" onClick={viewport.fit}>
-          {COPY.fit}
-        </Button>
-        <Button size="sm" onClick={viewport.reset}>
-          {COPY.reset}
-        </Button>
-      </div>
-      <div className={styles.controlsGroup}>
-        <Button size="sm" ariaLabel={COPY.left} onClick={() => viewport.pan(64, 0)}>
-          ←
-        </Button>
-        <Button size="sm" ariaLabel={COPY.up} onClick={() => viewport.pan(0, 64)}>
-          ↑
-        </Button>
-        <Button size="sm" ariaLabel={COPY.down} onClick={() => viewport.pan(0, -64)}>
-          ↓
-        </Button>
-        <Button size="sm" ariaLabel={COPY.right} onClick={() => viewport.pan(-64, 0)}>
-          →
-        </Button>
-      </div>
-    </div>
+    <GraphControls
+      prefix="model"
+      scale={viewport.view.zoom}
+      isFullscreen={expanded}
+      onZoomIn={() => viewport.zoomBy(1.15)}
+      onZoomOut={() => viewport.zoomBy(1 / 1.15)}
+      onReset={viewport.reset}
+      resetLabel={COPY.reset}
+      onFit={viewport.fit}
+      onToggleFullscreen={onToggleFullscreen}
+      fullscreenId={expanded ? "model-close" : "model-fullscreen"}
+      onPan={viewport.pan}
+    />
   );
 }

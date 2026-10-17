@@ -92,4 +92,6 @@ Spec FRD details use the shared Modal. On dismissal, return keyboard focus to th
 
 ## Shared model readability correction — 2026-10-16
 
-Reuse the same FRD-02 AC-02-015.1–.11 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
+Reuse the same FRD-02 AC-02-015.1–.12 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
+
+The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.

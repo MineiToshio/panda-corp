@@ -1,0 +1,66 @@
+[WebServer] (node:22299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22299) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22382) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Turbopack build encountered 1 warnings:
+[WebServer] ./next.config.ts
+[WebServer] Encountered unexpected file in NFT list
+[WebServer] A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+[WebServer] - filesystem operations (like path.join, path.resolve or fs.readFile), or
+[WebServer] - very dynamic requires (like require('./' + foo)).
+[WebServer] To resolve this, you can
+[WebServer] - remove them if possible, or
+[WebServer] - only use them in development, or
+[WebServer] - make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+[WebServer] - add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+[WebServer]
+[WebServer] Import traces:
+[WebServer]   #1 [Server Component]:
+[WebServer]     ./next.config.ts
+[WebServer]     ./src/lib/backlog/discard-backlog.ts
+[WebServer]     ./src/app/proposals/_actions/discard-backlog.ts
+[WebServer]
+[WebServer]   #2 [Server Component]:
+[WebServer]     ./next.config.ts
+[WebServer]     ./src/lib/profile/profile.ts
+[WebServer]     ./src/app/layout.tsx
+[WebServer]
+[WebServer]
+[WebServer] (node:22546) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22549) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22544) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22550) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22547) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22551) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22552) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22548) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22571) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:22571) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+
+Running 6 tests using 1 worker
+
+(node:22605) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 [desktop] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (1.8s)
+  ✓  2 [desktop] › e2e/logical-data-model.spec.ts:84:1 › board exposes the same published model even without a narrative architecture digest (1.1s)
+  ✓  3 [desktop] › e2e/logical-data-model.spec.ts:99:1 › model corner controls match the dependency map and retain a full-window fallback (998ms)
+(node:22720) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  4 [mobile] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (1.4s)
+  ✓  5 [mobile] › e2e/logical-data-model.spec.ts:84:1 › board exposes the same published model even without a narrative architecture digest (1.3s)
+  ✓  6 [mobile] › e2e/logical-data-model.spec.ts:99:1 › model corner controls match the dependency map and retain a full-window fallback (989ms)
+
+  6 passed (28.3s)

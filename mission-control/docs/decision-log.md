@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-16 — Match logical-model fullscreen and navigation to the dependency map
+
+**What:** Promote the actual dependency-map toolbar and browser fullscreen hook to shared GraphControls/useFullscreen, consumed by both graph adapters. The model now requests native fullscreen synchronously on its graph-only DIV, retaining the full-window dialog fallback; compact icon controls move to the top-right and click-pan alternatives collapse into a pad. Percentage/reset, precise wheel input, 15% buttons, frame batching and stable memoized node/edge content improve camera responsiveness. Closing/native exit restores the actual text/icon opener.
+
+**Why:** The owner explicitly selects the existing Architecture dependency map as the presentation reference; separately styled text/bottom controls and dialog-only fullscreen made the two graphs feel unrelated. Independent review also exposed focus returning to the old text trigger when expansion began from the new icon; actual-opener restoration fixes that.
+
+**Canonical alignment:** [ADR-0008](adr/ADR-0008-shared-architecture-graph-controls.md) amends ADR-0007; PRD/platform architecture, FRD-02 requirements/FDD/blueprint/WO, FRD-04 shared integration, FRD-12 promotion scope, component inventory, API and proposal reflect the shared design. Existing model/ELK/source ownership and project/build machine state remain intact. [Delivery evidence](reviews/model-graph-consistency/delivery.md) records current independent and browser/canonical qualification.
+
 ## 2026-10-16 — Readable graph cards and diagram-only full-browser expansion
 
 **What:** Applied the owner's correction to the shared logical viewer: content-sized full-text tables; ELK layered orthogonal routing with actual field ports; readable connected-table starting camera; full-browser diagram-only expansion with floating controls; removed the lower relation inspector and duplicate buttons. Preserved inline designed-model truth, artifact/reader contracts, diagram/schema modes, model isolation, drag, search and keyboard/focus behavior. Layout runs in a cancellable algorithm worker with explicit pending/error status.

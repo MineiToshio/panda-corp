@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { DataModelEntity } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import { entityGeometry } from "./entityGeometry";
@@ -5,7 +6,7 @@ import type { ModelNode } from "./layout";
 import styles from "./viewer.module.css";
 
 /** Compact field-level ERD card; every field remains available at the default scale. */
-export function EntityCard({
+function EntityCardContent({
   node,
   selected,
   related,
@@ -87,3 +88,6 @@ function fieldKeys(entity: DataModelEntity, id: string): string[] {
     ]),
   ];
 }
+
+/** Stable geometry/selection props avoid rebuilding field tables while only the camera moves. */
+export const EntityCard = memo(EntityCardContent);

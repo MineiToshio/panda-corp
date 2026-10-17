@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, renderHook } from "@testing-library/react";
+import { act, cleanup, fireEvent, renderHook, waitFor } from "@testing-library/react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import { layoutModel } from "../layout";
@@ -42,11 +42,13 @@ describe("diagram navigation", () => {
     act(() => result.current.handlers.onPointerMove(pointer(canvas, 102, 102)));
     expect(result.current.view).toEqual(initial);
     act(() => result.current.handlers.onPointerMove(pointer(canvas, 120, 135)));
-    expect(result.current.view).toEqual({
-      x: initial.x + 20,
-      y: initial.y + 35,
-      zoom: initial.zoom,
-    });
+    await waitFor(() =>
+      expect(result.current.view).toEqual({
+        x: initial.x + 20,
+        y: initial.y + 35,
+        zoom: initial.zoom,
+      }),
+    );
     act(() => result.current.handlers.onPointerUp(pointer(canvas, 120, 135)));
     act(() => result.current.handlers.onPointerMove(pointer(canvas, 200, 200)));
     expect(result.current.view).toEqual({

@@ -1,6 +1,7 @@
 import type { KeyboardEvent, PointerEvent } from "react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import type { ModelLayout, ModelNode } from "./layout";
+import { useFrameView } from "./useFrameView";
 
 const MIN_ZOOM = 0.02;
 function fittedView(layout: ModelLayout, width: number, height: number) {
@@ -43,7 +44,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     moved: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
-  const [view, setView] = useState(() => initialView(layout, 900, 440));
+  const { view, update: setView } = useFrameView(() => initialView(layout, 900, 440));
   function pan(x: number, y: number) {
     setView((old) => ({ ...old, x: old.x + x, y: old.y + y }));
   }
@@ -83,7 +84,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     const observer = new ResizeObserver(resize);
     observer.observe(canvas);
     return () => observer.disconnect();
-  }, [layout, expanded, mode]);
+  }, [layout, expanded, mode, setView]);
   function focusNode(node: ModelNode) {
     const width = canvasRef.current?.clientWidth || 600;
     const height = canvasRef.current?.clientHeight || 420;
@@ -128,7 +129,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     if (Math.hypot(dx, dy) < 5 && !drag.moved) return;
     drag.moved = true;
     suppressClick.current = true;
-    setView((old) => ({ ...old, x: drag.originX + dx, y: drag.originY + dy }));
+    setView((old) => ({ ...old, x: drag.originX + dx, y: drag.originY + dy }), true);
   }
   function handlePointerEnd(event: PointerEvent<HTMLDivElement>) {
     if (dragRef.current?.id !== event.pointerId) return;
@@ -160,7 +161,20 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
       setView((old) => {
         const zoom = Math.min(
           MAX_ZOOM,
-          Math.max(MIN_ZOOM, old.zoom * Math.exp(-event.deltaY * 0.002)),
+          Math.max(
+            MIN_ZOOM,
+            old.zoom *
+              Math.exp(
+                (-event.deltaY *
+                  (event.deltaMode === 1
+                    ? 16
+                    : event.deltaMode === 2
+                      ? canvas?.clientHeight || 440
+                      : 1) *
+                  Math.log(1.15)) /
+                  100,
+              ),
+          ),
         );
         const ratio = zoom / old.zoom;
         return {
@@ -168,7 +182,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
           x: center.x - (center.x - old.x) * ratio,
           y: center.y - (center.y - old.y) * ratio,
         };
-      });
+      }, true);
     }
     canvas.addEventListener("wheel", handleWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", handleWheel);

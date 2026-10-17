@@ -176,3 +176,7 @@ interface DagLayout { nodes: LayoutNode[]; edges: LayoutEdge[]; width: number; h
   - Empty state when no WOs
   - Legend renders
   - Controls bar (`dag-controls`) present
+
+### Shared Architecture graph navigation — 2026-10-16
+
+WoDag/ZoomControls and WoDag/useFullscreen now delegate to shared GraphControls and src/hooks/useFullscreen. This promotes the existing top-right icon design and native browser behavior for reuse by the logical model (ADR-0008). Dependency layout, graph selection, live coloring, follow/jump controls, 100% reset and existing zoom behavior are unchanged. No project/build machine-state transition is implied.

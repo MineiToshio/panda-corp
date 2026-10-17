@@ -1,0 +1,766 @@
+
+ RUN  v4.1.9 /Users/Shared/Proyectos/panda-corp/mission-control
+
+(node:6968) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+xxx···
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx > model viewer parity with Architecture graph controls > requests native fullscreen synchronously from the expand gesture on a model-only host
+AssertionError: expected "vi.fn()" to be called 1 times, but got 0 times
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx:81:21
+     79|     fireEvent.click(trigger);
+     80|
+     81|     expect(request).toHaveBeenCalledTimes(1);
+       |                     ^
+     82|     const host = fullscreenElement;
+     83|     expect(host).toBeInstanceOf(HTMLElement);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx > model viewer parity with Architecture graph controls > closes the expanded presentation when native Escape produces fullscreenchange and returns focus
+AssertionError: expected null not to be null
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx:105:35
+    103|     const trigger = await renderReadyModel();
+    104|     fireEvent.click(trigger);
+    105|     expect(fullscreenElement).not.toBeNull();
+       |                                   ^
+    106|
+    107|     act(() => {
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx > model viewer parity with Architecture graph controls > exits the native API from the minimize control and preserves a single inline diagram
+TestingLibraryElementError: Unable to find an accessible element with the role "button" and name "Salir de pantalla completa"
+
+Here are the accessible roles:
+
+  code:
+
+  Name "":
+  [36m<code />[39m
+
+  --------------------------------------------------
+  tablist:
+
+  Name "Vista del modelo":
+  [36m<div[39m
+    [33maria-label[39m=[32m"Vista del modelo"[39m
+    [33mdata-level[39m=[32m"sub"[39m
+    [33mdata-testid[39m=[32m"tabs-root"[39m
+    [33mrole[39m=[32m"tablist"[39m
+    [33mstyle[39m=[32m"display: flex; gap: 5px; flex-wrap: wrap;"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tab:
+
+  Name "Diagrama":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"true"[39m
+    [33mdata-active[39m=[32m"true"[39m
+    [33mdata-testid[39m=[32m"tab-diagram"[39m
+    [33mid[39m=[32m"_r_2_-tab-diagram"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mstyle[39m=[32m"display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text); font-weight: 500; background: var(--color-card2); transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"[39m
+    [33mtabindex[39m=[32m"0"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Esquema":
+  [36m<button[39m
+    [33maria-selected[39m=[32m"false"[39m
+    [33mdata-active[39m=[32m"false"[39m
+    [33mdata-testid[39m=[32m"tab-schema"[39m
+    [33mid[39m=[32m"_r_2_-tab-schema"[39m
+    [33mrole[39m=[32m"tab"[39m
+    [33mstyle[39m=[32m"display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text2); font-weight: 400; background: transparent; transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"[39m
+    [33mtabindex[39m=[32m"-1"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ampliar modelo":
+  [36m<button[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  tabpanel:
+
+  Name "Diagrama":
+  [36m<div[39m
+    [33maria-labelledby[39m=[32m"_r_2_-tab-diagram"[39m
+    [33mrole[39m=[32m"tabpanel"[39m
+  [36m/>[39m
+
+  --------------------------------------------------dialog:
+
+  Name "Modelo de datos":
+  [36m<dialog[39m
+    [33maria-label[39m=[32m"Modelo de datos"[39m
+    [33mclass[39m=[32m"_dialog_21dc0b _viewer_21dc0b"[39m
+    [33mopen[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  application:
+
+  Name "Diagrama del modelo de datos":
+  [36m<div[39m
+    [33maria-describedby[39m=[32m"_r_2_-expanded-help"[39m
+    [33maria-label[39m=[32m"Diagrama del modelo de datos"[39m
+    [33mclass[39m=[32m"_canvas_21dc0b _expandedCanvas_21dc0b"[39m
+    [33mdata-testid[39m=[32m"model-viewport"[39m
+    [33mrole[39m=[32m"application"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Ver relación Propiedad":
+  [36m<g[39m
+    [33maria-label[39m=[32m"Ver relación Propiedad"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_edge_21dc0b"[39m
+    [33mdata-active[39m=[32m"false"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mrole[39m=[32m"button"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  Name "Ver relación Revisión":
+  [36m<g[39m
+    [33maria-label[39m=[32m"Ver relación Revisión"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_edge_21dc0b"[39m
+    [33mdata-active[39m=[32m"false"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mrole[39m=[32m"button"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  Name "Ver relación Referencia propia":
+  [36m<g[39m
+    [33maria-label[39m=[32m"Ver relación Referencia propia"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_edge_21dc0b"[39m
+    [33mdata-active[39m=[32m"false"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mrole[39m=[32m"button"[39m
+    [33mtabindex[39m=[32m"0"[39m
+  [36m/>[39m
+
+  Name "Seleccionar entidad Account":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Seleccionar entidad Account"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_entityHead_21dc0b"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Seleccionar entidad Entry":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Seleccionar entidad Entry"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_entityHead_21dc0b"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Seleccionar entidad Audit":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Seleccionar entidad Audit"[39m
+    [33maria-pressed[39m=[32m"false"[39m
+    [33mclass[39m=[32m"_entityHead_21dc0b"[39m
+    [33mdata-model-interactive[39m=[32m"true"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Cerrar modelo":
+  [36m<button[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"model-close"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Alejar":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Alejar"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Acercar":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Acercar"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Ajustar":
+  [36m<button[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Restablecer":
+  [36m<button[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Mover a la izquierda":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Mover a la izquierda"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Mover arriba":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Mover arriba"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Mover abajo":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Mover abajo"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  Name "Mover a la derecha":
+  [36m<button[39m
+    [33maria-label[39m=[32m"Mover a la derecha"[39m
+    [33mclass[39m=[32m"pc-btn"[39m
+    [33mdata-size[39m=[32m"sm"[39m
+    [33mdata-testid[39m=[32m"button"[39m
+    [33mdata-tone[39m=[32m"default"[39m
+    [33mdata-variant[39m=[32m"secondary"[39m
+    [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+    [33mtype[39m=[32m"button"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "Account":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Account"[39m
+    [33mclass[39m=[32m"_entity_21dc0b"[39m
+    [33mdata-match[39m=[32m"false"[39m
+    [33mdata-related[39m=[32m"false"[39m
+    [33mdata-selected[39m=[32m"false"[39m
+    [33mstyle[39m=[32m"left: 40px; top: 230px; width: 276px;"[39m
+  [36m/>[39m
+
+  Name "Entry":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Entry"[39m
+    [33mclass[39m=[32m"_entity_21dc0b"[39m
+    [33mdata-match[39m=[32m"false"[39m
+    [33mdata-related[39m=[32m"false"[39m
+    [33mdata-selected[39m=[32m"false"[39m
+    [33mstyle[39m=[32m"left: 426px; top: 182px; width: 284px;"[39m
+  [36m/>[39m
+
+  Name "Audit":
+  [36m<section[39m
+    [33maria-label[39m=[32m"Audit"[39m
+    [33mclass[39m=[32m"_entity_21dc0b"[39m
+    [33mdata-match[39m=[32m"false"[39m
+    [33mdata-related[39m=[32m"false"[39m
+    [33mdata-selected[39m=[32m"false"[39m
+    [33mstyle[39m=[32m"left: 40px; top: 40px; width: 268px;"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  strong:
+
+  Name "Account":
+  [36m<strong[39m
+    [33mtitle[39m=[32m"Account"[39m
+  [36m/>[39m
+
+  Name "Entry":
+  [36m<strong[39m
+    [33mtitle[39m=[32m"Entry"[39m
+  [36m/>[39m
+
+  Name "Audit":
+  [36m<strong[39m
+    [33mtitle[39m=[32m"Audit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  table:
+
+  Name "Atributos Account":
+  [36m<table[39m
+    [33maria-label[39m=[32m"Atributos Account"[39m
+  [36m/>[39m
+
+  Name "Atributos Entry":
+  [36m<table[39m
+    [33maria-label[39m=[32m"Atributos Entry"[39m
+  [36m/>[39m
+
+  Name "Atributos Audit":
+  [36m<table[39m
+    [33maria-label[39m=[32m"Atributos Audit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  rowgroup:
+
+  Name "":
+  [36m<thead[39m
+    [33mclass[39m=[32m"_srOnly_21dc0b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<tbody />[39m
+
+  Name "":
+  [36m<thead[39m
+    [33mclass[39m=[32m"_srOnly_21dc0b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<tbody />[39m
+
+  Name "":
+  [36m<thead[39m
+    [33mclass[39m=[32m"_srOnly_21dc0b"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<tbody />[39m
+
+  --------------------------------------------------
+  row:
+
+  Name "Atributos Tipo Claves Valor":
+  [36m<tr />[39m
+
+  Name "accountId uuid PK Obligatorio":
+  [36m<tr />[39m
+
+  Name "email text UQ Opcional":
+  [36m<tr />[39m
+
+  Name "Atributos Tipo Claves Valor":
+  [36m<tr />[39m
+
+  Name "entryId uuid PK Obligatorio":
+  [36m<tr />[39m
+
+  Name "ownerId uuid FK UQ Obligatorio":
+  [36m<tr />[39m
+
+  Name "reviewerId uuid FK UQ Opcional":
+  [36m<tr />[39m
+
+  Name "Atributos Tipo Claves Valor":
+  [36m<tr />[39m
+
+  Name "auditId uuid Obligatorio":
+  [36m<tr />[39m
+
+  --------------------------------------------------
+  columnheader:
+
+  Name "Atributos":
+  [36m<th />[39m
+
+  Name "Tipo":
+  [36m<th />[39m
+
+  Name "Claves":
+  [36m<th />[39m
+
+  Name "Valor":
+  [36m<th />[39m
+
+  Name "Atributos":
+  [36m<th />[39m
+
+  Name "Tipo":
+  [36m<th />[39m
+
+  Name "Claves":
+  [36m<th />[39m
+
+  Name "Valor":
+  [36m<th />[39m
+
+  Name "Atributos":
+  [36m<th />[39m
+
+  Name "Tipo":
+  [36m<th />[39m
+
+  Name "Claves":
+  [36m<th />[39m
+
+  Name "Valor":
+  [36m<th />[39m
+
+  --------------------------------------------------
+  cell:
+
+  Name "accountId":
+  [36m<td[39m
+    [33mtitle[39m=[32m"accountId"[39m
+  [36m/>[39m
+
+  Name "uuid":
+  [36m<td[39m
+    [33mtitle[39m=[32m"uuid"[39m
+  [36m/>[39m
+
+  Name "PK":
+  [36m<td />[39m
+
+  Name "Obligatorio":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Obligatorio"[39m
+    [33mtitle[39m=[32m"Obligatorio"[39m
+  [36m/>[39m
+
+  Name "email":
+  [36m<td[39m
+    [33mtitle[39m=[32m"email"[39m
+  [36m/>[39m
+
+  Name "text":
+  [36m<td[39m
+    [33mtitle[39m=[32m"text"[39m
+  [36m/>[39m
+
+  Name "UQ":
+  [36m<td />[39m
+
+  Name "Opcional":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Opcional"[39m
+    [33mtitle[39m=[32m"Opcional"[39m
+  [36m/>[39m
+
+  Name "entryId":
+  [36m<td[39m
+    [33mtitle[39m=[32m"entryId"[39m
+  [36m/>[39m
+
+  Name "uuid":
+  [36m<td[39m
+    [33mtitle[39m=[32m"uuid"[39m
+  [36m/>[39m
+
+  Name "PK":
+  [36m<td />[39m
+
+  Name "Obligatorio":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Obligatorio"[39m
+    [33mtitle[39m=[32m"Obligatorio"[39m
+  [36m/>[39m
+
+  Name "ownerId":
+  [36m<td[39m
+    [33mtitle[39m=[32m"ownerId"[39m
+  [36m/>[39m
+
+  Name "uuid":
+  [36m<td[39m
+    [33mtitle[39m=[32m"uuid"[39m
+  [36m/>[39m
+
+  Name "FK UQ":
+  [36m<td />[39m
+
+  Name "Obligatorio":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Obligatorio"[39m
+    [33mtitle[39m=[32m"Obligatorio"[39m
+  [36m/>[39m
+
+  Name "reviewerId":
+  [36m<td[39m
+    [33mtitle[39m=[32m"reviewerId"[39m
+  [36m/>[39m
+
+  Name "uuid":
+  [36m<td[39m
+    [33mtitle[39m=[32m"uuid"[39m
+  [36m/>[39m
+
+  Name "FK UQ":
+  [36m<td />[39m
+
+  Name "Opcional":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Opcional"[39m
+    [33mtitle[39m=[32m"Opcional"[39m
+  [36m/>[39m
+
+  Name "auditId":
+  [36m<td[39m
+    [33mtitle[39m=[32m"auditId"[39m
+  [36m/>[39m
+
+  Name "uuid":
+  [36m<td[39m
+    [33mtitle[39m=[32m"uuid"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<td />[39m
+
+  Name "Obligatorio":
+  [36m<td[39m
+    [33maria-label[39m=[32m"Obligatorio"[39m
+    [33mtitle[39m=[32m"Obligatorio"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"_srOnly_21dc0b"[39m
+    [33mid[39m=[32m"_r_2_-expanded-help"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  searchbox:
+
+  Name "Buscar tabla o atributo":
+  [36m<input[39m
+    [33mplaceholder[39m=[32m"Buscar tabla o atributo"[39m
+    [33mtype[39m=[32m"search"[39m
+    [33mvalue[39m=[32m""[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  status:
+
+  Name "Zoom":
+  [36m<output[39m
+    [33maria-label[39m=[32m"Zoom"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body[39m
+  [33mstyle[39m=[32m"overflow: hidden;"[39m
+[36m>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"_viewer_21dc0b"[39m
+      [33mdata-testid[39m=[32m"data-model-viewer"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_provenance_21dc0b"[39m
+      [36m>[39m
+        [36m<span>[39m
+          [0mModelo diseñado. Implementación sin verificar.[0m
+        [36m</span>[39m
+        [36m<code>[39m
+          [0mdocs/product/data-model.json[0m
+        [36m</code>[39m
+        [36m<span>[39m
+          [0mRelacional[0m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_toolbar_21dc0b"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33maria-label[39m=[32m"Vista del modelo"[39m
+          [33mdata-level[39m=[32m"sub"[39m
+          [33mdata-testid[39m=[32m"tabs-root"[39m
+          [33mrole[39m=[32m"tablist"[39m
+          [33mstyle[39m=[32m"display: flex; gap: 5px; flex-wrap: wrap;"[39m
+        [36m>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"true"[39m
+            [33mdata-active[39m=[32m"true"[39m
+            [33mdata-testid[39m=[32m"tab-diagram"[39m
+            [33mid[39m=[32m"_r_2_-tab-diagram"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mstyle[39m=[32m"display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text); font-weight: 500; background: var(--color-card2); transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"[39m
+            [33mtabindex[39m=[32m"0"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mDiagrama[0m
+          [36m</button>[39m
+          [36m<button[39m
+            [33maria-selected[39m=[32m"false"[39m
+            [33mdata-active[39m=[32m"false"[39m
+            [33mdata-testid[39m=[32m"tab-schema"[39m
+            [33mid[39m=[32m"_r_2_-tab-schema"[39m
+            [33mrole[39m=[32m"tab"[39m
+            [33mstyle[39m=[32m"display: inline-flex; align-items: center; gap: 5px; padding: 6px 11px; border-radius: var(--radius-md, 12px); font-size: 13px; cursor: pointer; border: 0.5px solid transparent; color: var(--color-text2); font-weight: 400; background: transparent; transition: color var(--duration-fast, 150ms) var(--easing-standard, ease), background var(--duration-fast, 150ms) var(--easing-standard, ease); outline: none;"[39m
+            [33mtabindex[39m=[32m"-1"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mEsquema[0m
+          [36m</button>[39m
+        [36m</div>[39m
+        [36m<span>[39m
+          [36m<button[39m
+            [33mclass[39m=[32m"pc-btn"[39m
+            [33mdata-size[39m=[32m"sm"[39m
+            [33mdata-testid[39m=[32m"button"[39m
+            [33mdata-tone[39m=[32m"default"[39m
+            [33mdata-variant[39m=[32m"secondary"[39m
+            [33mstyle[39m=[32m"font-family: var(--font-display, system-ui, sans-serif); font-size: 12px; font-weight: 500; padding: 5px 10px; border-radius: var(--radius-sm, 8px); cursor: pointer; opacity: 1; line-height: 1.4; transition: border-color var(--duration-fast, 150ms), box-shadow var(--duration-fast, 150ms); box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 1px 0 var(--color-base); display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; user-select: none; background: var(--color-card); color: var(--color-text); border-color: var(--color-border-strong);"[39m
+            [33mtype[39m=[32m"button"[39m
+          [36m>[39m
+            [0mAmpliar modelo[0m
+          [36m</button>[39m
+        [36m</span>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33maria-labelledby[39m=[32m"_r_2_-tab-diagram"[39m
+        [33mrole[39m=[32m"tabpanel"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"_expandedPlaceholder_21dc0b"[39m
+        [36m/>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+  [36m<dialog[39m
+    [33maria-label[39m=[32m"Modelo de datos"[39m
+    [33mclass[39m=[32m"_dialog_21dc0b _viewer_21dc0b"[39m
+    [33mopen[39m=[32m""[39m
+  [36m>[39m
+    [36m<div[39m
+      [33maria-describedby[39m=[32m"_r_2_-expanded-help"[39m
+      [33maria-label[39m=[32m"Diagrama del modelo de datos"[39m
+      [33mclass[39m=[32m"_canvas_21dc0b _expandedCanvas_21dc0b"[39m
+      [33mdata-testid[39m=[32m"model-viewport"[39m
+      [33mrole[39m=[32m"application"[39m
+      [33mtabindex[39m=[32m"0"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"_stage_21dc0b"[39m
+        [33mdata-testid[39m=[32m"model-stage"[39m
+        [33mstyle[39m=[32m"width: 760px; height: 356px; transform: translate(0.8000000000000114px, 170.7px) scale(0.9);"[39m
+      [36m>[39m
+        [36m<svg[39m
+          [33maria-label[39m=[32m"Relaciones"[39m
+          [33mclass[39m=[32m"_edges_21dc0b"[39m
+          [33mheight[39m=[32m"356"[39m
+          [33mwidth[39m=[32m"760"[39m
+        [36m>[39m
+          [36m<g[39m
+            [33maria-label[39m=[32m"Ver relación Propiedad"[39m
+            [33maria-pressed[39m=[32m"false"[39m
+            [33mclass[39m=[32m"_edge_21dc0b"[39m
+            [33mdata-active[39m=[32m"false"[39m
+            [33mdata-model-interactive[39m=[32m"true"[39m
+            [33mrole[39m=[32m"button"[39m
+            [33mtabindex[39m=[32m"0"[39m
+          [36m>[39m
+            [36m<path[39m
+              [33mclass[39m=[32m"_edgeHit_21dc0b"[39m
+              [33md[39m=[32m"M316,280 L326,280 L326,256 L426,256"[39m
+            [36m/>[39m
+            [36m<path[39m
+              [33mclass[39m=[32m"_edgeLine_21dc0b"[39m
+              [33md[39m=[32m"M316,280 L326,280 L326,256 L426,256"[39m
+            [36m/>[39m
+            [36m<g[39m
+              [33mdata-cardinality[39m=[32m"1..1"[39m
+              [33mfocusable[39m=[32m"false"[39m
+              [33mpointer-events[39m=[32m"none"[39m
+              [33mtransform[39m=[32m"translate(316 280) rotate(0)"[39m
+            [36m>[39m
+              [36m<path[39m
+                [33mclass[39m=[32m"_edgeLine_21dc0b"[39m
+                [33md[39m=[32m"M8 -7 V7"[39m
+              [36m/>[39m
+              [36m<path[39m
+                [33mclass[39m=[32m"_edgeLine_21dc0b"[39m
+                [33md[39m=[32m"M24 -7 V7"[39m
+              [36m/>[39m
+            [36m</g>[39m
+            [36m<g[39m
+              [33mdata-cardinality[39m=[32m"0..many"[39m
+              [33mfocusable[39m=[32m"false"[39m
+              [33mpointer...
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.1/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ src/components/modules/DataModelViewer/_tests/fullscreen.consistency.reviewer.test.tsx:120:28
+    118|     const { exit } = mockNativeFullscreen();
+    119|     fireEvent.click(await renderReadyModel());
+    120|     fireEvent.click(screen.getByRole("button", { name: "Salir de panta…
+       |                            ^
+    121|
+    122|     expect(exit).toHaveBeenCalledTimes(1);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 3 passed (6)
+   Start at  22:44:24
+   Duration  2.97s (transform 198ms, setup 267ms, import 201ms, tests 1.91s, environment 448ms)

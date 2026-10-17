@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import type { DataModel } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import { EntityCard } from "./EntityCard";
@@ -38,9 +39,12 @@ export function ModelDiagram({
       )
       .flatMap((relation) => [relation.from.entity, relation.to.entity]),
   );
-  function selectEntity(id: string) {
-    onSelect({ kind: "entity", id });
-  }
+  const selectEntity = useCallback(
+    (id: string) => {
+      onSelect({ kind: "entity", id });
+    },
+    [onSelect],
+  );
   return (
     <>
       <div

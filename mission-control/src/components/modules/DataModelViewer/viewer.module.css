@@ -6,9 +6,7 @@
   font-size: var(--model-font);
 }
 .provenance,
-.toolbar,
-.diagramControls,
-.controlsGroup {
+.toolbar {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -39,25 +37,6 @@
   background: var(--color-base);
   color: var(--color-text);
   font: inherit;
-}
-.diagramControls {
-  justify-content: space-between;
-  padding: calc(var(--model-unit) * 2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-  background: var(--color-card);
-}
-.controlsGroup {
-  gap: var(--model-unit);
-}
-.controlsGroup button {
-  min-width: calc(var(--model-unit) * 8);
-  min-height: calc(var(--model-unit) * 8);
-}
-.controlsGroup output {
-  min-width: calc(var(--model-unit) * 12);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 .canvas {
   position: relative;
@@ -248,28 +227,37 @@
   height: 100%;
   border: 0;
 }
-.expandedToolbar {
+.surface {
+  position: relative;
+}
+.expandedSurface {
+  width: 100%;
+  height: 100%;
+  background: var(--color-base);
+}
+.surface:fullscreen {
+  width: 100vw;
+  height: 100dvh;
+  background: var(--color-base);
+}
+.surface:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+  background: var(--color-base);
+}
+.expandedSearch {
   position: absolute;
-  top: calc(var(--model-unit) * 3);
-  right: calc(var(--model-unit) * 3);
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: calc(var(--model-unit) * 2);
-  max-width: calc(100% - var(--model-unit) * 6);
-  padding: calc(var(--model-unit) * 2);
+  top: calc(var(--model-unit) * 2);
+  left: calc(var(--model-unit) * 2);
+  width: min(260px, calc(100% - 240px));
+}
+.expandedSearch .search {
+  display: block;
+  min-width: 0;
+}
+.expandedSearch .searchStatus {
   background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.expandedControls {
-  position: absolute;
-  bottom: calc(var(--model-unit) * 3);
-  left: calc(var(--model-unit) * 3);
-  max-width: calc(100% - var(--model-unit) * 6);
-}
-.expandedControls .diagramControls {
-  border-radius: var(--radius-sm);
+  padding: var(--model-unit);
 }
 .expandedPlaceholder {
   min-height: 440px;
@@ -305,17 +293,11 @@
   .canvas {
     height: 400px;
   }
-  .diagramControls {
-    gap: calc(var(--model-unit) * 2);
-  }
   .dialog .expandedCanvas {
     height: 100%;
   }
-  .expandedToolbar .search {
-    order: initial;
-    flex-basis: auto;
-  }
-  .expandedToolbar {
-    left: calc(var(--model-unit) * 3);
+  .expandedSearch {
+    top: calc(var(--model-unit) * 12);
+    width: min(260px, calc(100% - var(--model-unit) * 4));
   }
 }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DataModelViewer } from "../DataModelViewer";
@@ -50,7 +50,7 @@ describe("published model viewer", () => {
     expect(screen.getByRole("tab", { name: "Diagrama" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("application", { name: "Diagrama del modelo de datos" })).toBeVisible();
     expect(
-      Number.parseInt(screen.getByRole("status", { name: "Zoom" }).textContent ?? "0", 10),
+      Number.parseInt(screen.getByRole("button", { name: /^Zoom / }).textContent ?? "0", 10),
     ).toBeGreaterThan(0);
     expect(screen.getByText("Modelo diseñado. Implementación sin verificar.")).toBeVisible();
     const fields = screen.getByRole("table", { name: "Atributos Entry" });
@@ -100,14 +100,15 @@ describe("published model viewer", () => {
     render(<DataModelViewer result={readyFixture()} />);
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     const zoom = () =>
-      Number.parseInt(screen.getByRole("status", { name: "Zoom" }).textContent ?? "0", 10);
+      Number.parseInt(screen.getByRole("button", { name: /^Zoom / }).textContent ?? "0", 10);
     const original = zoom();
     await user.click(screen.getByRole("button", { name: "Acercar" }));
     expect(zoom()).toBeGreaterThan(original);
+    const afterButton = zoom();
     const canvas = screen.getByRole("application", { name: "Diagrama del modelo de datos" });
     expect(fireEvent.wheel(canvas, { deltaY: -100, clientX: 100, clientY: 100 })).toBe(false);
-    expect(zoom()).toBeGreaterThan(original);
-    await user.click(screen.getByRole("button", { name: "Restablecer" }));
+    await waitFor(() => expect(zoom()).toBeGreaterThan(afterButton));
+    await user.click(screen.getByRole("button", { name: /^Zoom / }));
     expect(zoom()).toBe(original);
   });
   it("opens a modal, traps focus, closes with Escape and restores the expand control", async () => {
@@ -119,8 +120,7 @@ describe("published model viewer", () => {
     expect(dialog).toContainElement(
       document.activeElement instanceof HTMLElement ? document.activeElement : null,
     );
-    const buttons = within(dialog).getAllByRole("button");
-    buttons[buttons.length - 1]?.focus();
+    within(dialog).getByRole("searchbox").focus();
     await user.tab();
     expect(
       within(dialog).getByRole("application", { name: "Diagrama del modelo de datos" }),
