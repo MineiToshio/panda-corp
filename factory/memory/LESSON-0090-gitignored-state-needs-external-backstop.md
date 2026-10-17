@@ -52,3 +52,17 @@ itself vulnerable to the exact class of loss it exists to help prevent.
 gitignored, provisional file) from a session running inside a git worktree, write it to the MAIN
 checkout's copy of that file, not the worktree's — the worktree's copy does not survive the worktree's
 removal, backstop or no backstop.
+
+**A FIFTH variant, corroborated 2026-10-15 (pandasaga, `.pandacorp/run/lessons.md`, agent-inferred):** the
+same mechanism generalizes beyond the raw lessons.md inbox to ANY gitignored comms/inbox digest a phase
+writes FROM inside a worktree — `.pandacorp/comms/*` and `.pandacorp/inbox/*` are not reconstituted by
+`worktree-bootstrap.sh` into a fresh worktree (by design: they are gitignored, project-local state, not
+tracked content), so a phase that generates or updates a comms digest while running in a worktree and
+writes it to the worktree's own (empty/stale) copy produces output that silently vanishes the moment that
+worktree is removed, with no backstop because nothing outside the worktree ever received it.
+
+**Apply next time (addendum 2):** this is the SAME rule as the lessons.md addendum above, generalized: any
+phase or script that produces a gitignored comms/inbox artifact while running inside a git worktree must
+write that artifact into the MAIN checkout's copy of the corresponding path, never the worktree's own —
+check this explicitly whenever a new phase/skill is wired to write under `.pandacorp/comms/` or
+`.pandacorp/inbox/` and may run from a worktree.

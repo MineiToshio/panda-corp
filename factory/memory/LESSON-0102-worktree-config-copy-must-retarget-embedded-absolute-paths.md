@@ -66,3 +66,18 @@ a disposable worktree) that includes a package manager's `node_modules`, assume 
 shims/launchers carry embedded absolute paths from the SOURCE location too — re-run the package manager's
 own install (offline, frozen lockfile) in the new location to regenerate them, rather than trusting a
 file-level copy to have retargeted anything automatically.
+
+**Fifth mechanism (2026-10-15, pandasaga):** inverted from the usual shape of this lesson — here
+`worktree-bootstrap.sh` CORRECTLY derives a distinct, per-worktree port for a tracked `e2e/server-env.json`
+(so parallel worktrees don't collide on Playwright's webServer port). The project's OWN auth config
+(`BETTER_AUTH_URL`) was pinned as a static absolute URL baked with the MAIN checkout's port, read from
+that same `server-env.json`/env layer. Once the bootstrap script did its job and rewrote the port for a
+worktree, the pinned `BETTER_AUTH_URL` no longer matched the actual serving port, and auth's origin check
+rejected requests — not because any path-retargeting step was skipped, but because a value DERIVED FROM a
+field the bootstrap deliberately varies was itself pinned as a constant.
+
+**Apply next time (addendum 2):** when a worktree-bootstrap step deliberately varies a field (a port, a
+slug) per worktree for correctness (avoiding collisions), audit for any OTHER config value in the project
+that was built by hand from that same field as a fixed string — those must be derived dynamically at
+request/startup time from the live value, never pinned, or the deliberate per-worktree variation breaks
+them the same way an un-retargeted absolute path would.
