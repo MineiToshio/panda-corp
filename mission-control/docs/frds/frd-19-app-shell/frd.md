@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-06-21'
+last_updated: '2026-10-17'
 ---
 # FRD-19 — Global app shell (persistent top navigation)
 
@@ -37,12 +37,7 @@ Documentación) renders inside this shell.
 
 ## Scope (Phase A)
 
-This FRD covers **the global shell only**: the persistent topbar, the six-destination nav with active
-state, and the responsive structure (inline topbar on desktop / drawer on mobile). The **full
-responsive pass** over every surface (kanban overflow, tables, the workspace canvas) is a separate
-follow-up; `target_platforms` stays `desktop` in this phase, so the mobile-width gate assertions are
-deferred until that pass flips it to `responsive`. The mobile drawer is **built** here (so the flip is
-a one-line change) but not yet gate-enforced.
+This FRD covers the global shell: persistent identity, six destinations and responsive navigation. The 2026-10-17 owner correction explicitly qualifies phone/tablet shell behavior through dedicated browser cases; it does not certify every surface's tables/kanban/canvas or mutate `target_platforms`/build state. Historical Phase A desktop-only gate coverage remains historical.
 
 ## Layout (the prototype `topbar()`)
 ```
@@ -55,7 +50,7 @@ a one-line change) but not yet gate-enforced.
 - **Left** — the brand (logo + "Pandacorp Mission Control") and the guild identity (`GuildBar`: NV
   level pill + rank title + compact XP bar).
 - **Right** — the six top-level destinations (`Nav`) and the proposals badge (`ProposalsBadge`).
-- On mobile the right group collapses behind a toggle (a drawer).
+- At phone/tablet widths the right group collapses behind a top-right toggle and opens across the same header.
 
 ## Acceptance criteria (EARS)
 
@@ -85,15 +80,12 @@ a one-line change) but not yet gate-enforced.
   five; WHEN the route is an exempt drill-in (see REQ-19-004) or otherwise unmatched, no destination
   SHALL be marked active (no false highlight).
 
-### REQ-19-003 — Responsive structure (desktop topbar / mobile drawer)
-- **AC-19-003.1** At desktop widths the six destinations SHALL be visible inline in the topbar with no
-  toggle.
-- **AC-19-003.2** At mobile widths the inline nav SHALL collapse behind a toggle control
-  (`[data-nav-toggle]`); activating the toggle SHALL reveal the nav as a drawer, and the toggle SHALL
-  expose its state via `aria-expanded` and an accessible label.
-- **AC-19-003.3** The shell SHALL NOT overflow horizontally at the 390px mobile target. *(Built and
-  manually verified in Phase A; gate-enforced when `target_platforms` flips to `responsive` in the
-  follow-up responsive pass.)*
+### REQ-19-003 — Responsive integrated navigation and fluid frame
+- **AC-19-003.1** WHEN the viewport is wider than 1100px, THE shell SHALL display all six destinations inline and hide the disclosure toggle.
+- **AC-19-003.2** WHEN the viewport is 1100px or narrower, THE shell SHALL place a minimum 44px toggle beside the brand at the top-right of the same header, hide the closed navigation, and reveal all destinations in a full-width row within that header; the toggle SHALL expose an accessible open/close label, `aria-expanded` and `aria-controls`.
+- **AC-19-003.3** WHEN the navigation is open at 600px or narrower, THE shell SHALL use two destination columns; from 601px through 1100px it SHALL use three. Every link, including the nested Propuestas badge destination, SHALL have a minimum 44px target height and remain within the header bounds at 320px, 390px, 768px and 1024px.
+- **AC-19-003.4** WHEN Escape is pressed with the menu open, THE shell SHALL close it and restore toggle focus; outside pointer-down, destination activation (including the current route) and route changes SHALL also close it.
+- **AC-19-003.5** WHEN rendering page content, THE shell SHALL use the available viewport width with consistent header/content gutters, without the previous 1240px frame limit; shared digest panels SHALL fill their host while prose MAY retain a readable line-length cap.
 
 ### REQ-19-004 — Shell scope and exemptions
 - **AC-19-004.1** The drill-in surfaces that navigate via their own in-context header + back control —
@@ -116,7 +108,7 @@ a one-line change) but not yet gate-enforced.
 ## Traceability
 - REQ-19-001 → AC-19-001.1..5 → `CMP-19-app-shell`, `CMP-19-nav` → WO-19-001
 - REQ-19-002 → AC-19-002.1..2 → `CMP-19-nav` → WO-19-001
-- REQ-19-003 → AC-19-003.1..3 → `CMP-19-app-shell` (responsive) → WO-19-001
+- REQ-19-003 → AC-19-003.1..5 → `CMP-19-app-shell` (responsive) → WO-19-001
 - REQ-19-004 → AC-19-004.1..2 → `CMP-19-app-shell` (scope), `e2e/shell.ts` → WO-19-001
 - Reuses: `CMP-09-guild-bar` (GuildBar, extended with an `embedded` variant), `CMP-17-badge`
   (ProposalsBadge, **realized as the Propuestas nav destination** — the prototype's `tabProp()`: one

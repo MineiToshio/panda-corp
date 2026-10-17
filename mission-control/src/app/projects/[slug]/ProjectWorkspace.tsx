@@ -7,7 +7,7 @@
  *   - `/projects/[slug]/page.tsx`        — standalone deep-link.
  *   - Portfolio right pane (WorkspaceSlot) — the prototype's canonical surface.
  *
- * Normal document flow (no 100dvh/overflow chrome): the page column (#pcapp, 1240px) provides the
+ * Normal document flow (no 100dvh/overflow chrome): the page column (#pcapp, fluid width) provides the
  * frame, exactly like the prototype's projectPane sits inside #pcapp. The caller resolves the project
  * (so /projects can 404 while Portfolio degrades gracefully); this component is presentation + the
  * lazy per-tab data reads.

@@ -1,0 +1,33 @@
+
+ RUN  v4.1.9 /Users/Shared/Proyectos/panda-corp/mission-control
+
+(node:84377) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+x·
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/app/board/_components/CardDetail/ArchitectureDigest/_tests/usability.reviewer.test.tsx > architecture reading order independent acceptance > places integrations and operation between stack and data model, with environment separate
+AssertionError: expected +0 to be truthy
+
+- Expected:
+true
+
++ Received:
+0
+
+ ❯ src/app/board/_components/CardDetail/ArchitectureDigest/_tests/usability.reviewer.test.tsx:46:7
+     44|     expect(
+     45|       integrations.compareDocumentPosition(model) & Node.DOCUMENT_POSI…
+     46|     ).toBeTruthy();
+       |       ^
+     47|     expect(within(integrations).getByText(/Integraciones.*operaci[oó]n…
+     48|     expect(integrations).not.toContainElement(environment);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  00:14:47
+   Duration  1.07s (transform 233ms, setup 172ms, import 375ms, tests 87ms, environment 307ms)

@@ -101,6 +101,7 @@ export function useViewport(layout: ModelLayout, expanded = false, mode = "diagr
     });
   }
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    window.getSelection()?.removeAllRanges();
     suppressClick.current = false;
     if (
       event.button !== 0 ||

@@ -93,6 +93,8 @@
   stroke-width: 2.5;
 }
 .entity {
+  user-select: none;
+  -webkit-user-select: none;
   position: absolute;
   background: var(--color-card);
   border: 1px solid var(--color-border-strong);
@@ -168,28 +170,53 @@
   line-height: 1.5;
 }
 .schema {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
-  gap: calc(var(--model-unit) * 3);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--model-unit) * 2);
 }
-.schema section {
+.schema details {
   min-width: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-base);
   overflow: hidden;
 }
+.schema details[open] {
+  border-color: var(--color-border-strong);
+}
 .schemaName {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--model-unit) * 2);
+  min-height: calc(var(--model-unit) * 11);
+  padding: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
   color: var(--color-text);
   background: var(--color-card2);
-  border: 0;
-  border-bottom: 1px solid var(--color-border);
-  width: 100%;
-  text-align: left;
-  font: inherit;
-  font-weight: 600;
-  padding: calc(var(--model-unit) * 2) calc(var(--model-unit) * 3);
   cursor: pointer;
+  list-style: none;
+}
+.schemaName::-webkit-details-marker {
+  display: none;
+}
+.schema details[open] .schemaName {
+  border-bottom: 1px solid var(--color-border);
+}
+.schema details[open] .schemaName i {
+  transform: rotate(90deg);
+}
+.schemaName strong {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+.schemaName span {
+  color: var(--color-text3);
+  white-space: nowrap;
+}
+.schemaName:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 .schema p {
   color: var(--color-text2);
@@ -200,7 +227,7 @@
   margin: 0;
   padding: calc(var(--model-unit) * 3);
   overflow: auto;
-  max-height: 560px;
+  user-select: text;
 }
 .dialog {
   position: fixed;

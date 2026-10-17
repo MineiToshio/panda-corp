@@ -4,7 +4,7 @@ type: blueprint
 title: 'Blueprint — FRD-19 global app shell'
 frd: FRD-19
 status: ACTIVE
-last_updated: '2026-06-21'
+last_updated: '2026-10-17'
 implementation_status: VERIFIED
 ---
 # Blueprint — FRD-19 global app shell
@@ -24,7 +24,7 @@ prototype `topbar()` the per-FRD sharding skipped.
 | `CMP-17-badge` | `ProposalsBadge` | `src/components/modules/ProposalsBadge/ProposalsBadge.tsx` | extend (→ Propuestas nav-pill: client + active + `.tab` + name "Propuestas") |
 | — | shared `.tab` visual + active-match | `src/components/modules/Nav/navTab.ts` | new (reused by Nav + ProposalsBadge) |
 | — | shell scope (exempt mirror) | `src/components/modules/AppShell/shellScope.ts` | new |
-| — | shell responsive CSS | `src/app/globals.css` | extend (app-wide pattern) |
+| — | shell responsive CSS | `src/components/modules/AppShell/shell.module.css` | scoped header/navigation grid; globals retains Nav display default |
 | — | root layout wiring | `src/app/layout.tsx` | edit |
 | — | gate seed | `e2e/shell.ts` | fill (per-project seed) |
 | — | brand asset | `public/brand/pandacorp.png` | add (copied from prototype) |
@@ -43,8 +43,7 @@ prototype `topbar()` the per-FRD sharding skipped.
 - `data-testid="app-nav"`, each link `data-testid="app-nav-<slug>"`.
 
 ### `AppShell` (CMP-19-app-shell) — client
-- A `"use client"` component (owns the mobile drawer `useState` and reads `usePathname()` for the
-  scope check).
+- A `"use client"` component (reads `usePathname()` for scope and keys `ShellNavigation` to that path).
 - Props (slot nodes + children from the Server layout): `levelBar: ReactNode` (a server-rendered
   `<GuildBar embedded outcomes=… />` — stays server-rendered via the "server-in-client via props"
   pattern), `proposalsBadge: ReactNode` (`<ProposalsBadge openCount=… />` — a client component now,
@@ -63,8 +62,7 @@ prototype `topbar()` the per-FRD sharding skipped.
     - Left: brand (logo `/brand/pandacorp.png` 44×44 + "Pandacorp Mission Control") + `{levelBar}`.
     - Toggle `<button data-nav-toggle aria-expanded aria-controls="app-nav-region" …>` (CSS-hidden on
       desktop).
-    - Nav region `<div id="app-nav-region" data-nav-region data-open={open}>` containing `<Nav />` +
-      `{proposalsBadge}`.
+    - `ShellNavigation` owns the disclosure toggle/action slot and `<div id="app-nav-region" data-nav-region data-open={open}>` containing `<Nav proposalsBadge={…} />`. It returns direct header-grid children.
   - Always: `<div id="main-content" tabIndex={-1}>{children}</div>` (the skip target; each page keeps
     its own single `<main>` inside).
 - When NOT `showShell` (exempt drill-in): render `<div id="main-content" tabIndex={-1}>{children}</div>`
@@ -75,19 +73,11 @@ prototype `topbar()` the per-FRD sharding skipped.
   unchanged). When `true`, render only the inner row (NV pill + rank title + compact XpBar) — no
   rpgpanel wrapper styling, no `marginBottom` — so it sits inside the shell's own surface.
 
-### Responsive (globals.css)
-App-wide pattern (styling-and-ui.md). Media query at the shell breakpoint:
-```
-[data-nav-toggle]{ display:none }                       /* desktop: no toggle */
-@media (max-width: <bp>){
-  [data-nav-toggle]{ display:inline-flex }              /* mobile: toggle shows */
-  [data-nav-region][data-open="false"]{ display:none }  /* mobile: nav hidden until opened */
-  [data-nav-region][data-open="true"]{ … drawer column … }
-}
-```
-Desktop nav stays inline (the media query only affects the mobile width). The React `open` state drives
-`data-open`; on desktop the CSS keeps the nav visible regardless. Breakpoint chosen so the wide topbar
-(brand + 6 pills + badge) never overflows between 391px and desktop.
+### Responsive (`shell.module.css`, ADR-0009)
+
+A fluid `width:100%; min-width:0` frame uses 20px desktop/tablet and 12px phone side gutters. The header is a grid: brand, actions and nav above 1100px; brand plus actions with a full-width navigation row at/below 1100px. Nav stays hidden while closed and uses three columns when open, reduced to two at/below 600px. All descendant anchors (including ProposalsBadge's wrapped link) have at least 44px height. Mobile identity shrinks without moving the toggle below the brand.
+
+`ShellNavigation.tsx` owns `open` state, keyed by pathname by AppShell. Pointer-down outside the navigation/toggle closes it, Escape closes and restores toggle focus, and anchor activation closes even on the same route. Effects clean up both document listeners. CSS controls desktop visibility regardless of the closed state. This is an in-header disclosure, not a separate overlay panel. `globals.css` retains only the default `.app-nav` flex display; scoped responsive rules own the grid. Propuesta/Spec digest inner containers drop the 920px panel cap while existing introductory prose caps remain.
 
 ### `layout.tsx` wiring
 - Keep the profile guard: `profileResult.present ? <AppShell …>{children}</AppShell> : <OnboardingGate/>`.

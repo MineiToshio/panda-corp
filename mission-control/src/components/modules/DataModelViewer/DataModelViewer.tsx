@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/core/Button/Button";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
@@ -76,6 +76,13 @@ function ReadyViewer({
   const [mode, setMode] = useState("diagram");
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<ModelSelection>(null);
+  const select = useCallback((next: ModelSelection) => {
+    setSelection((previous) =>
+      next?.kind === "relationship" && previous?.kind === "relationship" && previous.id === next.id
+        ? null
+        : next,
+    );
+  }, []);
   const expansion = useModelExpansion();
   const isExpanded = expansion.expanded;
   const viewport = useViewport(layout, isExpanded, mode);
@@ -119,7 +126,7 @@ function ReadyViewer({
         model={model}
         layout={layout}
         selection={selection}
-        onSelect={setSelection}
+        onSelect={select}
         matches={matches}
         query={query}
         viewport={viewport}

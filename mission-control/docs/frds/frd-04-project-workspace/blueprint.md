@@ -7,7 +7,7 @@ implementation_status: VERIFIED
 readiness_gate: passed 2026-09-24
 grounding_gate: passed 2026-09-24
 consistency_gate: passed 2026-09-24
-last_updated: '2026-07-03'
+last_updated: '2026-10-17'
 ---
 # FRD-04 — Project workspace · feature blueprint
 
@@ -280,3 +280,7 @@ VERIFIED. Reuse `docs/design/components.md` rows — no bespoke title/tab/banner
 Trace: REQ-04-013 / AC-04-013.1–.5 → WO-04-004, `CMP-04-tabbar`, `CMP-04-tab-spec`, shared `CMP-02-spec-digest`, `IF-04-spec`. Missing/empty digest gives a published-spec-pending paragraph, with all nine tabs still available. No new persistence, API endpoint or build-state writer.
 
 The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.
+
+## Shared usability amendment — 2026-10-17
+
+The same complete Architecture now orders Stack (choices/why), Integraciones y operación (authored flows/tasks), Modelo de datos, then environment variables, ADRs and plan. Reuse FRD-02 AC-02-015.1–.14: repeated relationship click clears selection, diagram cards prevent text selection while schema code permits it, and the single-column schema opens with all entities collapsed and allows one expanded entity at a time. Shared Spec/Architecture panels fill their host; prose alone retains readable line lengths. Portfolio and direct-project behavior remain identical, with no new database-only tab or data source. ADR-0009 records the current design.

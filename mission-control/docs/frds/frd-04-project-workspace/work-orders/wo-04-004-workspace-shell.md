@@ -14,7 +14,7 @@ artifacts:
   - 'src/app/projects/[slug]/_components/objectives-bar.tsx'
 source_requirements: [REQ-04-001, REQ-04-002, REQ-04-012, REQ-04-013]
 dependsOn: [WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003]
-last_updated: '2026-06-20'
+last_updated: '2026-10-17'
 ---
 # WO-04-004 — Workspace shell: header + tabbar + objectives bar
 
@@ -138,3 +138,7 @@ Artifacts: `ProjectWorkspace.tsx`, `_components/tabbar.tsx`, `_components/tab-sp
 Reuse the same FRD-02 AC-02-015.1–.11 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
 
 The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.
+
+## Owner usability correction — 2026-10-17
+
+Scoped direct implementation under the owner's existing authorization; historical build machine-status fields are unchanged. Current contract: [ADR-0009](../../../adr/ADR-0009-architecture-responsive-usability.md). FRD-02 owns relation deselection, diagram-only selection prevention, initially collapsed exclusive schema entities, shared Architecture ordering and fluid digest panels. FRD-04 reuses that complete surface. FRD-19 owns the fluid shell frame and integrated phone/tablet disclosure, all six usable targets and close/focus behavior. Current verification is recorded separately in `docs/reviews/architecture-responsive-usability/delivery.md`; earlier VERIFIED metadata is not evidence for this extension.

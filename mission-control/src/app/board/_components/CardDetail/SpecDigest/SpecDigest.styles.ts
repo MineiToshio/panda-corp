@@ -7,7 +7,7 @@
 
 // --- Layout (full-width bands, centred content) -----------------------------
 export const CONTAINER_STYLE: React.CSSProperties = { width: "100%" };
-export const INNER_STYLE: React.CSSProperties = { maxWidth: "920px", margin: "0 auto" };
+export const INNER_STYLE: React.CSSProperties = { width: "100%", minWidth: 0 };
 
 // --- Hero -------------------------------------------------------------------
 export const HERO_STYLE: React.CSSProperties = {

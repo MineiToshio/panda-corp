@@ -1,0 +1,86 @@
+[WebServer] (node:36408) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36408) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36429) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36430) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] Turbopack build encountered 1 warnings:
+[WebServer] ./next.config.ts
+[WebServer] Encountered unexpected file in NFT list
+[WebServer] A file was traced that indicates that the whole project was traced unintentionally. Somewhere in the import trace below, there are:
+[WebServer] - filesystem operations (like path.join, path.resolve or fs.readFile), or
+[WebServer] - very dynamic requires (like require('./' + foo)).
+[WebServer] To resolve this, you can
+[WebServer] - remove them if possible, or
+[WebServer] - only use them in development, or
+[WebServer] - make sure they are statically scoped to some subfolder: path.join(process.cwd(), 'data', bar), or
+[WebServer] - add ignore comments: path.join(/*turbopackIgnore: true*/ process.cwd(), bar)
+[WebServer]
+[WebServer] Import traces:
+[WebServer]   #1 [Server Component]:
+[WebServer]     ./next.config.ts
+[WebServer]     ./src/lib/backlog/discard-backlog.ts
+[WebServer]     ./src/app/proposals/_actions/discard-backlog.ts
+[WebServer]
+[WebServer]   #2 [Server Component]:
+[WebServer]     ./next.config.ts
+[WebServer]     ./src/lib/profile/profile.ts
+[WebServer]     ./src/app/layout.tsx
+[WebServer]
+[WebServer]
+[WebServer] (node:36653) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36654) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36658) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36656) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36651) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36650) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36655) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36657) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36652) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36706) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:36706) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+
+Running 24 tests using 1 worker
+
+(node:36762) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 [desktop] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (1.1s)
+  ✓   2 [desktop] › e2e/logical-data-model.spec.ts:84:1 › board exposes the same published model even without a narrative architecture digest (1.1s)
+  ✓   3 [desktop] › e2e/logical-data-model.spec.ts:99:1 › model corner controls match the dependency map and retain a full-window fallback (850ms)
+  ✓   4 [desktop] › e2e/model-usability.spec.ts:26:1 › relationships toggle with repeated pointer and keyboard activation and switch directly (1.0s)
+  ✓   5 [desktop] › e2e/model-usability.spec.ts:55:1 › fullscreen diagram fields reject text selection and pointer pan clears an existing Range (912ms)
+  ✓   6 [desktop] › e2e/model-usability.spec.ts:85:1 › schema starts closed in one column, opens one entity at a time and retains copyable complete code (945ms)
+  ✓   7 [desktop] › e2e/shell-usability.spec.ts:26:3 › phone navigation is an integrated header disclosure and dismisses on every path (light) (1.1s)
+  ✓   8 [desktop] › e2e/shell-usability.spec.ts:63:3 › tablet uses the same full-width header menu (light) (967ms)
+  ✓   9 [desktop] › e2e/shell-usability.spec.ts:77:3 › wide desktop uses available application width and one inline destination row (light) (732ms)
+  ✓  10 [desktop] › e2e/shell-usability.spec.ts:26:3 › phone navigation is an integrated header disclosure and dismisses on every path (dark) (939ms)
+  ✓  11 [desktop] › e2e/shell-usability.spec.ts:63:3 › tablet uses the same full-width header menu (dark) (956ms)
+  ✓  12 [desktop] › e2e/shell-usability.spec.ts:77:3 › wide desktop uses available application width and one inline destination row (dark) (789ms)
+(node:37430) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  13 [mobile] › e2e/logical-data-model.spec.ts:4:1 › portfolio reuses Architecture after Work orders with a draggable compact model (1.2s)
+  ✓  14 [mobile] › e2e/logical-data-model.spec.ts:84:1 › board exposes the same published model even without a narrative architecture digest (1.1s)
+  ✓  15 [mobile] › e2e/logical-data-model.spec.ts:99:1 › model corner controls match the dependency map and retain a full-window fallback (996ms)
+  ✓  16 [mobile] › e2e/model-usability.spec.ts:26:1 › relationships toggle with repeated pointer and keyboard activation and switch directly (900ms)
+  ✓  17 [mobile] › e2e/model-usability.spec.ts:55:1 › fullscreen diagram fields reject text selection and pointer pan clears an existing Range (915ms)
+  ✓  18 [mobile] › e2e/model-usability.spec.ts:85:1 › schema starts closed in one column, opens one entity at a time and retains copyable complete code (1.3s)
+  ✓  19 [mobile] › e2e/shell-usability.spec.ts:26:3 › phone navigation is an integrated header disclosure and dismisses on every path (light) (882ms)
+  ✓  20 [mobile] › e2e/shell-usability.spec.ts:63:3 › tablet uses the same full-width header menu (light) (890ms)
+  ✓  21 [mobile] › e2e/shell-usability.spec.ts:77:3 › wide desktop uses available application width and one inline destination row (light) (720ms)
+  ✓  22 [mobile] › e2e/shell-usability.spec.ts:26:3 › phone navigation is an integrated header disclosure and dismisses on every path (dark) (971ms)
+  ✓  23 [mobile] › e2e/shell-usability.spec.ts:63:3 › tablet uses the same full-width header menu (dark) (822ms)
+  ✓  24 [mobile] › e2e/shell-usability.spec.ts:77:3 › wide desktop uses available application width and one inline destination row (dark) (920ms)
+
+  24 passed (34.8s)

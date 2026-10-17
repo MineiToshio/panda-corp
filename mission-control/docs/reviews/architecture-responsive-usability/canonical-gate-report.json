@@ -1,0 +1,75 @@
+{
+  "at": "2026-10-17T05:31:14Z",
+  "scope": "since",
+  "green": true,
+  "sha": "5e5198cb57b11e611f2577397b267c5a4f44252a",
+  "subgates": [
+    {
+      "name": "structure-guard",
+      "exit": 0,
+      "duration_ms": 20,
+      "failures": []
+    },
+    {
+      "name": "data-layer",
+      "exit": 0,
+      "duration_ms": 4,
+      "failures": []
+    },
+    {
+      "name": "api-error-contract",
+      "exit": 0,
+      "duration_ms": 8,
+      "failures": []
+    },
+    {
+      "name": "doc-lint",
+      "exit": 0,
+      "duration_ms": 2901,
+      "failures": []
+    },
+    {
+      "name": "residual-ambiguity",
+      "exit": 0,
+      "duration_ms": 70,
+      "failures": []
+    },
+    {
+      "name": "biome",
+      "exit": 0,
+      "duration_ms": 728,
+      "failures": []
+    },
+    {
+      "name": "tsc",
+      "exit": 0,
+      "duration_ms": 1750,
+      "failures": []
+    },
+    {
+      "name": "knip",
+      "exit": 0,
+      "duration_ms": 913,
+      "failures": []
+    },
+    {
+      "name": "madge",
+      "exit": 0,
+      "duration_ms": 2319,
+      "failures": []
+    },
+    {
+      "name": "vitest",
+      "exit": 0,
+      "duration_ms": 8604,
+      "failures": []
+    },
+    {
+      "name": "playwright",
+      "exit": 0,
+      "duration_ms": 30326,
+      "failures": []
+    }
+  ],
+  "since": "5e5198cb57b11e611f2577397b267c5a4f44252a"
+}

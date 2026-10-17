@@ -11,7 +11,7 @@ import type { BadgeTone, ScoreLevel } from "@/lib/pitch/pitch";
 /** The article spans the full panel width so the block tints bleed edge-to-edge. */
 export const CONTAINER_STYLE: React.CSSProperties = { width: "100%" };
 /** Centres each block's content at a readable measure inside the full-width band. */
-export const INNER_STYLE: React.CSSProperties = { maxWidth: "920px", margin: "0 auto" };
+export const INNER_STYLE: React.CSSProperties = { width: "100%", minWidth: 0 };
 
 // --- Hero (full-bleed so its bottom border spans the whole width, like the blocks) ----
 export const HERO_STYLE: React.CSSProperties = {

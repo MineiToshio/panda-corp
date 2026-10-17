@@ -36,7 +36,6 @@ const LINKS_AFTER: readonly NavItem[] = [
 ] as const;
 
 const NAV_STYLE: React.CSSProperties = {
-  display: "flex",
   gap: "5px",
   flexWrap: "wrap",
   alignItems: "center",
@@ -72,7 +71,12 @@ export interface NavProps {
 export function Nav({ proposalsBadge }: NavProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
   return (
-    <nav aria-label="Navegación principal" data-testid="app-nav" style={NAV_STYLE}>
+    <nav
+      className="app-nav"
+      aria-label="Navegación principal"
+      data-testid="app-nav"
+      style={NAV_STYLE}
+    >
       {LINKS_BEFORE.map((item) => (
         <NavLink key={item.slug} item={item} pathname={pathname} />
       ))}

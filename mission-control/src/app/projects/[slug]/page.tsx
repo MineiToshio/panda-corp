@@ -3,7 +3,7 @@
  *
  * Resolves the project from the URL slug + status, derives the URL-driven tab selection, and renders
  * the SHARED <ProjectWorkspace> (the same body the Portfolio right pane embeds — prototype projectPane,
- * DEC-4). The page column (#pcapp, 1240px) supplied by the shell frames it in normal flow.
+ * DEC-4). The page column (#pcapp, fluid width) supplied by the shell frames it in normal flow.
  *
  * URL-driven selection (AC-04-001.2): ?tab / ?doc / ?wo / ?wotab. Absent/invalid tab → "summary".
  *

@@ -4232,3 +4232,7 @@ Workspace URL contract: `/portfolio?project=<slug>&tab=architecture` and `/proje
 Expansion shows only the diagram at 100vw/100dvh plus minimal floating close/search/zoom/pan controls. Inline provenance remains mandatory, while tabs/help/legend/lower inspector stay out of the expanded view. The lower relation inspector/button list is retired. Initial view centers a readable complete connected entity; Ajustar fits the whole graph, Restablecer returns to the readable center.
 
 Graph navigation amendment (ADR-0008): GraphControls shares the dependency map’s top-right icon UI. useModelExpansion invokes the promoted useFullscreen on a model-only DIV inside the activation gesture; rejected/absent native API retains the full-window dialog. Native exit/Escape restores the actual invoking text or icon control. Camera updates batch wheel/pointer events and memoize unchanged node/edge content; no artifact/API contract changes.
+
+## Presentation-only usability amendment — 2026-10-17
+
+ADR-0009 changes shared Architecture ordering, relationship selection, schema accordion and responsive shell/panel layout. No endpoint, logical-model JSON contract, schema producer, filesystem reader or project source changes. All authored operational/service bullets remain visible under Integraciones y operación, separately from stack choices. Board/Portfolio/direct workspace continue to share the same digest and model inputs.

@@ -6,7 +6,7 @@ status: ACTIVE
 implementation_status: VERIFIED
 ui: true
 visual_source: docs/design/prototype/index.html
-last_updated: '2026-09-24'
+last_updated: '2026-10-17'
 ---
 # FRD-04 — Project workspace
 
@@ -31,7 +31,7 @@ On opening a project from the portfolio, its workspace: a **tabs-first** surface
 ## Shared Architecture (extension, 2026-10-16)
 
 - **REQ-04-012 / AC-04-012.1** — WHEN a project workspace is opened from the portfolio or `/projects/<slug>`, THE shell SHALL offer exactly nine tabs in this order: **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**, defaulting to Resumen when no tab is specified.
-- **AC-04-012.2** — WHEN `tab=architecture` is selected, THE workspace SHALL render the complete shared `ArchitectureDigest` and the shared logical-model reader/viewer from FRD-02 REQ-02-013/015, including stack, **Modelo de datos**, services, environment-variable names, ADRs, implementation plan and per-FRD cards; it SHALL NOT substitute a database-only view.
+- **AC-04-012.2** — WHEN `tab=architecture` is selected, THE workspace SHALL render the complete shared `ArchitectureDigest` and the shared logical-model reader/viewer from FRD-02 REQ-02-013/015, including stack, **Integraciones y operación**, **Modelo de datos**, environment-variable names (in that order), ADRs, implementation plan and per-FRD cards; it SHALL NOT substitute a database-only view.
 - **AC-04-012.3** — WHEN navigating with `/portfolio?project=<slug>&tab=architecture` or `/projects/<slug>?tab=architecture`, THE workspace SHALL preserve the selected project and Architecture tab, including implementation and released projects.
 - **AC-04-012.4** — WHEN architecture narrative or model input is missing/invalid/explicitly none, THE workspace SHALL show the same distinct partial/error states as the board and SHALL keep the Architecture tab reachable without fabricated database data.
 - **AC-04-012.5** — WHEN the owner changes selected project, THE Architecture view SHALL reset project-local diagram/search/selection state and render only the newly selected project's artifacts.

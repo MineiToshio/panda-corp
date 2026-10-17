@@ -9,7 +9,7 @@
  *   - LIVE artifacts for the machine-truth blocks: the implementation-plan DAG (work-order
  *     frontmatter, via the reused WoDag), the ADRs (`docs/adr/*`) and the env vars (`.env.example`).
  *
- * One scannable screen, top→bottom: hero → stack table → data model (conditional) → services + env
+ * One scannable screen, top→bottom: hero → stack table → integrations/operation → data model (conditional) → env
  * → ADRs → the implementation-plan DAG (the centerpiece) → per-FRD cards. Heavy detail lives behind
  * a Modal (an ADR's body, an FRD's work orders).
  *
@@ -24,17 +24,13 @@ import { Modal } from "@/components/core/Modal/Modal";
 import { DataModelViewer } from "@/components/modules/DataModelViewer/DataModelViewer";
 import { projectMetaChips } from "@/components/modules/IdeaCard/IdeaCard";
 import type { Adr } from "@/lib/architecture/adr";
-import { type ArchFrd, type ArchItem, parseArchitecture } from "@/lib/architecture/architecture";
+import { type ArchFrd, parseArchitecture } from "@/lib/architecture/architecture";
 import type { DataModelResult } from "@/lib/architecture/data-model/types";
 import type { EnvVar } from "@/lib/architecture/env";
 import type { WorkOrder } from "@/lib/work-orders/work-orders";
 import {
   BLABEL_FRD_STYLE,
   BLOCK_FRD_STYLE,
-  BULLET_DOT_STYLE,
-  BULLET_ITEM_STYLE,
-  BULLET_LIST_STYLE,
-  BULLET_STRONG_STYLE,
   CONTAINER_STYLE,
   EYEBROW_STYLE,
   FRD_CARD_STYLE,
@@ -64,15 +60,10 @@ import {
   BLOCK_STACK_STYLE,
   blockLabel,
   DATA_NOTE_STYLE,
-  EMPTY_NOTE_STYLE,
   ENTITY_CARD_STYLE,
   ENTITY_DESC_STYLE,
   ENTITY_GRID_STYLE,
   ENTITY_NAME_STYLE,
-  ENV_COMMENT_STYLE,
-  ENV_ITEM_STYLE,
-  ENV_LIST_STYLE,
-  ENV_NAME_STYLE,
   FRD_MODAL_BP_STYLE,
   FRD_MODAL_WO_LABEL_STYLE,
   NODB_CALLOUT_STYLE,
@@ -87,12 +78,13 @@ import {
   STACK_TD_STYLE,
   STACK_TH_STYLE,
   SUBHEAD_STYLE,
-  TWO_UP_STYLE,
   WO_COUNT_STYLE,
   WO_DESC_STYLE,
   WO_ID_STYLE,
   WO_ROW_STYLE,
 } from "./ArchitectureDigest.styles";
+import { ARCH_COPY } from "./copy.es";
+import { EnvBand, ServicesBand } from "./IntegrationBands";
 
 export interface ArchitectureDigestProps {
   /** The `.pandacorp/comms/arquitectura-resumen.md` digest markdown. */
@@ -174,45 +166,6 @@ function DataModel({
         )}
       </div>
     </section>
-  );
-}
-
-// --- Services + env (two-up) ------------------------------------------------
-
-function ServiceBullets({ items }: { items: ArchItem[] }) {
-  return (
-    <ul style={BULLET_LIST_STYLE}>
-      {items.map((it) => (
-        <li key={it.title} style={BULLET_ITEM_STYLE} data-testid="arch-service">
-          <span style={BULLET_DOT_STYLE} aria-hidden="true" />
-          <span>
-            {it.desc === "" ? (
-              it.title
-            ) : (
-              <>
-                <span style={BULLET_STRONG_STYLE}>{it.title}</span> — {it.desc}
-              </>
-            )}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function EnvVars({ vars }: { vars: EnvVar[] }) {
-  if (vars.length === 0) {
-    return <p style={EMPTY_NOTE_STYLE}>Sin variables de entorno declaradas.</p>;
-  }
-  return (
-    <div style={ENV_LIST_STYLE}>
-      {vars.map((v) => (
-        <div key={v.name} style={ENV_ITEM_STYLE} data-testid="arch-env">
-          <code style={ENV_NAME_STYLE}>{v.name}</code>
-          {v.comment !== "" && <span style={ENV_COMMENT_STYLE}>{v.comment}</span>}
-        </div>
-      ))}
-    </div>
   );
 }
 
@@ -416,25 +369,6 @@ function Hero({
 
 // --- Services + env band ----------------------------------------------------
 
-function ServicesEnvBand({ services, env }: { services: ArchItem[]; env: EnvVar[] }) {
-  return (
-    <section style={INNER_STYLE}>
-      <div style={TWO_UP_STYLE}>
-        {services.length > 0 && (
-          <div data-testid="arch-services">
-            <p style={SUBHEAD_STYLE}>🔌 Comunicación & servicios</p>
-            <ServiceBullets items={services} />
-          </div>
-        )}
-        <div data-testid="arch-env-block">
-          <p style={SUBHEAD_STYLE}>🔑 Variables de entorno</p>
-          <EnvVars vars={env} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
 // --- ADR band ---------------------------------------------------------------
 
 function AdrBand({ adrs, onOpen }: { adrs: Adr[]; onOpen: (adr: Adr) => void }) {
@@ -505,11 +439,16 @@ export function ArchitectureDigest({
       {arch.stackRows.length > 0 && (
         <section className="arch-block" style={BLOCK_STACK_STYLE} data-testid="arch-stack">
           <div style={INNER_STYLE}>
-            <p style={blockLabel("var(--color-accent-text)")}>🧱 Stack & tecnologías</p>
+            <p style={blockLabel("var(--color-accent-text)")}>{ARCH_COPY.stack}</p>
+            <p style={{ ...INTRO_STYLE, fontSize: "13px", marginBottom: "16px" }}>
+              {ARCH_COPY.stackHelp}
+            </p>
             <StackTable rows={arch.stackRows} />
           </div>
         </section>
       )}
+
+      {arch.services.length > 0 && <ServicesBand services={arch.services} />}
 
       {dataModel !== undefined ? (
         <section className="arch-block" style={BLOCK_DATA_STYLE} data-testid="arch-data-model">
@@ -522,7 +461,7 @@ export function ArchitectureDigest({
         <DataModel model={arch.dataModel} />
       ) : null}
 
-      {hasServicesEnv && <ServicesEnvBand services={arch.services} env={env} />}
+      {hasServicesEnv && <EnvBand env={env} />}
 
       {adrList.length > 0 && <AdrBand adrs={adrList} onOpen={setOpenAdr} />}
 

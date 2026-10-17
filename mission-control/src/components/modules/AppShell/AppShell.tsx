@@ -25,8 +25,8 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type React from "react";
-import { useState } from "react";
-import { Nav } from "@/components/modules/Nav/Nav";
+import { ShellNavigation } from "./ShellNavigation";
+import styles from "./shell.module.css";
 import { isShellExempt } from "./shellScope";
 
 // ---------------------------------------------------------------------------
@@ -34,15 +34,9 @@ import { isShellExempt } from "./shellScope";
 // ---------------------------------------------------------------------------
 
 /**
- * The single page column — the prototype's `#pcapp` (max-width 1240px, centered, padding 24/20/60).
- * It wraps the topbar AND the page content so both share one width; no per-page max-width drift.
+ * The single page column — the prototype's `#pcapp` (fluid width with consistent page gutters).
+ * It wraps topbar and page content at the same available width; prose limits belong to text blocks.
  */
-const APP_CONTAINER_STYLE: React.CSSProperties = {
-  maxWidth: "1240px",
-  margin: "0 auto",
-  padding: "24px 20px 60px",
-};
-
 /** The rpgpanel topbar surface — the embossed pixel tile + dot grid (matches GuildBar / Panel). */
 const TOPBAR_STYLE: React.CSSProperties = {
   position: "relative",
@@ -54,20 +48,12 @@ const TOPBAR_STYLE: React.CSSProperties = {
   backgroundImage:
     "linear-gradient(var(--color-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-border) 1px, transparent 1px)",
   backgroundSize: "22px 22px",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "12px",
-  flexWrap: "wrap",
   padding: "11px 15px",
   marginBottom: "16px",
 };
 
 const BRAND_STYLE: React.CSSProperties = {
   display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  flexWrap: "wrap",
   minWidth: 0,
 };
 
@@ -81,32 +67,11 @@ const LOGO_STYLE: React.CSSProperties = {
 
 const BRAND_TITLE_STYLE: React.CSSProperties = {
   fontFamily: "var(--font-display)",
-  fontSize: "17px",
-  lineHeight: 1.05,
   fontWeight: 600,
   color: "var(--color-text)",
 };
 
-const RIGHT_GROUP_STYLE: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  gap: "8px",
-  flexWrap: "wrap",
-  justifyContent: "flex-end",
-};
-
 /** Toggle: non-`display` props inline; `display` (hidden on desktop / shown on mobile) is in globals.css. */
-const TOGGLE_STYLE: React.CSSProperties = {
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "7px 9px",
-  borderRadius: "8px",
-  border: "1px solid var(--color-border-strong)",
-  background: "var(--color-panel)",
-  color: "var(--color-text)",
-  cursor: "pointer",
-};
-
 export interface AppShellProps {
   /** Brand/guild identity block — a server-rendered `<GuildBar embedded outcomes=… />`. */
   levelBar: React.ReactNode;
@@ -132,16 +97,11 @@ export function AppShell({
   children,
 }: AppShellProps): React.JSX.Element {
   const pathname = usePathname() ?? "";
-  const [navOpen, setNavOpen] = useState(false);
   const exempt = isShellExempt(pathname);
-
-  const handleToggle = (): void => {
-    setNavOpen((open) => !open);
-  };
 
   if (exempt) {
     return (
-      <div style={APP_CONTAINER_STYLE}>
+      <div className={styles.container}>
         <div id="main-content" tabIndex={-1}>
           {children}
         </div>
@@ -155,11 +115,16 @@ export function AppShell({
         Saltar al contenido
       </a>
 
-      <div style={APP_CONTAINER_STYLE}>
+      <div className={styles.container}>
         {/* <header> not inside a sectioning element → implicit ARIA role "banner" (no explicit role). */}
-        <header data-app-shell data-testid="app-shell" style={TOPBAR_STYLE}>
+        <header
+          data-app-shell
+          data-testid="app-shell"
+          className={styles.header}
+          style={TOPBAR_STYLE}
+        >
           {/* Left — brand + guild identity (level/XP) */}
-          <div style={BRAND_STYLE}>
+          <div className={styles.brand} style={BRAND_STYLE}>
             <Image
               src="/brand/pandacorp.png"
               alt="Pandacorp"
@@ -167,35 +132,21 @@ export function AppShell({
               height={44}
               priority
               style={LOGO_STYLE}
+              className={styles.logo}
             />
             <div style={{ minWidth: 0 }}>
-              <div style={BRAND_TITLE_STYLE}>Pandacorp Mission Control</div>
+              <div className={styles.brandTitle} style={BRAND_TITLE_STYLE}>
+                Pandacorp Mission Control
+              </div>
               <div style={{ marginTop: "4px" }}>{levelBar}</div>
             </div>
           </div>
 
-          {/* Right — pending-merge indicator (FRD-21, outside the nav row) + mobile toggle + destinations */}
-          <div style={RIGHT_GROUP_STYLE}>
-            {pendingMergeBadge}
-            <button
-              type="button"
-              data-nav-toggle
-              data-testid="app-nav-toggle"
-              aria-expanded={navOpen}
-              aria-controls="app-nav-region"
-              aria-label={navOpen ? "Cerrar menú de navegación" : "Abrir menú de navegación"}
-              onClick={handleToggle}
-              style={TOGGLE_STYLE}
-            >
-              <i className="ti ti-menu-2" aria-hidden="true" style={{ fontSize: "20px" }} />
-            </button>
-
-            {/* display is owned by globals.css (desktop inline / mobile drawer via [data-open]) —
-                NOT inline, so the responsive media query is not overridden by inline specificity. */}
-            <div id="app-nav-region" data-nav-region data-open={navOpen ? "true" : "false"}>
-              <Nav proposalsBadge={proposalsBadge} />
-            </div>
-          </div>
+          <ShellNavigation
+            key={pathname}
+            proposalsBadge={proposalsBadge}
+            pendingMergeBadge={pendingMergeBadge}
+          />
         </header>
 
         <div id="main-content" tabIndex={-1}>

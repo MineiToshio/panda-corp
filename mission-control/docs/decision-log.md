@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Clearable model selection, collapsed schema and integrated responsive navigation
+
+**What:** Repeating a selected relationship click now clears it. Diagram tables prevent accidental text selection; canvas pointer-down clears retained ranges while schema code stays copyable. Esquema is a single-column, initially collapsed entity accordion with at most one entity open. Shared Architecture now puts **Integraciones y operación** immediately after Stack, before **Modelo de datos**, preserving all authored service facts. Shared digest panels and the page frame use available width; intro prose keeps readable line lengths. Phone/tablet navigation opens across one integrated header beside a top-right hamburger, with usable targets and Escape/outside/link/route closure.
+
+**Why:** The owner observed stuck selection, stretched schema cards, unclear overlapping section labels, unnecessarily narrow panels and a fragmented mobile/tablet menu. Technology choice and operational behavior are distinct information; vendor-name deduplication would lose actual backup/cron/mail facts. The owner correction supersedes the earlier flat schema and responsive visual details.
+
+**Canonical alignment:** [ADR-0009](adr/ADR-0009-architecture-responsive-usability.md), PRD/platform architecture, FRD-02/04/19 requirements/FDD/blueprints/work-order scope, component inventory and API presentation notes. [Current delivery evidence](reviews/architecture-responsive-usability/delivery.md) separates current checks from historical machine-status fields, which remain unchanged.
+
 ## 2026-10-16 — Match logical-model fullscreen and navigation to the dependency map
 
 **What:** Promote the actual dependency-map toolbar and browser fullscreen hook to shared GraphControls/useFullscreen, consumed by both graph adapters. The model now requests native fullscreen synchronously on its graph-only DIV, retaining the full-window dialog fallback; compact icon controls move to the top-right and click-pan alternatives collapse into a pad. Percentage/reset, precise wheel input, 15% buttons, frame batching and stable memoized node/edge content improve camera responsiveness. Closing/native exit restores the actual text/icon opener.

@@ -6,7 +6,7 @@ parent: frds/frd-04-project-workspace/frd.md
 ui: true
 visual_source: docs/design/prototype/index.html
 status: ACTIVE
-last_updated: '2026-10-16'
+last_updated: '2026-10-17'
 ---
 # FDD-04 — Project workspace (feature design)
 
@@ -92,6 +92,10 @@ Spec FRD details use the shared Modal. On dismissal, return keyboard focus to th
 
 ## Shared model readability correction — 2026-10-16
 
-Reuse the same FRD-02 AC-02-015.1–.12 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
+Reuse the same FRD-02 AC-02-015.1–.14 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
 
 The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.
+
+## Shared usability amendment — 2026-10-17
+
+The same complete Architecture now orders Stack (choices/why), Integraciones y operación (authored flows/tasks), Modelo de datos, then environment variables, ADRs and plan. Reuse FRD-02 AC-02-015.1–.14: repeated relationship click clears selection, diagram cards prevent text selection while schema code permits it, and the single-column schema opens with all entities collapsed and allows one expanded entity at a time. Shared Spec/Architecture panels fill their host; prose alone retains readable line lengths. Portfolio and direct-project behavior remain identical, with no new database-only tab or data source. ADR-0009 records the current design.

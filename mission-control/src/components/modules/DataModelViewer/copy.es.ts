@@ -35,6 +35,7 @@ export const COPY = {
   optional: "Opcional",
   required: "Obligatorio",
   fields: "Atributos",
+  attributeCount: (count: number) => `${count} ${count === 1 ? "atributo" : "atributos"}`,
   type: "Tipo",
   keys: "Claves",
   value: "Valor",

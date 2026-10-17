@@ -7,7 +7,7 @@ implementation_status: IN_REVIEW
 readiness_gate: passed 2026-09-24
 grounding_gate: passed 2026-09-24
 consistency_gate: passed 2026-09-24
-last_updated: '2026-09-25'
+last_updated: '2026-10-17'
 ---
 # FRD-02 — Ideas board — Feature blueprint
 
@@ -344,7 +344,7 @@ frd-13 (foundation, VERIFIED)
 
 `src/lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` is the common server seam for board `readCardProject` and `ProjectWorkspace`. It reads the narrative digest, the structured model through `readDataModel`, live work orders, `.env.example` names and ADRs. The board forwards this serializable bundle through `BoardShell`/`IdeaBoardView` to `CardDetail`; no parallel model parser exists in the workspace.
 
-The complete existing `ArchitectureDigest` keeps its stack, **Modelo de datos**, services, environment, ADR, implementation-plan and per-FRD sections. Only the data-model body adopts `src/components/modules/DataModelViewer/`. A model-only project still exposes Architecture; missing narrative does not block model/error/none rendering. When the JSON source is absent, an existing narrative explicitly declaring no database may retain the no-persistence branch; malformed JSON never falls back silently to that branch.
+The complete existing `ArchitectureDigest` keeps its hero, stack, **Integraciones y operación**, **Modelo de datos**, environment, ADR, implementation-plan and per-FRD sections, in that order. `IntegrationBands.tsx` preserves the existing service and environment renderers as separate bands; only their placement and descriptive labeling change. Only the data-model body adopts `src/components/modules/DataModelViewer/`. A model-only project still exposes Architecture; missing narrative does not block model/error/none rendering. When the JSON source is absent, an existing narrative explicitly declaring no database may retain the no-persistence branch; malformed JSON never falls back silently to that branch.
 
 ### Artifact and interface ownership
 
@@ -378,3 +378,7 @@ FRD-04 REQ-04-013 reuses `SpecDigest`, `readSpecDigest` and the canonical live F
 `entityGeometry.ts` owns conservative 12px monospace column widths and the geometry used for DOM tables and layout. `layout.ts` maps opaque artifact IDs to safe graph/port tokens, uses ELK layered RIGHT with COFFMAN_GRAHAM bound 3, fixed attribute-row ports and ORTHOGONAL routing. `routing.ts` separates exactly coincident composite-reference routes only in obstacle-free corridors without changing endpoints. `elkEngine.ts` loads the thin ELK API with its actual algorithm worker in browsers; Node hosts use the bundled adapter. `useModelLayout` isolates asynchronous results by model identity, cancels prior work and times out at 20 seconds. Failure is an explicit alert. `useViewport` starts at a readable connected entity, centers on resize/expansion, preserves drag/wheel/keyboard alternatives, fits all on Ajustar and resets to the readable view. No schema/artifact or producer change.
 
 Camera performance: useFrameView accumulates wheel/pointer updates and commits once per requestAnimationFrame. Direct fit/reset/keyboard actions cancel pending frames; unmount cancels scheduled work. ModelDiagram stabilizes its entity-selection callback; memoized EntityCard/ModelEdges retain unchanged tables/routes across camera renders. Button increments match the dependency map’s 15% step, while proportional, delta-mode-normalized wheel scaling preserves trackpad precision.
+
+## Usability amendment — ADR-0009 (2026-10-17)
+
+`DataModelViewer` owns a stable functional selection callback: only repeating the selected relationship ID clears it. Entity-neighborhood highlighting never substitutes for selection identity. `useViewport` clears retained browser ranges on pointer-down; entity-only `user-select:none` (including WebKit) prevents accidental diagram text selection. `ModelSchema` uses native `details[name]`, with a unique `useId` group per viewer; all entities start closed and one opens at a time. The code remains selectable and has natural height with local horizontal overflow. No model/reader/layout/worker contract changes. Shared IdeaPitch/SpecDigest inner containers fill the available width; prose caps remain. AC-02-015.1–.14 apply; tests must prove real browser accordion exclusivity in addition to DOM contracts.

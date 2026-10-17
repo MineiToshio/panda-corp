@@ -635,9 +635,9 @@ h3 {
 /* ---------------------------------------------------------------------------
  * CMP-19-app-shell — global shell (FRD-19): skip link + responsive nav
  * Desktop: the six destinations are inline in the topbar, the toggle is hidden.
- * Mobile (≤860px): the nav collapses behind [data-nav-toggle] (a drawer); the
- * React `navOpen` state drives [data-nav-region][data-open]. The mobile-width
- * gate stays deferred until target_platforms flips to `responsive` (Phase B).
+ * Phone/tablet (≤1100px): the integrated header disclosure lives in AppShell/shell.module.css; the
+ * route-keyed ShellNavigation state drives [data-nav-region][data-open]. Dedicated usability
+ * cases qualify phone/tablet header behavior without changing project platform declarations.
  * --------------------------------------------------------------------------- */
 
 /* Skip link — first focusable element; offscreen until focused (WCAG 2.4.1) */
@@ -780,35 +780,9 @@ h3 {
 }
 /* Portfolio collapsible rail (owner toggle) — styles above. */
 
-/* Desktop: the nav is inline next to the toggle (which is hidden) */
-[data-nav-region] {
+/* ShellNavigation owns the responsive disclosure; Nav keeps one desktop row. */
+.app-nav {
   display: flex;
-  align-items: center;
-}
-[data-nav-toggle] {
-  display: none;
-}
-
-@media (max-width: 860px) {
-  /* Mobile: the toggle appears; the nav collapses into a drawer */
-  [data-nav-toggle] {
-    display: inline-flex;
-  }
-  [data-nav-region] {
-    display: none;
-    width: 100%;
-  }
-  [data-nav-region][data-open="true"] {
-    display: flex;
-    width: 100%;
-    margin-top: 8px;
-  }
-  /* The drawer stacks the destinations as a full-width column */
-  [data-nav-region][data-open="true"] [data-testid="app-nav"] {
-    flex-direction: column;
-    align-items: stretch;
-    width: 100%;
-  }
 }
 
 /* ── Propuesta tab (IdeaPitch) — colour & spacing helpers the inline-styled Markdown can't do ──

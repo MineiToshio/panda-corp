@@ -1,3 +1,4 @@
+import { useId } from "react";
 import type { DataModel, DataModelEntity } from "@/lib/architecture/data-model/types";
 import { COPY } from "./copy.es";
 import styles from "./viewer.module.css";
@@ -39,25 +40,30 @@ export function ModelSchema({
   matches: readonly string[];
   onSelect: (id: string) => void;
 }): React.JSX.Element {
+  const group = useId();
   return (
     <div className={styles.schema}>
       {model.entities
         .filter((entity) => matches.includes(entity.id))
         .map((entity) => (
-          <section key={entity.id} aria-label={entity.name}>
-            <button
-              type="button"
-              onClick={() => onSelect(entity.id)}
-              aria-label={`${COPY.select} ${entity.name}`}
-              className={styles.schemaName}
-            >
-              {entity.name}
-            </button>
+          <details
+            key={entity.id}
+            name={`${group}-schema`}
+            aria-label={entity.name}
+            onToggle={(event) => {
+              if (event.currentTarget.open) onSelect(entity.id);
+            }}
+          >
+            <summary className={styles.schemaName}>
+              <i className="ti ti-chevron-right" aria-hidden="true" />
+              <strong>{entity.name}</strong>
+              <span>{COPY.attributeCount(entity.attributes.length)}</span>
+            </summary>
             {entity.description && <p>{entity.description}</p>}
             <pre>
               <code>{schemaText(model, entity)}</code>
             </pre>
-          </section>
+          </details>
         ))}
     </div>
   );

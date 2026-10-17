@@ -87,3 +87,7 @@ The scoped visual reference is [the data-model viewer prototype, round 2](../des
 ### Specification continuity during implementation
 
 The selected project in Portfolio and direct project workspace exposes **Spec** between Resumen and Work orders. It reuses the board's complete PRD/research/FRD digest and real document count, with an honest pending state when unavailable. The owner can inspect product intent and architecture without returning to the board. See FRD-04 REQ-04-013 and FRD-02 REQ-02-011.
+
+### Architecture and responsive usability amendment — 2026-10-17
+
+The shared architecture reads Stack → Integraciones y operación → Modelo de datos → environment/decisions/plan. Stack explains chosen technologies and providers; integrations explain flows, responsibilities and operational tasks. Preserve authored facts. Model selection can be cleared by clicking the same relation; diagram table text is nonselectable, while schema code remains copyable. Esquema is a single-column, initially collapsed entity accordion with one expanded entity at a time. Shared Propuesta/Spec/Architecture panels use available width, retaining only readable introductory prose limits. A fluid frame and one integrated phone/tablet header replace the narrow frame and split-looking hamburger menu. This is scoped responsive shell/model coverage, not a new app-wide platform certification. See ADR-0009 and FRD-19 REQ-19-003.

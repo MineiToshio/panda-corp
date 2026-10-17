@@ -34,6 +34,8 @@ describe("data model independent acceptance", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
     expect(screen.queryByRole("application")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Persona"));
+    fireEvent.click(screen.getByText("Tarea"));
     expect(screen.getByText(/model Persona \{/)).toHaveTextContent(
       "@@id([organization_id, person_id])",
     );
@@ -52,10 +54,12 @@ describe("data model independent acceptance", () => {
     );
     fireEvent.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByText(/model Persona \{/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Tarea"));
     expect(screen.getByText(/model Tarea \{/)).toBeVisible();
     fireEvent.change(input, { target: { value: "does-not-exist" } });
     expect(screen.getByRole("status")).toHaveTextContent(/sin coincidencias/i);
     fireEvent.change(input, { target: { value: "" } });
+    fireEvent.click(screen.getByText("Persona"));
     expect(screen.getByText(/model Persona \{/)).toBeVisible();
   });
 

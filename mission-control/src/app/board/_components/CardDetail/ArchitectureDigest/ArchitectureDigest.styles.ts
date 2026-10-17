@@ -122,13 +122,7 @@ export const ENTITY_DESC_STYLE: React.CSSProperties = {
 };
 
 // --- Two-up row (Comunicación & servicios | Variables de entorno) -----------
-export const TWO_UP_STYLE: React.CSSProperties = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-  gap: "22px",
-  padding: "24px 0",
-  borderBottom: "1px solid var(--color-border)",
-};
+
 export const SUBHEAD_STYLE: React.CSSProperties = {
   margin: "0 0 12px",
   fontFamily: "var(--font-mono, ui-monospace, monospace)",

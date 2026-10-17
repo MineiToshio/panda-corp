@@ -237,7 +237,7 @@ The scoped design reference is `docs/design/prototype/data-model-viewer/index.ht
 
 | Name | Purpose | Path | Key props / variants | Status |
 |---|---|---|---|---|
-| `ArchitectureDigest` | Complete existing Architecture: stack, **Modelo de datos**, services/env, ADRs, work-order plan and per-FRD cards, shared by board/workspace | `src/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest.tsx` | Existing digest/artifact props plus `DataModelResult`; model-only and partial states | Source present; shared integration subject to scoped checks |
+| `ArchitectureDigest` | Complete existing Architecture: stack, **Integraciones y operación**, **Modelo de datos**, env, ADRs, work-order plan and per-FRD cards, shared by board/workspace | `src/app/board/_components/CardDetail/ArchitectureDigest/ArchitectureDigest.tsx` | Existing digest/artifact props plus `DataModelResult`; model-only and partial states | Source present; shared integration subject to scoped checks |
 | `DataModelViewer` | Read-only compact logical model, all viewport widths | `src/components/modules/DataModelViewer/DataModelViewer.tsx` | `result: DataModelResult`; **Diagrama** default / **Esquema**, search, selection, expanded dialog | Source present; scoped implementation/browser checks tracked separately |
 | `ModelDiagram` | Native DOM/SVG stage with ELK orthogonal field ports and explicit endpoints | `src/components/modules/DataModelViewer/ModelDiagram.tsx` | Content-sized full-text cards, 38px headers, 24px rows, 12px field text; pointer-pan, zoom/fit/reset, arrows/buttons | Source present; same viewer in all contexts |
 | `ModelSchema` | Compact Prisma-like textual blocks of the same model; no HTML attribute tables | `src/components/modules/DataModelViewer/ModelSchema.tsx` | Entities, optionality/keys, composite groups and explicit cardinalities; viewing only, not executable Prisma | Source present |
@@ -254,3 +254,15 @@ Reuse core `Button`/`SubTabs` for controls; dimensions/appearance resolve throug
 The core `Modal` (`src/components/core/Modal/Modal.tsx`) captures the active opener when opened and restores it on close/unmount only while connected. Spec FRD, Intake and Discarded consumers share this keyboard behavior. The Portfolio Spec browser flow exposed the missing restoration; no modal presentation changes.
 
 `GraphControls` is the shared dependency-map/model top-right icon toolbar: out, percentage/reset, in, fit, optional collapsed click-pan pad and fullscreen/minimize. `WoDag/ZoomControls` and `DiagramControls` are thin adapters; both use the promoted browser fullscreen hook. The model requests native fullscreen on its diagram-only host, with a full-window dialog fallback; separate search remains inside the host and provenance/tabs remain inline. `entityGeometry` is the single source of card/text widths, and `useModelLayout`/`elkEngine` isolate the cancellable algorithm worker. The retired lower inspector has no replacement panel.
+
+## Architecture usability and responsive navigation — 2026-10-17
+
+| Component | Current contract |
+|---|---|
+| `ModelSchema` | One-column native grouped entity accordion, all closed initially; one open at a time, natural content height and selectable code. Summary shows name/count/chevron. |
+| `DataModelViewer` / `ModelDiagram` | Repeat selected connector toggles it off. Diagram entity text alone is nonselectable; canvas pointer-down clears retained ranges. |
+| `IntegrationBands` | Existing complete service and environment renderers split into ServicesBand and EnvBand. Integraciones y operación precedes Modelo de datos; environment follows. |
+| `ShellNavigation` | `AppShell/ShellNavigation.tsx`: pathname-keyed disclosure state, close on outside/Escape/link/route; Escape restores toggle focus. |
+| `AppShell` | Fluid page frame, consistent gutters, one header grid; inline nav above 1100px, integrated three-column disclosure through 1100px and two columns through 600px. All disclosed links 44px minimum. |
+
+Current owner amendment: ADR-0009. Shared IdeaPitch/SpecDigest inner panels fill available width. This amends earlier schema-block and fixed-frame visuals while retaining tokens and prose reading widths.

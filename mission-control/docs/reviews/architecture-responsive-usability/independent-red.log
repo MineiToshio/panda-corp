@@ -1,0 +1,118 @@
+
+ RUN  v4.1.9 /Users/Shared/Proyectos/panda-corp/mission-control
+
+(node:84240) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:84236) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+xxxxxxx·x
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/modules/AppShell/_tests/usability.reviewer.test.tsx > integrated responsive shell independent acceptance > keeps one complete destination area in the header and closes after a destination is chosen
+Error: expect(element).toHaveAttribute("aria-expanded", "false") // element.getAttribute("aria-expanded") === "false"
+
+Expected the element to have attribute:
+  aria-expanded="false"
+Received:
+  aria-expanded="true"
+ ❯ src/components/modules/AppShell/_tests/usability.reviewer.test.tsx:34:20
+     32|     ]);
+     33|     fireEvent.click(within(nav).getByRole("link", { name: "Inicio" }));
+     34|     expect(toggle).toHaveAttribute("aria-expanded", "false");
+       |                    ^
+     35|   });
+     36|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/components/modules/AppShell/_tests/usability.reviewer.test.tsx > integrated responsive shell independent acceptance > dismisses on Escape and returns focus to the menu toggle
+Error: expect(element).toHaveAttribute("aria-expanded", "false") // element.getAttribute("aria-expanded") === "false"
+
+Expected the element to have attribute:
+  aria-expanded="false"
+Received:
+  aria-expanded="true"
+ ❯ src/components/modules/AppShell/_tests/usability.reviewer.test.tsx:43:20
+     41|     destination.focus();
+     42|     fireEvent.keyDown(destination, { key: "Escape" });
+     43|     expect(toggle).toHaveAttribute("aria-expanded", "false");
+       |                    ^
+     44|     expect(toggle).toHaveFocus();
+     45|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/components/modules/AppShell/_tests/usability.reviewer.test.tsx > integrated responsive shell independent acceptance > dismisses on outside pointer interaction but leaves header interactions intact
+Error: expect(element).toHaveAttribute("aria-expanded", "false") // element.getAttribute("aria-expanded") === "false"
+
+Expected the element to have attribute:
+  aria-expanded="false"
+Received:
+  aria-expanded="true"
+ ❯ src/components/modules/AppShell/_tests/usability.reviewer.test.tsx:53:20
+     51|     expect(toggle).toHaveAttribute("aria-expanded", "true");
+     52|     fireEvent.pointerDown(screen.getByRole("button", { name: "Outside …
+     53|     expect(toggle).toHaveAttribute("aria-expanded", "false");
+       |                    ^
+     54|   });
+     55|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+ FAIL  src/components/modules/AppShell/_tests/usability.reviewer.test.tsx > integrated responsive shell independent acceptance > closes when navigation changes without relying on a destination click
+Error: expect(element).toHaveAttribute("aria-expanded", "false") // element.getAttribute("aria-expanded") === "false"
+
+Expected the element to have attribute:
+  aria-expanded="false"
+Received:
+  aria-expanded="true"
+ ❯ src/components/modules/AppShell/_tests/usability.reviewer.test.tsx:61:20
+     59|     vi.mocked(usePathname).mockReturnValue("/portfolio");
+     60|     rerender(shell());
+     61|     expect(toggle).toHaveAttribute("aria-expanded", "false");
+       |                    ^
+     62|     expect(screen.getByRole("link", { name: "Portfolio" })).toHaveAttr…
+     63|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx > model usability independent acceptance > toggles a selected relationship off with click
+ FAIL  src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx > model usability independent acceptance > toggles a selected relationship off with Enter
+ FAIL  src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx > model usability independent acceptance > toggles a selected relationship off with
+Error: expect(element).toHaveAttribute("aria-pressed", "false") // element.getAttribute("aria-pressed") === "false"
+
+Expected the element to have attribute:
+  aria-pressed="false"
+Received:
+  aria-pressed="true"
+ ❯ src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx:25:22
+     23|     expect(relation).toHaveAttribute("aria-pressed", "true");
+     24|     activate();
+     25|     expect(relation).toHaveAttribute("aria-pressed", "false");
+       |                      ^
+     26|   });
+     27|
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx > model usability independent acceptance > starts schema entities collapsed and opens them independently without losing fields, keys or mappings
+Error: expect(element).not.toBeVisible()
+
+Received element is visible:
+  <code />
+ ❯ src/components/modules/DataModelViewer/_tests/usability.reviewer.test.tsx:50:29
+     48|     const accountCode = screen.getByText(/model Account \{/);
+     49|     const entryCode = screen.getByText(/model Entry \{/);
+     50|     expect(accountCode).not.toBeVisible();
+       |                             ^
+     51|     expect(entryCode).not.toBeVisible();
+     52|     // Native summary has no implicit button role in the installed DOM…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+
+ Test Files  2 failed (2)
+      Tests  8 failed | 1 passed (9)
+   Start at  00:14:23
+   Duration  1.44s (transform 253ms, setup 450ms, import 282ms, tests 662ms, environment 755ms)

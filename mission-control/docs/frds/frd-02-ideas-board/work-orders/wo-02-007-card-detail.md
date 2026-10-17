@@ -11,7 +11,7 @@ artifacts:
   - 'src/components/modules/CampaignPipeline/**'
 source_requirements: [REQ-02-004, REQ-02-008, REQ-02-009, REQ-02-010, REQ-02-013, REQ-02-015]
 dependsOn: [WO-02-003, WO-02-011, WO-01-006, WO-13-006, WO-13-007, WO-13-009, WO-13-001, WO-13-002, WO-13-003, WO-06-005]
-last_updated: '2026-10-13'
+last_updated: '2026-10-17'
 ---
 # WO-02-007 — La Campaña card detail
 
@@ -263,3 +263,7 @@ Own the shared content-sized geometry, ELK adapter/worker lifecycle, orthogonal 
 ### Owner correction — dependency-map navigation parity (2026-10-16)
 
 Own shared GraphControls integration, model-only native browser fullscreen with full-window fallback, gesture-synchronous mounting/request, actual text/icon focus restoration, native exit handling, top-right icon placement, collapsed click-pan alternatives, fine wheel scaling and frame-batched/memoized camera rendering. Canonical contract: AC-02-015.3/.6/.12 and ADR-0008. Historical machine status remains untouched. Current evidence belongs to docs/reviews/model-graph-consistency/delivery.md.
+
+## Owner usability correction — 2026-10-17
+
+Scoped direct implementation under the owner's existing authorization; historical build machine-status fields are unchanged. Current contract: [ADR-0009](../../../adr/ADR-0009-architecture-responsive-usability.md). FRD-02 owns relation deselection, diagram-only selection prevention, initially collapsed exclusive schema entities, shared Architecture ordering and fluid digest panels. FRD-04 reuses that complete surface. FRD-19 owns the fluid shell frame and integrated phone/tablet disclosure, all six usable targets and close/focus behavior. Current verification is recorded separately in `docs/reviews/architecture-responsive-usability/delivery.md`; earlier VERIFIED metadata is not evidence for this extension.

@@ -90,6 +90,8 @@ describe("published model viewer", () => {
     await screen.findByRole("searchbox", { name: "Buscar tabla o atributo" });
     await user.click(screen.getByRole("tab", { name: "Esquema" }));
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    await user.click(screen.getByText("Entry"));
+    await user.click(screen.getByText("Account"));
     expect(screen.getByText(/model Entry \{/)).toHaveTextContent("@@unique([ownerId, reviewerId])");
     expect(screen.getByText(/model Account \{/)).toHaveTextContent(
       '@relation("Propiedad", Entry, fields: [accountId], references: [ownerId]',

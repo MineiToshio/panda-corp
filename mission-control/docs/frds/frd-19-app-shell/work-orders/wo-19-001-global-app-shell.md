@@ -18,7 +18,7 @@ artifacts:
   - 'public/brand/pandacorp.png'
 source_requirements: [REQ-19-001, REQ-19-002, REQ-19-003, REQ-19-004]
 dependsOn: [WO-13-006, WO-13-008, WO-09-001, WO-17-004, WO-01-008, WO-01-007, WO-01-005, WO-01-004, WO-01-002]
-last_updated: '2026-06-21'
+last_updated: '2026-10-17'
 ---
 # WO-19-001 — Global app shell (persistent topbar nav + active state + responsive drawer + gate seed)
 
@@ -92,3 +92,7 @@ FRD-17 reviewer gate tests + the badge unit test were updated to the new contrac
 
 `target_platforms` stays `desktop`; the mobile drawer is built but the mobile-width gate is deferred to
 the responsive follow-up (Phase B, which flips it to `responsive`).
+
+## Owner usability correction — 2026-10-17
+
+Scoped direct implementation under the owner's existing authorization; historical build machine-status fields are unchanged. Current contract: [ADR-0009](../../../adr/ADR-0009-architecture-responsive-usability.md). FRD-02 owns relation deselection, diagram-only selection prevention, initially collapsed exclusive schema entities, shared Architecture ordering and fluid digest panels. FRD-04 reuses that complete surface. FRD-19 owns the fluid shell frame and integrated phone/tablet disclosure, all six usable targets and close/focus behavior. Current verification is recorded separately in `docs/reviews/architecture-responsive-usability/delivery.md`; earlier VERIFIED metadata is not evidence for this extension.
