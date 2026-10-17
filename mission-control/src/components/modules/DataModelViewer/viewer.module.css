@@ -312,6 +312,10 @@
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+/* SVG group bounds include remote endpoints; use the routed line as its focus indicator. */
+.viewer .edge:focus {
+  outline: none;
+}
 @media (max-width: 600px) {
   .search {
     order: 3;

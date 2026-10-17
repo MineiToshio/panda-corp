@@ -1,5 +1,13 @@
 # Decision Log — Mission Control
 
+## 2026-10-17 — Highlight relationship lines without a bounding-box focus ring
+
+**What:** Suppress the SVG relationship group's focus outline while retaining the existing accent/thicker line and endpoint strokes for selection and keyboard focus. Scope the override to relationship groups, inline and expanded; other controls retain their focus indicators.
+
+**Why:** The owner finds the rectangular ring around distant relationship endpoints visually distracting and asks for line-only highlighting. The shared generic tabindex focus rule was applying a box to the SVG group. No selection, layout or model-data change is required.
+
+**Canonical alignment:** [FRD-02 AC-02-015.5](frds/frd-02-ideas-board/frd.md), [feature design](frds/frd-02-ideas-board/fdd.md). Verification records follow in the scoped [delivery note](reviews/relation-line-only-highlight.md). No build machine state changes.
+
 ## 2026-10-17 — Clearable model selection, collapsed schema and integrated responsive navigation
 
 **What:** Repeating a selected relationship click now clears it. Diagram tables prevent accidental text selection; canvas pointer-down clears retained ranges while schema code stays copyable. Esquema is a single-column, initially collapsed entity accordion with at most one entity open. Shared Architecture now puts **Integraciones y operación** immediately after Stack, before **Modelo de datos**, preserving all authored service facts. Shared digest panels and the page frame use available width; intro prose keeps readable line lengths. Phone/tablet navigation opens across one integrated header beside a top-right hamburger, with usable targets and Escape/outside/link/route closure.
