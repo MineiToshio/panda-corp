@@ -129,6 +129,18 @@ export function PipelineDetail(): React.JSX.Element {
 
       <DocH title="Architecture" />
       <Body>
+        La fase empieza con dos cosas antes de escribir nada (DR-131). Primero un{" "}
+        <B weight={500}>preflight de insumos</B>: si el diseño tiene estados sin dibujar, para, te
+        dice cuántos y cuánto tardaría, y lo manda a una mini ronda de diseño. Después la{" "}
+        <B weight={500}>ronda de decisiones</B>: en una sola tanda te pregunta cada elección técnica
+        que te afecta (stack, hosting y costo al mes, guardar o enlazar las imágenes de terceros,
+        cómo entra y se cura la información y si hace falta una web de administración, fuentes
+        externas y su riesgo legal, lo que ya resolviste en otro proyecto), cada una con contexto,
+        alternativas, la recomendada y por qué, y hechos verificados en vivo. Cada respuesta queda
+        como ADR, así no hay que deshacer documentos después. Solo te escribe en cuatro hitos:
+        decisiones, plan listo, gates pasados y merge.
+      </Body>
+      <Body>
         Se documenta la arquitectura de la plataforma (<Code>docs/product/architecture.md</Code>) y
         el blueprint de cada FRD (<Code>docs/frds/frd-NN-&lt;slug&gt;/blueprint.md</Code>). Se
         generan las <B weight={500}>work orders</B>, que dividen la construcción en rebanadas
@@ -171,8 +183,12 @@ export function PipelineDetail(): React.JSX.Element {
       </Ul>
       <Body margin="10px 0 0">
         El paso a <Code>ACTIVE</Code> espera a que los tres salgan en verde; con cualquier bloqueo,
-        los documentos se quedan en <Code>DRAFT</Code>. Un blueprint con agujeros produce work
-        orders ambiguas, así que la cohesión se <B weight={500}>verifica</B>, no se confía.
+        los documentos se quedan en <Code>DRAFT</Code>. Antes de lanzarlos, el lead corre los
+        chequeos mecánicos (<Code>waves.mjs</Code>, <Code>ac-matrix.mjs</Code>,{" "}
+        <Code>plan-consistency.mjs</Code>); los bloqueos se arreglan en{" "}
+        <B weight={500}>una sola pasada</B>, se re-verifican de forma determinista y{" "}
+        <Code>flip-active.mjs</Code> pone los sellos. Un blueprint con agujeros produce work orders
+        ambiguas, así que la cohesión se <B weight={500}>verifica</B>, no se confía.
       </Body>
       <Body>
         Al cerrar la fase, el skill emite <Code>.pandacorp/comms/arquitectura-resumen.md</Code> (en

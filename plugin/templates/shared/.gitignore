@@ -27,5 +27,9 @@ test-results/
 .pandacorp/inbox/
 .pandacorp/run/
 
+# Harness-managed session worktrees (DR-096): never project content, and untracked they would make
+# the merge queue see the main checkout as busy.
+.claude/worktrees/
+
 # OS / editor
 .DS_Store

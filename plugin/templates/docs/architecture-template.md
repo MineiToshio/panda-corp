@@ -14,10 +14,22 @@ last_updated: YYYY-MM-DD
 > cross-cutting concerns. How a *single feature* is built lives in that feature's
 > `docs/frds/frd-NN-<slug>/blueprint.md` — do **not** describe per-feature design here.
 
+## Owner decisions
+
+The decisions the owner took in the architecture decision round (DR-131), one line each with its ADR:
+`D1 · <decision> → <answer> (ADR-NNNN, decided by the owner YYYY-MM-DD | default)`. Nothing below may
+contradict them; changing one is a new owner decision.
+
 ## Golden path & stack
 
 The chosen stack with **pinned versions** (language/runtime, framework, package manager, DB/ORM,
 test framework, lint/format). One line on *why* this path (link the deciding ADR in `docs/adr/`).
+
+### Pinned versions
+
+The resolver table (`skills/architecture/scripts/resolve-versions.mjs`: stable only, SEC-4 cooldown,
+peer/family majors aligned) with the resolution date: package · exact version · published · exact
+`pnpm add --save-exact` command · which WO installs it (or "scaffold"). Work orders cite this table.
 
 ## Data model
 
@@ -40,6 +52,22 @@ How the system splits into deploy units / modules and how they talk. *(Single-ap
 Auth & authorization, error handling, i18n, logging/observability, config & feature flags — the
 decisions that apply across features. Each one a line; deep dives go to an ADR. *Mark N/A what
 doesn't apply.*
+
+## Media & third-party content
+
+Every image/file/video the product shows or exports that it does not author itself. Per source:
+where it comes from (official site, partner, community, user upload); **store vs hotlink vs
+same-origin proxy** (and the host allowlist + CSP `img-src` it implies); the rights stance (licensed,
+own content, or an accepted risk with its mitigation: credit, link, honour takedowns); the fallback
+when it is missing or broken; and link-rot handling (who re-checks URLs, how often). Link the
+decision-round ADR. *No third-party media: say so in one line.*
+
+## Operations & admin tooling
+
+Who creates and curates the product's data after launch, and through what: an admin/operator web UI,
+owner-run agent skills over an ops CLI, seed files, or nothing in v1. Name the write path (which
+module/command is the single writer), its authorization, and what is deliberately NOT exposed on the
+web. Link the decision-round ADR. *A product with no curated data: say so in one line.*
 
 ## External services & secrets
 

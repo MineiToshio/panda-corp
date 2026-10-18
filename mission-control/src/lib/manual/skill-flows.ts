@@ -445,7 +445,7 @@ const FLOWS: SkillFlow[] = [
   {
     slug: "blueprint",
     explainer:
-      "Fase de arquitectura. Produce DOS artefactos: el blueprint técnico (arquitectura, modelo de datos, ADRs, Build Plan) y las work orders listas para construir. Instala el stack y todas las puertas de calidad (lint/tests/e2e). Se corre DENTRO del proyecto, tras /design; es el paso diseño → arquitectura.",
+      "Fase de arquitectura. Primero comprueba que el diseño está listo y te hace UNA ronda de decisiones técnicas (con alternativas y una recomendación) antes de escribir nada. Luego produce DOS artefactos: el blueprint técnico (arquitectura, modelo de datos, ADRs, Build Plan) y las work orders listas para construir, e instala el stack y todas las puertas de calidad (lint/tests/e2e). Se corre DENTRO del proyecto, tras /design; es el paso diseño → arquitectura.",
     runsIn: "project",
     steps: [
       {
@@ -457,18 +457,29 @@ const FLOWS: SkillFlow[] = [
         calls: [{ ref: "upgrade", as: "skill", note: "solo si el overlay está atrasado" }],
       },
       {
-        title: "Propuesta de stack (apruebas tú)",
+        title: "Preflight de insumos: ¿el diseño está listo?",
         kind: "gate",
         detail:
-          "El arquitecto parte del stack recomendado, evalúa si hay algo mejor para ESTE proyecto y presenta la propuesta con trade-offs; espera tu visto bueno (gate ligero) antes de fijarla como ADR.",
-        note: "DR-002 — las convenciones no se debaten; el stack sí lo apruebas",
-        calls: [{ ref: "architect", as: "agent", note: "propone el stack" }],
+          "Antes de nada corre check-design-gate.mjs y check-fdd-coverage.mjs. Si el diseño tiene estados sin dibujar, PARA, te dice cuántos y cuánto tardaría arreglarlo, y lo manda a una mini ronda de diseño: un hueco de diseño nunca se descubre a mitad de la fase.",
+        note: "DR-131 (0) y DR-130",
+        calls: [{ ref: "design", as: "skill", note: "mini ronda si faltan estados" }],
       },
       {
-        title: "Arquitectura + Build Plan",
+        title: "Ronda de decisiones (decides tú)",
+        kind: "gate",
+        detail:
+          "Antes de escribir cualquier documento, el arquitecto te trae en una sola ronda cada decisión técnica que te afecta: stack, hosting y costo al mes, imágenes y contenido de terceros (guardar, enlazar o proxy), cómo entra y se cura la información (y si hace falta una web de administración), fuentes externas y su riesgo legal, y lo que ya resolviste en otro proyecto. Cada una con contexto, alternativas, la recomendada y por qué, y hechos verificados en vivo. Respondes con botones (la recomendada primero) y cada respuesta queda como ADR.",
+        note: "DR-131 (1), extiende DR-002: las convenciones no se debaten; lo que te afecta, sí lo decides",
+        calls: [
+          { ref: "architect", as: "agent", note: "arma el brief de decisiones" },
+          { ref: "researcher", as: "agent", note: "hechos de la web" },
+        ],
+      },
+      {
+        title: "Arquitectura de plataforma",
         kind: "action",
         detail:
-          "El arquitecto escribe la arquitectura de plataforma y un blueprint por FRD con su Build Plan (el DAG de work orders: orden, dependencias, qué va en paralelo, fundación primero) + los ADRs.",
+          "Con tus decisiones fijas, el arquitecto escribe docs/product/architecture.md (incluye medios de terceros y herramientas de operación), el modelo de datos publicado y los ADRs.",
         calls: [{ ref: "architect", as: "agent", note: "arquitectura + modelo de datos + ADRs" }],
       },
       {
@@ -486,19 +497,34 @@ const FLOWS: SkillFlow[] = [
         title: "Instalar stack + puertas de calidad",
         kind: "action",
         detail:
-          "Instala el stack y copia byte-a-byte la config canónica de gates (biome/knip/verify.sh) y la maquinaria e2e (smoke/visual/responsive/shell); cablea los puertos. Verifica que lint+typecheck+test corren limpios.",
-        note: "DR-059 — nunca se editan a mano los archivos canónicos",
+          "Instala el stack con versiones exactas (resolve-versions.mjs: solo estables, al menos 7 días de antigüedad, nunca una prerelease aunque tenga la etiqueta latest) y copia byte a byte la config canónica de gates y la maquinaria e2e. Si una regla inyectada choca con el contrato de diseño congelado, la excepción queda en un ADR.",
+        note: "DR-059, DR-102",
       },
       {
-        title: "Work orders + gate de avance",
+        title: "Plan cruzado + blueprints en paralelo",
+        kind: "action",
+        detail:
+          "Un solo planificador escribe el mapa de work orders de todos los FRDs (cada criterio en exactamente una WO, dependencias, oleadas, un dueño por archivo compartido). Después varios arquitectos escriben en paralelo los blueprints y las work orders con un brief común, anotan en un solo registro lo que necesitan de otros FRDs, y un reconciliador lo aplica.",
+        parallel: true,
+        calls: [
+          { ref: "architect", as: "agent", note: "planificador, autores y reconciliador" },
+          { ref: "work-orders", as: "skill", note: "las reglas de cada work order" },
+        ],
+      },
+      {
+        title: "Tres gates en paralelo + una pasada de arreglos",
         kind: "gate",
         detail:
-          "Genera las work orders gruesas por FRD (una vista/capacidad por WO) con su frontmatter de estado. Commitea, te presenta el plan (stack, coste, riesgos, nº de WOs) y espera tu «ok, a construir».",
-        note: "DR-032. Siguiente: /implement.",
-        calls: [
-          { ref: "work-orders", as: "skill", note: "el motor de generación de work orders" },
-          { ref: "implement", as: "skill", note: "siguiente paso" },
-        ],
+          "El lead corre primero los chequeos mecánicos (waves, ac-matrix, plan-consistency, cobertura del FDD). Luego readiness, grounding y contradicciones corren en paralelo con agentes frescos; sus bloqueos se arreglan en UNA pasada, el lead lo re-verifica de forma determinista y flip-active.mjs pasa todo a ACTIVE con los sellos. Una segunda ronda completa solo si un arreglo cambia el alcance.",
+        note: "DR-100, DR-102, DR-116, DR-131 (2)",
+      },
+      {
+        title: "Merge + gate de avance",
+        kind: "gate",
+        detail:
+          "Aterriza con merge-queue.sh, reinstala dependencias en el checkout principal y sube main a GitHub si hay remoto. El resumen en español queda en la pestaña Arquitectura. Te presenta el plan (decisiones, stack, coste, riesgos, nº de WOs) y espera tu «ok, a construir». Solo te escribe en cuatro hitos: decisiones, plan listo, gates pasados y merge.",
+        note: "DR-032, DR-099. Siguiente: /implement.",
+        calls: [{ ref: "implement", as: "skill", note: "siguiente paso" }],
       },
     ],
     loop: "Si ya existía blueprint/work orders, ITERA: refina lo que hay (no regenera) y añade una entrada por ronda.",

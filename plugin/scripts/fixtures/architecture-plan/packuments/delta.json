@@ -1,0 +1,3 @@
+{"name":"delta","dist-tags":{"latest":"5.0.0"},
+ "versions":{"4.9.0":{"peerDependencies":{"alpha":"^1.0.0 || 2.0.0-rc.1"}},"5.0.0":{"peerDependencies":{"alpha":">=1.0.0 <3"}}},
+ "time":{"4.9.0":"2026-06-01T00:00:00Z","5.0.0":"2026-09-30T00:00:00Z"}}

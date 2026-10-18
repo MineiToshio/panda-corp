@@ -3,13 +3,13 @@ id: BL-0244
 type: change
 area: plugin-skill
 title: "architecture skill should explicitly propose an app-build vs. real-content-production track split for content-heavy products"
-status: open
+status: done
 severity: p2
 opened: 2026-10-17
-closed:
+closed: 2026-10-17
 source: "pandasaga .pandacorp/run/lessons.md 2026-10-16 (owner-stated): \"In architecture, propose explicitly that the app build and real-content production are separate tracks (content ingested later by a dedicated generic skill/WO) instead of leaving it implicit; the owner read the fixture-heavy, many-round plan as 'you are building the content'.\""
-closes:
-links: []
+closes: "DR-131; plugin v9.130.0: architecture SKILL step 9 + references/decision-round.md §2 state the app-build vs real-content track split for content-heavy products"
+links: [DR-131]
 ---
 
 ## Problem

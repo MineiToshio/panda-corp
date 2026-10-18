@@ -3,13 +3,13 @@ id: BL-0245
 type: change
 area: plugin-skill
 title: "architecture/readiness-gate flow should state an upfront round budget and why each round costs time"
-status: open
+status: done
 severity: p2
 opened: 2026-10-17
-closed:
+closed: 2026-10-17
 source: "pandasaga .pandacorp/run/lessons.md 2026-10-16 (owner-stated): \"Propose a cap on independent gate rounds up front (e.g. 2 full rounds, then fix + delta verification) and tell the owner why each round costs time; 4+ silent full rounds made the phase feel endless.\" Corroborating evidence from the same build: .pandacorp/run/lessons.md 2026-10-15 'Each fresh gate round on a large plan (29 WOs) went one level deeper... budget 3-4 fix rounds for a plan this size rather than expecting one.'"
-closes:
-links: []
+closes: "DR-131; plugin v9.130.0: architecture owner pacing (plan + duration up front, gate budget stated before the gates), three gates in parallel, one fix pass, a second round only on a scope change, delta reviews (references/gates.md §4-5)"
+links: [DR-131]
 ---
 
 ## Problem

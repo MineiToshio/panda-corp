@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-17 — The architecture phase asks the owner first, plans once and gates once (DR-131)
+
+**What:** New registry rule [DR-131](decisions/registry.yaml) (extends DR-002): architecture runs an input-readiness preflight (DR-130 checks), then ONE owner decision round with a Spanish brief (context, alternatives, recommendation, live-verified facts, prior art; mandatory triggers incl. media store/link/proxy and ingestion + admin UI) before any document, then a fixed planning pipeline (one cross-FRD map, parallel authors, one ledger, one reconciler, three parallel gates, one fix pass, deterministic re-verification, scripted flip) and Pareto pacing. Wired in [the architecture skill](../plugin/skills/architecture/SKILL.md) and its references/scripts; plugin v9.130.0, overlay 8.101.0. Closes BL-0244/BL-0245; files BL-0247..BL-0250. Memo: [architecture-skill-v2](../docs/proposals/architecture-skill-v2.md).
+**Why:** funko-tracker's architecture phase (two days, ~90 commits) was dominated by two owner reversals of choices made silently inside a one-shot stack approval, a design gap found mid-phase and improvised cross-FRD coordination; the owner asked for decisions up front with alternatives so the docs are written once.
+
 ## 2026-10-17 — Persistent URL identity is private, immutable lifecycle metadata
 
 Added [the navigation identity producer contract](standards/navigation-identities.md): one atomic CLI owns the owner-private catalog, separate idea/project IDs, explicit handoff bridges, references that survive rename/move, permanently reserved public aliases and fail-loud reads. The catalog and the in-factory Mission Control reference join the private vault overlay and additive backup manifest; exact ignore rules keep another owner's project ID out of fresh framework clones. This keeps mutable names and filesystem locations out of permanent public identity without writing project build state.
