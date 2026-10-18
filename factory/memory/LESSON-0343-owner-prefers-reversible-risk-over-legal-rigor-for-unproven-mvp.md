@@ -9,7 +9,7 @@ source: "pandasaga .pandacorp/run/lessons.md 2026-10-14 (owner-stated): for an u
 provenance: owner-stated
 created: 2026-10-15
 status: active
-promotion: none
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/decisions/registry.yaml (new DR default: for a legal/compliance decision point on an unproven, pre-validation MVP, present the reversible/pragmatic option as a short risk note with a revisit trigger as the DEFAULT recommendation, reserving a blocking stance for non-reversible exposure or anything crossing into monetization/scale). Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — this is a recurring owner RISK POSTURE decision with a stated default, the registry's exact shape.
 confidence: medium
 times_applied: 2
 applied_in: [pandasaga, funko-tracker]

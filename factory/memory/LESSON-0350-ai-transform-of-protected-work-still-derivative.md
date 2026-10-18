@@ -9,7 +9,7 @@ source: "pandasaga .pandacorp/comms/iteration.md round 6 / .pandacorp/run/lesson
 provenance: owner-stated
 created: 2026-10-15
 status: active
-promotion: none
+promotion: proposed   # 2026-10-18 (librarian review) — target: a new factory/standards/ file (no existing standard owns IP/legal engineering guidance; propose "legal-ip.md" at promotion time, or fold into privacy.md if the owner prefers one combined doc) stating "AI-transforming/disguising a protected work to look visually different does not avoid copyright — it remains a derivative of the protected expression; source a licensed/permitted original or build independently from the underlying facts instead." Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — owner-stated, recurring IP-risk judgment call worth a standing rule rather than re-deriving per project.
 confidence: medium
 times_applied: 2
 applied_in: [pandasaga, funko-tracker]

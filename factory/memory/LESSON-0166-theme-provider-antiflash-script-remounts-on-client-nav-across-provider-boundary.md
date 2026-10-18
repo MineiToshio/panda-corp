@@ -8,8 +8,8 @@ trigger: use this when a language/theme switcher (or any control that changes a 
 source: "personal-page-v2 docs/decision-log.md 2026-07-09 — a fixed production bug: `next-themes`' pre-hydration anti-flash `<script>` remounted outside React's hydration pass whenever a client-side `router.push()` crossed the `[locale]` segment boundary that the theme/analytics providers live inside, logging a React warning on every language switch; fixed by making the language switcher do a full document navigation (`window.location.assign`) instead of a client-side route change"
 provenance: agent-inferred
 created: 2026-07-12
-status: candidate
-promotion: none
+status: active  # 2026-10-18 (librarian review) — cross-corroborated by 2 distinct citing projects (pandasaga, funko-tracker), eval-gate bar met
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/patterns.md (new "Next.js App Router provider placement" review item, or seo-i18n.md alongside the next-intl entry). Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — any i18n/theme project nesting a pre-hydration script-owning provider inside a locale/dynamic segment hits this exact class of bug, and the fix (hoist above the dynamic segment, or force a full document nav on param change) is cheap to codify once.
 confidence: medium
 times_applied: 2
 applied_in: [pandasaga, funko-tracker]

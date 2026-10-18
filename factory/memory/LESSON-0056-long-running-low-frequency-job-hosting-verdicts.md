@@ -8,8 +8,8 @@ trigger: use this when a blueprint needs to run a low-frequency, long-running jo
 source: "panda-corp research 2026-07-04, /pandacorp:explore — TikTok cross-poster infra research, official GCP/AWS/Hetzner docs"
 provenance: agent-inferred
 created: 2026-07-04
-status: candidate
-promotion: none
+status: active  # 2026-10-18 (librarian review) — cross-corroborated by 2 distinct citing projects (pandacast, funko-tracker), eval-gate bar met
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/background-jobs.md (new "long-running, low-frequency job hosting" subsection). Cited by 2 distinct projects (pandacast, funko-tracker) with zero contradicting evidence — the Cloud-Run-Jobs-vs-Lambda-vs-Fargate-vs-VPS decision tree for a job that overflows typical serverless timeout caps is exactly the kind of recurring blueprint research this standard should save every future project from re-deriving.
 confidence: medium
 times_applied: 2
 applied_in: [pandacast, funko-tracker]

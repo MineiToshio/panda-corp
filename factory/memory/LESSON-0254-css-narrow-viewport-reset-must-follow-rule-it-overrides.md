@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-20 (owner-stated) �
 provenance: owner-stated
 created: 2026-09-22
 status: active
-promotion: none
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/patterns.md (CSS/responsive review checklist: "a `max-width` reset media query must be declared AFTER the unconditional rule it overrides, at equal specificity, or scope the enhancement itself to a `min-width` query instead"). Cited by 2 distinct projects (personal-page-v2, pandasaga) with zero contradicting evidence — a cascade-order mistake that silently survives visual review until the exact breakpoint is tested.
 confidence: high
 times_applied: 2
 applied_in: [pandasaga, funko-tracker]
