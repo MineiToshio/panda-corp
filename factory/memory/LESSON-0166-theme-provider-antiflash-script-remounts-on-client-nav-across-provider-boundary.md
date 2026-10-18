@@ -11,8 +11,8 @@ created: 2026-07-12
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: [LESSON-0168]
 ---
 

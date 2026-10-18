@@ -11,8 +11,8 @@ created: 2026-07-12
 status: candidate
 promotion: none
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [LESSON-0160, LESSON-0168]
 ---
 

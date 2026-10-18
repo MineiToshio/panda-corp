@@ -11,8 +11,8 @@ created: 2026-06-30
 status: active
 promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/accessibility.md, add as a "Biome 2.5 + React a11y quick-reference" (the 5-rule set in this lesson's body). Corroborated across 2 distinct projects (mission-control: 5 separate WO occurrences 2026-06-16..18; personal-page-v2: a 5th rule 2026-09-09) with zero contradicting evidence — the same handful of Biome a11y rejections recurs on every React+Tailwind+Biome project, so codifying it as a standing standard section saves the rediscovery cost this lesson's own source describes.
 confidence: high
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: []
 ---
 

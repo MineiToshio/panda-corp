@@ -69,3 +69,19 @@ on an independent, unconditional timer. Strengthens the case for this item's Fix
 mechanism that does not ride on a capped/chained tool's own re-arming discipline) — but note the concrete
 fix needs to additionally cover the Monitor-cap re-arm gap, not just fold renewal into the Monitor loop as
 originally scoped, since the Monitor loop itself is what left the gap here.
+
+## Corroborating occurrence (2026-10-17/18, funko-tracker run_20261018T045818Z_46300)
+A third distinct angle on the same fragility class, and direct supporting evidence for this item's Fix
+plan: the supervisor SOP as written prescribes a dedicated ~2-minute `ScheduleWakeup` heartbeat, but
+`ScheduleWakeup` turned out to be available only in `/loop`-dynamic-mode sessions, not a plain attended
+supervisor session — so the chain this item worries about was not even reachable here. The session
+substituted a background bash loop (renew the lease, touch a lock file, call `SupervisorTick`, exit on
+lease loss) instead, which worked and cost no tokens — i.e. exactly this item's proposed fix direction
+(fold renewal into a persistent Monitor-style loop rather than a `ScheduleWakeup` chain), independently
+arrived at and confirmed working on a different project. Also surfaced a sibling hazard worth folding
+into the fix: `pandacorp-build-state.mjs`'s `renew` command already writes `supervisor_heartbeat` into
+`status.yaml` under its own mutex (`reassertActiveProjection`) — any replacement loop must call that same
+entry point, never `sed` the field directly, or it races the engine's own mutexed write (see
+LESSON-0426). Action: when implementing this item's fix, (a) confirm `ScheduleWakeup`'s actual
+availability scope and correct `implement/SKILL.md`'s SOP wording if it currently implies a universal
+mechanism, and (b) route any Monitor-loop-based renewal through the engine's own `renew` entry point.

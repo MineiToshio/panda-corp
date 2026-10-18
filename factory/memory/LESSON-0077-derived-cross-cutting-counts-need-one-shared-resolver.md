@@ -11,8 +11,8 @@ created: 2026-07-05
 status: active
 promotion: proposed   # 2026-10-15 (librarian review) — target: factory/standards/data-modeling.md (or patterns.md's review checklist), add as a corollary to DR-092's "compute a shared derived value once": whenever a value is BOTH an internal encoding/gating state AND rendered/derived on more than one UI surface, route every render/count/derivation site through one shared resolver/formatter — multi-field bridges (a status enum plus a separate phase field) and mode-dependent display values (an edition-dependent numbering scheme) are the two concrete shapes seen so far, and a regression check on a surface far from where the feature was first built is the cheapest way to catch the gap. Corroborated across 2 distinct projects (panda-corp/mission-control origin; pandasaga, independent occurrence in a different concrete shape) with zero contradicting evidence.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: []
 ---
 

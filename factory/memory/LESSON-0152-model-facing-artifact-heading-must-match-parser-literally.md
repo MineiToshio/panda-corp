@@ -11,8 +11,8 @@ created: 2026-07-12
 status: active
 promotion: approved
 confidence: medium
-times_applied: 3
-applied_in: [panda-corp, personal-page-v2, pandasaga]
+times_applied: 4
+applied_in: [panda-corp, personal-page-v2, pandasaga, funko-tracker]
 links: ["factory/standards/quality.md (QUAL-14, owner-attended live attempts — promoted 2026-07-15, /pandacorp:learn)"]
 ---
 

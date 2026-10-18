@@ -8,9 +8,9 @@ trigger: use this when a fresh git worktree's verify.sh/build fails right after 
 source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-10 (agent-inferred) — a fresh worktree needed .env.local copied AND `npx @content-collections/cli build` run before verify.sh could pass; the project had never created its `.pandacorp/worktree-setup.sh` hook (the shared worktree-bootstrap.sh template's own designated extension point, step 4 — 'a project with its own state adds the heavy bit here'), so nothing filled that gap, and a freshly bootstrapped worktree looked broken even though the checked-out code was correct and the shared template itself was working exactly as designed. CORROBORATED 2026-07-12 (personal-page-v2 `.pandacorp/run/lessons.md`, next harvest): the exact same gap recurred — 'worktree-bootstrap.sh does not reconstitute the gitignored `.content-collections/generated` codegen nor `.env.local`... hit by 4 independent agents this session' — confirming the project STILL has not created `.pandacorp/worktree-setup.sh` after being flagged once already; the shared template and its extension point are unchanged and correct (verified: `.pandacorp/worktree-bootstrap.sh` line 67-69 still calls the project hook if executable), so this remains a project-awareness gap, not a regression in the shared tooling. CORROBORATED a FIFTH time (2026-09-09, personal-page-v2 `.pandacorp/run/lessons.md`): the same two gaps reproduced in a fresh worktree — the `next build`-only codegen fix landed in this session for good, but `.env.local` (`NEXT_PUBLIC_SITE_URL`) was still missing and timed out the Playwright smoke webServer (180s); the `.pandacorp/worktree-setup.sh` hook still does not exist on this project after five occurrences."
 provenance: agent-inferred
 created: 2026-07-10
-status: candidate
+status: active  # cross-project corroboration (personal-page-v2 + funko-tracker) meets the eval-gate bar (DR-047)
 promotion: none
-confidence: medium
+confidence: high
 times_applied: 0
 applied_in: []
 links: [LESSON-0090, LESSON-0093, LESSON-0102, LESSON-0125]
@@ -45,7 +45,21 @@ all before suspecting either the checked-out code or the shared `worktree-bootst
 **Known-recurring case:** as of 2026-09-06, personal-page-v2 has hit this at least a THIRD/FOURTH time
 (2026-07-10, 2026-07-12, 2026-09-06 — harvested 2026-09-07) without creating the hook — if you land on
 this project again and see the same symptom, the fix is to create `.pandacorp/worktree-setup.sh` in THIS
-project via its own `/pandacorp:change`, not another factory investigation. **Correction/refinement from
+project via its own `/pandacorp:change`, not another factory investigation.
+
+**CROSS-PROJECT corroboration (funko-tracker, 2026-10-18, agent-inferred):** a Postgres-backed project
+(DB-backed vitest via `src/test/db/setupTestDatabase.ts`) never created `.pandacorp/worktree-setup.sh`
+either; lane worktrees got no `DATABASE_URL` (`.env.local` is gitignored, `.env.example` leaves it
+empty), so `land-chain`'s vitest check reds every DB test file at setup (`dropWorkerDatabase` →
+"DATABASE_URL is not set") and parks the chain. This confirms the same class — a project never exercising
+the shared extension point — recurs with a DIFFERENT kind of day-zero state (a DB connection string, not
+a codegen step) on a DIFFERENT project, not a personal-page-v2 quirk; it is now cross-project evidence,
+not single-trajectory. See BL-0257 for the actionable fix (stack-install should auto-generate the hook
+for stateful stacks; `land-chain`/lane-pool should fail loud — "lane has no DATABASE_URL" — instead of
+silently parking) and LESSON-0427 for the adjacent "a green self-test in a lane is not proof the lane
+env is complete" gotcha this same incident also surfaced.
+
+**Correction/refinement from
 the 2026-09-06 occurrence:** the earlier `npx @content-collections/cli build` fix suggestion is no longer
 accurate for this project's current content-collections setup — `.content-collections` is generated only
 by the Next content-collections plugin during `build`/`dev`; there is no standalone CLI, so the hook needs

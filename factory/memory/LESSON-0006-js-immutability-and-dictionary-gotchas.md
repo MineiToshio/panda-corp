@@ -11,8 +11,8 @@ created: 2026-06-30
 status: active
 promotion: proposed   # 2026-10-17 (librarian review) — target: factory/standards/patterns.md (new "JS immutability & dictionary gotchas" review-checklist item). Corroborated across 2 distinct projects (personal-page-v2, pandasaga) with zero contradicting evidence — this class of bug (shallow spread/freeze, `{}` as a user-keyed dictionary) is invisible to type-checking and happy-path tests, so a standing checklist item is cheap insurance.
 confidence: high
-times_applied: 2
-applied_in: [personal-page-v2, pandasaga]
+times_applied: 3
+applied_in: [personal-page-v2, pandasaga, funko-tracker]
 links: []
 ---
 

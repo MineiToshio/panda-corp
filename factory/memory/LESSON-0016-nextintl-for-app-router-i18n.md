@@ -11,8 +11,8 @@ created: 2026-06-30
 status: active   # 2026-10-17 (librarian review) — eval-gate: cross-corroborated by 2 distinct projects (pandacast, pandasaga), activating per DR-047 lifecycle step 2
 promotion: proposed   # 2026-10-17 (librarian review) — target: factory/standards/seo-i18n.md (add `next-intl` as the recommended App Router i18n library, with the `hreflang`-via-`generateMetadata` note). Corroborated across 2 distinct projects (pandacast, pandasaga) with zero contradicting evidence — App Router has no built-in i18n mechanism, so this verdict saves every future i18n project from re-discovering the same library choice.
 confidence: medium
-times_applied: 2
-applied_in: [pandacast, pandasaga]
+times_applied: 3
+applied_in: [pandacast, pandasaga, funko-tracker]
 links: []
 ---
 

@@ -11,8 +11,8 @@ created: 2026-07-05
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/infra.md#INFRA-5
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [BL-0035, BL-0045, LESSON-0093, LESSON-0125, LESSON-0131, INFRA-5, factory/standards/infra.md#INFRA-5]
 ---
 
