@@ -2,8 +2,8 @@
 
 Follow `${CLAUDE_PLUGIN_ROOT}/templates/stack-<chosen>/STACK.md` and `factory/standards/`: strict typing,
 linter+formatter, test framework, folder structure; lint + typecheck + test run clean before the step ends. A
-STANDARD-tier installer subagent (sonnet) with Bash does it, given this file, the chosen stack and the versions
-record; the lead checks its byte-identity claims.
+STANDARD·medium installer subagent with Bash (`dispatch.md` G1, in parallel with the platform architect) does it,
+given this file, the chosen stack and the versions record; the lead checks its byte-identity claims.
 
 **Byte-identical-copy rule (DR-059), binding everything marked VERBATIM below.** Every canonical file this step
 installs (gate config, `verify.sh`/`canary.sh`, the e2e set) is copied **byte-for-byte from
@@ -78,7 +78,10 @@ lands on two majors (`@sentry/node` must follow `@sentry/nextjs`; `prisma` with 
 place. Then `pnpm add --save-exact <pkg>@<version>` for what the scaffold needs now, OR (a dependency a foundation WO
 installs later, to keep `knip` clean) write that exact command INTO the WO's install step. Set `.npmrc`
 `minimum-release-age` where the package manager supports it. A version that lives only as prose lets a build agent
-resolve a different (often newer-major) one.
+resolve a different (often newer-major) one. Because the installer runs in parallel with the platform architect
+(G1), it resolves and installs only what the scaffold needs now (the stack's own packages); once `architecture.md`
+exists the lead re-runs the resolver over every package it names, pastes the table into "Pinned versions" and the
+map carries each later install as its exact command.
 
 `server-only`: plan it only when a WO installs it AND no worker, CLI or script imports the modules that use it (it
 throws outside the framework's server bundle). Otherwise guard server modules by location and the data-layer gate.

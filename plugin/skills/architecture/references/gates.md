@@ -1,9 +1,14 @@
 # The three plan gates, the fix pass and the flip (architecture steps 9, 9b, 9b-consistency, 9b2)
 
-Three independent fresh-agent gates run **IN PARALLEL**, each in its own context (constitution §24), each
-**JUDGE-tier** (opus, DR-111): self-certification risk, external-fidelity checking and contradiction-spotting are
-the genuine-judgment work that tier exists for, never down-tiered. None of them is the author (constitution rule 4:
-an author grading its own plan is self-certification, audit-20 P1-2). Each writes its report to
+Three independent fresh-agent gates run **IN PARALLEL** (group G5 of `dispatch.md`), each in its own context
+(constitution §24), tiered by what is left for judgment once the §0 scripts ran: **grounding and consistency are
+JUDGE·medium** (external-fidelity checking and contradiction-spotting are the genuine-judgment work that tier exists
+for, never down-tiered); **readiness is the lead's §0 scripts plus one STANDARD·medium semantic check** (REQ → CMP/IF,
+AC wording, API-contract owners, foundation completeness, BL-0051), because `waves`, `ac-matrix`,
+`plan-consistency` and `check-fdd-coverage --plan` now carry its mechanical half deterministically. Each gate reads
+the packs (`.pandacorp/run/architecture/packs/`) and the plan files it judges, not the whole doc set. None of them is
+the author (constitution rule 4: an author grading its own plan is self-certification, audit-20 P1-2). Each writes
+its report to
 `docs/reviews/architecture-<gate>-gate.md` with a verdict line (`Verdict: PASS` or `Verdict: FAIL (<n> blockers)`),
 blockers (each with the file, the fact and the fix) and advisories (never blocking).
 
@@ -69,7 +74,8 @@ out coherent. Canonical: `factory/standards/document-consistency.md`.
 ## 4. One fix pass, deterministic re-verification, resolution addendum
 
 - Collect the blockers of all three reports into one list; dispatch fixes per owner (authors for their FRDs, the
-  reconciler for cross-FRD items, the PM for an FRD amendment). One pass.
+  reconciler for cross-FRD items, the PM for an FRD amendment), resuming the original agent with `SendMessage` when
+  it still holds the context, at STANDARD·high (JUDGE·high only for a fix that already failed once). One pass.
 - The lead re-runs every §0 check plus one targeted `grep` per blocker proving it is gone.
 - The lead appends to each report that was FAIL:
 
@@ -86,7 +92,8 @@ out coherent. Canonical: `factory/standards/document-consistency.md`.
 ## 5. Delta review (a later iteration, or a mid-phase owner change)
 
 When the plan already passed and something changes (an owner decision reversed, an FRD amended, a design state
-added), do not regenerate and do not run three full gates: re-plan only what changed, then run each gate as a
+added), do not regenerate and do not run three full gates: find what it reaches (`grep -rl` for the changed
+term/entity/route + `plan-consistency.mjs`), re-plan only those FRDs/WOs (`dispatch.md` §4), then run each gate as a
 **delta review scoped to `git diff <last-gated-commit>`** (the same three judges' questions, over the changed files
 and whatever they reference), appended to the same report as `## Delta review YYYY-MM-DD (<topic>)` with its own
 verdict, then the same fix pass + addendum. The stamps keep their meaning: the docs passed all three gates, now

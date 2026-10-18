@@ -479,7 +479,7 @@ const FLOWS: SkillFlow[] = [
         title: "Arquitectura de plataforma",
         kind: "action",
         detail:
-          "Con tus decisiones fijas, el arquitecto escribe docs/product/architecture.md (incluye medios de terceros y herramientas de operación), el modelo de datos publicado y los ADRs.",
+          "Con tus decisiones fijas, el arquitecto escribe docs/product/architecture.md (incluye medios de terceros y herramientas de operación), el modelo de datos publicado y los ADRs. Corre en paralelo con el plan de eventos, el deploy y la instalación del stack (grupo G1); cada agente con el tier y esfuerzo de su tarea, resueltos desde model-tiers.json.",
         calls: [{ ref: "architect", as: "agent", note: "arquitectura + modelo de datos + ADRs" }],
       },
       {
@@ -504,7 +504,7 @@ const FLOWS: SkillFlow[] = [
         title: "Plan cruzado + blueprints en paralelo",
         kind: "action",
         detail:
-          "Un solo planificador escribe el mapa de work orders de todos los FRDs (cada criterio en exactamente una WO, dependencias, oleadas, un dueño por archivo compartido). Después varios arquitectos escriben en paralelo los blueprints y las work orders con un brief común, anotan en un solo registro lo que necesitan de otros FRDs, y un reconciliador lo aplica.",
+          "Un solo planificador escribe el mapa de work orders de todos los FRDs (cada criterio en exactamente una WO, dependencias, oleadas, un dueño por archivo compartido). Antes, build-packs.mjs arma un paquete de contexto por FRD (criterios, rutas, entidades, estados del oráculo, textos), así nadie relee todos los documentos. Después un autor por FRD, todos a la vez, escribe su blueprint y sus work orders con un brief común, anota en su propio registro lo que necesita de otros FRDs, y un reconciliador lo aplica.",
         parallel: true,
         calls: [
           { ref: "architect", as: "agent", note: "planificador, autores y reconciliador" },
@@ -515,7 +515,7 @@ const FLOWS: SkillFlow[] = [
         title: "Tres gates en paralelo + una pasada de arreglos",
         kind: "gate",
         detail:
-          "El lead corre primero los chequeos mecánicos (waves, ac-matrix, plan-consistency, cobertura del FDD). Luego readiness, grounding y contradicciones corren en paralelo con agentes frescos; sus bloqueos se arreglan en UNA pasada, el lead lo re-verifica de forma determinista y flip-active.mjs pasa todo a ACTIVE con los sellos. Una segunda ronda completa solo si un arreglo cambia el alcance.",
+          "El lead corre primero los chequeos mecánicos (waves, ac-matrix, plan-consistency, cobertura del FDD). Luego readiness (scripts + un chequeo STANDARD), grounding y contradicciones (JUDGE) corren en paralelo con agentes frescos; sus bloqueos se arreglan en UNA pasada, el lead lo re-verifica de forma determinista y flip-active.mjs pasa todo a ACTIVE con los sellos. Una segunda ronda completa solo si un arreglo cambia el alcance.",
         note: "DR-100, DR-102, DR-116, DR-131 (2)",
       },
       {

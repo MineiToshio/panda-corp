@@ -1,0 +1,5 @@
+{"schemaVersion":1,"persistence":"relational","entities":[
+{"id":"item","name":"Item","attributes":[{"id":"id","name":"id","type":"uuid","optional":false,"keys":["PK"]},{"id":"goalId","name":"goalId","type":"uuid","optional":true,"keys":["FK"]}]},
+{"id":"goal","name":"CompletionGoal","attributes":[{"id":"id","name":"id","type":"uuid","optional":false,"keys":["PK"]}]},
+{"id":"account","name":"Account","attributes":[{"id":"id","name":"id","type":"uuid","optional":false,"keys":["PK"]}]}
+],"relationships":[]}

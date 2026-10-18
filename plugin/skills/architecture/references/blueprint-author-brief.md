@@ -6,6 +6,9 @@
 
 # Brief: blueprint + work-order author for <FRD-NN, FRD-MM> (<product>)
 
+<!-- Dispatched at the TIER·effort `dispatch.md` G3 gives this FRD. Self-contained on purpose: a resumed or
+     re-dispatched author needs nothing from the lead's conversation. -->
+
 Work ONLY in `<worktree path>` (every command from there). **Do not commit** (the lead commits). Other authors write
 the other FRDs' folders in parallel. You write ONLY inside your FRD folders `docs/frds/<frd-folder>/`:
 `blueprint.md` (or a `blueprints/` folder for a large feature: `blueprint.md` keeps the frontmatter and the Build
@@ -22,16 +25,22 @@ Do not re-decide coupling or move ACs. If the map is clearly wrong for your FRD 
 the route/module map, a dependency an AC obviously needs), fix it minimally inside your files AND report it.
 
 ## Cross-FRD requests go to the ledger, not to other files
-When you need something another FRD must provide, or find an FRD/architecture problem, append ONE line under your
-heading in `<path>/cross-issues.md`: `- NEEDS <WO-id or doc>: <what>, because <AC/REQ>` or
-`- PROBLEM <doc>: <what>`. One reconciler applies the ledger after every author is done.
+When you need something another FRD must provide, or find an FRD/architecture problem, write ONE line per item in
+YOUR ledger file `<path>/cross-issues/frd-NN.md` (only yours; other authors write theirs in parallel):
+`- NEEDS <WO-id or doc>: <what>, because <AC/REQ>` or `- PROBLEM <doc>: <what>`. One reconciler applies the
+concatenated ledger after every author is done.
 
-## Read
-- Your FRDs: `frd.md` (every REQ/AC), `fdd.md`, the `mocks/` files and their oracle state ids.
-- Platform: `docs/product/architecture.md` (route map, module map, derivation rules, cross-cutting concerns),
-  `docs/product/data-model.json`, `docs/adr/*.md` (the owner's locked decisions: never contradict them),
-  `docs/analytics/events.md`, `DESIGN.md`, `docs/design/components.md`, `docs/design/design-tokens.json`,
-  `docs/design/fidelity-checklist.md`, the oracle states for your FRDs, the microcopy file, `docs/rules/*.md`.
+## Read (your packs first; never the whole doc set)
+- Your packs: `<path>/packs/frd-NN.md` (your REQ/AC lines verbatim with ids, your routes, the entities you touch with
+  their attributes, your oracle states, the microcopy keys your FDD cites, your slice of the map) and
+  `<path>/packs/_global.md` (the architecture.md outline with line numbers, the ADR index, platform routes, Pinned
+  versions, the map's shared-file owners, foundation, DAG and binding resolutions). They are digests: when a line
+  matters for a contract, confirm it in its source.
+- Your FRDs directly: `fdd.md` and the `mocks/` files (the binding visual spec); `frd.md` only to confirm a quote.
+- Platform, by section: open only the `docs/product/architecture.md` sections you need, by the line numbers in the
+  outline (route map, module map, derivation rules, the cross-cutting concerns you use); `docs/adr/<file>` only for
+  a decision your FRD depends on; `docs/design/components.md` (reuse before create); `docs/rules/*.md` only the
+  rules your WOs touch.
 - The installed scaffold: `package.json`, `e2e/routes.ts`, `e2e/shell.ts`, `src/`, and the framework's
   version-matched docs the project `AGENTS.md` points at. Ground every framework API you cite there, not in memory.
 - Versions and exact install commands: `<versions record path>`.
@@ -72,4 +81,4 @@ artifacts; every UI string you name is drawn in your FRD's captured states (or n
 no `TBD` / `[NEEDS CLARIFICATION]`; every path consistent with architecture.md.
 
 Final report (concise): files written, the WO list with difficulty, every deviation from the map (exact), every
-tombstone, and the ledger lines you appended.
+tombstone, and the ledger lines you wrote.

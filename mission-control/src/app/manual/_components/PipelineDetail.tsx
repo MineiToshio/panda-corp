@@ -141,6 +141,15 @@ export function PipelineDetail(): React.JSX.Element {
         decisiones, plan listo, gates pasados y merge.
       </Body>
       <Body>
+        Está hecha para ir rápido: te anuncia al inicio el presupuesto (unas 4 horas y unos 5 M de
+        tokens para 6 a 8 FRDs) y, si una etapa pasa del doble, para y te ofrece la opción más
+        barata. Todo lo independiente corre en paralelo por grupos, cada agente con el tier y el
+        esfuerzo que su tarea merece (MECH, STANDARD o JUDGE, sin nombres de modelo: se resuelven
+        desde <Code>model-tiers.json</Code>, igual en Claude que en Codex), y cada agente lee un{" "}
+        <B weight={500}>paquete de contexto</B> de su FRD (<Code>build-packs.mjs</Code>) en vez de
+        releer todos los documentos. Un cambio tardío se aplica como delta, nunca regenerando.
+      </Body>
+      <Body>
         Se documenta la arquitectura de la plataforma (<Code>docs/product/architecture.md</Code>) y
         el blueprint de cada FRD (<Code>docs/frds/frd-NN-&lt;slug&gt;/blueprint.md</Code>). Se
         generan las <B weight={500}>work orders</B>, que dividen la construcción en rebanadas
@@ -163,7 +172,8 @@ export function PipelineDetail(): React.JSX.Element {
       <Body margin="0 0 8px">
         Antes de que las work orders pasen a <Code>ACTIVE</Code>, el plan cruza{" "}
         <B weight={500}>tres gates independientes que corren en paralelo</B>, cada uno por un agente
-        fresco en su propio contexto y de tier JUDGE (opus, DR-111):
+        fresco en su propio contexto: grounding y contradicciones en tier JUDGE; readiness son los
+        scripts deterministas del lead más un chequeo semántico en tier STANDARD:
       </Body>
       <Ul>
         <li>

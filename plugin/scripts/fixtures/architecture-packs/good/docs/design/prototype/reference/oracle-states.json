@@ -1,0 +1,4 @@
+{"states":[
+{"key":"frd-01-shell/shell","frd":"FRD-01","frd_slug":"frd-01-shell","state_id":"shell","title":"Top bar","kind":"screen","build":{"route":"/"}},
+{"key":"frd-02-list/list-empty","frd":"FRD-02","state_id":"list-empty","title":"Empty list","kind":"state","build":{"route":"/lista","query":"empty=1"}}
+]}
