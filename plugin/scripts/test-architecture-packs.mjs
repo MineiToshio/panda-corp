@@ -2,7 +2,7 @@
 // test-architecture-packs.mjs — the architecture phase's context-pack extractor (skills/architecture/scripts/
 // build-packs.mjs, DR-131 v3), run as a real process against fixtures/architecture-packs/good (two FRDs, a route map
 // with per-FRD / shared / "all" / platform rows, a data model, keyed microcopy, oracle states, one ADR and a
-// work-order map). `good` must produce complete packs and leave docs/ untouched; the RED cases copy it to a temp dir
+// work-order map, ACCEPTED/PROPOSED/SUPERSEDED ADRs). `good` must produce complete packs and leave docs/ untouched; the RED cases copy it to a temp dir
 // and break one thing: an FRD with no live AC (exit 1, never a silent empty pack) and an unparsable data model (exit 2).
 // Run: node plugin/scripts/test-architecture-packs.mjs
 
@@ -90,7 +90,12 @@ console.log("good fixture: complete packs, docs untouched");
   ok(p1.includes("- `shell` · screen · Top bar · build /") && p2.includes("- `list-empty` · state · Empty list · build /lista?empty=1"), "oracle states by frd_slug, and by the key prefix when frd_slug is absent");
   ok(p1.includes('- `nav.home`: "Inicio"') && p1.includes('- `nav.settings`: "Ajustes"') && p2.includes('- `list.empty`: "Nada aún"'), "microcopy keys the FDD cites (backticked key or quoted label) with their value");
   ok(p1.includes("**WO-01-001 App shell**") && !p1.includes("WO-02-001 List") && p2.includes("Reads the goal from FRD-01's seam."), "map slice: the FRD's own §2 catalogue and §5 notes only");
-  ok(g.includes("- L3 Golden path & stack") && g.includes("`docs/adr/adr-0001-stack.md` · ACCEPTED · Stack A golden path"), "global: architecture outline with line numbers and the ADR index");
+  ok(g.includes("- L3 Golden path & stack"), "global: architecture outline with line numbers");
+  const locked = g.slice(g.indexOf("## Locked decisions"), g.indexOf("## Proposed decisions"));
+  const proposed = g.slice(g.indexOf("## Proposed decisions"), g.indexOf("## Routes owned"));
+  ok(locked.includes("`docs/adr/adr-0001-stack.md` · Stack A golden path") && !locked.includes("adr-0002"), "global: only ACCEPTED ADRs are listed as binding");
+  ok(proposed.includes("`docs/adr/adr-0002-theme.md` · PROPOSED · Theme without flash"), "global: a PROPOSED ADR is listed apart with its status");
+  ok(!g.includes("adr-0003-old-media") && g.includes("1 SUPERSEDED/DEPRECATED ADR(s) omitted"), "global: a SUPERSEDED ADR is omitted and only counted");
   ok(g.includes("| `/api/health` | public | platform |") && g.includes("| next | 16.0.0 |"), "global: platform routes and the Pinned versions table");
   ok(g.includes("| `package.json` | WO-01-001 (W0) |") && g.includes("1. The list route is `/lista`.") && g.includes("| W1 | WO-02-001 |"), "global: map §0 shared-file owners, §3 DAG and §8 binding resolutions");
 }

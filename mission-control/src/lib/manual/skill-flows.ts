@@ -504,7 +504,7 @@ const FLOWS: SkillFlow[] = [
         title: "Plan cruzado + blueprints en paralelo",
         kind: "action",
         detail:
-          "Un solo planificador escribe el mapa de work orders de todos los FRDs (cada criterio en exactamente una WO, dependencias, oleadas, un dueño por archivo compartido). Antes, build-packs.mjs arma un paquete de contexto por FRD (criterios, rutas, entidades, estados del oráculo, textos), así nadie relee todos los documentos. Después un autor por FRD, todos a la vez, escribe su blueprint y sus work orders con un brief común, anota en su propio registro lo que necesita de otros FRDs, y un reconciliador lo aplica.",
+          "Un solo planificador escribe el mapa de work orders de todos los FRDs (cada criterio en exactamente una WO, dependencias, oleadas, un dueño por archivo compartido). Antes, build-packs.mjs arma un paquete de contexto por FRD (criterios, rutas, entidades, estados del oráculo, textos), así nadie relee todos los documentos (cada autor sí lee su FRD completo). Después un autor por FRD, todos a la vez, escribe su blueprint y sus work orders con un brief común, anota en su propio registro lo que necesita de otros FRDs, y un reconciliador lo aplica.",
         parallel: true,
         calls: [
           { ref: "architect", as: "agent", note: "planificador, autores y reconciliador" },

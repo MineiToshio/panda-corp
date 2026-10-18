@@ -33,13 +33,14 @@ discovered later go through the ledger, which is why the more of them stage 1 na
 
 `scripts/build-packs.mjs` (the lead's shell, seconds) turns the doc set into one pack per FRD and a `_global.md`
 (`dispatch.md` §2). The map planner, the authors, the reconciler and the gates read their packs plus the files they
-own; nobody after the decision round reads the whole doc set. Re-run it after any upstream write (an FRD amendment,
+own, plus the `frd.md` files they plan or judge in full; nobody after the decision round reads the whole doc set. Re-run it after any upstream write (an FRD amendment,
 an architecture.md fix, the map).
 
 ## Stage 2: ONE cross-FRD work-order map
 
-A single planner reads the packs (every FRD's ACs, routes, entities, oracle states and copy keys), the
-architecture.md sections it needs by line, the installed scaffold and the versions record, and writes
+A single planner reads the packs (every FRD's ACs, routes, entities, oracle states and copy keys), every `frd.md`
+in full (scope, business rules, edge cases and contracts are not in the packs), the architecture.md sections it
+needs by line, the installed scaffold and the versions record, and writes
 the map (`wo-map-template.md`). The map is FINAL for: WO ids and titles, AC ownership (every live AC in exactly one
 WO), `artifacts`, `dependsOn`, `foundation`, `difficulty`, waves, the single owner of every shared file per wave, the
 exact `pnpm add --save-exact` commands per WO (from the resolver table), and a "binding resolutions" section that

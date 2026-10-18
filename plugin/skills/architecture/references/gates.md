@@ -6,7 +6,8 @@ JUDGE·medium** (external-fidelity checking and contradiction-spotting are the g
 for, never down-tiered); **readiness is the lead's §0 scripts plus one STANDARD·medium semantic check** (REQ → CMP/IF,
 AC wording, API-contract owners, foundation completeness, BL-0051), because `waves`, `ac-matrix`,
 `plan-consistency` and `check-fdd-coverage --plan` now carry its mechanical half deterministically. Each gate reads
-the packs (`.pandacorp/run/architecture/packs/`) and the plan files it judges, not the whole doc set. None of them is
+the packs (`.pandacorp/run/architecture/packs/`) and the plan files it judges, not the whole doc set, plus what its
+judgment needs in full: the consistency gate every `frd.md` and `prd.md`, the readiness gate the data model (§1). None of them is
 the author (constitution rule 4: an author grading its own plan is self-certification, audit-20 P1-2). Each writes
 its report to
 `docs/reviews/architecture-<gate>-gate.md` with a verdict line (`Verdict: PASS` or `Verdict: FAIL (<n> blockers)`),
@@ -40,7 +41,10 @@ judgment that every real coupling is an edge, DR-087a); wave artifacts are disjo
 omitted artifact collides across FRDs in the global waves); the foundation is complete (DR-057/DR-075);
 **no `[NEEDS CLARIFICATION]` survives**; **each backend WO's API contract has an owner**: a WO whose build step
 materializes `docs/api/<wo-id>.md` BEFORE its consumer runs (the gate checks the plan assigns it, not that the file
-exists, DR-060); the BL-0051 test-side supersession rule holds; and **every UI FRD plans only UI its frozen oracle
+exists, DR-060); **the published logical model matches its source (DATA-7)**: the gate compares
+`docs/product/data-model.json` with the canonical schema source (the architecture.md Data model section, read by
+line, or the checked-in schema once one exists) entity by entity, attribute, key and cardinality, and names the
+source paths and the result in its report; the BL-0051 test-side supersession rule holds; and **every UI FRD plans only UI its frozen oracle
 captures (DR-130)**: `check-fdd-coverage.mjs --plan` exits 0 (every FDD screen/state row cites a captured state with
 its `oracle-states.json` entry, every control/string the FDD names is drawn in that FRD's captured states, and no
 `blueprint.md` or work order names copy those states do not draw). A red caused by the FDD or the prototype is a

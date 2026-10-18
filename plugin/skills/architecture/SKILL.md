@@ -25,7 +25,8 @@ unreadable): `build-packs.mjs`, `waves.mjs`, `ac-matrix.mjs`, `plan-consistency.
 ## How the phase runs (read once)
 
 - **Owner pacing (Pareto).** At the start, tell the owner in Spanish the plan in five lines with its wall-clock and
-  token budget (`references/dispatch.md` §3: ≤ 4 h and ≤ 5 M subagent tokens for 6 to 8 FRDs, scaled).
+  token budget (`references/dispatch.md` §3: about ≤ 5 h and ≤ 6 M subagent tokens for 6 to 8 FRDs averaging ~12
+  ACs, scaled).
   Then milestone messages only: (1) the decision round, (2) plan ready, (3) gates passed, (4) merged + digest. Before
   any step expected to take more than 30 minutes that the plan did not announce (a design mini-round, a spike, a
   second gate run), state the estimate and the cheaper alternative first. No audits beyond the three gates; owner
@@ -43,9 +44,11 @@ unreadable): `build-packs.mjs`, `waves.mjs`, `ac-matrix.mjs`, `plan-consistency.
 - **Dispatch: speed, parallelism, portable tiers (`references/dispatch.md`).** Every agent runs at the `TIER·effort`
   its row gives (MECH / STANDARD / JUDGE, PORT-2), resolved at dispatch time from
   `${CLAUDE_PLUGIN_ROOT}/runtime/model-tiers.json` (Claude: the tier alias as the `Agent` `model` plus `effort`,
-  overriding a named agent's pinned default; Codex: the tier worker; elsewhere: inline, sequential). No model name
+  overriding a named agent's pinned default; Codex: the tier worker, read-only on build state per DR-120;
+  elsewhere: inline, sequential). No model name
   is written in this skill or its briefs. Each group (G1 to G5) is launched in ONE dispatch message, in the
-  background. Agents read context packs (`build-packs.mjs`), not the doc set; the lead reads reports and script
+  background. Agents read context packs (`build-packs.mjs`) plus the `frd.md` files they plan or judge in full, not
+  the doc set; the lead reads reports and script
   outputs, not the docs. A stage past 2× its budget stops and the owner gets the cheaper option. A late change is a
   scoped delta, never a regeneration.
 

@@ -4,6 +4,8 @@
  * The lead runs it ONCE after the platform architecture (and again after the work-order map exists); every later
  * agent (blueprint authors, the reconciler, the gates, the fix pass) reads its pack plus the files it owns instead of
  * the whole doc set. Read-only on docs/: it writes only into the packs folder (gitignored runtime scaffolding).
+ * A pack is a digest of the cross-cutting facts, NOT a replacement for an FRD: whoever plans or judges an FRD still
+ * reads its frd.md in full (scope, business rules, edge cases, contracts live outside the AC bullets).
  *
  * Per FRD, `frd-NN.md` holds, extracted deterministically:
  *   - the REQ heading lines and every live AC bullet VERBATIM from frd.md (with its id, continuation lines kept)
@@ -13,7 +15,7 @@
  *   - the microcopy keys the FDD cites (backticked keys, or quoted labels equal to a microcopy value)
  *   - the FRD's slice of the work-order map (§2 catalogue and §5 author notes), when the map exists
  * `_global.md` holds: the architecture.md outline with line numbers (open a section by offset, never the whole
- * file), the ADR index, the route rows owned by no single FRD, the "Pinned versions" section, and the map's global
+ * file), the ADR index (ACCEPTED = binding; PROPOSED apart; SUPERSEDED omitted), the route rows owned by no single FRD, the "Pinned versions" section, and the map's global
  * sections (§0 rules incl. shared-file owners, §1 foundation, §3 DAG, §8 binding resolutions).
  *
  * Usage (from the project root, or pass it):
@@ -93,6 +95,24 @@ function headingBlock(text, re) {
   const level = /^#+/.exec(lines[at])[0].length;
   const end = lines.findIndex((l, i) => i > at && /^#+\s/.test(l) && /^#+/.exec(l)[0].length <= level);
   return lines.slice(at + 1, end < 0 ? undefined : end);
+}
+
+/**
+ * The ADR index by status: ACCEPTED ones are binding; PROPOSED (or unlabelled) ones are listed apart with their
+ * status; SUPERSEDED/DEPRECATED/REJECTED ones are omitted and only counted.
+ * @param {{file: string, text: string}[]} adrs
+ * @returns {{accepted: string[], other: string[], superseded: number}}
+ */
+export function adrIndex(adrs) {
+  const out = { accepted: [], other: [], superseded: 0 };
+  for (const { file, text } of adrs) {
+    const title = (/^title:\s*(.+)$/m.exec(text)?.[1] ?? /^#\s+(.+)$/m.exec(text)?.[1] ?? file).replace(/^["']|["']$/g, "");
+    const status = (/^status:\s*(\S+)/m.exec(text)?.[1] ?? "").toUpperCase();
+    if (/^(SUPERSEDED|DEPRECATED|REJECTED)/.test(status)) out.superseded++;
+    else if (status === "ACCEPTED") out.accepted.push(`- \`${file}\` · ${title}`);
+    else out.other.push(`- \`${file}\` · ${status || "NO STATUS"} · ${title}`);
+  }
+  return out;
 }
 
 /** `### FRD-NN ...` subsections inside a section's lines, keyed by FRD number. */
@@ -305,12 +325,7 @@ export function buildPacks({ root = ".", out, map, only = null, today = new Date
 
   const outline = h2Sections(arch).map((s) => `- L${s.line} ${s.title}`);
   const adrDir = path.join(root, "docs/adr");
-  const adrs = listDir(adrDir, (n) => n.endsWith(".md")).map((f) => {
-    const t = read(path.join(adrDir, f));
-    const title = /^title:\s*(.+)$/m.exec(t)?.[1] ?? /^#\s+(.+)$/m.exec(t)?.[1] ?? f;
-    const status = /^status:\s*(\S+)/m.exec(t)?.[1] ?? "";
-    return `- \`docs/adr/${f}\`${status ? ` · ${status}` : ""} · ${title.replace(/^["']|["']$/g, "")}`;
-  });
+  const adrs = adrIndex(listDir(adrDir, (n) => n.endsWith(".md")).map((f) => ({ file: `docs/adr/${f}`, text: read(path.join(adrDir, f)) })));
   const platformRows = routeBlock((x) => !x.frds.length);
   const pinned = headingBlock(arch, /pinned versions/i);
   const mapGlobal = [0, 1, 3, 8].flatMap((n) => mapSec(n)?.lines ?? []);
@@ -323,9 +338,14 @@ export function buildPacks({ root = ".", out, map, only = null, today = new Date
     "",
     ...(outline.length ? outline : none("no architecture.md yet")),
     "",
-    `## Locked decisions (docs/adr, ${adrs.length}): never contradict them`,
+    `## Locked decisions (docs/adr, ACCEPTED, ${adrs.accepted.length}): binding, never contradict them`,
     "",
-    ...(adrs.length ? adrs : none("no ADR yet")),
+    ...(adrs.accepted.length ? adrs.accepted : none("no ACCEPTED ADR yet")),
+    "",
+    `## Proposed decisions (docs/adr, not yet binding, ${adrs.other.length})`,
+    "",
+    ...(adrs.other.length ? adrs.other : none("no PROPOSED or unlabelled ADR")),
+    ...(adrs.superseded ? ["", `_${adrs.superseded} SUPERSEDED/DEPRECATED ADR(s) omitted: history, not plan._`] : []),
     "",
     "## Routes owned by no single FRD (platform, gate-only, shared)",
     "",

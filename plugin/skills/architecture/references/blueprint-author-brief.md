@@ -36,7 +36,8 @@ concatenated ledger after every author is done.
   `<path>/packs/_global.md` (the architecture.md outline with line numbers, the ADR index, platform routes, Pinned
   versions, the map's shared-file owners, foundation, DAG and binding resolutions). They are digests: when a line
   matters for a contract, confirm it in its source.
-- Your FRDs directly: `fdd.md` and the `mocks/` files (the binding visual spec); `frd.md` only to confirm a quote.
+- Your FRDs directly, in full: `frd.md` (scope, out of scope, business rules, edge cases, contracts, a "no UI" note:
+  everything the pack does not carry), `fdd.md` and the `mocks/` files (the binding visual spec).
 - Platform, by section: open only the `docs/product/architecture.md` sections you need, by the line numbers in the
   outline (route map, module map, derivation rules, the cross-cutting concerns you use); `docs/adr/<file>` only for
   a decision your FRD depends on; `docs/design/components.md` (reuse before create); `docs/rules/*.md` only the

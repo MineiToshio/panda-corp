@@ -141,13 +141,13 @@ export function PipelineDetail(): React.JSX.Element {
         decisiones, plan listo, gates pasados y merge.
       </Body>
       <Body>
-        Está hecha para ir rápido: te anuncia al inicio el presupuesto (unas 4 horas y unos 5 M de
+        Está hecha para ir rápido: te anuncia al inicio el presupuesto (unas 5 horas y unos 6 M de
         tokens para 6 a 8 FRDs) y, si una etapa pasa del doble, para y te ofrece la opción más
         barata. Todo lo independiente corre en paralelo por grupos, cada agente con el tier y el
         esfuerzo que su tarea merece (MECH, STANDARD o JUDGE, sin nombres de modelo: se resuelven
         desde <Code>model-tiers.json</Code>, igual en Claude que en Codex), y cada agente lee un{" "}
-        <B weight={500}>paquete de contexto</B> de su FRD (<Code>build-packs.mjs</Code>) en vez de
-        releer todos los documentos. Un cambio tardío se aplica como delta, nunca regenerando.
+        <B weight={500}>paquete de contexto</B> (<Code>build-packs.mjs</Code>) más los FRDs que le
+        tocan, en vez de releer todos los documentos. Un cambio tardío se aplica como delta, nunca regenerando.
       </Body>
       <Body>
         Se documenta la arquitectura de la plataforma (<Code>docs/product/architecture.md</Code>) y
