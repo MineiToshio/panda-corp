@@ -1945,6 +1945,10 @@ phase('Baseline')
 // escalate. The precheck decides greenfield from status.yaml and the work-order frontmatter (never model prose); the
 // fast lane then spends no judge baseline on it and never stops there: each FRD's own verify certifies what it builds.
 let mechGreenfield = null
+// BL-0252: the half-built twin (fast precheck's carryOver verdict): no last_green_sha, work orders committed IN_REVIEW, none
+// VERIFIED — verify.sh red by construction (knip flags the primitives later work orders consume). The fast precheck leaves
+// the tree clean or stops on owner dirt, so the verdict alone decides; the judge baseline would "fix" (delete) that work.
+let mechCarryOver = null
 // The precheck already leaves these out of ownerDirt (the lease projection, the append-only journals); kept here too.
 const FAST_SHARED_PATHS = new Set(['.pandacorp/status.yaml', '.pandacorp/track.jsonl', '.pandacorp/build-journal.jsonl'])
 // The fused start's verified body, or null (not fused, or its line failed: then every separate step runs). The script
@@ -1988,6 +1992,7 @@ if (MECH_SCRIPT) {
     return { mode: MODE, builtFrds: [], blockedFrds: ['owner-dirt'], blockedReasons: { 'owner-dirt': 'needs-owner' }, ownerDirt, note: `owner dirt (needs-owner): the fast lane never builds over uncommitted owner edits — commit, stash or discard, then relaunch: ${ownerDirt.join(', ')}` }
   }
   if (FAST && p.greenfield && p.greenfield.greenfield === true) mechGreenfield = { reason: String(p.greenfield.reason || 'greenfield') }
+  if (FAST && !mechGreenfield && p.carryOver && p.carryOver.carryOver === true) mechCarryOver = { reason: String(p.carryOver.reason || 'carry-over') }
   if (Array.isArray(p.keptInReview) && p.keptInReview.length) log(`✓ resume: ${p.keptInReview.length} IN_REVIEW work order(s) hold their flip commit after the last stamp — kept, never rebuilt`)
   if (Array.isArray(p.salvaged) && p.salvaged.length) log(`⇣ resume: ${p.salvaged.length} engine-owned dirty path(s) salvaged to ${p.salvageDir} and reset`)
   if (p.status === 'attention') log(`⚠ resume: interrupted discard(s) refused for ${(p.refused || []).join(', ')} — the engine's own recovery below handles them`)
@@ -2002,7 +2007,7 @@ if (fused && fused.status === 'stop') {
   return { mode: MODE, builtFrds: [], blockedFrds: [], note: 'owner stop signal' }
 }
 // The fused start's scripted baseline verdict (the rule below, made deterministic): no pre-check, no judge.
-const FUSED_BASELINE = fused && ['green', 'leased-status-only', 'greenfield'].includes(fused.baseline) ? fused.baseline : null
+const FUSED_BASELINE = fused && ['green', 'leased-status-only', 'greenfield', 'carry-over'].includes(fused.baseline) ? fused.baseline : null
 // (a) MECH PRE-CHECK: the root guard + rethink consume + owner stop signal + the clean-tree fast path — all
 // cheap, no verify.sh. Only if it escalates does the expensive judge baseline run.
 if (!FUSED_BASELINE) agentSpawned++
@@ -2068,12 +2073,16 @@ const readGreenfieldFacts = (line) => {
   return facts && facts.ok === true && facts.probe === 'greenfield' ? facts : null
 }
 const isGreenfield = (facts) => Boolean(facts) && facts.greenfield === true
+// BL-0252: the sealed half-built verdict (decideCarryOver, the one definition). Only a CLEAN tree (the pre-check's own
+// `dirty: false`) takes it: a dirty half-built tree still needs the judge's DR-067 reconciliation.
+const isCarryOver = (facts) => Boolean(facts) && facts.carryOver === true
+const CARRY_OVER_LOG = 'carry-over BL-0252: a clean half-built tree, no judge'
 const greenfieldFacts = readGreenfieldFacts(precheck && precheck.greenfieldProbe)
 let baselineGreenfield = null   // the facts, when the engine took the greenfield path — the planner records the event
 
 if (FUSED_BASELINE) {
   baseline = { green: true }
-  log(`Baseline ${FUSED_BASELINE} (fast-start, scripted: ${FUSED_BASELINE === 'greenfield' ? `${(mechGreenfield && mechGreenfield.reason) || 'greenfield'} — red by construction, each FRD's verify certifies it` : FUSED_BASELINE === 'green' ? 'clean tree at last_green_sha or its BL-0066 pointer commit' : 'the only dirty path is the leased status.yaml, BL-0124'}) — no verify.sh, no judge.`)
+  log(`Baseline ${FUSED_BASELINE} (fast-start, scripted: ${FUSED_BASELINE === 'greenfield' ? `${(mechGreenfield && mechGreenfield.reason) || 'greenfield'} — red by construction, each FRD's verify certifies it` : FUSED_BASELINE === 'carry-over' ? CARRY_OVER_LOG : FUSED_BASELINE === 'green' ? 'clean tree at last_green_sha or its BL-0066 pointer commit' : 'the only dirty path is the leased status.yaml, BL-0124'}) — no verify.sh, no judge.`)
 } else if (precheck && precheck.green === true) {
   baseline = { green: true }
   log('Baseline verde (fast path: árbol limpio en el snapshot verde o su pointer commit BL-0066) — no se corrió verify.sh.')
@@ -2089,6 +2098,9 @@ if (FUSED_BASELINE) {
   baseline = { green: true }
   baselineGreenfield = greenfieldFacts
   log(`Baseline no aplicable (greenfield 9.118.2): last_green_sha vacío y los ${greenfieldFacts.workOrders} work orders siguen PLANNED/DRAFT — rojo por construcción; sin judge baseline.`)
+} else if (!STRICT_BASELINE && (mechCarryOver || (isCarryOver(greenfieldFacts) && precheck && precheck.dirty === false))) {
+  baseline = { green: true }
+  log(`Baseline: ${CARRY_OVER_LOG}`)
 } else {
   // (b) ESCALATE → the judge baseline: DR-067 reconciliation (the SKILL promised it; the prompt never had it)
   // for a dirty/off-green tree, THEN verify.sh. Keeps the BL-0022 fail path defensively.
@@ -4341,7 +4353,7 @@ const reopenedFrds = []
 const blockedReasons = {}
 const blockedFailures = {}   // BL-0159: frd -> the concrete failure text behind blockedReasons[frd], when known (see blockFrd)
 let consecutiveBlocks = 0   // health breaker: non-external blocks in a row
-let stopReason = null       // 'budget' | 'blocks' | 'maxFrds' (null = ran to completion)
+let stopReason = null       // 'budget' | 'blocks' | 'maxFrds' | 'deadlock' (BL-0251) | … (null = ran to completion)
 let deferredWork = false    // WS-D/D4a: a safe-point drain routed a change's new WOs into an ALREADY-planned FRD
 // (they build on a LATER run) — so "all planned FRDs built" is NOT the whole story. Gates release (allDone) on !deferredWork.
 
@@ -5738,7 +5750,22 @@ function holdMain(who, fn) {
 const usableOf = (frd) => fastUsable.find((u) => u.frd === frd) || priorUsable.find((u) => u.frd === frd) || null
 // Proposal 40 Phase B: a lane-landed FRD is never auto-discarded either — other chains may already sit on top of it.
 const isUsable = (frd) => Boolean(usableOf(frd)) || lane.landed.has(frd)   // both lanes: fastUsable is fast-only, priorUsable comes from any mechScript precheck
-const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd)
+// BL-0251: a work order → { frd, wo } over the whole schedule (the enrollment's work-order rows).
+const fastWoIndex = () => { const m = new Map(); for (const [frd, x] of frdState) for (const w of x.f.workOrders) m.set(w.id, { frd, wo: w }); return m }
+// BL-0251: the floor FRDs (fastFloor, an unclassified one, or one held to the rule itself) whose BUILT, not yet VERIFIED
+// work orders `w` (of `frd`) depends on. A built work order of `frd` with such a dependency HOLDS `frd` to the floor rule
+// (fastTaint): USABLE only when VERIFIED, and its own dependents wait for that VERIFIED (C3) — nothing built on unreviewed
+// floor code is presented USABLE. It happens when a floor wait was waived because it closed a cycle, or when a dependent
+// built before its upstream turned out not USABLE. Derived from the work-order state on every call, never stored (DR-115).
+function fastFloorWaits(frd, w, idx = fastWoIndex(), seen = new Set([frd])) {
+  return (w.deps || []).map((d) => idx.get(d)).filter((x) => x && !seen.has(x.frd) && doneIds.has(x.wo.id) && x.wo.status !== 'VERIFIED' && !builtFrds.includes(x.frd)
+    && (fastFloor.has(x.frd) || !fastClassified.has(x.frd) || fastTaint(x.frd, idx, new Set([...seen, x.frd])))).map((x) => x.frd)
+}
+function fastTaint(frd, idx = fastWoIndex(), seen = new Set([frd])) {
+  const st = frdState.get(frd)
+  return Boolean(st) && !builtFrds.includes(frd) && st.f.workOrders.some((w) => doneIds.has(w.id) && w.status !== 'VERIFIED' && fastFloorWaits(frd, w, idx, seen).length > 0)
+}
+const fastIsFloor = (frd) => fastFloor.has(frd) || !fastClassified.has(frd) || fastTaint(frd)
 // Proposal 40 §9: the serial opus gate runs at high off the floor; xhigh on the floor, on injection-style content landed
 // by the FRD (the verify op's scan with the security delta's content triggers), and whenever that scan is unknown.
 const fastGateEffort = (frd) => fastIsFloor(frd) || (frdState.get(frd) || {}).injection !== false ? 'xhigh' : 'high'
@@ -5753,36 +5780,91 @@ async function fastClassify(frds) {
   if (!rows.length) log(`⚠ floor classification unreadable (${c.error || 'no rows'}) — ${frds.join(', ')} treated as floor (fail-closed, C3)`)
 }
 const fastWaitLog = new Map()
-// Why `frd` cannot build yet, or null. A non-floor upstream is satisfied once it landed (built, not failed); a floor one
-// only when VERIFIED this run. An upstream outside the schedule is VERIFIED already (the plan omits it).
-function fastUpstreamWait(frd) {
-  const woOwner = new Map()
-  for (const [k, x] of frdState) for (const w of x.f.workOrders) woOwner.set(w.id, k)
-  for (const u of frdDirectUpstream(frd, woOwner)) {
-    if (blockedFrds.includes(u)) return { blocked: u }
-    const x = frdState.get(u)
+// BL-0251: readiness is per WORK ORDER (the classic lane's rule, and planChains' for the lanes), never per FRD: an FRD
+// builds the work orders whose own dependencies are met now and the rest in a later pass. The FRD-level rule ("an
+// upstream FRD with anything left to build → wait") deadlocked an FRD-level cycle over an acyclic WO DAG, and with a floor
+// upstream it never finished at all (funko-tracker run_20261018T033601Z_80858: every FRD deferred, stopReason null).
+// fastNeeds(F) = the pending work orders F's own pending work orders need first — their pending deps, transitively, and,
+// through a floor wait on the way, that floor's pending work orders too. A floor wait of a work order in fastNeeds(F) is
+// waived: it would close a cycle (F could never be VERIFIED). Its FRD is then held to the floor rule (fastTaint).
+const logWaiver = (wo, frd, floor) => log(`⚠ ${wo} (${frd}) builds on ${floor}'s IN_REVIEW code: the floor wait is waived (BL-0251)`)
+function fastNeeds(floor, idx) {
+  const seen = new Set()
+  const floors = new Set()
+  const stack = []
+  const add = (id) => { if (globalQueue.has(id) && !seen.has(id)) { seen.add(id); stack.push(id) } }
+  const seed = (f) => { if (!floors.has(f)) { floors.add(f); for (const id of frdState.get(f).toBuildIds) add(id) } }
+  seed(floor)
+  while (stack.length) {
+    const x = idx.get(stack.pop())
+    for (const d of x.wo.deps || []) add(d)
+    for (const f of fastFloorWaits(x.frd, x.wo, idx)) seed(f)
+  }
+  return seen
+}
+// Why work order `w` of `frd` cannot build yet (`picked`: the FRD's work orders already in this pass, in order), or null.
+// A dependency outside the schedule is VERIFIED already (the plan omits it); a BLOCKED one fails closed (WS-A/D3). An
+// FRD-level dependency (frd.md `deps`, its cycles refused up front by detectCycles) waits on EVERY work order of its FRD.
+function fastWoWait(frd, w, picked, idx, needs) {
+  const up = (frdState.get(frd).f.deps || []).filter((u) => u !== frd)
+  if (up.some((u) => blockedFrds.includes(u))) return { blocked: up.find((u) => blockedFrds.includes(u)) }
+  const deps = [...(w.deps || []), ...up.flatMap((u) => (frdState.has(u) ? frdState.get(u).f.workOrders.map((x) => x.id).filter((id) => !blockedIds.has(id)) : []))]
+  for (const d of deps) {
+    const x = idx.get(d)
+    const why = (t) => ({ wait: x.frd, why: t, wo: w.id, dep: d })
+    if (blockedIds.has(d) || (x && blockedFrds.includes(x.frd))) return { blocked: x ? x.frd : d }
     if (!x) continue
-    if (x.failed) return { wait: u, why: 'it did not land this run' }
-    if (x.toBuildIds.size > 0) return { wait: u, why: 'not built yet' }
-    if (fastIsFloor(u) && !builtFrds.includes(u)) return { wait: u, why: 'floor: a dependent waits for its VERIFIED (C3)' }
+    if (x.frd === frd) { if (doneIds.has(d) || picked.has(d)) continue; return { own: true, ...why(`${d} first`) } }
+    if (frdState.get(x.frd).failed) return why('it did not land this run')
+    if (!doneIds.has(d)) return why(`${d} not built yet`)
+    if (fastFloorWaits(frd, { deps: [d] }, idx).length && !needs(x.frd).has(w.id)) return why('floor: a dependent waits for its VERIFIED (C3)')
   }
   return null
 }
+// The work orders of `frd` that may build now, in dependency order, the first cross-FRD wait of the rest, and the waivers.
+function fastReady(frd, idx = fastWoIndex()) {
+  const st = frdState.get(frd)
+  const memo = new Map()
+  const needs = (f) => { if (!memo.has(f)) memo.set(f, fastNeeds(f, idx)); return memo.get(f) }
+  const picked = new Set()
+  const waived = []
+  let wait = null
+  for (let grew = true; grew;) {
+    grew = false
+    wait = null
+    for (const w of st.f.workOrders) {
+      if (!st.toBuildIds.has(w.id) || picked.has(w.id)) continue
+      const x = fastWoWait(frd, w, picked, idx, needs)
+      if (x && x.blocked) return { ids: [], wait: x, waived }
+      if (x) { if (!wait || (wait.own && !x.own)) wait = x; continue }
+      picked.add(w.id)
+      grew = true
+      for (const f of fastFloorWaits(frd, w, idx)) waived.push({ wo: w.id, floor: f })
+    }
+  }
+  return { ids: [...picked], wait, waived }
+}
+// Why `frd` cannot build anything now (its first cross-FRD wait), or null.
+const fastUpstreamWait = (frd) => { const r = fastReady(frd); return r.ids.length ? null : r.wait }
+const waitText = (w) => `${w.wait} (${w.dep ? `${w.wo} needs ${w.dep}: ` : ''}${w.why})`
 function pickFastFrd() {
+  const idx = fastWoIndex()
   for (const [frd, st] of frdState) {
     if (st.failed || st.toBuildIds.size === 0) continue
-    const w = fastUpstreamWait(frd)
-    if (!w) return frd
-    if (w.blocked) { log(`⊘ ${frd} skipped (depends on the blocked ${w.blocked})`); blockFrdInSchedule(frd, 'needs-owner'); continue }
-    if (fastWaitLog.get(frd) !== w.wait) { fastWaitLog.set(frd, w.wait); log(`⏸ ${frd} waits for ${w.wait} (${w.why})`) }
+    const r = fastReady(frd, idx)
+    for (const x of r.ids.length ? r.waived : []) logWaiver(x.wo, frd, x.floor)
+    if (r.ids.length) return { frd, ids: r.ids }
+    const w = r.wait
+    if (w && w.blocked) { log(`⊘ ${frd} skipped (depends on the blocked ${w.blocked})`); blockFrdInSchedule(frd, 'needs-owner') }
+    else if (w && fastWaitLog.get(frd) !== waitText(w)) { fastWaitLog.set(frd, waitText(w)); log(`⏸ ${frd} waits for ${waitText(w)}`) }
   }
   return null
 }
 // One loop iteration: build the next ready FRD, else wait for ONE gate to settle (its verdict lands at the loop top), else
 // gate what is queued, else defer what can only build after an FRD that will not verify this run.
 async function fastLaneStep() {
-  const frd = pickFastFrd()
-  if (frd) { holdMain(`build:${frd}`, () => fastBuildFrd(frd)); return null }
+  const next = pickFastFrd()
+  if (next) { holdMain(`build:${next.frd}`, () => fastBuildFrd(next.frd, next.ids)); return null }
   return await fastIdle()
 }
 async function fastIdle() {
@@ -5809,14 +5891,40 @@ async function fastIdle() {
       stopReason = 'orphan-chain'
     }
   }
+  const deferred = []
   for (const [f, st] of frdState) {
     if (st.failed || st.toBuildIds.size === 0) continue
-    log(`↩ ${f}: deferred to the next run — it waits for ${fastWaitLog.get(f) || 'an upstream'}, which will not be VERIFIED this run`)
+    const w = fastUpstreamWait(f)
+    deferred.push({ frd: f, wait: w && !w.own ? w : null })
+    log(`↩ ${f}: deferred to the next run — it waits for ${w && w.wait ? waitText(w) : 'an upstream'}, which will not be VERIFIED this run`)
+  }
+  if (deferred.length) fastDeadlockCheck(deferred)
+  for (const { frd: f } of deferred) {
+    const st = frdState.get(f)
     for (const id of st.toBuildIds) globalQueue.delete(id)
     st.failed = true
     reopenedFrds.push(f)
   }
   return null
+}
+// BL-0251: a deferral that can never resolve is a STOP for the owner, never a silent null stopReason. It is a deadlock when
+// the deferred FRDs wait on each other in a cycle, or when this run built nothing to VERIFIED and gated nothing at all (a
+// relaunch would defer the same way). The cycle is named in the log, in the result (`deadlock`) and in the close-out's
+// decisions.md record.
+let fastDeadlock = null
+function fastDeadlockCheck(deferred) {
+  const names = new Set(deferred.map((d) => d.frd))
+  const graph = new Map(deferred.map((d) => [d.frd, d.wait && names.has(d.wait.wait) ? [d.wait.wait] : []]))
+  const cycle = findCycle(graph)
+  // Without a cycle it is a stall only when nothing else explains it: no FRD VERIFIED, gated, blocked or parked this run
+  // (a parked lane chain is retried by the next run's resume round, a block is the owner's already).
+  const explained = builtFrds.length > 0 || blockedFrds.length > 0 || lane.parked.length > 0 || [...frdState.values()].some((st) => (st.gateAttempts || 0) > 0)
+  if (!cycle && explained) return
+  const waits = deferred.map((d) => ({ frd: d.frd, waitsFor: d.wait && d.wait.wait, wo: d.wait && d.wait.wo, dep: d.wait && d.wait.dep }))
+  const text = cycle ? `cycle ${cycle.join(' → ')}` : `nothing VERIFIED or gated: ${deferred.map((d) => `${d.frd} → ${d.wait ? waitText(d.wait) : '?'}`).join('; ')}`
+  fastDeadlock = { cycle, waits, text }
+  log(`⛔ deadlock: ${text} (needs-owner, BL-0251)`)
+  if (!stopReason) stopReason = 'deadlock'
 }
 const fastMarkLanded = (frd, ids) => { const st = frdState.get(frd); for (const id of ids) { globalQueue.delete(id); doneIds.add(id); if (st) st.toBuildIds.delete(id) } }
 // Consecutive worker-tier work orders share ONE builder. A difficulty:high WO stays in it (bench F-1: its own opus builder
@@ -5971,38 +6079,49 @@ async function fastVerifyOrRetry(frd, since, ids) {
   return await fastVerify(frd, since, ids)
 }
 const fastFixPrompt = (frd, ids, failure) => `${EMIT('implementer', frd, { frd, phase: 'review', activity: 'repair' })}FAST-LANE FIX-FORWARD (proposal 39 C6, rung 1) for ${frd}: its work orders (${ids.join(', ')}) are committed, but \`bash .pandacorp/verify.sh\` is RED on the clean landed tree: ${failure || '(see .pandacorp/run/gate-report.json)'}. Fix the PRODUCTION code (never weaken, skip or delete a test) until \`bash .pandacorp/verify.sh\` is green. Commit every fix with exactly \`${mechOpCommand('commit-wo', '--fixup <the-wo-id> --file <each path you changed>')}\`, naming the work order whose code you fixed; never call git yourself and never edit implementation_status. Return { done: true } once verify.sh is green and the project tree is clean, else { done: false, failure }.`
-async function fastBuildFrd(frd) {
+// `only` (BL-0251): the work orders ready now (fastReady), in dependency order; the FRD's others build in a later pass, and
+// its USABLE verify runs once, after the last pass, over every work order this run built for it since the first dispatch.
+async function fastBuildFrd(frd, only = null) {
   const st = frdState.get(frd)
   phase('Build')
   if (!fastClassified.has(frd)) await fastClassify([frd])
-  const wos = st.f.workOrders.filter((w) => st.toBuildIds.has(w.id))
+  const wos = only ? only.map((id) => st.f.workOrders.find((w) => w.id === id)).filter((w) => w && st.toBuildIds.has(w.id)) : st.f.workOrders.filter((w) => st.toBuildIds.has(w.id))
   const ids = wos.map((w) => w.id)
   log(`⚒ fast lane: ${frd} — ${wos.length} work order(s), one builder per worker-tier run (C4): ${ids.join(', ')}`)
   const since = await fastDispatch(frd, ids)
+  if (!st.fastSince) st.fastSince = since
+  st.fastBuilt = [...new Set([...(st.fastBuilt || []), ...ids])]
   try {
     const missed = await fastBuildWos(frd, wos, since)
     if (missed.length) {
       if (!(await fastRepairOrBlock(frd, `work order(s) ${missed.map((w) => w.id).join(', ')} could not be built and committed`))) return null
       fastMarkLanded(frd, ids)
     }
-    let v = await fastVerifyOrRetry(frd, since, ids)
-    if (!v.refused && !v.green && !capHit() && canAffordRepair(frd, 'sonnet')) {
-      log(`! ${frd}: verify.sh red on the clean landed tree (${v.failure}) — fix-forward (sonnet)`)
-      agentSpawned += COST('sonnet')
-      await chargedRepair(frd, 'sonnet', () => agent(fastFixPrompt(frd, ids, v.failure), { label: `fix:${frd}`, phase: 'Build', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
-      v = await fastVerifyOrRetry(frd, since, ids)
-    }
-    if (!v.refused && !v.green) {
-      if (!(await fastRepairOrBlock(frd, `verify.sh is red on the clean landed tree after the fix-forward: ${v.failure}`))) return null
-      v = await fastVerifyOrRetry(frd, since, ids)
-    }
-    await fastCertified(frd, v)
-    return null
+    if (st.toBuildIds.size > 0) return null
+    if (st.fastBuilt.length > ids.length) return await fastVerifyAndCertify(frd, st.fastSince, st.fastBuilt)
+    return await fastVerifyAndCertify(frd, since, ids)
   } catch (e) {
     if (!isInfraError(e)) throw e
     await parkWorkOrders(wos.filter((w) => !doneIds.has(w.id)))
     return 'paused'
   }
+}
+// The scripted USABLE verify of a fully built FRD, its fix-forward and its bounded repair, then the certification (C6).
+// An infra error propagates to fastBuildFrd's handler (the pause).
+async function fastVerifyAndCertify(frd, since, ids) {
+  let v = await fastVerifyOrRetry(frd, since, ids)
+  if (!v.refused && !v.green && !capHit() && canAffordRepair(frd, 'sonnet')) {
+    log(`! ${frd}: verify.sh red on the clean landed tree (${v.failure}) — fix-forward (sonnet)`)
+    agentSpawned += COST('sonnet')
+    await chargedRepair(frd, 'sonnet', () => agent(fastFixPrompt(frd, ids, v.failure), { label: `fix:${frd}`, phase: 'Build', model: 'sonnet', effort: 'medium', agentType: 'pandacorp:implementer', schema: STOP_SCHEMA }))
+    v = await fastVerifyOrRetry(frd, since, ids)
+  }
+  if (!v.refused && !v.green) {
+    if (!(await fastRepairOrBlock(frd, `verify.sh is red on the clean landed tree after the fix-forward: ${v.failure}`))) return null
+    v = await fastVerifyOrRetry(frd, since, ids)
+  }
+  await fastCertified(frd, v)
+  return null
 }
 // The committed IN_PROGRESS stamp of the WOs about to build on main; returns the landed range's base. When that receipt
 // is lost (bench FM-1: the relay altered its checksum) verify runs without --since and derives the base itself from the
@@ -6047,7 +6166,7 @@ async function fastCertified(frd, v) {
   else if (v.green && fastIsFloor(frd)) log(`◦ ${frd}: floor (C3) — green on ${v.sha}, USABLE only when VERIFIED; its gate runs now`)
   else if (v.green) log(`⚠ ${frd}: green on ${v.sha} but not USABLE (${v.failure || 'no committed build_usable line'}) — its gate decides`)
   else log(`⚠ ${frd}: built but verify.sh is not green on the clean tree (${v.failure}) — not USABLE; its gate decides`)
-  if (!fastIsFloor(frd) && !v.usable) fastFloor.add(frd)   // not USABLE: its dependents wait for its VERIFIED, like a floor's
+  if (!v.usable) fastFloor.add(frd)   // not USABLE: its dependents wait for its VERIFIED, like a floor's (BL-0251: a held FRD stays held once its floor upstream verifies)
   if (enqueueGateIfComplete(frd)) {
     if (v.sha) st.pinSha = v.sha
     else await capturePin([frd])
@@ -6107,7 +6226,7 @@ function fastResult() {
   const usable = fastUsable.map((u) => ({ ...u }))
   const debt = fastReviewDebt()
   const pushHint = usable.length ? `PushNotification: USABLE on main — ${usable.map((u) => `${u.frd} @ ${u.sha}`).join(', ')}${debt.length ? `; review pending for ${debt.join(', ')}` : ''}` : ''
-  return { usable, reviewDebt: debt, pushHint, ...(LANED ? { lanes: { k: lane.k, parked: lane.parked, blockedFrds: lane.blocked } } : {}) }
+  return { usable, reviewDebt: debt, pushHint, ...(fastDeadlock ? { deadlock: fastDeadlock } : {}), ...(LANED ? { lanes: { k: lane.k, parked: lane.parked, blockedFrds: lane.blocked } } : {}) }
 }
 
 // ── Proposal 40 §3 Phase B: LANES (static K ≥ 2) ─────────────────────────────────────────────────────────────────────
@@ -6175,6 +6294,7 @@ function laneNext() {
     if (resume) lane.resumed = true
     lane.broken = (b.pool && b.pool.broken) || 0
     for (const f of b.failed || []) log(`⚠ chain ${f.chain}: not dispatched (${f.status}: ${f.reason})`)
+    for (const x of b.floorWaived || []) logWaiver(x.wo, x.frd, (x.floors || []).join(', '))
     const known = (id) => lane.jobs.has(id) || lane.land.some((x) => x.chain === id) || (lane.barrier && lane.barrier.chain === id) || Boolean(mainWriter && mainWriter.who.endsWith(`:${id}`))
     const track = (c) => { lane.live.set(c.chain, c); lane.owned.add(c.chain); return true }
     // The barrier first: a lane builder started in this same round must know a schema/package barrier is in flight.
@@ -6992,8 +7112,10 @@ function runEndSummary(needsOwner) {
     : stopReason === 'rethink' ? ' Paro en safe point: el owner re-planificó (rethink_pending) — la próxima corrida retoma con el plan nuevo.'
     : stopReason === 'maxFrds' ? ' Paro por el tope de prueba (maxFrds).'
     : stopReason === 'orphan-chain' ? ' Paro: una cadena de lane quedo huerfana (su recibo se perdio); revisa .pandacorp/run/lanes/state.json.'
-    : stopReason === 'review-deferred' ? ` Revision diferida (reviewBudget defer): ${fastUsable.length} FRD(s) USABLE en main; los gates quedan pendientes para otra ventana.` : ''
-  const ownerMsg = needsOwner.length
+    : stopReason === 'review-deferred' ? ` Revision diferida (reviewBudget defer): ${fastUsable.length} FRD(s) USABLE en main; los gates quedan pendientes para otra ventana.`
+    : stopReason === 'deadlock' ? ` Paro: interbloqueo (${fastDeadlock.text}).` : ''
+  const ownerMsg = stopReason === 'deadlock' ? 'Build en interbloqueo - necesita tu decision'
+    : needsOwner.length
     ? `Termine lo que se podia. ${needsOwner.length} FRD(s) te esperan a ti: ${needsOwner.slice(0, 6).join(', ')}`
     : `Tramo: ${builtFrds.length} FRDs ok, ${blockedFrds.length} bloqueados, ${reopenedFrds.length} a reintentar`
   return { blk, why, ownerMsg }
@@ -7077,7 +7199,9 @@ const crossCloseHead = (reuse) => `All FRDs are VERIFIED and the DR-085 hardenin
   If a cross-feature seam is wrong, reopen the offending work order (set it \`implementation_status: PLANNED\`) and return done:false with the finding. If everything integrates AND the full suite is green AND all of (i)+(ii) hold: set .pandacorp/status.yaml phase: release THROUGH the fenced state CLI, never by hand-editing the file (the lease owns the projected phase and the terminal quiesce re-projects it, silently undoing a hand edit): \`${STATE_CLI_COMMAND} set-phase --project "${PROJECT_DIR}" --token "${LEASE_TOKEN}" --epoch "${LEASE_EPOCH}" --phase release\` (it re-checks every FRD VERIFIED plus the hardening evidence and refuses otherwise; a refusal means you do NOT declare release)`
 const crossCloseTail = () => `${JOURNAL_GOLD}${HARDENING_EVENT('integration')} (status ok iff you declared release, else fail.) If (and ONLY if) you set phase: release above, ALSO record the run's terminal verdict:${BUILD_COMPLETE('released', `${builtFrds.length}/${plan.frds.length}`)}`
 const CROSS_CLOSE_NOTIFY = NOTIFY('Build COMPLETO: FRDs verificados + hardening + integracion cross-feature OK', 'Glass')
-const runEndHead = (why, blk, needsOwner, reuse) => `The build run ended.${why} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuse.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuse)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuse.headSha, reuse.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — `
+// BL-0251: a deadlocked schedule is a needs-owner stop — the close-out records it where the owner reads decisions.
+const DEADLOCK_RECORD = () => (stopReason === 'deadlock' ? ` DEADLOCK (BL-0251): ${fastDeadlock.text}. Append a needs-owner record (SPANISH) with the waits and the options to .pandacorp/inbox/decisions.md; bump pending_decisions.` : '')
+const runEndHead = (why, blk, needsOwner, reuse) => `The build run ended.${why}${DEADLOCK_RECORD()} Verified this run: ${builtFrds.length}. Reopened (retry next run): ${reopenedFrds.length}. Blocked: ${blockedFrds.length} (${blk}). Of those, NEEDS-OWNER (a human must act): ${needsOwner.join(', ') || 'none'}.${GATE_SKIP}${reuse.canReuse ? ` FIRST — BL-0147 REUSE, do NOT re-run \`bash .pandacorp/verify.sh\`: gate-report.json already recorded ${REUSE_REPORT_CLAUSE(reuse)} — treat that as this step's whole-project result.${CLOSE_OUT_VERIFY_REUSED_EVENT(reuse.headSha, reuse.ageSeconds)}` : ` FIRST run the FULL \`bash .pandacorp/verify.sh\` (complete suite, NO --since)`} to confirm this pass left no global regression — note the result (a needs-owner-quarantined route is held aside, so its blocked state must NOT red this full-suite check; that is the whole point — the independent features still reach a green baseline while the blocked route waits on the owner, BL-0011). Then ${SYNC_ROLLUPS}${SYNC_ROLLUPS_COMMIT} (BL-0159 — `
 const runEndMid = (blk) => ` Then write a short Spanish summary to .pandacorp/comms/progress.md (what advanced, what's blocked and the reason, the full-suite result, and exactly what needs the owner's action/decision for the needs-owner ones). **BL-0159 — narrate the LATEST state only:** the \`Blocked: … (${blk})\` reason/detail above for each FRD is already this run's FINAL verdict`
 const hardeningIncompleteHead = (sec, telem) => `Every FRD is VERIFIED but the DR-085 hardening did NOT complete (security: ${sec && sec.done === true ? 'ok' : 'INCOMPLETE — ' + ((sec && sec.failure) || 'failed')}; telemetry: ${telem && telem.done === true ? 'ok' : 'INCOMPLETE — ' + ((telem && telem.failure) || 'failed')}`
 const HARDENING_INCOMPLETE_MID = `). The project must NOT be declared released (BL-0012 fail-closed — release requires the hardening evidence). 1) Append the hardening failure + your recommendation to .pandacorp/inbox/decisions.md (needs-owner). 2) Write a short Spanish summary to .pandacorp/comms/progress.md (todo verificado, hardening incompleto, qué falta). 3) `

@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-18 — The fast lane schedules per work order and never deadlocks on a floor FRD (DR-132)
+
+**What:** New registry rule [DR-132](decisions/registry.yaml) (amends DR-124 (4) and DR-125): readiness per work order in both fast-lane schedulers; the C3 floor wait is waived for a dependent the floor FRD cannot finish without, and that dependent's FRD is held to the floor rule (USABLE only when VERIFIED), derived from the work-order state; a deferral that can never resolve stops with `stopReason: deadlock` and a needs-owner record; a clean half-built tree with no `last_green_sha` skips the judge baseline (carry-over). Canonical: [build-orchestration.md §5d](standards/build-orchestration.md). Items: BL-0251, BL-0252 (done), BL-0253, BL-0254, BL-0255 (open).
+**Why:** funko-tracker's first build deferred every FRD with no stop signal (a floor FRD inside an FRD-level cycle); the owner chose to fix the engine in the factory before relaunching the project. Plugin 9.132.0, overlay 8.102.0.
+
 ## 2026-10-17 — The architecture phase asks the owner first, plans once and gates once (DR-131)
 
 **What:** New registry rule [DR-131](decisions/registry.yaml) (extends DR-002): architecture runs an input-readiness preflight (DR-130 checks), then ONE owner decision round with a Spanish brief (context, alternatives, recommendation, live-verified facts, prior art; mandatory triggers incl. media store/link/proxy and ingestion + admin UI) before any document, then a fixed planning pipeline (one cross-FRD map, parallel authors, one ledger, one reconciler, three parallel gates, one fix pass, deterministic re-verification, scripted flip) and Pareto pacing. Wired in [the architecture skill](../plugin/skills/architecture/SKILL.md) and its references/scripts; plugin v9.130.0, overlay 8.101.0. Closes BL-0244/BL-0245; files BL-0247..BL-0250. Memo: [architecture-skill-v2](../docs/proposals/architecture-skill-v2.md).

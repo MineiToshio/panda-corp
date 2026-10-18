@@ -23,7 +23,9 @@
 // even when the first round is narrow (K = 1): the lane scheduler dispatches every chain itself, the first one on main.
 // The baseline verdict is the engine's own rule, made deterministic: `green` = a clean tree at last_green_sha or on its
 // BL-0066 pointer commit; `leased-status-only` = the only dirty path is this run's own status.yaml under a lease this op
-// just renewed (BL-0124); `greenfield` = the precheck's decideGreenfield verdict; anything else `escalate`.
+// just renewed (BL-0124); `greenfield` = the precheck's decideGreenfield verdict; `carry-over` = a CLEAN tree the
+// precheck's decideCarryOver calls half-built (BL-0252: no last_green_sha, IN_REVIEW work, nothing VERIFIED); anything
+// else `escalate`.
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
@@ -56,6 +58,7 @@ function baselineOf(ctx, pre, probe) {
   if (!dirty.length && lg && knownGreen(ctx, lg)) return 'green'
   if (dirty.length === 1 && dirty[0] === PROJECTION && probe.renewed === true) return 'leased-status-only'
   if (pre.greenfield && pre.greenfield.greenfield === true) return 'greenfield'
+  if (!dirty.length && pre.carryOver && pre.carryOver.carryOver === true) return 'carry-over'   // BL-0252: clean half-built tree
   return 'escalate'
 }
 /**

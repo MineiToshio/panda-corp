@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-10-18 — The Manual states the fast lane's floor-cycle and deadlock rule (DR-132)
+
+**What:** The unattended-build guide ([DesatendidaDetail](../src/app/manual/_components/DesatendidaDetail.tsx)) adds one paragraph to "Las features sensibles esperan": a part a sensitive feature cannot finish without is built anyway and its feature is treated as sensitive too, and a run where nothing can advance stops with a deadlock notice for the owner.
+**Why:** DR-046 (the Manual reflects the factory) for the factory's DR-132 (plugin 9.132.0). Copy only; no behavior change.
+
 ## 2026-10-17 — Add semantic color and scanning hierarchy to Órbita
 
 **Owner feedback:** The modern layout is an improvement, but the monochrome purple treatment feels flat. Preserve the current app's useful visual distinctions, especially in Spec lists and documentation.

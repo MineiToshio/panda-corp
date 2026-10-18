@@ -1679,6 +1679,21 @@ console.log('fast-start: the scripted baseline verdict — known-green, escalate
     const x = b.run('fast-start', startArgs(lease))
     ok(x.receipt.status === 'planned' && !x.receipt.dispatch && stampOf(b, WO_A) === 'PLANNED', `a first FRD with a BLOCKED work order is left to the engine's own dispatch (got ${x.receipt.status})`)
   } finally { b.cleanup() }
+  // BL-0252: a CLEAN half-built tree (no last_green_sha, a work order committed IN_REVIEW, none VERIFIED) is `carry-over`:
+  // no handoff to the judge baseline, whose full verify.sh is red by construction there (knip) and would "fix" the work.
+  const c = mkRepo()
+  try {
+    startFixture(c)
+    c.write(WO_A, WO_A_TEXT('IN_REVIEW'))
+    c.write('src/i18n/getT.ts', 'export const getT = () => (k: string) => k\n')
+    c.git('add', '-A'); c.git('commit', '-q', '-m', 'feat(frd-01-alpha): WO-01-001')
+    const h = c.run('fast-start')
+    ok(h.receipt.precheck && h.receipt.precheck.carryOver && h.receipt.precheck.carryOver.carryOver === true && h.receipt.precheck.greenfield.greenfield === false, `the precheck reports carryOver, not greenfield (got ${JSON.stringify(h.receipt.precheck && h.receipt.precheck.carryOver)})`)
+    ok(h.receipt.baseline === 'carry-over' && h.receipt.stage !== 'baseline' && h.receipt.plan, `a clean half-built tree → baseline carry-over, planned, no handoff to the judge (got ${h.receipt.baseline} ${h.receipt.status} ${h.receipt.stage})`)
+    c.write('src/owner-wip.ts', 'export const wip = 1\n')
+    const d = c.run('fast-start')
+    ok(d.receipt.baseline !== 'carry-over', `a dirty half-built tree is never carry-over (got ${d.receipt.baseline} ${d.receipt.status})`)
+  } finally { c.cleanup() }
 }
 
 // ── proposal 40 §2: the conditional security delta, the conditional telemetry, the scripted release close ─────────────

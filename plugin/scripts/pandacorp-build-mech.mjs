@@ -17,6 +17,8 @@
 //                are never touched, only reported.
 //                Also reports `usable`: the FRDs still USABLE from an earlier run (C6, durableUsable in build-mech-fast.mjs),
 //                and `greenfield`: a freshly architected project whose verify.sh is red by construction (greenfieldOf).
+//                and `carryOver` (BL-0252): a half-built tree — no last_green_sha, work orders IN_REVIEW, none VERIFIED —
+//                whose verify.sh is red by construction too (carryOverOf).
 //   commit-wo    --wo <id> --files <a,b,…> [--file <p>]… [--extra <p> --reason <r>]… [--ac <AC-id>]…
 //                [--fixup <id> [--for <id>]] [--main-branch main] [--lock-wait-ms N] [--test-timeout-ms N]
 //                [--events <f>] [--project-name <n>]
@@ -93,7 +95,7 @@ import { fileURLToPath } from 'node:url'
 import { renew } from '../runtime/build-state.mjs'
 import { BASELINE_RE, INPUT_EXIT, InputError, JOURNALS, PROJECTION, REFUSED_EXIT, Refusal, WO_FILE_RE, acquireLock, blobAt, commitJournals, dirtyEntries, dispatchSnapshotFile, engineOnlyDiff, findWo, fmGet, frontmatterStatus, inReviewWindow, isOnMain, matchesDeclared, maxAcsPerTitle, projectBinEnv, projectCtx, releaseLock, reportProvenance, salvageAndReset, setFrontmatterStatus, unique, utcStamp, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { BRIEF_OPS } from './build-mech-brief.mjs'
-import { FAST_OPS, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
+import { FAST_OPS, carryOverOf, durableUsable, greenfieldOf } from './build-mech-fast.mjs'
 import { closeOp, prodSmokeOp, securityScopeOp, telemetryScopeOp } from './build-mech-close.mjs'
 import { gateLandOp } from './build-mech-land.mjs'
 import { certifyStateOp, patchVerifyOp } from './build-mech-patch.mjs'
@@ -435,7 +437,7 @@ function precheck(o) {
     const demotion = demoteUnstamped(ctx, onMain, [...salvaged, ...statusRestored], salvageDir)
     const refused = reverts.filter((r) => r.exit !== 0).map((r) => r.frd)
     const reset = new Set(salvaged.map((x) => x.path))
-    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, journalsCommit: journals.sha, journalsLeft: journals.sha ? [] : dirty.filter((e) => JOURNALS.includes(e.path)).map((e) => e.path), ...(journals.error ? { journalsError: journals.error } : {}), salvaged, statusRestored, salvageDir: salvaged.length || mixed.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !reset.has(e.path) && !JOURNALS.includes(e.path)).map((e) => e.path), ...demotion, usable: durableUsable(ctx), greenfield: greenfieldOf(ctx) } }
+    return { code: 0, body: { status: refused.length ? 'attention' : 'ok', head: ctx.g.must(['rev-parse', 'HEAD']).trim().slice(0, 12), branch: ctx.branch, onMain, reverts, refused, journalsCommit: journals.sha, journalsLeft: journals.sha ? [] : dirty.filter((e) => JOURNALS.includes(e.path)).map((e) => e.path), ...(journals.error ? { journalsError: journals.error } : {}), salvaged, statusRestored, salvageDir: salvaged.length || mixed.length ? salvageDir : null, ownerDirt: dirty.filter((e) => !reset.has(e.path) && !JOURNALS.includes(e.path)).map((e) => e.path), ...demotion, usable: durableUsable(ctx), greenfield: greenfieldOf(ctx), carryOver: carryOverOf(ctx) } }
   } finally { releaseLock(lock) }
 }
 

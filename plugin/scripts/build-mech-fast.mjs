@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url'
 import { InputError, JOURNALS, PROJECTION, Refusal, acquireLock, blobAt, dirtyEntries, dispatchSnapshotFile, findWo, fmGet, frontmatterStatus, inReviewWindow, projectCtx, releaseLock, sealReportProvenance, unique, withdrawLine, woAcIds, woIdOf } from './build-mech-lib.mjs'
 import { landedDiff } from './build-mech-close.mjs'
 import { runVerify, verifyStatus } from './build-mech-verify.mjs'
-import { decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
+import { decideCarryOver, decideGreenfield, probe as probeGreenfield } from './greenfield-probe.mjs'
 import { securityDeltaTriggers } from './product-floor.mjs'
 
 const CLASSIFIER = path.join(path.dirname(fileURLToPath(import.meta.url)), 'classify-change.mjs')
@@ -449,6 +449,16 @@ export function durableUsable(ctx, only = {}) {
  */
 export function greenfieldOf(ctx) {
   return decideGreenfield(probeGreenfield(ctx.project), { allowDispatched: true })
+}
+/**
+ * BL-0252: is this a half-built tree (no last_green_sha, work orders committed IN_REVIEW, none VERIFIED) whose verify.sh
+ * is red by construction? The one definition is decideCarryOver; the precheck asks it with `allowDispatched` for the same
+ * reason as greenfieldOf, and the engine applies it because the fast precheck leaves the tree clean or stops (owner dirt).
+ * @param {object} ctx the projectCtx of the project
+ * @returns {{ carryOver: boolean, reason: string }}
+ */
+export function carryOverOf(ctx) {
+  return decideCarryOver(probeGreenfield(ctx.project), { allowDispatched: true })
 }
 
 export const FAST_OPS = { plan: planOp, 'classify-frd': classifyFrdOp, verify: verifyOp }

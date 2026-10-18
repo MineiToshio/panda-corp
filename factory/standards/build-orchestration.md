@@ -990,11 +990,22 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   stamp (`IN_PROGRESS`), since its precheck already restored every uncommitted stamp and owner dirt stops it. The fast
   lane then spends no judge baseline and never stops there; each FRD's own `verify` certifies what it builds. Any other
   state keeps the unchanged baseline.
+- **Half-built start, both lanes (DR-132, BL-0252).** A relaunch over a CLEAN tree with no published `last_green_sha`,
+  some WOs committed `IN_REVIEW` and none `VERIFIED`/`BLOCKED` (not adopted) is red by construction too: knip flags the
+  primitives whose consumers are later WOs (funko-tracker: `src/i18n/getT.ts`, `src/lib/analytics/client.ts`,
+  `posthog-js`), and the judge baseline would "fix the production code" — delete legitimate work. ONE definition,
+  `decideCarryOver` in `greenfield-probe.mjs` (sealed as `carryOver` in the probe line; the fast precheck's `carryOver`
+  with `allowDispatched`), and only a clean tree takes it: the classic pre-check's `dirty: false`, the fast precheck (it
+  restores engine dirt, stops on owner dirt), `fast-start`'s `carry-over` verdict (empty dirty list). No judge baseline
+  then; each FRD's own verify and gate certify that code. A dirty half-built tree, a published pin, any `VERIFIED` or
+  `BLOCKED` WO, or `args.strictBaseline` keep the judge baseline unchanged. (`args.strictBaseline` is OFF unless passed
+  as `true`; the launcher never passes it.)
 - **Fused start (fast lane, `args.fusedStart`, default on; never a change build or `strictBaseline`).** Bench F-1 spent
   3.5 min before its first builder on six relay spawns. ONE haiku relay runs `fast-start`: the BuildLaunch event, the
   `precheck`, the owner stop/rethink probe (fenced lease renewal), the baseline verdict made deterministic (`green` = a
   clean tree at `last_green_sha` or its BL-0066 pointer commit, `leased-status-only` = BL-0124 under the lease it just
-  renewed, `greenfield` = the precheck's verdict, else `escalate`), `plan --classify --compact`, the drainable-work
+  renewed, `greenfield` = the precheck's verdict, `carry-over` = a clean half-built tree (DR-132), else `escalate`),
+  `plan --classify --compact`, the drainable-work
   check, the rollup sync and the first FRD's committed dispatch. Only the quiet common case runs through; every other
   start stops at its step and the engine's separate steps take over unchanged: `owner-dirt` (needs-owner stop),
   `stop` (stop before planning), `handoff` at `precheck`/`rethink`/`probe`/`baseline` (the pre-check agent and, on
@@ -1066,6 +1077,22 @@ matters, or when nothing may reach `main` before its gate. Each condition below 
   parallel gate slot (§5c) while the next FRD builds. A floor FRD is USABLE only at VERIFIED, and a dependent of a floor
   FRD (or of an FRD whose verify stayed red, in this run or an earlier one: an all-`IN_REVIEW` FRD the precheck does not
   list as still USABLE) waits for that VERIFIED; a non-floor upstream is satisfied once it landed.
+- **Readiness is per work order, and the floor wait never closes a cycle (DR-132, BL-0251).** Both fast-lane schedulers
+  (the serial `pickFastFrd` and the lanes' `planChains`) decide readiness per WORK ORDER, like the classic lane: a WO is
+  ready when its own `dependsOn` are built (`IN_REVIEW` or `VERIFIED`); the FRD builds what is ready now and the rest in a
+  later pass, its USABLE verify running once after the last pass over everything it built this run. The floor wait (C3)
+  is the same rule at WO level: a dependency that is an `IN_REVIEW` WO of a floor (or red) FRD F satisfies a WO of
+  another FRD only once F is VERIFIED — EXCEPT when F cannot finish without that dependent (it is in `needs(F)`: the
+  pending WOs F's own pending WOs need first, transitively, and through another floor's wait on the way, so two floors can
+  close a cycle between them). That wait would deadlock (an FRD-level cycle over an acyclic WO DAG; funko-tracker
+  `run_20261018T033601Z_80858` deferred all 8 FRDs with `stopReason` null), so it is WAIVED: the WO builds on F's
+  `IN_REVIEW` code, logged (`floorWaived` in the `lane-next` receipt). Safety kept: an FRD with a BUILT WO that sits on a
+  not-yet-VERIFIED WO of a floor (or held) FRD is itself HELD to the floor rule — USABLE only when VERIFIED (`--floor`
+  to `verify`/`lane-usable`), its dependents wait for its VERIFIED, `xhigh` gate — derived from the work-order state on
+  every call (`fastTaint`), never stored (DR-115), and sticky once its verify ran. FRD-level `deps` (frd.md) still hold a
+  whole FRD. **A deferral that can never resolve is a stop, never a silent null:** when the deferred FRDs wait on each
+  other in a cycle, or nothing was VERIFIED or gated this run, the run ends `stopReason: 'deadlock'` with the waits named
+  (`result.deadlock`, the log, and a needs-owner `decisions.md` record written by the close-out).
 - **A gate never blocks the builders (bench FM-2).** A slot that cannot be prepared (not dirt) re-queues its gate in
   plan order instead of gating on `main` inline in the landing lane, and the loop never runs the legacy inline gate
   ahead of the next build: a gate falls to `main` only when no buildable FRD is left, upstream first. `gate-prepare`
