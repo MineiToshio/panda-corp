@@ -2,12 +2,12 @@
 
 > Domain: Operation/Observability · Severity: **MUST** for the baseline; the rest staged. Enforcement: checklist + CI. Complements `infra.md` (which covers only local dev).
 >
-> **When it's added (DR-085):** observability/telemetry is instrumented **during construction** (`/pandacorp:implement`), as part of the final hardening step — not as a post-launch concern. The product ships from construction already instrumented; the `release` phase only verifies it's live, and `/pandacorp:review-launch` *reads* what construction wired.
+> **When it's added (DR-085):** observability/telemetry is instrumented **during construction** (`/pandacorp:implement`), as part of the final hardening step — not as a post-launch concern. Only integrations explicitly approved for the current version are instrumented. The product ships from construction with that approved scope; the `release` phase only verifies it's live, and `/pandacorp:review-launch` *reads* what construction wired.
 
 ## Rule
 - **Mandatory baseline (every project), cheap:**
   - **Structured JSON logs** (Pino or equivalent) with `service.name` = the project's name in the portfolio, level and timestamp; `trace_id`/`span_id` when there is request context.
-  - **Error-tracking** integrated (Sentry, from the stack) from day 1 (DR-026).
+  - **Error-tracking scope** explicitly decided by the owner in the architecture round (DR-026/131): Sentry now, deferred or excluded. Only "now" plans the integration; silence is pending. Structured logs remain the baseline in all cases.
   - **Never log PII or secrets** (see `privacy.md`).
 - **Staged (when the project needs it):** portable instrumentation with **OpenTelemetry** (vendor-neutral): library auto-instrumentation, environment resource attributes, `instrumentation.ts` (Next's native hook) in the web golden path.
 
@@ -49,15 +49,15 @@ heartbeat, durations from track.jsonl, honesty from crossing them (DR-066) — a
 encodes nothing is the only thing allowed to be fake.
 
 ## How it is verified
-- Checklist in `/pandacorp:implement`'s final hardening step (DR-085): structured logs? Sentry connected? `service.name` correct? events fire in the critical flow? (`/pandacorp:release` only confirms it's live.)
+- Checklist in `/pandacorp:implement`'s final hardening step (DR-085): structured logs? `service.name` correct? Sentry connected and events fire in the critical flow only when each integration is approved for now? Deferred/excluded providers have no SDK, stub, credentials, required env validation or provider-specific gate? (`/pandacorp:release` only confirms it's live.)
 - **Observability-fidelity (DR-066)**: for any dashboard/monitor surface — does liveness cross `running` with heartbeat recency (never the flag alone)? Does the UI declare its own freshness (en vivo / datos de hace X / sin señal)? Does the producer emit a positive, time-driven heartbeat? Is the "sin señal" path actually exercised by a test (stop the producer → UI goes stale)? (The gate lives in `quality.md` + `build-orchestration.md` §9.)
-- The data goes to **Sentry** (errors/traces) and **PostHog** (analytics), already present — OTel is the instrumentation layer, **not a parallel pipeline**.
+- When approved for now, data goes to **Sentry** (errors/traces) and **PostHog** (analytics) — OTel is the instrumentation layer, **not a parallel pipeline**.
 
 ## Post-launch cost monitoring
 
 The stack runs on free tiers with hard ceilings — **PostHog** (1M events/mo), **Cloudflare R2** (10GB), **Neon** (compute hours), **Vercel** (bandwidth). The `/pandacorp:review-launch` loop checks consumption against these ceilings **monthly** for every launched product. **Approaching a ceiling is a needs-owner decision** (DR-005 spending gate: upgrading a plan is spending money) — never a silent upgrade; the alternative (trim events, prune assets, throttle) is presented alongside.
 
 ## Why
-Without observability you can't operate a portfolio: a production failure must be visible and attributable. OTel Traces/Metrics are stable; **Logs via OTel are experimental** (adopt with caution). Don't impose traces+metrics+logs from the MVP (it clashes with DR-012 minimal cut).
+The owner chooses provider scope to avoid speculative SDKs and deployment requirements; structured logs still make failures visible. Without observability you can't operate a portfolio: a production failure must be visible and attributable. OTel Traces/Metrics are stable; **Logs via OTel are experimental** (adopt with caution). Don't impose traces+metrics+logs from the MVP (it clashes with DR-012 minimal cut).
 
 Sources: opentelemetry.io/docs/languages/js

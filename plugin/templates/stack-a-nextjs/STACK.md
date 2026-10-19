@@ -1,5 +1,7 @@
 # Stack A — Full-stack web app (Next.js) · default suggestion
 
+**Owner scope (DR-026/131):** PostHog and Sentry are installed only when each is explicitly approved for now in the architecture round. Defer/exclude means no SDKs, stubs, credentials or provider checks. Decide multilingual features and SEO separately; centralized launch-locale copy and structured logs remain baseline. Provider examples below are conditional on that decision.
+
 Installation guide for `/pandacorp:architecture`, full-stack web case. It's the **recommended starting point** (`factory/standards/stack.md`), NOT a mandate: the `architect` can propose better alternatives and the owner approves in the blueprint. **Always use the latest stable versions** for a new project (`@latest`); an older/brownfield project installs only versions **compatible with its framework major** (DR-052). Recommended stack: Next.js + React + TypeScript + Tailwind + **Prisma** + **Better Auth** + **next-intl** + **PostHog** + **Sentry** + Vitest + Playwright + **Biome** (the single format+lint tool — no Prettier, no ESLint) + **pnpm** (shared content-addressable store, DR-096; the repo-wide standard), `src/` structure with the data layer in `queries/`.
 
 ## Canonical config files (installed VERBATIM, conformance-checked — DR-059)

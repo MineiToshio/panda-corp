@@ -11,9 +11,9 @@
 - **Tailwind CSS** + **shadcn/ui** as the accessible component base (restyled per project's design tokens); custom components (`core`/`modules`); `cn()` (clsx + tailwind-merge)
 - **Prisma** + **PostgreSQL** (Neon — Supabase was evaluated and rejected, see `external-services.md`); data layer in `queries/`
 - **Better Auth** (email + OAuth)
-- **next-intl** (i18n; launch locale from the market research — DR-041, never automatically Spanish)
+- **next-intl** (i18n; launch locale from the market research — DR-041, never automatically Spanish). Explicitly decide single-locale vs multilingual scope in architecture (DR-131); translatable centralized copy remains the baseline, extra locales/routing are not automatic
 - **Zod** (validation)
-- **PostHog** (analytics) + **Sentry** (errors)
+- **PostHog** (analytics) + **Sentry** (errors), each only when explicitly approved for now in the architecture decision round (DR-026/131); inclusion in this suggested stack is not approval
 - **Cloudflare R2** (file/photo storage, S3 SDK) — bucket per app
 - **Resend** (transactional email) + **Kit/ConvertKit** (marketing email / waitlist)
 - **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges

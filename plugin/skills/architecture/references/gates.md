@@ -72,7 +72,16 @@ that the plan is grounded and current, not voluminous.
 Over `architecture.md`, the blueprints and the work orders: **no hard contradiction survives**: a WO contradicting
 its FRD or blueprint, a blueprint asserting a stack/data-model fact `architecture.md` or the PRD denies, two
 blueprints giving one artifact incompatible shapes, a value/term/entity meaning two things across the set, a
-document contradicting a locked decision ADR. A freshly generated set has no supersession intent, so it must come
+document contradicting a locked decision ADR. **Explicit-scope check:** verify all four unconditional choices
+(PostHog, Sentry, i18n scope and SEO including metadata) have an explicit owner answer or a reused explicit ADR;
+a silent default or generic stack approval is a blocker. Compare those ADRs against the platform, FRDs,
+blueprints, WOs/dependsOn, installed/planned packages, env/required secrets, validation and hardening/release
+close-out requirements. The lead checks the digest against those same outcomes after it is complete (step 9c), not while its parallel author is still writing. Deferred/excluded scope must not leave SDKs, wrappers/stubs, required
+credentials, service-specific tests or provider-erasure tasks; chosen scope must not be silently omitted. Check
+partial SEO scope by deliverable, do not treat metadata/OG as implicitly approved, and distinguish robots/noindex
+from access control. Single-language/deferred-language scope retains centralized translatable UI strings without
+unapproved multilingual UX/routing. Any mismatch blocks ACTIVE; reconcile upstream requirements rather than
+inventing implementation to satisfy a stale default. A freshly generated set has no supersession intent, so it must come
 out coherent. Canonical: `factory/standards/document-consistency.md`.
 
 ## 4. One fix pass, deterministic re-verification, resolution addendum

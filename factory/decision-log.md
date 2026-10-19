@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-10-19 — Optional architecture capabilities require explicit owner scope
+
+**What:** [DR-026/131](decisions/registry.yaml) now require separate explicit PostHog, Sentry, internationalization and SEO choices before planning; silence cannot enable them. [Observability](standards/observability.md), [stack](standards/stack.md), [SEO/i18n](standards/seo-i18n.md), [jobs](standards/background-jobs.md) and the rule registry reflect the approved current-version scope. Centralized launch-locale strings, structured logs and independent access control remain baseline. Operative skill/template/agent changes ship in plugin 9.133.0; rule propagation uses overlay 8.103.0. Existing projects' decisions are not retroactively changed.
+**Why:** Owner request: avoid implementing optional services/features that were intended for later. Sentry's unconditional day-one rule and default approval for the four choices are superseded, not duplicated. The catalog check's pre-existing navigation standard mismatch is tracked separately in BL-0264.
+
+
 ## 2026-10-18 — The fast lane schedules per work order and never deadlocks on a floor FRD (DR-132)
 
 **What:** New registry rule [DR-132](decisions/registry.yaml) (amends DR-124 (4) and DR-125): readiness per work order in both fast-lane schedulers; the C3 floor wait is waived for a dependent the floor FRD cannot finish without, and that dependent's FRD is held to the floor rule (USABLE only when VERIFIED), derived from the work-order state; a deferral that can never resolve stops with `stopReason: deadlock` and a needs-owner record; a clean half-built tree with no `last_green_sha` skips the judge baseline (carry-over). Canonical: [build-orchestration.md §5d](standards/build-orchestration.md). Items: BL-0251, BL-0252 (done), BL-0253, BL-0254, BL-0255 (open).

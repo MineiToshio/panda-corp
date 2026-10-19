@@ -83,12 +83,12 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | PRIV-3 | Never log PII or secrets | MUST | privacy.md | security-auditor PII grep vs data model + Sentry redact-before-send helper | manual |
 | PRIV-4 | New PII / third-party sharing escalates to owner | MUST | privacy.md | human gate (DR-025) | manual |
 | OBS-1 | Structured logs baseline (Pino) | MUST | observability.md | hardening checklist | manual |
-| OBS-2 | Sentry error tracking from day 1 | MUST | observability.md | hardening checklist (DR-026/085) | manual |
+| OBS-2 | Explicit owner scope for Sentry; integrate only when approved for now | MUST | observability.md | architecture decision round + contradiction gate, hardening checklist (DR-026/085/131) | manual |
 | OBS-3 | Liveness/freshness fidelity (live ⇔ running ∧ fresh) | MUST | observability.md | Observability-fidelity gate (DR-066) | wired |
 | OBS-4 | Free-tier cost ceilings checked monthly | SHOULD | observability.md | review-launch script + owner (DR-005) | manual |
-| SEO-1 | Metadata API per page + sitemap + robots | SHOULD | seo-i18n.md | release checklist | manual |
+| SEO-1 | Explicit owner SEO scope; metadata/sitemap/robots only as approved | SHOULD | seo-i18n.md | architecture decision round + contradiction gate; release checklist | manual |
 | SEO-2 | i18n: no hardcoded visible strings | MUST (if i18n) | seo-i18n.md | release checklist | manual |
-| SEO-3 | hreflang/canonical per locale | SHOULD | seo-i18n.md | release checklist | manual |
+| SEO-3 | hreflang/canonical per locale only when multilingual SEO approved | SHOULD | seo-i18n.md | architecture contradiction gate; release checklist | manual |
 | PORT-1 | Runtime capability matrix consulted before assuming a capability exists outside Claude Code | SHOULD | agent-portability.md | agent self-check (matrix in AGENTS.md context) | manual |
 | PORT-2 | Neutral model tiers (MECH/STANDARD/JUDGE) mapped per runtime; most expensive tier never automatic | SHOULD | agent-portability.md | agent self-check + owner spot-check (generalizes CONV-12) | manual |
 | PORT-3 | Tool translation table applied when a skill references a Claude-native tool under another runtime | MUST | agent-portability.md | table injected via AGENTS.md §Runtime portability (always in context) + owner spot-check | manual |
@@ -153,7 +153,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | RES-3 | Fallback hierarchy: stale-labeled → degraded UI → honest error; never fake liveness | SHOULD | resilience.md | reviewer + OBS-3 gate where a monitor exists | manual |
 | RES-4 | Bulkhead: a third-party outage never takes down the core flow | MUST | resilience.md | reviewer + adversarial dependency-down tests (DR-015) | manual |
 | JOB-1 | Work > ~5s or retriable side effects run as jobs (Cron/queue); idempotent handler + idempotency key | MUST | background-jobs.md | reviewer correctness lens + adversarial run-twice tests (DR-015) | manual |
-| JOB-2 | Bounded retries + visible dead-letter (Sentry + queryable state); never silently drop a job | MUST | background-jobs.md | reviewer + hardening checklist (Sentry on failure, OBS-2) | manual |
+| JOB-2 | Bounded retries + visible dead-letter (failure logs + queryable state; Sentry only when approved); never silently drop a job | MUST | background-jobs.md | reviewer + hardening checklist (Sentry on failure only when approved, OBS-2) | manual |
 | JOB-3 | Job runs log start/end/duration; long jobs heartbeat | SHOULD | background-jobs.md | hardening checklist (OBS-1) | manual |
 | DEP-1 | Cadence: security patches ASAP; minors batched; majors deliberate; never bump mid-build | SHOULD | dependency-lifecycle.md | reviewer (flags unrelated bumps in feature changes) | manual |
 | DEP-2 | `pnpm audit --audit-level high` clean at hardening + before external release | MUST | dependency-lifecycle.md | security-auditor hardening pass runs it (named; CI wiring candidate) | manual |

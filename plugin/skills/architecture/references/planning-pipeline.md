@@ -8,7 +8,7 @@ set), the owned outputs, the budgets and the stop rule.
 
 | # | Stage | Who (group) | Output | Lead's mechanical check after it |
 |---|---|---|---|---|
-| 1 | Platform | `architect` ∥ installer ∥ `analytics` ∥ `devops` (G1) | `docs/product/architecture.md`, `docs/product/data-model.json`, ADRs from the locked decisions, `docs/analytics/events.md`, the deploy ADR, the installed scaffold | JSON parse of `data-model.json`, `bash .pandacorp/doc-lint.sh`, `resolve-versions.mjs`, `build-packs.mjs` (P1) |
+| 1 | Platform | `architect` ∥ installer ∥ `analytics` ∥ `devops` (G1) | `docs/product/architecture.md`, `docs/product/data-model.json`, ADRs from the locked decisions, `docs/analytics/events.md` (event catalog only if approved now; otherwise lead-written scope/N/A record), the deploy ADR, the installed scaffold | JSON parse of `data-model.json`, `bash .pandacorp/doc-lint.sh`, `resolve-versions.mjs`, `build-packs.mjs` (P1) |
 | 2 | Cross-FRD work-order map | ONE `architect` (G2) | `.pandacorp/run/architecture/wo-map.md` from `wo-map-template.md` | AC count per FRD equals the packs'; `build-packs.mjs` (P2) |
 | 3 | Blueprints + work orders | parallel `architect` authors, one per FRD (G3, tier by FRD size and novelty) | `blueprint.md` (+ `blueprints/`), `work-orders/README.md`, `wo-*.md` per FRD | none yet: authors are still writing |
 | 4 | Cross-FRD requests | each author writes ITS ledger file | `.pandacorp/run/architecture/cross-issues/frd-NN.md` | every author reported; `cat cross-issues/*.md > cross-issues.md` |
@@ -25,8 +25,8 @@ Then the digest (9c) and landing (step 10).
 The platform architect writes against the decision round's ADRs; it never re-decides them. It fixes everything the
 blueprint authors would otherwise each re-invent: the route map, the module map, the data-layer calling
 convention, the derivation rules (one writer per fact, DR-115), caching and revalidation, auth helpers,
-analytics/observability helpers, the env var table (complete; `.env.example` mirrors it), and the cross-cutting seams
-other units need (a copy loader and analytics emitter usable outside the framework when a worker/CLI exists). Seams
+analytics/observability helpers only for providers explicitly approved for now (DR-131), the env var table (complete; `.env.example` mirrors it), and the cross-cutting seams
+other units need (a copy loader and, only for approved analytics, an analytics emitter usable outside the framework when a worker/CLI exists). Seams
 discovered later go through the ledger, which is why the more of them stage 1 names, the shorter stage 5 is.
 
 ## Context packs (between stages 1 and 2, and again after 2)
