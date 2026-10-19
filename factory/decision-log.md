@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-10-19 — MVP database recovery uses native provider capabilities
+
+**What:** [DR-012](decisions/registry.yaml) and architecture's recovery round now exclude custom external database backups in MVP/v1. Verify the selected provider plan and recovery window and declare limitations; resolve conflicting requirements before planning. Custom external backup work waits until product validation. Product exports/media storage and factory personal-state backups are separate and unchanged.
+**Why:** Owner request to keep first versions focused on validating user value, without speculative backup jobs and infrastructure. The operative skill/manual changes ship in plugin 9.134.0 and the resilience rule in overlay 8.104.0; existing project removals still require their own scoped change.
+
+
 ## 2026-10-19 — Optional architecture capabilities require explicit owner scope
 
 **What:** [DR-026/131](decisions/registry.yaml) now require separate explicit PostHog, Sentry, internationalization and SEO choices before planning; silence cannot enable them. [Observability](standards/observability.md), [stack](standards/stack.md), [SEO/i18n](standards/seo-i18n.md), [jobs](standards/background-jobs.md) and the rule registry reflect the approved current-version scope. Centralized launch-locale strings, structured logs and independent access control remain baseline. Operative skill/template/agent changes ship in plugin 9.133.0; rule propagation uses overlay 8.103.0. Existing projects' decisions are not retroactively changed.

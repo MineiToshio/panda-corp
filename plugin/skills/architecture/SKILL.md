@@ -94,6 +94,15 @@ unreadable): `build-packs.mjs`, `waves.mjs`, `ac-matrix.mjs`, `plan-consistency.
    strings. Reconcile existing conflicting requirements before planning; if an installed scaffold or canonical gate
    forces excluded scope, surface the conflict and stop rather than enable it or edit a verbatim gate.
 
+   **MVP/v1 database recovery:** use only the DB provider's native recovery, after verifying the chosen plan's
+   actual availability and recovery/retention window (`references/decision-round.md` §2). Never plan or install
+   own DB backups to R2/S3 or another external store in MVP/v1: no dump jobs, backup buckets/keys, custom restore
+   machinery or speculative tests/secrets. Carry this boundary through architecture, blueprints, WOs and their
+   dependencies, installs/env, validation and close-out; evaluate external backups only after product validation.
+   A legal/FRD guarantee the provider cannot meet blocks planning for an owner-visible resolution, not an implicit
+   backup system or a silently weakened promise. Product exports/media storage are separate legitimate scope.
+   This prospective rule does not authorize removing any existing implementation, including this project's.
+
 2. **Architecture — two layers, never fused (DR-049)** (`architect` agent, from the locked decisions):
    - **Platform architecture** (`docs/product/architecture.md`, stable, ONE per project, following `${CLAUDE_PLUGIN_ROOT}/templates/docs/architecture-template.md`): approved stack, high-level architecture, complete data model, **media & third-party content**, **operations & admin tooling**, deploy strategy, cross-cutting concerns and service boundaries — the things that are stable across features.
    - **Per-FRD blueprint** (`docs/frds/frd-NN-<slug>/blueprint.md`, one per FRD in scope; written in step 9 through the planning pipeline): how THIS feature is implemented on top of the platform — its components `CMP-NN-<slug>` and interfaces `IF-NN-<slug>`, API/action contracts and external integrations specific to the feature (limits and costs), each traced back to the FRD's `REQ-NN-MMM`. Each blueprint follows `${CLAUDE_PLUGIN_ROOT}/templates/docs/blueprint-template.md`: it restates the **source-of-truth hierarchy** in its header, references `docs/product/architecture.md` instead of re-describing the platform, carries the **state frontmatter** (`status` + `implementation_status`), and MUST include a **Build Plan** — the DAG of that FRD's work orders as the mandatory table (which is first, which depend on which, what runs in parallel, the integration order, and any cross-FRD dependencies). **The build engine READS this Build Plan instead of re-inferring dependencies at runtime (DR-050).** The Build Plan also **records each WO's `artifacts` (the globs of files/dirs it writes) and must be verifiably DISJOINT within a wave (DR-060)**: the engine serializes any overlap into a later wave, but the plan should be disjoint by design. The API contract is **per-WO at `docs/api/<wo-id>.md`** (in that backend WO's artifacts), never a single shared file.

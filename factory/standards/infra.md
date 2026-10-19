@@ -88,10 +88,11 @@ The constitution's gates (production, spending money, deleting data, external co
 
 What must be true for a **released** product (`phase: release`):
 
-- **DB**: Neon's PITR/branching is the baseline recovery mechanism; add a scheduled `pg_dump` stored outside Neon so a terminal decommission — or Neon itself failing — still leaves a portable copy. **Schedule + retention**: nightly for products with real user data, weekly for low-write internal tools; keep 7 dailies + 4 weeklies (~a month back).
+- **DB, MVP/v1 (DR-012):** verify the chosen provider/plan's native recovery availability and actual window; record its limits. Do not build custom backups to R2/S3/another external store, dump jobs, backup buckets/keys or custom restore scaffolding. Product-export/media storage is independent. Missing native recovery or an unmet legal/FRD guarantee requires an explicit owner resolution, never automatic paid provisioning, silent weakening or speculative infrastructure. This prospective rule does not delete any existing implementation or backup.
+- **DB, after product validation:** evaluate whether a portable external `pg_dump` is justified. Only if approved, schedule nightly for real user data or weekly for low-write internal tools, with 7 dailies + 4 weeklies; document the recovery objective and cost.
 - **R2 / asset buckets**: versioned, or the contents demonstrably re-derivable from source data.
 - **Secrets**: the age-key backup is already covered in `external-services.md`.
-- **Restore is TESTED** — an untested backup is a hope, not a backup. Cadence: **once before an external release, and again after any major schema change** (restore the latest dump into a scratch Neon branch and run the smoke suite against it).
+- **Restore is TESTED** — an untested backup is a hope, not a backup. Cadence: **once before an external release, and again after any major schema change** (exercise the approved recovery mechanism in a scratch environment and run the smoke suite against it). For MVP/v1 this is native provider recovery, not a requirement to implement dumps. If unavailable, expose the gap and obtain an explicit owner resolution before release; never silently promise recovery.
 
 ## How it is verified
 - **Human gates**: deny rules in `.claude/settings.json` + `block-dangerous.sh` hook (hard, deterministic).

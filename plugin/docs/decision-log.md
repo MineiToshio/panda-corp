@@ -1,5 +1,12 @@
 # Decision log — Plugin pandacorp
 
+## v9.134.0 — 2026-10-19 (MINOR): keep custom database backups out of MVP architecture
+
+**What:** Architecture's recovery round, downstream scope contract, installer and contradiction gate exclude custom external database backups in MVP/v1: no dump jobs, backup buckets/keys, restore scaffolding or associated speculative work. The architect verifies the actual provider/plan recovery availability and window, records limitations and resolves unmet legal/FRD guarantees before proceeding. Product exports/media storage remain independent legitimate scope; no existing project backup/data is removed by this prospective rule. Updated DR-012 and the Manual. Aligned infra.md’s former mandatory pre-release external dump with native MVP recovery and injected the matching resilience rule; overlay 8.104.0 propagates it without changing existing project scope.
+**Why:** Explicit owner request: validate the product before investing in an additional backup system; keep R2 available for downloadable posters without conflating that with database backup infrastructure.
+**Validation:** Native skill-creator validation, independent bounded baseline/candidate prompt review, manifest validation, derived-artifact drift check and Manual lint; no product build or end-to-end lifecycle benchmark.
+
+
 ## v9.133.0 — 2026-10-19 (MINOR): explicit architecture choices for analytics, errors, languages and SEO
 
 **What:** Architecture's decision round always resolves four separate owner choices: PostHog, Sentry, internationalization scope and SEO (including actual metadata deliverables). Explicit answers or explicit acceptance of recommendations are required; silence stays pending and accepted ADRs are reused. Deferred/excluded scope cannot introduce SDKs, stubs, keys, provider erasure, tests or work orders. Centralized launch-locale strings and structured logs remain baseline. The installer, planning/map briefs, gates and post-digest check carry the scope; narrow SEO is preserved. No-events versions keep only a scope/N/A record with `## Verification` for the existing hardening evidence contract. The implement skill and analytics role respect it; no engine logic changed. Updated stack guidance, injected analytics/resilience rules, manual and manifests. Overlay 8.103.0 propagates the changed rule text on future upgrades; existing product scope is not changed by this update.

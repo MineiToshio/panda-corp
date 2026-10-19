@@ -14,6 +14,12 @@ of a canonical one, so `/pandacorp:upgrade`'s conformance check stays clean. Ver
 
 **Locked scope before installation (DR-131).** Read the four explicit decisions (PostHog, Sentry, multilingual i18n, SEO) and install only current-version capabilities. Template package lists are suggestions, never consent. Deferred/excluded providers get no SDKs, helpers/stubs, credentials or required env validation; additional locale routing/SEO artifacts follow the chosen scope. Centralized launch-locale copy and structured logs remain baseline. Reconcile the exact install record and `.env.example` against these decisions before hand-off.
 
+**MVP/v1 DB recovery installation boundary.** Use the verified native provider recovery from the recovery
+ADR. Never add external DB-backup SDKs/jobs, backup buckets/keys, custom restore machinery or their env/secrets/
+tests because a template suggests them; external DB backups wait until product validation. Product-export/media
+storage dependencies remain valid when separately in scope. A legal/FRD recovery conflict stops installation for
+resolution; it is not permission to add a backup system or alter a verbatim gate.
+
 ## (a) Provisional-stack harness gate (BL-0016, DR-105): BEFORE any VERBATIM copy
 
 The VERBATIM copies assume the chosen stack's canonical harness exists under

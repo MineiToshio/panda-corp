@@ -48,8 +48,20 @@ Scan `docs/product/prd.md`, every `frd.md` + `fdd.md`, `docs/design/technical-as
 | 7 | Auth methods and account-deletion promises | email + password · OAuth providers · magic link; erasure window |
 | 8 | Email and notifications | none · transactional provider · in-app only |
 | 9 | Analytics consent and PII, **only when analytics was chosen for now** | cookieless, with verified consent requirements · consent banner · no collection |
-| 10 | Backups and retention | provider snapshots · own dumps · retention window |
+| 10 | DB recovery and retention | MVP/v1: verified native provider recovery and its actual window; external backups only after product validation |
 | 11 | **Prior art**: anything the owner already solved in another factory project | reuse that pattern · do it differently, with the reason |
+
+**MVP/v1 DB backup boundary (trigger 10).** Verify the selected DB provider **and plan** against current official
+information (and project settings when available): whether native snapshots/PITR/restore exist, whether they are
+active/included, the actual recovery/retention window, limits and cost. Record the dated evidence and limitations
+in the recovery ADR/platform; do not call a free tier "backed up" without verifying it. If unavailable or
+unverified, say so to the owner and resolve the recovery gap explicitly. Never offer or build own external DB
+backups in MVP/v1 (R2/S3/other storage, dumps/cron jobs, buckets/keys, custom restore machinery, associated
+secrets/tests/WOs). Revisit those only after the product is validated. If a legal obligation or FRD requires a
+stronger guarantee than native recovery provides, STOP and expose the conflict for resolution before planning;
+never silently weaken the requirement or invent the forbidden backup system. Product export files and media in
+object storage are not DB backups and remain governed by their own scope. Do not retroactively remove another
+project's existing backup implementation under this rule.
 
 Content-heavy product: also say plainly that the app build and the real-content production are separate tracks
 (fixtures exist to exercise the app; the real catalog is produced later by its own flow, BL-0244), and ask only if
@@ -126,3 +138,5 @@ the link to the file, never the whole brief.
 - Changing a locked decision later is an owner decision again (`/pandacorp:decide` or `/pandacorp:change`), never a
   blueprint author's call. When the owner changes one mid-phase, re-plan only what it touches and run a delta review
   (`gates.md` §5), not a full regeneration.
+
+If native recovery is unavailable, present that limitation plainly. An explicit owner acceptance of the recovery risk may resolve it where no legal obligation forbids it; do not infer that resolution must buy a service or implement backups. Existing implementations are not deleted by this prospective planning rule.

@@ -84,6 +84,13 @@ unapproved multilingual UX/routing. Any mismatch blocks ACTIVE; reconcile upstre
 inventing implementation to satisfy a stale default. A freshly generated set has no supersession intent, so it must come
 out coherent. Canonical: `factory/standards/document-consistency.md`.
 
+**MVP/v1 DB recovery check:** the recovery ADR/platform cites verified availability and the real recovery/
+retention window for the selected provider/plan, with limitations stated. Missing/unverified recovery or a
+legal/FRD guarantee beyond it must be exposed and resolved before PASS. Reject planned own external DB-backup
+jobs/dumps, backup buckets/keys, custom restore machinery and their dependencies/env/tests/close-out tasks,
+including speculative scaffolding. Product exports/media storage are separate; this check does not authorize
+retroactive deletion of any existing backups, including this project's. External backups are a post-validation evaluation.
+
 ## 4. One fix pass, deterministic re-verification, resolution addendum
 
 - Collect the blockers of all three reports into one list; dispatch fixes per owner (authors for their FRDs, the

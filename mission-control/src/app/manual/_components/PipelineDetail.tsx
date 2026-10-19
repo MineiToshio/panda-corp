@@ -143,7 +143,11 @@ export function PipelineDetail(): React.JSX.Element {
         decisiones; un «como recomiendes» explícito sí. Al aplazar o excluir no quedan SDKs,
         esqueletos, secretos ni pruebas obligatorias de esa capacidad. Cada respuesta queda como ADR
         y se reutiliza en siguientes rondas, así no hay que deshacer documentos después. Solo te
-        escribe en cuatro hitos: decisiones, plan listo, gates pasados y merge.
+        escribe en cuatro hitos: decisiones, plan listo, gates pasados y merge. En el MVP no se
+        construyen respaldos propios de base de datos hacia R2 u otro almacenamiento externo: se
+        verifica la recuperación nativa del proveedor y su ventana real. Guardar exportaciones del
+        producto es una decisión independiente. Los respaldos externos se evalúan después de validar
+        el producto.
       </Body>
       <Body>
         Está hecha para ir rápido: te anuncia al inicio el presupuesto (unas 5 horas y unos 6 M de

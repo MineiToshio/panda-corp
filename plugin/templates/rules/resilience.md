@@ -14,3 +14,6 @@ source: Pandacorp standard — resilience
 - **Background jobs**: work over ~5 s or any retriable side effect (email, webhooks, sync) goes to a job (cron/queue), never an inline `await` in the request.
 - Every job handler is **idempotent** and carries an **idempotency key** — retries and overlaps WILL happen; check the key (or a unique constraint) before side effects.
 - A job that exhausts its retries lands in a **visible dead-letter state** (failure logs + queryable status; Sentry event only when approved for now) — never silently dropped. Log start/end/duration per run.
+
+## MVP database recovery (DR-012)
+Use the selected provider plan's verified native recovery in MVP/v1; document its real window and limitations. Do not add custom DB dumps/backups to R2/S3/external storage, backup jobs/buckets/keys or restore scaffolding before product validation. Storage for product exports/media is independent. Surface unavailable recovery or conflicting legal/FRD promises for explicit owner resolution; never silently add a paid service, weaken a promise or delete existing backups. Test the approved recovery mechanism where available; no own dump is required merely to satisfy a generic restore checklist.

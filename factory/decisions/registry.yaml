@@ -63,7 +63,7 @@ decisiones:
 
   - id: DR-012
     patron: "scope of a version (which FRDs go into v1)"
-    default: "the minimal slice that validates the value hypothesis; 'nice to have' FRDs go to the backlog of the next version"
+    default: "the minimal slice that validates the value hypothesis; 'nice to have' FRDs go to the backlog of the next version. MVP/v1 does not build custom database backups to R2/S3/other external stores: verify and document the selected DB provider plan's native recovery and actual window instead; external backups are evaluated only after product validation. No speculative backup jobs, buckets, keys or restore machinery. Product-export/media storage is independent. Conflicting legal/FRD recovery promises must be resolved explicitly before planning, not silently weakened or used to build an unapproved backup system (architecture decision-round trigger 10)"
     requiere_humano: false
 
   - id: DR-013
