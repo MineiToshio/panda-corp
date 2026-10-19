@@ -81,3 +81,17 @@ slug) per worktree for correctness (avoiding collisions), audit for any OTHER co
 that was built by hand from that same field as a fixed string — those must be derived dynamically at
 request/startup time from the live value, never pinned, or the deliberate per-worktree variation breaks
 them the same way an un-retargeted absolute path would.
+
+**Sixth mechanism (2026-10-18/19, funko-tracker — SECOND distinct project corroborating addendum 2):**
+the same inverted shape recurred on a different project with TWO different pinned fields: `BETTER_AUTH_URL`
+and `ORACLE_MEDIA_BASE_URL` were both baked as static absolute URLs on port `:4037` in `e2e/server-env.json`,
+while `worktree-bootstrap.sh`'s port-derivation step (BL-0154) correctly varied `PORT` per worktree. Once a
+worktree got a derived port, Better Auth's callback redirect and the harness's own media links kept pointing
+at the OLD, now-dead `:4037` origin — surfacing as an auth-recovery e2e failure in one gate (FRD-03) and a
+console-red image-hotlink failure in another (FRD-01), both only inside worktrees, never on the main
+checkout. This is cross-project evidence (pandasaga + funko-tracker) that "a value derived from a
+bootstrap-varied field must never be pinned as a constant" is a recurring class, not a one-off — the fix is
+PROJECT-specific each time (retarget every embedded origin with the project's own derived port, typically
+in that project's own `.pandacorp/worktree-setup.sh` or server-env template), not a shared-tooling change,
+since the field names (`BETTER_AUTH_URL`, `ORACLE_MEDIA_BASE_URL`) are app-specific and the shared
+`worktree-bootstrap.sh` cannot know about them.

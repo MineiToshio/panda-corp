@@ -56,3 +56,11 @@ re-verify with `[[ -f ]]` or the Read tool before trusting the chain's branch, s
 nonzero exit is indistinguishable from a real "false" to the shell. Run `type test` or `alias | grep test`
 once per unfamiliar environment (new machine, new shell session, or a directory outside the usual project
 set) if file-existence checks start behaving oddly.
+
+**Fourth instance (2026-10-18/19, funko-tracker):** the same shadow fired specifically on `test -L <path>`
+(a symlink check, not `-f`) — it launched a stray `npm test`/vitest run instead of testing the symlink.
+The factory already forbids shell `test`/`[` for its own Stop-probe internals (BL-0074), but this instance
+shows the exposure also reaches ad-hoc SUBAGENT briefs that were never told the rule: any brief asking a
+subagent to check file/symlink existence from the Bash tool should say explicitly "use `ls -la` or
+`[[ ]]`-free checks (or the Read/Glob tools), never the bare `test`/`[` command," since a subagent has no
+reason to already know this machine's shadowing history.
