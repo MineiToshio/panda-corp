@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md (agent-inferred) — for a /
 provenance: agent-inferred
 created: 2026-09-13
 status: active  # cross-project corroboration (personal-page-v2 + funko-tracker) meets the eval-gate bar (DR-047)
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/build-orchestration.md (the implement engine's ARG-ECHO verification section): "verify a /pandacorp:implement launch's args (mode/maxAgents/targeted) reached the engine by checking the BuildLaunch line in ~/.claude/dashboard-events.ndjson (or the leaseToken present in agent prompts as a fallback), never journal.jsonl's bare started event — and the implement skill's own ARG-ECHO prescription should name a readable, parseable echo event instead of a log line." Corroborated across 2 distinct projects (personal-page-v2, funko-tracker) with zero contradicting evidence — the same indirect-evidence fallback worked both times.
 confidence: high
 times_applied: 0
 applied_in: []

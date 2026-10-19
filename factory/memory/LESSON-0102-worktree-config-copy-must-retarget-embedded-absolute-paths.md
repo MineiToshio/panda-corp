@@ -9,7 +9,7 @@ source: "mission-control .pandacorp/run/lessons.md 2026-07-07, owner-stated — 
 provenance: owner-stated
 created: 2026-07-07
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/build-orchestration.md's DR-096 "Bootstrap on entry" section, add as a standing audit item: "any config/env value that embeds an absolute path, OR is derived from a field the bootstrap deliberately varies per worktree (a port, a slug), must be retargeted/re-derived dynamically after bootstrap — never trust a rename or a file-level copy to have done this automatically; verify by inspecting the actual copied config, not just that bootstrap ran without error." Corroborated across 4 distinct projects over 6 independent mechanisms (mission-control, personal-page-v2, Mission Control's APFS-clone node_modules, pandasaga, funko-tracker) with zero contradicting evidence — the richest, most-recurring class of worktree-isolation bug in the store after LESSON-0125 itself.
 confidence: high
 times_applied: 0
 applied_in: []

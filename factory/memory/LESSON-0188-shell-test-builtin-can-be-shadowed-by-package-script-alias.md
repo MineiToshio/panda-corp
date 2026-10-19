@@ -9,7 +9,7 @@ source: "factory/memory/_inbox.md agent-inferred note (personal-page-v2 session)
 provenance: agent-inferred
 created: 2026-08-11
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/conventions.md (or agent-portability.md's Bash-tool section): "never rely on a bare `test -f`/`[ -f ]` from the Bash tool to check file existence — it can be silently shadowed by a package script alias (pnpm/npm `test`) or a shell-profile alias, and a shadowed call's nonzero exit reads as a clean false in a `&&`/`||` chain; use `[[ -f ]]`, `ls`, or the Read/Glob tools instead." Corroborated across 3 distinct projects (personal-page-v2, panda-corp, pandacast) via 3 different shadowing mechanisms (project package.json test script, global shell-profile alias, zsh npm alias/function) with zero contradicting evidence.
 confidence: high
 times_applied: 0
 applied_in: []

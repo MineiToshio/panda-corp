@@ -9,7 +9,7 @@ source: "funko-tracker .pandacorp/run/lessons.md 2026-10-17 (owner-stated) — t
 provenance: owner-stated
 created: 2026-10-18
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/decisions/registry.yaml (new DR default for multi-gate phase cadence: default to the minimum mandated gates + one fix pass; once the owner has approved, run the closing sequence — propagation + one mechanical check — exactly once, logging any further nit/newer-standard/edge-case found mid-close for later rather than re-opening the same close). Corroborated across 2 distinct projects (funko-tracker's architecture phase, pandasaga's design-phase closing sequence) with zero contradicting evidence — same owner-stated preference, two different phases, both owner-stated (highest-trust provenance).
 confidence: high
 times_applied: 0
 applied_in: []

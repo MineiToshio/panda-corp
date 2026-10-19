@@ -9,7 +9,7 @@ source: "panda-corp — Claude↔Codex dual-runtime portability rollout, docs/pr
 provenance: agent-inferred
 created: 2026-07-04
 status: active  # cross-project corroboration (panda-corp + funko-tracker, DR-047) — 2026-10-19
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/quality.md (close-out/review checklist: "when a change integrates with or ports to another runtime/tool/consumer, get a genuine verification pass FROM that other side before declaring done, not just a same-side self-review"). Corroborated across 2 distinct projects (panda-corp's Claude<->Codex portability rollout; funko-tracker's Codex-as-independent-reviewer-of-Claude's-work incident) with zero contradicting evidence — a same-runtime review structurally re-validates the builder's own assumptions.
 confidence: high
 times_applied: 1
 applied_in: [panda-corp]

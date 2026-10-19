@@ -9,7 +9,7 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-07, agent-inferred. 
 provenance: agent-inferred
 created: 2026-09-08
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/agent-portability.md (or a new session-continuity convention): "before re-deriving research/analysis a prior session likely already produced, check for its scratchpad (find-based recovery) or the Artifact tool's action=read as a second channel; and write durable analysis output to the repo in the SAME turn it is produced, never left pending in scratch, since a wiped scratchpad has no recovery path for a plain report." Corroborated across 2 distinct projects (personal-page-v2's wiped-scratchpad + Artifact-tool recovery facets; mission-control's permanently-lost canary/forensic reports during the 2026-09 speed sprint) with zero contradicting evidence.
 confidence: medium
 times_applied: 0
 applied_in: []
