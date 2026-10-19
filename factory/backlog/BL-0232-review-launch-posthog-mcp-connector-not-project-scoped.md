@@ -60,3 +60,15 @@ chosen fallback is wired, still surfaces the real metric via the fallback path.
 ## Out of scope
 Fixing BL-0087 (review-launch trusting `status.yaml` over the live deployed artifact) — a related but
 distinct gap, already tracked separately.
+
+## Evidence update (2026-10-19, pandacorp-memory-review scheduled sweep)
+Corroborating occurrence, same mechanism, no new root cause: a `factory/memory/_inbox.md` note observed
+the identical "no PostHog MCP tool available at all" state across **four consecutive weekly
+`pandacorp-review-launch` scheduled runs** for personal-page-v2 (2026-09-21, 2026-10-06, 2026-10-12,
+2026-10-19) — every one of the routine's own "conectar un MCP de PostHog" recommendations is structurally
+unactionable from inside the unattended routine itself, since a scheduled-task session does not inherit
+MCP connectors from any attended session. This sharpens the Fix plan's option (a) (a per-project read-only
+PostHog API key, SOPS+age-stored, read via REST) as the only one of the two options that can actually be
+exercised from an unattended run — option (b) (owner paste-back loop) cannot run unattended either. No new
+BL filed; no memory edit needed beyond this corroboration (LESSON-0286 already states the general
+mechanism). Still `status: open`.
