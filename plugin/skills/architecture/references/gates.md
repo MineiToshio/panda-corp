@@ -93,8 +93,12 @@ retroactive deletion of any existing backups, including this project's. External
 
 **Environment contract check:** every approved required variable has one concrete current-version consumer
 (installed path or owning WO), origin, dev/prod scope and exact web/worker/migration/local/CI destination.
-Reject speculative secrets, admin tokens in runtime, local/CI tools in the production handoff, and implicit
-worker-to-web credential copies. Planned consumers cannot claim runtime verification. Step 9b3 later
+Require exactly `.env.example`, `.env.local`, `.env.production` as the planned root dotenv set; group by
+service within destination blocks, local-only entries last in guide/dev and absent from production. Distinct
+privileges use aliases and explicit per-target exports, not duplicate keys or extra files. Check framework
+precedence and require synthetic isolation evidence before claiming selectors work; unresolved bindings have
+an owning WO/pending destination. Reject speculative secrets, admin/migration/other-destination tokens in
+runtime exports, local/CI tools in the production bundle, and implicit worker-to-web credential copies. Planned consumers cannot claim runtime verification. Step 9b3 later
 materializes values and records independent private-delivery evidence; no gate report certifies secrets
 merely because this contract is complete.
 

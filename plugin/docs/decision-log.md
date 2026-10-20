@@ -1,5 +1,13 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-20 — Three environment files with destination isolation
+
+**What:** Architecture now delivers exactly `.env.example`, `.env.local` and `.env.production`, grouped by service within destination blocks. Local-only tooling is last in guide/dev and excluded from production. Distinct credentials remain distinct through storage aliases and explicit runtime selectors/exporters; shared secrets name their consumers. Supersedes the production `.env.production.local` handoff and additional worker/migration/fidelity/offline/secret-fragment files. Existing values survive scoped consolidation; upgrades propagate the convention without rewriting private files.
+**Why:** The owner approved the Funko layout as the default for every project, reducing file maintenance without exposing bootstrap/renderer credentials to web or permitting framework dev-to-prod fallback. No provider action or product migration is implied.
+**Impact:** External-services standard/operative rule/registry, architecture installer/delivery/template, implement/release guidance and Manual share the contract. Synthetic selection/isolation evidence and independent metadata review are required; unresolved bindings stay pending. Plugin 9.138.0 / overlay 8.108.0.
+**Validation:** Native skill validation, independent baseline/candidate instruction review (new-service and legacy-conflict scenarios), derived-artifact drift, service-catalog validation and Manual copy lint pass. This is not a full lifecycle benchmark or a deployed selector. `check-standards.sh` exits 1 on the same three navigation-identities catalog failures reproduced from untouched HEAD, already tracked as BL-0264; no new catalog failure is introduced.
+
+
 ## 2026-10-20 — Architecture delivers private environment values, not only a map
 
 **What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.

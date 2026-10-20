@@ -2015,8 +2015,11 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       <Panel>
         <Ul>
           <li>
-            <B weight={500}>Runtime</B> — en el <Code>.env</Code> del proyecto (gitignored;{" "}
-            <Code>.env.example</Code> sin valores).
+            <B weight={500}>Runtime</B> — tres archivos: <Code>.env.example</Code> sin valores,{" "}
+            <Code>.env.local</Code> para desarrollo y <Code>.env.production</Code> para producción
+            (ambos privados). Variables por servicio y destino; las locales van al final de la guía
+            y desarrollo, nunca en producción. Se exporta solo el destino que corresponda, sin
+            compartir credenciales de otros procesos.
           </li>
           <li>
             <B weight={500}>Almacén de máquina</B> (lo que el agente lee sin ti presente) →{" "}

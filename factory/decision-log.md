@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-20 — Standardize three environment files across project architecture
+
+The owner-approved three-file convention replaces the separate production-local/worker/migration/tooling files. Updated [external-services](standards/external-services.md), the operative rule and EXT-7 registry, architecture/installer/template and downstream guidance. Service/destination sections retain distinct privileges via explicit selectors/exports, with local-only entries last in guide/dev and absent from production. Port/Compose/readme/worktree instructions no longer create a fourth `.env`. Legacy private-file consolidation is scoped, value-preserving and never triggered by an upgrade alone. Plugin 9.138.0 / overlay 8.108.0; existing provider identities/resources and product scopes unchanged.
+
+
 ## 2026-10-20 — Refine the Neon recipe after the first provisioning trial
 
 The [provider catalog](services/catalog.yaml) now distinguishes Neon API/CLI bootstrap roles from SQL-created restricted application roles, with current official role/access sources. Direct/unpooled describes a connection route, not an administrator privilege requirement. Provider-issued management credentials remain separate from runtime credentials. The Funko trial is private operational evidence, not public proof that every recipe or application is ready.

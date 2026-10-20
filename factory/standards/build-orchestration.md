@@ -2289,7 +2289,7 @@ into something the owner can't miss:
 
 A project becomes parallel-safe by declaring, in its blueprint/overlay — injected like any other
 standard, materialized at `/scaffold`/`:architecture` which already write `ports.yaml` → `launch.json`/
-`.env`:
+`.env.local` (local-only block):
 
 1. **Ports** — which services are fixed-reserved vs. autoPort (§3).
 2. **A reproducible bootstrap** — one command reconstituting everything untracked (install + secrets +

@@ -199,7 +199,7 @@ decisiones:
 
   - id: DR-037
     patron: "credentials/secrets of external services and how the resources are provisioned"
-    default: "provision via API/CLI (headless) where it exists; browser (Claude-in-Chrome) only as a fallback, verifying the active account before acting. Secrets in two planes: runtime/handoff in protected gitignored .env.local (development web), .env.production.local (production web handoff), and separate worker/migration/CI destinations (.env.example without values) and machine store in SOPS+age (encrypted file OUTSIDE every repo, age key in the macOS Keychain) for provider tokens and per-app credentials. LastPass = only the owner's personal one, separate from the machine store. Tokens with least privilege. See factory/standards/external-services.md §3-4 and web-security.md"
+    default: "provision via API/CLI (headless) where it exists; browser (Claude-in-Chrome) only as a fallback, verifying the active account before acting. Secrets in two planes: runtime/handoff in exactly three root dotenv files: tracked placeholder .env.example, protected gitignored .env.local (development) and .env.production (production handoff), grouped by service/destination; local-only entries last in guide/dev and absent from production; distinct runtime privileges separated by aliases and explicit target exports, never additional dotenv files or full-bundle injection and machine store in SOPS+age (encrypted file OUTSIDE every repo, age key in the macOS Keychain) for provider tokens and per-app credentials. LastPass = only the owner's personal one, separate from the machine store. Tokens with least privilege. See factory/standards/external-services.md §3-4 and web-security.md"
     requiere_humano: false
 
   - id: DR-038

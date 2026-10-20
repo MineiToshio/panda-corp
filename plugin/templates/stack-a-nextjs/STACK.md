@@ -33,12 +33,12 @@ pnpm create t3-app@latest . --noGit   # the Pandacorp scaffold already has git
    **Do NOT run `biome init` and hand-tune it.** Install the **canonical `biome.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/biome.json`) **VERBATIM** — it is the MAXIMUM fail-closed config (DR-059), conformance-checked by `/pandacorp:upgrade`. It enables the **domains** (`react`, `next`, `test`) and the **`a11y`** group, and promotes the hard-enforcement rules to **error**. **Correction:** Biome *detects the presence* of a domain from `package.json`, but **the domain's rules are NOT auto-activated** — you must enable each domain (and `useSortedClasses`, a nursery rule) **explicitly** in `biome.json`, which the canonical file does. Tailwind class ordering = Biome's `useSortedClasses` (replaces `prettier-plugin-tailwindcss`). Biome formats AND lints; do not add Prettier or ESLint. **Escape hatch only if needed**: a minimal ESLint config running *only* `eslint-plugin-testing-library` (and/or `eslint-config-next`) for the few rules Biome lacks — never re-add Prettier.
 3. **Testing + dead-code gate**: `pnpm add -D vitest @testing-library/react @testing-library/jest-dom jsdom @playwright/test knip madge` — then install the canonical **`knip.json`** (`${CLAUDE_PLUGIN_ROOT}/templates/stack-a-nextjs/knip.json`) VERBATIM (DR-059).
 4. **shadcn/ui**: `pnpm dlx shadcn@latest init` — use the preset/tokens from `docs/design/design-tokens.json`.
-5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon — Supabase was evaluated and rejected, see `external-services.md`). Connection string only in `.env` (DR-021).
+5. **DB**: **dev → Postgres in Docker** (see below); **staging/prod → managed** (Neon — Supabase was evaluated and rejected, see `external-services.md`). Connection strings only in protected `.env.local` / `.env.production` with explicit destination selection (DR-021; `external-services.md` three-file contract).
 6. **Structure**: features in folders (`src/features/<feature>/`), shared in `src/lib/`, components one file + colocated test.
 
 ## Database in dev (Docker) + worktrees (DR-021/022/023)
 
-`docker-compose.yml` with Postgres (and Redis if applicable); the port comes from the `.env` (port convention in `factory/standards/infra.md`). The agent brings it up with `docker compose up -d` before the tests.
+`docker-compose.yml` with Postgres (and Redis if applicable); the port comes from the final local-only block of `.env.local` via `docker compose --env-file .env.local ...` (port convention in `factory/standards/infra.md`). The agent brings it up with `docker compose --env-file .env.local up -d` before the tests.
 
 ```yaml
 # docker-compose.yml (dev)
@@ -54,11 +54,12 @@ volumes: { pgdata: {} }
 **`.worktreeinclude`** at the root (copies unversioned config to each new worktree, to test a snapshot without reconfiguring):
 
 ```
-.env
 .env.local
 ```
 
-Test the last green without stopping the agent: `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>` (the canonical review-worktrees root, DR-090 — never a sibling inside the projects area, no `-review` suffix) → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env`, `docker compose -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
+Never bootstrap `.env.production` or provider-admin credentials; no additional root dotenv files.
+
+Test the last green without stopping the agent: `git worktree add /Users/Shared/review-worktrees/<project> <last_green_sha>` (the canonical review-worktrees root, DR-090 — never a sibling inside the projects area, no `-review` suffix) → in that folder, `pnpm install` (fast with the pnpm store), adjust `DB_PORT` in its `.env.local` local-only block, `docker compose --env-file .env.local -p <project>-review up -d`, and run the dev server. A single review folder, refreshed to the last green.
 
 ## Hard enforcement (lint rules — make the rule library fail the gate, not just live in prose)
 

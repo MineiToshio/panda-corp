@@ -79,8 +79,12 @@ mirrors the approved names and ends with LOCAL-ONLY tooling. Do not invent futur
 external services, include any required local app secrets; otherwise state N/A.
 
 After decisions/contract are final, fill obtainable values privately per architecture
-`references/environment-delivery.md`: `.env.local` for development and `.env.production.local` for the
-production web handoff, separate worker destinations. The private report at
+`references/environment-delivery.md`: exactly three root dotenv files — tracked placeholder guide
+`.env.example`, protected development `.env.local` and production handoff `.env.production`. Group by
+service within destination blocks (web/renderer/operator as selected), using aliases and explicit
+runtime exports where names/privileges differ. Local-only entries are last in guide/dev, absent from
+production. Document mappings/commands and synthetic proof of framework precedence/target isolation;
+missing bindings stay pending. Never upload the complete bundle or add per-destination dotenv files. The private report at
 `.pandacorp/comms/entrega-entornos.md` records status/evidence without values. Link it by path only.
 Prepared production inputs are not a production deployment or verified production readiness.
 

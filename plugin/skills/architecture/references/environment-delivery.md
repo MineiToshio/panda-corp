@@ -16,7 +16,7 @@ A concrete current-version WO can need a value before its consumer is built: pre
 that planned consumer ran. Deferred/excluded features, hypothetical workers and future WOs get no secrets.
 If implementation changes a consumer, reconcile the contract and private delivery in that same change.
 
-Privately inspect existing `.env`, `.env.local`, `.env.production.local`, target-specific files and the
+Privately inspect existing dotenv files (including any legacy `.env.production.local` or target-specific files) and the
 approved machine store through a value-suppressing process. Check the selected framework's actual loading
 and precedence rules; do not source dotenv as shell code. Existing values win: preserve them byte-for-byte,
 including on reruns, and never rotate/revoke an existing secret as a preparation shortcut. Reuse a stored
@@ -53,24 +53,64 @@ Write in the MAIN project checkout under its existing single-writer ownership. I
 pending until a safe point; never write into a live owner's checkout. Ignored files in a planning worktree
 do not travel through git merge. Do not copy production secrets through worktree bootstrap/includes.
 
-| Destination | Private delivery |
+**Required root layout: exactly three files**, irrespective of the number of providers:
+
+| File | Contents / Git |
 |---|---|
-| Development web | Root `.env.local`, approved development values only; preserve compatible existing `.env`/port setup and loading precedence. |
-| Production web | Root `.env.production.local`, **explicit production handoff** containing only required web build/runtime values. It is a local sensitive handoff, not proof values reached the host. Never run a local production command against real resources just to test loading. |
-| Worker | Separate approved worker secret store/environment or target-specific protected file, named in the contract. Do not add worker-only database, R2, email or signing credentials to the web handoff. |
-| Migration/operator/CI | Separate approved destination with least privilege. An unpooled migration URL or CI upload token enters web/worker runtime only if an actual runtime consumer independently requires it. |
-| Local tooling | Local-only file/environment for dev/test/oracle tools; `.env.example` ends with a clearly labelled LOCAL-ONLY section including CI tooling names. No production handoff entries. |
+| `.env.example` | Tracked guide; empty values and comments for every approved name, service, purpose and destination. |
+| `.env.local` | Gitignored development bundle; development values only, with local-only tools at the end. |
+| `.env.production` | Gitignored production handoff; only values needed by approved production destinations, never local-only tools or unused services. |
+
+Group by **service inside clearly labelled destination blocks**, so the owner can identify both the
+provider and where each value goes. For example: `VERCEL / WEB — Neon`, `VERCEL / WEB — Google OAuth`,
+`MODAL / RENDERER — R2` when Modal is actually selected, and `APPLICATION-GENERATED SECRETS` with their
+destinations stated. This example selects no new service. A migration/CI/operator block is included only
+when required by a concrete approved consumer and clearly says **NOT FOR WEB/WORKER RUNTIME**. Keep
+shared protocol fields once and state every authorized consumer. Do not duplicate dotenv keys.
+The last block of `.env.example` and `.env.local` says **LOCAL-ONLY — DO NOT DEPLOY**: smoke/oracle/test,
+Python/browser tool paths and other operator tooling as applicable. These do not enter `.env.production`.
+Do not retain unused variables in that production file simply for completeness; the guide documents names.
+
+**A combined file is storage, not a runtime permission boundary.** Distinct credentials remain distinct:
+web R2 read and renderer R2 write, dev/prod SQL roles, and bootstrap migration authority must not collapse
+to one credential for convenience. Use unambiguous storage aliases where runtime names would collide,
+for example `MODAL_R2_ACCESS_KEY_ID` -> renderer `R2_ACCESS_KEY_ID` and `MIGRATION_DATABASE_URL` ->
+Prisma's direct URL, only when those consumers exist. Record the mapping and destination allowlists in
+the architecture/README. Export/select a destination explicitly using the selected stack's supported
+mechanism or a reviewed project-local selector; the owner's handoff commands must produce the real
+provider variable names without hand-renaming aliases. Do not source/load/upload the entire bundle into
+a runtime or export bootstrap/admin/other-destination secrets to it. Provider-admin/CLI credentials stay
+in the external machine store. CI and provider native secret stores are delivery destinations, not an
+excuse for a fourth persistent project dotenv file.
+
+Inspect actual framework precedence. In Next.js, `.env.local` can precede `.env.production`; switching
+the filename alone does not prevent development fallback. Wire explicit dev/prod and destination
+selection into the supported commands, including worker, migration/seed and tooling entrypoints when
+present. Check with **synthetic fixtures only** that production cannot fall back to dev, unrelated secrets
+cannot reappear through autoloading, missing destination aliases do not fall back to another role's keys,
+and injected isolated test DB/fixture inputs survive command chains. Never boot against real production
+resources to prove loading. If a selector/build binding is not implemented, assign the concrete WO and
+mark that destination/use pending; populated files alone do not certify safe execution.
+
+When consolidating an existing layout, inventory every old source and consumer first. Resolve conflicts,
+preserve applicable values without rotation and update loader/command references. Confirm value preservation
+in memory before retiring superseded files; retain any needed recovery material in the protected external
+store. Unknown values, conflicting sources or unsafe/in-flight migration stay pending, never silently
+lost to satisfy a file count. Do not automatically rewrite every existing project's local files on an
+upgrade: propagation installs the convention; actual consolidation is a scoped operation. No new
+`.env.modal.*`, `.env.migrations.*`, `.env.fidelity.*`, `.env.offline.*`, or secret-fragment files are generated.
 
 Before any write, prove each sensitive path is gitignored (`git check-ignore`) **and not tracked**
-(`git ls-files`), including report/worker files. Amend ignore configuration if needed before writing values.
+(`git ls-files`), including the private bundles and report. Amend ignore configuration if needed before writing values.
 Refuse symlinked paths/ancestors, non-regular files, hardlinked existing files or unexpected ownership; do
 not chmod or follow such paths. Use a private directory for temporary data, `umask 077`, mode 600 for files
 and mode 700 for temporary directories. Never place secrets in a world-readable temporary file first.
 Serialize writes. Read only the intended regular file, retain existing bytes/values, add only missing
 approved entries with the framework-compatible dotenv serializer (never shell interpolation), validate in
 memory, and replace atomically in the same directory. Check the original has not changed before replacement;
-if it has, stop rather than overwrite. Clean only temporary files this operation created. Preserve unknown
-existing entries; flag unexpected production entries pending instead of deleting or silently certifying them.
+if it has, stop rather than overwrite. Clean only temporary files this operation created. Preserve unknown existing values in protected reconciliation/recovery storage; resolve their purpose before
+retiring an old source. Exclude confirmed local-only/unused values from the production bundle. Unknown
+production entries stay pending for classification instead of silent deletion or readiness certification.
 Store newly obtained/generated app credentials in the approved external secret manager, separated by app,
 environment and destination; if the store cannot be updated safely, record that pending recovery step.
 
@@ -84,7 +124,9 @@ The lead writes `.pandacorp/comms/entrega-entornos.md` (gitignored, Spanish, mod
   delivered; `configured` = present in its protected target; `verified` = its installed consumer passed a
   bounded check against the intended environment. `not_applicable` records an excluded obligation, not a key.
 - Separate delivery checks (ignore/untracked, path safety, permissions, parseability, expected-name coverage,
-  placeholder/empty-required detection, no local/CI/admin/worker-only values in production web, environment
+  placeholder/empty-required detection, exactly the three named root files, service/destination labels and
+  final local-only sections, no local-only/unused values in the production bundle, no migration/admin/other-
+  destination values in runtime exports, tested alias mappings and no framework fallback, environment
   separation with the documented OAuth exception, and preserved existing values) from provider connectivity
   and consumer execution. Compare secrets in memory only; report match/conflict without secret fingerprints.
 - Each pending item: affected destination, exact blocked operation, reason, next actor/action, and what it blocks

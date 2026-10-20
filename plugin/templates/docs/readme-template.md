@@ -23,7 +23,7 @@ Prerequisites (runtime versions, external services/accounts needed).
 <install command>
 
 # configure
-cp .env.example .env   # fill in the values — see .env.example for what each one is
+test -e .env.local || install -m 600 .env.example .env.local  # only when architecture has not delivered it; fill approved development values
 
 # run
 <dev command>           # served at http://127.0.0.1:<port>
