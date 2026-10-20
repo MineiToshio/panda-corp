@@ -270,3 +270,11 @@ Current owner amendment: ADR-0009. Shared IdeaPitch/SpecDigest inner panels fill
 ### Persistent navigation composition (FRD-25)
 
 Existing BoardShell/CardDetail, ProjectWorkspace, global tab shells and shared readers own no duplicate selected-tab store: semantic selection derives from the URL through `useUrlState`. `NavigationSeedProvider` supplies exact server hydration state; `NavigationCanonical` replaces default/legacy addresses. These are behavior adapters around the approved components, with no new visual theme or width token. Expanded model restores its existing dialog; native fullscreen remains gesture-bound.
+
+
+## Services directory
+
+| Component | Purpose | Path | Props | Status |
+|---|---|---|---|---|
+| ServicesDirectory | Searchable native details over whitelisted account DTOs, reused globally/project-scoped | src/components/modules/ServicesDirectory/ServicesDirectory.tsx | data, projectId | real |
+| PortfolioViews | Existing SubTabs composition for Projects/Accounts, preserving workspace URL state | src/components/modules/ServicesDirectory/PortfolioViews.tsx | accounts, href | real |

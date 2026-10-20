@@ -437,6 +437,48 @@ console.log('lane-plan --build / --wait-verified: only the engine\'s schedule di
   } finally { r.cleanup() }
 }
 
+// ── BL-0251: the floor wait never closes a cycle ────────────────────────────────────────────────
+console.log('lane-plan --wait-verified (BL-0251): a dependent the floor FRD cannot finish without is waived, named in floorWaived; any other dependent still waits')
+{
+  // funko-tracker run_20261018T033601Z_80858, reduced: frd-01-a is floor, WO-02-001 builds on its IN_REVIEW WO-01-001 and
+  // frd-01-a's own WO-01-002 needs WO-02-001 — an FRD-level cycle over an acyclic WO DAG. frd-03-c is not in the cycle.
+  const r = mkRepo([
+    { frd: 'frd-01-a', id: 'WO-01-001', status: 'IN_REVIEW' }, { frd: 'frd-01-a', id: 'WO-01-002', deps: ['WO-02-001'] },
+    { frd: 'frd-02-b', id: 'WO-02-001', deps: ['WO-01-001'] }, { frd: 'frd-02-b', id: 'WO-02-002', deps: ['WO-02-001'] },
+    { frd: 'frd-03-c', id: 'WO-03-001', deps: ['WO-01-001'] },
+  ])
+  try {
+    const ids = (p) => p.receipt.chains.flatMap((c) => c.wos).sort().join(',')
+    const w = r.run('lane-plan', ['--wait-verified', 'frd-01-a'])
+    ok(ids(w).split(',').includes('WO-02-001'), `the cycle's dependent WO-02-001 is ready on the floor's IN_REVIEW code (${ids(w)})`)
+    ok(!ids(w).split(',').includes('WO-03-001'), 'WO-03-001 (frd-01-a can finish without it) still waits for the floor\'s VERIFIED (C3 kept)')
+    ok(JSON.stringify(w.receipt.floorWaived) === JSON.stringify([{ wo: 'WO-02-001', frd: 'frd-02-b', floors: ['frd-01-a'] }]), `floorWaived names it (${JSON.stringify(w.receipt.floorWaived)})`)
+    const none = r.run('lane-plan')
+    ok(Array.isArray(none.receipt.floorWaived) && none.receipt.floorWaived.length === 0, 'without a floor wait nothing is waived')
+    // WO-02-001 built: the floor's own WO-01-002 is ready (frd-02-b is not waited on); once the engine holds frd-02-b to
+    // the floor rule (it builds on unreviewed floor code), WO-01-002 waits for frd-02-b's VERIFIED — frd-02-b can finish
+    // without it (WO-02-002 is ready), so that wait closes no cycle and is kept.
+    r.commitMain({ [woRel('frd-02-b', 'WO-02-001')]: woMd('WO-02-001', { deps: ['WO-01-001'], status: 'IN_REVIEW' }) }, 'feat(frd-02-b): WO-02-001')
+    const a = r.run('lane-plan', ['--wait-verified', 'frd-01-a'])
+    ok(['WO-01-002', 'WO-02-002'].every((x) => ids(a).split(',').includes(x)), `after WO-02-001: WO-01-002 and WO-02-002 are ready (${ids(a)})`)
+    const b = r.run('lane-plan', ['--wait-verified', 'frd-01-a', '--wait-verified', 'frd-02-b'])
+    ok(ids(b).split(',').includes('WO-02-002') && !ids(b).split(',').includes('WO-01-002'), `frd-02-b held to the floor rule: WO-01-002 waits for its VERIFIED, WO-02-002 goes on (${ids(b)})`)
+  } finally { r.cleanup() }
+  // Two floors closing a cycle through two other FRDs: F1 needs WO-13-001, which waits for F2; F2 needs WO-14-001, which
+  // waits for F1. Each wait alone looks acyclic; through the other floor's wait both are cycles, and both are waived.
+  const t = mkRepo([
+    { frd: 'frd-11-f1', id: 'WO-11-001', status: 'IN_REVIEW' }, { frd: 'frd-11-f1', id: 'WO-11-002', deps: ['WO-13-001'] },
+    { frd: 'frd-12-f2', id: 'WO-12-001', status: 'IN_REVIEW' }, { frd: 'frd-12-f2', id: 'WO-12-002', deps: ['WO-14-001'] },
+    { frd: 'frd-13-x', id: 'WO-13-001', deps: ['WO-12-001'] }, { frd: 'frd-14-y', id: 'WO-14-001', deps: ['WO-11-001'] },
+  ])
+  try {
+    const p = t.run('lane-plan', ['--wait-verified', 'frd-11-f1', '--wait-verified', 'frd-12-f2'])
+    const got = p.receipt.chains.flatMap((c) => c.wos).sort().join(',')
+    ok(got === 'WO-13-001,WO-14-001', `a two-floor cycle: both waits are waived (${got})`)
+    ok((p.receipt.floorWaived || []).map((x) => `${x.wo}>${x.floors.join('+')}`).sort().join(',') === 'WO-13-001>frd-12-f2,WO-14-001>frd-11-f1', `floorWaived names both (${JSON.stringify(p.receipt.floorWaived)})`)
+  } finally { t.cleanup() }
+}
+
 // ── lane-pool boots outside lanes.lock ──────────────────────────────────────────────────────────
 console.log('lane-pool: the bootstrap runs outside lanes.lock; a booting lane is never free')
 {

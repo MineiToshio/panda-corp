@@ -28,24 +28,11 @@ subagents do not reliably inherit, without sharing either runtime's orchestratio
 
 ## Codex executor
 
-### Promoted surface: WITHDRAWN — Codex is read/review-only (FROZEN 2026-09-02, DR-120)
+### Native permission and automated execution are separate (DR-133)
 
-> **Everything in this section describes a SUSPENDED contract, not a live permission.** The owner
-> froze the Codex build-write capability on 2026-09-02 (DR-120): canonical policy now resolves
-> `implement.codex` to `FALLBACK`, every non-Claude runtime is read/review-only on project build
-> state, and R10/R11 are suspended rather than failed. The launcher and supervisor already enforce
-> this — `launch-codex-implement.sh` exits 3 and `supervisor.mjs` throws when the policy is not
-> `EXPERIMENTAL`. The text below is preserved verbatim as the contract a reopen would resume from.
-> Reopen trigger, verbatim: *"Codex ships wake-capable local scheduling."* Canonical:
-> `factory/standards/agent-portability.md` PORT-5; history: `factory/decision-log.md` (2026-09-02).
+Codex and Claude Code have full owner-authorized native read/write access to every skill and application, including documentation, work orders and build state. DR-133 supersedes the DR-120 freeze. Native attended work uses the same readiness, single-writer ownership, independent review and deterministic verification rules; unavailable scheduling or Workflow tools require attended sequential work.
 
-Codex project writes **were** available only through the intentionally narrow canonical
-`EXPERIMENTAL/attended_foreground/targeted-only` profile. The official launcher accepts exactly one
-normalized FRD OR one exact ready-change target, foreground only, with cumulative duration at most
-7200 seconds and zero automatic restarts. It issues a one-run attended permit bound to the project,
-logical run, exact target and ceilings; launcher, supervisor and executor each validate the profile
-and consume their stage before lease-owned mutation. Direct controller invocation, missing or
-ambiguous scope, background mode and larger duration fail closed.
+The optional automated Codex launcher retains its implemented `EXPERIMENTAL/attended_foreground/targeted-only` profile: exactly one normalized FRD or ready change, <=7200 seconds and zero automatic restarts. That is a limit of the automated vehicle, not of Codex permission. Broader skills run natively with available tools. R10/R11 do not certify unattended or cold-handoff parity merely because the owner granted access.
 
 The profile implements sequentially with Codex STANDARD, reviews independently with Codex JUDGE,
 reruns `verify.sh` and requires a parsed green mutation receipt. Missing, timed-out, ambiguous or
@@ -53,7 +40,7 @@ below-threshold mutation evidence cannot stamp `VERIFIED` or `last_green_sha`. I
 milestones to `.pandacorp/comms/progress.md` and timings to `.pandacorp/track.jsonl`. On success or
 bounded stop it quiesces/releases and keeps `phase: implementation`; bare/global drain, project-wide
 hardening, `phase: release`, background/unattended/overnight execution and Claude cross-runtime
-continuation remain outside the promotion.
+continuation remain outside this automated launcher profile; native attended authority is full under DR-133.
 
 Claude's Dynamic Workflow, agents, supervisor and capabilities are unchanged. The Codex executor
 never invokes Claude and this profile does not require R10/R11 cross-runtime or overnight evidence.
@@ -150,8 +137,8 @@ blocker. R10 installed-runtime switching and R11 overnight certification remain 
 their broader cross-runtime/unattended capabilities, not for `attended_foreground`.
 
 Factory backlog drain-all is a separate R8 decision. Its Claude engine corpus is green (26/26), but Codex
-still supports only single-item mode; `plugin/runtime/codex/R8-BACKLOG-SPIKE.md` records the explicit
-Claude ownership and reevaluation gates. Product queue parity does not imply backlog drain-all parity.
+has full native attended single-item and drain-all authority under DR-133; the automated engine remains Claude-local. `plugin/runtime/codex/R8-BACKLOG-SPIKE.md` records the explicit
+automation ownership and reevaluation gates. Full native permission does not claim automated backlog parity.
 
 ## R10 sequential runtime-switch verdict — two installed attempts NO-GO, fixture C pending
 
@@ -190,9 +177,7 @@ contracts in plugin 9.93.0 / overlay 8.74.0, but fixture B remains immutable fai
 
 Certification may restart on a distinct clean fixture C if cross-runtime continuation is pursued.
 The installed R10 retry and R11 unattended canary remain gates for that broader promotion. Codex
-`implement` now has only the separate EXPERIMENTAL Codex-only
-`attended_foreground` target. The two deployed recurring routines and
-factory-backlog drain-all remain Claude-owned. Full evidence and
+automated launcher retains the EXPERIMENTAL `attended_foreground` target. Native Codex `implement` and backlog drain-all have full attended authority under DR-133. The existing deployed recurring schedulers and automated backlog engine remain Claude-local. Full evidence and
 retry requirements are canonical in `plugin/runtime/codex/R10-CERTIFICATION.md`.
 
 Cold continuation uses one logical build `run_id` across runtimes. Both launchers consume the same

@@ -13,7 +13,7 @@ lessons activated the same way)."
 provenance: agent-inferred
 created: 2026-09-25
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/agent-portability.md (or a scratchpad-discipline convention): "always stage a temp/throwaway script or scratch file in the session's own scratchpad directory, never the project's repo tree (main checkout or worktree root) — it is simultaneously subject to safety/isolation hooks' text-and-location scrutiny, a git working tree that accrues untracked drift, and not guaranteed to persist a write across tool calls." Corroborated across 2 distinct projects (panda-corp, personal-page-v2) via 4 independent incidents/mechanisms with zero contradicting evidence, plus 1 further citation (pandasaga) — this synthesis already cleared the eval-gate bar the same way LESSON-0047/0125 did.
 confidence: medium
 times_applied: 1
 applied_in: [pandasaga]

@@ -23,16 +23,18 @@ for (const skill of matrix.skills) {
     if (!existsSync(sidecar) || !/allow_implicit_invocation:\s*false/.test(readFileSync(sidecar, "utf8"))) fail(`${skill.slug} internal sidecar missing fail-closed policy`);
   } else if (existsSync(sidecar)) fail(`${skill.slug} has an unnecessary Codex sidecar`);
 }
-// DR-120 (2026-09-02): the Codex build-write capability is FROZEN at read/review-only. These assertions
-// are the mechanism — they fail closed if any surface silently re-promotes a non-Claude build writer.
-const implementCodex = matrix.skills.find((skill) => skill.slug === "implement")?.runtimes.codex;
-if (implementCodex?.status !== "FALLBACK") fail("implement/Codex must be FALLBACK (read/review-only) while DR-120's freeze holds");
-if (implementCodex.profile || implementCodex.scope) fail("implement/Codex must carry no write profile/scope while DR-120's freeze holds");
-for (const boundary of ["READ/REVIEW-ONLY", "FROZEN", "DR-120", "WITHDRAWN", "Reopen trigger"]) if (!implementCodex.fallback.includes(boundary)) fail(`implement/Codex freeze statement missing from capability projection: ${boundary}`);
-const ownership = JSON.parse(readFileSync(path.join(root, "plugin/runtime/capability-ownership.json"), "utf8"));
-const executor = ownership.capabilities?.codex_product_executor;
-if (executor?.certification !== "FROZEN" || executor.scope !== "read-review-only") fail("Codex executor ownership disagrees with DR-120's frozen read/review-only policy");
-if (!executor.reopen_trigger) fail("Codex executor freeze must record its reopen trigger");
+// Authorization is owner policy; certification describes the actual execution vehicle.
 const policy = JSON.parse(readFileSync(path.join(root, "plugin/runtime/skill-runtime-policy.json"), "utf8"));
-if (policy.overrides?.implement?.codex?.status !== "FALLBACK") fail("skill-runtime-policy disagrees with DR-120's frozen read/review-only policy");
+const ownership = JSON.parse(readFileSync(path.join(root, "plugin/runtime/capability-ownership.json"), "utf8"));
+for (const skill of matrix.skills) for (const runtime of ["claude", "codex"]) {
+  if (skill.runtimes[runtime].authorization !== "FULL" || skill.runtimes[runtime].authorized_by !== "DR-133") fail(`${skill.slug}/${runtime} lacks full owner authorization`);
+  if (runtime === "codex" && /READ[\/-]REVIEW[\/-]ONLY|DENIED_FROZEN|authority is zero/i.test(skill.runtimes[runtime].fallback ?? "")) fail(`${skill.slug}/${runtime} contradicts full native authorization`);
+  const expected = { ...policy.defaults[runtime], ...policy.overrides[skill.slug]?.[runtime] };
+  if (JSON.stringify(skill.runtimes[runtime]) !== JSON.stringify(expected)) fail(`${skill.slug}/${runtime} projection drift`);
+}
+const executor = ownership.capabilities?.codex_product_executor;
+const implementCodex = matrix.skills.find((skill) => skill.slug === "implement")?.runtimes.codex;
+if (executor?.authorization !== "FULL_NATIVE_ATTENDED" || executor.authorized_by !== "DR-133") fail("Codex ownership lacks native attended authority");
+if (executor.profile !== implementCodex.profile || executor.scope !== implementCodex.scope || executor.certification !== implementCodex.status) fail("Codex automation policy/ownership drift");
+if (implementCodex.status === "PROVEN") fail("DR-133 owner permission alone must not claim automation certification");
 console.log(`PASS  exact skill capability coverage ${slugs.length}/${dirs.length}`);

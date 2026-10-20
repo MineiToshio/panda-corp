@@ -923,3 +923,73 @@ h3 {
     visibility: hidden;
   }
 }
+
+.services-directory {
+  display: grid;
+  gap: var(--space-base);
+  min-width: 0;
+}
+.services-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-base);
+}
+.services-controls label {
+  display: grid;
+  gap: calc(var(--space-base) / 2);
+  flex: 1;
+  min-width: 0;
+}
+.services-controls input,
+.services-controls select {
+  width: 100%;
+  min-height: 44px;
+  padding: calc(var(--space-base) / 2);
+  color: var(--color-text);
+  background: var(--color-panel);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.services-cards {
+  display: grid;
+  gap: var(--space-base);
+}
+.services-card {
+  padding: var(--space-base);
+  border: var(--hairline) solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-panel);
+  overflow-wrap: anywhere;
+}
+.services-card summary {
+  cursor: pointer;
+  min-height: 44px;
+}
+.services-card summary span {
+  display: block;
+  margin-top: calc(var(--space-base) / 2);
+}
+.services-facts {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: calc(var(--space-base) / 2);
+}
+.services-facts dt {
+  font-weight: 600;
+}
+.services-facts dd {
+  margin: 0;
+}
+.services-issues {
+  border: var(--hairline) solid var(--color-border);
+  padding: var(--space-base);
+  border-radius: var(--radius-md);
+}
+.services-directory a {
+  color: var(--color-accent-text);
+  text-decoration: underline;
+}
+.services-directory h3 {
+  font-weight: 600;
+  margin-block: var(--space-base) calc(var(--space-base) / 2);
+}

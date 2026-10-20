@@ -25,6 +25,8 @@
 // decideGreenfield, nothing else re-derives it):
 //   greenfield, reason   decideGreenfield(facts) — the classic lane's verdict, sealed with the facts. The fast lane
 //                        calls decideGreenfield(facts, { allowDispatched: true }) from its precheck.
+//   carryOver, carryOverReason   decideCarryOver(facts) (BL-0252) — the half-built twin: no last_green_sha, some work
+//                        orders IN_REVIEW, none VERIFIED/BLOCKED. The engine applies it only to a CLEAN tree.
 //
 // Usage: greenfield-probe.mjs --project <dir>
 // Output: ONE sealed JSON line. Exit 0 with ok:true, or exit 2 with ok:false + error (no status.yaml, unreadable).
@@ -153,6 +155,41 @@ export function decideGreenfield(facts, { allowDispatched = false } = {}) {
   return { greenfield: true, reason: `no published last_green_sha, not adopted, nothing ever built and none of the ${facts.workOrders} work order(s) built yet (${allowDispatched ? 'PLANNED/DRAFT, or only dispatched' : 'PLANNED/DRAFT'}): verify.sh is red by construction until they are` }
 }
 
+const CARRY_OVER_ALLOWED = new Set([...NOT_BUILT, 'IN_REVIEW'])
+/**
+ * BL-0252: the HALF-BUILT twin of greenfield. A run that committed some work orders IN_REVIEW and stopped before any FRD
+ * was VERIFIED leaves no published last_green_sha, and its full verify.sh is red BY CONSTRUCTION too: knip flags the
+ * primitives (exports, files, dependencies) whose consumers are later work orders (funko-tracker 2026-10-18:
+ * src/i18n/getT.ts, src/lib/analytics/client.ts, posthog-js). The judge baseline would then "fix the production code" —
+ * delete legitimate work. Here the baseline is NOT APPLICABLE either: each FRD's own verify and gate certify that code.
+ * Every fact must say so: no published last_green_sha, not adopted, at least one work order, each with an
+ * implementation_status, all PLANNED/DRAFT/IN_REVIEW (`allowDispatched`, the fast lane only, also IN_PROGRESS — see
+ * decideGreenfield), at least one IN_REVIEW, none VERIFIED or BLOCKED (a gate verdict exists: the judge decides). The
+ * tree must also be CLEAN — the caller's own fact (the classic pre-check's `dirty`, the fast precheck's restore + owner-dirt
+ * stop, the fused start's dirty list): a dirty half-built tree still goes to the judge's DR-067 reconciliation.
+ * @param {object} facts a probe() result (or the parsed sealed line)
+ * @param {{ allowDispatched?: boolean }} [opts]
+ * @returns {{ carryOver: boolean, reason: string }}
+ */
+export function decideCarryOver(facts, { allowDispatched = false } = {}) {
+  const no = (reason) => ({ carryOver: false, reason })
+  if (!facts || facts.ok !== true || facts.probe !== 'greenfield') return no('no readable greenfield facts')
+  if (facts.lastGreenSha !== '') return no(`last_green_sha is ${JSON.stringify(String(facts.lastGreenSha).slice(0, 40))}: a published (or unreadable) pin`)
+  if (facts.adopted !== false) return no(facts.adopted === true ? 'an adopted project (created_via: adopt)' : 'the adoption marker was not read')
+  if (!Number.isInteger(facts.workOrders) || facts.workOrders < 1) return no('no work order to build')
+  if (facts.missing !== 0) return no(`${facts.missing} work order(s) without implementation_status`)
+  const byStatus = facts.byStatus && typeof facts.byStatus === 'object' ? facts.byStatus : null
+  if (!byStatus) return no('no work-order status counts')
+  const allowed = allowDispatched ? new Set([...CARRY_OVER_ALLOWED, 'IN_PROGRESS']) : CARRY_OVER_ALLOWED
+  const statuses = Object.keys(byStatus)
+  const counted = statuses.reduce((n, k) => n + (Number.isInteger(byStatus[k]) ? byStatus[k] : Number.NaN), 0)
+  if (counted !== facts.workOrders) return no('the work-order status counts do not add up')
+  const other = statuses.filter((k) => !allowed.has(k))
+  if (other.length) return no(`work order(s) ${other.map((k) => `${byStatus[k]} ${k}`).join(', ')}: not a half-built tree`)
+  if (!(byStatus.IN_REVIEW > 0)) return no('no work order IN_REVIEW: nothing built yet (greenfield decides)')
+  return { carryOver: true, reason: `no published last_green_sha, not adopted, ${byStatus.IN_REVIEW} of ${facts.workOrders} work order(s) committed IN_REVIEW and none VERIFIED: a half-built tree, its verify.sh red by construction (primitives whose consumers are later work orders) — each FRD's own verify certifies it` }
+}
+
 function main(argv) {
   const i = argv.indexOf('--project')
   const projectDir = i >= 0 ? argv[i + 1] : ''
@@ -166,7 +203,7 @@ function main(argv) {
   } catch (e) {
     result = { ok: false, probe: 'greenfield', error: String((e && e.message) || e) }
   }
-  process.stdout.write(`${sealLine(result.ok ? { ...result, ...decideGreenfield(result) } : result)}\n`)
+  process.stdout.write(`${sealLine(result.ok ? { ...result, ...decideGreenfield(result), carryOver: decideCarryOver(result).carryOver, carryOverReason: decideCarryOver(result).reason } : result)}\n`)
   return result.ok ? 0 : 2
 }
 

@@ -12,6 +12,9 @@ closes:
 links: [DR-113, DR-120, BL-0030]
 ---
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 ## Problem
 
 > **blocked-by: DR-120 (Codex freeze, 2026-09-02; reopen trigger: "Codex ships wake-capable local scheduling").** The owner froze every non-Claude runtime at read/review-only on project build state and suspended R10/R11. No new Codex-side capability work is scoped until the trigger fires. This item stays OPEN (the backlog schema has only `open | doing | done`, and a frozen item is not a done item) but must NOT be drained while the freeze holds.

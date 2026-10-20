@@ -41,11 +41,11 @@ FRD-13 foundation primitives. Notes:
 
 ## Architecture extension (2026-10-16)
 
-WO-04-004 now also owns the nine-tab order **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos** and the complete shared Architecture mount (REQ-04-012). It depends on WO-02-007's shared reader/viewer contract. Existing VERIFIED frontmatter remains historical evidence, not a claim that new model/navigation checks passed; see the updated acceptance criteria and extension evidence boundary in each work order.
+WO-04-004 now also owns the ten-tab order **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas** and the complete shared Architecture mount (REQ-04-012). It depends on WO-02-007's shared reader/viewer contract. Existing VERIFIED frontmatter remains historical evidence, not a claim that new model/navigation checks passed; see the updated acceptance criteria and extension evidence boundary in each work order.
 
 ## Shared Spec extension (2026-10-16)
 
-WO-04-004 additionally owns REQ-04-013 / AC-04-013.1–.5: Spec second in the nine-tab order, full shared digest/count rendering, empty state, project-scoped links and state isolation. The same coarse shell work order owns these mounting seams; no new work-order machine-state transition is introduced by this manual extension.
+WO-04-004 additionally owns REQ-04-013 / AC-04-013.1–.5: Spec second in the ten-tab order, full shared digest/count rendering, empty state, project-scoped links and state isolation. The same coarse shell work order owns these mounting seams; no new work-order machine-state transition is introduced by this manual extension.
 
 ## Navigation scope alignment (2026-10-17)
 

@@ -9,10 +9,10 @@ source: "personal-page-v2 .pandacorp/run/lessons.md 2026-09-08, owner-stated —
 provenance: owner-stated
 created: 2026-09-10
 status: active
-promotion: none
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/privacy.md (add "never render a personal email/phone in plaintext HTML on a public page" as a standing rule, pointing to an obfuscation/contact-form alternative). Cited by 2 distinct projects (personal-page-v2, pandasaga) with zero contradicting evidence — owner-stated, high confidence, and the failure mode (spam harvesting) is cheap to prevent by default on every public-facing project.
 confidence: high
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: [LESSON-0042]
 ---
 

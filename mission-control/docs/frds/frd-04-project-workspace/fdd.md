@@ -31,7 +31,7 @@ FRD-04's acceptance criteria.
 The portfolio's selected-project pane and `/projects/<slug>` use one tabs-first workspace:
 
 1. A compact project header with the project H1, stage/version and thin work-order progress; it remains visible across tabs. Detailed overview and Mission Objectives live within **Resumen**.
-2. A reachable shared `Tabs` row in this exact order: **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos**. Default is Resumen; `tab=architecture` selects Arquitectura while retaining the current project.
+2. A reachable shared `Tabs` row in this exact order: **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas**. Default is Resumen; `tab=architecture` selects Arquitectura while retaining the current project.
 3. Selected content: Resumen (summary, decisions and activity), Spec (complete shared PRD/research/FRD overview), Work orders (FDD-05), Arquitectura (the complete shared `ArchitectureDigest`, FDD-02 §12), Cambios (queue/detail modal), Party (FDD-06), Observabilidad (FDD-12), Documentos (nav/reader) or Comandos (FRD-11 selector and command rows).
 
 The Architecture tab sits immediately after Work orders. It preserves **Modelo de datos** inside the complete Architecture surface, using the compact shared **Diagrama / Esquema** viewer; it is never a database-only tab. Its scoped visual reference is `docs/design/prototype/data-model-viewer/index.html` (round 2), layered onto the whole-app visual source. All model interaction/dimensions/states in [FDD-02 §12](../frd-02-ideas-board/fdd.md#12-shared-architecture--logical-model-2026-10-16) apply identically here.
@@ -44,7 +44,7 @@ The Architecture tab sits immediately after Work orders. It preserves **Modelo d
 | Status / version / "verde" pills | `Chip` | ok-bg / info-bg variants (`chip2`, `frdChip`) |
 | Mission-objectives bar | `ProgressBar` | accent fill, `var(--ok)` at 100%; `done/tot · pct%` |
 | Green-snapshot banner | `Banner` | ok-accented `.panel` + copyable `git worktree` `CommandChip` |
-| Subtab switcher | `SubTabs` (`.stab`) | Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos; `.on` active |
+| Subtab switcher | `SubTabs` (`.stab`) | Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas; `.on` active |
 | Decision points | `DecisionCard` (`decisionesBox`) | warn-bg cards, AI recommendation, `/pandacorp:decide` command |
 | Activity log | `ActivityLog` (`logBox`) | dotted-rule rows of high-level AI activity |
 | Build-mode selector | `BuildModeSelector` (`.stab` group, FRD-11) | 4 modes; surfaces the matching `/pandacorp:implement…` command |
@@ -82,7 +82,7 @@ Workspace integration contains Architecture’s existing full-bleed bands horizo
 
 ## Shared Spec presentation (2026-10-16)
 
-Spec sits between Resumen and Work orders. Reuse the board's existing Spec visual source and full `SpecDigest`: hero/meta chips, PRD blocks, Research blocks and compact FRD cards with their existing focus/Escape/return-focus modal. Source: FDD-02's Spec contract and the existing board Spec prototype; this extension changes placement, not that component's visual language. Clip full-bleed bands to the Portfolio pane horizontally, preserving text/control usability at narrow widths. Retain the nine-tab navigation and explicit pending message without a digest. Known markdown targets open Documents in the selected project, external URLs open separately and unsupported relative links become text.
+Spec sits between Resumen and Work orders. Reuse the board's existing Spec visual source and full `SpecDigest`: hero/meta chips, PRD blocks, Research blocks and compact FRD cards with their existing focus/Escape/return-focus modal. Source: FDD-02's Spec contract and the existing board Spec prototype; this extension changes placement, not that component's visual language. Clip full-bleed bands to the Portfolio pane horizontally, preserving text/control usability at narrow widths. Retain the ten-tab navigation and explicit pending message without a digest. Known markdown targets open Documents in the selected project, external URLs open separately and unsupported relative links become text.
 
 
 ## Shared modal focus — 2026-10-16

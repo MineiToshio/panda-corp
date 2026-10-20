@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-20 — Approved services/account directory
+
+Implemented the owner-approved reuse proposal as a read-only global Portfolio Accounts view, project Accounts tab and public Manual recipes. Split public catalog/private identity/project allocation ownership, with explicit dated evidence and fail-closed boundary parsing. No cloud provisioning or secret values. Canonical scope: [FRD-26](frds/frd-26-services-accounts/frd.md), [blueprint](frds/frd-26-services-accounts/blueprint.md), [ADR-0011](adr/ADR-0011-services-account-directory.md).
+
+
+## 2026-10-18 — The Manual states the fast lane's floor-cycle and deadlock rule (DR-132)
+
+**What:** The unattended-build guide ([DesatendidaDetail](../src/app/manual/_components/DesatendidaDetail.tsx)) adds one paragraph to "Las features sensibles esperan": a part a sensitive feature cannot finish without is built anyway and its feature is treated as sensitive too, and a run where nothing can advance stops with a deadlock notice for the owner.
+**Why:** DR-046 (the Manual reflects the factory) for the factory's DR-132 (plugin 9.132.0). Copy only; no behavior change.
+
 ## 2026-10-17 — Add semantic color and scanning hierarchy to Órbita
 
 **Owner feedback:** The modern layout is an improvement, but the monochrome purple treatment feels flat. Preserve the current app's useful visual distinctions, especially in Spec lists and documentation.
@@ -1233,7 +1243,7 @@ same processes that append events, so canonical WO/FRD/status/artifact oracles a
 
 **Evidence:** ledger v2 security tests cover stream deletion/mutation, alias and transport replay,
 forged identities and attribution, corrupt migration, concurrent reconciliation and the explicit
-empty-durable boundary. FRD-09/10, ADR-0005 and the Manual describe telemetry-only degradations.
+empty-durable boundary. FRD-09/10, ADR-0011 and the Manual describe telemetry-only degradations.
 
 ## 2026-07-11 — Manual exposes honest R11 unattended evidence levels
 
@@ -1266,7 +1276,7 @@ operator permission.
 
 ## 2026-07-11 — Runtime-neutral observability without a second event truth (Proposal 32 R9)
 
-**What:** added one canonical machine-readable event vocabulary at `plugin/runtime/event-vocabulary.json`, a generated/drift-checked Mission Control projection, a Claude+Codex dual-reader, exact `event_id` deduplication and a shared semantic ledger for every XP/achievement consumer keyed by `(run_id,event_name,subject)`. The Codex executor now appends its own enriched transport at `~/.codex/dashboard-events.ndjson`; Claude's legacy transport remains operational. FRD-15 now exposes separate Claude/Codex installed-cache verdicts. Recorded the design in ADR-0005 and reconciled FRD-01/09/15 plus the Manual.
+**What:** added one canonical machine-readable event vocabulary at `plugin/runtime/event-vocabulary.json`, a generated/drift-checked Mission Control projection, a Claude+Codex dual-reader, exact `event_id` deduplication and a shared semantic ledger for every XP/achievement consumer keyed by `(run_id,event_name,subject)`. The Codex executor now appends its own enriched transport at `~/.codex/dashboard-events.ndjson`; Claude's legacy transport remains operational. FRD-15 now exposes separate Claude/Codex installed-cache verdicts. Recorded the design in ADR-0011 and reconciled FRD-01/09/15 plus the Manual.
 
 **Why:** telemetry may describe work but must never become a second writer of phase/WO/build facts, and two runtime transports must not award the same result twice. Keeping La Fragua's display names in the canonical mapping preserves the UI while runtimes remain strictly local.
 

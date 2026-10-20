@@ -83,17 +83,17 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | PRIV-3 | Never log PII or secrets | MUST | privacy.md | security-auditor PII grep vs data model + Sentry redact-before-send helper | manual |
 | PRIV-4 | New PII / third-party sharing escalates to owner | MUST | privacy.md | human gate (DR-025) | manual |
 | OBS-1 | Structured logs baseline (Pino) | MUST | observability.md | hardening checklist | manual |
-| OBS-2 | Sentry error tracking from day 1 | MUST | observability.md | hardening checklist (DR-026/085) | manual |
+| OBS-2 | Explicit owner scope for Sentry; integrate only when approved for now | MUST | observability.md | architecture decision round + contradiction gate, hardening checklist (DR-026/085/131) | manual |
 | OBS-3 | Liveness/freshness fidelity (live ⇔ running ∧ fresh) | MUST | observability.md | Observability-fidelity gate (DR-066) | wired |
 | OBS-4 | Free-tier cost ceilings checked monthly | SHOULD | observability.md | review-launch script + owner (DR-005) | manual |
-| SEO-1 | Metadata API per page + sitemap + robots | SHOULD | seo-i18n.md | release checklist | manual |
+| SEO-1 | Explicit owner SEO scope; metadata/sitemap/robots only as approved | SHOULD | seo-i18n.md | architecture decision round + contradiction gate; release checklist | manual |
 | SEO-2 | i18n: no hardcoded visible strings | MUST (if i18n) | seo-i18n.md | release checklist | manual |
-| SEO-3 | hreflang/canonical per locale | SHOULD | seo-i18n.md | release checklist | manual |
+| SEO-3 | hreflang/canonical per locale only when multilingual SEO approved | SHOULD | seo-i18n.md | architecture contradiction gate; release checklist | manual |
 | PORT-1 | Runtime capability matrix consulted before assuming a capability exists outside Claude Code | SHOULD | agent-portability.md | agent self-check (matrix in AGENTS.md context) | manual |
 | PORT-2 | Neutral model tiers (MECH/STANDARD/JUDGE) mapped per runtime; most expensive tier never automatic | SHOULD | agent-portability.md | agent self-check + owner spot-check (generalizes CONV-12) | manual |
 | PORT-3 | Tool translation table applied when a skill references a Claude-native tool under another runtime | MUST | agent-portability.md | table injected via AGENTS.md §Runtime portability (always in context) + owner spot-check | manual |
 | PORT-4 | Skill invocation protocol: human gates, Spanish interaction and doc discipline never degrade cross-runtime | MUST | agent-portability.md | Codex verification rounds (2026-07-04) + owner spot-check | manual |
-| PORT-5 | EVERY non-Claude runtime is read/review-only on project build state — no build writes anywhere (DR-120 freeze, 2026-09-02); the former Codex attended-foreground profile is withdrawn and R10/R11 are suspended | MUST | agent-portability.md | capability-policy gate (`check-skill-capabilities.mjs` asserts `implement.codex: FALLBACK` + `codex_product_executor: FROZEN`); enforcement-side wiring is BL-0030 | wired |
+| PORT-5 | Codex and Claude Code have full native authority (DR-133); runtime-local attended execution preserves ownership, independent review and verification; automation status is separate | MUST | agent-portability.md | check-skill-capabilities.mjs verifies authorization and projection consistency | wired |
 | PORT-6 | Claude-only surfaces (engine, supervisor, hooks enforcement) never assumed elsewhere; enforced rules still bind as instructions | MUST | agent-portability.md | stated in AGENTS.md; hook port tracked in BL-0030 | manual |
 | MEM-1 | Every lesson's `source:` names a checkable locator (date, id, run id, file, sha, URL); anchorless prose is reject-at-harvest, never a candidate | MUST | memory-harvesting.md | `validate-memory.sh` anchor gate (fail-closed; run by the `memory` skill + the daily `pandacorp-memory-review` routine) | wired |
 | MEM-2 | The store grows by verified experience, never by introspection; a reflection lesson cites only evidence-anchored `LESSON-NNNN` ids (never another reflection) | MUST | memory-harvesting.md | `librarian` refine step 1 (DEFAULT-REJECT) + the MEM-1 anchor gate as backstop | manual |
@@ -113,13 +113,16 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | STACK-1 | Golden path by default, latest stable | SHOULD | stack.md | blueprint ADR (owner approves) | manual |
 | STACK-2 | Version policy (latest new / stay in-flight / compatible brownfield) | MUST | stack.md | review-only | manual |
 | STACK-3 | Never homemade auth | MUST | stack.md / constitution §12 | blueprint review | manual |
-| EXT-1 | Account model: shared account + native isolation primitive; ToS rule | MUST | external-services.md | provisioning playbook checklist | manual |
+| EXT-1 | Account model: authorized shared identity, provider-specific app/env separation; no fee evasion | MUST | external-services.md | provisioning playbook checklist | manual |
 | EXT-2 | Machine secrets in SOPS+age store outside repos | MUST | external-services.md | convention + gitleaks (repo side) | manual |
 | EXT-3 | Human gates on spend/signup/deletion | MUST | external-services.md / infra.md | deny rules in `.claude/settings.json` + push (DR-038) | wired |
 | EXT-4 | Vercel commercial-use warning at 3 checkpoints | MUST | external-services.md | skill checklists (PRD/blueprint/release) | manual |
+| EXT-5 | Public provider contract: unique IDs, dated sources, honest automation route and secret-free metadata | MUST | external-services.md | `validate-service-catalog.mjs` + malformed-fixture tests | wired |
+| EXT-6 | Architecture account lookup, explicit scope, finalized consumer contract, protected env materialization, pending evidence and live quotas | MUST | external-services.md | architecture/implement/release service-readiness checklists | manual |
+| EXT-7 | Three root dotenv files, service/destination groups, local-only last in guide/dev and absent from production; migration execution machine and DB target explicit, per-target isolation | MUST | external-services.md | architecture step 9b3 + independent synthetic-fixture/loading and handoff checklist | manual |
 | INFRA-1 | Dev DB/services via Docker Compose in-repo | MUST | infra.md | scaffold template + reviewer | manual |
 | INFRA-2 | Ports from the central ledger | MUST | infra.md | scaffold/architecture automation (`factory/ports.yaml`) | wired |
-| INFRA-3 | Backup schedule/retention + restore TESTED before external release and after schema majors | MUST | infra.md | release checklist + post-schema-major drill (named) | manual |
+| INFRA-3 | MVP native DB recovery only; custom backups post-validation if approved; chosen restore mechanism TESTED before external release and after schema majors | MUST | infra.md | release checklist + post-schema-major drill (named) | manual |
 | INFRA-4 | Incident response: classify → rollback → postmortem | MUST | infra.md | runbook (manual) | manual |
 | INFRA-5 | New gitignored state answers both durability questions in the change that introduces it: is its loss a real incident (→ into `backup-pandacorp-state.sh`) and does a write/regeneration trigger actually fire; worktree addendum — provisional gitignored notes are written to the MAIN checkout's copy | MUST | infra.md | NAMED design-time question in the introducing change; `backup-pandacorp-state.sh`'s path list is the receipt | manual |
 | INFRA-6 | A safety gate that matches surface TEXT (hook or model classifier) is never weakened to get unblocked — change how the intent is expressed (file over inline string, rephrase, `git commit -F`, `grep -nF --`, Read over grep); a gate false-positiving across unrelated call sites is filed as a `BL-*` | MUST | infra.md | agent self-check at the moment of a block + the `BL-*` filing rule (BL-0047, BL-0120 open) | manual |
@@ -153,7 +156,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | RES-3 | Fallback hierarchy: stale-labeled → degraded UI → honest error; never fake liveness | SHOULD | resilience.md | reviewer + OBS-3 gate where a monitor exists | manual |
 | RES-4 | Bulkhead: a third-party outage never takes down the core flow | MUST | resilience.md | reviewer + adversarial dependency-down tests (DR-015) | manual |
 | JOB-1 | Work > ~5s or retriable side effects run as jobs (Cron/queue); idempotent handler + idempotency key | MUST | background-jobs.md | reviewer correctness lens + adversarial run-twice tests (DR-015) | manual |
-| JOB-2 | Bounded retries + visible dead-letter (Sentry + queryable state); never silently drop a job | MUST | background-jobs.md | reviewer + hardening checklist (Sentry on failure, OBS-2) | manual |
+| JOB-2 | Bounded retries + visible dead-letter (failure logs + queryable state; Sentry only when approved); never silently drop a job | MUST | background-jobs.md | reviewer + hardening checklist (Sentry on failure only when approved, OBS-2) | manual |
 | JOB-3 | Job runs log start/end/duration; long jobs heartbeat | SHOULD | background-jobs.md | hardening checklist (OBS-1) | manual |
 | DEP-1 | Cadence: security patches ASAP; minors batched; majors deliberate; never bump mid-build | SHOULD | dependency-lifecycle.md | reviewer (flags unrelated bumps in feature changes) | manual |
 | DEP-2 | `pnpm audit --audit-level high` clean at hardening + before external release | MUST | dependency-lifecycle.md | security-auditor hardening pass runs it (named; CI wiring candidate) | manual |

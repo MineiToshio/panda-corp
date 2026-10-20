@@ -8,11 +8,11 @@ trigger: "use this when picking a dependency version for a stack proposal/bluepr
 source: "pandacast .pandacorp/run/lessons.md inbox note, 2026-10-10, architecture stack-proposal research — Prisma's `latest` npm dist-tag resolved to 8.0.0-rc.22, a release candidate, not a stable release"
 provenance: agent-inferred
 created: 2026-10-13
-status: candidate
-promotion: none
+status: active  # 2026-10-18 (librarian review) — cross-corroborated by 2 distinct citing projects (pandasaga, funko-tracker), eval-gate bar met
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/standards/dependency-lifecycle.md (add "verify a stack proposal's `latest` dist-tag is not a pre-release" as a standing stack-research step). Cited by 2 distinct projects (pandasaga, funko-tracker) with zero contradicting evidence — every architecture/stack-proposal research pass reads npm's `latest` tag, so this is cheap, recurring insurance against silently pinning a pre-release.
 confidence: medium
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: []
 ---
 

@@ -71,8 +71,27 @@ web. Link the decision-round ADR. *A product with no curated data: say so in one
 
 ## External services & secrets
 
-Third-party services, accounts and APIs (limits/costs), and how secrets are managed
-(`factory/standards/external-services.md`). *Omit if none.*
+Selected third-party services and limits/costs, private account/resource references (no personal IDs),
+and secret management (`factory/standards/external-services.md`). Publish the value-free variable contract:
+name · purpose · origin · environment · exact destination (web/worker/migration/local/CI) · consumer
+path or owning WO · installed/planned · required now · secret-store reference · status. `.env.example`
+mirrors the approved names and ends with LOCAL-ONLY tooling. Do not invent future secrets. Even without
+external services, include any required local app secrets; otherwise state N/A.
+
+After decisions/contract are final, fill obtainable values privately per architecture
+`references/environment-delivery.md`: exactly three root dotenv files — tracked placeholder guide
+`.env.example`, protected development `.env.local` and production handoff `.env.production`. Group by
+service within destination blocks (web/renderer/operator as selected), using aliases and explicit
+runtime exports where names/privileges differ. Local-only entries are last in guide/dev, absent from
+production. Document mappings/commands and synthetic proof of framework precedence/target isolation;
+missing bindings stay pending. Never upload the complete bundle or add per-destination dotenv files.
+For migration credentials, document local execution from the owner's Mac separately from the DB target:
+development in `.env.local`, production in `.env.production`; guide/dev entries go below the final
+local/operator-only separator, while production gets a labelled operator block. Comments name the
+migration CLI that reads the connection and say it is never uploaded to Vercel/Modal runtime. Do not
+invent a migration variable without a concrete consumer or run migrations during preparation. The private report at
+`.pandacorp/comms/entrega-entornos.md` records status/evidence without values. Link it by path only.
+Prepared production inputs are not a production deployment or verified production readiness.
 
 ## Deploy & environments
 

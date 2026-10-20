@@ -27,6 +27,7 @@ const WORKSPACE_TABS: Record<string, string> = {
   observabilidad: "observability",
   documents: "documents",
   commands: "commands",
+  accounts: "accounts",
 };
 const decode = (value: string): string => {
   try {

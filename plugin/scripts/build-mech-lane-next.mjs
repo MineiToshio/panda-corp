@@ -210,11 +210,15 @@ export async function laneNextOp(o) {
   const resumed = o.resume ? Object.values(before.chains).filter((c) => c.status === 'dispatched' && !c.barrier && c.lane) : []
   const plan = planChains(graph, before, scopeOf(o))
   const barrierChain = plan.dispatch.barrier ? plan.chains.find((c) => c.id === plan.dispatch.barrier) : null
-  if (barrierChain) await tryDispatch({ chain: barrierChain.id, wos: barrierChain.wos, barrier: true })
+  const onMainNow = []
+  if (barrierChain && (await tryDispatch({ chain: barrierChain.id, wos: barrierChain.wos, barrier: true }))) onMainNow.push(...barrierChain.wos)
   const mainChain = plan.dispatch.main ? plan.chains.find((c) => c.id === plan.dispatch.main) : null
-  if (mainChain) await tryDispatch({ chain: mainChain.id, wos: mainChain.wos, barrier: true, onMain: plan.dispatch.mainWhy })
+  if (mainChain && (await tryDispatch({ chain: mainChain.id, wos: mainChain.wos, barrier: true, onMain: plan.dispatch.mainWhy }))) onMainNow.push(...mainChain.wos)
   const reqs = [...resumed.map((c) => ({ chain: c.id, wos: c.wos, lane: c.lane })), ...plan.dispatch.lanes.map((d) => { const c = plan.chains.find((x) => x.id === d.chain); return { chain: c.id, wos: c.wos, lane: d.lane } })]
   const dispatched = (await Promise.all(reqs.map(tryDispatch))).filter(Boolean)
+  // BL-0251: the work orders this round dispatched over a floor FRD's IN_REVIEW code (a floor wait that would close a cycle).
+  const sent = new Set([...onMainNow, ...dispatched.flatMap((d) => d.wos || [])])
+  const floorWaived = (plan.floorWaived || []).filter((x) => sent.has(x.wo))
   const state = readState(ctx)
   const after = planChains(graph, state, scopeOf(o))
   const barrier = activeBarrier(state)
@@ -222,7 +226,7 @@ export async function laneNextOp(o) {
   return {
     code: 0,
     body: {
-      status: 'next', k: plan.k, kReason: plan.kReason, kRun: plan.kRun, kRunReason: plan.kRunReason, width: plan.width, offPath: plan.offPath, dispatched, failed, retired,
+      status: 'next', k: plan.k, kReason: plan.kReason, kRun: plan.kRun, kRunReason: plan.kRunReason, width: plan.width, offPath: plan.offPath, dispatched, failed, retired, floorWaived,
       barrier: barrier ? chainView(ctx, state, barrier) : null, landingsPaused: Boolean(barrier),
       landQueue: after.landQueue.map((id) => chainView(ctx, state, state.chains[id])), needsFix: live.filter((c) => c.status === 'needs-fix').map((c) => chainView(ctx, state, c)),
       inFlight: live.filter((c) => LIVE.has(c.status)).map((c) => c.id), inFlightChains: inFlightChains(ctx, state, live), parked: after.parked, blockedFrds: after.blockedFrds, blockedWos: after.blockedWos,

@@ -9,7 +9,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { verifySealedLine } from './drift-seal.mjs'
-import { decideGreenfield } from './greenfield-probe.mjs'
+import { decideCarryOver, decideGreenfield } from './greenfield-probe.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SCRIPT = path.join(__dirname, 'greenfield-probe.mjs')
@@ -160,6 +160,26 @@ const cases = [
     for (const [what, patch] of [['adopted unknown', { adopted: undefined }], ['history unknown', { everBuilt: undefined }], ['a set pin', { lastGreenSha: 'abc' }], ['a missing status', { missing: 1, byStatus: { PLANNED: 1 } }], ['no work orders', { workOrders: 0, byStatus: {} }], ['a refusal', { ok: false }], ['BLOCKED', { byStatus: { PLANNED: 1, BLOCKED: 1 } }]]) {
       ok(decideGreenfield({ ...base, ...patch }).greenfield === false, `${what} → not greenfield`)
     }
+  }],
+  ['BL-0252: a half-built tree (no last_green_sha, some WOs committed IN_REVIEW, none VERIFIED) is carry-over, not greenfield', () => {
+    const { root, dir } = mkGitProject([
+      { message: 'docs: architecture', files: { '.pandacorp/status.yaml': FRESH, [WO_A]: woMd('WO-01-001', 'PLANNED'), [WO_B]: woMd('WO-01-002', 'PLANNED') } },
+      { message: 'feat(frd-01-a): WO-01-001', files: { [WO_A]: woMd('WO-01-001', 'IN_REVIEW'), 'src/i18n/getT.ts': 'export const getT = () => (k) => k\n' } },
+    ])
+    const r = run(dir)
+    ok(r.sealed && r.parsed && r.parsed.greenfield === false, `something was built: not greenfield (got ${r.parsed && r.parsed.reason})`)
+    ok(r.parsed && r.parsed.carryOver === true && /IN_REVIEW/.test(r.parsed.carryOverReason || ''), `the sealed line carries the carry-over verdict (got ${r.line})`)
+    ok(decideCarryOver(r.parsed, { allowDispatched: true }).carryOver === true, 'the fast lane reads the same verdict (one definition)')
+    rmSync(root, { recursive: true, force: true })
+  }],
+  ['decideCarryOver refuses anything but a half-built, never-verified tree', () => {
+    const base = { ok: true, probe: 'greenfield', lastGreenSha: '', workOrders: 3, byStatus: { PLANNED: 2, IN_REVIEW: 1 }, missing: 0, adopted: false, everBuilt: true }
+    ok(decideCarryOver(base).carryOver === true, 'complete half-built facts → carry-over')
+    for (const [what, patch] of [['a set pin', { lastGreenSha: 'abc1234' }], ['adopted', { adopted: true }], ['adopted unknown', { adopted: undefined }], ['nothing built (greenfield decides)', { byStatus: { PLANNED: 3 } }], ['a VERIFIED work order', { byStatus: { PLANNED: 1, IN_REVIEW: 1, VERIFIED: 1 } }], ['a BLOCKED work order', { byStatus: { PLANNED: 1, IN_REVIEW: 1, BLOCKED: 1 } }], ['a missing status', { missing: 1, byStatus: { PLANNED: 1, IN_REVIEW: 1 } }], ['counts that do not add up', { byStatus: { IN_REVIEW: 1 } }], ['a refusal', { ok: false }]]) {
+      ok(decideCarryOver({ ...base, ...patch }).carryOver === false, `${what} → not carry-over`)
+    }
+    const dispatched = { ...base, byStatus: { PLANNED: 1, IN_REVIEW: 1, IN_PROGRESS: 1 } }
+    ok(decideCarryOver(dispatched).carryOver === false && decideCarryOver(dispatched, { allowDispatched: true }).carryOver === true, 'a committed dispatch stamp is carry-over for the fast lane only (as greenfield)')
   }],
 ]
 

@@ -1,92 +1,69 @@
 # External services, accounts and secrets
 
-> Domain: Operation · Severity: **MUST** (account model, secrets, ToS rule, human gates) / **SHOULD** (service choices) · Enforcement: checklist (provisioning playbook) + human gate (DR-004/005/007/008/035/038) + gitleaks. Playbook-style standard — procedural body. See DR-035..DR-038.
+> Domain: Operation · Severity: **MUST** (scope, account identity, secrets, human gates) / **SHOULD** (provider choices) · Enforcement: architecture/release checklist + catalog validator + gitleaks. Operative form: `plugin/templates/rules/external-services.md`. Decisions: DR-035..038, DR-134.
 
-How the factory manages external SaaS services (storage, DB, email, payments, analytics), the **account model**, **secrets** and **provisioning**. Complements `stack.md` (which services) and `infra.md` (local dev). Decisions: DR-035..DR-038. Base stack validated in production by **PandaTrack**.
+## 1. Reuse before provisioning
 
-## 1. Standard service stack (proven)
+Read `factory/services/catalog.yaml` and the owner's private account registry before selecting a service. The catalog is public know-how, not evidence of an active account or deployed integration. Private account metadata lives by default at `<projectsRoot>/pandacorp-vault/services/accounts.yaml`; project associations live at `<project>/.pandacorp/accounts/services.yaml`. Mission Control derives global/project Accounts views from these records. Never store passwords, token values, recovery codes or OAuth secrets there. `backup-pandacorp-state.sh` snapshots project account associations and only vault `services/accounts.yaml` additively with private permissions, not adjacent credentials. Restore the reviewed dated metadata snapshot to its original path with mode 600; snapshots never become another writable source. This local metadata backup is unrelated to app database/R2 backups. GitHub is standard shared repository infrastructure, not a service-selection/account-catalog item.
 
-| Category | Standard service | Account model | Per-app separation |
-|---|---|---|---|
-| Hosting / deploy | **Vercel** (1 team) | 1 team → 1 project/app | Project + env vars |
-| Postgres DB | **Neon** (Prisma + `adapter-pg`) | 1 account → 1 project/app (up to 100 free) | Isolated physical DB |
-| Auth | **Better Auth** self-hosted (+ Google OAuth) | in the app's Neon DB | Tables in its DB + 1 OAuth client/app |
-| File/photo storage | **Cloudflare R2** (S3 SDK) | 1 account → 1 bucket/app | Bucket + token scoped to the bucket |
-| Transactional email | **Resend** | 1 account → 1 domain/app | Verified domain + API key |
-| Marketing email / waitlist | **Kit** (ConvertKit) | 1 account → tags/forms per app | Tag/form per app |
-| Waitlist capture | **Google Apps Script + Sheet** | 1 Google account → 1 sheet/app | Sheet per app |
-| Errors | **Sentry** | 1 org → 1 project/app | Sentry project |
-| Product analytics | **PostHog Cloud** | 1 **organization** per app | Each free org: 1M events/month + 1 project |
-| Payments | **Polar** (Merchant of Record) | 1 account → 1 product/app | Product/organization per app |
+For new MVPs, deploy on Vercel under `<resource_slug>.pandatrack.app`, unless the owner chooses otherwise. Use the project's exact lowercase hyphenated `resource_slug` (for example `funko-tracker`), without adding a `pandacorp-` prefix. Keep existing resource names and integrations; adoption does not authorize migration or cloud changes.
 
-This is the proven default. The `architect` may deviate with a per-project ADR (DR-030), but the state categories (DB, storage, email, payments) are kept unless there's a strong reason.
+## 2. Account and environment model
 
-## 2. Account model: the principle
+Reuse the authorized account and separate applications with provider-native resources and least-privilege credentials. Shared billing/quotas are NOT independent per-app allowances, and native resource boundaries do not prove equivalent security isolation across providers.
 
-- Separate **account** (billing/identity) from **isolation** (the provider's primitive + scoped credential). Isolation does NOT come from having separate accounts: it comes from a Neon project (= isolated physical DB), an R2 bucket, a Resend domain, a PostHog org, a Polar product, each with its own credential.
-- **Default: ONE shared account/org per service, separating each app by its native primitive.** One account with N isolated projects gives the same isolation as N accounts, without the operational nightmare — and it is enough for real production with personal data (GDPR).
-- **"Free org/project YES, puppet account NO" rule:** using the separation the provider offers (PostHog orgs, Neon projects) is legitimate. Creating multiple accounts with `+alias` to dodge a free-tier cap (e.g. Supabase = 2 projects) **violates the ToS** and risks bans that take down live apps. Test: *"am I using a feature they offer, or evading a charge they set?"* That is why Neon (100 projects/account) is chosen over Supabase for the multi-app model.
-- **When to isolate in its own account** (not just a project): it is a **success milestone**, not the default — (a) isolate billing (the app makes money / is going to be sold), (b) blast radius (too important to share fate with the others), or (c) a hard limit that can't be lifted by paying. Until then it stays in the shared account. The migration is cheap because the primitive is already a self-contained silo (a Neon project, an R2 bucket can be picked up and moved).
-- **Scaling (growing) ≠ migrating:** each app crosses from free→paid **in its own primitive, in place**, without touching the others (scaling up the Neon project's compute, paying R2 storage above 10 GB, a higher Resend plan, a PostHog org crossing 1M events). Nothing is redone.
+| Service | Reuse and resource convention |
+|---|---|
+| Neon | One project/application named exactly `resource_slug`; dev/prod branches with separate roles/URLs. Project name and SQL database name are distinct: do not rename an existing SQL database. `DATABASE_URL` pooled; `DATABASE_URL_UNPOOLED` direct when required by the framework/migrations. |
+| Cloudflare R2/DNS | Shared authorized account and existing root zone. Only if files are needed: private `<slug>-dev` and `<slug>-prod` buckets. Real R2 in local dev and production, same adapter/object scheme, different config and scoped credentials. Example `funko-tracker-dev` / `funko-tracker-prod`, variable `R2_BUCKET_PRIVATE`. No routine staging bucket. CORS/lifecycle follow each environment's origins. No custom database backups to R2 in MVP/v1 (DR-012). |
+| Google Cloud OAuth | Default shared PandaTrack project, client per application; same client ID/secret across approved dev/staging/prod callback origins for that app. This is an explicit shared trust boundary, not database isolation. Ask for an app outside that context or a genuine security/provider constraint. No staging environment created by default. |
+| Namecheap | Same authorized registrar account for current/new root domains. New MVP subdomains do not require domain purchases. DNS remains Cloudflare. |
+| Vercel | Shared authorized account/team, project named `resource_slug`; environment-scoped variables. Owner decides plans/payment. Preserve commercial-use warning under DR-035; reverify current terms before release. |
+| Resend | Reuse verified shared `pandatrack.app` domain; restricted sending key per app/environment when supported. `hello@pandatrack.app` sender with app display name, app-prefixed subject and contextual Reply-To. No new domain per app by default. |
+| ImprovMX | Shared `hello@pandatrack.app` inbox/forwarding. `hello+<slug>@pandatrack.app` can carry context if the configured wildcard/plus delivery is verified. Mail sent directly to generic hello without subject/context cannot reliably identify an app. Explicit aliases only for a real routing need. |
+| Modal | Optional job compute, selected for Funko Tracker exports after isolated POC. On-demand, scale to zero, no warm fleet; stop new exports on free-credit exhaustion. No card, paid upgrade, higher limit or paid fallback without explicit approval. Verify actual workspace credits/limits rather than assume public pricing applies. |
 
-## 3. Provisioning: API-first
+Kit is **off by default**: ask whether the owner wants a mailing list, then resolve now/deferred/excluded. PostHog, Sentry, multilingual i18n and SEO retain separate explicit architecture decisions (DR-131); internal projects are asked too. Deferred/excluded services receive no SDK, stub, credentials, required env validation, gates or work orders. Polar remains a payments policy candidate for the first paid app, not a default MVP resource. Cloudinary is not selected for new MVP storage. Document existing integrations without removing/migrating them.
 
-- By default, create/destroy resources via **API/CLI**, not by clicking dashboards. Almost the entire stack supports it: Neon (API+CLI), Cloudflare R2 (API+Wrangler), Vercel (API+CLI), Resend (API; automatic DNS if the domain lives on Cloudflare), Polar (API), Sentry (API), PostHog (API). Headless = no CAPTCHA/2FA, resumable, autonomous. **That** is what enables "leaving it running".
-- **Browser fallback** (Claude-in-Chrome) only for the rare provider without an API: the agent **verifies the active account** (screenshot of the logged-in email) against the one expected for the project BEFORE acting, so it doesn't create resources in the wrong account.
-- **Unavoidable (and desired) human gates**: new account signup (CAPTCHA/email verification), entering a card (= DR-005), 2FA in dashboards. At those points the agent **notifies the owner (DR-038) and stops**. API tokens bypass login+2FA entirely; where there is no API, the human touch is accepted (the TOTP seed is not stored — it would degrade 2FA).
+If quotas are dominated by one application, propose isolating that consumer. If many small consumers exhaust a shared allowance, compare lawful capacity/new shared-account options. Check the provider's policy and obtain owner approval before account creation or spending. Never proliferate accounts/organizations to evade fees, including PostHog organizations. Record dated plan/usage/limits; unknown means pending, not invented capacity.
+
+## 3. Proportional preparation and evidence
+
+Architecture inventories account/resource access before the decision round, then **fills every obtainable approved environment value after the decisions and consumer contract are final**. A variable map alone is not delivery. No speculative resources, credential issuance or secret generation at preflight. Materialization uses current authorization and access; missing permission stays actionable pending, not invented readiness. Prefer provider API/CLI for documented operations, browser when necessary; a browser login is not an API token, an installed CLI is not authorized access, and a valid runtime key is not a provisioning key. Verify expected identity, organization and operation-specific scope before acting. Approval of this standard does not authorize provisioning.
+
+For each selected service, record provider ID, private account reference, resource IDs, environment, purpose and evidence date. Reconcile stored IDs and lookup before create; persist returned IDs before retries, and leave ambiguous partial creation pending instead of creating duplicates. Resume from recorded state. Existing resources are never renamed or deleted for uniformity.
+
+Track readiness independently: `detected` (integration found), `researched` (dated official recipe), `account_verified` (identity/access checked), `recipe_tested` (specific operation exercised with evidence), `reusable` (tested recipe and valid inputs for reuse). These are independent evidence dimensions, not a ladder inferred from one browser session. A researched recipe is not tested automation.
+
+Maintain the value-free variable contract in architecture: name, purpose, origin, environment, exact web/worker/migration/local/CI destination, installed or concrete current-version WO consumer, required-now flag, secret-store reference and per-destination status (`pending`, `generated`, `configured`, `verified`, `not_applicable`). A planned consumer can have prepared values but never runtime verification. Obtain provider values through authorized accounts/resources; generate app secrets only for concrete selected consumers (cryptographic randomness and consumer-specific format, independent per purpose/environment). Better Auth, analytics salt, internal revalidation, rate-limit HMAC and signing keys are examples, never a universal checklist. Preserve existing values and rerun idempotently; conflicts are pending, not automatic rotation. Google OAuth’s shared per-app client is the explicit dev/prod exception, not a general secret-sharing rule. Provider administration credentials stay in the machine store, never the app.
+
+Use exactly three root dotenv files: tracked placeholder-only `.env.example`, protected `.env.local` for development and `.env.production` for production handoff. Group by service within labelled destination blocks, with app-generated secrets identified; local-only tooling is last in `.env.local`/`.env.example` and absent from `.env.production`. Only concrete approved production consumers get entries there. Keep different environment/privilege credentials separate using storage aliases and explicit destination selection/export, never extra per-worker/migration/tooling dotenv files or whole-bundle runtime injection. Runtime exports translate aliases to actual consumer names and exclude bootstrap/admin/other-destination values. Check real framework precedence and isolation using synthetic fixtures; a missing selector/build binding stays pending. Existing layouts are consolidated only after inventory, conflict resolution and in-memory value-preservation checks; do not bulk-rewrite existing projects on upgrade. The two private files are gitignored, untracked, mode 600, with no unsafe symlink/hardlink writes or secret output. Use private temporary storage and atomic, single-writer updates preserving original values and refusing concurrent changes. Main-checkout delivery is explicit: ignored worktree files do not merge and production secrets never travel through bootstrap. The private Spanish report `.pandacorp/comms/entrega-entornos.md` (gitignored, mode 600) records per-variable/destination status, value-free checks, evidence and exact pending actor/action. Canonical procedure: architecture `references/environment-delivery.md` (step 9b3). Prepared inputs do not certify host configuration, runtime verification or production readiness.
+
+For approved migration credentials, distinguish **where the command runs** from **which database it changes**. In `.env.local` and `.env.example`, put the migration subsection below the final local/operator-only separator. In `.env.production`, keep a separate production-migration operator subsection. Comments must name local execution from the owner's Mac, the development/production DB target, the actual migration CLI that reads the value, and that it is not uploaded to Vercel/Modal runtime. A connection to production remains a necessary production-target input even when used locally; do not confuse it with local-only tools/fixtures or delete it for not being deployed. No consumer means no speculative migration variable. Target selection and production gates remain explicit; preparation never runs migrations. Detailed layout: architecture `references/environment-delivery.md#migration-credentials-execution-location-versus-database-target`.
+
+
+A new provider discovered during implementation returns to the minimal architecture decision: approve current scope, add a public recipe and private/project references, then continue. A dependency must not silently expand infrastructure. Recipe documentation records purpose, account separation, environments, access URL, API/CLI/browser route, steps, quotas with source/date and honest readiness; never hardcode personal identities in committed know-how.
 
 ## 4. Secrets and credentials
 
 Two separate planes:
 
-- **Runtime** → each project's `.env` (gitignored). `.env.example` documents the variables without values (constitution §12, `web-security.md`).
+- **Runtime/handoff** → each project's protected gitignored `.env.local` (development) and `.env.production` (production handoff), with service/destination sections and explicit per-process exports; never load/upload the full combined bundle. The third root file, tracked `.env.example`, documents names/destinations without values. Check framework precedence and consolidate legacy layouts with preservation checks (constitution §12, `web-security.md`).
 - **Machine store** (what the agent reads without the owner present) → **SOPS + age**: encrypted file **outside any repo** (e.g. `~/.config/pandacorp/secrets/`), with the `age` private key in the **macOS Keychain**. SOPS encrypts only the *values* (the structure stays readable). It holds: providers' API tokens (for provisioning), credentials generated per app, and —as a fallback— dashboard logins without an API.
 - **LastPass = the owner's personal stuff only**, separate from the machine store. Recommended pattern: interactive human manager ≠ non-interactive machine store. Valid alternatives to the store: Infisical (open-source, with auditing), Bitwarden Secrets Manager, 1Password Service Accounts.
 - **Threat-model honesty:** encryption at rest protects against leakage (git/backup/stolen disk), **NOT against local compromise** — because the key must be within the agent's reach. It is the trade-off inherent to autonomy. Mitigations: tokens with **least privilege** (scope per project, not account admin), store separate from personal stuff, and the destructive gates (DR-004/005/007/008) still require the owner even though the agent operates unattended.
 
-## 5. Payments — Polar (Merchant of Record)
+## 5. Payments
 
-- **Why MoR:** the owner is in **Peru**, where Stripe direct does not operate (it would require a U.S. LLC). A Merchant of Record is the **legal seller**: it charges globally, handles VAT/taxes and compliance, and **pays the owner in Peru**.
-- **Standard: Polar** — Peru supported for payout (via Stripe Connect Express), fees ~4% + $0.40, developer-focused, multi-product. Backup: Lemon Squeezy (pays via PayPal; uncertain roadmap after the Stripe acquisition).
-- **Account model:** 1 Polar account → **1 product/organization per app**.
-- **Integration:** Polar does not replace Better Auth (identity). The charge is a Polar checkout → **webhook** → the app's Neon DB marks the user as paid. `POLAR_*` variables in `.env`.
-- **"Does v1 include payments?"** is decided explicitly in the PRD (see §6 and DR-035).
+Polar remains the preferred Merchant of Record candidate under DR-035, subject to current payout/fee verification when the first paid application is approved. Do not create payment accounts, products, keys or SDKs for an unpaid MVP. Preserve the explicitly approved product's integration; do not migrate it from this catalog.
 
-## 6. Vercel: commercial use = Pro (warning, NEVER blocking)
+## 6. Hosting and gates
 
-- Hobby (free) is **non-commercial**: any charge, ad or **donation** counts as commercial. A suspension is of the **WHOLE account** (all the apps inside), with no guaranteed notice.
-- **Pro:** $20/month per **seat** (not per project), covers the team's unlimited projects + $20 of included usage credit. **One seat = the whole factory.**
-- **Rule (DR-035): do NOT block work over this.** The factory only **WARNS** when a version is going to charge money, at 3 moments: when defining the PRD, in the blueprint (hosting plan) and at release (before the deploy). The owner decides *continue or stop*. It is not a gate.
-- Structure: **a single Pro team** for all shipped apps; the day an app turns on payments it goes to the Pro team (don't wait for Vercel's email, because the ban is of the whole account).
+All new web projects deploy on Vercel by default. At PRD, architecture and release, warn about applicable commercial-use terms and costs; the owner decides how to pay (DR-035). No subscriptions, cards, purchases, scope grants, DNS mutations, external messages, production deployments or destructive actions are authorized merely by choosing a provider. Retain the applicable human gates. Notify through runtime-native channels when available; otherwise actionable chat plus pending file, without claiming a phone notification was delivered.
 
-## 7. Owner notification on gates (DR-038)
+## 7. Safe operations
 
-- At **ANY** point that requires a decision/action from the owner (gates DR-004/005/007/008/035, pending items of the `decide` skill, or signup/2FA/payment during provisioning), the agent fires a **push notification**. It reaches the **phone** if Remote Control / the Claude app is connected to the session (already configured on the owner's machine). A one-line, actionable message: *"PandaTrack: enter card in Polar to continue"*.
-- **Mission Control** is the "at the desk" view (log of pending items in `.pandacorp/status.yaml`); the **push** is the "I'm away" view. Mission Control is not connected to the phone — the native push covers it.
-
-## 8. Playbook — bringing a project up and down
-
-Naming convention across all services: **`pandacorp-<slug>`**. Everything via API where it exists; what doesn't, browser with account verification + push on gates.
-
-**SETUP:**
-1. **Neon**: create project → connection string → Better Auth migrations.
-2. **R2** (if it uses files/photos): bucket + token scoped to the bucket.
-3. **Vercel**: project in the team. Hobby if pre-launch without monetizing; **Pro** team when monetizing (DR-035).
-4. **Resend** (if it sends email): verified domain.
-5. **Kit** (if it captures an audience): tag/form per app.
-6. **Polar** (if it charges): product.
-7. **Sentry**: project. **PostHog**: organization.
-8. **Secrets**: tokens and credentials to the SOPS+age store; the project's `.env` wired from there.
-
-**TEARDOWN** (each app is a silo → deleting one does NOT touch the others):
-1. Export if keeping (Neon pg_dump, copy of the R2 bucket).
-2. Delete the Neon project (DB + Better Auth data = real GDPR deletion).
-3. Delete the R2 bucket + revoke its token.
-4. Delete the Vercel project + domains.
-5. Remove the domain in Resend, the organization in PostHog, the project in Sentry, the product in Polar.
-6. Delete the secrets-store entries.
-
-> Deleting cloud resources = **DR-007** (human gate + push DR-038).
+Preparation produces reviewable inputs, not speculative infrastructure management. Teardown requires an explicit owner gate and an inventory of owned resources/dependents. Never delete a shared domain, Google project, inbox, account or key used by another application. Revoke/delete only the selected app's owned resources after approved retention/export steps.
 
 ## 9. Operational setup of the SOPS+age store
 
@@ -102,34 +79,20 @@ Naming convention across all services: **`pandacorp-<slug>`**. Everything via AP
 
 **What it holds:**
 - `providers.sops.yaml`: API tokens (least privilege) for Neon, Cloudflare, Vercel, Resend, Polar, Sentry, PostHog + base OAuth credentials. This is what enables headless provisioning (§3).
-- `apps/<slug>.sops.yaml`: mirror of the app's `.env` (`DATABASE_URL`, `ASSETS_STORAGE_*`, `RESEND_API_KEY`, `POLAR_*`…).
+- `apps/<slug>.sops.yaml`: app credentials separated by environment and destination, corresponding to its private delivery (`DATABASE_URL`, `ASSETS_STORAGE_*`, `RESEND_API_KEY`, `POLAR_*`…).
 - Fallback: provider dashboard logins without an API.
 
 **Security and backup:**
 - Tokens scoped per project; rotate if leaked; never to the repo (not even the encrypted file, by convention).
 - **Backup of the age private key = critical**: if lost, the store is unrecoverable. Back it up separately (the only acceptable exception: an entry in the owner's personal LastPass, or an offline copy). The public one can go in clear.
 
-## 10. Foundations (verified facts that back these decisions)
-
-Verified as of **2026-06**; free tiers change — re-verify before treating them as hard numbers.
-
-- **Neon** Free: up to **100 projects/account**, each project = isolated DB. That is why it is the multi-app standard (vs **Supabase** Free = 2 active projects/org, which would force multi-account).
-- **Cloudflare R2**: 10 GB free + **free egress**; API tokens **scoped to one bucket**.
-- **Vercel**: Pro = **USD 20/seat** (not per project), unlimited projects + USD 20 of credit; Hobby = **non-commercial**, and the suspension is of the **WHOLE account with no guaranteed notice**.
-- **PostHog**: Free = **1M events/month + 1 project per organization**; billing is **per organization** → several orgs (one login) = several free tiers. That is why "1 org per app" instead of paying for extra projects.
-- **Multi-account with `+alias`** to dodge free-tier caps = **violates the ToS** (Vercel, Supabase) → forbidden (≠ using orgs/projects that the provider does offer as a legitimate feature).
-- **Payments from Peru**: Stripe direct does not operate in Peru (it would require a U.S. LLC) → **Merchant of Record**. **Polar** supports payout to Peru (Stripe Connect Express), fees ~4% + USD 0.40; backup Lemon Squeezy.
-
 ## How it is verified
-- **Secrets never in the repo**: gitleaks (pre-commit + push protection); the SOPS store lives outside any repo by construction (§4).
-- **Provisioning playbook followed / naming convention**: checklist in the provisioning steps (§8) — review-only.
-- **Human gates (card, signup/2FA, deletion, production)**: deny rules in `.claude/settings.json` + push notification (DR-038) — hard gates.
-- **Vercel commercial-use warning**: fired at PRD/blueprint/release checkpoints (skill checklists) — warn, never blocking (DR-035).
-- **Free-tier ceilings**: monthly cost check by `/pandacorp:review-launch` (script + owner decision, DR-005).
+
+- `node plugin/scripts/validate-service-catalog.mjs` validates the public provider contract, IDs, dated sources, automation routes and secret-free structure; `node plugin/scripts/test-service-catalog.mjs` proves malformed inputs fail.
+- Architecture step 9b3 and independent review manually check the private report: approved contract/consumer coverage, existing-value preservation, dev/prod separation, untracked/ignored regular mode-600 files, correct targets, exactly three root dotenv files, service/destination grouping, local-only blocks last and absent in production, correct alias exports/no cross-destination or development fallback (synthetic fixtures), no secret output and actionable pending items. This is a manual checklist, not an installed automatic secret-file validator. Architecture checklist also verifies account lookup, scope decisions, resource naming, variable destinations, dated quota evidence and pending steps. Release rechecks only selected services and actual environment readiness. These are manual checks, not a cloud connectivity certificate.
+- Gitleaks checks repository secret leakage; it does not certify private account metadata or provider permissions.
+- `bash factory/standards/check-standards.sh` validates standard registry and operative-form coverage.
 
 ## Why
-One shared account per service with the provider's native isolation primitive gives real per-app silos without multi-account ToS risk; API-first provisioning is what makes unattended operation possible; and the SOPS+age machine store is the honest trade-off that lets the agent operate without the owner present while keeping secrets out of git and blast radius scoped.
 
----
-
-Cross-refs: `stack.md` (which services), `infra.md` (local dev/Docker/ports), `web-security.md` (secrets), `privacy.md` (PII/GDPR), `observability.md` (Sentry/logs). Decisions: DR-035 (Vercel/payments), DR-036 (standard services + account model), DR-037 (secrets + provisioning), DR-038 (notification on gates).
+Reuse identity and billing while isolating resources, keep MVP scope explicit, and distinguish documentation from working automation. A dated honest pending state is safer and cheaper than duplicate accounts, unexpected charges or invented readiness.

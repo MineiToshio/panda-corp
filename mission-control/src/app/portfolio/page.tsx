@@ -37,10 +37,13 @@ import { ProjectWorkspace } from "@/app/projects/[slug]/ProjectWorkspace";
 import { workspaceHref, workspaceSelection } from "@/app/projects/[slug]/workspace-route";
 import { PageLayout } from "@/components/core/PageLayout/PageLayout";
 import { ProjectRail } from "@/components/modules/ProjectRail/ProjectRail";
+import { PortfolioViews } from "@/components/modules/ServicesDirectory/PortfolioViews";
+import { ServicesDirectory } from "@/components/modules/ServicesDirectory/ServicesDirectory";
 import { getProjectNavigation, resolveProjectNavigation } from "@/lib/navigation/identities";
 import { NavigationCanonical } from "@/lib/navigation/NavigationCanonical";
 import { routeHref } from "@/lib/navigation/routeState";
 import { railProjects } from "@/lib/portfolio/portfolio";
+import { getServicesDirectory } from "@/lib/services/services";
 import { PortfolioLayout } from "./PortfolioLayout";
 import { WorkspaceSlot } from "./WorkspaceSlot";
 
@@ -89,6 +92,7 @@ export default async function PortfolioPage({
   const rawQuery = await searchParams;
   routeHref("/portfolio", [], rawQuery);
   const params = { ...rawQuery, ...routeState };
+  const accountsView = params.portfolioView === "accounts";
   const rawParam = params.project;
   const projectParam = typeof rawParam === "string" ? rawParam : undefined;
 
@@ -126,34 +130,41 @@ export default async function PortfolioPage({
       testId="portfolio-page"
     >
       {selectedItem && <NavigationCanonical href={href} />}
-      {/* Responsive grid with a user-collapsible projects rail (PortfolioLayout owns the toggle +
+      <PortfolioViews accounts={accountsView} href={href} />
+      {accountsView ? (
+        <ServicesDirectory data={getServicesDirectory()} />
+      ) : (
+        <>
+          {/* Responsive grid with a user-collapsible projects rail (PortfolioLayout owns the toggle +
           persistence; the grid track-template + mobile single-column stack live in globals.css). */}
-      <PortfolioLayout
-        rail={
-          <div data-testid="portfolio-page-rail">
-            {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
-            <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
-              PROYECTOS
-            </div>
-            {/* Shared ProjectRail in selectable mode — URL-driven selection, per-row Link nav,
+          <PortfolioLayout
+            rail={
+              <div data-testid="portfolio-page-rail">
+                {/* "PROYECTOS" rail label (prototype railLabel("PROYECTOS")) */}
+                <div data-testid="portfolio-rail-label" aria-hidden="true" style={RAIL_LABEL_STYLE}>
+                  PROYECTOS
+                </div>
+                {/* Shared ProjectRail in selectable mode — URL-driven selection, per-row Link nav,
                 data-selected on the active row (DR-057 reuse-before-create). */}
-            <ProjectRail
-              items={items}
-              selectedSlug={selectedSlug ?? ""}
-              navigationBaseHref={href}
-              selectedNavigationId={identity?.id}
-            />
-          </div>
-        }
-        workspace={
-          // minWidth:0 — a grid item defaults to min-width:auto (its min-content); without it a wide
-          // child (the WoDag canvas, a long timeline/table) forces the pane past the frame and the
-          // whole page scrolls sideways. With it, such content scrolls inside its own container.
-          <div data-testid="portfolio-page-workspace" style={{ minWidth: 0 }}>
-            <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
-          </div>
-        }
-      />
+                <ProjectRail
+                  items={items}
+                  selectedSlug={selectedSlug ?? ""}
+                  navigationBaseHref={href}
+                  selectedNavigationId={identity?.id}
+                />
+              </div>
+            }
+            workspace={
+              // minWidth:0 — a grid item defaults to min-width:auto (its min-content); without it a wide
+              // child (the WoDag canvas, a long timeline/table) forces the pane past the frame and the
+              // whole page scrolls sideways. With it, such content scrolls inside its own container.
+              <div data-testid="portfolio-page-workspace" style={{ minWidth: 0 }}>
+                <WorkspaceSlot selectedSlug={selectedSlug}>{workspace}</WorkspaceSlot>
+              </div>
+            }
+          />
+        </>
+      )}
     </PageLayout>
   );
 }

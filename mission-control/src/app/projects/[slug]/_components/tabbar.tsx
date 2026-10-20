@@ -26,6 +26,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { SubTabs } from "@/components/core/Tabs/Tabs";
+import { servicesCopy } from "@/components/modules/ServicesDirectory/copy";
 import { navigationHref } from "@/lib/navigation/urls";
 
 // ---------------------------------------------------------------------------
@@ -43,7 +44,8 @@ export type TabId =
   | "party"
   | "observabilidad"
   | "documents"
-  | "commands";
+  | "commands"
+  | "accounts";
 
 /** Ordered list fed into the shared SubTabs primitive. */
 const WORKSPACE_TABS = [
@@ -56,6 +58,7 @@ const WORKSPACE_TABS = [
   { id: "observabilidad", label: "Observabilidad" },
   { id: "documents", label: "Documentos" },
   { id: "commands", label: "Comandos" },
+  { id: "accounts", label: servicesCopy.accountsTab },
 ] as const satisfies ReadonlyArray<{ id: TabId; label: string }>;
 
 // ---------------------------------------------------------------------------

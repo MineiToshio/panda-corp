@@ -4,6 +4,8 @@
       "Bash(bash factory/standards/*.sh:*)",
       "Bash(bash plugin/scripts/validate-backlog.sh:*)",
       "Bash(bash plugin/scripts/validate-memory.sh:*)",
+      "Bash(bash plugin/scripts/run-engine-tests.sh:*)",
+      "Bash(bash .pandacorp/verify.sh:*)",
       "Bash(git check-ignore:*)",
       "Bash(awk *)",
       "Bash(shasum *)",

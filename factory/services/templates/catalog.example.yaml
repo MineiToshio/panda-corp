@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "id": "neon",
+      "name": "Neon",
+      "type": "database",
+      "purpose": "Managed PostgreSQL database",
+      "adoption": "base",
+      "dashboard_url": "https://console.neon.tech/",
+      "reuse_policy": "Reuse account; one Neon project named exactly resource_slug per application. SQL database name is distinct; preserve existing names.",
+      "environment_policy": "Dev/prod branches, distinct roles and URLs; pooled DATABASE_URL and direct DATABASE_URL_UNPOOLED according to framework contract.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Look up stored project and branch IDs before create; reconcile by exact resource_slug if no ID exists.",
+          "Confirm selected plan and current project/branch/storage/compute capacity.",
+          "Authorized creation route: linked Create Project operation https://api-docs.neon.tech/reference/createproject; supply the approved exact resource_slug name, persist returned project ID, then reconcile branch/role identifiers before obtaining pooled/direct URIs. A project-creation recipe is not permission to issue an admin token.",
+          "For authorized setup create only missing project/branches/roles, persist IDs, obtain pooled and direct connection URIs privately.",
+          "Place URLs in approved runtime/migration destinations; verify connection without logging credentials."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Free research listed 100 projects/account and 10 branches/project. Storage/compute quotas and aggregate account storage also apply; 100 projects is not 100 independent budgets.",
+      "sources": [
+        {
+          "url": "https://neon.com/docs/introduction/plans",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://api-docs.neon.tech/reference/createproject",
+          "checked_at": "2026-10-19"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "DATABASE_URL",
+          "source": "Neon project/branch connection details or authorized API; pooled URI",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": true,
+          "purpose": "Runtime PostgreSQL queries.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "DATABASE_URL_UNPOOLED",
+          "source": "Same selected branch; direct/unpooled connection details",
+          "targets": [
+            "migration",
+            "worker_runtime",
+            "local_cli"
+          ],
+          "secret": true,
+          "purpose": "Migration or direct-connection consumers only when their framework requires it.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        }
+      ]
+    }
+  ]
+}

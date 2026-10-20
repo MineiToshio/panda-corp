@@ -9,7 +9,7 @@ source: "mission-control .pandacorp/run/lessons.md 2026-07-07, owner-stated — 
 provenance: owner-stated
 created: 2026-07-07
 status: active
-promotion: none
+promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/build-orchestration.md's DR-096 "Bootstrap on entry" section, add as a standing audit item: "any config/env value that embeds an absolute path, OR is derived from a field the bootstrap deliberately varies per worktree (a port, a slug), must be retargeted/re-derived dynamically after bootstrap — never trust a rename or a file-level copy to have done this automatically; verify by inspecting the actual copied config, not just that bootstrap ran without error." Corroborated across 4 distinct projects over 6 independent mechanisms (mission-control, personal-page-v2, Mission Control's APFS-clone node_modules, pandasaga, funko-tracker) with zero contradicting evidence — the richest, most-recurring class of worktree-isolation bug in the store after LESSON-0125 itself.
 confidence: high
 times_applied: 0
 applied_in: []
@@ -81,3 +81,17 @@ slug) per worktree for correctness (avoiding collisions), audit for any OTHER co
 that was built by hand from that same field as a fixed string — those must be derived dynamically at
 request/startup time from the live value, never pinned, or the deliberate per-worktree variation breaks
 them the same way an un-retargeted absolute path would.
+
+**Sixth mechanism (2026-10-18/19, funko-tracker — SECOND distinct project corroborating addendum 2):**
+the same inverted shape recurred on a different project with TWO different pinned fields: `BETTER_AUTH_URL`
+and `ORACLE_MEDIA_BASE_URL` were both baked as static absolute URLs on port `:4037` in `e2e/server-env.json`,
+while `worktree-bootstrap.sh`'s port-derivation step (BL-0154) correctly varied `PORT` per worktree. Once a
+worktree got a derived port, Better Auth's callback redirect and the harness's own media links kept pointing
+at the OLD, now-dead `:4037` origin — surfacing as an auth-recovery e2e failure in one gate (FRD-03) and a
+console-red image-hotlink failure in another (FRD-01), both only inside worktrees, never on the main
+checkout. This is cross-project evidence (pandasaga + funko-tracker) that "a value derived from a
+bootstrap-varied field must never be pinned as a constant" is a recurring class, not a one-off — the fix is
+PROJECT-specific each time (retarget every embedded origin with the project's own derived port, typically
+in that project's own `.pandacorp/worktree-setup.sh` or server-env template), not a shared-tooling change,
+since the field names (`BETTER_AUTH_URL`, `ORACLE_MEDIA_BASE_URL`) are app-specific and the shared
+`worktree-bootstrap.sh` cannot know about them.

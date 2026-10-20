@@ -2015,8 +2015,11 @@ function ConceptServiciosSecretos(): React.JSX.Element {
       <Panel>
         <Ul>
           <li>
-            <B weight={500}>Runtime</B> — en el <Code>.env</Code> del proyecto (gitignored;{" "}
-            <Code>.env.example</Code> sin valores).
+            <B weight={500}>Runtime</B> — tres archivos: <Code>.env.example</Code> sin valores,{" "}
+            <Code>.env.local</Code> para desarrollo y <Code>.env.production</Code> para producción
+            (ambos privados). Variables por servicio y destino; las locales van al final de la guía
+            y desarrollo, nunca en producción. Se exporta solo el destino que corresponda, sin
+            compartir credenciales de otros procesos.
           </li>
           <li>
             <B weight={500}>Almacén de máquina</B> (lo que el agente lee sin ti presente) →{" "}
@@ -2371,8 +2374,8 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <Lead>
         Desde 2026-07-04 (DR-113) la fábrica no vive casada con Claude Code: puedes abrir panda-corp
         —o cualquier proyecto— en la app de <B weight={600}>Codex</B> (o su CLI, Cursor, OpenCode) y
-        leerlo y revisarlo con las mismas reglas, los mismos skills y el mismo estado. Construir (
-        <Code>implement</Code>) es solo de Claude Code (DR-120). Nadie elige runtime con un switch:{" "}
+        leer, editar y construir con las mismas reglas, los mismos skills y el mismo estado
+        (DR-133). Nadie elige runtime con un switch:{" "}
         <B weight={600}>cada herramienta se auto-selecciona por lo que es capaz de leer</B>.
       </Lead>
 
@@ -2384,19 +2387,17 @@ function ConceptMultiRuntime(): React.JSX.Element {
       <Panel>
         <MultiRuntimeDiagram />
       </Panel>
-      <NotePanel icon="ti-lock" iconColor="var(--color-danger)">
-        <B weight={600}>Congelado el 2026-09-02 (DR-120): Codex es solo lectura/review.</B> El
-        perfil <Code>attended_foreground</Code> que existió entre el 2026-07-15 y el 2026-09-02
-        queda retirado — no llegó a ejecutar un build real, mientras el protocolo de cambio dual se
-        pagaba en cada modificación. Ningún runtime que no sea Claude Code puede escribir estado de
-        build.
+      <NotePanel icon="ti-lock" iconColor="var(--color-ok)">
+        <B weight={600}>Codex y Claude Code: acceso completo.</B> Desde el 2026-10-20 (DR-133),
+        ambos pueden ejecutar todos los skills y escribir documentación, work orders y estado. La
+        restricción DR-120 queda sustituida. Un solo escritor por proyecto y relevo en un punto
+        seguro.
       </NotePanel>
       <NotePanel icon="ti-clock-check" iconColor="var(--color-warn)">
-        <B weight={600}>Límites honestos.</B> Codex, Cursor y OpenCode leen, revisan y te reportan;
-        no lanzan <Code>implement</Code> en ninguna forma ni invocan launcher, supervisor o
-        executor. R10/R11 quedan <B weight={600}>suspendidas, no fallidas</B>. Disparador para
-        reabrir, literal: <i>&quot;Codex ships wake-capable local scheduling&quot;</i>. Claude
-        conserva intacto su Dynamic Workflow.
+        <B weight={600}>Permiso no significa automatización certificada.</B> Si faltan Workflow,
+        programación o subagentes, Codex trabaja en la sesión, secuencialmente. El launcher
+        automático conserva su alcance probado: un FRD o cambio, foreground y hasta dos horas. No se
+        promete ejecución nocturna ni se toma control de un proceso de Claude.
       </NotePanel>
       <NotePanel icon="ti-route" iconColor="var(--color-warn)">
         En Claude, el launcher entrega al Workflow la ruta absoluta y validada del escritor de
@@ -2464,10 +2465,8 @@ function ConceptMultiRuntime(): React.JSX.Element {
         <B weight={600}>Enforcement en Codex tiene dos estados.</B> La política, los adaptadores y
         las proyecciones de hooks/config ya están certificados en fuente. Hasta instalar el plugin,
         revisar sus definiciones y darles trust en una sesión real, AGENTS.md sigue siendo el piso
-        vinculante y no se reclama enforcement activo; nunca se salta el trust. Hoy el solo-lectura
-        de Codex es una instrucción, no configuración: su <Code>sandbox_mode</Code> sigue en{" "}
-        <Code>workspace-write</Code>. Convertirlo en configuración es el trabajo pendiente de{" "}
-        <Code>BL-0030</Code> (prioridad p0).
+        vinculante y no se reclama enforcement activo; nunca se salta el trust. Los permisos
+        completos de DR-133 no eliminan los controles de seguridad, revisión ni verificación.
       </NotePanel>
 
       <DocH title="Cómo probar que funciona" />
@@ -2483,17 +2482,17 @@ function ConceptMultiRuntime(): React.JSX.Element {
             ),
           },
           {
-            title: <>Codex, solo lectura</>,
+            title: <>Codex, acceso completo</>,
             body: (
               <>
-                Pídele que lea un FRD o una work order y te reporte su revisión: debe responder en
-                chat sin escribir estado de build. Si le pides <Code>implement</Code> en cualquier
-                forma, debe negarse y remitirte a Claude Code (DR-120).
+                Pídele que actualice un FRD o una work order: debe aplicar el skill y sus gates,
+                guardar la documentación y verificarla. <Code>implement</Code> usa sus herramientas
+                nativas con un solo escritor; si falta automatización, continúa en la sesión.
               </>
             ),
           },
           {
-            title: <>Claude, el único que construye</>,
+            title: <>Claude, su motor nativo</>,
             body: (
               <>
                 El build corre vía <Code>/pandacorp:implement</Code>: motor background, supervisor y

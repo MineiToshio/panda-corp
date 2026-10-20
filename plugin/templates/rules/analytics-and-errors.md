@@ -8,7 +8,7 @@ source: Pandacorp stack — PostHog & Sentry
 
 # Analytics & error tracking
 
-> Ships if the stack uses PostHog and/or Sentry. Apply only the section for the tool the project actually uses.
+> Ships only for PostHog and/or Sentry explicitly approved for the current version in the architecture decision round (DR-026/131). Apply only the approved tool section. Deferred/excluded providers add no SDKs, placeholder helpers, credentials, required env validation or provider-specific checks; structured logs remain mandatory.
 
 ## PostHog (analytics)
 - **Every event name lives in a single `POSTHOG_EVENTS` constant** (`src/lib/constants.ts`) — never loose strings scattered in the code.

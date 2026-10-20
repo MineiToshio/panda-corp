@@ -1,5 +1,8 @@
 # Proposal 25 — Multi-runtime portability: operate the factory from any coding agent (2026-07-04)
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 **Status:** IMPLEMENTED & VALIDATED 2026-07-04 — verified by two independent Codex sessions (round 1: 2 blockers found — content loss in the CLAUDE.md→AGENTS.md inversion, unrelated `mission-control/.pandacorp/` working-tree deletion — both fixed same day; PORT-5 gained an executable playbook; V2 findings filed as BL-0030..0032; round 2: GREEN on all three re-checks). Committed after the owner's cross-runtime validation gate passed.
 
 > **Operational supersession (2026-07-11):** this proposal remains dated design/history. Its D6 claims that file state plus the legacy `running`/heartbeat guard already permit cross-runtime build writes, mutual exclusion and resume are **not current operating permission**. The current contract is `factory/standards/agent-portability.md` PORT-5: strict runtime-local execution; Codex/non-Claude remain read/review-only while the installed R10 switch, current-head live recheck and R11 several-hours overnight canary are pending; runtime changes only as cold continuation after a clean safe-point stop and two-phase ownership release. R2/R3/R6, offline R7/R8/R11 and the fixture R10 switch are green, but those lower evidence levels do not grant build writes. Do not execute this proposal's old attended-write playbook.

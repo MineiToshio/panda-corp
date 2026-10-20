@@ -1,5 +1,7 @@
 # Stack C — Python service (FastAPI) + scraping/worker extension
 
+**Owner scope (DR-026/131):** PostHog and Sentry are installed only when each is explicitly approved for now in the architecture round. Defer/exclude means no SDKs, stubs, credentials or provider checks. Decide multilingual features and SEO separately; centralized launch-locale copy and structured logs remain baseline. Provider examples below are conditional on that decision.
+
 > **PROVISIONAL STACK — no canonical gate harness yet (audit-20, owner decision 2026-07-01).** Unlike stack A, this guide ships no canonical `verify.sh`/lint config, so the DR-059/DR-076 conformance ("installed byte-for-byte, upgrade diffs against the template") CANNOT yet protect a project born from it. This guide describes the **gate contract in prose**; the canonical files are listed under *Pending template machinery* below and MUST be built before/with the first real project on this stack. The browser gates (smoke/visual/responsive/shell) are N/A for a headless stack — that opt-out is DECLARED here (DR-059: an opt-out is a decision, not an omission).
 
 Installation guide for `/pandacorp:architecture`. Use cases: Python APIs, ML-adjacent services, data pipelines — **and** data collection / scraping / monitors with alerts (the old stack D, folded here: same base + the *Scraping/worker extension* below). Why FastAPI: Pydantic-v2 validation at the boundary, OpenAPI generated natively, async-first; **uv** manages Python + deps (the pip/poetry replacement), **ruff** is the single lint+format tool.

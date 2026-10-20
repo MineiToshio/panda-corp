@@ -13,7 +13,7 @@
 ## NEW standards created (`factory/standards/`)
 - **`performance.md`** (Quality, MUST web): CWV p75 (LCP≤2.5s/INP≤200ms/CLS≤0.1); Lighthouse-CI proxy block-on-main; field via PostHog.
 - **`web-security.md`** (Security, MUST): OWASP headers with literal values (HSTS/nosniff/Referrer/X-Frame/Permissions); CSP report-only in v1; header-scan in CI; preload submit = human.
-- **`observability.md`** (Operation): JSON logs (service.name) + Sentry day 1; OTel as a tiered portable layer.
+- **`observability.md`** (Operation): JSON logs (service.name) + Sentry only when explicitly approved for now (DR-026/131); OTel as a tiered portable layer.
 - **`privacy.md`** (Data, MUST): privacy by design (GDPR Art.25), minimization + RLS, export/delete (Arts.15/17/20), don't log PII.
 - **`api-design.md`** (Programming, MUST API): RFC 9457 errors (problem+json) + validation at the edge.
 - **`seo-i18n.md`** (Product, SHOULD web): Metadata API, sitemap/robots, next-intl, hreflang.

@@ -1,0 +1,1111 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "id": "namecheap",
+      "name": "Namecheap",
+      "type": "domains",
+      "purpose": "Domain registration and renewal",
+      "adoption": "base",
+      "dashboard_url": "https://ap.www.namecheap.com/",
+      "reuse_policy": "Reuse the authorized registrar account for all current and new root domains; default new MVPs to subdomains of pandatrack.app.",
+      "environment_policy": "Shared root domains; per-app subdomains. Purchase/renewal remains an owner action.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: API enablement has account eligibility requirements and IP allowlisting; no automatic domain purchases or renewals are required for subdomains.",
+      "sources": [
+        {
+          "url": "https://www.namecheap.com/support/api/intro/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "neon",
+      "name": "Neon",
+      "type": "database",
+      "purpose": "Managed PostgreSQL database",
+      "adoption": "base",
+      "dashboard_url": "https://console.neon.tech/",
+      "reuse_policy": "Reuse account; one Neon project named exactly resource_slug per application. SQL database name is distinct; preserve existing names.",
+      "environment_policy": "Dev/prod branches, distinct roles and URLs; pooled DATABASE_URL and direct DATABASE_URL_UNPOOLED according to framework contract.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Look up stored project and branch IDs before create; reconcile by exact resource_slug if no ID exists.",
+          "Confirm selected plan and current project/branch/storage/compute capacity.",
+          "Authorized creation route: linked Create Project operation https://api-docs.neon.tech/reference/createproject; supply the approved exact resource_slug name, persist returned project ID, then reconcile branch/role identifiers before obtaining pooled/direct URIs. A project-creation recipe is not permission to issue an admin token.",
+          "For authorized setup create only missing project/branches/roles, persist IDs, obtain pooled and direct connection URIs privately.",
+          "Neon Console/API/CLI-created roles inherit neon_superuser; reserve those bootstrap/admin credentials for their approved management or migration destination. For a restricted application role, use SQL on the selected branch, grant only the installed consumer privileges, and verify attributes/memberships and the saved credential before changing an existing role. Keep dev/prod runtime roles distinct; account/branch creation alone does not prove app permissions.",
+          "Place URLs in approved runtime/migration destinations; verify connection without logging credentials."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Free research listed 100 projects/account and 10 branches/project. Storage/compute quotas and aggregate account storage also apply; 100 projects is not 100 independent budgets.",
+      "sources": [
+        {
+          "url": "https://neon.com/docs/introduction/plans",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://api-docs.neon.tech/reference/createproject",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://neon.com/docs/manage/roles",
+          "checked_at": "2026-10-20"
+        },
+        {
+          "url": "https://neon.com/docs/manage/database-access",
+          "checked_at": "2026-10-20"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "DATABASE_URL",
+          "source": "Neon project/branch connection details or authorized API; pooled URI",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": true,
+          "purpose": "Runtime PostgreSQL queries.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "DATABASE_URL_UNPOOLED",
+          "source": "Same selected branch; direct/unpooled connection details",
+          "targets": [
+            "migration",
+            "worker_runtime",
+            "local_cli"
+          ],
+          "secret": true,
+          "purpose": "Migration or direct-connection consumers only when their framework requires it.",
+          "note": "Example name only; preserve the framework contract and use the role required by that destination. A direct URI does not imply administrator privileges: keep bootstrap/migration credentials separate from web and renderer runtime."
+        }
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare R2 / DNS",
+      "type": "storage_dns",
+      "purpose": "Private media/object storage and DNS",
+      "adoption": "base",
+      "dashboard_url": "https://dash.cloudflare.com/",
+      "reuse_policy": "Reuse authorized account and DNS zone; private <slug>-dev and <slug>-prod buckets only when storage is selected. No MVP DB backups.",
+      "environment_policy": "Same real R2 SDK/adapter in local dev and prod, configuration only differs. Example funko-tracker-dev / funko-tracker-prod; same R2_BUCKET_PRIVATE variable, scoped credentials and per-env CORS/lifecycle.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized account ID and root DNS zone in private registry.",
+          "Look up bucket IDs/names; prepare only missing <slug>-dev and <slug>-prod plus approved DNS records.",
+          "Use the authorized R2 management API/Wrangler route for bucket/configuration preparation, then S3-compatible application operations documented at https://developers.cloudflare.com/r2/api/s3/api/. Account/bucket token setup follows https://developers.cloudflare.com/r2/api/tokens/; do not use an account-admin token as the application access key.",
+          "After authorization create scoped per-bucket credentials and matching CORS/lifecycle; never delete shared DNS/MX records.",
+          "Wire same adapter to real dev/prod R2 and verify approved upload/signed download without exposing secrets."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: R2 research listed up to 1,000,000 buckets/account, Standard storage allowance 10 GB/month plus operation allowances shared by the account. Separate buckets do not multiply free usage.",
+      "sources": [
+        {
+          "url": "https://developers.cloudflare.com/r2/api/s3/api/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.cloudflare.com/r2/api/tokens/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.cloudflare.com/r2/platform/limits/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.cloudflare.com/r2/pricing/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.cloudflare.com/r2/api/tokens/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.cloudflare.com/r2/api/s3/temporary-credentials/",
+          "checked_at": "2026-10-19"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "R2_ACCOUNT_ID",
+          "source": "Authorized Cloudflare account metadata",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": false,
+          "purpose": "Construct approved S3-compatible R2 endpoint.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "R2_ACCESS_KEY_ID",
+          "source": "Authorized bucket-scoped S3 credential issuance",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": true,
+          "purpose": "Storage access with target-specific minimum permissions.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "R2_SECRET_ACCESS_KEY",
+          "source": "Secret paired with bucket-scoped access key, private store",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": true,
+          "purpose": "Sign storage operations; never public/client code.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "R2_BUCKET_PRIVATE",
+          "source": "Selected environment bucket name",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": false,
+          "purpose": "funko-tracker-dev locally; funko-tracker-prod in production, same adapter.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        }
+      ]
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "type": "hosting",
+      "purpose": "Web application hosting",
+      "adoption": "base",
+      "dashboard_url": "https://vercel.com/dashboard",
+      "reuse_policy": "Reuse authorized account/team; one resource_slug project per web app. Owner chooses applicable paid plan.",
+      "environment_policy": "Development/preview/production variable targets follow project contract; staging is not created routinely.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Record actual team/project plan. Research listed Fluid Compute Hobby up to 300 seconds and 2 GB, Pro up to 800 seconds and 4 GB; real workload/package/memory limits still need measurement. Modal supersedes this renderer candidate for Funko; do not infer viability from duration alone.",
+      "sources": [
+        {
+          "url": "https://vercel.com/docs/plans/hobby",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://vercel.com/docs/limits/fair-use-guidelines",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://vercel.com/docs/limits",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://vercel.com/docs/functions/limitations",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://pusher.com/channels/pricing/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "google_cloud",
+      "name": "Google Cloud OAuth",
+      "type": "authentication",
+      "purpose": "Google sign-in and selected Google APIs",
+      "adoption": "base",
+      "dashboard_url": "https://console.cloud.google.com/apis/credentials",
+      "reuse_policy": "Reuse shared PandaTrack Google Cloud project; one OAuth client per application. Same client credentials across that app’s approved environment callback origins. Ask for unusual context or genuine constraint.",
+      "environment_policy": "Same per-app client ID/secret across approved dev/staging/prod origins; register exact callback URLs; no staging by default.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized shared PandaTrack project and OAuth consent configuration.",
+          "Look up stored per-app client ID; browser fallback for console-only client creation.",
+          "Console route: shared project → APIs & Services → Credentials → application web OAuth client; register exact local/prod redirect paths from the auth framework. The web-server OAuth flow is documented at https://developers.google.com/identity/protocols/oauth2/web-server; general automatic web-client issuance was not validated, so retain this browser/manual boundary.",
+          "Register exact approved origins/callbacks including localhost and production for the same app client.",
+          "Store client secret privately and put only public client identifiers in public destinations; changing shared consent requires review."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Clients within one project share OAuth consent and authorization context. Project quota depends on the account; there is no universal ten-project allowance. IAM OAuth client APIs are not proof of general web-client creation support.",
+      "sources": [
+        {
+          "url": "https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.google.com/identity/protocols/oauth2/cross-client-identity",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.google.com/identity/protocols/oauth2/cross-client-identity",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.google.com/identity/protocols/oauth2/web-server",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.cloud.google.com/resource-manager/docs/creating-managing-projects",
+          "checked_at": "2026-10-19"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "GOOGLE_CLIENT_ID",
+          "source": "Per-app OAuth web client in shared PandaTrack project",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": false,
+          "purpose": "Configure Google sign-in for this application.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "GOOGLE_CLIENT_SECRET",
+          "source": "Same per-app OAuth client secret; approved private store",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": true,
+          "purpose": "Server-side Google OAuth exchange; same client across app callback environments.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "BETTER_AUTH_URL",
+          "source": "Approved local/prod deployment URL",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": false,
+          "purpose": "Auth base and callback origin, such as http://localhost:<reserved-port> or https://funko-tracker.pandatrack.app.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "BETTER_AUTH_SECRET",
+          "source": "Cryptographically secure random 32+ byte local generation",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": true,
+          "purpose": "Session signing; generate only for selected auth scope, isolate app/environment secrets.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        }
+      ]
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "type": "email_sending",
+      "purpose": "Transactional sending",
+      "adoption": "optional",
+      "dashboard_url": "https://resend.com/",
+      "reuse_policy": "Reuse verified pandatrack.app domain; app/environment scoped sending key where supported. hello@pandatrack.app with app display name and subject context.",
+      "environment_policy": "App/environment sending keys where supported; shared domain does not require separate domains per environment.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Verify shared domain DNS and current sending permission; a sending key may not administer domains/keys.",
+          "For authorized inventory use List Domains https://resend.com/docs/api-reference/domains/list-domains; key preparation follows Create API Key https://resend.com/docs/api-reference/api-keys/create-api-key. Sending-only keys cannot replace the administration scope required for these operations; use console when authorized API access is absent.",
+          "Look up stored key/resource metadata and prepare per-app/environment restricted key if supported.",
+          "Use hello sender with app display name, contextual subject and Reply-To; do not create a new domain routinely.",
+          "Sending a real test email requires explicit authorization; never infer recipe_tested from key existence."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Observed Free research listed 3,000 emails/month, 100/day shared by team and 3 domain slots. Current use/remaining slots must be rechecked. Receiving stays in ImprovMX; do not change MX to enable Resend receiving.",
+      "sources": [
+        {
+          "url": "https://resend.com/pricing",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://resend.com/docs/api-reference/api-keys/create-api-key",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://resend.com/docs/dashboard/domains/introduction",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://www.resend.com/changelog/cli",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://resend.com/docs/api-reference/domains/list-domains",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://resend.com/docs/dashboard/emails/tags",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://resend.com/docs/api-reference/emails/send-email",
+          "checked_at": "2026-10-19"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "RESEND_API_KEY",
+          "source": "Authorized sending key scoped to app/environment where supported",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": true,
+          "purpose": "Transactional sending in the process that actually sends; not domain/key administration.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "MAIL_FROM",
+          "source": "Verified shared domain and app display identity",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": false,
+          "purpose": "Example: Funko Tracker <hello@pandatrack.app>.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "CONTACT_INBOX",
+          "source": "Approved shared inbound route",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": false,
+          "purpose": "Example hello+funko-tracker@pandatrack.app after verified forwarding; subject carries app context.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        }
+      ]
+    },
+    {
+      "id": "improvmx",
+      "name": "ImprovMX",
+      "type": "email_receiving",
+      "purpose": "Inbound forwarding to shared mailbox",
+      "adoption": "optional",
+      "dashboard_url": "https://app.improvmx.com/",
+      "reuse_policy": "Reuse shared hello inbox and forwarding; verify hello+<slug>@pandatrack.app delivery. Direct generic mail without context cannot reveal the intended app.",
+      "environment_policy": "Shared inbox; app context in plus address, subject and Reply-To. Verify forwarding behavior.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Verify authorized account, existing MX and wildcard/alias route.",
+          "Confirm plus-address behavior before publishing hello+<slug> address.",
+          "Use one inbox, app context in subject/reply path; explicit alias only for distinct routing.",
+          "Treat direct generic mail without context as unidentifiable; real delivery tests need authorization."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Free research listed 1 domain, 25 aliases and 500 forwards/day, with API access; SMTP sending was not included. Existing wildcard/plus forwarding may avoid an alias per app, but delivery must be verified.",
+      "sources": [
+        {
+          "url": "https://www.improvmx.com/pricing/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://improvmx.com/api/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://www.improvmx.com/guides/using-regexes-for-your-aliases/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://support.google.com/mail/answer/7190?hl=en",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog",
+      "type": "analytics",
+      "purpose": "Product analytics when approved",
+      "adoption": "optional",
+      "dashboard_url": "https://app.posthog.com/",
+      "reuse_policy": "Explicit now/deferred/excluded owner choice. Check current organization/project capacity. Do not create organizations/accounts to bypass paid limits; evaluate optional alternatives only when needed.",
+      "environment_policy": "Only selected scope receives keys/SDKs; isolate events by approved provider project, never mix apps silently.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Research/account UI listed one project without card; adding a card could unlock up to six projects with shared product allowances and chargeable overage if enabled. This is not unlimited free capacity. Confirm zero-spend controls for every activated product before selection.",
+      "sources": [
+        {
+          "url": "https://posthog.com/pricing",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://support.google.com/analytics/answer/9303323?hl=en",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://support.google.com/analytics/answer/7579450",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://learn.microsoft.com/en-us/clarity/faq",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://mixpanel.com/pricing/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://www.amplitude.com/pricing",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://posthog.com/pricing",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://posthog.com/docs/settings/projects",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "type": "error_tracking",
+      "purpose": "Error tracking when approved",
+      "adoption": "optional",
+      "dashboard_url": "https://sentry.io/settings/",
+      "reuse_policy": "Explicit now/deferred/excluded owner choice. Reuse authorized organization with project per app, subject to verified plan limits.",
+      "environment_policy": "Only selected scope receives DSN/SDK; environment tags inside approved app project.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Developer research observed 5,000 included errors per period. Additional project capacity/permissions were not verified and adding members required a paid plan. Never assume unlimited projects or treat test errors as production traffic.",
+      "sources": [
+        {
+          "url": "https://docs.sentry.io/api/projects/",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.sentry.io/api/users/list-your-organizations/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "modal",
+      "name": "Modal",
+      "type": "compute",
+      "purpose": "On-demand isolated poster rendering; selected for Funko Tracker",
+      "adoption": "optional",
+      "dashboard_url": "https://modal.com/",
+      "reuse_policy": "Reuse authorized workspace; app-specific function/deployment and scoped secrets. Funko Tracker uses Modal instead of Railway/Cloud Run for exports. No card, upgrade or paid fallback by default.",
+      "environment_policy": "Local development may run the renderer locally; Modal function uses approved production secrets. One writer, bounded jobs/concurrency, no warm containers, scale to zero. R2 remains separate real dev/prod storage.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Verify authorized workspace, current included credit and hard usage limit before deployment.",
+          "Use the already authorized runtime-local Modal CLI to reconcile workspace/app names, prepare the selected function deployment and inject only its approved worker secrets. Deployment is a separate authorized operation; the isolated POC did not test automatic cross-project provisioning. Confirm hard usage limit/spend semantics at https://modal.com/docs/guide/budgets before accepting export work.",
+          "Reconcile existing app/function IDs; prepare only approved on-demand deployment with bounded concurrency/timeouts.",
+          "Use app/worker secrets only, preserve idempotent export status and callbacks; no new queue/email/R2 service setup from this recipe.",
+          "On free-credit exhaustion pause new exports with honest user messaging until reset; no automatic paid fallback.",
+          "Isolated rendering POC evidence does not prove production authentication, end-to-end integration or provisioning automation."
+        ]
+      },
+      "quota_notes": "Account-specific no-card credit/usage limit must be verified in workspace. Public Starter credit may require a payment method; do not infer entitlement or promise unlimited/free operation. Compute time excludes startup/retry/other billable items.",
+      "sources": [
+        {
+          "url": "https://modal.com/pricing",
+          "checked_at": "2026-10-20"
+        },
+        {
+          "url": "https://modal.com/docs/guide/budgets",
+          "checked_at": "2026-10-20"
+        }
+      ],
+      "variable_examples": [
+        {
+          "name": "WORKER_WAKE_URL",
+          "source": "Authorized Modal deployment endpoint/function integration contract",
+          "targets": [
+            "web_runtime"
+          ],
+          "secret": false,
+          "purpose": "Existing example dispatch URL name; implementation must preserve or explicitly replace its approved contract.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "WORKER_SHARED_SECRET",
+          "source": "Cryptographically secure shared request-auth key, if selected dispatch contract uses HMAC",
+          "targets": [
+            "web_runtime",
+            "worker_runtime"
+          ],
+          "secret": true,
+          "purpose": "Authenticate app-to-function dispatch; server-side only.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "MODAL_TOKEN_ID",
+          "source": "Modal CLI credential setup on authorized operator machine",
+          "targets": [
+            "local_cli"
+          ],
+          "secret": true,
+          "purpose": "Operator deployment authentication, never a default application runtime variable.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        },
+        {
+          "name": "MODAL_TOKEN_SECRET",
+          "source": "Modal CLI credential setup/private store",
+          "targets": [
+            "local_cli"
+          ],
+          "secret": true,
+          "purpose": "Operator secret, never app runtime/public env or account metadata.",
+          "note": "Example name only; preserve the selected project/framework contract."
+        }
+      ]
+    },
+    {
+      "id": "railway",
+      "name": "Railway",
+      "type": "compute",
+      "purpose": "Optional long-running server processes",
+      "adoption": "reference",
+      "dashboard_url": "https://railway.com/dashboard",
+      "reuse_policy": "Reference alternative only; not selected for Funko Tracker export compute after Modal POC. Verify real post-trial CPU/memory/budget before selecting elsewhere.",
+      "environment_policy": "No service provisioned by catalog; select environment sizing after evidence.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Free-after-trial research listed US$1 non-rolling monthly credit and up to 0.5 GB RAM / 1 vCPU per service. Trial credit is not a permanent capacity guarantee. Later isolated Funko testing selected Modal; this is not the active export executor.",
+      "sources": [
+        {
+          "url": "https://docs.railway.com/pricing/plans",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.railway.com/integrations/api",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.railway.com/pricing/free-trial",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://railway.com/pricing",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "cloud_run",
+      "name": "Cloud Run Jobs",
+      "type": "compute",
+      "purpose": "Project-specific batch/video processing",
+      "adoption": "project_specific",
+      "dashboard_url": "https://console.cloud.google.com/run",
+      "reuse_policy": "Project-specific option for batch/video work; not selected for Funko Tracker export compute. Verify billing and service account scope before use.",
+      "environment_policy": "Environment-specific service account/config if selected; no always-on jobs by default.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Duration/resources configurable; cost depends on execution and region. Verify current billing and quotas. A budget alert is not a hard automatic spending cutoff.",
+      "sources": [
+        {
+          "url": "https://docs.cloud.google.com/run/docs/configuring/task-timeout",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.cloud.google.com/run/docs/reference/rest",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "zernio",
+      "name": "Zernio",
+      "type": "social_publishing",
+      "purpose": "Social publishing integration",
+      "adoption": "project_specific",
+      "dashboard_url": "https://zernio.com/signin",
+      "reuse_policy": "Project-specific publishing candidate; document channels and actor/resource separation before reuse. No universal social-service setup.",
+      "environment_policy": "Channel-specific account/permission mapping when selected.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Research listed 2 free connected social accounts per team and unlimited profiles. Extra profiles or keys do not grant another two free social connections. Verify occupied connections and token persistence before use.",
+      "sources": [
+        {
+          "url": "https://docs.zernio.com/pricing",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.zernio.com/multi-tenant",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "name": "Meta",
+      "type": "social_publishing",
+      "purpose": "Instagram/Facebook publishing integration",
+      "adoption": "project_specific",
+      "dashboard_url": "https://developers.facebook.com/apps/",
+      "reuse_policy": "Project-specific social permissions and app review; preserve existing integrations, do not create in unrelated MVPs.",
+      "environment_policy": "Explicit app permissions and approved social accounts only.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Requirements depend on account type, permissions and app review. No maximum app count or publishing capability was verified for the authorized account; official recipe access remained pending.",
+      "sources": [
+        {
+          "url": "https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login/content-publishing/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "tiktok",
+      "name": "TikTok",
+      "type": "social_research",
+      "purpose": "Research or approved social integration",
+      "adoption": "reference",
+      "dashboard_url": "https://developers.tiktok.com/",
+      "reuse_policy": "Research reference, not proof of active PandaCast publishing. Verify permitted operation and viability; do not assume Display API grants publishing/download rights.",
+      "environment_policy": "Sandbox/research status does not imply production approval.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: No account quota, application capacity or download permission was verified. Display API documents metadata/display, not a general downloadable video-file or publishing route.",
+      "sources": [
+        {
+          "url": "https://developers.tiktok.com/docs/en/display-api-overview",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "firebase",
+      "name": "Firebase",
+      "type": "backend",
+      "purpose": "Existing application auth/data services",
+      "adoption": "reference",
+      "dashboard_url": "https://console.firebase.google.com/",
+      "reuse_policy": "Preserve existing integration; new use requires approval. Reuse authorized Google account with separate <slug>-dev and <slug>-prod Firebase projects.",
+      "environment_policy": "Two distinct projects for dev/prod if newly selected; no routine staging.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Research described initial creation quotas often 5–10 Spark projects, varying by account. Apps inside a project share product context; separate dev/prod projects consume that quota. CLI installation did not prove administrator authentication.",
+      "sources": [
+        {
+          "url": "https://firebase.google.com/docs/projects/dev-workflows/overview-environments",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://firebase.google.com/docs/projects/learn-more",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "kit",
+      "name": "Kit",
+      "type": "mailing_list",
+      "purpose": "Optional mailing-list subscriptions",
+      "adoption": "optional",
+      "dashboard_url": "https://app.kit.com/",
+      "reuse_policy": "Off by default. Ask “Do you want to store subscribers in a mailing list?”; only explicit now creates forms/tags and integration. App DB capture does not require Kit.",
+      "environment_policy": "Only approved lists/forms/tags; no mailing-list keys for deferred scope.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: API/contact capacity depends on plan; effective account limits were not verified. Some v4 endpoints require OAuth/eligible plan; reading subscribers does not prove account administration. Off by default.",
+      "sources": [
+        {
+          "url": "https://developers.kit.com/v4",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://developers.kit.com/api-reference/authentication",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini / Google AI",
+      "type": "ai",
+      "purpose": "Approved generative AI calls",
+      "adoption": "optional",
+      "dashboard_url": "https://aistudio.google.com/",
+      "reuse_policy": "Reuse authorized account/project and existing key if the approved risk model permits shared quota; app-specific restricted key preferred where useful. Shared key does not create independent quotas.",
+      "environment_policy": "Google-project-level quotas are shared across API keys; separate app identifiers/key restrictions where available.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Quotas apply per Google project, not per API key, and vary by model/tier. Another key does not create more quota. Verify restrictions and billing without triggering a paid generation merely to test access.",
+      "sources": [
+        {
+          "url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://ai.google.dev/gemini-api/docs/rate-limits",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "serper",
+      "name": "Serper",
+      "type": "search",
+      "purpose": "Project-specific web search",
+      "adoption": "project_specific",
+      "dashboard_url": "https://serper.dev/dashboard",
+      "reuse_policy": "Project-specific only; reuse authorized key if scope permits. Verify current balance and rate limits before selection.",
+      "environment_policy": "No default additional accounts; preserve scope of existing research use.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Offer research listed 2,500 initial free queries, not a recurring monthly allowance. Verify balance, expiry and contracted limits before use; do not recharge automatically.",
+      "sources": [
+        {
+          "url": "https://serper.dev/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "tavily",
+      "name": "Tavily",
+      "type": "search",
+      "purpose": "Project-specific web search",
+      "adoption": "project_specific",
+      "dashboard_url": "https://app.tavily.com/",
+      "reuse_policy": "Project-specific only; reuse authorized key if scope permits; shared key shares quota and blast radius.",
+      "environment_policy": "No default additional accounts; shared quota tracked by date.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Usage is metered in credits according to plan. Effective account allowance was not established in the proposal. A read-only usage response does not prove key issuance/provisioning or email identity.",
+      "sources": [
+        {
+          "url": "https://docs.tavily.com/documentation/api-credits",
+          "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://docs.tavily.com/documentation/api-reference/endpoint/usage",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "deepl",
+      "name": "DeepL",
+      "type": "translation",
+      "purpose": "Project-specific translation",
+      "adoption": "project_specific",
+      "dashboard_url": "https://www.deepl.com/account/",
+      "reuse_policy": "Project-specific only; reuse authorized key if scope permits. Not a universal multilingual dependency.",
+      "environment_policy": "No default additional accounts or per-locale setup.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Admin API Pro research described up to 25 active keys and per-key limits for eligible API Pro/Growth/Enterprise plans. Do not attribute this capacity to a free account; translation key is not an admin key.",
+      "sources": [
+        {
+          "url": "https://developers.deepl.com/api-reference/admin-api",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "type": "messaging",
+      "purpose": "Project-specific bots and notifications",
+      "adoption": "project_specific",
+      "dashboard_url": "https://t.me/BotFather",
+      "reuse_policy": "Project-specific only. Preserve current bots; choose bot/chat ownership deliberately and never send test messages without authorization.",
+      "environment_policy": "Bot and chat references are private operational metadata.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Sending limits vary by bot/chat; no universal maximum bot count was verified for this account. BotFather setup and bot API use are distinct permissions.",
+      "sources": [
+        {
+          "url": "https://core.telegram.org/bots/faq",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "apps_script",
+      "name": "Apps Script / Sheets",
+      "type": "automation",
+      "purpose": "Sheet-based automation",
+      "adoption": "project_specific",
+      "dashboard_url": "https://script.google.com/home",
+      "reuse_policy": "Reuse authorized Google account; create separate sheet/script for a real project need, preserving sheet IDs and deployment ownership.",
+      "environment_policy": "Per-app sheet/script IDs, minimum scopes and explicit deployment ownership.",
+      "automation": {
+        "methods": [
+          "api",
+          "cli",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Quotas depend on Google account type and many are shared per user. A new script does not reset the user allowance; record script/sheet ownership separately.",
+      "sources": [
+        {
+          "url": "https://developers.google.com/apps-script/guides/services/quotas",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    },
+    {
+      "id": "web3forms",
+      "name": "Web3Forms",
+      "type": "forms",
+      "purpose": "Simple contact form delivery",
+      "adoption": "reference",
+      "dashboard_url": "https://app.web3forms.com/",
+      "reuse_policy": "Preserve existing contact integration; consider only for a simple public form need, not a universal backend dependency.",
+      "environment_policy": "Per-site form key/allowed origins when selected.",
+      "automation": {
+        "methods": [
+          "api",
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm authorized identity/organization and reconcile stored native resource IDs before any create.",
+          "Check current official operation-specific API/CLI support, permissions, pricing and quota; documented route is not authenticated access.",
+          "Prepare only approved resources and variable destinations; use browser for unsupported steps with identity verification.",
+          "Record actual operation evidence and unresolved steps; do not claim tested automation from documentation alone."
+        ]
+      },
+      "quota_notes": "Research recorded 2026-10-19 in the approved proposal; historical, pending current account verification: Form/submission allowance remained unverified. No account creation or magic-link sending merely to fill a catalog field.",
+      "sources": [
+        {
+          "url": "https://app.web3forms.com/",
+          "checked_at": "2026-10-19"
+        }
+      ]
+    }
+  ]
+}

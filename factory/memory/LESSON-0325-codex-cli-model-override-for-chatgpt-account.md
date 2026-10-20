@@ -43,3 +43,12 @@ the trailing prompt text, failing with "No prompt provided via stdin" — pass t
 literal `-` argument instead of appending it after `-i <file>`. (2) image-generation calls can return a
 transient 503 while still exiting 0 with NO file written — never trust exit code alone; retry with
 backoff and verify the expected output file actually exists on disk before proceeding.
+
+**Fourth corroborating instance, resume + capacity gotchas (funko-tracker, 2026-10-19, agent-inferred,
+Codex as sole writer under an owner-granted DR-120 exception, codex-cli 0.163.0, see LESSON-0442):**
+`codex exec resume <id>` does NOT carry over the original invocation's `--sandbox danger-full-access`
+flag — a resumed run could not create `.git/index.lock` and therefore could not commit, failing silently
+mid-task rather than with an obvious permission error. The flag must be passed again explicitly on every
+`resume` call, not assumed inherited from the session being resumed. Separately in the same run,
+`gpt-6-astra` returned "Selected model is at capacity" mid-task; resuming the SAME session (with the
+sandbox flag re-passed) recovered the in-progress work rather than losing it.

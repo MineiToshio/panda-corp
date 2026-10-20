@@ -405,3 +405,8 @@ ADR-0009 amends presentation only. ArchitectureDigest composes hero, stack, `Ser
 ## Persistent navigation and resource identity (FRD-25)
 
 All eight page families use the [shared URL contract](../frds/frd-25-persistent-navigation/frd.md) and [ADR-0010](../adr/ADR-0010-persistent-navigation-identity.md). Dynamic request-time adapters preserve existing shared surfaces and both workspace contexts. The filesystem API/SSE project key remains separate from public identity. Owner-private `factory/navigation-identities.json` is read-only to Mission Control, with one explicit CLI/lifecycle writer, dedicated resource references and vault backup. The platform still executes no AI/build command during navigation. Native history owns client selection; server data selections use Next navigation and scoped readers.
+
+
+## Services and account directory
+
+The [FRD-26 blueprint](../frds/frd-26-services-accounts/blueprint.md) defines the read-only local join between the public factory service catalog, private vault account identities and per-project integration links. Private identities never enter public Manual projections. No cloud API, provisioning or persistent writes occur during page reads. The global Portfolio Accounts view preserves project selection through `portfolioView=accounts`; project workspaces expose `accounts` as their tenth tab. [ADR-0011](../adr/ADR-0011-services-account-directory.md) records the boundary.

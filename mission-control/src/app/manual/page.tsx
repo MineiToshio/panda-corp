@@ -32,6 +32,7 @@ import type React from "react";
 import { readManualPages } from "@/lib/manual/manual";
 import { readAgents, readSkills } from "@/lib/reference/reference";
 import { readDecisionRules } from "@/lib/registry/registry";
+import { readServiceManualPages } from "@/lib/services/manual";
 import { readStandards } from "@/lib/standards/standards";
 import { ManualShell } from "./ManualShell";
 
@@ -63,7 +64,7 @@ const PAGE_STYLE: React.CSSProperties = {
 
 export default function ManualPage(): React.JSX.Element {
   // Server-side reads — all filesystem access stays on the server (architecture §3).
-  const pages = readManualPages();
+  const pages = [...readManualPages(), ...readServiceManualPages()];
   const skills = readSkills();
   const agents = readAgents();
   const rules = readDecisionRules();

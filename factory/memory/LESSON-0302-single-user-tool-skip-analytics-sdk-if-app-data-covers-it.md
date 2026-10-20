@@ -9,10 +9,10 @@ source: "pandacast docs/decision-log.md, 2026-10-10 — \"No analytics in v1\": 
 provenance: owner-stated
 created: 2026-10-13
 status: active
-promotion: none
+promotion: proposed   # 2026-10-18 (librarian review) — target: factory/decisions/registry.yaml (new DR default: for a single-user/owner-only tool, default to "no analytics SDK" when the app's own structured data already answers the PRD's success metrics; propose instrumentation only when a metric genuinely isn't observable from app data). Cited by 2 distinct projects (pandacast, pandasaga) with zero contradicting evidence — this is a recurring scoping DECISION with a clear default, not just a one-off engineering fact, so registry.yaml is the more precise home than a standard.
 confidence: medium
-times_applied: 1
-applied_in: [pandasaga]
+times_applied: 2
+applied_in: [pandasaga, funko-tracker]
 links: []
 ---
 

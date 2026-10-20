@@ -70,13 +70,13 @@ const ROWS: readonly Row[] = [
   {
     capability: "Build (implement)",
     claude: "background + paralelo, motor dinámico",
-    codex: "no habilitado — solo lectura/review (congelado, DR-120)",
-    status: "claude-only",
+    codex: "acceso completo; sesión nativa o launcher foreground con alcance probado (DR-133)",
+    status: "degrades",
   },
   {
     capability: "Construcción nocturna",
     claude: "desatendida, corre por horas sin owner",
-    codex: "no habilitada; sin ejecutor de build (congelado, DR-120)",
+    codex: "sesión atendida; sin promesa de automatización nocturna",
     status: "claude-only",
   },
   {
@@ -106,7 +106,7 @@ const ROWS: readonly Row[] = [
   {
     capability: "Notificaciones",
     claude: "push al escritorio + móvil",
-    codex: "sin build que notificar (solo lectura/review, DR-120); responde en chat",
+    codex: "progreso y resultados en chat; notificaciones si el runtime las ofrece",
     status: "degrades",
   },
   {

@@ -12,6 +12,14 @@ the way `docs/rules/` are copied. A hand-rolled variant is the DR-059 pre-audit 
 its own gates, `/upgrade` unable to diff them). Project-specific additions go in **separate** files, never in an edit
 of a canonical one, so `/pandacorp:upgrade`'s conformance check stays clean. Verify with `cmp` per file.
 
+**Locked scope before installation (DR-131).** Read the five explicit decisions (PostHog, Sentry, multilingual i18n, SEO and mailing-list need) and install only current-version capabilities. Template package lists are suggestions, never consent. Deferred/excluded providers get no SDKs, helpers/stubs, credentials or required env validation; additional locale routing/SEO artifacts follow the chosen scope. Centralized launch-locale copy and structured logs remain baseline. Reconcile the exact install record and `.env.example` against these decisions before hand-off.
+
+**MVP/v1 DB recovery installation boundary.** Use the verified native provider recovery from the recovery
+ADR. Never add external DB-backup SDKs/jobs, backup buckets/keys, custom restore machinery or their env/secrets/
+tests because a template suggests them; external DB backups wait until product validation. Product-export/media
+storage dependencies remain valid when separately in scope. A legal/FRD recovery conflict stops installation for
+resolution; it is not permission to add a backup system or alter a verbatim gate.
+
 ## (a) Provisional-stack harness gate (BL-0016, DR-105): BEFORE any VERBATIM copy
 
 The VERBATIM copies assume the chosen stack's canonical harness exists under
@@ -58,7 +66,7 @@ devDependency.
 
 From `.pandacorp/status.yaml` `dev_port_base` (reserved at scaffold, DR-022): write `.claude/launch.json` with the
 app on `base+0` (the stack's dev command, e.g. `pnpm` `["run","dev"]` plus the `--port`/`-p base` flag and
-`"port": base`), and set the app/DB/service ports in `.env` per the block offsets (Postgres `+2`, Redis `+4`).
+`"port": base`), and set local app/DB/service ports in the final local-only block of `.env.local` per the block offsets (Postgres `+2`, Redis `+4`). Configure Compose to read that file explicitly for port interpolation (for example `docker compose --env-file .env.local up -d`); do not generate a fourth `.env` file.
 `dev_port_base: 0` → allocate a block from `factory/ports.yaml` exactly as `scaffold` does, then materialize.
 
 ## (e) Exact versions at the install point (DR-102, SEC-4 cooldown)
@@ -88,8 +96,7 @@ throws outside the framework's server bundle). Otherwise guard server modules by
 
 ## (f) `.env.example`, `AGENTS.md`, README (DR-102, DR-112/DOC-3)
 
-- `.env.example` at the root: every env var the app reads (name + one-line comment, empty value); real `.env*`
-  stay gitignored.
+- Exactly three root dotenv files: tracked `.env.example` with empty approved names, protected ignored `.env.local` for development and `.env.production` for production handoff. Group by service within labelled destination blocks; app secrets state their consumers. Local-only dev/test/oracle/CI tooling is last in guide/dev and absent from production. Distinct runtime privileges use storage aliases plus explicit target selectors/exporters, not extra files or duplicate keys. Check actual framework precedence and destination isolation with fake values; preserve injected fixture DB/seed inputs. Finalize the contract before step 9b3 (`environment-delivery.md`) fills private values. Existing values/port setup survive an inventoried consolidation without rotation; missing loader/build bindings stay pending.
 - `AGENTS.md` pointing agents at the framework's VERSION-MATCHED docs when the framework ships them (Next.js
   `create-next-app` emits the pointer), merged below the managed Pandacorp header: the direct fix for coding against
   an API the model only remembers.

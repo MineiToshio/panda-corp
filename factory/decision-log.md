@@ -1,5 +1,53 @@
 # Decision Log — Factory
 
+## 2026-10-20 — Explain locally executed migration credentials by database target
+
+**What:** Architecture delivery comments distinguish execution from the owner's Mac from the development/production database being changed. Migration entries sit below the final local/operator-only separator in `.env.local`/`.env.example`; `.env.production` retains a labelled production-target operator block. Name the actual migration CLI and explain that the value is read locally rather than uploaded to Vercel/Modal runtime. Updated the standard, operative rule, template, gate and Manual guide; EXT-7 is clarified without another rule.
+**Why:** Local execution does not make the production database connection unnecessary. Avoid moving it to development, deleting a consumed credential, or treating it like Python/browser tooling. No migration variables without a real approved consumer; no migration execution, credential changes or new files in this factory change. Plugin 9.138.1 / overlay 8.108.1.
+
+
+## 2026-10-20 — Standardize three environment files across project architecture
+
+The owner-approved three-file convention replaces the separate production-local/worker/migration/tooling files. Updated [external-services](standards/external-services.md), the operative rule and EXT-7 registry, architecture/installer/template and downstream guidance. Service/destination sections retain distinct privileges via explicit selectors/exports, with local-only entries last in guide/dev and absent from production. Port/Compose/readme/worktree instructions no longer create a fourth `.env`. Legacy private-file consolidation is scoped, value-preserving and never triggered by an upgrade alone. Plugin 9.138.0 / overlay 8.108.0; existing provider identities/resources and product scopes unchanged.
+
+
+## 2026-10-20 — Refine the Neon recipe after the first provisioning trial
+
+The [provider catalog](services/catalog.yaml) now distinguishes Neon API/CLI bootstrap roles from SQL-created restricted application roles, with current official role/access sources. Direct/unpooled describes a connection route, not an administrator privilege requirement. Provider-issued management credentials remain separate from runtime credentials. The Funko trial is private operational evidence, not public proof that every recipe or application is ready.
+
+## 2026-10-20 — Architecture delivers private environment values, not only a map
+
+**What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.
+**Why:** The owner asked for usable environment preparation, including application-generated secrets, rather than a names/origins list or an unsupported production-ready claim. Expand existing standard, operative rule, architecture/installer/gates/template, implement/release readiness and Manual guide. No cloud calls, actual environment files, generic secret writer or Mission Control app changes are part of this factory change. Manual independent delivery checklist remains explicit; catalog validation does not certify secret files. Plugin 9.137.0 / overlay 8.107.0.
+
+
+
+## 2026-10-20 — Approved service reuse and honest preparation (DR-134)
+
+Adopt the consolidated owner-approved services proposal: public provider recipes, private account metadata and project associations; exact resource slugs, default PandaTrack subdomains and provider-specific dev/prod boundaries. Replace automatic Kit/Sentry, PostHog organization-per-app fee avoidance, universal pandacorp prefix, single R2 bucket and Resend domain-per-app. Architecture reads reuse data, resolves optional scope and prepares variable origins/destinations with honest pending evidence; API/CLI documentation is not tested access. Preserve existing resources, secrets outside repositories and all external-action gates. Modal supersedes Railway/Cloud Run for Funko export compute only. Catalog and malformed-input verifier ship together; Manual guide is `plugin/docs/services-and-accounts.md`. Plugin 9.136.0, overlay 8.106.0.
+
+## 2026-10-20 — DR-133: full native authority for Codex and Claude Code
+
+The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.
+
+
+## 2026-10-19 — MVP database recovery uses native provider capabilities
+
+**What:** [DR-012](decisions/registry.yaml) and architecture's recovery round now exclude custom external database backups in MVP/v1. Verify the selected provider plan and recovery window and declare limitations; resolve conflicting requirements before planning. Custom external backup work waits until product validation. Product exports/media storage and factory personal-state backups are separate and unchanged.
+**Why:** Owner request to keep first versions focused on validating user value, without speculative backup jobs and infrastructure. The operative skill/manual changes ship in plugin 9.134.0 and the resilience rule in overlay 8.104.0; existing project removals still require their own scoped change.
+
+
+## 2026-10-19 — Optional architecture capabilities require explicit owner scope
+
+**What:** [DR-026/131](decisions/registry.yaml) now require separate explicit PostHog, Sentry, internationalization and SEO choices before planning; silence cannot enable them. [Observability](standards/observability.md), [stack](standards/stack.md), [SEO/i18n](standards/seo-i18n.md), [jobs](standards/background-jobs.md) and the rule registry reflect the approved current-version scope. Centralized launch-locale strings, structured logs and independent access control remain baseline. Operative skill/template/agent changes ship in plugin 9.133.0; rule propagation uses overlay 8.103.0. Existing projects' decisions are not retroactively changed.
+**Why:** Owner request: avoid implementing optional services/features that were intended for later. Sentry's unconditional day-one rule and default approval for the four choices are superseded, not duplicated. The catalog check's pre-existing navigation standard mismatch is tracked separately in BL-0264.
+
+
+## 2026-10-18 — The fast lane schedules per work order and never deadlocks on a floor FRD (DR-132)
+
+**What:** New registry rule [DR-132](decisions/registry.yaml) (amends DR-124 (4) and DR-125): readiness per work order in both fast-lane schedulers; the C3 floor wait is waived for a dependent the floor FRD cannot finish without, and that dependent's FRD is held to the floor rule (USABLE only when VERIFIED), derived from the work-order state; a deferral that can never resolve stops with `stopReason: deadlock` and a needs-owner record; a clean half-built tree with no `last_green_sha` skips the judge baseline (carry-over). Canonical: [build-orchestration.md §5d](standards/build-orchestration.md). Items: BL-0251, BL-0252 (done), BL-0253, BL-0254, BL-0255 (open).
+**Why:** funko-tracker's first build deferred every FRD with no stop signal (a floor FRD inside an FRD-level cycle); the owner chose to fix the engine in the factory before relaunching the project. Plugin 9.132.0, overlay 8.102.0.
+
 ## 2026-10-17 — The architecture phase asks the owner first, plans once and gates once (DR-131)
 
 **What:** New registry rule [DR-131](decisions/registry.yaml) (extends DR-002): architecture runs an input-readiness preflight (DR-130 checks), then ONE owner decision round with a Spanish brief (context, alternatives, recommendation, live-verified facts, prior art; mandatory triggers incl. media store/link/proxy and ingestion + admin UI) before any document, then a fixed planning pipeline (one cross-FRD map, parallel authors, one ledger, one reconciler, three parallel gates, one fix pass, deterministic re-verification, scripted flip) and Pareto pacing. Wired in [the architecture skill](../plugin/skills/architecture/SKILL.md) and its references/scripts; plugin v9.130.0, overlay 8.101.0. Closes BL-0244/BL-0245; files BL-0247..BL-0250. Memo: [architecture-skill-v2](../docs/proposals/architecture-skill-v2.md).

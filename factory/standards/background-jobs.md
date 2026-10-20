@@ -14,14 +14,14 @@
 
 ## Rule — retry policy & dead-letter honesty
 - **Bounded retries with backoff** (per [resilience.md](resilience.md) — one layer, the queue's own retry mechanism IS that layer for jobs).
-- A job that exhausts its retries lands in a **visible dead-letter state**: a Sentry event **and** a queryable status (a `failed` row / DLQ), so it can be replayed or written off deliberately. **A silently-dropped job is the DR-078 silent-`[]` failure** applied to work instead of data ([quality.md](quality.md)) — forbidden.
+- A job that exhausts its retries lands in a **visible dead-letter state**: structured failure logs, a Sentry event **when approved for now**, and a queryable status (a `failed` row / DLQ), so it can be replayed or written off deliberately. **A silently-dropped job is the DR-078 silent-`[]` failure** applied to work instead of data ([quality.md](quality.md)) — forbidden.
 
 ## Rule — job observability
-- Every run **logs start/end/duration** (structured, [observability.md](observability.md) OBS-1); failures reach **Sentry**; a long-running job heartbeats so a monitor can tell hung from busy (DR-066).
+- Every run **logs start/end/duration** (structured, [observability.md](observability.md) OBS-1); failures reach structured logs and **Sentry when approved for now**; a long-running job heartbeats so a monitor can tell hung from busy (DR-066).
 
 ## How it is verified
 - **Idempotency + retry/dead-letter design**: `reviewer` correctness lens at the FRD gate — a job handler without an idempotency key or with an invisible failure path is a blocking finding (review-only); adversarial tests run the handler twice with the same key (DR-015).
-- **Sentry on failure + start/end/duration logs**: the hardening checklist in `/pandacorp:implement`'s final step (OBS-1/OBS-2 named steps).
+- **Start/end/duration and failure logs + Sentry on failure when approved for now**: the hardening checklist in `/pandacorp:implement`'s final step (OBS-1/OBS-2 named steps).
 - **Queue choice declared**: blueprint readiness gate (DR-100).
 
 ## Why

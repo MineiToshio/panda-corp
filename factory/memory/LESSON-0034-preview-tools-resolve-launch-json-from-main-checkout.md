@@ -15,8 +15,8 @@ created: 2026-07-03
 status: active
 promotion: proposed   # 2026-09-10 (librarian review) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the worktree-isolation section). Add the caveat as a standing rule: preview_start/launch.json resolve from the main checkout, not the worktree, inside a worktree session — prefer letting the test harness (Playwright) boot its own webServer, or run an explicit own dev server on a free port with curl-verification, over trusting preview_start from a worktree. Corroborated across 2 distinct projects (mission-control origin 2026-07-02; personal-page-v2 twice, 2026-09-05 and 2026-09-09) with a converging, working workaround each time.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [DR-096, LESSON-0102]
 ---
 

@@ -10,8 +10,9 @@
 // string / template / regex literals) is copied byte-for-byte from the source, so the content of a
 // template literal or string can never be rewritten. A gap that held a line terminator (in
 // whitespace or inside a comment) stays a newline, so automatic semicolon insertion sees the same
-// line structure; any other non-empty gap becomes one space. Leading indentation is kept (it is the
-// only thing that keeps the artifact reviewable) but trimmed to one space per two source columns.
+// line structure; any other non-empty gap becomes one space. Leading indentation is dropped (DR-132: 6.5 KB of the
+// 480 KB budget; every artifact line still maps 1:1 to its source line, which is what a stack trace needs — read the
+// source, never the artifact).
 //
 // Zero dependencies on purpose (the plugin ships no node_modules): a purpose-built JS tokenizer.
 // Its correctness is proven INDEPENDENTLY by test-engine-artifact.mjs, which parses source and
@@ -171,16 +172,6 @@ export function tokenize(source) {
   return tokens;
 }
 
-/** Leading whitespace of the source line containing `index`, halved (tabs count as 2 columns). */
-function indentOf(source, index) {
-  let lineStart = index;
-  while (lineStart > 0 && !LINE_TERMINATOR.test(source[lineStart - 1])) lineStart--;
-  const lead = source.slice(lineStart, index);
-  if (!/^[ \t]*$/.test(lead)) return "";
-  const columns = lead.replace(/\t/g, "  ").length;
-  return " ".repeat(Math.floor(columns / 2));
-}
-
 /**
  * Builds the deployable artifact from the engine source: comments dropped, inter-token gaps
  * collapsed, every token copied verbatim. The banner goes right AFTER the leading
@@ -209,8 +200,8 @@ export function compactEngine(source) {
     const t = tokens[k];
     if (k > 0) {
       const gap = source.slice(tokens[k - 1].end, t.start);
-      if (k === metaEnd + 1) out += `\n${BANNER}\n${indentOf(source, t.start)}`;
-      else if (LINE_TERMINATOR.test(gap)) out += `\n${indentOf(source, t.start)}`;
+      if (k === metaEnd + 1) out += `\n${BANNER}\n`;
+      else if (LINE_TERMINATOR.test(gap)) out += "\n";
       else if (gap.length) out += " ";
     }
     out += text(t);

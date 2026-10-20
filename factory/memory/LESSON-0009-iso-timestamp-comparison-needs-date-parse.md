@@ -13,8 +13,8 @@ created: 2026-06-30
 status: active
 promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §12.4 sitting) → factory/standards/conventions.md#CONV-14
 confidence: medium
-times_applied: 1
-applied_in: [mission-control]
+times_applied: 2
+applied_in: [mission-control, funko-tracker]
 links: [CONV-14, factory/standards/conventions.md#CONV-14]
 ---
 

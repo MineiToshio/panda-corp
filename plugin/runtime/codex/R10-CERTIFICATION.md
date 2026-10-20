@@ -82,7 +82,7 @@ bash "$PLUGIN_ROOT/scripts/launch-codex-implement.sh" "$FIXTURE" 4 900 0 1 "" \
    `run_id` through the cold continuation; a new runtime-specific ID would intentionally start a new
    ledger and is therefore not a continuation.
 7. The only two deployed routine ownership records remain Claude-owned.
-8. Factory backlog drain-all remains explicitly Claude-only and Codex exposes single-item fallback.
+8. The automated backlog engine is Claude-local; Codex may perform drain-all natively in an attended session (DR-133).
 
 Run the companion suites separately because their process-group kill canaries must not run nested:
 
@@ -100,7 +100,7 @@ node plugin/scripts/test-pandacorp-backlog.mjs
 Together they cover simultaneous/non-owner/stale fencing; durable budget and health; uncertified
 Codex Stop suppression and jq absence; orphan `IN_PROGRESS`; transaction crash boundaries; gate
 rejection and preserved tests; orphan Claude gate-worktree cleanup/fallback; hardening; drift; and
-Claude-only backlog drain-all.
+Claude-local automated backlog engine; full Codex native attended drain-all authority (DR-133).
 
 ## Installed canary attempt — partial GO, overall NO-GO
 

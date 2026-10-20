@@ -129,7 +129,7 @@ try {
 
   const ownership = JSON.parse(await readFile(path.join(root, "plugin/runtime/capability-ownership.json"), "utf8"));
   const policy = JSON.parse(await readFile(path.join(root, "plugin/runtime/skill-runtime-policy.json"), "utf8"));
-  ok(ownership.capabilities.factory_backlog_orchestration.runtime_owner === "claude" && /Single-item mode only/.test(policy.overrides["implement-backlog"].codex.fallback), "drain-all remains explicitly Claude-only; Codex exposes single-item fallback", "source");
+  ok(ownership.capabilities.factory_backlog_orchestration.runtime_owner === "claude" && /drain-all access/.test(policy.overrides["implement-backlog"].codex.fallback), "Codex has native attended drain-all access; automated engine stays runtime-local", "source");
   const schedulerOwners = Object.entries(ownership.capabilities).filter(([, value]) => value.scheduler_owner).map(([id, value]) => [id, value.scheduler_owner]);
   ok(schedulerOwners.length === 2 && schedulerOwners.every(([, ownerName]) => ownerName === "claude"), "only the two deployed routines have scheduler ownership and both remain Claude-owned", "source");
   const [claudeLauncher, codexLauncher] = await Promise.all([

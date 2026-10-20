@@ -12,6 +12,9 @@ source: "Codex independent verification of proposal 25 (2026-07-04), finding 6 â
 closes:
 ---
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 ## Problem
 > **Kept LIVE under DR-120 (Codex freeze, 2026-09-02).** This is a guardrail, not a capability: it stops Codex auto-invoking internal engine skills (`bug`, `iterate`, `scaffold`, `work-orders`, `new-version`) that mutate a project. Under a read/review-only Codex that matters MORE, not less. Note also that `plugin/scripts/check-skill-capabilities.mjs` already fails closed if an internal skill lacks its `agents/openai.yaml` sidecar with `allow_implicit_invocation: false` â€” verify current state before assuming the gap is still open.
 

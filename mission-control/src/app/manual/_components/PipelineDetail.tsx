@@ -136,9 +136,18 @@ export function PipelineDetail(): React.JSX.Element {
         que te afecta (stack, hosting y costo al mes, guardar o enlazar las imágenes de terceros,
         cómo entra y se cura la información y si hace falta una web de administración, fuentes
         externas y su riesgo legal, lo que ya resolviste en otro proyecto), cada una con contexto,
-        alternativas, la recomendada y por qué, y hechos verificados en vivo. Cada respuesta queda
-        como ADR, así no hay que deshacer documentos después. Solo te escribe en cuatro hitos:
-        decisiones, plan listo, gates pasados y merge.
+        alternativas, la recomendada y por qué, y hechos verificados en vivo. Siempre resuelve por
+        separado <B weight={500}>PostHog, Sentry, internacionalización y SEO con metadatos</B>:
+        implementar ahora, aplazar o excluir; en idiomas, uno al lanzamiento, varios ahora o ampliar
+        después, siempre con textos centralizados traducibles. El silencio no aprueba estas cuatro
+        decisiones; un «como recomiendes» explícito sí. Al aplazar o excluir no quedan SDKs,
+        esqueletos, secretos ni pruebas obligatorias de esa capacidad. Cada respuesta queda como ADR
+        y se reutiliza en siguientes rondas, así no hay que deshacer documentos después. Solo te
+        escribe en cuatro hitos: decisiones, plan listo, gates pasados y merge. En el MVP no se
+        construyen respaldos propios de base de datos hacia R2 u otro almacenamiento externo: se
+        verifica la recuperación nativa del proveedor y su ventana real. Guardar exportaciones del
+        producto es una decisión independiente. Los respaldos externos se evalúan después de validar
+        el producto.
       </Body>
       <Body>
         Está hecha para ir rápido: te anuncia al inicio el presupuesto (unas 5 horas y unos 6 M de
@@ -147,7 +156,8 @@ export function PipelineDetail(): React.JSX.Element {
         esfuerzo que su tarea merece (MECH, STANDARD o JUDGE, sin nombres de modelo: se resuelven
         desde <Code>model-tiers.json</Code>, igual en Claude que en Codex), y cada agente lee un{" "}
         <B weight={500}>paquete de contexto</B> (<Code>build-packs.mjs</Code>) más los FRDs que le
-        tocan, en vez de releer todos los documentos. Un cambio tardío se aplica como delta, nunca regenerando.
+        tocan, en vez de releer todos los documentos. Un cambio tardío se aplica como delta, nunca
+        regenerando.
       </Body>
       <Body>
         Se documenta la arquitectura de la plataforma (<Code>docs/product/architecture.md</Code>) y

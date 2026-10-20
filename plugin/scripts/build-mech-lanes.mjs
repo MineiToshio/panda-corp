@@ -198,10 +198,36 @@ export function planChains(graph, state, { scope = [], lanes, mode, build = [], 
   const parkedChains = Object.values(state.chains).filter((c) => c.status === 'parked')
   const roots = unique([...parkedChains.flatMap((c) => c.wos), ...[...nodes.values()].filter((n) => n.status === 'BLOCKED').map((n) => n.id)])
   const blocked = new Set([...roots, ...descendants(children, roots)])
-  // A dependency is done when VERIFIED, or IN_REVIEW in scope; an FRD the engine waits to see VERIFIED (floor, or a red
-  // USABLE) satisfies only its own work orders while IN_REVIEW.
-  const done = (id, of = null) => { const n = nodes.get(id); return Boolean(n) && (n.status === 'VERIFIED' || (n.status === 'IN_REVIEW' && inScope(n) && (!of || n.frd === of.frd || !waitVerified.includes(n.frd)))) }
   const pending = (n) => !DONE_STATUSES.has(n.status) && n.status !== 'BLOCKED'
+  // BL-0251: the floor wait (below) is the C3 rule at work-order level, and it must never close a cycle. A work order
+  // waiting for floor F's VERIFIED deadlocks when F can only finish after it: the FRD graph may be cyclic over an acyclic
+  // WO DAG (funko-tracker run_20261018T033601Z_80858: WO-02-001 → WO-01-001 and WO-01-007 → WO-02-001, frd-01 floor —
+  // frd-01 never finished, never gated, and every FRD was deferred). needsOf(F) = every pending work order F's own pending
+  // work orders need to be built first: their pending deps, transitively, and — through another floor wait on the way —
+  // that floor's pending work orders too (two floors can close a cycle between them). A wait of X on F with X in
+  // needsOf(F) is waived: X builds on F's IN_REVIEW code and the receipt names it (`floorWaived`); the engine then holds
+  // X's FRD to the floor rule as well (USABLE only when VERIFIED: nothing built on unreviewed floor code is presented USABLE).
+  const floorWaits = (n) => unique(n.deps.map((d) => nodes.get(d)).filter((m) => m && m.frd !== n.frd && m.status === 'IN_REVIEW' && inScope(m) && waitVerified.includes(m.frd)).map((m) => m.frd))
+  const needsMemo = new Map()
+  const needsOf = (frd) => {
+    if (needsMemo.has(frd)) return needsMemo.get(frd)
+    const seen = new Set()
+    const stack = [...nodes.values()].filter((n) => n.frd === frd && pending(n)).map((n) => n.id)
+    const floorsSeen = new Set([frd])
+    while (stack.length) {
+      const n = nodes.get(stack.pop())
+      if (!n) continue
+      for (const d of n.deps) { const m = nodes.get(d); if (m && pending(m) && !seen.has(m.id)) { seen.add(m.id); stack.push(m.id) } }
+      for (const f of floorWaits(n)) if (!floorsSeen.has(f)) { floorsSeen.add(f); for (const m of nodes.values()) if (m.frd === f && pending(m) && !seen.has(m.id)) { seen.add(m.id); stack.push(m.id) } }
+    }
+    needsMemo.set(frd, seen)
+    return seen
+  }
+  const waivedFloor = (m, of) => m.frd !== of.frd && waitVerified.includes(m.frd) && needsOf(m.frd).has(of.id)
+  // A dependency is done when VERIFIED, or IN_REVIEW in scope; an FRD the engine waits to see VERIFIED (floor, or a red
+  // USABLE) satisfies only its own work orders while IN_REVIEW — and a dependent it cannot finish without (BL-0251).
+  const done = (id, of = null) => { const n = nodes.get(id); return Boolean(n) && (n.status === 'VERIFIED' || (n.status === 'IN_REVIEW' && inScope(n) && (!of || n.frd === of.frd || !waitVerified.includes(n.frd) || waivedFloor(n, of)))) }
+  const waiversOf = (n) => unique(n.deps.map((d) => nodes.get(d)).filter((m) => m && m.status === 'IN_REVIEW' && inScope(m) && waivedFloor(m, n)).map((m) => m.frd)).sort()
   const unsatisfiedDeps = []
   const ready = [...nodes.values()].filter((n) => {
     if (!pending(n) || !inScope(n) || !buildable(n) || inFlight.has(n.id) || blocked.has(n.id)) return false
@@ -256,8 +282,9 @@ export function planChains(graph, state, { scope = [], lanes, mode, build = [], 
   const place = placeChains(laneChains, { laned: lanes !== undefined && Math.min(requested, cap) >= 2, k, freeLanes, live, mainFree: !barrier && !dispatchBarrier })
   const landQueue = live.filter((c) => c.status === 'built').sort((a, b) => b.downstream - a.downstream || String(a.builtAt).localeCompare(String(b.builtAt))).map((c) => c.id)
   const blockedFrds = unique([...blocked].map((id) => nodes.get(id)?.frd).filter(Boolean)).sort()
+  const floorWaived = chains.flatMap((c) => c.wos.map((id) => ({ wo: id, frd: c.frd, floors: waiversOf(nodes.get(id)) }))).filter((x) => x.floors.length)
   return {
-    k, kRequested: requested, kCap: cap, kReason, kRun, kRunReason, width, offPath, chains,
+    k, kRequested: requested, kCap: cap, kReason, kRun, kRunReason, width, offPath, chains, floorWaived,
     pool: { size: state.pool.length, free: freeLanes.length, booting: state.pool.filter((l) => l.booting).length, broken: state.pool.filter((l) => l.broken).length },
     dispatch: { lanes: place.lanes.map((c, i) => ({ chain: c.id, lane: freeLanes[i] })), barrier: dispatchBarrier, main: place.main ? place.main.id : null, mainWhy: place.mainWhy },
     barrierActive: barrier ? barrier.id : null, landingsPaused: Boolean(barrier), landQueue,

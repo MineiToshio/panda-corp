@@ -36,3 +36,8 @@ The Portfolio rail shows ONLY projects that **have started development** — tho
 ## Persistent navigation integration — FRD-25 (2026-10-17)
 
 The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+
+
+## Global account directory extension (2026-10-20)
+
+Portfolio exposes Projects and Accounts through the existing SubTabs primitive. Accounts works with no project selected and an empty portfolio; `portfolioView=accounts` preserves the chosen project workspace and history. FRD-26 owns the reader, filtering and private/public boundaries.

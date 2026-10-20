@@ -72,8 +72,35 @@ that the plan is grounded and current, not voluminous.
 Over `architecture.md`, the blueprints and the work orders: **no hard contradiction survives**: a WO contradicting
 its FRD or blueprint, a blueprint asserting a stack/data-model fact `architecture.md` or the PRD denies, two
 blueprints giving one artifact incompatible shapes, a value/term/entity meaning two things across the set, a
-document contradicting a locked decision ADR. A freshly generated set has no supersession intent, so it must come
+document contradicting a locked decision ADR. **Explicit-scope check:** verify all five unconditional choices
+(PostHog, Sentry, i18n scope, SEO including metadata and mailing-list need) have an explicit owner answer or a reused explicit ADR;
+a silent default or generic stack approval is a blocker. Compare those ADRs against the platform, FRDs,
+blueprints, WOs/dependsOn, installed/planned packages, env/required secrets, validation and hardening/release
+close-out requirements. The lead checks the digest against those same outcomes after it is complete (step 9c), not while its parallel author is still writing. Deferred/excluded scope must not leave SDKs, wrappers/stubs, required
+credentials, service-specific tests or provider-erasure tasks; chosen scope must not be silently omitted. Check
+partial SEO scope by deliverable, do not treat metadata/OG as implicitly approved, and distinguish robots/noindex
+from access control. Single-language/deferred-language scope retains centralized translatable UI strings without
+unapproved multilingual UX/routing. Any mismatch blocks ACTIVE; reconcile upstream requirements rather than
+inventing implementation to satisfy a stale default. A freshly generated set has no supersession intent, so it must come
 out coherent. Canonical: `factory/standards/document-consistency.md`.
+
+**MVP/v1 DB recovery check:** the recovery ADR/platform cites verified availability and the real recovery/
+retention window for the selected provider/plan, with limitations stated. Missing/unverified recovery or a
+legal/FRD guarantee beyond it must be exposed and resolved before PASS. Reject planned own external DB-backup
+jobs/dumps, backup buckets/keys, custom restore machinery and their dependencies/env/tests/close-out tasks,
+including speculative scaffolding. Product exports/media storage are separate; this check does not authorize
+retroactive deletion of any existing backups, including this project's. External backups are a post-validation evaluation.
+
+**Environment contract check:** every approved required variable has one concrete current-version consumer
+(installed path or owning WO), origin, dev/prod scope and exact web/worker/migration/local/CI destination.
+Require exactly `.env.example`, `.env.local`, `.env.production` as the planned root dotenv set; group by
+service within destination blocks, local-only entries last in guide/dev and absent from production. Migration entries must distinguish execution from the owner’s Mac and dev/prod database target: below the final operator-only separator in guide/dev, a labelled production operator block for the production connection, never runtime uploads. Do not mistake that consumed production-target connection for unused local tooling. Distinct
+privileges use aliases and explicit per-target exports, not duplicate keys or extra files. Check framework
+precedence and require synthetic isolation evidence before claiming selectors work; unresolved bindings have
+an owning WO/pending destination. Reject speculative secrets, admin/migration/other-destination tokens in
+runtime exports, local/CI tools in the production bundle, and implicit worker-to-web credential copies. Planned consumers cannot claim runtime verification. Step 9b3 later
+materializes values and records independent private-delivery evidence; no gate report certifies secrets
+merely because this contract is complete.
 
 ## 4. One fix pass, deterministic re-verification, resolution addendum
 

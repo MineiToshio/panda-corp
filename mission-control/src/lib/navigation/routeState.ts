@@ -50,6 +50,7 @@ export function workspaceRouteState(href: string, segments: readonly string[]): 
     "observability",
     "documents",
     "commands",
+    "accounts",
   ];
   if (tab && !tabs.includes(tab)) notFound();
   if (detail && tab !== "work-orders" && tab !== "documents") notFound();

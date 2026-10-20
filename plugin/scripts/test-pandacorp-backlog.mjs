@@ -202,7 +202,7 @@ try {
   const codexRuntimeFiles = readdirSync(path.join(ROOT, 'plugin/runtime/codex'))
   const bl0025 = readFileSync(path.join(ROOT, 'factory/backlog/BL-0025-implement-backlog-plugin-version-allocator.md'), 'utf8')
   ok(ownership.capabilities.factory_backlog_orchestration.runtime_owner === 'claude', 'canonical drain-all owner remains Claude')
-  ok(/Single-item mode only/.test(policy.overrides['implement-backlog'].codex.fallback), 'Codex policy exposes only single-item fallback')
+  ok(/drain-all access/.test(policy.overrides['implement-backlog'].codex.fallback), 'Codex policy authorizes native attended drain-all')
   ok(!codexRuntimeFiles.some((name) => /backlog/i.test(name) && /\.(mjs|js|ts)$/.test(name)), 'no partial Codex drain-all executor exists')
   ok(/^status:\s*open$/m.test(bl0025), 'BL-0025 remains honestly open')
 } finally {

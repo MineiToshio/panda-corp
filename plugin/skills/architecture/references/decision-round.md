@@ -19,6 +19,22 @@ with no such trade-off (folder layout, lint config, ORM inside the golden path, 
 
 ## 2. Mandatory triggers
 
+**Five unconditional, separate owner decisions.** Always resolve these before the conditional scan below, even
+for internal/headless or single-language projects. Check existing ADRs and decision records for an explicit owner
+answer first: reuse it on a rerun unless the owner requests a change; a default/installed SDK is not an answer.
+Do not bundle these into a stack approval. Each brief gives context, cost/risk, recommendation and these choices:
+
+| Decision | Explicit options and scope |
+|---|---|
+| **Mailing-list need** | Ask whether subscribers should be stored in a mailing list. Kit off by default; now/deferred/excluded. App DB collection is not mailing-list consent. |
+| **PostHog analytics** | Implement now · defer · exclude. Only "now" enables an event plan, SDK and instrumentation; then resolve consent/PII as a follow-up (cookieless is not an automatic consent exemption). |
+| **Sentry error tracking** | Implement now · defer · exclude. Decide independently of PostHog; "no analytics" does not answer error tracking. |
+| **Internationalization** | One launch language now · multiple languages now · defer additional languages. Confirm the launch locale from DR-041; for multiple languages name the locales. Every option preserves constitution §15/DR-009: centralized translatable UI strings, never hardcoded copy. One language/defer adds no language switcher, additional translations or multilingual routing; do not infer a waiver of the baseline. |
+| **SEO, including metadata** | Implement now · defer · exclude. Name the actual pages/surfaces and applicable deliverables: titles/descriptions, Open Graph, canonical URLs, robots/indexing policy, sitemap and structured data. Implement only what is applicable and explicitly chosen; no automatic metadata/OG package when SEO is deferred/excluded. For an internal tool recommend no public indexing and ask which, if any, metadata is wanted now. Robots/noindex is not access control: auth/security remains independently required. |
+
+An explicit narrow scope (e.g. titles now, other SEO later) is valid; record that split, never expand it to the
+whole bundle. Deferred/excluded choices remain documentation with a revisit condition, not implementation stubs.
+
 Scan `docs/product/prd.md`, every `frd.md` + `fdd.md`, `docs/design/technical-assumptions.md` and
 `.pandacorp/idea-origin.md`. Whenever the product has the item, it is a decision in the round:
 
@@ -32,9 +48,21 @@ Scan `docs/product/prd.md`, every `frd.md` + `fdd.md`, `docs/design/technical-as
 | 6 | Background compute (worker, queue, schedule) and the AI provider + cost per run | none · cron · queue + worker · owner-triggered |
 | 7 | Auth methods and account-deletion promises | email + password · OAuth providers · magic link; erasure window |
 | 8 | Email and notifications | none · transactional provider · in-app only |
-| 9 | Analytics consent and PII | cookieless · consent banner · none |
-| 10 | Backups and retention | provider snapshots · own dumps · retention window |
+| 9 | Analytics consent and PII, **only when analytics was chosen for now** | cookieless, with verified consent requirements · consent banner · no collection |
+| 10 | DB recovery and retention | MVP/v1: verified native provider recovery and its actual window; external backups only after product validation |
 | 11 | **Prior art**: anything the owner already solved in another factory project | reuse that pattern · do it differently, with the reason |
+
+**MVP/v1 DB backup boundary (trigger 10).** Verify the selected DB provider **and plan** against current official
+information (and project settings when available): whether native snapshots/PITR/restore exist, whether they are
+active/included, the actual recovery/retention window, limits and cost. Record the dated evidence and limitations
+in the recovery ADR/platform; do not call a free tier "backed up" without verifying it. If unavailable or
+unverified, say so to the owner and resolve the recovery gap explicitly. Never offer or build own external DB
+backups in MVP/v1 (R2/S3/other storage, dumps/cron jobs, buckets/keys, custom restore machinery, associated
+secrets/tests/WOs). Revisit those only after the product is validated. If a legal obligation or FRD requires a
+stronger guarantee than native recovery provides, STOP and expose the conflict for resolution before planning;
+never silently weaken the requirement or invent the forbidden backup system. Product export files and media in
+object storage are not DB backups and remain governed by their own scope. Do not retroactively remove another
+project's existing backup implementation under this rule.
 
 Content-heavy product: also say plainly that the app build and the real-content production are separate tracks
 (fixtures exist to exercise the app; the real catalog is produced later by its own flow, BL-0244), and ask only if
@@ -85,18 +113,33 @@ the link to the file, never the whole brief.
   short header, 2 to 4 options, the **recommended option first** with "(Recomendada)" in its label, one-line
   descriptions with the cost/risk difference. Other runtimes ask in chat with the same shape.
 - "Como recomiendes" accepts every recommendation. A question the owner skips or declines takes the
-  recommendation, recorded as "por defecto, el owner no eligió".
-- Ask once. A follow-up question is allowed only when an answer opens a new decision (e.g. "proxy" makes the host
+  recommendation, recorded as "por defecto, el owner no eligió", **except the five unconditional decisions**:
+  silence, a skipped question or generic stack/phase approval never answers them. Keep the round pending and
+  request the missing answer before downstream docs, installs or planning. Explicit "como recomiendes" does
+  approve the presented recommendations, including these five; record it as the owner's explicit acceptance.
+- Ask once for settled choices. Follow up for a missing explicit answer to the five unconditional decisions,
+  or when an answer opens a new decision (e.g. "proxy" makes the host
   allowlist a question). Never reopen a locked decision on your own.
 
 ## 6. Locking the answers
 
 - One ADR per decision (`docs/adr/NNNN-<slug>.md`, `${CLAUDE_PLUGIN_ROOT}/templates/docs/adr-template.md`): the
   context, the alternatives considered, the decision, "decided by the owner on YYYY-MM-DD" (or "default"), and the
-  consequences. A dated entry in `docs/decision-log.md` links them.
+  consequences. For the five unconditional choices record the explicit answer/date (or reused ADR), now/deferred/
+  excluded scope, any narrow split and the revisit condition; never mark silence as "default". A dated entry in `docs/decision-log.md` links them.
 - `docs/product/architecture.md` takes the decisions as given (its "Media & third-party content" and "Operations &
   admin tooling" sections are filled from D3/D4 even when the answer is "none in v1").
+- Propagate those four outcomes to platform cross-cutting concerns, affected FRDs/blueprints, WOs and their
+  dependencies, packages/install commands, `.env.example` and required secrets, tests/validation, hardening and
+  release close-out requirements, and the Spanish digest. No deferred/excluded SDKs, instrumentation wrappers or
+  stubs, mandatory credentials, service tests, or provider-erasure tasks. A deferred analytics choice does not
+  waive unrelated account/data erasure or the PRD's value hypothesis; state the measurement limitation and ask if
+  the success criteria need reconciliation. Preserve baseline translatable strings for single-language scope.
 - An FRD that contradicts an answer is amended by the `product-manager` before step 9 (same rule as step 5).
 - Changing a locked decision later is an owner decision again (`/pandacorp:decide` or `/pandacorp:change`), never a
   blueprint author's call. When the owner changes one mid-phase, re-plan only what it touches and run a delta review
   (`gates.md` §5), not a full regeneration.
+
+If native recovery is unavailable, present that limitation plainly. An explicit owner acceptance of the recovery risk may resolve it where no legal obligation forbids it; do not infer that resolution must buy a service or implement backups. Existing implementations are not deleted by this prospective planning rule.
+
+Provider/account defaults and preparation are in `service-preparation.md` (DR-134). Reuse approved accounts; no new organizations to avoid analytics fees. Record current dated plan and shared quota, exact slug and variable destinations before planning.

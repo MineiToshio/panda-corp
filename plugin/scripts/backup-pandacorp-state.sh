@@ -71,6 +71,7 @@ while IFS= read -r PD; do
   for SUB in inbox comms; do
     [ -d "$PD/$SUB" ] && try_to "$DEST/$REL/$SUB/" rsync -a "$PD/$SUB/"
   done
+  [ -f "$PD/accounts/services.yaml" ] && try_to "$DEST/$REL/accounts/services.yaml" rsync -a "$PD/accounts/services.yaml"
   [ -f "$PD/run/lessons.md" ] && try_to "$DEST/$REL/run/lessons.md" rsync -a "$PD/run/lessons.md"
   # run/*.sh — the machine-specific deploy machinery (serve.sh/deploy-local.sh, DR-089). It is
   # gitignored (encodes THIS machine's paths/port) and precious: losing it took Mission Control's
@@ -95,6 +96,17 @@ if [ -d "$ROOT/factory" ]; then
   [ -d "$ROOT/factory/ideas" ] && try_to "$DEST/factory/ideas/" rsync -a \
     --include='*.md' --include='_drafts/***' --exclude='*' \
     "$ROOT/factory/ideas/"
+fi
+
+# Shared provider metadata is outside the factory worktree/personal overlay. Back up ONLY
+# accounts.yaml, never adjacent credentials or arbitrary vault files. One canonical file,
+# additive daily snapshot, private permissions; this is not an application DB backup.
+if [ -d "$ROOT/factory" ] && [ -f "$VAULT/services/accounts.yaml" ]; then
+  SERVICE_DEST="$DEST/vault-services/accounts.yaml"
+  (umask 077; mkdir -p "$(dirname "$SERVICE_DEST")")
+  try chmod 700 "$(dirname "$SERVICE_DEST")"
+  try_to "$SERVICE_DEST" rsync -a "$VAULT/services/accounts.yaml"
+  [ -f "$SERVICE_DEST" ] && try chmod 600 "$SERVICE_DEST"
 fi
 
 # 3. Prune snapshots older than RETENTION_DAYS (defensive: only date-named dirs under DEST_BASE).

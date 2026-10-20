@@ -86,7 +86,7 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **Not magic numbers** (no constant needed): Tailwind utility values (`w-[360px]`, `gap-2`) and literals passed to clearly-named props (`size={20}`, `maxLength={50}`) — they are self-describing in place.
 
 ## Rule — environment variables
-- Keep `.env.example` in sync **in the same change** that introduces a new variable, grouped by section with a short comment on what it is for and how to obtain it. Never commit real values (secrets → SOPS/`.env`, DR-037).
+- Keep `.env.example` in sync **in the same change** that introduces a new variable, grouped by section with a short comment on what it is for and how to obtain it. Never commit real values (secrets → external SOPS store or private `.env.local`/`.env.production` handoffs, DR-037; three-file contract in `external-services.md`).
 
 ## Rule — boundary validation
 - Validate all external input (Server Actions, route handlers, APIs) with schemas (Zod or equivalent). Centralize the schemas, not inline.

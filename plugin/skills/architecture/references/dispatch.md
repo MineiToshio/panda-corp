@@ -53,6 +53,9 @@ that looks wrong is checked against its source file, which stays authoritative
 
 ## 3. The dispatch table
 
+All G1 and downstream briefs include the five locked scope choices from `decision-round.md`: PostHog, Sentry, multilingual i18n, SEO and mailing-list need. Skip provider-specific analytics/observability work when deferred/excluded; do not generate placeholder integrations, required credentials or provider gates. Keep general structured logs and centralized launch-locale copy. The installer receives the same decisions; a golden-path package list never overrides them.
+
+
 Budgets are for a typical 6 to 8 FRD project; scale authors linearly with FRD count. "Lead" = the lead's own shell,
 no agent. Groups run in order; every row of a group is launched **in ONE dispatch message**, outputs disjoint.
 
@@ -63,7 +66,7 @@ no agent. Groups run in order; every row of a group is launched **in ONE dispatc
 | G0 | Web facts for the brief (1) | STANDARD·medium | `researcher` | the decision list from the architect's first draft | its report | ∥ the brief · 0.1 M | — |
 | G1 | Platform architecture + data model + decision ADRs (2, 2b, 5) | JUDGE·high | `architect` | locked ADRs, P0 packs, `_global.md`, `architecture-template.md`, `stack.md` | `docs/product/architecture.md`, `docs/product/data-model.json`, its pre-assigned ADR numbers | 45 min · 0.5 M | JSON parse, `doc-lint.sh`, `resolve-versions.mjs` → paste its table into "Pinned versions"; decision-log lines by script from the entries agents report |
 | G1 | Stack install (6) | STANDARD·medium | `implementer` (has Bash) | `stack-install.md`, the stack decision, `templates/stack-<chosen>/` | scaffold, canonical gate files, `e2e/` seeds, `.claude/launch.json`, `.env.example` (the stack's own vars), README Getting started | 45 min · 0.25 M | `cmp` per VERBATIM file; 6b rules copy + `docs/rules/README.md`; after G1, `.env.example` reconciled against architecture.md's env table |
-| G1 | Event plan (3) | STANDARD·medium | `analytics` | `prd.md` metrics, P0 packs, `events-template.md` | `docs/analytics/events.md` | 20 min · 0.1 M | — |
+| G1 | Event plan (3), only for analytics approved now | STANDARD·medium | `analytics` | `prd.md` metrics, P0 packs, `events-template.md` | `docs/analytics/events.md` | 20 min · 0.1 M | — |
 | G1 | Deploy design (4, only if it deploys) | STANDARD·high | `devops` | locked hosting ADR, `infra.md`, `external-services.md` | its pre-assigned ADR number (`deploy-and-environments`; architecture.md links it) | 25 min · 0.15 M | — |
 | G1 | Feasibility spike (5, only when a critical unknown remains) | STANDARD·high | `implementer` | the one unknown, time-boxed | `.pandacorp/run/architecture/spike-<topic>.md` | announced first if > 30 min | — |
 | — | FRD amendment (5, only if a decision or spike changed criteria) | STANDARD·high | `product-manager` | the affected packs + the ADR | the affected `frd.md` files | 15 min · 0.1 M | P1 `build-packs.mjs` after G1 (and after any amendment) |
@@ -121,8 +124,4 @@ State both to the owner at the start with the plan, scaled to this project's FRD
   `EnterWorktree` → `git worktree add` by hand.
 - Every script (`build-packs`, `waves`, `ac-matrix`, `plan-consistency`, `flip-active`, `resolve-versions`, the
   design checks) runs the same with `node`; `${CLAUDE_PLUGIN_ROOT}` is the plugin's path on that runtime.
-- **What a non-Claude runtime may do in this phase (DR-120, PORT-5, AGENTS.md §Runtime portability):** it is
-  read/review-only on the project's build state. It may run the preflight and the scripts, draft the decision
-  brief in `.pandacorp/comms/` and ask the owner, and review an existing plan (a gate-style report to the owner).
-  It does NOT write the blueprints, the work orders, `.pandacorp/status.yaml` or the flip: it stops there and tells
-  the owner those steps are left for a Claude Code session.
+- **Codex and Claude Code have full phase authority (DR-133):** write the decision brief, canonical blueprints, work orders and state with the same phase gates. Use runtime-local workers when available, otherwise work inline sequentially. Never alter a plan under a live builder; stop at a safe point first. Missing tools change the mechanism, not permission.

@@ -47,7 +47,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { sealLine } from './drift-seal.mjs'
-import { decideGreenfield } from './greenfield-probe.mjs'
+import { decideCarryOver, decideGreenfield } from './greenfield-probe.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 // BL-0204: the readable SOURCE (the deployable artifact is generated from it; PANDACORP_ENGINE_RUN=artifact
@@ -695,6 +695,41 @@ SCENARIOS.push({
   responses: [preLoopSafePoint, { label: 'baseline-precheck', response: redTreePrecheck(greenfieldLine({ lastGreenSha: '', workOrders: 10, byStatus: { PLANNED: 10 }, missing: 0 })) }],
   assert: proceedsWithJudgeBaseline,
 })
+// BL-0252 (funko-tracker 2026-10-18): a relaunch over a CLEAN half-built tree — last_green_sha empty, WOs committed
+// IN_REVIEW, none VERIFIED — escalated to the judge baseline, which runs the full verify.sh (red by construction: knip
+// flags the primitives later work orders consume) and "fixes the production code": it would delete legitimate work.
+const carryOverLine = (facts) => { const f = { ok: true, probe: 'greenfield', adopted: false, everBuilt: true, ...facts }; const c = decideCarryOver(f); return sealLine({ ...f, ...decideGreenfield(f), carryOver: c.carryOver, carryOverReason: c.reason }) }
+const HALF_BUILT = { lastGreenSha: '', workOrders: 42, byStatus: { PLANNED: 36, IN_REVIEW: 6 }, missing: 0 }
+const cleanEscalate = (probe) => ({ escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [], projectPrefix: '', greenfieldProbe: probe })
+SCENARIOS.push({
+  name: 'BL-0252-a. half-built-clean-tree-skips-the-judge-baseline (classic): last_green empty + 6 WOs IN_REVIEW + a clean tree → plan, no destructive baseline repair',
+  args: { mode: 'powerful', lane: 'classic' },
+  responses: [preLoopSafePoint, { label: 'baseline-precheck', response: cleanEscalate(carryOverLine(HALF_BUILT)) }, { label: 'baseline', response: { green: true } }],
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, /^baseline$/).length === 0, 'NO baseline-repair engineer spawned')
+    t.ok(hasLog(run, /carry-over BL-0252/), 'the carry-over decision is logged')
+    t.ok(byLabel(run, /^plan$/).length === 1, 'the build proceeded to planning')
+  },
+})
+for (const [slug, precheck, args] of [
+  ['a dirty half-built tree (DR-067 reconciliation needed)', { ...cleanEscalate(carryOverLine(HALF_BUILT)), dirty: true, dirtyPaths: ['src/x.ts'] }, {}],
+  ['a VERIFIED work order (a gate verdict exists)', cleanEscalate(carryOverLine({ ...HALF_BUILT, byStatus: { PLANNED: 35, IN_REVIEW: 6, VERIFIED: 1 } })), {}],
+  ['a published last_green_sha', cleanEscalate(carryOverLine({ ...HALF_BUILT, lastGreenSha: 'abc1234' })), {}],
+  ['args.strictBaseline', cleanEscalate(carryOverLine(HALF_BUILT)), { strictBaseline: true }],
+  ['a broken seal', cleanEscalate(carryOverLine(HALF_BUILT).replace('"workOrders":42', '"workOrders":43')), {}],
+]) {
+  SCENARIOS.push({
+    name: `BL-0252-b. not carry-over on ${slug}: the judge baseline runs, unchanged`,
+    args: { mode: 'powerful', lane: 'classic', ...args },
+    responses: [preLoopSafePoint, { label: 'baseline-precheck', response: precheck }],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(byLabel(run, /^baseline$/).length === 1, 'the judge baseline ran (behavior unchanged)')
+      t.ok(!hasLog(run, /carry-over BL-0252/), 'no carry-over log')
+    },
+  })
+}
 SCENARIOS.push({
   name: '9.118.2-g. the pre-check prompt runs the greenfield probe from the installed scripts dir',
   args: { mode: 'powerful', lane: 'classic' },
@@ -1196,6 +1231,56 @@ SCENARIOS.push({
   },
 })
 
+// BL-0251 (funko-tracker run_20261018T033601Z_80858, reduced): a floor FRD inside an FRD-level cycle over an acyclic WO
+// DAG. frd-c1 (floor) needs wo-c2-001, which builds on frd-c1's wo-c1-001. The FRD-level rule deferred every FRD with
+// stopReason null; WO-level readiness builds it through, and the floor's safety is kept: frd-c2 (built on unreviewed
+// floor code) is never USABLE, and frd-c3 (outside the cycle) still waits for frd-c1's VERIFIED.
+SCENARIOS.push({
+  name: 'BL-0251-a. floor-frd-in-an-frd-cycle-builds-to-completion — the floor wait that closes a cycle is waived at WO level; every FRD verifies, the cycle\'s dependent is held to the floor rule, a dependent outside the cycle still waits for VERIFIED',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([
+    { frd: 'frd-c1', ids: ['wo-c1-001', 'wo-c1-002'], floor: true, extra: { 'wo-c1-002': { deps: ['wo-c2-001'] } } },
+    { frd: 'frd-c2', ids: ['wo-c2-001', 'wo-c2-002'], extra: { 'wo-c2-001': { deps: ['wo-c1-001'] }, 'wo-c2-002': { deps: ['wo-c2-001'] } } },
+    { frd: 'frd-c3', ids: ['wo-c3-001'], extra: { 'wo-c3-001': { deps: ['wo-c1-001'] } } },
+  ]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(['frd-c1', 'frd-c2', 'frd-c3'].every((f) => run.result.builtFrds.includes(f)) && !run.result.reopenedFrds.length, `every FRD is VERIFIED, none deferred (built ${JSON.stringify(run.result.builtFrds)}, reopened ${JSON.stringify(run.result.reopenedFrds)})`)
+    t.ok(!run.result.stopReason && !run.result.deadlock, `no stop (stopReason ${run.result.stopReason})`)
+    const c1 = byLabel(run, 'fast-build:frd-c1')
+    t.ok(c1.length === 2 && FAST_BUILT_IDS(c1[0].prompt).join() === 'wo-c1-001' && FAST_BUILT_IDS(c1[1].prompt).join() === 'wo-c1-002', `frd-c1 builds in two passes: wo-c1-001, then wo-c1-002 (got ${c1.map((c) => FAST_BUILT_IDS(c.prompt).join('+')).join(' | ')})`)
+    const c2 = byLabel(run, 'fast-build:frd-c2')
+    t.ok(c2.length === 1 && labelIdx(run, /^fast-build:frd-c2$/) < run.calls.indexOf(c1[1]), 'frd-c2 builds on frd-c1\'s IN_REVIEW wo-c1-001, before frd-c1 finishes')
+    t.ok(hasLog(run, /wo-c2-001 \(frd-c2\) builds on frd-c1's IN_REVIEW code: the floor wait is waived/), 'the waiver is logged')
+    const vC1 = byLabel(run, 'verify:frd-c1')
+    t.ok(vC1.length === 1 && run.calls.indexOf(vC1[0]) > run.calls.indexOf(c1[1]) && /--since 'd15pa7cbase0'/.test(vC1[0].prompt) && ['wo-c1-001', 'wo-c1-002'].every((id) => vC1[0].prompt.includes(`--wo '${id}'`)), 'frd-c1 verifies ONCE, after its last pass, over both passes\' work orders')
+    t.ok(byLabel(run, 'verify:frd-c2').every((c) => / --floor/.test(c.prompt)), 'frd-c2 (built on unreviewed floor code) verifies with --floor: it can never commit build_usable')
+    t.ok(!(run.result.usable || []).some((u) => ['frd-c1', 'frd-c2'].includes(u.frd)), `neither the floor nor its held dependent is USABLE (usable ${JSON.stringify(run.result.usable)})`)
+    t.ok(labelIdx(run, /^fast-build:frd-c3$/) > labelIdx(run, /^apply-gate:frd-c1$/), 'frd-c3 (not in the cycle) still waits for frd-c1\'s VERIFIED (C3 kept)')
+  },
+})
+// BL-0251: a deferral that can never resolve is a needs-owner STOP naming the cycle, never a silent null. An FRD-level
+// dependency (frd.md deps) still holds a whole FRD, so frd-e2 (deps: frd-e1) and frd-e1's wo-e1-002 (needs wo-e2-001)
+// close a cycle no waiver opens.
+SCENARIOS.push({
+  name: 'BL-0251-b. a-schedule-deadlock-stops-explicitly — every remaining FRD waits on another in a cycle: stopReason deadlock, the cycle in the result and the log, a decisions.md record in the close-out',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([
+    { frd: 'frd-e1', ids: ['wo-e1-001', 'wo-e1-002'], floor: true, extra: { 'wo-e1-002': { deps: ['wo-e2-001'] } } },
+    { frd: 'frd-e2', ids: ['wo-e2-001'], deps: ['frd-e1'] },
+  ]),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(run.result.stopReason === 'deadlock', `stopReason is deadlock (got ${run.result.stopReason})`)
+    const d = run.result.deadlock
+    t.ok(d && Array.isArray(d.cycle) && ['frd-e1', 'frd-e2'].every((f) => d.cycle.includes(f)), `the result names the cycle (${JSON.stringify(d)})`)
+    t.ok(d && d.waits.some((w) => w.frd === 'frd-e1' && w.waitsFor === 'frd-e2' && w.wo === 'wo-e1-002' && w.dep === 'wo-e2-001'), 'the waits name the work order and the dependency')
+    t.ok(hasLog(run, /⛔ deadlock: .*cycle frd-e\d → frd-e\d → frd-e\d/), 'the log names the cycle')
+    t.ok(run.calls.some((c) => /DEADLOCK \(BL-0251\)/.test(c.prompt) && /decisions\.md/.test(c.prompt)), 'the close-out records it in decisions.md (needs-owner)')
+    t.ok(run.result.reopenedFrds.includes('frd-e1') && run.result.reopenedFrds.includes('frd-e2'), 'both stay for a later run (nothing is blocked or discarded)')
+  },
+})
+
 // The race's own verdict: did B's builder start while A's reviewer was still in flight (1.5 s window)?
 const f39Overlap = { overlapped: null }
 SCENARIOS.push({
@@ -1421,6 +1506,36 @@ SCENARIOS.push({
     t.ok(byLabel(run, 'fast-build:frd-g19').length === 1 && run.result.builtFrds.includes('frd-g19'), 'it builds and verifies')
     const two = run.next
     t.ok(two && !two.error && byLabel(two, 'baseline').length === 1 && (two.result.blockedFrds || []).includes('baseline'), 'not greenfield: the judge baseline runs and a red baseline still stops the run (unchanged)')
+  },
+})
+
+// BL-0252 (fast lane): the precheck's carryOver verdict (a half-built tree, nothing VERIFIED) skips the judge baseline the
+// same way greenfield does — the fast precheck has already restored engine dirt and stops on owner dirt, so the tree is clean.
+SCENARIOS.push({
+  name: 'BL-0252-c. fast-lane-half-built-relaunch-skips-the-judge-baseline — no last_green_sha, WOs committed IN_REVIEW, none VERIFIED: no baseline-repair engineer, the build goes on',
+  args: { mode: 'balanced', ...FAST },
+  plan: fastPlan([{ frd: 'frd-h25', ids: ['wo-h25-001', 'wo-h25-002'] }]),
+  responses: [
+    { label: 'mech-precheck', response: precheckLine({ greenfield: { greenfield: false, reason: 'a work order was IN_REVIEW or VERIFIED in the history: something was built' }, carryOver: { carryOver: true, reason: 'no published last_green_sha, not adopted, 6 of 42 work order(s) committed IN_REVIEW and none VERIFIED' } }) },
+    { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+    { label: 'baseline', response: { green: false, failure: 'knip: unused files src/i18n/getT.ts, src/lib/analytics/client.ts; unused dependency posthog-js' } },
+  ],
+  next: () => ({
+    args: { mode: 'balanced', ...FAST, strictBaseline: true },
+    plan: fastPlan([{ frd: 'frd-h25', ids: ['wo-h25-001'] }]),
+    responses: [
+      { label: 'mech-precheck', response: precheckLine({ greenfield: { greenfield: false, reason: 'built' }, carryOver: { carryOver: true, reason: 'half-built' } }) },
+      { label: 'baseline-precheck', response: { escalate: true, dirty: false, dirtyPaths: [], outsideDirtyPaths: [] } },
+      { label: 'baseline', response: { green: false, failure: 'a real regression' } },
+    ],
+  }),
+  assert(t, run) {
+    t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+    t.ok(byLabel(run, 'baseline').length === 0, 'no baseline-repair engineer on a half-built tree')
+    t.ok(hasLog(run, /carry-over BL-0252/), 'the log says why (the precheck\'s deterministic verdict)')
+    t.ok(byLabel(run, 'fast-build:frd-h25').length === 1 && run.result.builtFrds.includes('frd-h25'), 'it builds and verifies')
+    const two = run.next
+    t.ok(two && !two.error && byLabel(two, 'baseline').length === 1, 'args.strictBaseline still keeps the judge baseline (the explicit escape hatch)')
   },
 })
 
@@ -2818,6 +2933,39 @@ const between = (run, re) => run.calls.filter((c) => re.test(c.label))
       t.ok(['frd-pa', 'frd-pb'].every((f) => labelIdx(run, new RegExp(`^usable:${f}$`)) > lastIdx(run, /^land-chain:/) || labelIdx(run, new RegExp(`^usable:${f}$`)) > labelIdx(run, /^land-chain:/)), 'an FRD is verified only after its chain landed')
       t.ok(run.result && ['frd-pa', 'frd-pb'].every((f) => run.result.builtFrds.includes(f)) && run.result.usable.length === 2, `both USABLE and VERIFIED (got ${run.result && JSON.stringify(run.result.builtFrds)})`)
       t.ok(run.result && run.result.lanes && run.result.lanes.k === 2, 'the result reports the lanes')
+    },
+  })
+}
+{
+  // BL-0251 (lanes): lane-next dispatched wo-l2-001 over the floor frd-l1's IN_REVIEW wo-l1-001 (floorWaived: frd-l1 needs
+  // it). The engine holds frd-l2 to the floor rule from the work-order state: its snapshot USABLE runs --floor, the next
+  // rounds ask frd-l2's dependents to wait for its VERIFIED (--wait-verified), and it is never USABLE.
+  const sim = laneSim([chainOf('frd-l1', ['wo-l1-001']), chainOf('frd-l2', ['wo-l2-001'], { after: ['c-wo-l1-001'] }), chainOf('frd-l1', ['wo-l1-002'], { after: ['c-wo-l2-001'] })], { k: 2 })
+  const simNext = sim.responses.find((x) => x.label === 'lane-next').response
+  const withWaiver = (call) => {
+    const r = simNext(call)
+    const b = JSON.parse(r.line)
+    const fw = b.dispatched.some((d) => d.wos.includes('wo-l2-001')) ? [{ wo: 'wo-l2-001', frd: 'frd-l2', floors: ['frd-l1'] }] : []
+    const { sum, ...body } = b
+    return { line: mechLine('lane-next', { ...body, floorWaived: fw }) }
+  }
+  SCENARIOS.push({
+    name: 'BL-0251-c. lanes-floor-waiver-holds-the-dependent — a dependent dispatched over a floor FRD\'s IN_REVIEW code (floorWaived) verifies --floor, is waited on by later rounds and is never USABLE; every FRD VERIFIES',
+    args: LANED_ARGS,
+    plan: fastPlan([
+      { frd: 'frd-l1', ids: ['wo-l1-001', 'wo-l1-002'], floor: true, extra: { 'wo-l1-002': { deps: ['wo-l2-001'] } } },
+      { frd: 'frd-l2', ids: ['wo-l2-001'], extra: { 'wo-l2-001': { deps: ['wo-l1-001'] } } },
+    ]),
+    responses: [{ label: 'lane-next', response: withWaiver }, ...sim.responses.filter((x) => x.label !== 'lane-next')],
+    assert(t, run) {
+      t.ok(!run.error, `engine threw: ${run.error && (run.error.stack || run.error)}`)
+      t.ok(hasLog(run, /wo-l2-001 \(frd-l2\) builds on frd-l1's IN_REVIEW code: the floor wait is waived/), 'the receipt\'s waiver is logged')
+      const u2 = byLabel(run, 'usable:frd-l2')
+      t.ok(u2.length >= 1 && u2.every((c) => / --floor/.test(c.prompt)), 'frd-l2\'s snapshot USABLE runs --floor')
+      const later = byLabel(run, 'lane-next').filter((c) => run.calls.indexOf(c) > labelIdx(run, /^land-chain:c-wo-l2-001$/))
+      t.ok(later.length >= 1 && later.every((c) => /--wait-verified 'frd-l2'/.test(c.prompt)), 'after it landed, every lane round waits for frd-l2\'s VERIFIED')
+      t.ok(!(run.result.usable || []).some((u) => u.frd === 'frd-l2' || u.frd === 'frd-l1'), `neither frd-l1 nor frd-l2 is USABLE (usable ${JSON.stringify(run.result.usable)})`)
+      t.ok(['frd-l1', 'frd-l2'].every((f) => run.result.builtFrds.includes(f)) && !run.result.stopReason, `both VERIFIED, no stop (built ${JSON.stringify(run.result.builtFrds)}, stop ${run.result.stopReason})`)
     },
   })
 }
