@@ -1,14 +1,10 @@
----
-domain: Operation
-severity: MUST
-enforcement: lifecycle CLI and identity tests
-summary:
-  - Allocate immutable idea and project identities through one factory writer.
-  - Keep the private catalog and in-factory Mission Control reference in the vault.
-  - Preserve public slugs and aliases across rename and relocation.
----
-
 # Persistent navigation identity producer contract
+
+> Domain: Operation · Severity: **MUST** · Enforcement: lifecycle CLI + identity lifecycle/reader tests; vault/backup integration review-only. Factory-internal — not injected.
+
+- Allocate immutable idea and project identities through one factory writer.
+- Keep the private catalog and in-factory Mission Control reference in the vault.
+- Preserve public slugs and aliases across rename and relocation.
 
 The factory owns identity registration; Mission Control reads it and never allocates identity on a request. This metadata is independent of build state and lifecycle phase.
 
@@ -61,3 +57,16 @@ The catalog locator is factory-root-relative, so restoring/moving the factory do
 Server exports in `src/lib/navigation/identities.ts` return `{id, slug}`, resolve only actual card/portfolio reader results, and read the current factory root at call time. They accept public ID/slug/alias tokens and bounded legacy names; URL path strings are never filesystem locators. An existing malformed/unreadable catalog raises `NavigationIdentityError`, never reallocation or a silent empty result. A missing catalog permits a read-only legacy fallback for fixture/bootstrap compatibility; its `legacy-*` IDs are explicitly temporary and never written. Register owner data before enabling persistent routes. An existing catalog with an unregistered resource fails loudly until the lifecycle writer runs.
 
 The catalog is ignored by framework git and included in both `vault-overlay-sync.sh` and `backup-pandacorp-state.sh`. Backups also include project identity metadata. Sibling product git may preserve its own reference independently; the in-factory Mission Control reference instead joins the private overlay and stays excluded from framework git. After every producer apply, invoke those scripts with the factory root. Their existing best-effort/offline reporting contract still applies. No private catalog or personal card is copied into framework source, and no GET triggers writer, backup or vault operations.
+
+## How it is verified
+
+From `<factory>/mission-control`, with its dependencies installed:
+
+```bash
+pnpm exec vitest run src/lib/navigation/_tests/identities.test.ts src/lib/navigation/_tests/identity-cli.adversarial.reviewer.test.ts
+```
+
+- **NAV-ID-1 — producer and identity invariants:** `identities.test.ts` exercises separate bridged IDs, idempotent registration, rename/move preservation, alias reservation, interrupted-reference recovery, copied IDs, writer locks, orphan references and unavailable projects. `identity-cli.adversarial.reviewer.test.ts` invokes the real CLI against temporary fixtures to reject historical-alias reuse without partial writes and retain absent-project reservations.
+- **NAV-ID-2 — read boundary:** the same suites check malformed catalogs, ambiguous legacy names, traversal tokens, call-time roots, post-startup registrations and reads that leave catalog/reference bytes unchanged.
+- **NAV-ID-3 — private durability (review-only):** at identity lifecycle changes, the reviewer checks the framework ignore rules and the explicit catalog/reference inclusion in `plugin/scripts/vault-overlay-sync.sh` and `plugin/scripts/backup-pandacorp-state.sh`. The fresh-clone test checks that Mission Control's reference is gitignored; these test commands do not certify a live vault restore or backup run.
+- **Catalog shape:** from `<factory>`, run `bash factory/standards/check-standards.sh`; it checks this preamble, verification section and registry coverage, not runtime identity behavior.

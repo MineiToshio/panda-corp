@@ -3,12 +3,12 @@ id: BL-0264
 type: bug
 area: standards
 title: "Align navigation identities standard with the executable catalog contract"
-status: open
+status: done
 severity: p2
 opened: 2026-10-19
-closed:
+closed: 2026-10-20
 source: "Architecture owner-scope update: check-standards.sh run and isolated HEAD baseline"
-closes:
+closes: "navigation-identities.md catalog preamble, verification section and NAV-ID-1..3 registry coverage"
 links: [DR-131]
 ---
 
@@ -29,3 +29,11 @@ The catalog check exits 0 and navigation identity guarantees and actual verifica
 
 ## Out of scope
 The architecture scope choices, runtime/build changes, and the separate existing BL-0220 invalid p3 backlog severity.
+
+## Verification — 2026-10-20
+
+- RED: `bash factory/standards/check-standards.sh` exited 1 with the three navigation-standard failures named above.
+- GREEN: the same command exited 0, checking 32 standards; the checker itself was not modified.
+- Negative control: copy `factory/standards/` and `plugin/templates/rules/` into a temporary fixture and add `malformed-canary.md` with only a heading/body. Running the copied checker exited 1 for its missing preamble, verification section and registry row.
+- Preservation: compare the original `HEAD` standard body after its title against the updated document; the complete original body, including producer/rename commands and identity guarantees, remains byte-for-byte intact.
+- `bash plugin/scripts/validate-backlog.sh` continues to report the unrelated BL-0220 invalid `p3` severity; no item other than BL-0264 was changed. Runtime identity tests were not rerun for this metadata-only repair.

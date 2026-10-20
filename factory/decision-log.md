@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+
+## 2026-10-20 — Restore navigation identity standard catalog coverage (BL-0264)
+
+**What:** Replace YAML-only metadata in [navigation-identities](standards/navigation-identities.md) with the catalog preamble, retain its full producer/read/durability contract and commands, and name the existing lifecycle and adversarial CLI suites under `How it is verified`. Register NAV-ID-1/2 as test-backed and NAV-ID-3 durability as review-only in [the rule registry](standards/rule-registry.md). This is a catalog repair; no identity runtime, product, private state, plugin version or overlay changes.
+**Why:** The standard previously failed all three catalog checks. `bash factory/standards/check-standards.sh` now exits 0 (32 standards); an isolated malformed-standard fixture still exits 1 with all three expected failures. The original contract body is preserved byte-for-byte. Runtime identity suites are named from existing test sources, not rerun or claimed as newly certified. Backlog validation still reports only the pre-existing, out-of-scope BL-0220 `p3` severity.
+
 ## 2026-10-20 — Explain locally executed migration credentials by database target
 
 **What:** Architecture delivery comments distinguish execution from the owner's Mac from the development/production database being changed. Migration entries sit below the final local/operator-only separator in `.env.local`/`.env.example`; `.env.production` retains a labelled production-target operator block. Name the actual migration CLI and explain that the value is read locally rather than uploaded to Vercel/Modal runtime. Updated the standard, operative rule, template, gate and Manual guide; EXT-7 is clarified without another rule.
