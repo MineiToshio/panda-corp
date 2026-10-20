@@ -27,7 +27,7 @@ export function readServiceManualPages(factoryRoot = resolveFactoryRoot()): Manu
             "### Cuotas y límites",
             provider.quotaNotes,
             "### Ejemplos de variables (sin secretos)",
-            ...provider.variableExamples.map((example) => `- ${example}`),
+            ...provider.variableExamples.map(variableRecipe),
             "### Fuentes",
             ...provider.sources.map(
               (source) => `- [Documentación](${source.url}) · ${source.checkedAt}`,
@@ -50,6 +50,8 @@ export function readServiceManualPages(factoryRoot = resolveFactoryRoot()): Manu
         `## Automatización`,
         provider.automation.status,
         ...provider.automation.steps.map((step, index) => `${index + 1}. ${step}`),
+        `## Ejemplos de variables (sin secretos)`,
+        ...provider.variableExamples.map(variableRecipe),
         `## Cuotas`,
         provider.quotaNotes,
         `[Abrir panel](${provider.dashboardUrl})`,
@@ -77,4 +79,10 @@ export function readServiceManualPages(factoryRoot = resolveFactoryRoot()): Manu
     });
   }
   return pages;
+}
+
+function variableRecipe(
+  example: import("./types").ServiceProvider["variableExamples"][number],
+): string {
+  return `- **${example.name}**: ${example.purpose}. Origen: ${example.source}. Destinos: ${example.targets.join(", ")}. ${example.secret ? "Secreto; el valor se mantiene fuera del directorio." : "Configuración pública."}${example.note ? ` ${example.note}` : ""}`;
 }

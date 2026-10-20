@@ -30,7 +30,9 @@ export function parseProviders(value: unknown): ServiceProvider[] {
         environmentPolicy: text(row.environment_policy),
         quotaNotes: text(row.quota_notes),
         variableExamples:
-          row.variable_examples === undefined ? [] : list(row.variable_examples).map(text),
+          row.variable_examples === undefined
+            ? []
+            : list(row.variable_examples).map(parseVariableExample),
         automation: {
           methods: list(automation.methods).map((method) =>
             choice(method, ["api", "cli", "browser"]),
@@ -148,5 +150,21 @@ function parseQuota(value: unknown): ServiceAccount["quotaSnapshot"] {
     remaining: number(row.remaining),
     observedAt: date(row.observed_at),
     source: text(row.source),
+  };
+}
+
+function parseVariableExample(value: unknown): ServiceProvider["variableExamples"][number] {
+  const row = record(value);
+  const name = text(row.name);
+  if (!/^[A-Z][A-Z0-9_]*$/.test(name)) throw new Error("invalid-variable-name");
+  return {
+    name,
+    source: text(row.source),
+    targets: list(row.targets).map((target) =>
+      choice(target, ["web_runtime", "worker_runtime", "migration", "local_cli"]),
+    ),
+    secret: boolean(row.secret),
+    purpose: text(row.purpose),
+    note: nullableText(row.note),
   };
 }

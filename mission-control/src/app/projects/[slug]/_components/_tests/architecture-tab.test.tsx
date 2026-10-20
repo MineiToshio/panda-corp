@@ -21,6 +21,7 @@ describe("shared Architecture workspace entry", () => {
       "Observabilidad",
       "Documentos",
       "Comandos",
+      "Cuentas",
     ]);
     fireEvent.click(screen.getByRole("tab", { name: "Arquitectura" }));
     const query = new URLSearchParams(push.mock.calls[0]?.[0]);

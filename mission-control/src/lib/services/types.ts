@@ -10,7 +10,14 @@ export interface ServiceProvider {
   environmentPolicy: string;
   automation: { methods: string[]; status: string; steps: string[] };
   quotaNotes: string;
-  variableExamples: string[];
+  variableExamples: {
+    name: string;
+    source: string;
+    targets: string[];
+    secret: boolean;
+    purpose: string;
+    note: string | null;
+  }[];
   sources: { url: string; checkedAt: string }[];
 }
 /** Whitelisted private identity, excluding credentials and unknown fields. */
