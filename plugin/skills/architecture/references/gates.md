@@ -91,6 +91,13 @@ jobs/dumps, backup buckets/keys, custom restore machinery and their dependencies
 including speculative scaffolding. Product exports/media storage are separate; this check does not authorize
 retroactive deletion of any existing backups, including this project's. External backups are a post-validation evaluation.
 
+**Environment contract check:** every approved required variable has one concrete current-version consumer
+(installed path or owning WO), origin, dev/prod scope and exact web/worker/migration/local/CI destination.
+Reject speculative secrets, admin tokens in runtime, local/CI tools in the production handoff, and implicit
+worker-to-web credential copies. Planned consumers cannot claim runtime verification. Step 9b3 later
+materializes values and records independent private-delivery evidence; no gate report certifies secrets
+merely because this contract is complete.
+
 ## 4. One fix pass, deterministic re-verification, resolution addendum
 
 - Collect the blockers of all three reports into one list; dispatch fixes per owner (authors for their FRDs, the

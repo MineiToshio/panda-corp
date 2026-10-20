@@ -11,9 +11,17 @@ The Accounts view is a directory, not a secret manager or an infrastructure cont
 
 ## How a new app reuses services
 
-Architecture reads these sources first, proposes only needed resources under exact resource_slug and `<slug>.pandatrack.app`, asks explicit optional choices, then prepares approved variables as far as current access permits. A browser login does not authorize a CLI. An API key for sending does not necessarily administer account resources. Missing permissions, unknown quotas and untested steps remain visible.
+Architecture reads these sources first, proposes only needed resources under exact resource_slug and `<slug>.pandatrack.app`, asks explicit optional choices, then finalizes the consumer contract and fills every obtainable approved provider value and locally generated app secret. Preflight itself inventories only; no speculative resource or secret creation before decisions. A browser login does not authorize a CLI. An API key for sending does not necessarily administer account resources. Missing permissions, unknown quotas and untested steps remain visible.
 
 Read each provider's recipe for resource/environment examples. Neon gets one slug-named project and dev/prod branches; R2 only if needed gets `<slug>-dev` / `<slug>-prod` with the same adapter against real storage locally and in production. Google OAuth uses a per-app client in the shared PandaTrack project across approved callback environments. Resend/ImprovMX share the domain/inbox with app context. Kit is off by default; no optional SDKs or credentials until approved.
+
+## Private environment delivery
+
+Architecture step 9b3 follows `plugin/skills/architecture/references/environment-delivery.md`: deliver development web values in `.env.local` and an explicit production web handoff in `.env.production.local`, both gitignored/untracked with mode 600. Preserve existing values and loader precedence; reruns add only missing approved values, never rotate. Generate separate app secrets per purpose/environment for concrete current-version consumers only. Google OAuth’s approved per-app client is intentionally shared across callback environments.
+
+Keep worker, migration/operator and CI credentials in their own destinations, not the web handoff. Provider-admin tokens never enter runtime. `.env.example` contains no values and ends with LOCAL-ONLY tooling. Delivery goes to the main project checkout under single-writer ownership: ignored files do not merge, and production secrets are not copied through worktree bootstrap. No secret values enter chat, logs or account catalogs.
+
+The private Spanish report `.pandacorp/comms/entrega-entornos.md` lists each variable/destination, origin reference, installed/planned consumer, evidence, status and exact pending action, without values. Generated, configured and verified mean different things; a planned consumer is never runtime-verified. Independently check protected paths/permissions, required coverage, preserved values and environment/target separation. Missing access stays pending. Prepared production inputs are separate from host configuration and live production readiness, which must be verified later. The Accounts directory does not perform these writes.
 
 ## Evidence and changes
 

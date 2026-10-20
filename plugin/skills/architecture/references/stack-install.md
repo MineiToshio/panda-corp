@@ -96,8 +96,7 @@ throws outside the framework's server bundle). Otherwise guard server modules by
 
 ## (f) `.env.example`, `AGENTS.md`, README (DR-102, DR-112/DOC-3)
 
-- `.env.example` at the root: every env var the app reads (name + one-line comment, empty value); real `.env*`
-  stay gitignored.
+- `.env.example` at the root: every approved current-version variable (name, purpose/origin and destination, empty value), with a final LOCAL-ONLY dev/test/oracle/CI block. Distinguish installed consumers from concrete planned WO consumers. Finalize the contract before step 9b3 (`environment-delivery.md`) fills protected `.env.local` and `.env.production.local`; real `.env*` stay gitignored. Worker-only values and migration/CI credentials have separate explicit destinations. Existing `.env` files/port setup remain compatible: inspect precedence and preserve their values rather than shadowing them with freshly generated replacements.
 - `AGENTS.md` pointing agents at the framework's VERSION-MATCHED docs when the framework ships them (Next.js
   `create-next-app` emits the pointer), merged below the managed Pandacorp header: the direct fix for coding against
   an API the model only remembers.

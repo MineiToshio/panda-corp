@@ -71,8 +71,18 @@ web. Link the decision-round ADR. *A product with no curated data: say so in one
 
 ## External services & secrets
 
-Third-party services, accounts and APIs (limits/costs), and how secrets are managed
-(`factory/standards/external-services.md`). *Omit if none.*
+Selected third-party services and limits/costs, private account/resource references (no personal IDs),
+and secret management (`factory/standards/external-services.md`). Publish the value-free variable contract:
+name · purpose · origin · environment · exact destination (web/worker/migration/local/CI) · consumer
+path or owning WO · installed/planned · required now · secret-store reference · status. `.env.example`
+mirrors the approved names and ends with LOCAL-ONLY tooling. Do not invent future secrets. Even without
+external services, include any required local app secrets; otherwise state N/A.
+
+After decisions/contract are final, fill obtainable values privately per architecture
+`references/environment-delivery.md`: `.env.local` for development and `.env.production.local` for the
+production web handoff, separate worker destinations. The private report at
+`.pandacorp/comms/entrega-entornos.md` records status/evidence without values. Link it by path only.
+Prepared production inputs are not a production deployment or verified production readiness.
 
 ## Deploy & environments
 

@@ -1,5 +1,11 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-20 — Architecture delivers private environment values, not only a map
+
+**What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.
+**Why:** The owner asked for usable environment preparation, including application-generated secrets, rather than a names/origins list or an unsupported production-ready claim. Expand existing standard, operative rule, architecture/installer/gates/template, implement/release readiness and Manual guide. No cloud calls, actual environment files, generic secret writer or Mission Control app changes are part of this factory change. Manual independent delivery checklist remains explicit; catalog validation does not certify secret files. Plugin 9.137.0 / overlay 8.107.0.
+
+
 
 ## 2026-10-20 — Approved service reuse and honest preparation (DR-134)
 
