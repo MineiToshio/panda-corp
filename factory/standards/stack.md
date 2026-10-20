@@ -14,8 +14,8 @@
 - **next-intl** (i18n; launch locale from the market research — DR-041, never automatically Spanish). Explicitly decide single-locale vs multilingual scope in architecture (DR-131); translatable centralized copy remains the baseline, extra locales/routing are not automatic
 - **Zod** (validation)
 - **PostHog** (analytics) + **Sentry** (errors), each only when explicitly approved for now in the architecture decision round (DR-026/131); inclusion in this suggested stack is not approval
-- **Cloudflare R2** (file/photo storage, S3 SDK) — bucket per app
-- **Resend** (transactional email) + **Kit/ConvertKit** (marketing email / waitlist)
+- **Cloudflare R2** (file/photo storage, S3 SDK) — separate `<slug>-dev` / `<slug>-prod` buckets when selected
+- **Resend** (transactional email when needed); **Kit/ConvertKit** only for an explicitly approved mailing list, off by default
 - **Polar** (payments, Merchant of Record — works from Peru/global) when the version charges
 - **Vitest** (unit/integration) + **Playwright** (e2e)
 - **Biome** — the single standard for **both formatting and linting** (replaces Prettier *and* ESLint); Tailwind class sorting via Biome `useSortedClasses`. **Do not add Prettier or ESLint** except as a documented escape hatch for a rule Biome lacks (Testing-Library-specific lint, full `eslint-plugin-next` parity) — and never re-add Prettier.

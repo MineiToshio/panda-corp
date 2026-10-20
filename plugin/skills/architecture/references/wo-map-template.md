@@ -12,7 +12,7 @@
 > installs. Authors refine CMP/IF names, contracts and per-WO prose inside these boundaries; if a boundary is
 > impossible, they report it in the ledger instead of re-deciding it. Source-of-truth hierarchy:
 > `FRD > FDD > design-tokens > blueprint > work order`. Read against: `docs/product/architecture.md`,
-> `docs/product/data-model.json`, the ADRs (including the four explicit scope decisions), `docs/analytics/events.md` (approved event catalog or scope/N/A record only), every FRD/FDD, `docs/design/components.md`,
+> `docs/product/data-model.json`, the ADRs (including the five explicit scope decisions), `docs/analytics/events.md` (approved event catalog or scope/N/A record only), every FRD/FDD, `docs/design/components.md`,
 > the installed scaffold and the versions record.
 
 Totals: **<N> work orders** (<FRD-01 n · FRD-02 n · ...>), **<W> waves (W0 to W<W-1>)**, **<F> foundation WOs**,

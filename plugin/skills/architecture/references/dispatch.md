@@ -53,7 +53,7 @@ that looks wrong is checked against its source file, which stays authoritative
 
 ## 3. The dispatch table
 
-All G1 and downstream briefs include the four locked scope choices from `decision-round.md`: PostHog, Sentry, multilingual i18n and SEO. Skip provider-specific analytics/observability work when deferred/excluded; do not generate placeholder integrations, required credentials or provider gates. Keep general structured logs and centralized launch-locale copy. The installer receives the same decisions; a golden-path package list never overrides them.
+All G1 and downstream briefs include the five locked scope choices from `decision-round.md`: PostHog, Sentry, multilingual i18n, SEO and mailing-list need. Skip provider-specific analytics/observability work when deferred/excluded; do not generate placeholder integrations, required credentials or provider gates. Keep general structured logs and centralized launch-locale copy. The installer receives the same decisions; a golden-path package list never overrides them.
 
 
 Budgets are for a typical 6 to 8 FRD project; scale authors linearly with FRD count. "Lead" = the lead's own shell,

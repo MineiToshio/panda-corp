@@ -72,8 +72,8 @@ that the plan is grounded and current, not voluminous.
 Over `architecture.md`, the blueprints and the work orders: **no hard contradiction survives**: a WO contradicting
 its FRD or blueprint, a blueprint asserting a stack/data-model fact `architecture.md` or the PRD denies, two
 blueprints giving one artifact incompatible shapes, a value/term/entity meaning two things across the set, a
-document contradicting a locked decision ADR. **Explicit-scope check:** verify all four unconditional choices
-(PostHog, Sentry, i18n scope and SEO including metadata) have an explicit owner answer or a reused explicit ADR;
+document contradicting a locked decision ADR. **Explicit-scope check:** verify all five unconditional choices
+(PostHog, Sentry, i18n scope, SEO including metadata and mailing-list need) have an explicit owner answer or a reused explicit ADR;
 a silent default or generic stack approval is a blocker. Compare those ADRs against the platform, FRDs,
 blueprints, WOs/dependsOn, installed/planned packages, env/required secrets, validation and hardening/release
 close-out requirements. The lead checks the digest against those same outcomes after it is complete (step 9c), not while its parallel author is still writing. Deferred/excluded scope must not leave SDKs, wrappers/stubs, required

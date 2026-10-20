@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+
+## 2026-10-20 — Approved service reuse and honest preparation (DR-134)
+
+Adopt the consolidated owner-approved services proposal: public provider recipes, private account metadata and project associations; exact resource slugs, default PandaTrack subdomains and provider-specific dev/prod boundaries. Replace automatic Kit/Sentry, PostHog organization-per-app fee avoidance, universal pandacorp prefix, single R2 bucket and Resend domain-per-app. Architecture reads reuse data, resolves optional scope and prepares variable origins/destinations with honest pending evidence; API/CLI documentation is not tested access. Preserve existing resources, secrets outside repositories and all external-action gates. Modal supersedes Railway/Cloud Run for Funko export compute only. Catalog and malformed-input verifier ship together; Manual guide is `plugin/docs/services-and-accounts.md`. Plugin 9.136.0, overlay 8.106.0.
+
 ## 2026-10-20 — DR-133: full native authority for Codex and Claude Code
 
 The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.

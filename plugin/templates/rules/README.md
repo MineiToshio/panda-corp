@@ -37,6 +37,7 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 | `documentation-and-decisions.md` | `always` | Canonical doc + decision log discipline, two-layer docs |
 | `logical-data-model.md` | `always` | Publish and refresh the shared logical model with every schema change, including no-database projects |
 | `error-handling.md` | `always` | Expected vs unexpected taxonomy, typed results, never swallow, honest failure |
+| `external-services.md` | `always` | Approved scope, account/resource reuse, recipe evidence and variable destinations |
 | `resilience.md` | `always` | Timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs |
 | `ai-implementation.md` | `always` | Comments discipline, no parallel doc trees, no dead code, installed-version grounding, lesson citations |
 | `typescript.md` | `typescript` | `import type`, `satisfies`, discriminated unions + exhaustive switch, no unsafe `as`, const maps, `readonly` |
