@@ -50,8 +50,8 @@ mode selector is FRD-11's component slotted in).
 
 ### Acceptance criteria (EARS, expanded)
 
-- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly nine tabs in the
-  order Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos.
+- **AC-04-001.1** WHEN a project is selected, the workspace SHALL render exactly ten tabs in the
+  order Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos, Cuentas.
 - **AC-04-001.2** WHEN no tab is explicitly selected, the workspace SHALL default to **Summary**.
 - **AC-04-002.1** The header SHALL render `title`, the stage label (from `phase`) and `version`. (The
   old `progress` status.yaml line was removed — dead field, no writer anywhere — DR-092/DR-115.)
@@ -206,7 +206,7 @@ down; it does not implement those panels.
 
 ### Shared Architecture seam — IF-04-architecture / CMP-04-tab-architecture
 
-`ProjectWorkspace.tsx` uses `lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` — the same server seam as board `readCardProject`. It passes the existing digest, validated `DataModelResult`, live work orders, environment-variable names and ADRs into the complete existing `ArchitectureDigest`. It does not fork its stack/services/plan panels. The workspace tab is always offered; absent artifacts yield an honest partial state. Both URL resolvers accept `architecture` in the same nine-tab order; portfolio links retain `project` and direct-page links retain the route slug.
+`ProjectWorkspace.tsx` uses `lib/architecture/read-artifacts.ts::readArchitectureArtifacts(projectPath)` — the same server seam as board `readCardProject`. It passes the existing digest, validated `DataModelResult`, live work orders, environment-variable names and ADRs into the complete existing `ArchitectureDigest`. It does not fork its stack/services/plan panels. The workspace tab is always offered; absent artifacts yield an honest partial state. Both URL resolvers accept `architecture` in the same ten-tab order; portfolio links retain `project` and direct-page links retain the route slug.
 
 The component identity is keyed to the selected project so viewer state cannot leak. The compact ERD and **Esquema** representation are shared modules owned by FRD-02 REQ-02-015. The viewer imports no filesystem APIs. See [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) for the versioned model contract and native DOM/SVG artifact contract, with the ELK readable-layout correction in ADR-0007.
 
@@ -249,7 +249,7 @@ is **not** rebuilt. The Comandos tab moved to FRD-11; the Documentos tab folded 
 
 | WO | Surface | Disjoint artifacts |
 |---|---|---|
-| WO-04-004 | Shell: header + tabbar (9 tabs incl. **Arquitectura** and **Cambios**) + objectives bar | `src/app/projects/[slug]/page.tsx`, `_components/{workspace-header,tabbar,objectives-bar}.tsx` |
+| WO-04-004 | Shell: header + tabbar (10 tabs incl. **Arquitectura** and **Cambios**) + objectives bar | `src/app/projects/[slug]/page.tsx`, `_components/{workspace-header,tabbar,objectives-bar}.tsx` |
 | WO-04-005 | Resumen tab + Documentos tab | `_components/tab-summary/**`, `_components/tab-documents/**` |
 
 **DAG & parallelism:**
@@ -258,7 +258,7 @@ WO-04-001 (VERIFIED) ─┐
 WO-04-003 (VERIFIED) ─┼─► WO-04-004 (shell, provides Tabbar seam) ─► WO-04-005 (Resumen + Documentos)
 FRD-13 foundation ────┘
 ```
-- **WO-04-004 runs first** — it is the **provider**: it defines the Tabbar (the nine-tab mount seam) that
+- **WO-04-004 runs first** — it is the **provider**: it defines the Tabbar (the ten-tab mount seam) that
   the tab FRDs plug into. It is sequential before WO-04-005 (which mounts into its tab bodies).
 - **WO-04-005** runs after the shell. Its two tabs touch **disjoint** subfolders
   (`tab-summary/**` vs `tab-documents/**`), so its internals are independently testable.
@@ -277,7 +277,7 @@ VERIFIED. Reuse `docs/design/components.md` rows — no bespoke title/tab/banner
 
 `ProjectWorkspace` resolves `spec` lazily through `readSpecDigest(projectPath)` and the board's same `SpecDigest`. `TabSpec` is a thin client link adapter, receiving serializable digest/meta/doc nodes and the real `countFrdFolders(listProjectDocs())` result. It uses the shared pure workspace document-link resolver (`_components/document-links.ts`), also used by `TabDocuments`; the original document tab's exported `docHref` delegates for API compatibility. No server callback crosses into a client prop. Project-path keys reset FRD/modal state. Reuse the existing idea-to-project path resolver for type chips and authoritative status for platform metadata. Contain full-bleed painting in the workspace, preserving the board's presentation.
 
-Trace: REQ-04-013 / AC-04-013.1–.5 → WO-04-004, `CMP-04-tabbar`, `CMP-04-tab-spec`, shared `CMP-02-spec-digest`, `IF-04-spec`. Missing/empty digest gives a published-spec-pending paragraph, with all nine tabs still available. No new persistence, API endpoint or build-state writer.
+Trace: REQ-04-013 / AC-04-013.1–.5 → WO-04-004, `CMP-04-tabbar`, `CMP-04-tab-spec`, shared `CMP-02-spec-digest`, `IF-04-spec`. Missing/empty digest gives a published-spec-pending paragraph, with all ten tabs still available. No new persistence, API endpoint or build-state writer.
 
 The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.
 

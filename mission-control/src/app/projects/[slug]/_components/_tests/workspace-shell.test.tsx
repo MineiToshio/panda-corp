@@ -145,10 +145,10 @@ describe("TabBar (CMP-04-tabbar)", () => {
     "commands",
   ] as const;
 
-  it("AC-04-001.1 — renders exactly nine tabs (Architecture follows Work orders)", () => {
+  it("AC-04-001.1 — renders ten tabs including the approved Accounts directory (Architecture follows Work orders)", () => {
     render(<TabBar activeTab="summary" />);
     const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(9);
+    expect(tabs).toHaveLength(10);
   });
 
   it("AC-04-001.1 — tabs are in exact order: Resumen, Spec, Work orders, Arquitectura, Cambios, Party, Observabilidad, Documentos, Comandos", () => {
@@ -165,6 +165,7 @@ describe("TabBar (CMP-04-tabbar)", () => {
       "tab-observabilidad",
       "tab-documents",
       "tab-commands",
+      "tab-accounts",
     ]);
   });
 

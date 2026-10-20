@@ -1,3 +1,6 @@
+import { ServicesDirectory } from "@/components/modules/ServicesDirectory/ServicesDirectory";
+import { getProjectNavigation } from "@/lib/navigation/identities";
+import { getServicesDirectory } from "@/lib/services/services";
 /**
  * ProjectWorkspace — the shared project workspace body (CMP-04-workspace).
  *
@@ -73,6 +76,7 @@ const VALID_TABS = new Set<string>([
   "observabilidad",
   "documents",
   "commands",
+  "accounts",
 ]);
 
 /** Resolve the active tab id from a raw `?tab=` param (default: summary). */
@@ -314,6 +318,13 @@ export function ProjectWorkspace({
 
   let body: React.JSX.Element;
   switch (activeTab) {
+    case "accounts": {
+      const data = getServicesDirectory();
+      const accountHref = `/portfolio/${encodeURIComponent(getProjectNavigation(item.path, item.name).slug)}/accounts`;
+      const projectId = data.allocations.find((row) => row.projectHref === accountHref)?.projectId;
+      body = <ServicesDirectory data={data} projectId={projectId ?? "unregistered-project"} />;
+      break;
+    }
     case "spec":
       body = renderSpecTab(projectPath, title, status.targetPlatforms, navigationBaseHref);
       break;

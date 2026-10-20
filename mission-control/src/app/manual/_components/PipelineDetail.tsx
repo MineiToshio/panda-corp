@@ -156,7 +156,8 @@ export function PipelineDetail(): React.JSX.Element {
         esfuerzo que su tarea merece (MECH, STANDARD o JUDGE, sin nombres de modelo: se resuelven
         desde <Code>model-tiers.json</Code>, igual en Claude que en Codex), y cada agente lee un{" "}
         <B weight={500}>paquete de contexto</B> (<Code>build-packs.mjs</Code>) más los FRDs que le
-        tocan, en vez de releer todos los documentos. Un cambio tardío se aplica como delta, nunca regenerando.
+        tocan, en vez de releer todos los documentos. Un cambio tardío se aplica como delta, nunca
+        regenerando.
       </Body>
       <Body>
         Se documenta la arquitectura de la plataforma (<Code>docs/product/architecture.md</Code>) y

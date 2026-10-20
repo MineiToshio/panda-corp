@@ -166,8 +166,8 @@ export function DesatendidaDetail(): React.JSX.Element {
         <li>
           <B weight={500}>Las features sensibles esperan.</B> Si una feature toca login y sesiones,
           dinero, datos personales guardados, secretos o borrados destructivos de datos, no es
-          usable hasta quedar VERIFIED, y las que dependen de ella esperan antes de construirse.
-          Si la feature sensible no puede terminarse sin una parte de otra (un ciclo), esa parte se
+          usable hasta quedar VERIFIED, y las que dependen de ella esperan antes de construirse. Si
+          la feature sensible no puede terminarse sin una parte de otra (un ciclo), esa parte se
           construye igual y su feature queda tratada como sensible: tampoco es usable hasta quedar
           VERIFIED. Si nada puede avanzar, la corrida para con un aviso de interbloqueo y te pide
           decidir.
