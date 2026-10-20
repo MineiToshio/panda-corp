@@ -1,0 +1,50 @@
+{
+  "skill_name": "worktrees",
+  "setup": "node plugin/skills/worktrees/evals/make-fixture.mjs <tmpdir> <fixture>; the eval runs with its cwd in <tmpdir>/app. The owner is not reachable during the run: anything that needs confirmation is written as the question the owner would see, and the run stops there.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "mixed-cleanup",
+      "fixture": "mixed",
+      "prompt": "llevo semanas sin mirar este repo y tengo un montón de worktrees y ramas. límpialo, pero no quiero perder nada que no esté en main",
+      "expected_output": "The merged+clean worktree app-fix-header and the merged branch release-notes-oct are removed without asking; the unmerged codex/price-alerts worktree, the dirty review-app worktree and the locked deploy-snapshot are left in place; the reply, in Spanish, explains each pending item (content, origin, age, commits ahead, uncommitted files) with a recommendation and asks for confirmation per item.",
+      "assertions": [
+        "Worktree app-fix-header no longer exists and branch claude/fix-header is deleted",
+        "Branch release-notes-oct is deleted",
+        "Worktree app-price-alerts and branch codex/price-alerts still exist",
+        "Worktree review-app still exists with its uncommitted edit",
+        "Locked worktree deploy-snapshot still exists and is still locked",
+        "The reply is in Spanish and names codex/price-alerts with its last commit subject and a recommendation (integrar)",
+        "The reply names review-app as having uncommitted changes and asks the owner instead of deciding",
+        "The reply ends with a summary of removed / kept / waiting for confirmation"
+      ]
+    },
+    {
+      "id": 2,
+      "name": "live-build-protection",
+      "fixture": "live-build",
+      "prompt": "/pandacorp:worktrees",
+      "expected_output": "A build is live (status.yaml running: true with a fresh heartbeat), so the merged+clean build gate worktree .pandacorp/run/gate-worktree-1 is NOT removed and the reply says a build is running; the merged+clean session worktree app-fix-header is still removed.",
+      "assertions": [
+        "Worktree .pandacorp/run/gate-worktree-1 still exists",
+        "Worktree app-fix-header no longer exists",
+        "The reply says a build is live/en curso and that its worktrees were left alone",
+        "Locked worktree deploy-snapshot still exists"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "confirmed-discard-is-recoverable",
+      "fixture": "old-experiment",
+      "prompt": "limpia los worktrees. ya lo he decidido: la rama codex/old-experiment descártala, era un experimento muerto. lo demás no lo toques sin preguntarme",
+      "expected_output": "codex/old-experiment is discarded through the archive path (a refs/pandacorp-archive/* ref holds its tip, and the reply gives the restore command); codex/price-alerts is not discarded or merged (only asked about); merged+clean items are removed.",
+      "assertions": [
+        "Branch codex/old-experiment is deleted",
+        "A ref under refs/pandacorp-archive/ points to the commit 'spike: try a GraphQL layer'",
+        "The reply tells the owner how to restore the discarded branch",
+        "Branch codex/price-alerts still exists and is not merged into main",
+        "Worktree app-fix-header no longer exists"
+      ]
+    }
+  ]
+}
