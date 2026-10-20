@@ -60,6 +60,28 @@ describe("public catalog fail-closed contract", () => {
         parseProviders({ schema_version: 1, providers: [{ ...provider, ...changed }] }),
       ).toThrow();
   });
+  it("does not disable bucket isolation when the integration label changes", () => {
+    for (const integrationId of ["r2", "storage", "media"])
+      expect(() =>
+        parseAllocations(
+          {
+            schema_version: 1,
+            project_id: "demo",
+            resource_slug: "demo",
+            services: {
+              [integrationId]: {
+                provider_id: "cloudflare",
+                account_ref: null,
+                status: "proposed",
+                environments: { dev: { resource_name: "demo-prod", native_resource_id: null } },
+              },
+            },
+          },
+          "Demo",
+          "",
+        ),
+      ).toThrow();
+  });
   it("accepts provider-native shared project identities outside bucket isolation", () => {
     for (const provider_id of ["google_cloud", "vercel", "sentry"])
       expect(

@@ -109,7 +109,7 @@ export function parseAllocations(
     });
     const dev = resources.find((resource) => resource.environment === "dev");
     const prod = resources.find((resource) => resource.environment === "prod");
-    const isBucketIntegration = row.provider_id === "cloudflare" && /r2|bucket/.test(integrationId);
+    const isBucketIntegration = row.provider_id === "cloudflare" && integrationId !== "dns";
     if (
       isBucketIntegration &&
       dev &&
