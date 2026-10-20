@@ -119,7 +119,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | EXT-4 | Vercel commercial-use warning at 3 checkpoints | MUST | external-services.md | skill checklists (PRD/blueprint/release) | manual |
 | EXT-5 | Public provider contract: unique IDs, dated sources, honest automation route and secret-free metadata | MUST | external-services.md | `validate-service-catalog.mjs` + malformed-fixture tests | wired |
 | EXT-6 | Architecture account lookup, explicit scope, finalized consumer contract, protected env materialization, pending evidence and live quotas | MUST | external-services.md | architecture/implement/release service-readiness checklists | manual |
-| EXT-7 | Three root dotenv files, service/destination groups, local-only last in guide/dev and absent from production, explicit per-target isolation | MUST | external-services.md | architecture step 9b3 + independent synthetic-fixture/loading and handoff checklist | manual |
+| EXT-7 | Three root dotenv files, service/destination groups, local-only last in guide/dev and absent from production; migration execution machine and DB target explicit, per-target isolation | MUST | external-services.md | architecture step 9b3 + independent synthetic-fixture/loading and handoff checklist | manual |
 | INFRA-1 | Dev DB/services via Docker Compose in-repo | MUST | infra.md | scaffold template + reviewer | manual |
 | INFRA-2 | Ports from the central ledger | MUST | infra.md | scaffold/architecture automation (`factory/ports.yaml`) | wired |
 | INFRA-3 | MVP native DB recovery only; custom backups post-validation if approved; chosen restore mechanism TESTED before external release and after schema majors | MUST | infra.md | release checklist + post-schema-major drill (named) | manual |

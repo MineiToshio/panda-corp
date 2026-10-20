@@ -100,6 +100,28 @@ lost to satisfy a file count. Do not automatically rewrite every existing projec
 upgrade: propagation installs the convention; actual consolidation is a scoped operation. No new
 `.env.modal.*`, `.env.migrations.*`, `.env.fidelity.*`, `.env.offline.*`, or secret-fragment files are generated.
 
+### Migration credentials: execution location versus database target
+
+When migrations are actually selected, label **both facts** in the private file comments and guide:
+execution happens from the owner's Mac; the database target is development or production. Local
+execution does not mean a development database, and “not uploaded” does not mean unused.
+
+| File | Placement and required explanation |
+|---|---|
+| `.env.local` | Below the final LOCAL-ONLY separator, in a migration subsection: “Development migrations — executed from your Mac against the development database; Prisma/the selected migration CLI reads this connection; do not upload to Vercel/Modal runtime.” |
+| `.env.production` | A separate, clearly labelled operator subsection: “Production migrations — executed from your Mac against the production database; Prisma/the selected migration CLI reads this connection; do not upload to Vercel/Modal runtime.” This approved production-target connection is useful even though it is not deployed with the app. |
+| `.env.example` | Empty migration placeholder in the final local/operator-only section. Explain that `.env.local` supplies the development target and `.env.production` the production target. |
+
+Use the actual migration consumer and mapping; Prisma and `MIGRATION_DATABASE_URL` are examples, not
+requirements for projects without that stack. Do not create migration variables when there is no
+approved consumer. Keep required production-target migration credentials in `.env.production`, not
+among development values or in a new file. Local tools/fixtures such as Python/browser paths still
+never belong in production; they are different from an operator connection to the production DB.
+The owner runs the documented migration command locally with explicit target selection; never imply
+that copying the connection to a dashboard is necessary. Runtime exports exclude migration authority.
+Preparing/labeling these values executes no migrations and changes no production authorization gate.
+
+
 Before any write, prove each sensitive path is gitignored (`git check-ignore`) **and not tracked**
 (`git ls-files`), including the private bundles and report. Amend ignore configuration if needed before writing values.
 Refuse symlinked paths/ancestors, non-regular files, hardlinked existing files or unexpected ownership; do

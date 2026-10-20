@@ -1,5 +1,12 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-20 — Explain locally executed migration credentials by database target
+
+**What:** Architecture delivery comments distinguish execution from the owner's Mac from the development/production database being changed. Migration entries sit below the final local/operator-only separator in `.env.local`/`.env.example`; `.env.production` retains a labelled production-target operator block. Name the actual migration CLI and explain that the value is read locally rather than uploaded to Vercel/Modal runtime. Updated the standard, operative rule, template, gate and Manual guide; EXT-7 is clarified without another rule.
+**Why:** Local execution does not make the production database connection unnecessary. Avoid moving it to development, deleting a consumed credential, or treating it like Python/browser tooling. No migration variables without a real approved consumer; no migration execution, credential changes or new files in this factory change. Plugin 9.138.1 / overlay 8.108.1.
+**Validation:** Skill quick validation, independent migration-versus-local-tool scenario review, derived-artifact drift and diff checks pass. Standards catalog exits 1 only on the pre-existing navigation-identities failures tracked by BL-0264; no migration or runtime execution was performed.
+
+
 ## 2026-10-20 — Three environment files with destination isolation
 
 **What:** Architecture now delivers exactly `.env.example`, `.env.local` and `.env.production`, grouped by service within destination blocks. Local-only tooling is last in guide/dev and excluded from production. Distinct credentials remain distinct through storage aliases and explicit runtime selectors/exporters; shared secrets name their consumers. Supersedes the production `.env.production.local` handoff and additional worker/migration/fidelity/offline/secret-fragment files. Existing values survive scoped consolidation; upgrades propagate the convention without rewriting private files.

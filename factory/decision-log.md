@@ -1,5 +1,11 @@
 # Decision Log — Factory
 
+## 2026-10-20 — Explain locally executed migration credentials by database target
+
+**What:** Architecture delivery comments distinguish execution from the owner's Mac from the development/production database being changed. Migration entries sit below the final local/operator-only separator in `.env.local`/`.env.example`; `.env.production` retains a labelled production-target operator block. Name the actual migration CLI and explain that the value is read locally rather than uploaded to Vercel/Modal runtime. Updated the standard, operative rule, template, gate and Manual guide; EXT-7 is clarified without another rule.
+**Why:** Local execution does not make the production database connection unnecessary. Avoid moving it to development, deleting a consumed credential, or treating it like Python/browser tooling. No migration variables without a real approved consumer; no migration execution, credential changes or new files in this factory change. Plugin 9.138.1 / overlay 8.108.1.
+
+
 ## 2026-10-20 — Standardize three environment files across project architecture
 
 The owner-approved three-file convention replaces the separate production-local/worker/migration/tooling files. Updated [external-services](standards/external-services.md), the operative rule and EXT-7 registry, architecture/installer/template and downstream guidance. Service/destination sections retain distinct privileges via explicit selectors/exports, with local-only entries last in guide/dev and absent from production. Port/Compose/readme/worktree instructions no longer create a fourth `.env`. Legacy private-file consolidation is scoped, value-preserving and never triggered by an upgrade alone. Plugin 9.138.0 / overlay 8.108.0; existing provider identities/resources and product scopes unchanged.

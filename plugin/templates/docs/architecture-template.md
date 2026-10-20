@@ -84,7 +84,12 @@ After decisions/contract are final, fill obtainable values privately per archite
 service within destination blocks (web/renderer/operator as selected), using aliases and explicit
 runtime exports where names/privileges differ. Local-only entries are last in guide/dev, absent from
 production. Document mappings/commands and synthetic proof of framework precedence/target isolation;
-missing bindings stay pending. Never upload the complete bundle or add per-destination dotenv files. The private report at
+missing bindings stay pending. Never upload the complete bundle or add per-destination dotenv files.
+For migration credentials, document local execution from the owner's Mac separately from the DB target:
+development in `.env.local`, production in `.env.production`; guide/dev entries go below the final
+local/operator-only separator, while production gets a labelled operator block. Comments name the
+migration CLI that reads the connection and say it is never uploaded to Vercel/Modal runtime. Do not
+invent a migration variable without a concrete consumer or run migrations during preparation. The private report at
 `.pandacorp/comms/entrega-entornos.md` records status/evidence without values. Link it by path only.
 Prepared production inputs are not a production deployment or verified production readiness.
 
