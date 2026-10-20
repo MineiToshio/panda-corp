@@ -12,6 +12,9 @@ closes:
 links: [DR-113, DR-120]
 ---
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 ## Problem
 > **RAISED TO p0 BY DR-120 (2026-09-02) — this item is the MECHANISM of the Codex freeze, not a victim of it.** The owner froze every non-Claude runtime at read/review-only. Today that property is prose in `AGENTS.md`/PORT-5 against `plugin/runtime/enforcement-policy.json:11`'s `sandbox_mode: "workspace-write"` — the same configuration that preceded the BL-0035 data-loss incident. Under the freeze the port's job narrows and sharpens: make read-only *enforced* (deny writes to build state and to `.pandacorp/` from a Codex session), not enable anything. Do NOT scope this as "hooks parity for a future Codex build".
 

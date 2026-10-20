@@ -1,5 +1,10 @@
 # Decision log — Plugin pandacorp
 
+## 2026-10-20 — DR-133: full native authority for Codex and Claude Code
+
+The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.
+
+
 ## v9.134.0 — 2026-10-19 (MINOR): keep custom database backups out of MVP architecture
 
 **What:** Architecture's recovery round, downstream scope contract, installer and contradiction gate exclude custom external database backups in MVP/v1: no dump jobs, backup buckets/keys, restore scaffolding or associated speculative work. The architect verifies the actual provider/plan recovery availability and window, records limitations and resolves unmet legal/FRD guarantees before proceeding. Product exports/media storage remain independent legitimate scope; no existing project backup/data is removed by this prospective rule. Updated DR-012 and the Manual. Aligned infra.md’s former mandatory pre-release external dump with native MVP recovery and injected the matching resilience rule; overlay 8.104.0 propagates it without changing existing project scope.

@@ -1407,8 +1407,7 @@ stops only when:
   inside the wave loop). If the drain materializes real work the engine re-plans and proceeds normally;
   only a still-empty queue after the drain ends the run. A TARGETED run never drains on an empty plan:
   draining the whole queue is out of scope for a run the owner scoped to one FRD or change. **No
-  non-Claude runtime runs any of this: build execution is Claude-only (DR-120 froze every other runtime at
-  read/review-only on 2026-09-02; the former Codex `attended_foreground` profile is withdrawn).**
+  runtime may take over another runtime’s live engine. Codex and Claude Code have full native write authority (DR-133); absent Workflow/scheduling tools use attended sequential execution with the same lease, review and verification gates.**
 - **Budget ceiling** — `maxAgents` (a hard cap on subagents spawned this run) is reached, or a `+Nk` turn
   directive / `maxSpend` is nearly spent → stop at the last safe point (a commit). For overnight runs,
   **`maxAgents` is the real guardrail**: counted **inside the engine** (each implementer/reviewer ≈ work ≈

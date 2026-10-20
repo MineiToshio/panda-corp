@@ -1,5 +1,10 @@
 # Decision Log — Factory
 
+## 2026-10-20 — DR-133: full native authority for Codex and Claude Code
+
+The owner explicitly superseded DR-120: both runtimes may execute every Pandacorp skill and edit every application, including canonical plans and build state. Updated PORT-5, constitution, registry, overlay AGENTS, implement/architecture guidance, capability policy and Manual. Full authorization is separate from the optional automated launcher's targeted foreground evidence; no unattended certification or new engine is claimed. Existing safety gates, independent review, atomic ownership and one-writer safe-point handoff remain. Plugin 9.135.0 / overlay 8.105.0.
+
+
 ## 2026-10-19 — MVP database recovery uses native provider capabilities
 
 **What:** [DR-012](decisions/registry.yaml) and architecture's recovery round now exclude custom external database backups in MVP/v1. Verify the selected provider plan and recovery window and declare limitations; resolve conflicting requirements before planning. Custom external backup work waits until product validation. Product exports/media storage and factory personal-state backups are separate and unchanged.

@@ -12,6 +12,9 @@ closes: "MECH re-mapped gpt-5.4-mini -> gpt-5.6-luna in plugin/runtime/model-tie
 links: [DR-120]
 ---
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 ## Problem
 > **DR-120 (Codex freeze, 2026-09-02) does NOT close this item.** The owner froze Codex at read/review-only, but the `.codex/agents/*.toml` mirrors are still generated and still drift-gated, and a MECH-tier dispatch for a *read/review* task would hard-fail on a retired id exactly as a build dispatch would. Fix it; just do not treat it as Codex capability work.
 >

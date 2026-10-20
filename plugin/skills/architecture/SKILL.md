@@ -44,7 +44,7 @@ unreadable): `build-packs.mjs`, `waves.mjs`, `ac-matrix.mjs`, `plan-consistency.
 - **Dispatch: speed, parallelism, portable tiers (`references/dispatch.md`).** Every agent runs at the `TIER·effort`
   its row gives (MECH / STANDARD / JUDGE, PORT-2), resolved at dispatch time from
   `${CLAUDE_PLUGIN_ROOT}/runtime/model-tiers.json` (Claude: the tier alias as the `Agent` `model` plus `effort`,
-  overriding a named agent's pinned default; Codex: the tier worker, read-only on build state per DR-120;
+  overriding a named agent's pinned default; Codex: the tier worker, full native attended write authority per DR-133;
   elsewhere: inline, sequential). No model name
   is written in this skill or its briefs. Each group (G1 to G5) is launched in ONE dispatch message, in the
   background. Agents read context packs (`build-packs.mjs`) plus the `frd.md` files they plan or judge in full, not

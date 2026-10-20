@@ -54,28 +54,25 @@
     "codex_product_executor": {
       "canonical": "plugin/runtime/codex/executor.mjs",
       "runtime_owner": "codex",
-      "certification": "FROZEN",
-      "profile": "none",
-      "scope": "read-review-only",
-      "blockers": [
-        "SUSPENDED-R10-installed-bidirectional-canary",
-        "SUSPENDED-R11-live-overnight-canary"
-      ],
-      "frozen_at": "2026-09-02",
-      "frozen_by": "DR-120",
-      "reopen_trigger": "Codex ships wake-capable local scheduling",
+      "certification": "EXPERIMENTAL",
+      "profile": "attended_foreground",
+      "scope": "targeted-only",
+      "blockers": [],
       "historical_evidence": [
         "R7-live-short-green",
         "R11-offline-accelerated-green",
         "R11-current-head-live-short-green",
         "R10-installed-attended-targeted-green:codex-20260715T151508Z-99530@9c2ea16c5b82a7df71b3eb793e0bd4c57554399b"
-      ]
+      ],
+      "authorization": "FULL_NATIVE_ATTENDED",
+      "authorized_by": "DR-133"
     },
     "codex_unattended_certification": {
       "canonical": "plugin/runtime/codex/R11-CERTIFICATION.md",
       "runtime_owner": "codex",
-      "certification": "SUSPENDED_BY_DR-120",
-      "required_for_parity": "LIVE_OVERNIGHT"
+      "certification": "NOT_CERTIFIED_CURRENT",
+      "required_for_parity": "LIVE_OVERNIGHT",
+      "note": "Automation evidence remains incomplete; not an owner permission ban on native attended operations."
     },
     "codex_certification_authority": {
       "canonical": "plugin/runtime/codex/certification-permit.mjs",
@@ -85,7 +82,7 @@
         "R10_STAGE_2",
         "R11_LIVE_OVERNIGHT"
       ],
-      "normal_project_writes": "DENIED_FROZEN_DR-120"
+      "normal_project_writes": "AUTHORIZED_DR-133"
     },
     "product_change_queue_transactions": {
       "canonical": "plugin/runtime/build-state.mjs#applyChangePlan",
@@ -96,12 +93,13 @@
     "sequential_runtime_switch": {
       "canonical": "plugin/runtime/codex/R10-CERTIFICATION.md",
       "runtime_owner": "shared",
-      "certification": "SUSPENDED_BY_DR-120",
+      "certification": "NOT_CERTIFIED_CURRENT",
       "harness": "plugin/scripts/test-runtime-switch.mjs",
       "blockers": [
         "installed-Claude-to-Codex-to-Claude-canary",
         "R11-unattended-canary"
-      ]
+      ],
+      "note": "Automation evidence remains incomplete; not an owner permission ban on native attended operations."
     },
     "durable_gamification_accounting": {
       "canonical": "mission-control/src/lib/gamification/ledger.ts",

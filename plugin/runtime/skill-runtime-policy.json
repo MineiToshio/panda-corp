@@ -7,7 +7,9 @@
         "kind": "canonical-runtime",
         "verified_at": "2026-07-11",
         "verifier": "plugin/scripts/check-skill-capabilities.mjs"
-      }
+      },
+      "authorization": "FULL",
+      "authorized_by": "DR-133"
     },
     "codex": {
       "status": "FALLBACK",
@@ -16,7 +18,9 @@
         "kind": "static-contract-only",
         "verified_at": "2026-07-11",
         "verifier": "plugin/scripts/check-skill-capabilities.mjs"
-      }
+      },
+      "authorization": "FULL",
+      "authorized_by": "DR-133"
     }
   },
   "overrides": {
@@ -28,19 +32,21 @@
     },
     "implement": {
       "codex": {
-        "status": "FALLBACK",
-        "fallback": "READ/REVIEW-ONLY. No build-state writes from any non-Claude runtime: FROZEN 2026-09-02 by DR-120. The former EXPERIMENTAL attended_foreground/targeted-only profile (one FRD or one ready change, foreground, cumulative <=7200 seconds, zero automatic restarts) is WITHDRAWN. Bare/global, multiple-FRD, targeted, hardening, release, background, unattended and cross-runtime Codex builds are all unavailable; Claude keeps its Dynamic Workflow path. Reopen trigger: \"Codex ships wake-capable local scheduling\".",
+        "status": "EXPERIMENTAL",
+        "profile": "attended_foreground",
+        "scope": "targeted-only",
+        "fallback": "Full native attended read/write access to every skill and application (DR-133). Automated launcher supports one exact FRD or ready change, foreground, <=7200 seconds, zero automatic restarts. Other scopes execute natively with available tools and the same governance; no unattended certification is claimed.",
         "evidence": {
-          "kind": "owner-decision-freeze",
-          "verified_at": "2026-09-02",
-          "verifier": "DR-120 / docs/proposals/33-model-era-audit.md §12.1 option (B)"
+          "kind": "owner-authorized-native-plus-historical-targeted-canary",
+          "verified_at": "2026-10-20",
+          "verifier": "DR-133; historical installed canary codex-20260715T151508Z-99530"
         }
       }
     },
     "implement-backlog": {
       "codex": {
         "status": "FALLBACK",
-        "fallback": "Single-item mode only; drain-all remains Claude-owned until its independent E2E passes."
+        "fallback": "Full native attended single-item and drain-all access (DR-133); execute sequentially with available Codex tools, independent review and deterministic gates. Do not invoke Claude-only orchestration or claim automated drain-all E2E parity."
       }
     },
     "review-launch": {

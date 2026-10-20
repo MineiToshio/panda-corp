@@ -40,7 +40,7 @@ const DOORS: readonly Door[] = [
     key: "codex",
     icon: "ti-door-enter",
     title: "Puerta Codex",
-    subtitle: "app · CLI · solo lectura/review",
+    subtitle: "app · CLI · acceso completo",
     accent: "var(--color-cat-7)",
     reads: "AGENTS.md directo + plugin Codex",
     layer: ["plugin + .agents/skills (symlink)", ".codex/agents/*.toml (generados)"],

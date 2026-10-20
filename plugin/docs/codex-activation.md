@@ -2,8 +2,7 @@
 
 Codex enforcement has two separate states: **source-certified** and **active in a user session**.
 Repository tests can prove the first; only an explicit local install and hook-trust decision can
-produce the second. Neither state alone authorizes build writes: PORT-5 still requires the certified
-executor and governed-transition evidence.
+produce the second. Owner authorization is FULL for Codex and Claude Code (DR-133). Hook trust and automation certification remain separate from native write permission; PORT-5 preserves governed-transition evidence.
 
 ## Source certification
 
@@ -54,5 +53,4 @@ before changing the capability matrix from source-certified to live-certified.
 
 Disable or remove only `pandacorp@panda-corp` through the Codex plugin CLI, then start a fresh Codex
 session. Do not delete `.codex/`, `plugin/`, `.pandacorp/`, or the marketplace source directory. A
-rollback removes active enforcement, so Codex immediately returns to the narrower PORT-5 permission
-boundary; Claude continues using its unchanged registration.
+rollback removes active enforcement; Codex retains full native authorization under DR-133 and must follow PORT-5 gates as instructions; Claude continues using its unchanged registration.

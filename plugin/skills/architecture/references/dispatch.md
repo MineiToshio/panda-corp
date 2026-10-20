@@ -124,8 +124,4 @@ State both to the owner at the start with the plan, scaled to this project's FRD
   `EnterWorktree` → `git worktree add` by hand.
 - Every script (`build-packs`, `waves`, `ac-matrix`, `plan-consistency`, `flip-active`, `resolve-versions`, the
   design checks) runs the same with `node`; `${CLAUDE_PLUGIN_ROOT}` is the plugin's path on that runtime.
-- **What a non-Claude runtime may do in this phase (DR-120, PORT-5, AGENTS.md §Runtime portability):** it is
-  read/review-only on the project's build state. It may run the preflight and the scripts, draft the decision
-  brief in `.pandacorp/comms/` and ask the owner, and review an existing plan (a gate-style report to the owner).
-  It does NOT write the blueprints, the work orders, `.pandacorp/status.yaml` or the flip: it stops there and tells
-  the owner those steps are left for a Claude Code session.
+- **Codex and Claude Code have full phase authority (DR-133):** write the decision brief, canonical blueprints, work orders and state with the same phase gates. Use runtime-local workers when available, otherwise work inline sequentially. Never alter a plan under a live builder; stop at a safe point first. Missing tools change the mechanism, not permission.

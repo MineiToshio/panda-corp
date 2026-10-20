@@ -1,19 +1,19 @@
 ---
 name: implement
-description: Starts and runs the build. Claude Code is the ONLY runtime that may write project build state (Dynamic Workflow); every other runtime is read/review-only and must STOP before launching. Use inside the project after /pandacorp:architecture.
+description: Starts and runs the build. Codex and Claude Code have full read/write access; use runtime-local tools, attended sequential fallback and the same verification gates. Use inside the project after /pandacorp:architecture.
 ---
 
 # /pandacorp:implement
 
-**This is the command that starts (and resumes) the build. The active runtime selects its own executor; runtimes never call one another.** Under Claude Code it launches the **dynamic workflow** `pandacorp-build`, a native Claude Code JS script that runs in the background and builds in **GLOBAL WAVES** (DR-050 + BL-0021). **No other runtime has a build executor: every non-Claude runtime is read/review-only on build state (DR-120 freeze, 2026-09-02).** The executor reads each blueprint's Build Plan and the work-order frontmatter **`implementation_status`** as canonical state, and requires an independent review/test gate before an FRD becomes `VERIFIED`.
+**This is the command that starts (and resumes) the build. The active runtime selects its own executor; runtimes never call one another.** Under Claude Code it launches the **dynamic workflow** `pandacorp-build`, a native Claude Code JS script that runs in the background and builds in **GLOBAL WAVES** (DR-050 + BL-0021). **Codex is equally authorized and uses native attended execution or its supported targeted launcher (DR-133).** The executor reads each blueprint's Build Plan and the work-order frontmatter **`implementation_status`** as canonical state, and requires an independent review/test gate before an FRD becomes `VERIFIED`.
 
 ## Runtime selection — do this before interpreting the rest of the skill
 
 - **Claude Code:** keep the existing path unchanged. Use `pandacorp-build` + the Claude supervisor, Claude agents/models and the Unattended operation SOP below. Its normal bare/global, targeted and unattended capabilities remain available.
-- **Codex — STOP.** Read the canonical capability policy (`plugin/runtime/skill-runtime-policy.json`): `implement.codex.status` is `FALLBACK`, read/review-only. **Do not launch anything.** Do not invoke `plugin/scripts/launch-codex-implement.sh`, `plugin/runtime/codex/executor.mjs` or its supervisor. You may read the Build Plan, the work orders and `status.yaml`, review them and report to the owner in Spanish — that is the whole permitted surface. The former `EXPERIMENTAL/attended_foreground/targeted-only` profile was withdrawn on 2026-09-02 (DR-120, reopen trigger: *"Codex ships wake-capable local scheduling"*).
-- **Any other runtime (Cursor, OpenCode, …): STOP** — same read/review-only boundary. No build-state writes are authorized from any non-Claude runtime.
+- **Codex:** full access to this and every other skill, documentation and build state (DR-133). Follow PORT-5's native attended playbook using available Codex tools. When `Workflow`/scheduling are unavailable, work sequentially in the active session; do not refuse because of runtime identity. Preserve independent review, readiness, atomic lease, safe points and deterministic gates. The optional automated launcher supports only its targeted foreground contract; it is not required for documentation work or broader native attended scopes.
+- **Other runtimes:** use their owner authorization and PORT-3 fallback; never impersonate Claude's Workflow.
 
-The remainder of this file describes the Claude build contract — **the only executable one today**. Governance it states (frontmatter states, leases, independent review, `verify.sh`, mutation evidence, safe points and human gates) binds every runtime as instructions even where the mechanism is Claude-only.
+The remainder specifies the Claude vehicle and the shared governance. Translate mechanisms, never waive gates. Documentation-only updates do not launch a build; active builders must stop at a safe point before replanning.
 
 > **Preflight (DR-045) — is this a Pandacorp project?** This skill mutates the project, so first confirm the marker `.pandacorp/status.yaml` exists. If it's missing, STOP and tell the owner (in Spanish) that this folder isn't a factory project yet — `/pandacorp:adopt` brings an existing one in, `/pandacorp:spec` creates a new one. Then, if `overlay_version` is behind the plugin's `OVERLAY_VERSION`, run `/pandacorp:upgrade` first (DR-048) so the project's `.claude/engines/pandacorp-build.js` and structure are current. Don't proceed over a missing/stale structure.
 >
@@ -36,13 +36,13 @@ The remainder of this file describes the Claude build contract — **the only ex
 
 **Targeted change build — when the owner asks to implement a specific pending change from the queue:** parse the change name from `$ARGUMENTS` (the filename without `.md` or a recognizable substring) and pass it as `args.change`. The workflow processes the change FIRST (creating/updating FRDs+WOs), then builds the resulting FRDs. If the change is `draft` (the only pre-`ready` queue status, DR-069), the engine stops immediately and tells the owner to flip it to `ready` first. If the resulting FRDs have unsatisfied deps, the dep gate fires as usual.
 
-> **Non-Claude runtimes do not run targeted builds either.** A targeted change build is still a build-state write, so it is denied everywhere outside Claude Code (DR-120).
+> **Codex targeted work:** use native attended execution or the supported foreground launcher; the same ownership and verification gates apply (DR-133).
 
 > **Engine = Dynamic Workflows, not Agent Teams** (DR-013). The per-FRD loop lives in the **script's code**, not in messages between peer agents. **Resumable by construction**: state lives in the work-order frontmatter + commits, so a re-launch reads `implementation_status` and **never rebuilds a `VERIFIED` work order** (DR-050) — no re-work.
-> This is the **Claude-local executor**, and since DR-120 the only one. It dispatches only Claude agents
+> This is the **Claude-local executor**. Codex uses its own native tools (DR-133). The Claude executor dispatches only Claude agents
 > and never invokes, messages or delegates to another runtime. The Codex executor
-> (`runtime/codex/executor.mjs`) is frozen: it may not be invoked, and no cross-runtime continuation is
-> authorized while the freeze holds (PORT-5).
+> (`runtime/codex/executor.mjs`) retains its supported targeted foreground profile; native Codex
+> work has full authority, with cold handoff only after ownership is released (PORT-5).
 
 ## Execution modes (consumption/quality control)
 
@@ -56,10 +56,8 @@ Control the **concurrency and models** of the workflow (DR-014), not "team size"
 
 ## Unattended operation — the build supervisor (run and walk away SAFELY)
 
-> **This SOP is Claude-only, like every other build path.** No non-Claude runtime may run an attended,
-> unattended, targeted or bare build (DR-120). The missing piece on the Codex side — wake-capable local
-> scheduling — is exactly the freeze's reopen trigger. The Claude Dynamic Workflow and supervisor below
-> retain their existing unattended behavior unchanged.
+> **This SOP describes the Claude-specific background mechanism. Codex has full native attended authority (DR-133).**
+> Codex uses native attended work when scheduling tools are unavailable; automation parity is not claimed (DR-133).
 
 ### Launch checklist (run in order — mechanized, not prose)
 1. **Preflight (read-only):** `bash "${CLAUDE_PLUGIN_ROOT}/scripts/preflight-implement.sh" <projectDir> --target-runtime claude --run-mode auto`. Every line must read `PASS` (exit 0), including the logical build-run intent classification from the shared resolver; it never asks the owner for an ID. A `FAIL` STOPS the launch: *another build ACTIVE* → abort; *STALE LOCK* → it prints the reset commands (it never auto-resets — the next step's `launch-implement.sh` takes a fresh lock); a readiness/overlay/`NEEDS CLARIFICATION` fail routes back to `/pandacorp:architecture` or `/pandacorp:upgrade`. A `WARN` about the session cwd (BL-0220) is advisory but real: Claude Code injects the `CLAUDE.md`/`AGENTS.md` chain of the LAUNCHING session's cwd into every engine subagent regardless of the cwd the engine `cd`s them to (verified in the 2026-10-01 bench transcripts), so **launch `/implement` from a session opened inside the project**; a session at the factory root or in a sibling project builds under that other project's rules.
@@ -177,7 +175,7 @@ The owner runs `implement` and leaves, even overnight. For that to be SAFE — *
    directly, so a Claude subagent transports the receipt. The engine fails closed on invalid evidence
    and the installed qualification proves real execution under hostile aliases; that does not remove
    the platform's model-agent trust boundary. It is a Claude-side hardening item (BL-0074) that stands
-   on its own merits; the R10/R11 gates it used to be measured against are suspended (DR-120).
+   on its own merits; the R10/R11 procedures describe additional automated qualification, not native-write permission (DR-133).
 
 ## Real-time documentation (Mission Control reads it live)
 

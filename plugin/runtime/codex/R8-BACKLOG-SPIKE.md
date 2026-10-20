@@ -67,7 +67,7 @@ also absent. The R8 spike therefore does not close or weaken BL-0025.
 
 ## Promotion gates
 
-Codex drain-all may move beyond `FALLBACK` only when all of these are green:
+Codex has full native attended drain-all authority (DR-133). Promoting an automated Codex drain-all controller beyond `FALLBACK` additionally requires all of these to be green:
 
 - a Codex-local controller owns Scan → Implement → Merge → Report;
 - a live scan is schema-valid and tier sizing is independently reviewed;

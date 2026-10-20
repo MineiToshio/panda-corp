@@ -16,6 +16,9 @@ applied_in: []
 links: [LESSON-0067, LESSON-0437]
 ---
 
+> **Policy supersession, 2026-10-20 (DR-133):** historical DR-120 read-only/freeze language below is not current authorization. Codex and Claude Code now have full native attended access to every skill/application; automation evidence and safety requirements remain separate.
+
+
 **IMPORTANT — flagged contradiction, not silently resolved:** `factory/standards/agent-portability.md`
 (PORT-5) and `AGENTS.md` currently state DR-120's non-Claude build-write ban is FROZEN as of
 2026-09-02, with a VERBATIM reopen trigger ("Codex ships wake-capable local scheduling") — not "the
