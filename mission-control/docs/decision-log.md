@@ -1,5 +1,10 @@
 # Decision Log — Mission Control
 
+## 2026-10-20 — The Manual explains /pandacorp:worktrees (DR-135)
+
+**What:** New curated flow for the `worktrees` skill in [skill-flows.ts](../src/lib/manual/skill-flows.ts): deterministic inventory, automatic removal of only merged + clean + idle items, per-item owner questions with a recommendation, archive-before-discard, and the final summary.
+**Why:** DR-046 (the Manual reflects the factory) for the factory's new skill (plugin 9.139.0, DR-135), which Inicio's redesigned "Árboles de trabajo" card points at. Copy only; no app behavior change.
+
 ## 2026-10-20 — Approved services/account directory
 
 Implemented the owner-approved reuse proposal as a read-only global Portfolio Accounts view, project Accounts tab and public Manual recipes. Split public catalog/private identity/project allocation ownership, with explicit dated evidence and fail-closed boundary parsing. No cloud provisioning or secret values. Canonical scope: [FRD-26](frds/frd-26-services-accounts/frd.md), [blueprint](frds/frd-26-services-accounts/blueprint.md), [ADR-0011](adr/ADR-0011-services-account-directory.md).

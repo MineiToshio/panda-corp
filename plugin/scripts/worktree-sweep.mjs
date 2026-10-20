@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// worktree-sweep.mjs — the deterministic half of /pandacorp:worktrees (DR-132).
+// worktree-sweep.mjs — the deterministic half of /pandacorp:worktrees (DR-135).
 //
 // Classifies every git worktree and local branch of ONE repository against its default branch and
 // removes only what is provably safe. The agent never decides "safe" by eye: it runs `scan`, shows

@@ -1043,6 +1043,45 @@ const FLOWS: SkillFlow[] = [
     loop: "Sin humano presente no corre scaffolds automáticos salvo instrucción previa explícita: solo reporta y registra.",
   },
   {
+    slug: "worktrees",
+    explainer:
+      "Depura los árboles de trabajo (worktrees) y las ramas sin mergear de UN repositorio: el de un proyecto o el de la fábrica. Borra solo lo que un script demuestra seguro (ya está en main, sin cambios, sin usar) y te explica el resto uno a uno, con una recomendación, para que decidas integrar o descartar. Es el comando que Inicio te indica cuando un proyecto acumula worktrees.",
+    runsIn: "project",
+    steps: [
+      {
+        title: "Inventario determinista",
+        kind: "action",
+        detail:
+          "Un script clasifica cada worktree y rama: seguro, protegido o «tú decides». Usa la misma regla que el lector de pendientes de Mission Control (sin mergear = pendiente; estancado tras PANDACORP_STALE_HOURS).",
+      },
+      {
+        title: "Borrar lo seguro sin preguntar",
+        kind: "safe",
+        detail:
+          "Mergeado + limpio + inactivo → git worktree remove / git branch -d / git worktree prune. Nunca --force ni -D.",
+        note: "Nunca toca: worktrees bloqueados o de despliegue, las lanes y gates de un build vivo, el checkout de la propia sesión, ni uno donde corre un proceso",
+      },
+      {
+        title: "Explicarte el resto, uno a uno",
+        kind: "gate",
+        detail:
+          "Para cada uno: qué contiene, de dónde viene (sesión Claude/Codex, lane, revisión), edad, commits por delante y cambios sin commitear, con la recomendación (integrar, descartar o dejar). Confirmas cada uno por su nombre.",
+      },
+      {
+        title: "Actuar sobre lo que confirmes",
+        kind: "action",
+        detail:
+          "Integrar: merge-queue en los proyectos, merge directo en la fábrica. Descartar: primero se archiva en refs/pandacorp-archive (con los cambios sin commitear) y se te da el comando para recuperarlo.",
+      },
+      {
+        title: "Resumen",
+        kind: "io",
+        detail: "Eliminados, mantenidos y esperando confirmación, con un re-escaneo final para que las cifras sean reales.",
+      },
+    ],
+    loop: "Un repositorio por ejecución; las lanes de un build que sigue vivo se quedan hasta que termine.",
+  },
+  {
     slug: "learn",
     explainer:
       "Le enseña a la fábrica algo DURABLE: un estándar de ingeniería, una regla de decisión, o un skill nuevo (la autoría del skill se delega al skill-creator nativo). Es la etapa APLICAR/PROMOVER del bucle de autoaprendizaje. Corre EN la fábrica. Promover es ALTO RIESGO: siempre es tu decisión. Lo disparan los botones «Nuevo estándar/regla/skill» de Mission Control.",

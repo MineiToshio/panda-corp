@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// test-worktree-sweep.mjs — /pandacorp:worktrees' deterministic engine (worktree-sweep.mjs, DR-132), run as a real
+// test-worktree-sweep.mjs — /pandacorp:worktrees' deterministic engine (worktree-sweep.mjs, DR-135), run as a real
 // process against a throwaway repository holding one worktree/branch of every class the skill must tell apart.
 // GREEN: merged + clean items (worktree, branch, missing directory) are removed with -d / no --force; RED (never
 // auto-removed): unmerged, dirty, gitignored owner state, nested worktree, locked, the caller's own checkout, a

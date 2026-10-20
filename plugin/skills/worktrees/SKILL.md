@@ -19,7 +19,7 @@ The judgment of what is safe is NOT yours to make by eye: a script decides it de
    ```
    `--self` is the checkout this session stands in — always pass it, so the script protects it. Every item comes back as `safe`, `ask` or `protected`, with: `branch`/`path`, `origin` (claude, codex, build-lane, build-gate, review, temp, deployment, manual), `subject` (last commit), `ageHours`/`idleHours`, `ahead` (commits not in the default branch), `uncommitted`, `ownerState` (gitignored owner files inside it), `patchEquivalent`, `mergeClean`, and for `ask` a `suggestion` (`integrate | discard | keep | review` + why). `projects[]` says whether a build is live. If the JSON reports `refused`, stop and tell the owner why.
 
-2. **Remove the safe set without asking.** The owner already agreed to this boundary: merged + clean + idle is removed automatically.
+2. **Remove the safe set without asking** — the owner's standing agreement is that merged + clean + idle goes automatically. The exception is the owner's own words in this request: if they said not to touch anything (else) without asking, or only to report, their instruction wins — list the safe items by name in one question ("ya están en main y limpios, ¿los borro?") and run `clean` only after they say yes.
    ```bash
    node "${CLAUDE_PLUGIN_ROOT}/scripts/worktree-sweep.mjs" clean --repo . --self "$PWD"
    ```
