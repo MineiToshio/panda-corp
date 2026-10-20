@@ -52,6 +52,7 @@
           "Confirm selected plan and current project/branch/storage/compute capacity.",
           "Authorized creation route: linked Create Project operation https://api-docs.neon.tech/reference/createproject; supply the approved exact resource_slug name, persist returned project ID, then reconcile branch/role identifiers before obtaining pooled/direct URIs. A project-creation recipe is not permission to issue an admin token.",
           "For authorized setup create only missing project/branches/roles, persist IDs, obtain pooled and direct connection URIs privately.",
+          "Neon Console/API/CLI-created roles inherit neon_superuser; reserve those bootstrap/admin credentials for their approved management or migration destination. For a restricted application role, use SQL on the selected branch, grant only the installed consumer privileges, and verify attributes/memberships and the saved credential before changing an existing role. Keep dev/prod runtime roles distinct; account/branch creation alone does not prove app permissions.",
           "Place URLs in approved runtime/migration destinations; verify connection without logging credentials."
         ]
       },
@@ -64,6 +65,14 @@
         {
           "url": "https://api-docs.neon.tech/reference/createproject",
           "checked_at": "2026-10-19"
+        },
+        {
+          "url": "https://neon.com/docs/manage/roles",
+          "checked_at": "2026-10-20"
+        },
+        {
+          "url": "https://neon.com/docs/manage/database-access",
+          "checked_at": "2026-10-20"
         }
       ],
       "variable_examples": [
@@ -87,7 +96,7 @@
           ],
           "secret": true,
           "purpose": "Migration or direct-connection consumers only when their framework requires it.",
-          "note": "Example name only; preserve the selected project/framework contract."
+          "note": "Example name only; preserve the framework contract and use the role required by that destination. A direct URI does not imply administrator privileges: keep bootstrap/migration credentials separate from web and renderer runtime."
         }
       ]
     },

@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-10-20 — Refine the Neon recipe after the first provisioning trial
+
+The [provider catalog](services/catalog.yaml) now distinguishes Neon API/CLI bootstrap roles from SQL-created restricted application roles, with current official role/access sources. Direct/unpooled describes a connection route, not an administrator privilege requirement. Provider-issued management credentials remain separate from runtime credentials. The Funko trial is private operational evidence, not public proof that every recipe or application is ready.
+
 ## 2026-10-20 — Architecture delivers private environment values, not only a map
 
 **What:** Extend DR-134 preparation: preflight inventories only; after final decisions/consumer contract, architecture step 9b3 fills every obtainable authorized provider value and generated app secret. Protected `.env.local` and explicit `.env.production.local` web handoff preserve existing values, separate dev/prod and web/worker/migration/CI, and record exact pending steps in a value-free private report. Concrete planned consumers remain distinct from installed/runtime-verified ones. The approved shared per-app Google OAuth client is the explicit environment exception.
