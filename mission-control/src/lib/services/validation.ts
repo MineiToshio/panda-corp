@@ -54,7 +54,13 @@ export function safeServiceUrl(value: unknown): string {
 /** Dated observations remain distinct from live verification. */
 export function date(value: unknown): string | null {
   const result = nullableText(value);
-  if (result && !Number.isFinite(Date.parse(result))) throw new Error("invalid-date");
+  if (result) {
+    if (!/^\d{4}-\d{2}-\d{2}(?:T.+)?$/.test(result) || !Number.isFinite(Date.parse(result)))
+      throw new Error("invalid-date");
+    const dateOnly = result.slice(0, 10);
+    if (new Date(`${dateOnly}T00:00:00Z`).toISOString().slice(0, 10) !== dateOnly)
+      throw new Error("invalid-calendar-date");
+  }
   return result;
 }
 /** Every registry has an explicit version to avoid silent schema drift. */
@@ -78,4 +84,11 @@ export function safeSourceUrl(value: unknown): string {
     if (!["project", "hl"].includes(key) || !/^[a-zA-Z0-9_-]+$/.test(val))
       throw new Error("unsafe-source-query");
   return url.href;
+}
+
+/** Public recipes must contain evidence and a concrete automation path. */
+export function nonEmptyList(value: unknown): unknown[] {
+  const result = list(value);
+  if (!result.length) throw new Error("empty-list");
+  return result;
 }

@@ -5,6 +5,7 @@ import {
   date,
   identifier,
   list,
+  nonEmptyList,
   nullableText,
   record,
   safeServiceUrl,
@@ -16,7 +17,7 @@ import {
 /** Parse only public recipe fields; unknown extensions cannot reach the Manual. */
 export function parseProviders(value: unknown): ServiceProvider[] {
   return unique(
-    list(versioned(value).providers).map((item) => {
+    nonEmptyList(versioned(value).providers).map((item) => {
       const row = record(item);
       const automation = record(row.automation);
       return {
@@ -34,15 +35,15 @@ export function parseProviders(value: unknown): ServiceProvider[] {
             ? []
             : list(row.variable_examples).map(parseVariableExample),
         automation: {
-          methods: list(automation.methods).map((method) =>
+          methods: nonEmptyList(automation.methods).map((method) =>
             choice(method, ["api", "cli", "browser"]),
           ),
-          status: text(automation.status),
-          steps: list(automation.steps).map(text),
+          status: choice(automation.status, ["documented"]),
+          steps: nonEmptyList(automation.steps).map(text),
         },
-        sources: list(row.sources).map((source) => {
+        sources: nonEmptyList(row.sources).map((source) => {
           const entry = record(source);
-          return { url: safeSourceUrl(entry.url), checkedAt: date(entry.checked_at) ?? "" };
+          return { url: safeSourceUrl(entry.url), checkedAt: date(text(entry.checked_at)) ?? "" };
         }),
       };
     }),
@@ -94,7 +95,7 @@ export function parseAllocations(
   const root = versioned(value);
   const projectId = identifier(root.project_id);
   const resourceSlug = identifier(root.resource_slug);
-  const allocations = Object.values(record(root.services)).map((value) => {
+  const allocations = Object.entries(record(root.services)).map(([integrationId, value]) => {
     const row = record(value);
     const environments = row.environments === undefined ? {} : record(row.environments);
     const resources = Object.entries(environments).map(([environment, value]) => {
@@ -108,18 +109,24 @@ export function parseAllocations(
     });
     const dev = resources.find((resource) => resource.environment === "dev");
     const prod = resources.find((resource) => resource.environment === "prod");
-    if (dev && (dev.resourceName?.endsWith("-prod") || dev.resourceName?.endsWith("_prod")))
+    const isBucketIntegration = row.provider_id === "cloudflare" && /r2|bucket/.test(integrationId);
+    if (
+      isBucketIntegration &&
+      dev &&
+      (dev.resourceName?.endsWith("-prod") || dev.resourceName?.endsWith("_prod"))
+    )
       throw new Error("production-as-dev");
     if (
+      isBucketIntegration &&
       dev &&
       prod &&
       [dev.resourceName, dev.nativeResourceId].some(
         (id, index) => id && id === [prod.resourceName, prod.nativeResourceId][index],
-      ) &&
-      row.provider_id !== "google_cloud"
+      )
     )
       throw new Error("shared-dev-prod-resource");
     return {
+      integrationId: identifier(integrationId),
       projectId,
       projectName,
       projectHref,

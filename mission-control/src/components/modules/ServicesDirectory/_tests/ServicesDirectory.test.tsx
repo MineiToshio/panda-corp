@@ -25,7 +25,7 @@ function data(): ServicesDirectoryData {
         environment_policy: "Branches",
         automation: { methods: ["api"], status: "documented", steps: ["Create"] },
         quota_notes: "Check quota",
-        sources: [],
+        sources: [{ url: "https://example.com/docs", checked_at: "2026-10-19" }],
       },
       {
         id: "modal",
@@ -38,7 +38,7 @@ function data(): ServicesDirectoryData {
         environment_policy: "Separate apps",
         automation: { methods: ["cli"], status: "documented", steps: ["Deploy"] },
         quota_notes: "Zero spend",
-        sources: [],
+        sources: [{ url: "https://example.com/docs", checked_at: "2026-10-19" }],
       },
     ],
   });
@@ -79,6 +79,7 @@ function data(): ServicesDirectoryData {
     issues: [],
     allocations: [
       {
+        integrationId: "database",
         projectId: "demo",
         projectName: "Demo Project",
         projectHref: "/portfolio/demo/accounts",
@@ -88,6 +89,7 @@ function data(): ServicesDirectoryData {
         resources: [{ environment: "dev", resourceName: "demo-dev", nativeResourceId: null }],
       },
       {
+        integrationId: "render",
         projectId: "other",
         projectName: "Other",
         projectHref: "/portfolio/other/accounts",

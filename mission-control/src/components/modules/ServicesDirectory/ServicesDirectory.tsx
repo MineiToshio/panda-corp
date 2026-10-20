@@ -88,7 +88,7 @@ function AllocationList({ allocations }: { allocations: ServiceAllocation[] }): 
       {allocations.length ? (
         <ul>
           {allocations.map((row) => (
-            <li key={`${row.projectId}-${row.providerId}-${row.status}`}>
+            <li key={`${row.projectId}-${row.integrationId}`}>
               {row.projectHref ? (
                 <Link href={row.projectHref}>{row.projectName}</Link>
               ) : (

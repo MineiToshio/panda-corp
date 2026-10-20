@@ -48,6 +48,7 @@ export interface ServiceAccount {
 }
 /** Derived project allocation; secret references deliberately omitted. */
 export interface ServiceAllocation {
+  integrationId: string;
   projectId: string;
   projectName: string;
   projectHref: string;

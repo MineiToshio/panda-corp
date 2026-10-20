@@ -8,7 +8,7 @@ The factory root resolves through existing `PANDACORP_FACTORY_ROOT`; `PANDACORP_
 
 Catalog schema v1 providers expose id/name/type/purpose/adoption/dashboard_url/reuse_policy/environment_policy/automation/quota_notes/sources. Private schema v1 accounts expose id/provider_id/login_email/display_name/access_status/observed_at/plan/accepting_new_projects/automation_status/next_step/notes and optional quota_snapshot. Optional projects carry project_id/path. Project schema v1 carries project_id/resource_slug/services; resources expose only environment/resource_name/native_resource_id. See factory service schema templates for the complete interchange contract.
 
-HTTPS dashboard links reject userinfo, fragments, non-HTTPS protocols and arbitrary query parameters. A stable non-secret `project` query is accepted. Duplicated IDs/slugs, malformed states, unknown providers, mismatched/dangling account refs and production-as-dev names fail explicitly. Shared OAuth credentials remain a provider-specific exception to environment separation.
+HTTPS dashboard links reject userinfo, fragments, non-HTTPS protocols and arbitrary query parameters. A stable non-secret `project` query is accepted. Duplicated IDs/slugs, malformed states, unknown providers, mismatched/dangling account refs and production-as-dev R2 bucket names fail explicitly. Shared native provider projects (Google OAuth, Vercel, Sentry) remain valid; environment resource checks are scoped to R2 bucket allocations rather than pretending all providers isolate resources in the same way.
 
 ## UI and navigation
 

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseAccounts, parseAllocations } from "../parsers";
+import { parseAccounts, parseAllocations, parseProviders } from "../parsers";
 import { readServicesDirectory } from "../services";
 
 const roots: string[] = [];
@@ -46,6 +46,64 @@ function fixture() {
 }
 afterEach(() => {
   for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
+});
+describe("public catalog fail-closed contract", () => {
+  it("rejects empty catalogs and recipes without evidence", () => {
+    expect(() => parseProviders({ schema_version: 1, providers: [] })).toThrow();
+    for (const changed of [
+      { sources: [] },
+      { automation: { ...provider.automation, methods: [] } },
+      { automation: { ...provider.automation, steps: [] } },
+      { automation: { ...provider.automation, status: "provision_tested" } },
+    ])
+      expect(() =>
+        parseProviders({ schema_version: 1, providers: [{ ...provider, ...changed }] }),
+      ).toThrow();
+  });
+  it("accepts provider-native shared project identities outside bucket isolation", () => {
+    for (const provider_id of ["google_cloud", "vercel", "sentry"])
+      expect(
+        parseAllocations(
+          {
+            schema_version: 1,
+            project_id: "demo",
+            resource_slug: "demo",
+            services: {
+              main: {
+                provider_id,
+                account_ref: null,
+                status: "proposed",
+                environments: {
+                  dev: { resource_name: "demo", native_resource_id: "native" },
+                  prod: { resource_name: "demo", native_resource_id: "native" },
+                },
+              },
+            },
+          },
+          "Demo",
+          "",
+        ).allocations,
+      ).toHaveLength(1);
+  });
+  it("rejects impossible dates rather than normalizing them", () => {
+    expect(() =>
+      parseAccounts({ schema_version: 1, accounts: [{ ...account, observed_at: "2026-02-30" }] }),
+    ).toThrow();
+  });
+  it("preserves two integrations sharing the same provider", () => {
+    const integration = { provider_id: "cloudflare", account_ref: null, status: "proposed" };
+    const parsed = parseAllocations(
+      {
+        schema_version: 1,
+        project_id: "demo",
+        resource_slug: "demo",
+        services: { dns: integration, r2: integration },
+      },
+      "Demo",
+      "",
+    );
+    expect(parsed.allocations.map((row) => row.integrationId)).toEqual(["dns", "r2"]);
+  });
 });
 describe("approved services registry contract", () => {
   it("shows candidates with explicit missing-data issue, not empty success", () => {
