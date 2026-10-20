@@ -84,7 +84,7 @@ function ExternalLink({
 function AllocationList({ allocations }: { allocations: ServiceAllocation[] }): React.JSX.Element {
   return (
     <>
-      <h4>{c.projects}</h4>
+      <h3>{c.projects}</h3>
       {allocations.length ? (
         <ul>
           {allocations.map((row) => (
@@ -183,11 +183,11 @@ function AccountCard({ row }: { row: DirectoryRow }): React.JSX.Element {
       </p>
       <AccountFacts account={account} provider={provider} />
       <AllocationList allocations={allocations} />
-      <h4>{c.reuse}</h4>
+      <h3>{c.reuse}</h3>
       <p>{provider.reusePolicy}</p>
-      <h4>{c.environments}</h4>
+      <h3>{c.environments}</h3>
       <p>{provider.environmentPolicy}</p>
-      <h4>{c.quota}</h4>
+      <h3>{c.quota}</h3>
       <p>{provider.quotaNotes}</p>
     </details>
   );
@@ -206,6 +206,7 @@ export function ServicesDirectory({
   const rows = directoryRows(data, projectId).filter((row) => matches(row, query, filter));
   return (
     <section className="services-directory" aria-label={c.title}>
+      <h2>{c.title}</h2>
       <p>{c.subtitle}</p>
       {data.issues.length > 0 && (
         <div role="alert" className="services-issues">

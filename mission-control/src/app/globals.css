@@ -989,7 +989,7 @@ h3 {
   color: var(--color-accent-text);
   text-decoration: underline;
 }
-.services-directory h4 {
+.services-directory h3 {
   font-weight: 600;
   margin-block: var(--space-base) calc(var(--space-base) / 2);
 }
