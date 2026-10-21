@@ -3,12 +3,12 @@ id: LESSON-0048
 type: gotcha
 domain: web-performance
 tags: [caching, immutable, static-assets, next-start, browser-cache]
-context: replacing the CONTENT of a static asset (image, file) while keeping the same URL, served from a production (`next start`) build with immutable caching
-trigger: use this when a static asset's content was updated but the browser keeps showing the OLD version indefinitely, especially after the asset was once served from a production build
-source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — pandacorp case-study imagery saga, owner symptom 'se revierte solo cada 5 min'"
+context: replacing the CONTENT of a static asset (image, file, generated data script) while keeping the same URL, served from a production (`next start`) build with immutable caching, OR from any bare static file server
+trigger: use this when a static asset's content was updated but the browser keeps showing the OLD version indefinitely, especially after the asset was once served from a production build, or served via a bare static-file server with no cache headers
+source: "personal-page-v2 .pandacorp/run/lessons.md 2026-07-03 — pandacorp case-study imagery saga, owner symptom 'se revierte solo cada 5 min'. Corroborated on a DIFFERENT project (mission-control, .pandacorp/run/lessons.md 2026-10, agent-inferred): `python -m http.server` sends no `Cache-Control` header at all, yet the browser still reused a stale cached `data/snapshot.js` after the mockup was regenerated, showing the owner old screens."
 provenance: agent-inferred
 created: 2026-07-04
-status: candidate
+status: active
 promotion: none
 confidence: medium
 times_applied: 0
@@ -31,3 +31,13 @@ not the server actually reverting anything.
 **Apply next time:** when a static asset's content changes, change its URL (filename/hash) to force a
 cache bust, rather than overwriting the file in place at the same path — especially for any asset that
 may have been served from a production (`next start`) build at some point.
+
+**Second mechanism (2026-10, mission-control, DIFFERENT project — eval-gate corroboration):** the same
+stale-forever symptom also happens with NO explicit immutable header at all. `python -m http.server`
+(and other bare static servers with no caching logic of their own) sends no `Cache-Control` header,
+leaving the browser free to apply its OWN default heuristic caching for a same-URL resource it has
+fetched before — which can still serve the old bytes after the underlying file was regenerated. The
+single-URL cache-bust fix is the same regardless of WHICH layer is holding the stale copy (an explicit
+immutable header, or the browser's own default heuristic): version data/script URLs the consumer
+re-fetches (`?v=<timestamp-or-hash>`) rather than assuming "no explicit cache header" means "always
+fresh."
