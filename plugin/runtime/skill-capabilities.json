@@ -756,6 +756,35 @@
           "authorized_by": "DR-133"
         }
       }
+    },
+    {
+      "slug": "worktrees",
+      "source": "plugin/skills/worktrees/SKILL.md",
+      "user_invocable": true,
+      "runtimes": {
+        "claude": {
+          "status": "PROVEN",
+          "fallback": null,
+          "evidence": {
+            "kind": "canonical-runtime",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          },
+          "authorization": "FULL",
+          "authorized_by": "DR-133"
+        },
+        "codex": {
+          "status": "FALLBACK",
+          "fallback": "Follow the canonical SKILL.md with the runtime translation table; live behavioral certification is pending.",
+          "evidence": {
+            "kind": "static-contract-only",
+            "verified_at": "2026-07-11",
+            "verifier": "plugin/scripts/check-skill-capabilities.mjs"
+          },
+          "authorization": "FULL",
+          "authorized_by": "DR-133"
+        }
+      }
     }
   ]
 }
