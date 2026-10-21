@@ -5,7 +5,7 @@ domain: validation
 tags: [zod, zod4, csp, jitless, instrumentation-client, capability-probe]
 context: browser-side Zod schema startup under a production CSP that excludes unsafe-eval
 trigger: use this when a production page reports script-src blocked eval while Zod validation and hydration still appear to work
-source: "funko-tracker 2026-10-21: branded-email csp-counterexample.json, live-baseline-csp.json, fixed csp-diagnosis.json and judge-prod-preflight.log under .pandacorp/run/branded-email/; funko-tracker-branded-email/.pandacorp/run/branded-email/csp-diagnosis.json; funko-tracker-csp-validation commit b27603a257c21fa88f2768ecf2a2c9844674b6e3, src/lib/validation/_tests/browserConfiguration.test.ts and .pandacorp/run/csp-validation/{red,green,focused}.log; installed zod 4.6.5 src/v4/core/util.ts allowsEval and core.ts jitless config"
+source: "funko-tracker 2026-10-21: branded-email csp-counterexample.json, live-baseline-csp.json, fixed csp-diagnosis.json, judge-prod-preflight.log, full-gate.json and final-optimized-receipt.json under .pandacorp/run/branded-email/; funko-tracker-branded-email/.pandacorp/run/branded-email/csp-diagnosis.json; funko-tracker-csp-validation commit b27603a257c21fa88f2768ecf2a2c9844674b6e3, src/lib/validation/_tests/browserConfiguration.test.ts and .pandacorp/run/csp-validation/{red,green,focused}.log; installed zod 4.6.5 src/v4/core/util.ts allowsEval and core.ts jitless config"
 provenance: agent-inferred
 created: 2026-10-21
 status: candidate
@@ -39,6 +39,8 @@ and the focused suite passed 24 tests. This synthetic regression proof does **no
 browser rerun. Follow-up browser receipts for the fixed entry show no events on ordinary navigation,
 and a hydrated page with no CSP violations, console errors or page errors under the observer; its two
 request-failure events are aborted navigation requests, not CSP reports. The production-build smoke
-suite passed on desktop and mobile (2 tests). The full standard gate remained pending at this update;
-these scoped results do not establish its outcome. Unlike the MDX case in LESSON-0193, moving all
+suite passed on desktop and mobile (2 tests). Final receipts at source `95d30f4` also record the full
+standard gate green (11 subgates, 1,493 unit tests across 373 files and 356 browser tests; two production-only
+tests skipped in the default development run), plus a separate optimized production smoke with two
+passes and no CSP violations. This does not claim the entire browser suite passed in optimized mode. Unlike the MDX case in LESSON-0193, moving all
 validation server-side or allowing unsafe-eval is not the evidenced fix.

@@ -43,4 +43,9 @@ disables these controls in SSR. Held-JS browser probes then observed disabled co
 and successful persistence / POST / toast after it; an independent run passed the three readiness tests.
 Do not treat `checkbox.checked` alone as proof of a controlled React change: assert the application's
 selected state and the persisted result. This extends the existing lesson, rather than establishing a
-new hydration rule or cross-project corroboration. The full gate was still pending at this update.
+new hydration rule or cross-project corroboration. Final canonical receipts under
+`funko-tracker/.pandacorp/run/branded-email/` (`full-gate.json`, `full-gate.log`,
+`final-optimized-receipt.json`) verify source `95d30f4`: all 11 standard subgates green,
+1,493 unit tests in 373 files and 356 browser tests passing (two production-only cases skipped in the
+default development run). A separate optimized production smoke passed two tests; this is not evidence
+that the whole browser suite passed in optimized mode.
