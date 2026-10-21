@@ -13,7 +13,7 @@
     "scripts/navigation/identities.mjs"
   ],
   "project": ["src/**/*.{ts,tsx}", "scripts/navigation/*.{ts,mjs}"],
-  "ignore": ["**/*.d.ts", ".next/**", "src/test/**"],
+  "ignore": ["**/*.d.ts", ".next/**", ".claude/**", "src/test/**"],
   "ignoreDependencies": ["tailwindcss", "@axe-core/playwright"],
   "next": true,
   "vitest": true,
