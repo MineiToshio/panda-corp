@@ -11,8 +11,8 @@ created: 2026-09-16
 status: active  # 2026-10-19 (librarian review) — cross-corroborated by a 2nd distinct project (personal-page-v2, visual-baseline variant), eval-gate bar met per DR-047 (agent-inferred + different-project corroboration)
 promotion: proposed   # 2026-10-19 (librarian review) — target: factory/standards/build-orchestration.md (add a "full baseline cadence" rule alongside the `--since`-scoped gate description: run a full non-`--since` verify.sh when a long stretch has passed since the last one, and explicitly after any copy/content-only commit that touches rendered text, before trusting an incremental streak as proof the whole tree is clean). Corroborated across 2 distinct projects (mission-control origin; personal-page-v2, independent visual-baseline variant) with zero contradicting evidence — a `--since`-scoped gate's blind spot is structural, not a one-off, and recurs in both the lint/test and visual-regression flavors of "scoped gate."
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [LESSON-0242, LESSON-0245]
 ---
 

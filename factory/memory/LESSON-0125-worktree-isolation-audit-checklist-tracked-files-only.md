@@ -29,8 +29,8 @@ created: 2026-07-09
 status: active
 promotion: proposed   # 2026-09-10 (librarian review, updated 2026-10-15 after facets 9-10 folded) — target: factory/standards/build-orchestration.md §2 "Bootstrap on entry" (the DR-096 worktree-isolation section), add as its debugging-checklist counterpart: the 10 audit facets this lesson folds (dispatch fidelity, gitignored-state backstop, daemon PATH/port/data-root, git-common-dir root resolution for derives, test-glob hygiene against sibling worktrees, the worktree-setup.sh bootstrap hook, shared-checkout landing serialization, EnterWorktree branching from origin/main not local, cleanup must skip locked/deploy-root worktrees, landing authority stays with the orchestrator). Richest synthesis in the store on this topic — corroborated across 2 distinct projects (mission-control + personal-page-v2, 10 folded facets, zero contradicting evidence) — codifying it as a standing pre-flight checklist would catch most of these before they reproduce as a debugging session.
 confidence: medium
-times_applied: 0
-applied_in: []
+times_applied: 1
+applied_in: [funko-tracker]
 links: [LESSON-0073, LESSON-0090, LESSON-0093, LESSON-0111, LESSON-0124, LESSON-0131, LESSON-0158, DR-096, BL-0151]
 ---
 
