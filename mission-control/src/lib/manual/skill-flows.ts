@@ -1120,7 +1120,7 @@ const FLOWS: SkillFlow[] = [
         title: "Si es SKILL: delegar a skill-creator",
         kind: "gate",
         detail:
-          "Justifica primero (un skill nace de un hueco MEDIDO, no de una corazonada). El skill-creator nativo hace la autoría + eval; acéptalo solo si mejora el benchmark. Es gate del owner.",
+          "Justifica primero (un skill nace de un hueco MEDIDO, no de una corazonada). El skill-creator nativo hace la autoría + eval; acéptalo solo si mejora el benchmark. Los skills de proyecto usan proyecto:skill (por ejemplo, funko-tracker:ingest-delta); el plugin aporta el prefijo una sola vez. El verificador inyectado comprueba los nombres locales. Es gate del owner.",
       },
       {
         title: "Confirmar + ritual de activación",

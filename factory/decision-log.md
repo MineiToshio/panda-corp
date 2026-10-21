@@ -1,5 +1,9 @@
 # Decision Log — Factory
 
+## 2026-10-20 — Namespace every project-owned skill
+
+**What / why:** Owner decision: project skills expose `<project-slug>:<skill-slug>`; incremental ingestion is `ingest-delta`. Added [CONV-17](standards/conventions.md), DR-137 and the rule registry entry; [the injectable rule](../plugin/templates/rules/code-conventions.md) and overlay 8.110.0 carry it into projects. Standalone Claude skills use namespaced frontmatter with bare folder slugs; plugin loaders supply their own prefix. The binary checker is called by doc-lint before its no-docs exit; plugin/other-runtime resolution is checked at authoring review. Existing project skill migration goes through that project's change flow. This avoids cross-project command collisions while retaining persisted extractor compatibility and historical evidence.
+
 
 ## 2026-10-20 — Restore navigation identity standard catalog coverage (BL-0264)
 

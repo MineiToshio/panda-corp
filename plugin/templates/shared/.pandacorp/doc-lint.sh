@@ -20,13 +20,15 @@
 #     (proposal 37 §A.6), not doc-spine completeness; see the dedicated block below]
 #   - a `.env.example` variable without its own description comment directly above it  [FAIL-LOUD
 #     ON EVERY PROJECT, CONV-16/DR-136; see the dedicated block below]
+#   - a standalone project skill without its project namespace [FAIL-LOUD ON EVERY PROJECT,
+#     CONV-17/DR-137; plugins supply their namespace and require native authoring review]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
 # `created_via: scaffold`) is expected to carry a COMPLETE doc spine from birth, so the HARD-ELIGIBLE
 # findings above become fail-closed for it — a missing frontmatter key is a real defect, not drift to
 # tolerate. Brownfield/adopted projects (`created_via: adopt`, or the field ABSENT — an older overlay,
 # a pre-BL-0009 project) stay fully advisory forever: exit 0 no matter what. SOFT findings NEVER gate,
 # on any project — they stay advisory-only, exactly as before this change.
-# A project with no docs/ is a vacuous pass. Run from the project root; verify.sh invokes it.
+# The skill/env/closing guards run even without docs/. Run from the project root; verify.sh invokes it.
 # By default it prints a one-line summary; run `.pandacorp/doc-lint.sh -v` for the per-finding list.
 # Managed by Pandacorp — re-synced by /pandacorp:upgrade. Don't hand-edit.
 set -uo pipefail
@@ -147,6 +149,17 @@ if [ -f .env.example ]; then
     echo "    from the project's own docs and code (architecture.md, blueprints, ADRs, the reader of"
     echo "    the variable); never invent one. This BLOCKS on every project regardless of created_via."
     echo "════════════════════════════════════════════════════════════════════════"
+    exit 1
+  fi
+fi
+
+# Project-owned skills must expose the project's namespace (CONV-17 / DR-137).
+# Run before the docs-only early exit, and preserve failures on adopted projects too.
+if [ -d .claude/skills ]; then
+  skill_checker="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-project-skills.mjs"
+  if ! node "$skill_checker" .; then
+    trap - EXIT
+    echo "✗ DOC-LINT: project skill names must use <project-slug>:<skill-slug> (CONV-17)."
     exit 1
   fi
 fi

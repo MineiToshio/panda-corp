@@ -29,7 +29,7 @@ The copying skill reads the project's chosen stack (from `docs/product/architect
 
 | File | applies_when | What it covers |
 |---|---|---|
-| `code-conventions.md` | `always` | Language, naming, strict typing, constants, imports, handlers, comments/commits, env vars, deps |
+| `code-conventions.md` | `always` | Language, naming, project-prefixed skills, strict typing, constants, imports, handlers, comments/commits, env vars, deps |
 | `clean-code.md` | `always` | File/function size, complexity, SRP/SoC, DRY (rule of three), dead code, purity, module boundaries, AI-legibility |
 | `project-structure.md` | `always` | Mandatory `src/`, `core/`+`modules/`, single/multi-file folders, `_tests/`, feature-first, promotion |
 | `quality-and-testing.md` | `always` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy |

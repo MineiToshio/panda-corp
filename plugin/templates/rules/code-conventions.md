@@ -23,6 +23,13 @@ Mechanical rules (`any`/`@ts-ignore` bans, unused imports, import sorting, type-
 
 Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the framework.
 
+## Project skills (CONV-17, DR-137)
+- Every new project skill exposes `<project-slug>:<skill-slug>` (English kebab-case); the project slug comes from `.pandacorp/status.yaml`'s `project`. Use `ingest-delta` for incremental ingestion.
+- Standalone Claude Code: folder `.claude/skills/<skill-slug>/`, frontmatter `name: <project-slug>:<skill-slug>`, H1 and invocation examples use the full name. Plugins: plugin name is the project slug, skill folder and `name` stay bare; the loader adds the prefix once. The factory's plugin remains `pandacorp:<skill-slug>`.
+- Other runtimes use supported namespace packaging, keeping portable identifiers valid; verify the effective public name. Do not claim discovery without checking it.
+- On rename, update live docs, cross-skill calls and routine prompts, preserve historical evidence and previously stored extractor identities. Do not create duplicate alias skills.
+- `node .pandacorp/check-project-skills.mjs` checks standalone Claude project skill identities; `doc-lint.sh` invokes it from `verify.sh`. Skill-authoring review checks plugin/runtime namespace resolution. Existing skills must be migrated through the project's change flow before the upgraded gate can be declared green; never interrupt a live builder.
+
 ## Typing (judgment on top of tsc strict)
 - Prefer `unknown` at boundaries; explicit return types on exported functions (implicit is fine for trivial local helpers).
 - Non-null assertion (`!`) is a last resort. Reuse generated types (e.g. ORM) instead of redefining schema shapes by hand.

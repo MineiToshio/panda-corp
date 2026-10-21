@@ -76,6 +76,18 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 | Hooks | `use*` | `useUser()` |
 | Booleans | `is/has/can*` | `isOpen`, `hasError` |
 
+## Rule — project skill names (CONV-17, DR-137)
+
+> Severity: **MUST** · Enforcement: `.pandacorp/check-project-skills.mjs`, called by `doc-lint.sh` / `verify.sh`, plus the skill-authoring review for runtime-specific packaging.
+
+Every skill created for a product project has the public name `<project-slug>:<skill-slug>`, with both parts in English kebab-case. Use the project's canonical `project` value in `.pandacorp/status.yaml`, not a display title. For example, `funko-tracker:ingest-catalog` and `funko-tracker:ingest-delta`. Use `ingest-delta` for an incremental-ingestion skill.
+
+- In standalone Claude Code project skills, keep the directory slug (`.claude/skills/ingest-delta/`) and set `name: funko-tracker:ingest-delta`; use the full name in the H1, descriptions, examples, schedules and cross-skill calls. [Claude Code resolves a project skill's frontmatter name separately from its directory alias](https://code.claude.com/docs/en/skills#how-a-skill-gets-its-command-name). Do not publish a second skill just to retain an old command.
+- In a plugin, name the plugin after the project and keep each skill directory and `name` as the bare skill slug; the loader supplies `<project-slug>:`. Never add the namespace twice. The factory's own plugin continues to expose `pandacorp:<skill-slug>`.
+- For another runtime, use its supported namespace mechanism. Keep portable folder/frontmatter identifiers compliant with that runtime; verify the effective public name rather than inserting an unsupported colon. Do not claim native discovery without checking it.
+- A rename updates live canonical docs, examples, routine prompts and contract references together. Preserve append-only history and the ability to read previously persisted extractor identities; a naming change does not authorize a data migration or certify unexecuted skill dry-runs.
+- Existing projects receive the rule and its checker through the normal overlay upgrade. Inspect existing project skills and migrate their public names through the project's change flow before declaring the upgraded gate green; do not rename unrelated sibling projects or interrupt a live builder.
+
 ## Rule — typing
 - Strict typing ALWAYS (`tsconfig` with `strict: true`; in Python `mypy --strict`).
 - Prefer `unknown` over `any`. `any` and `@ts-ignore` forbidden.
@@ -119,6 +131,8 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - This binds **product copy only** — not code, not committed technical docs, not the factory's own prose, and not chat with the owner (CONV-11). Where a content pipeline exists, make it a mechanical check on the pipeline's output (`grep` for the two characters), not a guideline a human remembers to apply.
 
 ## How it is verified
+
+- **Project skill names (CONV-17)**: `node .pandacorp/check-project-skills.mjs` rejects malformed/missing frontmatter, bare or wrong-project names, directory/suffix mismatches and duplicate public names in standalone `.claude/skills/`. `doc-lint.sh` invokes it before its docs-only early exit, on every project. Plugin/runtime namespace resolution remains the named skill-authoring review, not a claim of runtime qualification. Canary: `node --test plugin/scripts/test-project-skill-names.mjs`.
 - **Typing**: `tsc --noEmit` with `strict: true` (`verify.sh` gate, fail-closed); `any`/`@ts-ignore` → Biome `noExplicitAny` as error. `mypy --strict` on Python stacks.
 - **Imports**: Biome organize-imports + the `@/*` alias in `tsconfig` (toolchain conformance check on `/pandacorp:upgrade`); deep-relative imports → review-only.
 - **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
