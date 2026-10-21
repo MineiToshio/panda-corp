@@ -344,3 +344,21 @@ rule (2026-09-26/27/29) rather than re-deriving an isolated-line-anchor approach
 backlog item — same item, same note-count scope, a sharper cross-check for whoever eventually implements
 the fix design that has now accumulated enough independent annotations to be unambiguous. Source:
 factory/memory/_inbox.md agent-inferred note (2026-10-16 scheduled sweep, harvested 2026-10-17).
+
+## Note (annotated 2026-10-21) — a FOURTH live shape, with no tag at all: `- YYYY-MM-DD (provenance): text`
+
+A 2026-10-20 sweep found yet another live bullet shape in `factory/memory/_inbox.md`, distinct from every
+prior one on record (plain tag-start 2026-08-11; provenance-prefix-then-tag 2026-09-13; date-then-tag
+2026-10-14): several live notes have NO tag word at all — `- 2026-10-19 (owner-stated): text...` — while
+OTHER live notes in the very same file, written the next day, DO carry a tag (`- 2026-10-20 gotcha ·
+(agent-inferred): text`). Confirms this item's core thesis stronger than any single prior annotation: the
+raw-capture bullet shape is not a stable contract at all — it drifts note-to-note, not just file-to-file —
+so no fixed tag-vocabulary regex (plain, provenance-prefixed, date-prefixed, or any future variant) can
+ever be the sole counting mechanism; a new shape will keep appearing. Reinforces that counting must either
+(a) rely SOLELY on the already-converged boundary-detection rule (last literal `-->`, anchored or not,
+nearest EOF — 2026-09-26/27/29) plus a shape-agnostic "line starts with `- ` and is not itself `-->`" rule
+(no tag matching needed at all for the COUNT, only for routing/classification after counting), or (b) stop
+reinventing the count and instead enforce ONE canonical bullet shape at write time (the capture-lessons-
+reminder.sh / rule-8 prompt text itself), closing the drift at the source rather than chasing it at read
+time. No new backlog item; same item, same scope. Source: factory/memory/_inbox.md note, 2026-10-20 sweep
+(agent-inferred), harvested 2026-10-21.
