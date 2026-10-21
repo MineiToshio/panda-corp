@@ -69,3 +69,18 @@ test('quoted names and CRLF are accepted', (t) => {
   const root = fixture(t, { skills: [['ingest-delta', skill('"funko-tracker:ingest-delta" # identity').replaceAll('\n', '\r\n')]] });
   assert.equal(lint(root).status, 0);
 });
+
+test('a plugin manifest cannot exempt a standalone SKILL.md at the same path', (t) => {
+  const root = fixture(t, { skills: [['ingest-catalog', skill('ingest-catalog')]] });
+  const manifestDir = join(root, '.claude/skills/ingest-catalog/.claude-plugin');
+  mkdirSync(manifestDir);
+  writeFileSync(join(manifestDir, 'plugin.json'), JSON.stringify({ name: 'funko-tracker' }));
+  const result = lint(root);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+});
+
+test('invalid YAML cannot pass as valid standalone frontmatter', (t) => {
+  const root = fixture(t, { skills: [['ingest-catalog', '---\nname: funko-tracker:ingest-catalog\ndescription: [unterminated\n---\n']] });
+  const result = lint(root);
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+});
