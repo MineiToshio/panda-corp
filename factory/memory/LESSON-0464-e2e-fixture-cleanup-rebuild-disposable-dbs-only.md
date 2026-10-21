@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0463, LESSON-0438]
+links: [LESSON-0463, LESSON-0438, LESSON-0480]
 ---
 
 **Situation:** a failed cleanup step in an e2e run left stale "goals" data behind in the `ft_gate`

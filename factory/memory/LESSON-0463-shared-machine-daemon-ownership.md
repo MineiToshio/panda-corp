@@ -8,12 +8,12 @@ trigger: use this when a project's architecture or test setup would reach for a 
 provenance: owner-stated
 source: "funko-tracker .pandacorp/run/lessons.md 2026-10-20 (owner-stated)"
 created: 2026-10-21
-status: candidate
+status: active   # 2026-10-21 (librarian review) — eval-gate: provenance owner-stated, schema-valid, no contradiction; auto-activates per DR-047 lifecycle step 2 without needing cross-project corroboration
 promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0429, LESSON-0464]
+links: [LESSON-0429, LESSON-0464, LESSON-0480]
 ---
 
 **Situation:** on a Mac shared with another user, that other user already runs their own Docker

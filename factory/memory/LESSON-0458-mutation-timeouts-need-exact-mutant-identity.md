@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0480]
 ---
 
 **Situation:** a Stryker run reported 28 timed-out mutants alongside 149 killed mutants. A focused

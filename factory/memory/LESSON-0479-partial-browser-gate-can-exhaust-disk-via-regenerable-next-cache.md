@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: []
+links: [LESSON-0480]
 ---
 
 **Situation:** a partial browser gate exhausted disk space, logging `ENOSPC` — not a functional test

@@ -72,7 +72,7 @@ promotion: approved   # 2026-09-03 promoted via /pandacorp:learn (proposal 33 §
 confidence: medium
 times_applied: 3
 applied_in: [mission-control, personal-page-v2, panda-corp]
-links: [BL-0037, BL-0049, BL-0133, LESSON-0197, LESSON-0185, LESSON-0222, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
+links: [BL-0037, BL-0049, BL-0133, LESSON-0197, LESSON-0185, LESSON-0222, LESSON-0480, BUILD-3, factory/standards/build-orchestration.md#BUILD-3]
 ---
 
 **Situation:** Playwright's e2e `webServer` defaults to port 3000 (`playwright.config.ts`). A sibling

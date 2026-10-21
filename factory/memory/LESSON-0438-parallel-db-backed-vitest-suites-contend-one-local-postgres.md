@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [LESSON-0040]
+links: [LESSON-0040, LESSON-0480]
 ---
 
 **Situation:** Codex worktrees, the orchestrator's own review verify, and the Stop-hook verify all ran
