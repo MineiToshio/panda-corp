@@ -1076,7 +1076,8 @@ const FLOWS: SkillFlow[] = [
       {
         title: "Resumen",
         kind: "io",
-        detail: "Eliminados, mantenidos y esperando confirmación, con un re-escaneo final para que las cifras sean reales.",
+        detail:
+          "Eliminados, mantenidos y esperando confirmación, con un re-escaneo final para que las cifras sean reales.",
       },
     ],
     loop: "Un repositorio por ejecución; las lanes de un build que sigue vivo se quedan hasta que termine.",
