@@ -21,7 +21,7 @@
 #   - a `.env.example` variable without its own description comment directly above it  [FAIL-LOUD
 #     ON EVERY PROJECT, CONV-16/DR-136; see the dedicated block below]
 #   - a standalone project skill without its project namespace [FAIL-LOUD ON EVERY PROJECT,
-#     CONV-17/DR-137; plugins supply their namespace and require native authoring review]
+#     CONV-17/DR-137; legacy projects are advisory until migration, new projects fail closed]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
 # `created_via: scaffold`) is expected to carry a COMPLETE doc spine from birth, so the HARD-ELIGIBLE
 # findings above become fail-closed for it — a missing frontmatter key is a real defect, not drift to
@@ -157,7 +157,7 @@ fi
 # Run before the docs-only early exit, and preserve failures on adopted projects too.
 if [ -d .claude/skills ]; then
   skill_checker="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-project-skills.mjs"
-  if ! node "$skill_checker" .; then
+  if ! node "$skill_checker" . --rollout; then
     trap - EXIT
     echo "✗ DOC-LINT: project skill names must use <project-slug>:<skill-slug> (CONV-17)."
     exit 1

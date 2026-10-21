@@ -9,11 +9,11 @@ import test from 'node:test';
 
 const template = resolve(dirname(fileURLToPath(import.meta.url)), '../templates/shared/.pandacorp');
 
-function fixture(t, { skills = [], project = 'funko-tracker', provenance = 'adopt', checker = true } = {}) {
+function fixture(t, { skills = [], project = 'funko-tracker', provenance = 'adopt', checker = true, createdWith = '8.110.0' } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'project-skill-names-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, '.pandacorp'));
-  writeFileSync(join(root, '.pandacorp/status.yaml'), `project: "${project}"\ncreated_via: ${provenance}\n`);
+  writeFileSync(join(root, '.pandacorp/status.yaml'), `project: "${project}"\ncreated_via: ${provenance}\ncreated_with: "${createdWith}"\n`);
   copyFileSync(join(template, 'doc-lint.sh'), join(root, '.pandacorp/doc-lint.sh'));
   if (checker) copyFileSync(join(template, 'check-project-skills.mjs'), join(root, '.pandacorp/check-project-skills.mjs'));
   for (const [folder, content] of skills) {
@@ -79,8 +79,26 @@ test('a plugin manifest cannot exempt a standalone SKILL.md at the same path', (
   assert.equal(result.status, 1, result.stdout + result.stderr);
 });
 
-test('invalid YAML cannot pass as valid standalone frontmatter', (t) => {
-  const root = fixture(t, { skills: [['ingest-catalog', '---\nname: funko-tracker:ingest-catalog\ndescription: [unterminated\n---\n']] });
-  const result = lint(root);
+test('legacy birth versions warn without forcing an unrelated product migration', (t) => {
+  for (const createdWith of ['8.109.0', 'pre-6.0.0', 'unknown']) {
+    const root = fixture(t, { createdWith, skills: [['ingest-catalog', skill('ingest-catalog')]] });
+    const result = lint(root);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /legacy rollout is advisory/);
+    assert.match(result.stderr, /expected name funko-tracker:/);
+  }
+});
+
+test('strict scoped authoring blocks new bare names in legacy projects', (t) => {
+  const root = fixture(t, { createdWith: '8.109.0', skills: [['ingest-delta', skill('ingest-delta')]] });
+  const result = spawnSync(process.execPath, ['.pandacorp/check-project-skills.mjs', '--strict', '--skill', 'ingest-delta'], { cwd: root, encoding: 'utf8' });
   assert.equal(result.status, 1, result.stdout + result.stderr);
+});
+
+test('scoped authoring verifies the requested skill without migrating unrelated legacy ones', (t) => {
+  const root = fixture(t, { createdWith: '8.109.0', skills: [['legacy', skill('legacy')], ['ingest-delta', skill('funko-tracker:ingest-delta')]] });
+  for (const [slug, expected] of [['ingest-delta', 0], ['missing', 1]]) {
+    const result = spawnSync(process.execPath, ['.pandacorp/check-project-skills.mjs', '--strict', '--skill', slug], { cwd: root, encoding: 'utf8' });
+    assert.equal(result.status, expected, result.stdout + result.stderr);
+  }
 });

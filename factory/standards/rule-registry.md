@@ -11,7 +11,7 @@ Maintained by hand; `check-standards.sh` validates the template shape and that e
 | ID | Rule | Sev | File | Enforced by | Status |
 |---|---|---|---|---|---|
 | CONV-1 | Language: committed=English / gitignored=Spanish | MUST | conventions.md | reviewer (review-only) | manual |
-| CONV-17 | Project skill public names use project-slug:skill-slug; incremental ingestion uses ingest-delta | MUST | conventions.md | check-project-skills.mjs via doc-lint.sh for standalone Claude skills; skill-authoring review for plugin/runtime packaging | wired |
+| CONV-17 | Project skill public names use project-slug:skill-slug; incremental ingestion uses ingest-delta | MUST | conventions.md | check-project-skills.mjs via doc-lint.sh (new-project hard gate, legacy warnings); scoped strict authoring check; native syntax/plugin/runtime review | wired |
 | CONV-2 | Naming conventions (camelCase files, handle*, use*, is/has) | MUST | conventions.md | reviewer quality lens | manual |
 | CONV-3 | Strict typing; no `any`/`@ts-ignore` | MUST | conventions.md | `tsc --noEmit` strict + Biome `noExplicitAny` (verify.sh) | wired |
 | CONV-4 | No repeated magic values → constants | MUST | conventions.md | reviewer | manual |
