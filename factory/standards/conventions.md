@@ -86,7 +86,8 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **Not magic numbers** (no constant needed): Tailwind utility values (`w-[360px]`, `gap-2`) and literals passed to clearly-named props (`size={20}`, `maxLength={50}`) — they are self-describing in place.
 
 ## Rule — environment variables
-- Keep `.env.example` in sync **in the same change** that introduces a new variable, grouped by section with a short comment on what it is for and how to obtain it. Never commit real values (secrets → external SOPS store or private `.env.local`/`.env.production` handoffs, DR-037; three-file contract in `external-services.md`).
+- Keep `.env.example` in sync **in the same change** that introduces a new variable, grouped by section. Never commit real values (secrets → external SOPS store or private `.env.local`/`.env.production` handoffs, DR-037; three-file contract in `external-services.md`).
+- **Every variable has its own description (CONV-16, DR-136).** The line directly above each variable (no blank line in between) is a `#` comment saying what it is for and, where it applies, how to obtain it. A comment shared by a block of variables does not count: readers such as Mission Control's Arquitectura tab attach only the immediately preceding comment to the next variable, so the rest of the block shows no purpose. A section header (`# --- Group ---`, `# ====`) or a commented-out assignment is not a description; commented-out optional variables (`# NAME=value`) need their own description too. Write it from the project's own docs and code (architecture.md, blueprints, ADRs, the code that reads it); if the purpose cannot be established, ask the owner rather than invent one.
 
 ## Rule — boundary validation
 - Validate all external input (Server Actions, route handlers, APIs) with schemas (Zod or equivalent). Centralize the schemas, not inline.
@@ -121,6 +122,7 @@ Escalate upward, never downward, if a first attempt at a lower tier comes back i
 - **Typing**: `tsc --noEmit` with `strict: true` (`verify.sh` gate, fail-closed); `any`/`@ts-ignore` → Biome `noExplicitAny` as error. `mypy --strict` on Python stacks.
 - **Imports**: Biome organize-imports + the `@/*` alias in `tsconfig` (toolchain conformance check on `/pandacorp:upgrade`); deep-relative imports → review-only.
 - **Secrets**: gitleaks (pre-commit hook + platform push protection); `.env.example` sync → review-only (reviewer checklist).
+- **`.env.example` per-variable descriptions (CONV-16)**: `.pandacorp/doc-lint.sh`, run by `verify.sh`, fails on every project (any `created_via`) when a variable has no description comment of its own directly above it; canaried by `canary.sh` step 9 and the factory self-test `plugin/scripts/test-doc-lint-env-example.sh`. Whether the description is accurate stays review-only.
 - **Naming, handlers, constants, boundary validation**: review-only (`reviewer` quality lens); boundary validation is also exercised indirectly by the adversarial/malformed-input tests (DR-015/DR-078, `quality.md`).
 - **Language (committed=English), Conventional Commits, no force-push**: review-only.
 - **Claims and diagnoses (evidence before assertion)**: manual — agent self-check before asserting *or* before building a diagnosis/fix plan on a stand-in, plus owner spot-check; the build-side counterpart is wired (the Stop gate's `verify.sh` + DR-068's fenced run-state receipts), the chat and diagnosis sides are judgment calls by nature.

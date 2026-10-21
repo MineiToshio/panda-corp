@@ -57,7 +57,7 @@ do not travel through git merge. Do not copy production secrets through worktree
 
 | File | Contents / Git |
 |---|---|
-| `.env.example` | Tracked guide; empty values and comments for every approved name, service, purpose and destination. |
+| `.env.example` | Tracked guide; empty values and comments for every approved name, service, purpose and destination. Each variable has its own one-line purpose comment directly above it (CONV-16, checked by `doc-lint.sh`). |
 | `.env.local` | Gitignored development bundle; development values only, with local-only tools at the end. |
 | `.env.production` | Gitignored production handoff; only values needed by approved production destinations, never local-only tools or unused services. |
 

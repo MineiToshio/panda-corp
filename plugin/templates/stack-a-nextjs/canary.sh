@@ -22,9 +22,11 @@
 #   madge (circular deps) · vitest (tests) · knip (dead code) · Playwright spec DISCOVERY
 #   (smoke/visual/responsive/shell/headers — proves the config still finds the specs so the e2e layer can't
 #   pass vacuously, the DR-075 rot; a full browser run is intentionally NOT canaried — too slow/flaky
-#   for an on-demand check, and the discovery + presence + conformance checks cover the rot modes).
-# `doc-lint.sh` is NOT canaried — it is ADVISORY (always exits 0 by design), so "still goes RED" does
-# not apply to it.
+#   for an on-demand check, and the discovery + presence + conformance checks cover the rot modes) ·
+#   doc-lint `.env.example` per-variable descriptions (CONV-16).
+# `doc-lint.sh` is canaried ONLY for its `.env.example` description guard (CONV-16), the one finding
+# that blocks on every project; its doc-spine findings are ADVISORY on brownfield, so "still goes RED"
+# does not apply to them.
 set -uo pipefail   # NOT `-e`: these gates are SUPPOSED to fail here; we check their exit codes ourselves.
 
 SBX_SRC="src/__canary__"
@@ -170,6 +172,20 @@ if [ -f playwright.config.ts ]; then
   fi
 else
   echo "• canary: gate 'playwright (spec discovery)' skipped — no playwright.config.ts (non-UI project)."
+fi
+
+# --- 9) doc-lint `.env.example` description guard (CONV-16) — the real `.pandacorp/doc-lint.sh` ----
+# doc-lint is advisory for doc-spine drift, but this one finding blocks on every project, so it is
+# canaried. Run in a throwaway directory (doc-lint reads `.env.example` from its cwd) with a variable
+# that shares its neighbour's comment: the gate must exit non-zero. Never touches the real file.
+if [ -f .pandacorp/doc-lint.sh ]; then
+  env_sbx=$(mktemp -d)
+  printf '# Google OAuth client.\nGOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=\n' > "$env_sbx/.env.example"
+  lint_abs="$(pwd)/.pandacorp/doc-lint.sh"
+  if reddened bash -c 'cd "$1" && bash "$2"' _ "$env_sbx" "$lint_abs"; then pass "doc-lint (.env.example descriptions)"; else rot "doc-lint (.env.example descriptions)"; fi
+  rm -f "$env_sbx/.env.example"; rmdir "$env_sbx"
+else
+  echo "• canary: gate 'doc-lint (.env.example descriptions)' skipped — no .pandacorp/doc-lint.sh (older overlay)."
 fi
 
 # --- Verdict ---------------------------------------------------------------------------------------

@@ -44,7 +44,7 @@ Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the fram
 - **`git add <path>` refused as ignored on an already-tracked file** under a directory gitignored later (even when `git check-ignore` reports nothing for that path): use `git add -u -- <path>`, falling back to `git add -f -- <path>`. Never weaken `.gitignore` to work around it.
 
 ## Env vars, comments & commits
-- Update `.env.example` in the SAME change that adds a variable (grouped, one-line "what / how to obtain"). Never commit real values or secrets.
+- Update `.env.example` in the SAME change that adds a variable, grouped by service. **Every variable gets its OWN one-line `# what it is for / how to obtain it` comment on the line directly above it** (CONV-16): a comment shared by a block of variables describes only the first one, and a section header (`# --- Group ---`) or a commented-out assignment is not a description. Commented-out optional variables (`# NAME=value`) need one too. Take the purpose from the project's docs and code, never invent it. `.pandacorp/doc-lint.sh` (run by `verify.sh`) fails on any undescribed variable. Never commit real values or secrets.
 - Comments explain **why**, not what; no ticket/issue references in code. Conventional Commits with scope, in English (`feat(orders): add table selection`); small single-purpose commits; never force-push a shared branch; never commit secrets or build artifacts.
 
 ## Dependencies
