@@ -6,7 +6,7 @@ tags: [hydration, ssr, client-component, disabled-until-mount, testing-methodolo
 context: an interactive control (menu, form field) rendered server-side that must wait for client-side React bindings before it can safely respond to a click
 trigger: use this when building or testing an interactive control whose behavior depends on React event handlers that only attach after hydration
 provenance: agent-inferred
-source: "funko-tracker .pandacorp/run/lessons.md 2026-10-20 (agent-inferred) — AccountMenu and GoalEditor controls"
+source: "funko-tracker .pandacorp/run/lessons.md 2026-10-20 (agent-inferred) — AccountMenu and GoalEditor controls; same-project follow-up 2026-10-21, commit 95d30f46f86a1c5b38cb221ad1c37465bcc3e1b3 and funko-tracker-branded-email/.pandacorp/run/branded-email/{readiness-probes.json,readiness-fixed-probes.json,readiness-unit-independent.log}"
 created: 2026-10-21
 status: candidate
 promotion: none
@@ -33,3 +33,14 @@ non-interactive) until the client confirms mount/hydration, rather than relying 
 looking enabled. Test BOTH the raw pre-hydration SSR snapshot (with JS chunks retained/delayed) and
 the fully hydrated RTL/Playwright render — a passing hydrated-only test suite does not prove the
 pre-hydration window is safe.
+
+**Same-project follow-up (2026-10-21):** a controlled checkbox adds a misleading native success signal:
+before hydration, clicking changed `checked` to true while `aria-checked`, the selected-row summary and
+React's draft remained false. Hydration reset it, and saving did not persist the selection. The hydrated
+control persisted normally. A Wishlist remove button likewise produced no POST or toast before
+hydration, but both after hydration. Commit `95d30f4` shares a `useSyncExternalStore` readiness hook and
+disables these controls in SSR. Held-JS browser probes then observed disabled controls before hydration
+and successful persistence / POST / toast after it; an independent run passed the three readiness tests.
+Do not treat `checkbox.checked` alone as proof of a controlled React change: assert the application's
+selected state and the persisted result. This extends the existing lesson, rather than establishing a
+new hydration rule or cross-project corroboration. The full gate was still pending at this update.
