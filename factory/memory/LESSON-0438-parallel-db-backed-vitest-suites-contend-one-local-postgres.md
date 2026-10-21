@@ -5,7 +5,7 @@ domain: testing
 tags: [postgres, vitest, hook-timeout, local-db, contention, flaky-looking]
 context: several DB-backed vitest suites run at once against ONE local Postgres instance (e.g. a Codex worktree's own verify, the orchestrator's review verify, and the Stop hook's verify all firing close together)
 trigger: use this when a DB-backed test suite's setup/teardown hook times out (e.g. a 10s hook budget) with every individual test otherwise passing, and more than one verify/gate process may be running concurrently against the same local database
-source: "funko-tracker .pandacorp/run/lessons.md 2026-10-19 (agent-inferred)"
+source: "funko-tracker .pandacorp/run/lessons.md 2026-10-19 (agent-inferred); corroborated/extended 2026-10-20 (agent-inferred) — 2-worker vs 1-worker A/B on the same five files"
 provenance: agent-inferred
 created: 2026-10-19
 status: candidate
@@ -33,3 +33,12 @@ passes, re-run that file ALONE before treating it as a real defect — a clean p
 contention, not a regression. When possible, serialize DB-heavy verify runs (don't run several
 concurrently against the same local Postgres instance) rather than relying on the connection pool to
 absorb unlimited concurrent load.
+
+**Corroborating mechanism (funko-tracker, 2026-10-20):** the SAME symptom can also come from
+contention WITHIN a single gate run, not just between separate processes. A 2-worker Vitest run of
+five DB-backed files produced five timeouts plus a cleanup deadlock; the identical five files, run
+unchanged with 1 worker, passed cleanly (23 cases in 25.57s). The suspected mechanism: a case that
+exceeds Vitest's own per-test timeout leaves its promise undrained by the test helper, and the NEXT
+case's `TRUNCATE` can overlap with that still-pending promise. On a shared/constrained machine, limit
+the gate's OWN internal worker concurrency (not only avoid running multiple separate gates at once) —
+verify the fix with a full gate run, never by raising timeouts to hide the underlying race.

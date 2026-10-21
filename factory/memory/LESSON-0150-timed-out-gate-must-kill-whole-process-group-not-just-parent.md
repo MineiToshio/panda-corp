@@ -5,7 +5,7 @@ domain: build-engine
 tags: [process-management, timeout, playwright, verify-sh, orphan-process]
 context: a build/gate step times out or is cancelled after shelling out to a long-running child (verify.sh, Playwright, a dev/preview server)
 trigger: use this when a gate, script or CLI that shells out to a long-running child process needs to support timeout or cancellation
-source: "external-repo mining of github.com/NateBJones-Projects/ringer, 2026-07-10 (factory/decision-log.md same-date entry); ringer hard-won invariant #3 (start_new_session + group-kill); cf. BL-0049, LESSON-0040"
+source: "external-repo mining of github.com/NateBJones-Projects/ringer, 2026-07-10 (factory/decision-log.md same-date entry); ringer hard-won invariant #3 (start_new_session + group-kill); cf. BL-0049, LESSON-0040. Corroborated 2026-10-20 (funko-tracker, agent-inferred): a reproduction of the Playwright-wrapper kill path showed Node closed cleanly after killpg(Node's own pgid), yet the Chromium browser descendant stayed alive — Chromium starts its OWN separate process group one level deeper than the launching wrapper's session."
 provenance: agent-inferred
 created: 2026-07-12
 status: candidate
@@ -13,7 +13,7 @@ promotion: none
 confidence: medium
 times_applied: 0
 applied_in: []
-links: [BL-0049, LESSON-0040]
+links: [BL-0049, LESSON-0040, LESSON-0467]
 ---
 
 **Situation:** the factory already has repeated, corroborated evidence (LESSON-0040, BL-0049 — four
@@ -32,3 +32,12 @@ preview/dev server it started) — start the child in its own session/group (e.g
 shelled-out long-running command, verify it group-kills (not parent-kills) on both the timeout AND the
 cancellation path — confirm no grandchild process survives after either exit route, before trusting the
 gate not to poison the next run.
+
+**Corroborating caveat (funko-tracker, 2026-10-20):** putting the launched wrapper in its own
+session/group (per the Apply-next-time above) is NOT sufficient on its own when that wrapper launches
+Chromium (e.g. via Playwright) — Chromium creates its OWN separate process group nested one level
+below the wrapper's, so `killpg()` targeting the wrapper's pgid can leave the browser process alive
+even though the Node wrapper itself exits cleanly. Inventory and close the ACTUAL spawned descendant
+processes specifically (don't assume one group-kill at the wrapper's level reaches everything), and
+verify the real OS/Linux process-group limit empirically rather than inferring it from the parent's
+own behavior.
