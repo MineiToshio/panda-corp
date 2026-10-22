@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { gotoHydrated } from "./_hydration";
+import { WORKSPACE_TAB_LABELS } from "./_workspaceTabs";
 
 test("portfolio reuses Architecture after Work orders with a draggable compact model", async ({
   page,
@@ -8,17 +9,7 @@ test("portfolio reuses Architecture after Work orders with a draggable compact m
     selector: '[data-testid="data-model-viewer"] input',
   });
   const tabs = page.getByRole("navigation", { name: "Pestañas del espacio de trabajo" });
-  await expect(tabs.getByRole("tab")).toHaveText([
-    "Resumen",
-    "Spec",
-    "Work orders",
-    "Arquitectura",
-    "Cambios",
-    "Party",
-    "Observabilidad",
-    "Documentos",
-    "Comandos",
-  ]);
+  await expect(tabs.getByRole("tab")).toHaveText([...WORKSPACE_TAB_LABELS]);
   await expect(page.getByTestId("arch-data-model")).toContainText("Modelo de datos");
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),

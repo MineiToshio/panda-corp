@@ -13,6 +13,7 @@ Read [`../blueprint.md`](../blueprint.md) first — its **Build Plan (Phase 2)**
 | [WO-04-004](./wo-04-004-workspace-shell.md) | Workspace shell: header + tabbar + objectives bar | UI | VERIFIED | CMP-04-workspace/header/objectives-bar/tabbar | WO-04-001, WO-04-003, WO-01-005, WO-03-001, WO-13-006, WO-13-007, WO-13-008, WO-13-001, WO-13-002, WO-13-003 |
 | [WO-04-005](./wo-04-005-tab-summary.md) | Resumen + Documentos tabs | UI | VERIFIED (nested-button #418 fixed, gate PASS 2026-06-21) | CMP-04-tab-summary/decisions/activity-log/tab-documents | WO-04-001, WO-04-004, WO-02-003, WO-13-006, WO-13-007, WO-13-001, WO-13-002, WO-13-003 |
 | [WO-04-008](./wo-04-008-change-card-relative-date.md) | Changes tab: relative date on the change card (`formatChangeDate`) | lib (TDD) + UI | PLANNED | CMP-04-change-card | WO-04-004 |
+| [WO-04-009](./wo-04-009-e2e-workspace-tabs-stale.md) | Stale workspace e2e specs: ten tabs (Cuentas) + FRD-25 portfolio URLs | e2e | IN_REVIEW | AC-04-012.1, REQ-04-013 (e2e oracle) | WO-04-004 |
 
 ## Phase 2 re-plan (2026-06-19)
 
