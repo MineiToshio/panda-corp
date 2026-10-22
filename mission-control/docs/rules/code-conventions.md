@@ -23,6 +23,13 @@ Mechanical rules (`any`/`@ts-ignore` bans, unused imports, import sorting, type-
 
 Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the framework.
 
+## Project skills (CONV-17, DR-137)
+- Every new project skill exposes `<project-slug>:<skill-slug>` (English kebab-case); the project slug comes from `.pandacorp/status.yaml`'s `project`. Use `ingest-delta` for incremental ingestion.
+- Standalone Claude Code: folder `.claude/skills/<skill-slug>/`, frontmatter `name: <project-slug>:<skill-slug>`, H1 and invocation examples use the full name. Plugins: plugin name is the project slug, skill folder and `name` stay bare; the loader adds the prefix once. The factory's plugin remains `pandacorp:<skill-slug>`.
+- Other runtimes use supported namespace packaging, keeping portable identifiers valid; verify the effective public name. Do not claim discovery without checking it.
+- On rename, update live docs, cross-skill calls and routine prompts, preserve historical evidence and previously stored extractor identities. Do not create duplicate alias skills.
+- Authoring review runs `node .pandacorp/check-project-skills.mjs --strict --skill <skill-slug>` for every new/renamed standalone Claude skill, including in existing projects. This checks identity fields/delimiters, not full YAML/native syntax; review that syntax and plugin/runtime namespace resolution separately. `doc-lint.sh` invokes `--rollout` from `verify.sh`: projects born on overlay 8.110.0+ fail on violations, older/unknown `created_with` produces migration warnings. An overlay upgrade never renames product skills; unrelated legacy skills wait for their own change flow. Never interrupt a live builder.
+
 ## Typing (judgment on top of tsc strict)
 - Prefer `unknown` at boundaries; explicit return types on exported functions (implicit is fine for trivial local helpers).
 - Non-null assertion (`!`) is a last resort. Reuse generated types (e.g. ORM) instead of redefining schema shapes by hand.
@@ -44,7 +51,7 @@ Exception: framework-reserved filenames (`page.tsx`, `route.ts`) follow the fram
 - **`git add <path>` refused as ignored on an already-tracked file** under a directory gitignored later (even when `git check-ignore` reports nothing for that path): use `git add -u -- <path>`, falling back to `git add -f -- <path>`. Never weaken `.gitignore` to work around it.
 
 ## Env vars, comments & commits
-- Update `.env.example` in the SAME change that adds a variable (grouped, one-line "what / how to obtain"). Never commit real values or secrets.
+- Update `.env.example` in the SAME change that adds a variable, grouped by service. **Every variable gets its OWN one-line `# what it is for / how to obtain it` comment on the line directly above it** (CONV-16): a comment shared by a block of variables describes only the first one, and a section header (`# --- Group ---`) or a commented-out assignment is not a description. Commented-out optional variables (`# NAME=value`) need one too. Take the purpose from the project's docs and code, never invent it. `.pandacorp/doc-lint.sh` (run by `verify.sh`) fails on any undescribed variable. Never commit real values or secrets.
 - Comments explain **why**, not what; no ticket/issue references in code. Conventional Commits with scope, in English (`feat(orders): add table selection`); small single-purpose commits; never force-push a shared branch; never commit secrets or build artifacts.
 
 ## Dependencies

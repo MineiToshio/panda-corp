@@ -9,6 +9,7 @@
 @documentation-and-decisions.md
 @logical-data-model.md
 @error-handling.md
+@external-services.md
 @nextjs.md
 @project-structure.md
 @quality-and-testing.md
@@ -26,6 +27,7 @@
 | `quality-and-testing.md` | Green gates, TDD, risk-based coverage, test discipline (getByRole, isolation, no hard waits), owner-attended live-attempt economy | `always` |
 | `documentation-and-decisions.md` | Canonical doc + decision log discipline, two-layer docs | `always` |
 | `logical-data-model.md` | Publish and refresh the shared logical model with every schema change (DATA-7) | `always` |
+| `external-services.md` | Approved external-service scope, account reuse, resource names, env-variable preparation and evidence | `always` |
 | `error-handling.md` | Expected vs unexpected taxonomy, typed results, never swallow, honest failure | `always` |
 | `resilience.md` | Timeouts everywhere, single-layer retries, honest fallbacks, bulkheads, background jobs | `always` |
 | `ai-implementation.md` | Comments discipline, no parallel doc trees, no dead code, installed-version grounding, lesson citations | `always` |

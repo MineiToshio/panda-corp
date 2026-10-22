@@ -25,6 +25,7 @@ source: Pandacorp standard — quality
 
 ## TDD & coverage strategy
 - Write the acceptance-criteria tests BEFORE implementing (RED → GREEN → refactor); a behavior is verified by a test that fails without the change and passes with it.
+- **Fast-lane exception (DR-126):** the build engine's fast-lane builder writes a work order's code and tests together and runs them once (RED-first not required); the AC-citation floor, preserved tests, one behaviour e2e spec per UI feature and the engine's full gate still bound it. Everywhere else, RED-first stands.
 - Don't chase 100%: per change, decide explicitly which of unit/integration/e2e it warrants; prioritize auth, payments, core flows, anything with money or data integrity.
 - Update tests when behavior changes — stale tests are worse than none.
 

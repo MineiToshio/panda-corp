@@ -18,13 +18,17 @@
 #   - a change-queue card stuck in `status: closing` for more than 48h  [FAIL-LOUD ON EVERY PROJECT,
 #     unlike every other finding above: a build-safety check for /pandacorp:sync's close-out mode
 #     (proposal 37 §A.6), not doc-spine completeness; see the dedicated block below]
+#   - a `.env.example` variable without its own description comment directly above it  [FAIL-LOUD
+#     ON EVERY PROJECT, CONV-16/DR-136; see the dedicated block below]
+#   - a standalone project skill without its project namespace [FAIL-LOUD ON EVERY PROJECT,
+#     CONV-17/DR-137; legacy projects are advisory until migration, new projects fail closed]
 # GREENFIELD FAIL-CLOSED (BL-0009): a project born via `/pandacorp:scaffold` (`.pandacorp/status.yaml`
 # `created_via: scaffold`) is expected to carry a COMPLETE doc spine from birth, so the HARD-ELIGIBLE
 # findings above become fail-closed for it — a missing frontmatter key is a real defect, not drift to
 # tolerate. Brownfield/adopted projects (`created_via: adopt`, or the field ABSENT — an older overlay,
 # a pre-BL-0009 project) stay fully advisory forever: exit 0 no matter what. SOFT findings NEVER gate,
 # on any project — they stay advisory-only, exactly as before this change.
-# A project with no docs/ is a vacuous pass. Run from the project root; verify.sh invokes it.
+# The skill/env/closing guards run even without docs/. Run from the project root; verify.sh invokes it.
 # By default it prints a one-line summary; run `.pandacorp/doc-lint.sh -v` for the per-finding list.
 # Managed by Pandacorp — re-synced by /pandacorp:upgrade. Don't hand-edit.
 set -uo pipefail
@@ -100,6 +104,64 @@ if [ "$closing_stale" -gt 0 ]; then
   echo "    artifacts by hand and move the card to done/."
   echo "════════════════════════════════════════════════════════════════════════"
   exit 1
+fi
+
+# --- `.env.example` per-variable descriptions (CONV-16, DR-136) ---------------------------------
+# Every variable in the tracked env guide carries its OWN one-line purpose: the line DIRECTLY above
+# it (no blank line in between) must be a `#` description. Mission Control's Arquitectura tab
+# (src/lib/architecture/env.ts) attaches only the immediately preceding comment block to the next
+# variable, so a comment shared by a run of variables describes the first one and leaves the rest
+# blank. NOT a description: a section header (`# --- Group ---`, `# ====`), a decoration-only line,
+# or a commented-out assignment (`# FOO=bar`). Commented-out optional variables (`# NAME=value`)
+# are variables too and need their own description. Like the stale-`closing` guard above this is
+# FAIL-LOUD ON EVERY PROJECT regardless of `created_via`: it is deterministic, cheap to fix, and the
+# fact it protects (what each variable is for) is not doc-spine advisory. No `.env.example` = pass.
+env_example_undescribed() {
+  awk '
+    function is_assign(s) { return s ~ /^(export[ \t]+)?[A-Za-z_][A-Za-z0-9_]*[ \t]*=/ }
+    function is_commented_assign(s) { return s ~ /^#+[ \t]*(export[ \t]+)?[A-Z][A-Z0-9_]*[ \t]*=/ }
+    function is_description(s,   t) {
+      if (s !~ /^#/ || is_commented_assign(s)) return 0
+      t = s; sub(/^#+[ \t]*/, "", t); sub(/[ \t]+$/, "", t)
+      if (t !~ /[A-Za-z0-9]/) return 0
+      if (t ~ /^[-=*~_#]{3,}/ || t ~ /[-=*~_#]{3,}$/) return 0
+      return 1
+    }
+    { sub(/\r$/, ""); line = $0; sub(/^[ \t]+/, "", line) }
+    is_assign(line) || is_commented_assign(line) {
+      name = line; sub(/^#+[ \t]*/, "", name); sub(/^export[ \t]+/, "", name); sub(/[ \t]*=.*/, "", name)
+      if (!is_description(prev)) printf "  • .env.example line %d: %s\n", NR, name
+    }
+    { prev = line }
+  ' .env.example
+}
+if [ -f .env.example ]; then
+  env_findings=$(env_example_undescribed)
+  if [ -n "$env_findings" ]; then
+    env_count=$(printf '%s\n' "$env_findings" | grep -c '•')
+    trap - EXIT   # this finding blocks on EVERY project; never let the brownfield-forgiving trap eat it
+    echo "════════════════════════════════════════════════════════════════════════"
+    echo "✗ DOC-LINT: $env_count variable(s) in .env.example have no description of their own (CONV-16)."
+    printf '%s\n' "$env_findings"
+    echo "    Put a one-line '# what it is for / how to obtain it' comment DIRECTLY above each variable."
+    echo "    A comment shared by a block of variables only describes the first one; a section header"
+    echo "    (# --- Group ---) or a commented-out assignment is not a description. Take the purpose"
+    echo "    from the project's own docs and code (architecture.md, blueprints, ADRs, the reader of"
+    echo "    the variable); never invent one. This BLOCKS on every project regardless of created_via."
+    echo "════════════════════════════════════════════════════════════════════════"
+    exit 1
+  fi
+fi
+
+# Project-owned skills must expose the project's namespace (CONV-17 / DR-137).
+# Run before the docs-only early exit, and preserve failures on adopted projects too.
+if [ -d .claude/skills ]; then
+  skill_checker="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/check-project-skills.mjs"
+  if ! node "$skill_checker" . --rollout; then
+    trap - EXIT
+    echo "✗ DOC-LINT: project skill names must use <project-slug>:<skill-slug> (CONV-17)."
+    exit 1
+  fi
 fi
 
 [ -d docs ] || exit 0

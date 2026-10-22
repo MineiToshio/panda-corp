@@ -1,5 +1,22 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — Pandacorp overlay upgraded 8.100.0 → 8.110.0
+
+**What:** A compatible overlay bump (DR-048), run as the preflight of `/pandacorp:change` for the v2 milestone. No build was running.
+- **Regenerated from the templates:** `.pandacorp/doc-lint.sh`, which adds the CONV-16 `.env.example` description guard and the CONV-17 project-skill naming check, plus its new `.pandacorp/check-project-skills.mjs`. `created_with` is older than 8.110.0, so that check is advisory. Also `.pandacorp/canary.sh`, which now canaries the doc-lint guard.
+- **Rules re-synced:** `docs/rules/` (code-conventions, quality-and-testing and resilience updated; `external-services.md` added as an always-on rule) and the regenerated `docs/rules/README.md`.
+- **`.gitignore`:** `.claude/worktrees/` added.
+- **Unchanged:** `guide.md`, `README.md`, `verify.sh`, `biome.json`, the verbatim e2e set and the toolchain were already conformant.
+- **Checks:**
+  - canary: 11/11 gates still reject their broken input;
+  - full `verify.sh`: vitest 8062/8062, and the only red is the 4 pre-existing e2e failures of the workspace-tab specs, which v2 fixes.
+
+**Why, and two deliberate deviations from blind conformance (DR-076 loud report):**
+- **`knip.json` was not overwritten.** It is ahead of the template with Mission Control's own fixes: the `.claude/**` ignore and the `scripts/navigation` entries from 7b0d60c3. Overwriting would revert them and red the gate.
+- **The template's optional `e2e/tokens.spec.ts` and `e2e/screenshot-prototype.mjs` were not installed.** In this project they fail the canonical Biome check (format and cognitive complexity), so they would red-lock the gate.
+
+Both are factory-template follow-ups, outside this project.
+
 ## 2026-10-22 — Órbita design frozen (design contract for the v2 build)
 
 **What:** The owner-approved Órbita prototype is frozen into the design contract. The design gate (`check-design-gate.mjs`) is READY.
