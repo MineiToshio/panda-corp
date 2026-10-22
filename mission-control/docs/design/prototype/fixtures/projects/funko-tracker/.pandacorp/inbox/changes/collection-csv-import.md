@@ -1,11 +1,11 @@
 ---
 type: "change"
-class: "standard"
+class: "expedite"
 status: "ready"
 date: "2026-10-20"
 frd: "frd-03-my-collection"
-depends_on: ""
-rebuilds_verified: false
+depends_on: "owned-toggle-double-tap"
+rebuilds_verified: true
 implemented_sha: ""
 ---
 # Importar una colección desde una hoja de cálculo

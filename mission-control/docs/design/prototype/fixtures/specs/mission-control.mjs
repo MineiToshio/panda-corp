@@ -13,7 +13,7 @@ const F = (n, slug, en, titles, from, every, extra = {}) =>
 const frds = [
   F(1, "data-reading", "Data reading", ["Factory root resolution", "Idea card reader", "Portfolio table parser", "Status file reader", "Project path existence check", "Docs tree listing", "Decision inbox parser", "Activity log reader", "Events tail reader", "Reader fixtures and malformed cases"], "2026-06-16T02:10:00Z", 18),
   F(2, "ideas-board", "Ideas board", ["Column derivation from status", "Next-step hint per column", "Discard with confirmation", "Board view with search", "Card detail with tabs", "Phase taken from the project status", "Favourite flag on cards", "Idea name inside next-step hints", "Accessible empty-column marker"], "2026-06-16T06:00:00Z", 35, { ids: [1, 3, 4, 5, 7, 11, 12, 13, 14], states: "ddddddddr", review: null, overrides: { 8: { start: T("2026-09-25T01:08:00Z"), end: T("2026-09-25T01:21:00Z"), deps: ["WO-02-005"], criteria: 3, artifacts: ["src/app/board/IdeaBoardView/**"], difficulty: "low" } } }),
-  F(3, "portfolio", "Portfolio", ["Portfolio rail with phases", "Release snapshot columns", "Last sync formatting"], "2026-06-17T03:00:00Z", 25),
+  F(3, "portfolio", "Portfolio", ["Portfolio rail with phases", "Release snapshot columns", "Last sync formatting"], "2026-06-17T03:00:00Z", 25, { drift: ["REQ-03-002", "AC-03-001.2"] }),
   F(4, "project-workspace", "Project workspace", ["Workspace route by slug", "Summary tab", "Documents tab with index", "Commands tab", "Not-found project state"], "2026-06-17T06:00:00Z", 22),
   F(5, "work-orders", "Work orders", ["Work-order discovery", "Kanban by state", "Work-order detail tabs", "Full document view"], "2026-06-18T02:00:00Z", 24),
   F(6, "party", "Party", ["Party scene layout", "Agent tokens by station", "Live event mapping", "Relay animation", "Idle and empty states", "Reduced-motion variant", "Party legend"], "2026-06-18T05:00:00Z", 20),
@@ -25,7 +25,7 @@ const frds = [
   F(12, "observability-dataviz", "Observability and dataviz", ["Build timeline reader", "Timeline bars", "Dependency graph layout", "Graph focus and trace", "Per-FRD progress rows", "Freshness badge"], "2026-06-21T01:00:00Z", 22),
   F(13, "visual-system-accessibility", "Visual system and accessibility", ["Design token registry", "Light and dark themes", "Focus ring and skip link", "Dialog focus trap", "Tab strip with arrows", "Touch target floor", "Reduced motion", "Contrast audit fixes", "Responsive shell"], "2026-06-21T05:00:00Z", 18),
   F(14, "snapshot-and-feedback", "Snapshot and feedback", ["Snapshot export", "Feedback channel links", "Copy command buttons", "Toast notices"], "2026-06-24T02:00:00Z", 30),
-  F(15, "plugin-out-of-sync-warning", "Plugin out-of-sync warning", ["Installed version reader", "Source version reader", "Drift banner", "Update command copy"], "2026-06-26T02:00:00Z", 28),
+  F(15, "plugin-out-of-sync-warning", "Plugin out-of-sync warning", ["Installed version reader", "Source version reader", "Drift banner", "Update command copy"], "2026-06-26T02:00:00Z", 28, { drift: "REQ-15-001" }),
   F(16, "orphan-project-detection", "Orphan project detection", ["Sibling folder scan", "Orphan classification", "Orphan list view", "Adopt command hint"], "2026-06-30T02:00:00Z", 26),
   F(17, "proposals-inbox", "Proposals inbox", ["Lesson reader", "Promotion queue", "Prune list", "Memory health", "Self-suggestions", "Backlog reader", "Proposals summary"], "2026-07-01T02:00:00Z", 24),
   F(18, "dashboard", "Dashboard", ["Home dashboard cards"], "2026-06-22T03:00:00Z", 30),
@@ -39,6 +39,8 @@ const frds = [
   F(26, "services-accounts", "Services and accounts", [], null, 30, { review: null }),
 ];
 
+// FRD-03 carries a gate-drift list (the "Verificado · N derivas" badge); FRD-15's drift is a bare
+// scalar, not a list, so the reader fails loud ("Deriva ilegible").
 // Cross-FRD seams: most features read through the FRD-01 readers.
 for (const f of frds) {
   if (f.n === 1 || !f.wos.length) continue;
@@ -115,6 +117,9 @@ last_harvest: "2026-10-20T00:00:00Z"
 `,
   progress,
   changes,
+  // An internal tool with no external services: the file exists and declares none, so the
+  // directory reads it as an explicit empty project rather than a missing registry.
+  services: { schema_version: 1, project_id: "mission-control", resource_slug: "mission-control", services: {} },
   adrs: [
     { n: 1, slug: "stack", date: "2026-06-15", title: "Stack: Next.js reading local files", context: "The dashboard only reads files that the factory and its projects already write.", decision: "A local Next.js app with Server Components reading the factory root; no database, no network calls." },
     { n: 2, slug: "restore-second-write", date: "2026-06-19", title: "Restoring a discarded idea is the second allowed write", context: "Discard already writes the idea's frontmatter.", decision: "Allow restore as the symmetrical, human-triggered write on the same field." },

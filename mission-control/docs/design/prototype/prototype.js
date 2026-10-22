@@ -81,6 +81,7 @@ const ICONS = {
   chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
   map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2z"/>',
 };
 const ico = (name, cls = '') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ICONS.dot}</svg>`;
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,7 +103,7 @@ const pctOf = (a, b) => (b ? Math.round((a / b) * 100) : 0);
 
 const chip = (text, tone = '', extra = '') => `<span class="chip ${extra}" ${tone ? `data-tone="${tone}"` : ''}>${text}</span>`;
 const dotChip = (text, tone) => chip(`<span class="dot"></span>${text}`, tone);
-const illus = (text = 'Ilustrativo') => `<span class="illus" title="Composición de ejemplo: esta captura no incluye esta fuente">${ico('palette', 'sm')}${esc(text)}</span>`;
+const illus = (text = 'Ilustrativo') => `<span class="illus" title="Composición de ejemplo: no hay datos reales de esta fuente">${ico('palette', 'sm')}${esc(text)}</span>`;
 const bar = (pct, tone = 'green') => `<div class="bar" data-tone="${tone}" role="presentation"><span style="width:${Math.max(0, Math.min(100, pct))}%"></span></div>`;
 const ring = (pct, tone = 'green', cls = '', tip = '') => `<div class="ring ${cls}" data-tone="${tone}" style="--p:${pct}" role="img" aria-label="${esc(tip || pct + '% completado')}" ${tip ? `data-tip="${esc(tip)}" tabindex="0"` : ''}>${pct}%</div>`;
 /** A command split only at its natural seams (after ":" and spaces), never inside an id or a word. */
@@ -144,7 +145,7 @@ const NAV = [
   { id: 'portfolio', label: 'Portafolio', mini: 'Portafolio', icon: 'folder', tone: 'blue' },
   { id: 'propuestas', label: 'Propuestas', mini: 'Propuestas', icon: 'bulb', tone: 'pink' },
   { id: 'logros', label: 'Logros', mini: 'Logros', icon: 'trophy', tone: 'gold' },
-  { id: 'documentacion', label: 'Documentación', mini: 'Manual', icon: 'book', tone: 'violet' },
+  { id: 'documentacion', label: 'Documentación', mini: 'Docs', icon: 'book', tone: 'violet' },
   { id: 'configuracion', label: 'Configuración', mini: 'Ajustes', icon: 'settings', tone: 'slate' },
 ];
 const WS_TABS = [
@@ -251,7 +252,34 @@ const PROJECTS = SNAP.projects.map(raw => {
 const HEALTH = EXTRAS?.health || null;
 for (const p of PROJECTS) p.lastActivity = HEALTH?.lastActivity?.[p.id] || null;
 /** Most recently changed first (last commit), so the project you just touched is always on top. */
-const BY_RECENT = [...PROJECTS].sort((a, b) => (Date.parse(b.lastActivity || 0) || 0) - (Date.parse(a.lastActivity || 0) || 0) || a.short.localeCompare(b.short));
+const byRecent = () => [...PROJECTS].sort((a, b) => (Date.parse(b.lastActivity || 0) || 0) - (Date.parse(a.lastActivity || 0) || 0) || a.short.localeCompare(b.short));
+let BY_RECENT = byRecent();
+/** The factory's services directory (FRD-26): providers, accounts, project links and the reader's issues. */
+const SERVICES_DIR = SNAP.services || { providers: [], accounts: [], allocations: [], issues: [] };
+/** DR-066: a build counts as live only while its supervisor heartbeat is fresh; the `running` flag alone never does. */
+const LIVE_TTL_MIN = 10;
+function buildSignal(p) {
+  if (!p.running) return { kind: 'idle', ago: null };
+  const ms = p.heartbeatAt ? Date.parse(SNAP.capturedAt) - Date.parse(p.heartbeatAt) : NaN;
+  const ago = Number.isFinite(ms) ? Math.max(0, Math.round(ms / 60000)) : null;
+  return { kind: ago != null && ago < LIVE_TTL_MIN ? 'live' : 'no-signal', ago };
+}
+const isLiveBuild = p => buildSignal(p).kind === 'live';
+const minutesAgo = n => n == null ? 'sin eventos' : n < 90 ? `hace ${n} min` : `hace ${Math.round(n / 60)} h`;
+/** "Construyendo" only for a live build; a running flag without a fresh signal reads "Sin señal". */
+function buildChip(p, { icon = false } = {}) {
+  const s = buildSignal(p);
+  if (s.kind === 'live') return chip(`${icon ? ico('loader', 'sm') : ''}Construyendo`, 'violet');
+  if (s.kind === 'no-signal') return chip(`${ico('alert', 'sm')}Sin señal · último evento ${minutesAgo(s.ago)}`, 'coral');
+  return '';
+}
+/** REQ-18-021: the next command follows what the project needs now, not only its phase. */
+function nextStep(p) {
+  const open = p.counts.orders - p.counts.done;
+  if (p.phase === 'implementation' && open > 0) return { command: '/pandacorp:implement', when: `Sigue la construcción: ${open === 1 ? 'queda 1 work order abierta' : `quedan ${open} work orders abiertas`}.` };
+  if (p.phase === 'release') return { command: '/pandacorp:review-launch', when: 'Estable · en operación: revisa cómo va el lanzamiento.' };
+  return (p.commands || [])[0] || null;
+}
 const SIDEBAR_PROJECTS = 5;
 const sinceCapture = iso => { if (!iso || !EXTRAS) return ''; const h = Math.max(0, Math.round((Date.parse(EXTRAS.capturedAt) - Date.parse(iso)) / 3600000)); return h < 1 ? 'hace menos de 1\u00a0h' : h < 48 ? `hace ${h}\u00a0h` : `hace ${Math.round(h / 24)}\u00a0días`; };
 const projectById = id => PROJECTS.find(p => p.id === id);
@@ -277,24 +305,32 @@ const ageDays = date => Math.max(0, Math.round((Date.parse(SNAP.capturedAt) - Da
 function attentionFor(p) {
   const items = [];
   for (const d of p.decisions.filter(d => !d.resolved)) items.push({ type: 'decision', d, detail: decisionDetail(p, d), tone: 'amber', icon: 'flag', kind: 'Decisión pendiente', title: d.title.replace(/^·\s*/, ''), sub: `${p.short} · ${fmtDate(d.date)}`, attr: `data-decision="${esc(p.id)}|${esc(d.id)}"`, verb: 'Ver decisión', cmd: `/pandacorp:decide ${d.id}`, cmdNote: `en la carpeta de ${p.short}`, p });
-  for (const w of p.orders.filter(w => w.state === 'review')) items.push({ owner: false, tone: 'amber', icon: 'eye', group: 'review', kind: 'Work order en revisión', title: `${w.id} · ${plain(w.short)}`, sub: `${p.short} · se cierra cuando el build revise su FRD`, href: href('portfolio', { project: p.id, tab: 'Observabilidad', wo: w.id }), verb: 'Abrir orden', p });
+  for (const w of p.orders.filter(w => w.state === 'review')) items.push({ owner: false, tone: 'amber', icon: 'eye', group: 'review', kind: 'Work order en revisión', title: `${w.id} · ${plain(w.short)}`, sub: `${p.short} · se cierra cuando el build revise su FRD`, href: href('portfolio', { project: p.id, tab: 'Observabilidad', wo: w.id }), verb: 'Abrir work order', p });
   for (const c of p.changesList.filter(c => c.status === 'ready')) items.push({ type: 'change', c, tone: 'pink', icon: 'branch', kind: 'Cambio listo', title: c.title, sub: `${p.short} · listo para construir`, attr: `data-change="${esc(p.id)}|${esc(c.id)}"`, verb: 'Ver cambio', cmd: `/pandacorp:implement change:${c.id}`, cmdNote: `en la carpeta de ${p.short}`, p });
   for (const c of p.changesList.filter(c => c.status === 'building')) items.push({ owner: false, group: 'building', tone: 'violet', icon: 'bolt', kind: 'En construcción', title: c.title, sub: `${p.short} · cambio en curso`, attr: `data-change="${esc(p.id)}|${esc(c.id)}"`, verb: 'Ver cambio', p });
   const drafts = p.changesList.filter(c => c.status === 'draft');
   if (drafts.length) items.push({ owner: false, group: 'draft', tone: 'slate', icon: 'file', kind: 'Borradores', title: `${plural(drafts.length, 'cambio en borrador', 'cambios en borrador')}`, sub: `${p.short} · aún no entran al build hasta quedar listos`, href: href('portfolio', { project: p.id, tab: 'Cambios' }), verb: 'Revisar', p });
   return items;
 }
-const ATTENTION = PROJECTS.flatMap(attentionFor);
-/** "Tu turno" holds only what the owner can act on (decisions, changes ready to build); the rest is "En marcha". */
-const OWNER_TURN = ATTENTION.filter(a => a.owner !== false);
-const IN_FLIGHT = ATTENTION.filter(a => a.owner === false);
-const OWNER_ATTENTION = OWNER_TURN.length;
+let ATTENTION, OWNER_TURN, IN_FLIGHT, OWNER_ATTENTION;
+/** Recomputes every value derived from the captured projects (once at load, again after a fixture scenario). */
+function derive() {
+  BY_RECENT = byRecent();
+  /* A decision whose own file already marks it RESUELTO/OBSOLETO is resolved: it is neither pending nor counted. */
+  for (const p of PROJECTS) for (const d of p.decisions) if (decisionDetail(p, d)?.fileStatus) { d.resolved = true; d.resolvedInFile = true; }
+  ATTENTION = PROJECTS.flatMap(attentionFor);
+  /* "Tu turno" holds only what the owner can act on (decisions, changes ready to build); the rest is "En marcha". */
+  OWNER_TURN = ATTENTION.filter(a => a.owner !== false);
+  IN_FLIGHT = ATTENTION.filter(a => a.owner === false);
+  OWNER_ATTENTION = OWNER_TURN.length;
+}
+derive();
 
 /* ================= Routing ================= */
 const state = { screen: 'inicio', params: new URLSearchParams(), key: '' };
 const UI = {
   boardQ: '', boardCat: '', woExpanded: new Set(), frdAllOpen: false, modelScale: 1, modelSel: '', modelQ: '', subtitleOpen: false,
-  trophyCat: '', docType: '', backlogPri: '', backlogType: '', backlogArea: '', ruleQ: '', ruleApproval: '', cfgQ: '', more: {}, docQ: '', manualQ: '', skillQ: '',
+  trophyCat: '', docType: '', accQ: '', accFilter: '', backlogPri: '', backlogType: '', backlogArea: '', ruleQ: '', ruleApproval: '', cfgQ: '', more: {}, docQ: '', manualQ: '', skillQ: '',
 };
 const P = key => state.params.get(key) || '';
 /** Builds a hash URL carrying only the parameters the destination screen reads. */
@@ -342,21 +378,57 @@ function renderSidebar() {
   $('#sidebar').innerHTML = `
     <a class="brand" href="#inicio" aria-label="Pandacorp Mission Control: ir a Inicio"><img src="assets/pandacorp.png" alt=""><div><b>Pandacorp</b><small>MISSION CONTROL</small></div></a>
     ${HEALTH?.plugin?.behind ? `<a class="plugin-pill" href="#inicio" data-tone="coral" title="Instalado ${esc(HEALTH.plugin.installed)} · repositorio ${esc(HEALTH.plugin.source)}">${ico('alert', 'sm')}<span class="lbl">Plugin desactualizado</span></a>` : ''}
+    ${pendingPill()}
     <nav class="navgroup" aria-label="Secciones">
       ${NAV.map(n => `<a class="navitem" data-tone="${n.tone}" href="#${n.id}" ${nav === n.id ? 'aria-current="page"' : ''}>${ico(n.icon)}<span class="lbl">${n.label}</span><span class="mini">${n.mini}</span>${navCount(n.id)}${n.id === 'inicio' && OWNER_ATTENTION ? '<span class="raildot" aria-hidden="true"></span>' : ''}</a>`).join('')}
     </nav>
     <div class="navgroup projnav" data-open="${projectsOpen()}">
       <button type="button" class="navlabel navtoggle" data-action="toggle-projects" aria-expanded="${projectsOpen()}" aria-controls="projlist" title="Ordenados por último cambio"><span>Proyectos</span><span class="faint">${PROJECTS.length} ${ico('chevD', 'sm')}</span></button>
       <div id="projlist" class="navgroup" ${projectsOpen() ? '' : 'hidden'}>
-      ${BY_RECENT.slice(0, SIDEBAR_PROJECTS).map(p => `<a class="navitem" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}" ${state.screen === 'portfolio' && P('project') === p.id ? 'aria-current="page"' : ''} aria-label="${esc(p.short)}: ${esc(phaseOf(p.phase).label)}, ${p.counts.orders ? p.pct + '% de work orders verificados' : 'sin work orders'}"><span class="pav" data-tone="${p.tone}">${esc(p.initials)}</span><span class="meta"><span>${esc(p.short)}</span><small>${esc(phaseOf(p.phase).label)}${p.counts.orders ? ' · ' + p.pct + '%' : ''}</small></span></a>`).join('')}
+      ${BY_RECENT.slice(0, SIDEBAR_PROJECTS).map(p => `<a class="navitem" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}" ${state.screen === 'portfolio' && P('project') === p.id ? 'aria-current="page"' : ''} aria-label="${esc(p.short)}: ${esc(phaseOf(p.phase).label)}${p.counts.orders ? ' · ' + p.pct + '% de work orders verificadas' : ', sin work orders'}"><span class="pav" data-tone="${p.tone}">${esc(p.initials)}</span><span class="meta"><span>${esc(p.short)}</span><small>${esc(phaseOf(p.phase).label)}${p.counts.orders ? ' · ' + p.pct + '%' : ''}</small></span></a>`).join('')}
       ${PROJECTS.length > SIDEBAR_PROJECTS ? `<a class="navitem seeall" href="#portfolio">${ico('list', 'sm')}<span class="lbl">Ver los ${PROJECTS.length}</span></a>` : ''}
       </div>
     </div>
-    ${g ? `<a class="guildcard" href="#logros" aria-label="Gremio: nivel ${g.level}, ${esc(g.rankName)}">
+    ${g ? `<a class="guildcard" href="#logros" aria-label="Gremio nivel ${g.level}: ${esc(g.rankName)}, ${g.xp - g.levelStartXp} / ${g.nextLevelXp - g.levelStartXp} XP al nivel ${g.level + 1}">
       <div class="row"><span class="crest">${g.level}</span><span class="gtext"><b>${esc(g.rankName)}</b><small>${g.xp - g.levelStartXp} / ${g.nextLevelXp - g.levelStartXp} XP al nivel ${g.level + 1}</small></span></div>
       ${bar(g.pctToNext, 'gold')}</a>` : ''}
-    <button type="button" class="side-toggle" data-action="toggle-sidebar" aria-pressed="${sidebarCollapsed()}" aria-label="${sidebarCollapsed() ? 'Fijar la barra lateral abierta' : 'Colapsar la barra lateral'}">${ico(sidebarCollapsed() ? 'panelOpen' : 'panelClose', 'sm')}<span class="lbl">${sidebarCollapsed() ? 'Fijar abierta' : 'Colapsar'}</span></button>`;
+    <div class="side-foot"><button type="button" class="side-toggle" data-action="toggle-sidebar" aria-pressed="${sidebarCollapsed()}" aria-label="${sidebarCollapsed() ? 'Fijar abierta la barra lateral' : 'Colapsar la barra lateral'}">${ico(sidebarCollapsed() ? 'panelOpen' : 'panelClose', 'sm')}<span class="lbl">${sidebarCollapsed() ? 'Fijar abierta' : 'Colapsar'}</span></button>${themeButton()}</div>`;
   $('#app').dataset.sidebar = sidebarCollapsed() ? 'collapsed' : 'expanded';
+}
+/** Names of the theme the button would switch to: the icon shows the destination (sun in dark, moon in light). */
+const themeTarget = () => (document.documentElement.dataset.theme === 'dark' ? { icon: 'sun', label: 'Tema claro', aria: 'Cambiar a tema claro' } : { icon: 'moon', label: 'Tema oscuro', aria: 'Cambiar a tema oscuro' });
+/** Sidebar-footer theme button (rail and expanded) and the matching drawer item on phones: one control, one markup. */
+function themeButton() {
+  const t = themeTarget();
+  return `<button type="button" class="theme-btn" data-action="toggle-theme" aria-label="${t.aria}" title="${t.aria}">${ico(t.icon, 'sm')}<span class="lbl">${t.label}</span></button>`;
+}
+/** Updates the theme button in place so keyboard focus stays on it after a toggle. */
+function syncThemeButton() {
+  const btn = $('[data-action="toggle-theme"]');
+  if (!btn) return;
+  const t = themeTarget();
+  btn.setAttribute('aria-label', t.aria);
+  btn.title = t.aria;
+  btn.querySelector('svg').outerHTML = ico(t.icon, 'sm');
+  btn.querySelector('.lbl').textContent = t.label;
+}
+/**
+ * FRD-21: the global "⎇ N pendientes" pill, beside the plugin warning. It counts branches with work outside
+ * main across every repository; its alert variant (icon + text) appears when a repository reads "Depurar ya"
+ * or could not be read. Hidden when nothing is pending. It opens Inicio's "Árboles de trabajo".
+ */
+function pendingPill() {
+  const repos = HEALTH?.pending;
+  if (!repos) return '';
+  const rows = repos.map(r => ({ r, st: cleanupState(r) }));
+  const n = rows.reduce((sum, x) => sum + (x.r.kind === 'error' ? 0 : x.st.pend), 0);
+  const unread = rows.filter(x => x.r.kind === 'error').length;
+  if (!n && !unread) return '';
+  const urgent = unread > 0 || rows.some(x => x.r.kind !== 'error' && x.st.rank === 3);
+  // The branch icon is the "⎇" of the indicator's name; text carries the alert, never colour alone.
+  const label = `${n ? plural(n, 'pendiente', 'pendientes') : 'Árboles'}${unread ? ' · sin leer' : urgent ? ' · depurar ya' : ''}`;
+  const title = `${plural(n, 'rama sin integrar en main', 'ramas sin integrar en main')}${unread ? ` · ${plural(unread, 'repositorio no se pudo leer', 'repositorios no se pudieron leer')}` : ''}. Abre «Árboles de trabajo» en Inicio.`;
+  return `<a class="plugin-pill pending-pill" href="#inicio" data-goto="worktrees-card" data-tone="${urgent ? 'coral' : 'slate'}" title="${esc(title)}">${ico(urgent ? 'alert' : 'branch', 'sm')}<span class="lbl">${esc(label)}</span><span class="sr-only">: ${esc(title)}</span></a>`;
 }
 /** Collapsed rail floats open over the page while the pointer is on it (it never pushes the content). */
 $('#sidebar').addEventListener('mouseenter', () => { if (sidebarCollapsed()) $('#sidebar').dataset.float = 'true'; });
@@ -382,9 +454,10 @@ function closeDrawer() {
   return wasOpen;
 }
 
+/** Page title block. The optional eyebrow is the prototype-only capture stamp, hidden by ?demo=off (it never ships). */
 function pageHead(title, sub, opts = {}) {
   const { eyebrow = '', actions = '', crumbs = '' } = opts;
-  return `<header class="pagehead"><div class="titles">${crumbs}${eyebrow ? `<span class="eyebrow">${eyebrow}</span>` : ''}<h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>${actions ? `<div class="row wrap">${actions}</div>` : ''}</header>`;
+  return `<header class="pagehead"><div class="titles">${crumbs}${eyebrow ? `<span class="eyebrow" data-demo-only>${eyebrow}</span>` : ''}<h1>${title}</h1>${sub ? `<p>${sub}</p>` : ''}</div>${actions ? `<div class="row wrap">${actions}</div>` : ''}</header>`;
 }
 const crumbs = list => `<nav class="crumbs" aria-label="Ruta">${list.map(([label, link], i) => (i ? ico('chevR', 'sm') : '') + (link ? `<a href="${link}">${esc(label)}</a>` : `<span aria-current="page">${esc(label)}</span>`)).join('')}</nav>`;
 const projectStamp = () => `<span class="stamp"><span class="dot"></span>Captura de proyectos · ${esc(fmtStamp(SNAP.capturedAt))}</span>`;
@@ -421,13 +494,23 @@ function feedEntry(e, withProject = true) {
   return `<div class="entry"><span class="pav" data-tone="${e.p.tone}" aria-hidden="true">${esc(e.p.initials)}</span><div>${inl(e.text.replace(/^\s*[-*]\s+/, ''))}${withProject ? `<span class="who">${esc(e.p.short)}</span>` : ''}</div></div>`;
 }
 function projectCard(p) {
-  const next = p.commands?.[0];
-  return `<a class="proj-card" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}">
-    <div class="row between top"><div class="row"><span class="pav md" data-tone="${p.tone}">${esc(p.initials)}</span><div class="grow"><h3>${esc(p.short)}</h3>${phaseChip(p.phase)}</div></div>${p.counts.orders ? ring(p.pct, p.pct === 100 ? 'green' : p.tone, '', `${p.counts.done} de ${p.counts.orders} work orders verificados`) : `<span class="chip plain" data-tip="Aún no tiene work orders publicados" tabindex="0">Sin WOs</span>`}</div>
+  const next = nextStep(p);
+  const body = `
+    <div class="row between top"><div class="row"><span class="pav md" data-tone="${p.tone}">${esc(p.initials)}</span><div class="grow"><h3>${p.pathMissing ? `<a class="proj-card-link" href="${href('portfolio', { project: p.id })}">${esc(p.short)}</a>` : esc(p.short)}</h3>${phaseChip(p.phase)}</div></div>${p.counts.orders ? ring(p.pct, p.pct === 100 ? 'green' : p.tone, '', `${p.counts.done} de ${p.counts.orders} work orders verificadas`) : `<span class="chip plain" data-tip="Aún no tiene work orders publicadas" tabindex="0">Sin WOs</span>`}</div>
     <div class="stack sm">${stepper(p.phase, true)}<span class="xs faint">Etapa ${PHASES.findIndex(x => x.id === p.phase) + 1} de ${PHASES.length} del pipeline${p.lastActivity ? ` · último cambio ${sinceCapture(p.lastActivity)}` : ''}</span></div>
-    <div class="facts"><span><b>${p.counts.done}/${p.counts.orders}</b> WO verificados</span><span><b>${p.counts.frds}</b> FRDs</span><span><b>${p.counts.docs}</b> docs</span>${p.running ? chip('Construyendo', 'violet') : ''}</div>
-    ${next ? `<div class="small faint">Siguiente · <code>${esc(next.command)}</code></div>` : ''}
-  </a>`;
+    <div class="facts"><span><b>${p.counts.done}/${p.counts.orders}</b> WO verificadas</span><span><b>${p.counts.frds}</b> FRDs</span><span><b>${p.counts.docs}</b> docs</span>${buildChip(p)}</div>
+    ${p.pathMissing ? pathMissingNotice(p) : next ? `<div class="small faint">Siguiente · <code>${esc(next.command)}</code></div>` : ''}`;
+  // A card whose folder is gone carries a copyable recovery command, so it is not one big link (no nested controls).
+  return p.pathMissing ? `<article class="proj-card is-missing" data-tone="${p.tone}">${body}</article>` : `<a class="proj-card" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}">${body}</a>`;
+}
+/** FRD-03: the project's folder is not on disk; the recovery command when the portfolio knows its repository. */
+function pathMissingNotice(p) {
+  const m = p.pathMissing;
+  return `<div class="notice" data-tone="coral" role="status">${ico('alert')}<div class="grow stack sm"><b>Ruta no encontrada</b><p class="small">La carpeta <code>${esc(m.path)}</code> ya no está en el disco.${m.repo ? ' Clónala de nuevo y vuelve a sincronizar el portafolio:' : ' El portafolio no tiene un repositorio remoto: devuelve la carpeta a su sitio o corrige su ruta en <code>factory/portfolio.md</code>.'}</p>${m.repo ? `${cmd(`git clone ${m.repo} ${m.path}`)}${cmd('/pandacorp:sync-portfolio')}` : ''}</div></div>`;
+}
+/** FRD-18 / FRD-03: with no projects yet, one card with the command that starts the first one. */
+function firstProjectCard() {
+  return `<section class="card first-action" data-tone="blue" aria-labelledby="first-title"><div class="card-head"><h3 id="first-title"><span class="badge-icon sm">${ico('rocket', 'sm')}</span>Tu fábrica todavía no tiene proyectos</h3></div><p class="small muted card-intro">Un proyecto nace de una idea. Captura una o pide a la fábrica que busque oportunidades; cuando una idea te convenza, su spec crea el proyecto.</p><div class="stack sm"><span class="small muted">Captura tu primera idea, en la carpeta de la fábrica:</span>${cmd('/pandacorp:new-idea')}<span class="small muted">Cuando la idea esté lista, conviértela en proyecto:</span>${cmd('/pandacorp:spec <idea>')}</div></section>`;
 }
 function home() {
   const ideasActive = IDEAS.filter(i => i.status !== 'discarded');
@@ -436,16 +519,16 @@ function home() {
   const funnel = PHASES.map(ph => ({ ph, n: ideasActive.filter(i => ideaPhase(i) === ph.id).length }));
   const maxN = Math.max(1, ...funnel.map(f => f.n));
   const turns = OWNER_TURN;
-  return pageHead('Centro de mando', 'Primero lo que necesita tu acción; después lo que avanza y el estado de tus proyectos.', { eyebrow: projectStamp() })
+  return pageHead('Inicio', 'Tu centro de mando: primero lo que necesita tu acción; después lo que avanza y el estado de tus proyectos.', { eyebrow: projectStamp() })
     + pluginBanner()
     + `<div class="home-grid"><div class="stack lg">
-      ${card(`Tu turno ${turns.length ? `<span class="chip" data-tone="amber">${turns.length}</span>` : ''}`, ownerTurn(turns), { icon: 'target', tone: 'amber' })}
+      ${card(`Tu turno ${turns.length ? `<span class="chip" data-tone="amber">${turns.length}</span>` : `<span class="chip" data-tone="green">${ico('check', 'sm')}Al día</span>`}`, ownerTurn(turns), { icon: 'target', tone: 'amber' })}
       <section aria-labelledby="h-cartera"><h2 id="h-cartera" class="saga-head" data-tone="blue">${ico('folder', 'sm')}<span>Tu cartera</span><span class="saga-line"></span><a class="link xs" data-tone="blue" href="#portfolio">Ver portafolio ${ico('arrow', 'sm')}</a></h2>
-        <div class="proj-cards">${BY_RECENT.map(projectCard).join('')}</div></section>
+        ${PROJECTS.length ? `<div class="proj-cards">${BY_RECENT.map(projectCard).join('')}</div>` : firstProjectCard()}</section>
       ${inFlightCard()}
     </div><div class="stack lg">
-      ${card('Pulso', `<div class="pulse"><div><span class="num">${PROJECTS.length}</span><small>Proyectos</small></div><div><span class="num">${totals.frds}</span><small>FRDs</small></div><div><span class="num">${totals.done}</span><small>de ${totals.orders} WO verificados</small></div></div>`, { icon: 'gauge', tone: 'teal' })}
-      ${g ? card('Gremio', `<div class="row"><img src="assets/ranks/${esc(rankSprite(g))}.png" alt="" width="56" height="56" style="image-rendering:pixelated"><div class="grow"><b>${esc(g.rankName)}</b><div class="small muted">Nivel ${g.level} · ${g.xp} XP</div></div></div><div style="margin-top:12px">${bar(g.pctToNext, 'gold')}</div><p class="small faint" style="margin-top:6px">${g.nextLevelXp - g.xp} XP para el nivel ${g.level + 1} · ${g.trophies.filter(t => t.unlocked).length} trofeos</p>${lastAchievement(g)}<div class="card-foot"><span class="small faint">Captura del ${esc(fmtDate(EXTRAS.capturedAt))}</span><a class="link" data-tone="gold" href="#logros">Ver logros ${ico('arrow', 'sm')}</a></div>`, { icon: 'trophy', tone: 'gold' }) : ''}
+      ${card('Pulso', `<div class="pulse"><div><span class="num">${PROJECTS.length}</span><small>Proyectos</small></div><div><span class="num">${totals.frds}</span><small>FRDs</small></div><div><span class="num">${totals.done}</span><small>de ${totals.orders} WO verificadas</small></div></div>`, { icon: 'gauge', tone: 'teal' })}
+      ${g ? card('Gremio', `<div class="row"><img src="assets/ranks/${esc(rankSprite(g))}.png" alt="" width="56" height="56" style="image-rendering:pixelated"><div class="grow"><b>${esc(g.rankName)}</b><div class="small muted">Nivel ${g.level} · ${g.xp} XP</div></div></div><div style="margin-top:12px">${bar(g.pctToNext, 'gold')}</div><p class="small faint" style="margin-top:6px">${g.nextLevelXp - g.xp} XP para el nivel ${g.level + 1} · ${g.trophies.filter(t => t.unlocked).length} trofeos</p>${lastAchievement(g)}<div class="card-foot"><span class="small faint" data-demo-only>Captura del ${esc(fmtDate(EXTRAS.capturedAt))}</span><a class="link push" data-tone="gold" href="#logros">Ver logros ${ico('arrow', 'sm')}</a></div>`, { icon: 'trophy', tone: 'gold' }) : ''}
       ${card('Embudo de ideas', `<div class="funnel">${funnel.map(f => `<div class="frow"><span>${f.ph.label}</span>${bar((f.n / maxN) * 100, f.ph.tone)}<b>${f.n}</b></div>`).join('')}</div><div class="card-foot"><span class="small faint">${IDEAS.filter(i => i.status === 'discarded').length} descartadas</span><a class="link" data-tone="teal" href="#tablero">Abrir tablero ${ico('arrow', 'sm')}</a></div>`, { icon: 'kanban', tone: 'teal' })}
       ${worktreesCard()}
     </div></div>`;
@@ -458,7 +541,7 @@ function ownerTurn(items, { showProject = true } = {}) {
     const isDecision = a.type === 'decision';
     const meta = [showProject ? a.p.short : '', isDecision ? 'Decisión' : 'Cambio listo', isDecision ? `hace ${plural(ageDays(a.d.date), 'día', 'días')}` : `pedido el ${fmtDate(a.c.date)}`].filter(Boolean).join(' · ');
     return `<li class="ask-row"><span class="ask-ico" data-tone="${a.tone}">${ico(a.icon, 'sm')}</span>
-      <div class="grow"><strong class="clamp-2">${inl(a.title)}</strong><span class="ask-meta">${esc(meta)}${a.detail?.fileStatus ? ' · <span class="tone-text" data-tone="coral">ya resuelta en el archivo</span>' : ''}</span>
+      <div class="grow"><strong class="clamp-2">${inl(a.title)}</strong><span class="ask-meta">${esc(meta)}</span>
         <span class="ask-cmd">${ico('terminal', 'sm')}<code>${cmdWbr(a.cmd)}</code><button type="button" class="iconbtn" data-copy="${esc(a.cmd)}" aria-label="Copiar ${esc(a.cmd)}" data-tip="Copiar comando">${ico('copy', 'sm')}</button></span></div>
       <button type="button" class="btn sm ghost" data-turn="${n}" aria-label="Detalles: ${esc(plain(a.title))}">Detalles</button></li>`;
   };
@@ -473,7 +556,6 @@ function turnDetail(a) {
     const det = a.detail, age = ageDays(a.d.date);
     dialog(inl(a.title), `<p class="small muted">Decisión pendiente en <b>${esc(a.p.short)}</b>: un agente encontró algo que no debe decidir solo (alcance, dinero o algo irreversible) y ese punto espera tu respuesta.</p>
       <div class="row wrap">${chip(`hace ${plural(age, 'día', 'días')}`, age >= 7 ? 'amber' : '', age >= 7 ? '' : 'plain')}${chip(esc(a.d.id), '', 'plain')}</div>
-      ${det?.fileStatus ? `<div class="notice" data-tone="coral">${ico('alert')}<p class="small">El archivo ya la da por cerrada («${inl(det.fileStatus.slice(0, 120))}…») pero Mission Control la sigue contando. Al correr el comando puedes cerrarla bien.</p></div>` : ''}
       ${det?.ask ? `<div><span class="eyebrow">Lo que se necesita de ti</span><p style="margin-top:4px">${inl(det.ask)}</p></div>` : ''}
       ${a.d.recommendation ? `<div><span class="eyebrow">Recomendación del agente</span><p style="margin-top:4px">${inl(a.d.recommendation)}</p></div>` : ''}
       ${det?.context ? `<details><summary class="link small">Contexto</summary><p class="small muted" style="margin-top:6px">${inl(det.context)}</p></details>` : ''}
@@ -489,13 +571,13 @@ function turnDetail(a) {
 function pluginBanner() {
   const pl = HEALTH?.plugin;
   if (!pl) return '';
-  const behind = pl.behind === true, dirty = (pl.uncommitted || 0) > 0;
-  if (!behind && !dirty) return '';
+  // Only an installed plugin behind its repository raises the banner; uncommitted plugin edits never do (owner, 2026-06-22).
+  if (pl.behind !== true) return '';
   return `<section class="alert-banner" data-tone="coral" role="alert" aria-labelledby="plugin-alert-title">
     <span class="badge-icon lg">${ico('alert', 'lg')}</span>
-    <div class="grow stack sm"><h2 id="plugin-alert-title">${behind ? 'El plugin instalado está atrás' : 'Hay cambios sin commitear en el plugin'}</h2>
-      <p>${behind ? `Tienes instalada la <b>${esc(pl.installed)}</b> y el repositorio ya va por la <b>${esc(pl.source)}</b>. Las skills que corras usan la versión vieja hasta que actualices.` : ''}${dirty ? ` ${plural(pl.uncommitted, 'archivo modificado', 'archivos modificados')} en <code>plugin/</code> sin commitear.` : ''}</p>
-      ${behind ? `<p class="small muted">1) Corre el comando · 2) Reinicia la sesión de Claude Code.</p>${cmd('claude plugin update pandacorp@panda-corp')}` : ''}</div></section>`;
+    <div class="grow stack sm"><h2 id="plugin-alert-title">El plugin instalado está atrás</h2>
+      <p>Tienes instalada la <b>${esc(pl.installed)}</b> y el repositorio ya va por la <b>${esc(pl.source)}</b>. Las skills que corras usan la versión vieja hasta que actualices.</p>
+      <p class="small muted">1) Corre el comando · 2) Reinicia la sesión de Claude Code.</p>${cmd('claude plugin update pandacorp@panda-corp')}</div></section>`;
 }
 const ORIGIN = [[/^lane\//, 'Carril de un build'], [/^claude\//, 'Sesión de Claude Code'], [/^codex\//, 'Sesión de Codex']];
 const originOf = branch => (ORIGIN.find(([re]) => re.test(branch)) || [null, 'Rama manual'])[1];
@@ -519,13 +601,14 @@ function cleanupState(r) {
 }
 function worktreesCard() {
   const pend = HEALTH?.pending;
-  if (!pend) return card('Árboles de trabajo', missingExtras('las ramas abiertas'), { icon: 'branch' });
+  if (!pend) return card('Árboles de trabajo', missingExtras('las ramas abiertas'), { icon: 'branch', id: 'worktrees-card' });
   const rows = pend.map(r => ({ r, st: cleanupState(r) })).sort((x, y) => y.st.rank - x.st.rank || y.st.pend + y.st.leftovers - (x.st.pend + x.st.leftovers));
   return card('Árboles de trabajo', `<p class="small muted">Trabajo en paralelo que no está en <code>main</code>, y worktrees que sobraron.</p>
-    <div class="skill-line"><span class="xs faint">Para depurar un proyecto, corre en su carpeta</span><span class="ask-cmd">${ico('terminal', 'sm')}<code>${CLEANUP_SKILL}</code><button type="button" class="iconbtn" data-copy="${CLEANUP_SKILL}" aria-label="Copiar ${CLEANUP_SKILL}" data-tip="Copiar comando">${ico('copy', 'sm')}</button></span>${illus('Habilidad propuesta')}</div>
+    <div class="skill-line"><span class="xs faint">Para depurar un proyecto, corre en su carpeta</span><span class="ask-cmd">${ico('terminal', 'sm')}<code>${CLEANUP_SKILL}</code><button type="button" class="iconbtn" data-copy="${CLEANUP_SKILL}" aria-label="Copiar ${CLEANUP_SKILL}" data-tip="Copiar comando">${ico('copy', 'sm')}</button></span></div>
     <div class="scroll-x"><table class="wt-table"><thead><tr><th scope="col">Proyecto</th><th scope="col" title="Ramas con trabajo que no está en main">Sin integrar</th><th scope="col" title="Worktrees abiertos sin nada pendiente">Sobrantes</th><th scope="col">Estado</th></tr></thead>
-    <tbody>${rows.map(({ r, st }) => `<tr><th scope="row"><button type="button" class="link" data-tone="slate" data-wt-repo="${esc(r.id)}" ${st.pend || st.leftovers ? '' : 'disabled'}>${esc(r.name.replace(' (panda-corp)', ''))}</button></th><td>${st.pend || '—'}</td><td>${st.leftovers || '—'}</td><td>${r.kind === 'error' ? chip('No se pudo leer', 'coral') : `<span class="state-dot" data-tone="${st.tone}"><span class="dot"></span>${st.label}</span>`}</td></tr>`).join('')}</tbody></table></div>
-    <details class="legend"><summary class="link small">¿Cómo se decide el estado?</summary><p class="xs muted" style="margin-top:6px"><b>Depurar ya:</b> 3 o más sobrantes o ramas sin integrar, o alguna sin tocar hace más de 7 días. <b>Revisar pronto:</b> alguna rama de más de un día o algún sobrante. <b>Al día:</b> solo trabajo reciente. Captura del ${esc(fmtStamp(EXTRAS.capturedAt))}.</p></details>`, { icon: 'branch' });
+    <tbody>${rows.map(({ r, st }) => `<tr><th scope="row"><button type="button" class="link" data-tone="slate" data-wt-repo="${esc(r.id)}" ${st.pend || st.leftovers ? '' : 'disabled'}>${esc(r.name.replace(' (panda-corp)', ''))}</button></th><td>${st.pend || '—'}</td><td>${st.leftovers || '—'}</td><td>${r.kind === 'error' ? chip(`${ico('alert', 'sm')}No se pudo leer`, 'coral') : `<span class="state-dot" data-tone="${st.tone}"><span class="dot"></span>${st.label}</span>`}</td></tr>`).join('')}</tbody></table></div>
+    ${pend.filter(r => r.kind === 'error').map(r => `<div class="notice" data-tone="coral" role="alert">${ico('alert')}<p class="small"><b>${esc(r.name.replace(' (panda-corp)', ''))}:</b> no se pudo leer su estado de git${r.reason ? ` (${esc(r.reason)})` : ''}. No cuenta como «Al día» ni como «Limpio».</p></div>`).join('')}
+    <details class="legend"><summary class="link small">¿Cómo se decide el estado?</summary><p class="xs muted" style="margin-top:6px"><b>Depurar ya:</b> 3 o más sobrantes o ramas sin integrar, o alguna sin tocar hace más de 7 días. <b>Revisar pronto:</b> alguna rama de más de un día o algún sobrante. <b>Al día:</b> solo trabajo reciente. <b>Limpio:</b> nada pendiente ni sobrante.<span data-demo-only> Captura del ${esc(fmtStamp(EXTRAS.capturedAt))}</span></p></details>`, { icon: 'branch', id: 'worktrees-card' });
 }
 /** Branch list of one repo, on demand. */
 function worktreeDetail(id) {
@@ -539,7 +622,7 @@ function worktreeDetail(id) {
 /** Work already in the factory's hands; grouped so "who moves next" is explicit. */
 function inFlightCard() {
   if (!IN_FLIGHT.length) return '';
-  const groups = [['building', 'Construyéndose ahora', 'Cambios que un build está implementando.'], ['review', 'Esperan la revisión de su FRD', 'Órdenes ya construidas; se verifican cuando el build revisa su FRD completo.'], ['draft', 'Borradores en la cola', 'Cambios capturados que aún no están listos para construirse.']];
+  const groups = [['building', 'Construyéndose ahora', 'Cambios que un build está implementando.'], ['review', 'Esperan la revisión de su FRD', 'Work orders ya construidas; se verifican cuando el build revisa su FRD completo.'], ['draft', 'Borradores en la cola', 'Cambios capturados que aún no están listos para construirse.']];
   return card(`En marcha <span class="chip" data-tone="violet">${IN_FLIGHT.length}</span>`, `<p class="small muted card-intro">Trabajo que ya está en manos de la fábrica. No espera una decisión tuya; avanza cuando corre el build.</p>
     <div class="flight">${groups.map(([g, title, hint]) => { const list = IN_FLIGHT.filter(a => a.group === g); return list.length ? `<details class="flight-group"><summary><span class="grow"><b>${title}</b><small>${hint}</small></span><span class="chip plain">${list.length}</span>${ico('chevD', 'sm')}</summary><div class="turn-list">${list.map(turnRow).join('')}</div></details>` : ''; }).join('')}</div>`, { icon: 'loader', tone: 'violet' });
 }
@@ -553,7 +636,7 @@ function ideaCard(i) {
     <a class="title" href="${href('idea', { idea: i.slug, tab })}">${esc(i.title)}</a>
     <button type="button" class="iconbtn star" aria-pressed="${!!i.favorite}" data-star="${esc(i.slug)}" aria-label="${i.favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}: ${esc(i.title)}">${ico('star', 'sm')}</button>
     <div class="meta">${chip(esc(i.category || 'Sin categoría'), '', 'plain')}${returnChip(i.return)}<span class="score">${i.score ? `Score ${bar(i.score, 'teal')}${i.score}` : 'Sin score'}</span></div>
-    ${p ? `<div class="projline"><span>${p.counts.orders ? `${p.counts.done}/${p.counts.orders} WO` : 'Proyecto creado'}</span>${p.counts.orders ? bar(p.pct, p.tone) : ''}${p.running ? chip('Construyendo', 'violet') : ''}</div>` : ''}
+    ${p ? `<div class="projline"><span>${p.counts.orders ? `${p.counts.done}/${p.counts.orders} WO` : 'Proyecto creado'}</span>${p.counts.orders ? bar(p.pct, p.tone) : ''}${buildChip(p)}</div>` : ''}
   </article>`;
 }
 function board() {
@@ -602,7 +685,7 @@ function syncPhaseNav() {
 /* ================= Idea detail ================= */
 function ideaScreen() {
   const i = IDEAS.find(x => x.slug === P('idea'));
-  if (!i) return notFound('Esta idea no existe en la captura', `No hay ninguna idea con el identificador «${esc(P('idea') || '(vacío)')}».`, '#tablero', 'Volver al tablero');
+  if (!i) return notFound('Esta idea no existe', `No hay ninguna idea con el identificador «${esc(P('idea') || '(vacío)')}».`, '#tablero', 'Volver al tablero');
   const p = ideaProject(i);
   const phase = ideaPhase(i);
   const ph = phaseOf(phase === 'discarded' ? 'discovered' : phase);
@@ -620,14 +703,14 @@ function ideaScreen() {
       <div class="idea-title"><span class="badge-icon">${ico('bulb')}</span><h1>${esc(i.title)}</h1><span class="row wrap" style="gap:6px">${chip(esc(i.category || 'Sin categoría'), '', 'plain')}${returnChip(i.return)}<span class="xs faint">${i.score ? `Score ${i.score}/100` : 'Sin score'}</span></span></div>
       <p class="small muted idea-stage">${discarded ? 'Descartada' : `Etapa: ${esc(ph.label)}`}</p>
       <div class="row between wrap idea-actions"><a class="btn sm" href="#tablero">${ico('back', 'sm')}<span>Volver<span class="hide-sm"> al tablero</span></span></a><span class="row wrap" style="gap:8px"><button type="button" class="iconbtn star-toggle" data-star="${esc(i.slug)}" aria-pressed="${!!i.favorite}" aria-label="${i.favorite ? 'Quitar de favoritas' : 'Marcar como favorita'}">${ico('star', 'sm')}</button>${p ? `<a class="btn sm" href="${href('portfolio', { project: p.id, tab: ['Spec', 'Arquitectura', 'Documentos'].includes(tab) ? tab : '' })}"><span><span class="hide-sm">Abrir en </span>Portafolio</span>${ico('arrow', 'sm')}</a>` : ''}${discarded ? `<button type="button" class="btn sm" data-action="restore-idea" data-slug="${esc(i.slug)}">${ico('rotate', 'sm')}Restaurar</button>` : i.status === 'shipped' ? '' : `<button type="button" class="btn sm danger" data-action="discard-idea" data-slug="${esc(i.slug)}" aria-label="Descartar idea">${ico('trash', 'sm')}<span class="hide-sm">Descartar idea</span></button>`}</span></div>
-    </header>`
+    </header>${discarded ? `<div class="notice discard-reason" data-tone="slate" role="note">${ico('archive')}<div class="grow"><b>Idea descartada</b><p class="small">${i.discardReason ? `Motivo: ${esc(i.discardReason)}` : 'Se descartó sin motivo registrado.'} «Restaurar» la devuelve a su columna del tablero.</p></div></div>` : ''}`
     + tabs(avail, tab, 'tab', 'Secciones de la idea')
     + `<div role="tabpanel" aria-label="${esc(tab)}">${body}</div>`;
 }
 /* ================= Portfolio ================= */
 function portfolio() {
   const p = projectById(P('project'));
-  if (!p && P('project')) return notFound('Este proyecto no existe en la captura', `No hay ningún proyecto «${esc(P('project'))}».`, '#portfolio', 'Ver todos los proyectos');
+  if (!p && P('project')) return notFound('Este proyecto no existe', `No hay ningún proyecto «${esc(P('project'))}».`, '#portfolio', 'Ver todos los proyectos');
   if (!p) return portfolioOverview();
   if (P('tab') && !WS_TABS.some(t => t.id === wsTab())) return crumbs([['Portafolio', '#portfolio'], [p.short]]) + compactHero(p) + notFound('Esta sección no existe', `«${esc(P('tab'))}» no es una sección del proyecto.`, href('portfolio', { project: p.id }), 'Ir al resumen');
   const tab = WS_TABS.some(t => t.id === wsTab()) ? wsTab() : 'Resumen';
@@ -643,21 +726,25 @@ function portfolio() {
     + `<div role="tabpanel" aria-label="${esc(tab)}">${body}</div>`;
 }
 function portfolioOverview() {
-  return pageHead('Portafolio', 'Tus proyectos lado a lado. Entra a uno para recorrer su Spec, arquitectura, work orders y documentos.', { eyebrow: projectStamp() })
-    + `<div class="stack lg"><div class="toolbar">${seg([{ id: 'cards', label: 'Tarjetas', icon: 'grid', tone: 'blue' }, { id: 'lista', label: 'Lista', icon: 'list', tone: 'blue' }], P('view') === 'lista' ? 'lista' : 'cards', 'view', 'Vista de proyectos')}<span class="grow"></span><span class="small faint">Ordenados por último cambio</span></div>
-    ${P('view') !== 'lista' ? `<div class="proj-cards">${BY_RECENT.map(projectCard).join('')}</div>` : card('Comparativa', `<div class="table-wrap" tabindex="0" role="region" aria-label="Comparativa de proyectos"><table class="t t-cards"><thead><tr><th scope="col">Proyecto</th><th scope="col">Fase</th><th scope="col">Work orders</th><th scope="col">FRDs</th><th scope="col">Docs</th><th scope="col">ADRs</th><th scope="col">Cambios abiertos</th><th scope="col">Decisiones</th></tr></thead><tbody>${BY_RECENT.map(p => `<tr><td data-span="main"><a class="link" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}">${esc(p.short)}</a></td><td data-span="end">${phaseChip(p.phase)}</td><td style="min-width:150px" data-span="full" data-label="Work orders"><div class="small">${p.counts.done}/${p.counts.orders}</div>${p.counts.orders ? bar(p.pct, p.tone) : ''}</td><td data-label="FRDs">${p.counts.frds}</td><td data-label="Docs">${p.counts.docs}</td><td data-label="ADRs">${p.adrs.length}</td><td data-label="Cambios">${p.changesList.filter(c => !['done', 'discarded'].includes(c.status)).length}</td><td data-label="Decisiones">${p.decisions.filter(d => !d.resolved).length || '—'}</td></tr>`).join('')}</tbody></table></div>`, { icon: 'list', tone: 'blue' })}</div>`;
+  const view = ['lista', 'cuentas'].includes(P('view')) ? P('view') : 'cards';
+  const head = pageHead('Portafolio', 'Tus proyectos lado a lado. Entra a uno para recorrer su Spec, arquitectura, work orders y documentos.', { eyebrow: projectStamp() })
+    + `<div class="stack lg"><div class="toolbar">${seg([{ id: 'cards', label: 'Tarjetas', icon: 'grid', tone: 'blue' }, { id: 'lista', label: 'Lista', icon: 'list', tone: 'blue' }, { id: 'cuentas', label: 'Cuentas', icon: 'users', tone: 'blue' }], view, 'view', 'Vista del portafolio')}<span class="grow"></span><span class="small faint">${view === 'cuentas' ? 'Directorio de cuentas de la fábrica' : 'Ordenados por último cambio'}</span></div>`;
+  if (view === 'cuentas') return head + `${accountsDirectory()}</div>`;
+  if (!PROJECTS.length) return head + `${firstProjectCard()}</div>`;
+  return head + `
+    ${view === 'cards' ? `<div class="proj-cards">${BY_RECENT.map(projectCard).join('')}</div>` : card('Comparativa', `<div class="table-wrap" tabindex="0" role="region" aria-label="Comparativa de proyectos"><table class="t t-cards"><thead><tr><th scope="col">Proyecto</th><th scope="col">Fase</th><th scope="col">Work orders</th><th scope="col">FRDs</th><th scope="col">Docs</th><th scope="col">ADRs</th><th scope="col">Cambios abiertos</th><th scope="col">Decisiones</th></tr></thead><tbody>${BY_RECENT.map(p => `<tr><td data-span="main"><a class="link" data-tone="${p.tone}" href="${href('portfolio', { project: p.id })}">${esc(p.short)}</a></td><td data-span="end">${phaseChip(p.phase)}</td><td style="min-width:150px" data-span="full" data-label="Work orders"><div class="small">${p.counts.done}/${p.counts.orders}</div>${p.counts.orders ? bar(p.pct, p.tone) : ''}</td><td data-label="FRDs">${p.counts.frds}</td><td data-label="Docs">${p.counts.docs}</td><td data-label="ADRs">${p.adrs.length}</td><td data-label="Cambios">${p.changesList.filter(c => !['done', 'discarded'].includes(c.status)).length}</td><td data-label="Decisiones">${p.decisions.filter(d => !d.resolved).length || '—'}</td></tr>`).join('')}</tbody></table></div>`, { icon: 'list', tone: 'blue' })}</div>`;
 }
 function projectHero(p) {
   const ph = phaseOf(p.phase);
   const openChanges = p.changesList.filter(c => !['done', 'discarded'].includes(c.status)).length;
   return `<section class="hero" data-tone="${ph.tone}" style="margin-top:14px">
     <div class="hero-top">
-      <div class="hero-title"><span class="pav lg" data-tone="${ph.tone}">${esc(p.initials)}</span><div class="grid" style="gap:6px;min-width:0"><div class="row wrap">${phaseChip(p.phase)}${chip(esc(p.version ? 'v' + String(p.version).replace(/^v/, '') : 'Sin versión'), '', 'plain')}${p.running ? chip(`${ico('loader', 'sm')}Construyendo`, 'violet') : chip('Sin construcción activa', '', 'plain')}</div><h1>${esc(p.short)}</h1></div></div>
+      <div class="hero-title"><span class="pav lg" data-tone="${ph.tone}">${esc(p.initials)}</span><div class="grid" style="gap:6px;min-width:0"><div class="row wrap">${phaseChip(p.phase)}${chip(esc(p.version ? 'v' + String(p.version).replace(/^v/, '') : 'Sin versión'), '', 'plain')}${p.running ? buildChip(p, { icon: true }) : chip('Sin construcción activa', '', 'plain')}</div><h1>${esc(p.short)}</h1></div></div>
       <button type="button" class="switcher" data-action="projects" aria-haspopup="dialog">${ico('folder')}<span><b>Cambiar proyecto</b><small>${PROJECTS.length} proyectos</small></span>${ico('chevD', 'sm')}</button>
     </div>
     ${p.subtitle ? `<div><p class="hero-sub ${UI.subtitleOpen ? '' : 'clamp-2'}" id="hero-sub">${inl(p.subtitle)}</p>${p.subtitle.length > 180 ? `<button type="button" class="link" data-action="toggle-sub" aria-controls="hero-sub" aria-expanded="${UI.subtitleOpen}" style="margin-top:4px">${UI.subtitleOpen ? 'Ver menos' : 'Leer completo'}</button>` : ''}</div>` : ''}
     <div class="hero-stats">
-      ${p.counts.orders ? `<div class="row">${ring(p.pct, p.pct === 100 ? 'green' : ph.tone, 'lg')}<div class="st"><b>${p.counts.done}/${p.counts.orders}</b><small>work orders verificados</small></div></div>` : `<div class="st"><b>—</b><small>Plan aún sin work orders</small></div>`}
+      ${p.counts.orders ? `<div class="row">${ring(p.pct, p.pct === 100 ? 'green' : ph.tone, 'lg')}<div class="st"><b>${p.counts.done}/${p.counts.orders}</b><small>work orders verificadas</small></div></div>` : `<div class="st"><b>—</b><small>Plan aún sin work orders</small></div>`}
       <div class="st"><b>${p.counts.frds}</b><small>FRDs</small></div><div class="st"><b>${p.counts.docs}</b><small>documentos</small></div><div class="st"><b>${p.adrs.length}</b><small>ADRs</small></div><div class="st"><b>${openChanges}</b><small>cambios abiertos</small></div><div class="st"><b>${esc(agoText(daysAgo(HEALTH?.lastActivity?.[p.id])))}</b><small>último movimiento</small></div>
     </div>
     ${stepper(p.phase)}
@@ -671,7 +758,7 @@ function compactHero(p) {
 function openPicker() {
   const cur = P('project');
   dialog('Cambiar de proyecto', `<label class="field">${ico('search', 'sm')}<input id="project-search" type="search" placeholder="Buscar proyecto…" aria-label="Buscar proyecto" autocomplete="off"></label>
-    <div class="divided" style="border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden">${BY_RECENT.map(p => `<a class="lrow" href="${href('portfolio', { project: p.id, tab: state.screen === 'portfolio' ? P('tab') : '' })}" data-close-dialog data-project-match="${esc(p.short.toLowerCase())}" ${p.id === cur ? 'aria-current="true"' : ''}><span class="pav md" data-tone="${p.tone}">${esc(p.initials)}</span><div class="grow"><strong>${esc(p.short)}</strong><small>${esc(phaseOf(p.phase).label)} · ${p.counts.frds} FRDs · ${p.counts.docs} documentos · ${p.counts.orders ? `${p.counts.done}/${p.counts.orders} WO` : 'sin WOs'}</small><div style="margin-top:6px;max-width:260px">${bar(p.pct, p.tone)}</div></div>${p.id === cur ? chip(`${ico('check', 'sm')}Actual`, 'green') : ico('arrow', 'sm')}</a>`).join('')}</div>`, { tone: 'blue', kicker: 'Cartera' });
+    <div class="divided" style="border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden">${BY_RECENT.map(p => `<a class="lrow" href="${href('portfolio', { project: p.id, tab: state.screen === 'portfolio' ? P('tab') : '' })}" data-close-dialog data-project-match="${esc(p.short.toLowerCase())}" ${p.id === cur ? 'aria-current="true"' : ''}><span class="pav md" data-tone="${p.tone}">${esc(p.initials)}</span><div class="grow"><strong>${esc(p.short)}</strong><small>${esc(phaseOf(p.phase).label)} · ${p.counts.frds} FRDs · ${p.counts.docs} documentos · ${p.counts.orders ? `${p.counts.done}/${p.counts.orders} WO` : 'sin WOs'}</small><div style="margin-top:6px;max-width:260px">${bar(p.pct, p.tone)}</div></div>${p.id === cur ? chip(`${ico('check', 'sm')}Actual`, 'green') : ico('arrow', 'sm')}</a>`).join('')}</div>`, { tone: 'blue', kicker: 'Portafolio' });
   $('#project-search')?.focus();
 }
 
@@ -710,8 +797,10 @@ function projectVerdict(p) {
   const open = p.changesList.filter(c => !['done', 'discarded'].includes(c.status)).length;
   const ph = phaseOf(p.phase);
   let health;
-  if (mine) health = ['Espera tu decisión', 'amber', 'flag'];
-  else if (p.running) health = ['Construyendo ahora', 'violet', 'loader'];
+  const signal = buildSignal(p);
+  if (signal.kind === 'no-signal') health = ['Sin señal', 'coral', 'alert'];
+  else if (mine) health = ['Espera tu decisión', 'amber', 'flag'];
+  else if (signal.kind === 'live') health = ['Construyendo ahora', 'violet', 'loader'];
   else if (days != null && days > 7) health = ['En pausa', 'slate', 'clock'];
   else if (p.counts.orders && p.counts.done === p.counts.orders && p.phase === 'implementation') health = ['Listo para lanzar', 'green', 'rocket'];
   else health = ['Avanzando', 'green', 'activity'];
@@ -719,11 +808,12 @@ function projectVerdict(p) {
   if (p.counts.orders) {
     parts.push(`${ph.label} al ${p.pct} %: ${p.counts.done} de ${p.counts.orders} work orders verificadas.`);
     const left = p.counts.orders - p.counts.done;
-    if (left) parts.push(n('review') === left ? `Las ${left} restantes ya están construidas y esperan la revisión de su FRD.` : `Faltan ${left}: ${[n('review') && `${n('review')} en revisión`, n('in_progress') && `${n('in_progress')} en curso`, n('todo') && `${n('todo')} por empezar`, n('fail') && `${n('fail')} con fallos`].filter(Boolean).join(', ')}.`);
+    if (left) parts.push(n('review') === left ? (left === 1 ? 'La 1 restante ya está construida y espera la revisión de su FRD.' : `Las ${left} restantes ya están construidas y esperan la revisión de su FRD.`) : `${left === 1 ? 'Falta 1' : `Faltan ${left}`}: ${[n('review') && `${n('review')} en revisión`, n('in_progress') && `${n('in_progress')} en curso`, n('todo') && `${n('todo')} por empezar`, n('fail') && plural(n('fail'), 'bloqueada', 'bloqueadas')].filter(Boolean).join(', ')}.`);
   } else parts.push(`Fase de ${ph.label.toLowerCase()}: el plan de construcción todavía no tiene work orders.`);
   if (open) parts.push(`${plural(open, 'cambio abierto', 'cambios abiertos')}.`);
+  if (signal.kind === 'no-signal') parts.push(`El build dice estar corriendo, pero no hay señal del supervisor ${signal.ago == null ? 'registrada' : `desde ${minutesAgo(signal.ago)}`}.`);
   parts.push(mine ? `${plural(mine, 'cosa espera', 'cosas esperan')} tu decisión.` : 'Nada espera tu decisión.');
-  return { health, text: parts.join(' '), days };
+  return { health, text: parts.join(' '), days, signal };
 }
 function summaryView(p) {
   const v = projectVerdict(p);
@@ -731,16 +821,17 @@ function summaryView(p) {
   const mine = attentionFor(p).filter(a => a.owner !== false);
   const decisions = p.decisions.filter(d => !isEngineLog(d));
   const hidden = p.decisions.length - decisions.length;
-  const next = (p.commands || [])[0];
+  const next = nextStep(p);
   const frds = [...p.frds].sort((a, b) => (a.orders.length && a.done === a.orders.length) - (b.orders.length && b.done === b.orders.length));
   const progress = recentProgress(p);
   return `<div class="stack lg">
-    ${ov?.reason === 'behind' ? `<section class="notice upgrade" data-tone="amber" aria-label="Actualización pendiente">${ico('alert')}<div class="grow"><b>Este proyecto usa una versión vieja del motor de Pandacorp</b><p class="small">Va con la v${esc(ov.projectVersion)} y la fábrica ya está en la v${esc(ov.factoryVersion)}. Actualízalo para que el próximo build use las reglas y herramientas nuevas${p.running ? ' (espera a que termine el build en curso)' : ''}.</p></div><div class="pa-cmd" style="margin:0">${cmd(ov.upgradeCommand)}<span class="xs faint">Córrelo en la carpeta de ${esc(p.short)}</span></div></section>` : ''}
+    ${ov?.reason === 'behind' ? `<section class="notice upgrade" data-tone="amber" aria-label="Actualización pendiente">${ico('alert')}<div class="grow"><b>Este proyecto usa una versión vieja del motor de Pandacorp</b><p class="small">Va con la v${esc(ov.projectVersion)} y la fábrica ya está en la v${esc(ov.factoryVersion)}. Actualízalo para que el próximo build use las reglas y herramientas nuevas${isLiveBuild(p) ? ' (espera a que termine el build en curso)' : ''}.</p></div><div class="pa-cmd" style="margin:0">${cmd(ov.upgradeCommand)}<span class="xs faint">Córrelo en la carpeta de ${esc(p.short)}</span></div></section>` : ''}
     ${next ? `<div class="pst-next row wrap" style="gap:8px;align-items:center;justify-content:flex-end"><span class="small"><b>Siguiente paso:</b> <span class="muted">${esc(next.when)}</span></span>${cmd(next.command)}</div>` : ''}
     ${fraguaScene(p, v)}
+    ${snapshotPanel(p)}
     <div class="grid-2 sum-cols">
       <div class="stack lg">${card(`Avance por FRD <span class="chip" data-tone="violet">${p.frds.length}</span>`, p.frds.length ? `<p class="small muted card-intro">Primero lo que falta terminar.</p><div class="stack sm">${frds.slice(0, 8).map(f => frdProgressLine(p, f)).join('')}</div>${p.frds.length > 8 ? `<div class="card-foot"><span class="small faint">${p.frds.length} FRDs en total</span><button type="button" class="link" data-tone="green" data-tab-jump="Observabilidad">Ver todos ${ico('arrow', 'sm')}</button></div>` : ''}` : empty('Aún no hay FRDs publicados.'), { icon: 'clipboard', tone: 'violet' })}
-        ${card('Decisiones', `${decisions.length ? `<div class="divided">${decisions.map(d => `<button type="button" class="lrow" data-decision="${esc(p.id)}|${esc(d.id)}"><span class="badge-icon sm" data-tone="${d.resolved ? 'green' : 'amber'}">${ico(d.resolved ? 'check' : 'flag', 'sm')}</span><div class="grow"><strong>${inl(d.title.replace(/^·\s*/, ''))}</strong><small>${esc(fmtDate(d.date))} · ${d.resolved ? 'Resuelta' : 'Pendiente'}</small></div>${ico('chevR', 'sm')}</button>`).join('')}</div>` : `<p class="small muted">Sin decisiones tuyas registradas.</p>`}${hidden ? `<p class="xs faint" style="margin-top:8px">${plural(hidden, 'entrada automática del motor oculta', 'entradas automáticas del motor ocultas')} (no son preguntas para ti).</p>` : ''}`, { icon: 'flag', tone: 'amber' })}
+        ${card('Decisiones', `${decisions.length ? `<div class="divided">${decisions.map(d => `<button type="button" class="lrow" data-decision="${esc(p.id)}|${esc(d.id)}"><span class="badge-icon sm" data-tone="${d.resolved ? 'green' : 'amber'}">${ico(d.resolved ? 'check' : 'flag', 'sm')}</span><div class="grow"><strong>${inl(d.title.replace(/^·\s*/, ''))}</strong><small>${esc(fmtDate(d.date))} · ${d.resolved ? 'Resuelta' : 'Pendiente'}${d.resolvedInFile ? ' · ya resuelta en el archivo' : ''}</small></div>${ico('chevR', 'sm')}</button>`).join('')}</div>` : `<p class="small muted">Sin decisiones tuyas registradas.</p>`}${hidden ? `<p class="xs faint" style="margin-top:8px">${plural(hidden, 'entrada automática del motor oculta', 'entradas automáticas del motor ocultas')} (no son preguntas para ti).</p>` : ''}`, { icon: 'flag', tone: 'amber' })}
       </div>
       <div class="stack lg sum-act">
         ${card(`Tu turno ${mine.length ? `<span class="chip" data-tone="amber">${mine.length}</span>` : ''}`, mine.length ? ownerTurn(mine, { showProject: false }) : `<p class="small muted row" style="gap:8px">${ico('check', 'sm')}Nada espera tu acción en este proyecto.</p>`, { icon: 'target', tone: 'amber' })}
@@ -804,7 +895,9 @@ function pitchView(i, p) {
   const pt = i.pitch;
   const typeChips = `${chip(`${ico('cube', 'sm')}${esc(i.category || 'Sin tipo')}`, '', 'plain')}${p?.targetPlatforms ? chip(`${ico('columns', 'sm')}${esc(p.targetPlatforms[0].toUpperCase() + p.targetPlatforms.slice(1))}`, '', 'plain') : ''}`;
   if (!pt) return `<div class="stack lg">${digestHero('Memo-pitch de idea', esc(i.title), '', typeChips)}<article class="paper" data-tone="blue"><div class="md" data-tone="blue">${i.html || '<p>Sin contenido.</p>'}</div></article></div>`;
-  const badges = pt.badges.filter(b => b.tone !== 'build').map(b => chip(esc(b.label), BADGE_TONE[b.tone] || '', BADGE_TONE[b.tone] ? '' : 'plain')).join('');
+  // The verdict (validate / integrate / build) is the kill-or-build call, not what the product is (AC-02-009.5).
+  const isVerdict = b => b.tone === 'build' || (pt.verdict && String(pt.verdict).startsWith(b.label));
+  const badges = pt.badges.filter(b => !isVerdict(b)).map(b => chip(esc(b.label), BADGE_TONE[b.tone] || '', BADGE_TONE[b.tone] ? '' : 'plain')).join('');
   const glanceRow = g => {
     if (g.kind === 'problema') return brow(esc(g.label), `<div class="md compact">${g.proseHtml}</div>${g.quoteHtml ? `<blockquote class="pquote">${g.quoteHtml}</blockquote>` : ''}`);
     if (g.kind === 'vision' && g.features?.length >= 2) return brow(esc(g.label), `<div class="feats">${g.features.map(f => `<div class="feat"><b>${inl(f.title)}</b><span>${inl(f.desc)}</span></div>`).join('')}</div>${g.checks?.length ? `<div class="mock"><div class="mock-bar"><span></span><span></span><span></span>${g.previewUrl ? `<em>${esc(g.previewUrl)}</em>` : ''}</div>${g.checks.map(c => `<div class="mock-item" data-tone="${c.ok ? 'green' : 'coral'}"><span>${c.ok ? '✓' : '!'}</span>${inl(c.text)}</div>`).join('')}</div>` : ''}`);
@@ -834,13 +927,13 @@ function pitchView(i, p) {
 function specBlock(b) {
   const items = b.items || [];
   switch (b.kind) {
-    case 'bullets': return `<ul class="sbul">${items.map(it => `<li><b>${inl(it.title)}</b>${it.desc ? ` — ${inl(it.desc)}` : ''}</li>`).join('')}</ul>`;
+    case 'bullets': return `<ul class="sbul">${items.map(it => `<li><b>${inl(it.title)}</b>${it.desc ? `: ${inl(it.desc)}` : ''}</li>`).join('')}</ul>`;
     case 'highlight': return `<div class="pbox" data-tone="blue"><div class="md compact">${b.html}</div></div>`;
     case 'roles': return `<div class="feats">${items.map(it => `<div class="feat"><b>${inl(it.title)}</b><span>${inl(it.desc)}</span></div>`).join('')}</div>`;
     case 'metrics': return `<div class="feats">${items.map(it => `<div class="feat metric"><b>${inl(it.title)}</b><span>${inl(it.desc)}</span></div>`).join('')}</div>`;
-    case 'chips': return `<ul class="checks">${items.map(it => `<li>${inl(it.title)}${it.desc ? ` — ${inl(it.desc)}` : ''}</li>`).join('')}</ul>`;
+    case 'chips': return `<ul class="checks">${items.map(it => `<li>${inl(it.title)}${it.desc ? `: ${inl(it.desc)}` : ''}</li>`).join('')}</ul>`;
     case 'chips-muted': return `<div class="row wrap" style="gap:6px">${items.map(it => `<span class="muted-pill">${inl(it.title)}</span>`).join('')}</div>`;
-    case 'decisions': return `<div class="pbox" data-tone="amber"><ul class="decs">${items.map(it => `<li><b>${inl(it.title)}</b>${it.desc ? ` — ${inl(it.desc)}` : ''}</li>`).join('')}</ul></div>`;
+    case 'decisions': return `<div class="pbox" data-tone="amber"><ul class="decs">${items.map(it => `<li><b>${inl(it.title)}</b>${it.desc ? `: ${inl(it.desc)}` : ''}</li>`).join('')}</ul></div>`;
     case 'refs': return `<div class="feats">${items.map(it => `<div class="feat ref"><b>${inl(it.title)}</b><span>${inl(it.desc)}</span></div>`).join('')}</div>`;
     default: return `<div class="md compact">${b.html || `<p>${esc(b.markdown || '')}</p>`}</div>`;
   }
@@ -865,7 +958,7 @@ function frdDetail(p, f, ctx, { blueprint = false } = {}) {
   const row = (tone, label, content) => `<div class="brow" data-tone="${tone}"><span class="brow-label">${label}</span><div class="brow-body">${content}</div></div>`;
   const list = (tone, t, xs) => xs?.length ? row(tone, t, `<ul class="sbul">${xs.map(x => `<li>${inl(x)}</li>`).join('')}</ul>`) : '';
   return `<div class="dsheet">${s.overview || f.summary ? row('violet', 'Visión', `<p>${inl(s.overview || f.summary)}</p>`) : ''}${blueprint && f.blueprint ? row('teal', 'Implementación', `<p>${inl(f.blueprint)}</p>`) : ''}${list('blue', 'Historias de usuario', s.userStories)}${list('green', 'Reglas de negocio', s.businessRules)}${list('slate', 'Fuera de alcance', s.outOfScope)}${list('amber', 'Preguntas abiertas', s.openQuestions)}
-    ${f.orders.length && buildStarted(p) ? row('violet', 'Work orders', `<div class="row" style="gap:8px">${stackbar(f.orders)}<span class="xs muted nowrap">${f.done}/${f.orders.length} verificados</span></div>`) : ''}</div>
+    ${f.orders.length && buildStarted(p) ? row('violet', 'Work orders', `<div class="row" style="gap:8px">${stackbar(f.orders)}<span class="xs muted nowrap">${f.done}/${f.orders.length} verificadas</span></div>`) : ''}</div>
     <div class="row wrap">${docBtn(p, f.doc, 'Contrato', ctx)}${docBtn(p, f.fdd, 'Diseño', ctx)}${docBtn(p, f.blue, 'Blueprint', ctx)}${f.orders.length ? `<button type="button" class="btn sm" data-frd-jump="${esc(f.group)}" data-project="${esc(p.id)}">${ico('clipboard', 'sm')}Ver work orders</button>` : ''}</div>`;
 }
 const frdCards = (p, ctx, opts = {}) => `<div class="frd-cards">${p.frds.map(f => { return `<article class="frdc" data-tone="violet"><div class="row between"><span class="fcode" data-tone="violet">${f.code}</span>${tagChip(frdTag(p, f))}</div>${modalBtn(esc(f.title), esc(f.title), frdDetail(p, f, ctx, opts), 'frdc-open', { tone: 'violet', kicker: `${f.code} · ${opts.blueprint ? 'Plan de implementación' : 'Spec'}` })}${f.summary ? `<span class="small muted">${esc(f.summary)}</span>` : ''}${f.orders.length && buildStarted(p) ? `<div class="row" style="gap:8px">${stackbar(f.orders)}<span class="xs faint nowrap">${f.done}/${f.orders.length}</span></div>` : f.orders.length ? `<span class="xs faint">${plural(f.orders.length, 'work order planificada', 'work orders planificadas')}</span>` : ''}</article>`; }).join('')}</div>`;
@@ -894,7 +987,7 @@ function architectureView(p, ctx) {
   return `<div class="digest">
     ${digestHero('Arquitectura', esc(a?.proyecto || p.short), `${a?.stack ? `<p class="dhero-stack">${inl(a.stack)}</p>` : ''}${a?.intro ? `<p>${inl(a.intro)}</p>` : ''}`, chips)}
     ${a?.stackRows?.length ? band('blue', 'layers', 'Stack y tecnologías', `<p class="small muted band-note">Qué tecnologías se usarán para construir la aplicación y por qué se eligieron.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Stack y tecnologías"><table class="t t-cards stack-t"><thead><tr><th scope="col">Capa</th><th scope="col">Elección</th><th scope="col">Por qué</th></tr></thead><tbody>${a.stackRows.map(r => `<tr><td class="muted" data-span="full">${inl(r.capa)}</td><td data-span="full"><b>${inl(r.eleccion)}</b></td><td class="muted" data-span="full">${inl(r.porque)}</td></tr>`).join('')}</tbody></table></div>`, 'g-stack') : ''}
-    ${a?.services?.length ? band('teal', 'bolt', 'Integraciones y operación', `<p class="small muted band-note">Cómo se conectan y operan las piezas del sistema: flujos, responsabilidades y límites.</p><ul class="sbul">${a.services.map(s => `<li><b>${inl(s.title)}</b> — ${inl(s.desc)}</li>`).join('')}</ul>`, 'g-services') : ''}
+    ${a?.services?.length ? band('teal', 'bolt', 'Integraciones y operación', `<p class="small muted band-note">Cómo se conectan y operan las piezas del sistema: flujos, responsabilidades y límites.</p><ul class="sbul">${a.services.map(s => `<li><b>${inl(s.title)}</b>: ${inl(s.desc)}</li>`).join('')}</ul>`, 'g-services') : ''}
     ${band('blue', 'database', 'Modelo de datos', `${a?.dataModel?.note ? `<p class="small muted band-note">${inl(a.dataModel.note)}</p>` : ''}${modelView(p)}`, 'g-data')}
     ${band('pink', 'terminal', `Variables de entorno · ${envVars.length}`, envVars.length ? envView(envVars) : empty('No hay variables documentadas.', 'terminal'), 'g-env')}
     ${band('gold', 'shield', `Decisiones · ${p.adrs.length}`, p.adrs.length ? `<ul class="adrs">${p.adrs.map(adr => `<li>${modalBtn(`<span class="fcode" data-tone="amber">${esc(String(adr.id).replace(/^ADR-?/i, 'ADR-'))}</span><span class="grow"><b>${inl(adr.title || adr.id)}</b>${adr.decision ? `<span class="xs muted clamp-1">${inl(adr.decision)}</span>` : ''}</span>${ico('chevR', 'sm')}`, esc(adr.title || adr.id), `<div class="md" data-tone="amber">${adr.html}</div>`, 'adr-row', { tone: 'amber', kicker: esc(String(adr.id).replace(/^ADR-?/i, 'ADR-')) })}</li>`).join('')}</ul>` : empty('No hay ADRs publicados.', 'shield'), 'g-adrs')}
@@ -913,9 +1006,77 @@ const ENV_TONE = 'teal';
 const SERVICE_RANK = { configured: 0, active: 0, proposed: 1, planned: 1, pending: 1, candidate: 1, inactive: 2 };
 function accountsView(p) {
   const services = [...(p.services || [])].sort((a, b) => (SERVICE_RANK[a.status] ?? 1.5) - (SERVICE_RANK[b.status] ?? 1.5) || String(a.provider).localeCompare(String(b.provider), 'es'));
-  if (!services.length) return empty('Este proyecto no tiene servicios asignados en el directorio de la fábrica.', 'users');
-  return `<div class="stack lg"><p class="small muted">Servicios externos del proyecto según el directorio de la fábrica: para qué sirve cada uno, con qué usuario entrar y en qué entornos tiene recursos. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Las credenciales nunca se muestran.</p>
+  if (!services.length) return `<div class="stack lg">${servicesIssues()}${empty('Este proyecto no tiene servicios asignados en el directorio de la fábrica.', 'users')}</div>`;
+  return `<div class="stack lg">${servicesIssues()}<p class="small muted">Servicios externos del proyecto según el directorio de la fábrica: para qué sirve cada uno, con qué usuario entrar y en qué entornos tiene recursos. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Las credenciales nunca se muestran.</p>
     <div class="table-wrap" tabindex="0" role="region" aria-label="Servicios del proyecto"><table class="t acc-table"><thead><tr><th scope="col">Servicio</th><th scope="col">Para qué</th><th scope="col">Usuario</th><th scope="col">Entornos</th><th scope="col">Estado</th></tr></thead><tbody>${services.map(s => { const [label, tone] = SERVICE_STATUS[s.status] || [s.status, 'slate']; const name = `${ico(SERVICE_ICON[s.type] || 'cube', 'sm')}<b>${esc(s.provider)}</b>`; return `<tr><td data-label="Servicio">${s.url ? `<a class="acc-name" href="${esc(s.url)}" target="_blank" rel="noopener noreferrer" title="Abrir el panel de ${esc(s.provider)} en una pestaña nueva">${name}<span class="sr-only"> (se abre en una pestaña nueva)</span></a>` : `<span class="acc-name">${name}</span>`}</td><td class="muted" data-label="Para qué">${esc(s.purpose || s.type || '')}</td><td data-label="Usuario">${s.account?.login ? `<button type="button" class="copy-text mono small" data-copy="${esc(s.account.login)}" aria-label="Copiar el usuario de ${esc(s.provider)}: ${esc(s.account.login)}" data-hint="Copiar">${esc(s.account.login)}</button>` : '<span class="faint">—</span>'}</td><td data-label="Entornos"><div class="env-chips">${s.environments.map(e => `<span class="chip" data-tone="${ENV_TONE}" title="${esc(e.resource || '')}">${esc(e.environment)}</span>`).join('') || '<span class="faint">—</span>'}</div></td><td data-label="Estado"><span class="state-dot" data-tone="${tone}"><span class="dot"></span>${esc(label)}</span></td></tr>`; }).join('')}</tbody></table></div></div>`;
+}
+
+/** FRD-26 AC-26-007: a registry the reader could not trust is named, bounded and never shown as an empty success. */
+const SERVICE_ISSUE = { missing: 'falta el archivo de registro', invalid: 'el registro no cumple el contrato', duplicate: 'hay una entrada duplicada', dangling: 'apunta a una cuenta que no existe', 'production-as-dev': 'usa un recurso de producción como desarrollo' };
+function servicesIssues() {
+  const issues = SERVICES_DIR.issues || [];
+  if (!issues.length) return '';
+  return `<div class="notice" data-tone="coral" role="alert">${ico('alert')}<div class="grow"><b>Información incompleta o inválida</b><ul class="issue-list">${issues.map(i => `<li class="small"><code>${esc(i.source)}</code>: ${esc(SERVICE_ISSUE[i.code] || 'no se pudo leer')}.</li>`).join('')}</ul><p class="xs muted">Se revisa sin mostrar datos sensibles. El resto del directorio sí se pudo leer.</p></div></div>`;
+}
+const ACCESS_LABEL = { historical_identity_verified: 'Identidad observada', unverified: 'Sin verificar', access_required: 'Requiere acceso', unavailable: 'No disponible' };
+const AUTOMATION_LABEL = { documented: 'Documentada, sin prueba registrada', access_tested: 'Acceso probado', provision_tested: 'Aprovisionamiento probado', pending: 'Pendiente' };
+const ADOPTION_LABEL = { base: 'Base', optional: 'Opcional', project_specific: 'Específico de un proyecto', reference: 'Referencia' };
+const ACCOUNT_FILTERS = [['', 'Todas'], ['active', 'Activas'], ['pending', 'Pendientes'], ['candidates', 'Candidatos'], ['reference', 'Referencia']];
+/** One row per provider account; a provider with no identified account is a candidate row (no identity is invented). */
+function directoryRows() {
+  const d = SERVICES_DIR;
+  return d.providers.flatMap(provider => {
+    const links = d.allocations.filter(a => a.providerId === provider.id);
+    const accounts = d.accounts.filter(a => a.providerId === provider.id);
+    const rows = accounts.map(account => ({ provider, account, links: links.filter(l => l.accountRef === account.id) }));
+    if (!accounts.length || links.some(l => l.accountRef === null)) rows.push({ provider, account: null, links: links.filter(l => l.accountRef === null) });
+    return rows;
+  });
+}
+function accountStatus(row) {
+  const a = row.account;
+  if (!a) return ['Candidato', 'slate', 'candidates'];
+  if (row.provider.adoption === 'reference') return ['Referencia', 'slate', 'reference'];
+  if (a.accessStatus === 'historical_identity_verified' && a.acceptingNewProjects && a.automationStatus !== 'pending') return ['Activa', 'green', 'active'];
+  return ['Pendiente', 'amber', 'pending'];
+}
+const accountKey = row => `${row.provider.id}|${row.account?.id || 'candidate'}`;
+/** FRD-26: the factory's accounts directory, the third Portafolio view. Same table as a project's Cuentas tab. */
+function accountsDirectory() {
+  const q = UI.accQ.trim().toLowerCase();
+  const filter = UI.accFilter;
+  const all = directoryRows().sort((x, y) => (SERVICE_RANK[x.links[0]?.status] ?? 1.5) - (SERVICE_RANK[y.links[0]?.status] ?? 1.5) || x.provider.name.localeCompare(y.provider.name, 'es'));
+  const projectName = id => projectById(id)?.short || id;
+  const hit = row => (!q || [row.provider.name, row.provider.type, row.account?.loginEmail, row.account?.displayName, ...row.links.map(l => projectName(l.projectId))].some(v => String(v || '').toLowerCase().includes(q))) && (!filter || accountStatus(row)[2] === filter);
+  const rows = all.filter(hit);
+  const count = k => k ? all.filter(r => accountStatus(r)[2] === k).length : all.length;
+  return `<p class="small muted">Las cuentas de la fábrica en un solo lugar: qué servicio es, con qué usuario entrar y qué proyectos lo usan. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Lo guardado son observaciones con fecha, no una sesión activa; las credenciales nunca se muestran.</p>
+    ${servicesIssues()}
+    <div class="toolbar"><label class="field search">${ico('search', 'sm')}<input id="acc-search" type="search" placeholder="Buscar servicio, correo o proyecto…" aria-label="Buscar servicio, correo o proyecto" value="${esc(UI.accQ)}"></label>
+      <div class="chipset" role="group" aria-label="Filtrar cuentas">${ACCOUNT_FILTERS.map(([v, l]) => `<button type="button" class="chipbtn" data-acc-filter="${v}" aria-pressed="${filter === v}">${l} <span class="n">${count(v)}</span></button>`).join('')}</div>
+      <span class="grow"></span><span class="small faint">${plural(rows.length, 'cuenta', 'cuentas')}</span></div>
+    ${rows.length ? `<div class="table-wrap" tabindex="0" role="region" aria-label="Cuentas de la fábrica"><table class="t acc-table acc-dir"><thead><tr><th scope="col">Servicio</th><th scope="col">Para qué</th><th scope="col">Usuario</th><th scope="col">Proyectos</th><th scope="col">Estado</th><th scope="col"><span class="sr-only">Detalle</span></th></tr></thead><tbody>${rows.map(row => {
+      const { provider: pr, account: a, links } = row;
+      const [label, tone] = accountStatus(row);
+      const url = a?.dashboardUrl || pr.dashboardUrl;
+      const name = `${ico(SERVICE_ICON[pr.type] || 'cube', 'sm')}<b>${esc(pr.name)}</b>`;
+      const projects = [...new Set(links.map(l => l.projectId))];
+      return `<tr><td data-label="Servicio">${url ? `<a class="acc-name" href="${esc(url)}" target="_blank" rel="noopener noreferrer" title="Abrir el panel de ${esc(pr.name)} en una pestaña nueva">${name}<span class="sr-only"> (se abre en una pestaña nueva)</span></a>` : `<span class="acc-name">${name}</span>`}</td><td class="muted" data-label="Para qué">${esc(pr.purpose || pr.type || '')}</td><td data-label="Usuario">${a?.loginEmail ? `<button type="button" class="copy-text mono small" data-copy="${esc(a.loginEmail)}" aria-label="Copiar el usuario de ${esc(pr.name)}: ${esc(a.loginEmail)}" data-hint="Copiar">${esc(a.loginEmail)}</button>` : `<span class="faint">${a ? 'Por verificar' : 'Cuenta pendiente de identificar'}</span>`}</td><td data-label="Proyectos"><div class="env-chips">${projects.map(id => chip(esc(projectName(id)), '', 'plain')).join('') || '<span class="faint">Ninguno</span>'}</div></td><td data-label="Estado"><span class="state-dot" data-tone="${tone}"><span class="dot"></span>${label}</span></td><td data-label="Detalle"><button type="button" class="btn sm ghost" data-account="${esc(accountKey(row))}" aria-label="Detalles: ${esc(a?.displayName || pr.name)}">Detalles</button></td></tr>`;
+    }).join('')}</tbody></table></div>` : empty('No hay coincidencias para esta búsqueda.', 'search')}`;
+}
+/** Row dialog: identity and access with their dates, plan, automation level, next step, linked projects and the provider recipe. */
+function accountDetail(key) {
+  const row = directoryRows().find(r => accountKey(r) === key);
+  if (!row) return;
+  const { provider: pr, account: a, links } = row;
+  const [label, tone] = accountStatus(row);
+  const kv = (k, v) => v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  const projects = links.map(l => `<li><b>${esc(projectById(l.projectId)?.short || l.projectName || l.projectId)}</b> <span class="small muted">· ${esc((SERVICE_STATUS[l.status] || [l.status])[0])}</span>${l.environments.length ? `<div class="env-chips" style="margin-top:4px">${l.environments.map(e => `<span class="chip" data-tone="${ENV_TONE}" title="${esc(e.resource || '')}">${esc(e.environment)}${e.resource ? ` · ${esc(e.resource)}` : ''}</span>`).join('')}</div>` : ''}</li>`).join('');
+  dialog(esc(a?.displayName || pr.name), `<div class="row wrap"><span class="state-dot" data-tone="${tone}"><span class="dot"></span>${label}</span>${chip(esc(ADOPTION_LABEL[pr.adoption] || pr.adoption), '', 'plain')}</div>
+    <dl class="kv">${kv('Finalidad', esc(pr.purpose))}${kv('Correo', a?.loginEmail ? `<button type="button" class="copy-text mono small" data-copy="${esc(a.loginEmail)}" aria-label="Copiar ${esc(a.loginEmail)}" data-hint="Copiar">${esc(a.loginEmail)}</button>` : esc(a ? 'Por verificar' : 'Cuenta pendiente de identificar'))}${kv('Identidad y acceso', a ? `${esc(ACCESS_LABEL[a.accessStatus] || a.accessStatus)}${a.observedAt ? ` · ${esc(fmtDate(a.observedAt))}` : ''}` : '')}${kv('Plan registrado', esc(a?.plan || ''))}${kv('Automatización', esc(AUTOMATION_LABEL[a?.automationStatus || pr.automation?.status] || ''))}${kv('Siguiente paso', esc(a?.nextStep || ''))}${a ? kv('Acepta proyectos nuevos', a.acceptingNewProjects ? 'Sí' : 'No') : ''}</dl>
+    <div><p class="eyebrow">Proyectos vinculados</p>${projects ? `<ul class="acc-links">${projects}</ul>` : '<p class="small faint">Sin vínculos documentados. No demuestra ausencia de uso.</p>'}</div>
+    ${pr.reusePolicy || pr.automation?.steps?.length ? `<div><p class="eyebrow">Cómo reutilizarlo</p><p class="small">${esc(pr.reusePolicy || '')} ${esc(pr.environmentPolicy || '')}</p>${pr.automation?.steps?.length ? `<ol class="small acc-steps">${pr.automation.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>` : ''}</div>` : ''}
+    ${a?.dashboardUrl || pr.dashboardUrl ? `<a class="btn" href="${esc(a?.dashboardUrl || pr.dashboardUrl)}" target="_blank" rel="noopener noreferrer">${ico('external', 'sm')}Abrir el panel de ${esc(pr.name)}<span class="sr-only"> (se abre en una pestaña nueva)</span></a>` : ''}`, { tone: 'teal', kicker: `Cuenta · ${esc(pr.name)}` });
 }
 
 /**
@@ -980,7 +1141,9 @@ function startRoam() {
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const room = $('.room.is-current');
   if (!room) return;
-  const cast = $$('.cm', room).map(el => ({ el, x: +el.dataset.homeX, y: +el.dataset.homeY, tx: +el.dataset.homeX, ty: +el.dataset.homeY, walk: false, t0: performance.now(), dur: 600 + Math.random() * 1400 }));
+  const cast = $$('.cm', room).map(el => ({ el, hx: +el.dataset.homeX, hy: +el.dataset.homeY, x: +el.dataset.homeX, y: +el.dataset.homeY, tx: +el.dataset.homeX, ty: +el.dataset.homeY, walk: false, t0: performance.now(), dur: 600 + Math.random() * 1400 }));
+  // Members stay anchored at their home spot and walk by `translate` only (motion is transform-only, FRD-13).
+  const box = room.getBoundingClientRect();
   const step = now => {
     if (!room.isConnected) return;
     for (const s of cast) {
@@ -994,7 +1157,7 @@ function startRoam() {
         s.ty = mate ? mate.y : 34 + Math.random() * 40;
         s.walk = true; s.el.classList.add('walking');
       }
-      s.el.style.left = s.x + '%'; s.el.style.top = s.y + '%'; s.el.style.zIndex = String(Math.round(s.y));
+      s.el.style.translate = `${((s.x - s.hx) * box.width / 100).toFixed(1)}px ${((s.y - s.hy) * box.height / 100).toFixed(1)}px`; s.el.style.zIndex = String(Math.round(s.y));
     }
     ROAM = requestAnimationFrame(step);
   };
@@ -1036,16 +1199,16 @@ function campaignView(i, p) {
       ${brow('Entra y sale', `<div class="ps-flow"><div class="ps-io" data-tone="slate"><span class="ps-io-l">${ico('file', 'sm')}Lee</span><p>${inl(ph.reads)}</p></div><span class="ps-arrow" aria-hidden="true">${ico('arrow')}</span><div class="ps-io" data-tone="${tone}"><span class="ps-io-l">${ico('sparkles', 'sm')}Escribe</span><p>${inl(ph.writes)}</p></div></div>`)}
       ${brow(`Equipo · ${plural(ph.team.length, 'especialista', 'especialistas')}`, `<div class="team">${team}</div>`)}
       ${brow('Qué puedes correr', cmds)}
-      ${p && ph.key === 'build' ? `<a class="btn toned" data-tone="violet" href="${href('portfolio', { project: p.id, tab: 'Party' })}">${ico('sparkles', 'sm')}Entrar a La Fragua${ico('arrow', 'sm')}</a>` : ''}
+      ${p && ph.key === 'build' && curIdx >= sel ? `<a class="btn toned" data-tone="violet" href="${href('portfolio', { project: p.id })}">${ico('sparkles', 'sm')}Entrar a La Fragua${ico('arrow', 'sm')}</a>` : ''}
     </section>
   </div>`;
 }
 /* ---------- Work orders ---------- */
 function ordersView(p) {
-  if (!p.orders.length) return `<div class="stack">${empty('Este proyecto todavía no tiene work orders publicados. Sus documentos de producto y diseño siguen disponibles.', 'clipboard')}${cmd('/pandacorp:architecture')}</div>`;
+  if (!p.orders.length) return `<div class="stack">${empty('Este proyecto todavía no tiene work orders publicadas. Sus documentos de producto y diseño siguen disponibles.', 'clipboard')}${cmd('/pandacorp:architecture')}</div>`;
   const wo = p.orders.find(w => w.id === P('wo'));
   if (wo) return orderDetail(p, wo);
-  if (P('wo')) return notFound('Esta orden no está publicada', `${esc(P('wo'))} no aparece entre los work orders capturados de ${esc(p.short)}.`, href('portfolio', { project: p.id, tab: 'Observabilidad' }), 'Ver work orders');
+  if (P('wo')) return notFound('Esta work order no está publicada', `${esc(P('wo'))} no aparece entre las work orders de ${esc(p.short)}.`, href('portfolio', { project: p.id, tab: 'Observabilidad' }), 'Ver work orders');
   const view = ['tablero', 'deps'].includes(P('view')) ? P('view') : 'frd';
   const frd = P('frd');
   const st = P('state');
@@ -1056,20 +1219,50 @@ function ordersView(p) {
   if (view === 'deps') return `<div class="toolbar">${views}</div>${depsView(p)}`;
   return `<div class="toolbar">${views}
       <label class="field"><span class="sr-only">Filtrar por FRD</span><select id="wo-frd" aria-label="Filtrar por FRD"><option value="">Todos los FRDs (${p.frds.filter(f => f.orders.length).length})</option>${p.frds.filter(f => f.orders.length).map(f => `<option value="${esc(f.group)}" ${f.group === frd ? 'selected' : ''}>${f.code} · ${esc(f.title)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label>
-      <span class="grow"></span><span class="small faint">${plural(filtered.length, 'orden', 'órdenes')}</span></div>
+      <span class="grow"></span><span class="small faint">${plural(filtered.length, 'work order', 'work orders')}</span></div>
     <div class="state-strip" role="group" aria-label="Filtrar por estado">${states.map(s => { const n = scoped.filter(w => w.state === s).length; const S = stateOf(s); return `<button type="button" class="state-tile" data-tone="${S.tone}" aria-pressed="${st === s}" data-state-filter="${s}"><span class="lbl"><span class="dot"></span>${S.label}</span><b>${n}</b>${bar(pctOf(n, scoped.length), S.tone)}</button>`; }).join('')}</div>
     ${view === 'tablero' ? woKanban(p, filtered, states) : woByFrd(p, filtered, !!(st || frd))}`;
 }
 function woRow(w) {
-  return `<button type="button" class="worow" data-wo="${esc(w.id)}"><span class="wid">${esc(w.id)}</span><span class="wt">${inl(w.short)}</span>${stateChip(w.state)}<span class="wdeps">${w.deps.length ? `${ico('link', 'sm')} ${w.deps.length}` : ''}</span></button>`;
+  const failed = w.state === 'fail';
+  return `<button type="button" class="worow ${failed ? 'is-failed' : ''}" data-wo="${esc(w.id)}" ${failed ? 'data-tone="coral"' : ''}><span class="wid">${failed ? ico('alert', 'sm') : ''}${esc(w.id)}</span><span class="wt">${inl(w.short)}</span>${stateChip(w.state)}<span class="wdeps">${w.deps.length ? `${ico('link', 'sm')} ${w.deps.length}` : ''}</span></button>`;
+}
+/**
+ * DR-122 drift: the build's certifying landing writes `drift: [REQ…, AC…]` into a verified FRD's frontmatter.
+ * One reader for the badge: null when absent or empty, a list of ids, or an error when the value is not a list
+ * of requirement ids (fail loud, never a silent zero).
+ */
+function frdDrift(f) {
+  const fm = frontmatter(f.doc?.body || '');
+  if (!('drift' in fm)) return null;
+  const raw = fm.drift;
+  const isList = Array.isArray(raw) || /^\[.*\]$/.test(String(raw).trim());
+  if (!isList) return { error: true };
+  const ids = listOf(raw);
+  if (ids.some(id => !/^(REQ|AC)-[\w.-]+$/.test(id))) return { error: true };
+  return ids.length ? { ids } : null;
+}
+function driftBadge(p, f) {
+  if (!f.orders.length || f.done !== f.orders.length) return '';
+  const d = frdDrift(f);
+  if (!d) return '';
+  return d.error ? `<span class="chip drift-chip" data-tone="coral">${ico('alert', 'sm')}Deriva ilegible</span>` : `<span class="chip drift-chip" data-tone="amber" title="${esc(d.ids.join(', '))}">${ico('alert', 'sm')}Verificado · ${plural(d.ids.length, 'deriva', 'derivas')}</span>`;
+}
+function driftNote(p, f) {
+  if (!f.orders.length || f.done !== f.orders.length) return '';
+  const d = frdDrift(f);
+  if (!d) return '';
+  return d.error
+    ? `<div class="notice drift-note" data-tone="coral">${ico('alert')}<p class="small">El campo <code>drift</code> de <code>${esc(f.code)}</code> no es una lista de requisitos, así que no se puede contar. Revisa su <code>frd.md</code>.</p></div>`
+    : `<div class="notice drift-note" data-tone="amber">${ico('alert')}<div class="grow"><p class="small">Verificado con ${plural(d.ids.length, 'deriva', 'derivas')} del gate: ${d.ids.map(id => `<code>${esc(id)}</code>`).join(', ')}. Sus tarjetas de cambio esperan en Cambios.</p><button type="button" class="link small" data-tone="pink" data-tab-jump="Cambios">Ver en Cambios ${ico('arrow', 'sm')}</button></div></div>`;
 }
 function woByFrd(p, orders, filtering) {
   const groups = p.frds.map(f => ({ f, list: orders.filter(w => w.frd === f.group) })).filter(g => g.list.length);
-  if (!groups.length) return empty('Ningún work order coincide con el filtro.', 'search');
+  if (!groups.length) return empty('Ninguna work order coincide con el filtro.', 'search');
   const all = UI.frdAllOpen;
   return `<div class="frd-tools"><button type="button" class="btn sm" data-action="frd-toggle-all" aria-pressed="${all}">${ico(all ? 'minus' : 'plus', 'sm')}${all ? 'Colapsar todo' : 'Expandir todo'}</button></div><div class="frd-rows">${groups.map(({ f, list }) => {
     const open = all || filtering;
-    return `<details class="frd-row" ${open ? 'open' : ''}><summary>${ico('chevR', 'sm chev')}<span class="fname"><small>${f.code}</small>${esc(f.title)}</span>${stackbar(f.orders)}<span class="fcount">${f.done}/${f.orders.length}</span><span class="fpct small faint">${pctOf(f.done, f.orders.length)}%</span></summary><div class="wo-list">${list.map(woRow).join('')}</div></details>`;
+    return `<details class="frd-row" ${open ? 'open' : ''}><summary>${ico('chevR', 'sm chev')}<span class="fname"><small>${f.code}</small>${esc(f.title)}${driftBadge(p, f)}</span>${stackbar(f.orders)}<span class="fcount">${f.done}/${f.orders.length}</span><span class="fpct small faint">${pctOf(f.done, f.orders.length)}%</span></summary>${driftNote(p, f)}<div class="wo-list">${list.map(woRow).join('')}</div></details>`;
   }).join('')}</div>`;
 }
 function woKanban(p, orders, states) {
@@ -1080,7 +1273,7 @@ function woKanban(p, orders, states) {
     const base = matchMedia('(max-width: 759px)').matches ? 4 : 8;
     const limit = UI.woExpanded.has(s) ? list.length : base;
     return `<section class="kcol ${list.length ? '' : 'is-empty'}" data-tone="${S.tone}" aria-label="${S.label}: ${list.length}"><h2 class="kcol-head">${ico(S.icon, 'sm')}${S.label}${chip(String(list.length), S.tone)}</h2>
-      ${list.slice(0, limit).map(w => `<button type="button" class="wocard" data-tone="${S.tone}" data-wo="${esc(w.id)}"><span class="wid">${esc(w.id)}</span><strong>${inl(w.short)}</strong><small>${esc(p.frds.find(f => f.group === w.frd)?.code || w.frd)}${w.deps.length ? ` · ${plural(w.deps.length, 'dependencia', 'dependencias')}` : ''}</small></button>`).join('') || '<div class="kempty">Sin órdenes</div>'}
+      ${list.slice(0, limit).map(w => `<button type="button" class="wocard ${w.state === 'fail' ? 'is-failed' : ''}" data-tone="${S.tone}" data-wo="${esc(w.id)}"><span class="wid">${w.state === 'fail' ? ico('alert', 'sm') : ''}${esc(w.id)}</span><strong>${inl(w.short)}</strong><small>${esc(p.frds.find(f => f.group === w.frd)?.code || w.frd)}${w.deps.length ? ` · ${plural(w.deps.length, 'dependencia', 'dependencias')}` : ''}</small>${w.state === 'fail' && w.blocked ? `<small class="wo-block">${esc(w.blocked)}</small>` : ''}</button>`).join('') || '<div class="kempty">Sin work orders</div>'}
       ${list.length > limit ? `<button type="button" class="morebtn" data-wo-more="${s}">Mostrar ${list.length - limit} más</button>` : ''}${UI.woExpanded.has(s) && list.length > base ? `<button type="button" class="morebtn" data-wo-more="${s}">Mostrar menos</button>` : ''}</section>`;
   }).join('')}</div>`;
 }
@@ -1095,7 +1288,7 @@ const WO_FLOW = ['todo', 'in_progress', 'review', 'done'];
 const WO_NOW = {
   todo: 'Todavía no empieza. Se construye cuando sus dependencias estén verificadas.',
   in_progress: 'Un agente la está construyendo ahora, con las pruebas primero.',
-  review: 'Ya está construida. Espera la revisión de su FRD, que mira todas sus órdenes juntas.',
+  review: 'Ya está construida. Espera la revisión de su FRD, que mira todas sus work orders juntas.',
   done: 'Construida y verificada en la revisión de su FRD.',
   fail: 'Está bloqueada: necesita una decisión o un arreglo antes de seguir.',
 };
@@ -1146,13 +1339,13 @@ function orderDetail(p, w) {
   const built = sectionHtml(w.html, ['Status Note', 'What shipped']);
   const files = frontList(w.body, 'artifacts');
   const step = WO_FLOW.indexOf(w.state);
-  const stepper = `<ol class="wo-steps" aria-label="Avance de la orden">${WO_FLOW.map((k, n) => { const st = stateOf(k); const on = n === step, past = step > n; return `<li class="${on ? 'is-now' : past ? 'is-past' : ''}" data-tone="${st.tone}" ${on ? 'aria-current="step"' : ''}><span class="wo-step-dot">${ico(past ? 'check' : st.icon, 'sm')}</span><span>${st.label}</span></li>`; }).join('')}</ol>`;
+  const stepper = `<ol class="wo-steps" aria-label="Avance de la work order">${WO_FLOW.map((k, n) => { const st = stateOf(k); const on = n === step, past = step > n; return `<li class="${on ? 'is-now' : past ? 'is-past' : ''}" data-tone="${st.tone}" ${on ? 'aria-current="step"' : ''}><span class="wo-step-dot">${ico(past ? 'check' : st.icon, 'sm')}</span><span>${st.label}</span></li>`; }).join('')}</ol>`;
   const section = (title, icon, tone, body) => card(title, body, { icon, tone });
   return `<div class="row wrap" style="margin-bottom:12px">${crumbs([['Observabilidad', href('portfolio', { project: p.id, tab: 'Observabilidad' })], [f ? f.code : w.frd, href('portfolio', { project: p.id, tab: 'Observabilidad', frd: w.frd })], [w.id]])}</div>
     <section class="card tinted wo-hero" data-tone="${S.tone}"><div class="row between wrap top"><div class="grid" style="gap:10px;min-width:0"><div class="row wrap"><span class="chip plain mono">${esc(w.id)}</span>${f ? chip(`${f.code} · ${esc(f.title)}`, 'violet') : ''}</div><h2 class="wo-title">${inl(w.short)}</h2></div>
       <a class="btn sm" href="${href('portfolio', { project: p.id, tab: 'Observabilidad', frd: P('frd'), view: P('view'), state: P('state') })}">${ico('back', 'sm')}Volver</a></div>
       ${w.state === 'fail' ? `<p class="wo-now">${stateChip(w.state)}<span>${WO_NOW.fail}</span></p>` : `${stepper}<p class="wo-now"><b>Ahora:</b> ${WO_NOW[w.state] || ''}</p>`}</section>
-    ${tabs([{ id: 'Resumen', icon: 'gauge', tone: 'green' }, { id: 'Documento completo', icon: 'file', tone: 'green' }], view, 'woview', 'Vista de la orden')}
+    ${tabs([{ id: 'Resumen', icon: 'gauge', tone: 'green' }, { id: 'Documento completo', icon: 'file', tone: 'green' }], view, 'woview', 'Vista de la work order')}
     ${view === 'Documento completo'
       ? `<article class="paper" data-tone="green"><div class="paper-head">${chip(`${ico('clipboard', 'sm')}Work order`, 'green')}<span class="path">${esc(w.relPath)}</span><button type="button" class="iconbtn" data-copy="${esc(w.body)}" aria-label="Copiar documento">${ico('copy', 'sm')}</button></div><div class="md" data-tone="green">${w.html}</div></article>`
       : `<div class="wo-detail-grid"><div class="stack wo-story">
@@ -1160,17 +1353,19 @@ function orderDetail(p, w) {
           ${scope || outScope ? section('Qué cambia', 'target', 'blue', `${scope ? `<div class="md wo-read" data-tone="blue">${scope}</div>` : ''}${outScope ? `<div class="wo-out"><p class="eyebrow">${ico('x', 'sm')}Fuera de alcance</p><div class="md wo-read" data-tone="slate">${outScope}</div></div>` : ''}`) : ''}
           ${accept ? section('Cómo se comprueba', 'check', 'green', criteriaHtml(accept)) : ''}
           ${built ? section(w.state === 'done' || w.state === 'review' ? 'Qué se construyó' : 'Nota de estado', 'factory', 'violet', foldedHtml(built)) : ''}
-          ${!about && !scope && !accept && !built ? `<p class="muted">Esta orden no publica resumen, alcance ni criterios; su contrato está en el documento completo.</p>` : ''}
-          <p class="xs faint wo-lang">${ico('file', 'sm')}El contenido viene del documento de la orden, escrito en inglés; los títulos son de Mission Control.</p>
+          ${!about && !scope && !accept && !built ? `<p class="muted">Esta work order no publica resumen, alcance ni criterios; su contrato está en el documento completo.</p>` : ''}
+          <p class="xs faint wo-lang">${ico('file', 'sm')}El contenido viene del documento de la work order, escrito en inglés; los títulos son de Mission Control.</p>
           <button type="button" class="link" data-tone="green" data-tabkey="woview" data-tabval="Documento completo">Leer el documento completo ${ico('arrow', 'sm')}</button></div>
         <div class="stack">${card('Ficha', `<dl class="kv"><dt>Estado</dt><dd>${stateChip(w.state)}</dd>${w.difficulty ? `<dt>Dificultad</dt><dd>${esc(DIFFICULTY[String(w.difficulty).toLowerCase()] || w.difficulty)}</dd>` : ''}<dt>Reaperturas</dt><dd>${Number(w.reopen) ? esc(w.reopen) : 'Ninguna'}</dd>${w.updated ? `<dt>Actualizada</dt><dd>${esc(fmtDate(w.updated))}</dd>` : ''}${w.reqs.length ? `<dt>Requisitos</dt><dd class="row wrap" style="gap:4px">${w.reqs.map(r => chip(esc(r), 'blue', 'outline')).join('')}</dd>` : ''}${w.blocked ? `<dt>Bloqueo</dt><dd>${esc(w.blocked)}</dd>` : ''}</dl>${files.length ? `<p class="eyebrow" style="margin-top:14px">Archivos que toca</p><ul class="wo-files">${files.map(x => `<li><code>${esc(x)}</code></li>`).join('')}</ul>` : ''}`, { icon: 'list', tone: 'slate', level: 3 })}
           ${card('Dependencias', `<div class="stack sm"><span class="eyebrow">Depende de</span><div class="row wrap">${w.deps.map(depBtn).join('') || '<span class="small faint">Ninguna</span>'}</div><span class="eyebrow" style="margin-top:8px">Desbloquea</span><div class="row wrap">${dependents.map(o => depBtn(o.id)).join('') || '<span class="small faint">Ninguna</span>'}</div></div>`, { icon: 'link', tone: 'teal', level: 3 })}
-          ${card('Construir esta orden', cmd(`/pandacorp:implement ${w.id}`), { icon: 'terminal', tone: 'violet', level: 3 })}</div></div>`}`;
+          ${card('Construir esta work order', cmd(`/pandacorp:implement ${w.id}`), { icon: 'terminal', tone: 'violet', level: 3 })}</div></div>`}`;
 }
 
 function modelView(p) {
   const m = p.model;
-  if (m.kind !== 'ready') return `<div class="notice" data-tone="slate">${ico('database')}<p>${m.kind === 'none' ? 'Este proyecto declara explícitamente que no usa base de datos.' : m.kind === 'error' ? 'El modelo publicado no se pudo interpretar: ' + esc(m.message) : 'Todavía no hay un modelo de datos publicado; queda visiblemente pendiente.'}</p></div>`;
+  // A model that cannot be read is an error, never an empty diagram (DR-078); the rest of Arquitectura stays usable.
+  if (m.kind === 'error') return `<div class="notice" data-tone="coral" role="alert">${ico('alert')}<div class="grow"><b>No se pudo leer el modelo de datos</b><p class="small">${esc(m.message || 'El archivo publicado no cumple el contrato.')} No se dibuja ningún diagrama hasta que el archivo sea válido.</p></div></div>`;
+  if (m.kind !== 'ready') return `<div class="notice" data-tone="slate">${ico('database')}<p>${m.kind === 'none' ? 'Este proyecto declara explícitamente que no usa base de datos.' : 'Todavía no hay un modelo de datos publicado; queda visiblemente pendiente.'}</p></div>`;
   const model = m.model;
   // A phone shows one or two entities of the canvas at a time, so it opens on the schema list.
   const view = (P('model') || (matchMedia('(max-width: 759px)').matches ? 'Esquema' : 'Diagrama')) === 'Esquema' ? 'Esquema' : 'Diagrama';
@@ -1245,10 +1440,10 @@ function changesView(p) {
  * simulation that moves tokens between stations so the motion can be reviewed.
  */
 const SCENE_MODES = [['real', 'Estado real'], ['off', 'Apagada'], ['on', 'Encendida'], ['sim', 'Simulación']];
-function sceneMode(p) { const m = P('scene'); return ['off', 'on', 'sim'].includes(m) ? m : (p.running ? 'on' : 'off'); }
+function sceneMode(p) { const m = P('scene'); return ['off', 'on', 'sim'].includes(m) ? m : (isLiveBuild(p) ? 'on' : 'off'); }
 function fraguaScene(p, v) {
   const mode = sceneMode(p);
-  const live = mode !== 'off';
+  const lit = mode !== 'off';
   const by = s => p.orders.filter(w => w.state === s);
   const total = p.orders.length;
   const stations = [
@@ -1268,18 +1463,48 @@ function fraguaScene(p, v) {
   const busy = stations.map((st, i) => (st.list.length ? i : -1)).filter(i => i >= 0);
   const [from, to] = mode === 'sim' ? [0, 3] : [Math.min(...busy), Math.max(...busy)];
   const at = i => `calc(${(i + 0.5) * 25}% - 28px)`;
-  const courier = live && busy.length && to > from ? `<div class="fr-route" style="left:${(from + 0.5) * 25}%;right:${(3 - to + 0.5) * 25}%" aria-hidden="true"></div><img class="fr-courier" src="assets/courier.png" alt="" aria-hidden="true" style="--from:${at(from)};--to:${at(to)};--dur:${(to - from) * 3}s">` : '';
+  // The courier walks by transform only: its track spans the busy stretch and the walker crosses 100 % of it.
+  const span = `left:${(from + 0.5) * 25}%;right:${(3 - to + 0.5) * 25}%`;
+  const courier = lit && busy.length && to > from ? `<div class="fr-route" style="${span}" aria-hidden="true"></div><div class="fr-courier" style="${span};--dur:${(to - from) * 3}s" aria-hidden="true"><span class="fr-walker"><img src="assets/courier.png" alt=""></span></div>` : '';
   const open = p.changesList.filter(c => !['done', 'discarded'].includes(c.status)).length;
-  const status = mode === 'sim' ? 'Simulación: las fichas se mueven para que veas la animación; no son datos reales.' : mode === 'on' ? (p.running ? 'El equipo está trabajando: hay un build corriendo.' : 'Vista de cómo se ve con un build corriendo (ahora no hay uno).') : `El equipo descansa: no hay un build corriendo.${p.running ? ' (Vista apagada a pedido; en realidad hay un build corriendo.)' : ''}`;
-  return `<section class="fragua ${live ? 'is-live' : 'is-idle'} ${mode === 'sim' ? 'is-sim' : ''}" aria-labelledby="fr-h" data-scene="${mode}">
+  const live = isLiveBuild(p);
+  const status = mode === 'sim' ? 'Simulación: las fichas se mueven para que veas la animación; no son datos reales.'
+    : v.signal?.kind === 'no-signal' && !P('scene') ? `El equipo se detuvo: el build dice estar corriendo, pero el último evento llegó ${minutesAgo(v.signal.ago)}.`
+    : mode === 'on' ? (live ? 'El equipo está trabajando: hay un build corriendo.' : 'Vista de cómo se ve con un build corriendo (ahora no hay uno).') : `El equipo descansa: no hay un build corriendo.`;
+  return `<section class="fragua ${lit ? 'is-live' : 'is-idle'} ${mode === 'sim' ? 'is-sim' : ''}" aria-labelledby="fr-h" data-scene="${mode}">
       <div class="fr-head"><div class="grow"><span class="eyebrow">La Fragua · ${esc(p.short)}</span><h2 id="fr-h">${esc(v.text)}</h2><p class="small">${status}</p></div>
         <div class="fr-side">${chip(`${ico(v.health[2], 'sm')}${v.health[0]}`, v.health[1])}<div class="demo-inline" data-demo-only><span class="demo-tag">Demo</span><div class="seg fr-modes" role="group" aria-label="Estado de la escena">${SCENE_MODES.map(([id, l]) => `<button type="button" aria-pressed="${(P('scene') || 'real') === id}" data-scene-mode="${id}">${l}</button>`).join('')}</div><span class="demo-note">En la app la escena muestra siempre el estado real del build.</span></div></div></div>
       ${total ? `<div class="fr-quest" role="img" aria-label="${p.counts.done} verificadas, ${by('review').length} en revisión, ${by('in_progress').length} en el taller, ${by('todo').length} en cola">${seg2('done')}${seg2('review')}${seg2('in_progress')}${seg2('fail')}${seg2('todo')}</div>
       <div class="fr-scene"><div class="fr-path" aria-hidden="true"></div>${courier}
         ${stations.map((st, i) => `<div class="fr-station" data-tone="${st.tone}" data-station="${st.key}"><div class="fr-cast" aria-hidden="true">${st.sprites.map((sp, k) => `<img src="assets/${sp}.png" alt="" style="animation-delay:${(-k * 0.8 - i * 0.3).toFixed(1)}s">`).join('')}</div><div class="fr-plate"><b>${st.label}</b><span class="fr-count">${st.list.length}</span><span class="xs">${st.sub}</span>${tokens(st.list, st.tone, st.key)}</div></div>`).join('')}
       </div>` : `<p class="small">Aún no hay work orders: la escena se llena cuando la arquitectura publique el plan.</p>`}
-      <div class="fr-foot"><span class="row wrap" style="gap:6px">${chip(left ? `Faltan ${left}` : 'Todo forjado', left ? 'amber' : 'green')}${chip(`${plural(open, 'cambio abierto', 'cambios abiertos')}`, 'pink')}${chip(`${ico('clock', 'sm')}Último movimiento ${agoText(v.days)}`, '', 'plain')}</span><span class="xs fr-note">Cada cuadradito es una work order real: púlsalo para abrirla.</span></div>
+      <div class="fr-foot"><span class="row wrap" style="gap:6px">${chip(left ? (left === 1 ? 'Falta 1' : `Faltan ${left}`) : 'Todo forjado', left ? 'amber' : 'green')}${chip(`${plural(open, 'cambio abierto', 'cambios abiertos')}`, 'pink')}${chip(`${ico('clock', 'sm')}Último movimiento ${agoText(v.days)}`, '', 'plain')}</span><span class="xs fr-note">Cada cuadradito es una work order real: púlsalo para abrirla.</span></div>
     </section>`;
+}
+/**
+ * FRD-14: the last build commit that passed every gate, shown under La Fragua only while a build runs.
+ * It keeps "en verde, seguro para probar" apart from what the build is making now (not green yet), gives
+ * the worktree command to test it without stopping the build, and warns when it fell far behind the build.
+ */
+function snapshotPanel(p) {
+  if (!p.running || !p.lastGreenSha) return '';
+  const signal = buildSignal(p);
+  const safe = p.safeToTest === true;
+  const doneWos = (p.timeline?.frds || []).flatMap(f => f.workOrders).filter(w => w.state === 'done' && w.endMs).sort((a, b) => b.endMs - a.endMs);
+  const last = doneWos[0];
+  const lastFrd = last ? p.frds.find(f => f.group === last.frd)?.code : '';
+  const nowWo = p.orders.find(w => w.state === 'in_progress');
+  const command = `git worktree add /Users/Shared/review-worktrees/${p.id} ${p.lastGreenSha}`;
+  const behind = p.snapshotBehind;
+  const now = signal.kind === 'no-signal'
+    ? `<p class="snap-now" data-tone="coral">${ico('alert', 'sm')}<span>El build dice estar corriendo, pero no hay señal del supervisor desde ${minutesAgo(signal.ago)}. Revisa si sigue vivo antes de fiarte de ese estado.</span></p>`
+    : `<p class="snap-now" data-tone="blue">${ico('loader', 'sm')}<span><b>Construyendo ahora:</b> ${nowWo ? `${esc(nowWo.id)} · ${inl(nowWo.short)}` : 'el build sigue avanzando'}. Eso todavía no está en verde: no lo pruebes.</span></p>`;
+  const status = behind ? chip(`${ico('alert', 'sm')}Quedó atrás del build`, 'amber') : safe ? chip(`${ico('check', 'sm')}Seguro para probar`, 'green') : chip(`${ico('alert', 'sm')}Aún no es seguro`, 'amber');
+  return card(`Último commit en verde ${status}`, `<p class="small muted card-intro">El último commit del build que pasó todos los gates. Puedes probarlo en un worktree aparte mientras el build sigue; no se toca nada de lo que está construyendo.</p>
+    <div class="snap-sha"><code class="chip plain mono">${esc(p.lastGreenSha)}</code><span class="small">${last ? `verificó <b class="mono">${esc(last.id)}</b>${lastFrd ? ` de ${esc(lastFrd)}` : ''}` : 'pasó todos los gates'}</span></div>
+    ${now}
+    ${behind ? `<div class="notice" data-tone="amber" role="status">${ico('alert')}<div class="grow"><b>Este commit quedó atrás del build</b><p class="small">El build lleva ${plural(behind.commits, 'commit', 'commits')} y ${plural(behind.hours, 'hora', 'horas')} más. Lo que pruebes ahí ya no refleja lo que el build construyó desde entonces.</p></div></div>` : ''}
+    <div class="stack sm"><span class="small muted">Para probarlo, córrelo en la carpeta de ${esc(p.short)}:</span>${cmd(command)}</div>`, { icon: 'check', tone: 'green', id: 'snapshot-panel' });
 }
 /** Work-order card for a Fragua token: code, title and a short description, on hover or keyboard focus. */
 function tokenTip(el) {
@@ -1353,7 +1578,7 @@ const dagLevels = cur => `<div style="margin-bottom:12px">${seg([{ id: 'frd', la
  */
 function frdDagView(p) {
   const frds = p.frds.filter(f => f.orders.length);
-  if (!frds.length) return empty('No hay work orders publicados para trazar dependencias.', 'link');
+  if (!frds.length) return empty('No hay work orders publicadas para trazar dependencias.', 'link');
   const byId = new Map(p.orders.map(o => [o.id, o]));
   const frdOf = id => byId.get(id)?.frd;
   const pairs = new Map();
@@ -1391,7 +1616,7 @@ function frdDagView(p) {
   const card2 = new Map();
   boxes.forEach(b => b.list.forEach((o, i) => card2.set(o.id, { x: b.x + PAD + (i % PER) * COLW, y: b.y + HEAD + PAD + Math.floor(i / PER) * ROWH })));
   const boxOf = new Map(boxes.map(b => [b.f.group, b]));
-  const cross = [...links.values()].map(({ a, b: bb, n, back }) => { const A = boxOf.get(a), B = boxOf.get(bb); if (!A || !B) return ''; const sameRow = A.y === B.y; let x1, y1, x2, y2, d; if (sameRow) { const right = B.x > A.x; x1 = right ? A.x + A.w : A.x; x2 = right ? B.x : B.x + B.w; y1 = A.y + 22; y2 = B.y + 22; const mx = (x1 + x2) / 2; d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`; } else { const down = B.y > A.y; x1 = A.x + A.w / 2; y1 = down ? A.y + A.h : A.y; x2 = B.x + B.w / 2; y2 = down ? B.y : B.y + B.h; const my = (y1 + y2) / 2; d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`; } const mx = (x1 + x2) / 2, my = (y1 + y2) / 2; return `<path class="fdag-link" style="stroke-width:${Math.min(8, 1.5 + n / 2)}" d="${d}"><title>${code(a)} → ${code(bb)}: ${n} dependencias${back ? ` (y ${back} en sentido contrario)` : ''}</title></path><text class="fdag-n" x="${mx}" y="${my - 6}" text-anchor="middle">${n}${back ? ` ⇄ ${back}` : ''}</text>`; }).join('');
+  const cross = [...links.values()].map(({ a, b: bb, n, back }) => { const A = boxOf.get(a), B = boxOf.get(bb); if (!A || !B) return ''; const sameRow = A.y === B.y; let x1, y1, x2, y2, d; if (sameRow) { const right = B.x > A.x; x1 = right ? A.x + A.w : A.x; x2 = right ? B.x : B.x + B.w; y1 = A.y + 22; y2 = B.y + 22; const mx = (x1 + x2) / 2; d = `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`; } else { const down = B.y > A.y; x1 = A.x + A.w / 2; y1 = down ? A.y + A.h : A.y; x2 = B.x + B.w / 2; y2 = down ? B.y : B.y + B.h; const my = (y1 + y2) / 2; d = `M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`; } const mx = (x1 + x2) / 2, my = (y1 + y2) / 2; return `<path class="fdag-link" style="stroke-width:${Math.min(8, 1.5 + n / 2)}" d="${d}"><title>${code(a)} → ${code(bb)}: ${plural(n, 'dependencia', 'dependencias')}${back ? ` (y ${back} en sentido contrario)` : ''}</title></path><text class="fdag-n" x="${mx}" y="${my - 6}" text-anchor="middle">${n}${back ? ` ⇄ ${back}` : ''}</text>`; }).join('');
   const boxHtml = boxes.map(b => `<div class="fdag-box" style="left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px"><button type="button" class="fdag-head" data-dag-frd="${esc(b.f.group)}" title="Ver las work orders de ${esc(b.f.code)} en el grafo detallado"><span class="fcode" data-tone="violet">${b.f.code}</span><span class="fdag-title">${esc(b.f.title)}</span><span class="xs faint nowrap">${b.f.done}/${b.f.orders.length}</span></button><div class="fdag-bar">${stackbar(b.f.orders)}</div></div>`).join('');
   const cards = p.orders.filter(o => card2.has(o.id)).map(o => { const q = card2.get(o.id); const S = stateOf(o.state); return `<button type="button" class="dag-node mini" data-tone="${S.tone}" data-wo="${esc(o.id)}" style="left:${q.x}px;top:${q.y}px;width:${CW}px;height:${CH}px" title="${esc(o.id)} · ${esc(plain(o.short))} · ${esc(S.label)}"><span class="dot"></span><span class="dag-id">${esc(o.id)}</span><span class="dag-t">${esc(plain(o.short))}</span></button>`; }).join('');
   // Below 900 px the same map is a list in dependency order: the canvas is too clipped to read there.
@@ -1403,7 +1628,7 @@ function frdDagView(p) {
       <div class="dl-body"><div class="dl-rel"><span class="xs muted">Depende de</span><span class="row wrap" style="gap:4px">${frdRefs(before) || '<span class="xs faint">Nada: es un punto de partida</span>'}</span></div><div class="dl-rel"><span class="xs muted">Desbloquea</span><span class="row wrap" style="gap:4px">${frdRefs(after) || '<span class="xs faint">Nada</span>'}</span></div>
       <div class="divided">${b.list.map(o => `<button type="button" class="lrow" data-wo="${esc(o.id)}"><span class="state-dot" data-tone="${stateOf(o.state).tone}"><span class="dot"></span></span><div class="grow"><strong class="mono small">${esc(o.id)}</strong><small class="clamp-2">${esc(plain(o.short))}</small></div>${ico('chevR', 'sm')}</button>`).join('')}</div></div></details></li>`;
   }).join('')}</ol>`;
-  return card(`Grafo de dependencias <span class="chip" data-tone="teal">${plural(frds.length, 'FRD', 'FRDs')}</span>`, `${dagLevels('frd')}<p class="small faint show-sm" style="margin-bottom:12px">Los FRDs en el orden en que se pueden construir. Abre uno para ver de qué depende, qué desbloquea y sus work orders.</p><p class="small faint hide-sm dag-note" style="margin-bottom:12px">Cada caja es un FRD con sus work orders en el orden de su cadena. Las líneas entre cajas agrupan las dependencias entre FRDs: el número dice cuántas, y «⇄» las que van en sentido contrario. Pulsa el título de un FRD para verlo en detalle, o una orden para abrirla.</p>
+  return card(`Grafo de dependencias <span class="chip" data-tone="teal">${plural(frds.length, 'FRD', 'FRDs')}</span>`, `${dagLevels('frd')}<p class="small faint show-sm" style="margin-bottom:12px">Los FRDs en el orden en que se pueden construir. Abre uno para ver de qué depende, qué desbloquea y sus work orders.</p><p class="small faint hide-sm dag-note" style="margin-bottom:12px">Cada caja es un FRD con sus work orders en el orden de su cadena. Las líneas entre cajas agrupan las dependencias entre FRDs: el número dice cuántas, y «⇄» las que van en sentido contrario. Pulsa el título de un FRD para verlo en detalle, o una work order para abrirla.</p>
     <div class="dag" tabindex="0" role="region" aria-label="Mapa de dependencias entre FRDs, desplazable"><div class="dag-canvas" style="width:${W}px;height:${H}px"><svg class="dag-edges" width="${W}" height="${H}" aria-hidden="true">${cross}</svg>${boxHtml}${cards}</div></div>${linkList}`, { icon: 'link', tone: 'teal' });
 }
 /**
@@ -1446,10 +1671,10 @@ function depsView(p) {
   const downs = f ? p.orders.filter(o => o.deps.includes(f.id)) : [];
   const mini = o => `<button type="button" class="lrow" data-focus="${esc(o.id)}"><span class="state-dot" data-tone="${stateOf(o.state).tone}"><span class="dot"></span></span><div class="grow"><strong class="mono small">${esc(o.id)}</strong><small class="clamp-2">${esc(plain(o.short))}</small></div></button>`;
   const frds = p.frds.filter(x => x.orders.length);
-  return `<div class="dag-wrap">${card(`Grafo de dependencias <span class="chip" data-tone="teal">${plural(scoped.length, 'orden', 'órdenes')}</span>`, `${dagLevels('wo')}<div class="row wrap" style="gap:12px;margin-bottom:12px"><label class="field" style="min-width:240px"><span class="sr-only">Filtrar por FRD</span><select id="dag-frd" aria-label="Filtrar el grafo por FRD"><option value="">Todos los FRDs</option>${frds.map(x => `<option value="${esc(x.group)}" ${x.group === frd ? 'selected' : ''}>${x.code} · ${esc(x.title)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label><span class="small faint grow hide-sm dag-note">De izquierda a derecha: lo que va primero → lo que desbloquea. Pulsa una orden para ver su cadena.</span><span class="small faint grow show-sm">Por pasos: cada paso se puede construir cuando termina el anterior. Pulsa una orden para ver de qué depende y qué desbloquea.</span>${focusId ? `<button type="button" class="link small" data-focus="">${ico('x', 'sm')}Quitar foco</button>` : ''}</div>
+  return `<div class="dag-wrap">${card(`Grafo de dependencias <span class="chip" data-tone="teal">${plural(scoped.length, 'work order', 'work orders')}</span>`, `${dagLevels('wo')}<div class="row wrap" style="gap:12px;margin-bottom:12px"><label class="field" style="min-width:240px"><span class="sr-only">Filtrar por FRD</span><select id="dag-frd" aria-label="Filtrar el grafo por FRD"><option value="">Todos los FRDs</option>${frds.map(x => `<option value="${esc(x.group)}" ${x.group === frd ? 'selected' : ''}>${x.code} · ${esc(x.title)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label><span class="small faint grow hide-sm dag-note">De izquierda a derecha: lo que va primero → lo que desbloquea. Pulsa una work order para ver su cadena.</span><span class="small faint grow show-sm">Por pasos: cada paso se puede construir cuando termina el anterior. Pulsa una work order para ver de qué depende y qué desbloquea.</span>${focusId ? `<button type="button" class="link small" data-focus="">${ico('x', 'sm')}Quitar foco</button>` : ''}</div>
       <div class="dag" tabindex="0" role="region" aria-label="Grafo de dependencias, desplazable"><div class="dag-canvas" style="width:${width}px;height:${height}px"><svg class="dag-edges" width="${width}" height="${height}" aria-hidden="true">${edges}</svg>${nodes}</div></div>
-      <div class="dag-list">${cols.map((c, i) => `<p class="eyebrow">Paso ${i + 1} · ${plural(c.length, 'orden', 'órdenes')}</p><div class="divided">${c.map(o => `<button type="button" class="lrow ${o.id === focusId ? 'is-focus' : ''} ${focusId && !lit.has(o.id) ? 'dim' : ''}" data-focus="${esc(o.id)}" aria-pressed="${o.id === focusId}"><span class="state-dot" data-tone="${stateOf(o.state).tone}"><span class="dot"></span></span><div class="grow"><strong class="mono small">${esc(o.id)}</strong><small class="clamp-2">${esc(plain(o.short))}</small></div></button>`).join('')}</div>`).join('')}</div>`, { icon: 'link', tone: 'teal' })}
-    ${f ? `<section class="card dag-side" aria-label="Orden en foco"><div class="dag-focus"><div class="row wrap" style="gap:8px">${stateChip(f.state)}<b class="mono">${esc(f.id)}</b></div><p class="small">${inl(f.short)}</p><button type="button" class="btn sm" data-wo="${esc(f.id)}">Abrir orden${ico('arrow', 'sm')}</button></div><div><p class="eyebrow">Depende de · ${ups.length}</p><div class="divided">${ups.map(mini).join('') || '<p class="small faint">Es un punto de partida.</p>'}</div></div><div><p class="eyebrow">Desbloquea · ${downs.length}</p><div class="divided">${downs.map(mini).join('') || '<p class="small faint">Nada depende de ella.</p>'}</div></div></section>` : ''}</div>`;
+      <div class="dag-list">${cols.map((c, i) => `<p class="eyebrow">Paso ${i + 1} · ${plural(c.length, 'work order', 'work orders')}</p><div class="divided">${c.map(o => `<button type="button" class="lrow ${o.id === focusId ? 'is-focus' : ''} ${focusId && !lit.has(o.id) ? 'dim' : ''}" data-focus="${esc(o.id)}" aria-pressed="${o.id === focusId}"><span class="state-dot" data-tone="${stateOf(o.state).tone}"><span class="dot"></span></span><div class="grow"><strong class="mono small">${esc(o.id)}</strong><small class="clamp-2">${esc(plain(o.short))}</small></div></button>`).join('')}</div>`).join('')}</div>`, { icon: 'link', tone: 'teal' })}
+    ${f ? `<section class="card dag-side" aria-label="Work order en foco"><div class="dag-focus"><div class="row wrap" style="gap:8px">${stateChip(f.state)}<b class="mono">${esc(f.id)}</b></div><p class="small">${inl(f.short)}</p><button type="button" class="btn sm" data-wo="${esc(f.id)}">Abrir work order${ico('arrow', 'sm')}</button></div><div><p class="eyebrow">Depende de · ${ups.length}</p><div class="divided">${ups.map(mini).join('') || '<p class="small faint">Es un punto de partida.</p>'}</div></div><div><p class="eyebrow">Desbloquea · ${downs.length}</p><div class="divided">${downs.map(mini).join('') || '<p class="small faint">Nada depende de ella.</p>'}</div></div></section>` : ''}</div>`;
 }
 
 /* ---------- Documentos ---------- */
@@ -1463,7 +1688,7 @@ function docGroups(p) {
 }
 function documentsView(p, ctx) {
   if (!p?.docs.length) return empty('No hay documentos publicados para este proyecto.', 'file');
-  if (P('doc') && !p.docs.some(d => d.id === P('doc'))) return notFound('Este documento no está en la captura', `No hay un documento «${esc(P('doc'))}» en ${esc(p.short)}.`, ctx.screen === 'idea' ? href('idea', { idea: P('idea'), tab: 'Documentos' }) : href('portfolio', { project: p.id, tab: 'Documentos' }), 'Ver documentos');
+  if (P('doc') && !p.docs.some(d => d.id === P('doc'))) return notFound('Este documento no existe en el proyecto', `No hay un documento «${esc(P('doc'))}» en ${esc(p.short)}.`, ctx.screen === 'idea' ? href('idea', { idea: P('idea'), tab: 'Documentos' }) : href('portfolio', { project: p.id, tab: 'Documentos' }), 'Ver documentos');
   const sel = p.docs.find(d => d.id === P('doc')) || getDoc(p, 'docs/product/prd.md') || p.docs[0];
   const t = DOC_TYPES[docType(sel)];
   const groups = docGroups(p);
@@ -1479,8 +1704,8 @@ function documentsView(p, ctx) {
 
 /* ---------- Comandos ---------- */
 const BUILD_MODES = [
-  { flag: '', label: 'Equilibrado', tag: 'default', icon: 'layers', power: 2, hint: 'Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x.' },
-  { flag: 'pro', label: 'Pro', tag: 'pro', icon: 'clock', power: 1, hint: '1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para plan Pro.' },
+  { flag: '', label: 'Equilibrado', tag: 'por defecto', icon: 'layers', power: 2, hint: 'Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x.' },
+  { flag: 'pro', label: 'Pro', tag: 'pro', icon: 'clock', power: 1, hint: '1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para el plan Pro.' },
   { flag: 'powerful', label: 'Potente', tag: 'powerful', icon: 'bolt', power: 3, hint: 'Hasta 5 agentes en paralelo → avanza más rápido. Para Max 20x.' },
   { flag: 'deep', label: 'Profundo', tag: 'deep', icon: 'diamond', power: 4, hint: 'Mejores modelos en todos + revisión adversarial extra. Para un proyecto especial.' },
 ];
@@ -1494,10 +1719,10 @@ function commandsView(p) {
   const targets = [...p.frds.map(f => ({ id: f.code, label: `${f.code} · ${f.title}` })), ...p.orders.filter(w => w.state !== 'done').map(w => ({ id: w.id, label: `${w.id} · ${plain(w.short)}` })), ...p.changesList.filter(c => ['ready', 'draft', 'building'].includes(c.status)).map(c => ({ id: 'change:' + c.id, label: `Cambio · ${plain(c.title)}` }))];
   const step = (tone, icon, label, command) => `<div class="cmd-step" data-tone="${tone}"><p class="cmd-l">${ico(icon, 'sm')}${label}</p>${cmd(command)}</div>`;
   return `<div class="grid-2 cmd-page"><div class="stack">
-    ${card('Siguiente paso', (p.commands || []).map(c => `<div class="stack sm" style="margin-bottom:12px"><p class="small muted">${esc(c.when)}</p>${cmd(c.command)}</div>`).join('') || empty('No hay comandos de fase para este proyecto.'), { icon: 'arrow', tone: phaseOf(p.phase).tone })}
+    ${card('Siguiente paso', [nextStep(p), ...(p.commands || [])].filter((c, k, all) => c && all.findIndex(x => x?.command === c.command) === k).map(c => `<div class="stack sm" style="margin-bottom:12px"><p class="small muted">${esc(c.when)}</p>${cmd(c.command)}</div>`).join('') || empty('No hay comandos de fase para este proyecto.'), { icon: 'arrow', tone: phaseOf(p.phase).tone })}
     ${card('Modo de construcción', buildModePicker(p), { icon: 'bolt', tone: 'violet' })}
   </div><div class="stack">
-    ${card('Construir un objetivo concreto', `<p class="small muted card-intro">Elige un FRD, una orden pendiente o un cambio de la cola para acotar el build.</p><label class="field" style="margin-bottom:12px"><span class="sr-only">Objetivo</span><select id="cmd-target" aria-label="Objetivo del build"><option value="">Elige un FRD o work order…</option>${targets.map(t => `<option value="${esc(t.id)}" ${t.id === target ? 'selected' : ''}>${esc(t.label).slice(0, 90)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label>${cmd(target ? `/pandacorp:implement ${target}` : '/pandacorp:implement <id>')}`, { icon: 'target', tone: 'teal' })}
+    ${card('Construir un objetivo concreto', `<p class="small muted card-intro">Elige un FRD, una work order pendiente o un cambio de la cola para acotar el build.</p><label class="field" style="margin-bottom:12px"><span class="sr-only">Objetivo</span><select id="cmd-target" aria-label="Objetivo del build"><option value="">Elige un FRD o work order…</option>${targets.map(t => `<option value="${esc(t.id)}" ${t.id === target ? 'selected' : ''}>${esc(t.label).slice(0, 90)}</option>`).join('')}</select>${ico('chevD', 'sm')}</label>${cmd(target ? `/pandacorp:implement ${target}` : '/pandacorp:implement <id>')}`, { icon: 'target', tone: 'teal' })}
     ${card('Cambios y decisiones', `<div class="stack">${step('pink', 'branch', 'Pedir un cambio o un bug', '/pandacorp:change')}${step('amber', 'flag', 'Responder una decisión pendiente', '/pandacorp:decide')}${step('violet', 'rocket', 'Paquete grande o rediseño', '/pandacorp:new-version')}<p class="xs faint row" style="gap:6px">${ico('copy', 'sm')}Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta.</p></div>`, { icon: 'branch', tone: 'pink' })}
   </div></div>`;
 }
@@ -1624,9 +1849,10 @@ function backlogView(b) {
   const prioTile = (k, label, hint) => { const [pl, pt] = PRIORITY[k]; const n = openAll.filter(i => i.priority === k && i.status === 'open').length; return `<button type="button" class="state-tile" data-tone="${pt}" data-bfilter="pri" data-val="${pri === k ? '' : k}" aria-pressed="${pri === k}"><span class="lbl"><span class="dot"></span>${pl} · ${label}</span><b>${n}</b><small class="faint">${hint}</small></button>`; };
   const areas = Object.entries(openAll.reduce((acc, i) => { const k = areaOf(i); acc[k] = (acc[k] || 0) + 1; return acc; }, {})).sort((x, y) => y[1] - x[1]);
   const maxA = areas[0]?.[1] || 1;
-  const sec = (k, label) => { const list = open.filter(i => i.priority === k); return list.length ? `<p class="band-sub">${PRIORITY[k][0]} · ${label} <span class="faint">${list.length}</span></p><div class="divided">${moreList('bl-' + k, list, row, k === 'p2' ? 10 : 20)}</div>` : ''; };
+  const KNOWN_PRIORITIES = ['p0', 'p1', 'p2'];
+  const sec = (k, label) => { const list = open.filter(i => (k ? i.priority === k : !KNOWN_PRIORITIES.includes(i.priority))); return list.length ? `<p class="band-sub">${k ? `${PRIORITY[k][0]} · ` : ''}${label} <span class="faint">${list.length}</span></p><div class="divided">${moreList('bl-' + (k || 'none'), list, row, k === 'p2' || !k ? 10 : 20)}</div>` : ''; };
   const filtered = pri || ty || area;
-  return `<div class="stack lg">
+  return `<div class="stack lg">${backlogErrors(b)}
     <div class="state-strip" role="group" aria-label="Filtrar por prioridad">${prioTile('p0', 'urgente', 'arréglalo primero')}${prioTile('p1', 'importante', 'pronto, de a uno')}${prioTile('p2', 'cuando haya tiempo', 'mejoras y detalles')}</div>
     <div class="grid-2">
       ${card('Por tema', `<p class="small muted card-intro">Dónde se concentran los arreglos. Clic para filtrar.</p><div class="area-bars" role="group" aria-label="Filtrar por tema">${areas.map(([k, n]) => `<button type="button" class="area-bar" data-barea="${esc(k)}" aria-pressed="${area === k}"><span class="area-name">${esc(k)}</span><span class="area-track"><span style="width:${Math.round((n / maxA) * 100)}%"></span></span><b>${n}</b></button>`).join('')}</div>`, { icon: 'layers', tone: 'blue' })}
@@ -1634,10 +1860,21 @@ function backlogView(b) {
     </div>
     <div class="toolbar"><div class="chipset" role="group" aria-label="Tipo">${[['', 'Todo tipo', 'slate'], ['bug', 'Bugs', 'coral'], ['change', 'Mejoras', 'blue']].map(([v, l, t]) => `<button type="button" class="chipbtn" data-tone="${t}" data-bfilter="type" data-val="${v}" aria-pressed="${ty === v}">${l}${v ? ` <span class="n">${openAll.filter(i => i.type === v).length}</span>` : ''}</button>`).join('')}</div><span class="grow"></span>${filtered ? `<button type="button" class="link small" data-action="backlog-clear">${ico('x', 'sm')}Quitar filtros</button>` : ''}<span class="small faint">${plural(open.length + doing.length, 'ítem', 'ítems')}</span></div>
     ${doing.length ? card(`En curso <span class="chip" data-tone="violet">${doing.length}</span>`, `<div class="divided">${doing.map(row).join('')}</div>`, { icon: 'bolt', tone: 'violet' }) : ''}
-    ${card(`Abiertos <span class="chip" data-tone="blue">${open.length}</span>`, open.length ? `${sec('p0', 'urgente')}${sec('p1', 'importante')}${sec('p2', 'cuando haya tiempo')}` : empty('Nada abierto con este filtro.', 'check'), { icon: 'list', tone: 'blue' })}
+    ${card(`Abiertos <span class="chip" data-tone="blue">${open.length}</span>`, open.length ? `${sec('p0', 'urgente')}${sec('p1', 'importante')}${sec('p2', 'cuando haya tiempo')}${sec('', 'Sin prioridad')}` : empty('Nada abierto con este filtro.', 'check'), { icon: 'list', tone: 'blue' })}
     <details class="card"><summary class="row between" style="cursor:pointer;list-style:none"><h2 class="row"><span class="badge-icon sm" data-tone="green">${ico('archive', 'sm')}</span>Hechos y descartados <span class="chip" data-tone="green">${hist.length}</span></h2>${ico('chevD', 'sm')}</summary><div class="divided" style="margin-top:12px">${moreList('bl-hist', hist, row, 15)}</div></details>
-    ${b.errors?.length ? `<div class="notice" data-tone="coral">${ico('alert')}<p>${b.errors.map(esc).join('<br>')}</p></div>` : ''}
   </div>`;
+}
+const BACKLOG_STATUS = { open: 'Abierto', doing: 'En curso', done: 'Hecho', discarded: 'Descartado' };
+const PROMOTION_LABEL = { proposed: 'propuesta', promoted: 'promovida', rejected: 'rechazada' };
+const EVAL_GATE_LABEL = { 'awaiting-2nd': 'Espera un segundo proyecto', corroborated: 'Corroborada' };
+/**
+ * Read errors of the backlog (AC-22-004.2/.3): each names its file and reason, and the items that could be read
+ * are still listed. A duplicate id keeps the first file and reports the second.
+ */
+function backlogErrors(b) {
+  if (!b.errors?.length) return '';
+  const row = e => typeof e === 'string' ? esc(e) : `<code>${esc(e.file)}</code>: ${esc(e.reason)}`;
+  return `<div class="notice" data-tone="coral" role="alert">${ico('alert')}<div class="grow"><b>${plural(b.errors.length, 'archivo del backlog no se pudo leer', 'archivos del backlog no se pudieron leer')}</b><ul class="issue-list">${b.errors.map(e => `<li class="small">${row(e)}</li>`).join('')}</ul><p class="xs muted">Los demás ítems sí se leyeron y aparecen abajo; los que fallan no se cuentan.</p></div></div>`;
 }
 /** Plain-language names for the backlog's area codes. */
 const BACKLOG_AREA = { 'build-engine': 'Motor de construcción', 'plugin-skill': 'Skills', templates: 'Plantillas de proyecto', hooks: 'Controles automáticos', 'plugin-hooks': 'Controles automáticos', standards: 'Estándares', 'mission-control': 'Mission Control', 'plugin-agent': 'Agentes', plugin: 'Plugin', otros: 'Otros' };
@@ -1826,18 +2063,20 @@ function statsView(g) {
   const fbar = (n, label, tone) => `<div class="fn-row" data-tone="${tone}"><span class="fn-bar" style="width:${Math.max(4, Math.round((n / fmax) * 100))}%"></span><span class="small"><b>${n}</b> ${label}</span></div>`;
   const trans = inf.transitions.ok ? inf.transitions.value.slice(-12) : [];
   const usage = inf.usage.ok ? inf.usage.value : null;
+  // An unreadable event stream is an error, distinct from a stream with no usage events yet (AC-10-022.3).
+  const usageError = inf.usage.ok ? '' : `<div class="notice" data-tone="coral" role="alert">${ico('alert')}<div class="grow"><b>No se pudo leer el registro de uso</b><p class="small"><code>~/.claude/dashboard-events.ndjson</code>${inf.usage.error ? `: ${esc(inf.usage.error)}` : ''}. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.</p></div></div>`;
   return `<div class="stack lg">
     ${bandHead('Resumen ejecutivo', 'El pulso de la fábrica')}
     <section class="card" data-tone="teal"><div class="card-head"><h3><span class="badge-icon sm">${ico('activity', 'sm')}</span>El pulso de la fábrica</h3></div><p class="verdict">${esc(inf.verdict)}</p>
-      <div class="kpis">${kpi('Work orders verificados / semana', p.woPerWeek, ' últ. sem', `${delta >= 0 ? '↗' : '↘'} ${p.woPerWeek} vs ${p.woPrevWeek} la previa`, 'teal')}${kpi('Proyectos activos', p.wip, ' en curso', esc(p.wipLabel || ''), 'violet')}${kpi('Conversión', p.conversionPct, '% idea→lanzado', `${p.launched} lanzada de ${p.totalIdeas}`, 'blue')}${kpi('Lead time', '—', ' idea→release', 'no cableado')}</div></section>
+      <div class="kpis">${kpi('Work orders verificadas / semana', p.woPerWeek, ' últ. sem', `${delta >= 0 ? '↗' : '↘'} ${p.woPerWeek} vs ${p.woPrevWeek} la previa`, 'teal')}${kpi('Proyectos activos', p.wip, ' en curso', esc(p.wipLabel || ''), 'violet')}${kpi('Conversión', p.conversionPct, '% idea→lanzado', `${p.launched} lanzada de ${p.totalIdeas}`, 'blue')}${kpi('Lead time', '—', ' idea→release', 'no cableado')}</div></section>
     <div class="stats-top"><section class="card radar-card" data-tone="gold"><div class="card-head"><h3><span class="badge-icon sm">${ico('radar', 'sm')}</span>Atributos del gremio</h3></div>${radarSvg(st.radar || {})}</section>
       <div class="hstats">${hero('shipped', 'Productos lanzados', 'rocket', rows.get('shipped')?.value ?? 0, 'tu marca del gremio')}${hero('streak', 'Racha récord', 'flame', rows.get('streak')?.value ?? 0, 'semanas seguidas')}${hero('speed', 'Récord idea→launch', 'bolt', rows.get('speed')?.value || '—', 'días, lo más rápido')}${hero('', 'Pico semanal', 'trophy', st.records?.peakWeek ?? 0, 'work orders en la mejor semana')}${hero('', 'Lecciones', 'book', st.records?.capturedLessons ?? 0, 'capturadas en memoria')}${hero('subagents', 'Subagentes', 'users', st.records?.subagents ?? 0, 'coordinados en total')}</div></div>
     <p class="small muted row" style="gap:6px;margin:0">${ico('alert', 'sm')}«Sin datos aún»: la fábrica todavía no registra ese tipo de evento (gates, reviews, días activos…). No es un cero medido.</p>
     <div class="ledgers">${LEDGER.map(([title, icon, tone, items]) => `<section class="card ledger" data-tone="${tone}"><div class="card-head"><h3><span class="badge-icon sm">${ico(icon, 'sm')}</span>${title}</h3></div><ul>${items.map(ledgerRow).join('')}</ul></section>`).join('')}</div>
     ${bandHead('En el tiempo, de verdad', '¿Cómo voy semana a semana?')}
-    ${wf ? `<div class="grid-2"><section class="card" data-tone="teal"><div class="card-head"><h3><span class="badge-icon sm">${ico('chart', 'sm')}</span>Work orders verificados por semana</h3></div>${columns(wf.woVerified, 'teal', 'work orders')}${insight(`Pico de ${wf.peakWeek} en una semana; la última semana con datos cerró ${wf.woVerified.at(-1)?.count ?? 0}.`)}</section><section class="card" data-tone="violet"><div class="card-head"><h3><span class="badge-icon sm">${ico('bulb', 'sm')}</span>Ideas capturadas por semana</h3></div>${lineChart(wf.ideasCaptured, 'violet', 'ideas')}${insight('Las ideas llegan a ráfagas, no de forma continua.')}</section></div>` : `<div class="notice" data-tone="coral">${ico('alert')}<p>No se pudo leer la serie semanal.</p></div>`}
+    ${wf ? `<div class="grid-2"><section class="card" data-tone="teal"><div class="card-head"><h3><span class="badge-icon sm">${ico('chart', 'sm')}</span>Work orders verificadas por semana</h3></div>${columns(wf.woVerified, 'teal', 'work orders')}${insight(`Pico de ${wf.peakWeek} en una semana; la última semana con datos cerró ${wf.woVerified.at(-1)?.count ?? 0}.`)}</section><section class="card" data-tone="violet"><div class="card-head"><h3><span class="badge-icon sm">${ico('bulb', 'sm')}</span>Ideas capturadas por semana</h3></div>${lineChart(wf.ideasCaptured, 'violet', 'ideas')}${insight('Las ideas llegan a ráfagas, no de forma continua.')}</section></div>` : `<div class="notice" data-tone="coral">${ico('alert')}<p>No se pudo leer la serie semanal.</p></div>`}
     ${bandHead('Cómo usas la fábrica', '¿En qué me apoyo y a qué coste?')}
-    <div class="grid-2"><section class="card" data-tone="violet"><div class="card-head"><h3><span class="badge-icon sm">${ico('layers', 'sm')}</span>Workflows y skills más usados</h3></div>${usage?.workflows?.length ? `<ul class="hbars">${usage.workflows.map(w => `<li><span>${esc(w.name || w.label)}</span><b>${esc(w.count)}</b></li>`).join('')}</ul>` : `<p class="small muted">Sin eventos de uso en el registro todavía: este bloque se llena cuando las skills emiten su evento.</p>`}</section><section class="card" data-tone="blue"><div class="card-head"><h3><span class="badge-icon sm">${ico('bolt', 'sm')}</span>Esfuerzo de los agentes</h3></div>${usage?.effort?.length ? `<ul class="hbars">${usage.effort.map(e => `<li><span>${esc(e.name || e.label)}</span><b>${esc(e.count)}</b></li>`).join('')}</ul>` : `<p class="small muted">Sin registro de esfuerzo por agente todavía.</p>`}</section></div>
+    ${usageError}<div class="grid-2"><section class="card" data-tone="violet"><div class="card-head"><h3><span class="badge-icon sm">${ico('layers', 'sm')}</span>Workflows y skills más usados</h3></div>${usage?.workflows?.length ? `<ul class="hbars">${usage.workflows.map(w => `<li><span>${esc(w.name || w.label)}</span><b>${esc(w.count)}</b></li>`).join('')}</ul>` : `<p class="small muted">${usageError ? 'Sin datos: el registro no se pudo leer.' : 'Sin eventos de uso en el registro todavía: este bloque se llena cuando las skills emiten su evento.'}</p>`}</section><section class="card" data-tone="blue"><div class="card-head"><h3><span class="badge-icon sm">${ico('bolt', 'sm')}</span>Esfuerzo de los agentes</h3></div>${usage?.effort?.length ? `<ul class="hbars">${usage.effort.map(e => `<li><span>${esc(e.name || e.label)}</span><b>${esc(e.count)}</b></li>`).join('')}</ul>` : `<p class="small muted">${usageError ? 'Sin datos: el registro no se pudo leer.' : 'Sin registro de esfuerzo por agente todavía.'}</p>`}</section></div>
     ${bandHead('Embudo y flujo', '¿Dónde se atascan las ideas y los proyectos?')}
     <div class="grid-2"><section class="card" data-tone="teal"><div class="card-head"><h3><span class="badge-icon sm">${ico('target', 'sm')}</span>Embudo ideas → lanzado</h3></div><div class="funnel-x">${fbar(f.totalIdeas, 'capturadas', 'teal')}${fbar(alive, 'vivas', 'blue')}${fbar(f.byStatus['in-pipeline'] || 0, 'en pipeline', 'violet')}${fbar(f.launched, f.launched === 1 ? 'lanzada' : 'lanzadas', 'green')}</div>${insight('El cuello está en decidir y arrancar: pocas ideas entran al pipeline.')}</section>
       <section class="card" data-tone="blue"><div class="card-head"><h3><span class="badge-icon sm">${ico('branch', 'sm')}</span>Transiciones de fase por proyecto</h3></div>${trans.length ? `<ul class="trans">${trans.slice(0, UI.more.trans || 10).map(t => `<li><span class="xs faint nowrap tr-d">${esc(fmtDate(t.date))}</span><span class="tr-p">${esc(t.project)}</span><span class="tr-f">${esc(phaseOf(t.from).label)} ${t.isReopen ? '↺' : '→'} <b>${esc(phaseOf(t.to).label)}</b></span>${t.isReopen ? chip('Reapertura', 'amber') : ''}</li>`).join('')}</ul>${moreList('trans', trans, () => '', 10)}` : '<p class="small muted">Sin transiciones registradas.</p>'}</section></div>
@@ -1889,7 +2128,7 @@ function manualHome(pages) {
   const guides = pages.filter(m => m.group === 'guides');
   return pageHead('Documentación', 'El manual de la fábrica. Empieza por el tutorial, resuelve tareas con las guías y entiende el porqué con los conceptos.', { eyebrow: LIVE ? `<span class="stamp"><span class="dot"></span>Páginas renderizadas por la app servida en local · ${esc(fmtStamp(LIVE.capturedAt))}</span>` : projectStamp() })
     + `<div class="stack lg">
-    <label class="field search docs-search">${ico('search', 'sm')}<input id="manual-search" type="search" placeholder="Buscar en ${pages.length} páginas…" aria-label="Buscar en todo el Manual" value="${esc(UI.manualQ)}"></label>
+    <label class="field search docs-search">${ico('search', 'sm')}<input id="manual-search" type="search" placeholder="Buscar en ${pages.length} páginas…" aria-label="Buscar en toda la Documentación" value="${esc(UI.manualQ)}"></label>
     ${q ? card(`Resultados <span class="chip" data-tone="slate">${hits.length}</span>`, hits.length ? `<div class="divided">${hits.map(m => { const [, gl, t, ic] = groupOf(m); return `<a class="lrow" href="${href('documentacion', { page: m.slug })}"><span class="badge-icon sm" data-tone="${t}">${ico(ic, 'sm')}</span><div class="grow"><strong>${esc(m.title)}</strong><small class="clamp-2">${esc(snippet(m))}</small></div>${chip(gl, t)}</a>`; }).join('')}</div>` : empty('Ninguna página habla de eso.', 'search'), { icon: 'search', tone: 'slate' }) : `
     <div class="grid-2 docs-pair">
       ${card('Empieza aquí', `<p class="small muted card-intro">Si es tu primera vez, el tutorial te lleva de cero a tu primer proyecto en ${plural(tut.length, 'paso', 'pasos')}.</p><ol class="docs-steps">${tut.map((m, i) => `<li><a href="${href('documentacion', { page: m.slug })}"><span class="docs-n">${i + 1}</span><span class="grow"><b>${esc(m.title)}</b><small class="muted clamp-2">${esc(firstSentence((manualPlain().get(m.slug) || '').replace(m.title, '').trim().slice(0, 220)))}</small></span>${ico('arrow', 'sm')}</a></li>`).join('')}</ol>
@@ -1903,13 +2142,13 @@ function manualHome(pages) {
 function manual() {
   const pages = MANUAL_GROUPS.flatMap(([g]) => SNAP.manual.filter(m => m.group === g));
   if (!P('page')) return manualHome(pages);
-  if (P('page') && !pages.some(m => m.slug === P('page')) && !REFERENCE_PAGES.some(r => r.slug === P('page'))) return pageHead('Documentación', '') + notFound('Esta página no existe', `El Manual no tiene una página «${esc(P('page'))}».`, '#documentacion', 'Ir al inicio del Manual');
+  if (P('page') && !pages.some(m => m.slug === P('page')) && !REFERENCE_PAGES.some(r => r.slug === P('page'))) return pageHead('Documentación', '') + notFound('Esta página no existe', `La Documentación no tiene una página «${esc(P('page'))}».`, '#documentacion', 'Ir al inicio de la Documentación');
   const sel = pages.find(m => m.slug === P('page')) || pages[0];
   const [, gl, tone, icon] = MANUAL_GROUPS.find(g => g[0] === sel.group) || ['', sel.group, 'slate', 'book'];
   const idx = pages.indexOf(sel);
   const live = LIVE?.pages?.[sel.slug];
   const q = UI.manualQ.trim().toLowerCase();
-  const index = `<nav class="doc-index" id="doc-index" aria-label="Índice del Manual"><label class="field">${ico('search', 'sm')}<input id="manual-search" type="search" placeholder="Buscar en el Manual…" aria-label="Buscar en el Manual" value="${esc(UI.manualQ)}"></label>${MANUAL_GROUPS.map(([g, label, t, ic]) => { const list = pages.filter(m => m.group === g); return `<details class="dgroup" data-tone="${t}" data-doc-group open><summary>${ico('chevR', 'sm chev')}<span>${label}</span><span class="n">${list.length}</span></summary>${list.map(m => `<a class="ditem" data-tone="${t}" href="${href('documentacion', { page: m.slug })}" data-doc-text="${esc(manualText().get(m.slug) || m.title.toLowerCase())}" ${!q || (manualText().get(m.slug) || '').includes(q) ? '' : 'hidden'} ${m.slug === sel.slug ? 'aria-current="page"' : ''} style="text-decoration:none">${ico(ic)}<span>${esc(m.title)}</span></a>`).join('')}</details>`; }).join('')}<details class="dgroup" data-tone="slate" data-doc-group open><summary>${ico('chevR', 'sm chev')}<span>Referencia</span><span class="n">${REFERENCE_PAGES.length}</span></summary>${REFERENCE_PAGES.map(r => `<a class="ditem" data-tone="slate" href="${href('configuracion', { tab: r.tab })}" data-doc-text="${esc(r.title.toLowerCase())}" style="text-decoration:none">${ico('list')}<span>${esc(r.title)}</span></a>`).join('')}</details></nav>`;
+  const index = `<nav class="doc-index" id="doc-index" aria-label="Índice de la Documentación"><label class="field">${ico('search', 'sm')}<input id="manual-search" type="search" placeholder="Buscar en la Documentación…" aria-label="Buscar en la Documentación" value="${esc(UI.manualQ)}"></label>${MANUAL_GROUPS.map(([g, label, t, ic]) => { const list = pages.filter(m => m.group === g); return `<details class="dgroup" data-tone="${t}" data-doc-group open><summary>${ico('chevR', 'sm chev')}<span>${label}</span><span class="n">${list.length}</span></summary>${list.map(m => `<a class="ditem" data-tone="${t}" href="${href('documentacion', { page: m.slug })}" data-doc-text="${esc(manualText().get(m.slug) || m.title.toLowerCase())}" ${!q || (manualText().get(m.slug) || '').includes(q) ? '' : 'hidden'} ${m.slug === sel.slug ? 'aria-current="page"' : ''} style="text-decoration:none">${ico(ic)}<span>${esc(m.title)}</span></a>`).join('')}</details>`; }).join('')}<details class="dgroup" data-tone="slate" data-doc-group open><summary>${ico('chevR', 'sm chev')}<span>Referencia</span><span class="n">${REFERENCE_PAGES.length}</span></summary>${REFERENCE_PAGES.map(r => `<a class="ditem" data-tone="slate" href="${href('configuracion', { tab: r.tab })}" data-doc-text="${esc(r.title.toLowerCase())}" style="text-decoration:none">${ico('list')}<span>${esc(r.title)}</span></a>`).join('')}</details></nav>`;
   const inGroup = pages.filter(m => m.group === sel.group);
   const gi = inGroup.indexOf(sel);
   const neighbor = (m, dir) => m ? `<a class="lrow docs-nav" data-tone="${tone}" href="${href('documentacion', { page: m.slug })}" style="${dir === 'next' ? 'justify-content:flex-end;text-align:right' : ''}">${dir === 'prev' ? ico('back', 'sm') : ''}<div class="grow"><small>${dir === 'prev' ? 'Anterior' : 'Siguiente'} en ${esc(gl)}</small><strong>${esc(m.title)}</strong></div>${dir === 'next' ? ico('arrow', 'sm') : ''}</a>` : '<span style="flex:1"></span>';
@@ -1928,6 +2167,9 @@ const AGENT_SPRITES = new Set(['analytics', 'architect', 'backend-dev', 'copywri
    search first in every tab, and a Resumen hub that searches across all four. */
 const CFG_KIND = { skill: ['Habilidad', 'violet', 'bolt', 'Habilidades'], agent: ['Agente', 'blue', 'users', 'Agentes'], rule: ['Regla', 'pink', 'shield', 'Reglas de decisión'], standard: ['Estándar', 'teal', 'book', 'Estándares'] };
 const MODEL_INFO = { opus: ['Opus', 'blue', 'Juicio y diseño: decisiones difíciles, revisión y arquitectura.'], sonnet: ['Sonnet', 'blue', 'El caballo de batalla: construir, documentar, investigar.'], haiku: ['Haiku', 'blue', 'Trabajo mecánico y rápido.'], unknown: ['Modelo heredado', 'blue', 'Usa el modelo de la sesión que lo llama.'] };
+const EFFORT_LABEL = { high: 'alto', medium: 'medio', low: 'bajo' };
+const SKILL_SCOPE = { project: 'Dentro de un proyecto', factory: 'En la fábrica', unknown: 'Ámbito sin declarar' };
+const severityLabel = s => s === 'MUST' ? 'Obligatorio' : 'Recomendado';
 const STD_DOMAIN = { Programming: ['Programación', 'blue'], Technology: ['Tecnología', 'blue'], Architecture: ['Arquitectura', 'amber'], Design: ['Diseño', 'pink'], 'Product/Docs': ['Producto y docs', 'violet'], Quality: ['Calidad', 'green'], Security: ['Seguridad', 'coral'], 'Data/Privacy': ['Datos y privacidad', 'coral'], Operation: ['Operación', 'teal'], Other: ['Otros', 'slate'] };
 const cfgMatch = (q, ...fields) => !q || fields.join(' ').toLowerCase().includes(q);
 const cfgSearch = (placeholder, n, total, noun) => `<div class="toolbar"><label class="field search">${ico('search', 'sm')}<input id="cfg-search" type="search" placeholder="${placeholder}" aria-label="${placeholder}" value="${esc(UI.cfgQ)}"></label><span class="grow"></span><span class="small faint">${n === total ? plural(total, noun[0], noun[1]) : `${n} de ${total}`}</span></div>`;
@@ -1949,7 +2191,7 @@ function configHub(c) {
     ...c.skills.filter(k => cfgMatch(q, k.name, k.description)).map(k => ({ kind: 'skill', id: k.slug, title: k.name, sub: k.description, attr: `data-skill="${esc(k.slug)}"` })),
     ...c.agents.filter(a => cfgMatch(q, a.name, a.description)).map(a => ({ kind: 'agent', id: a.id, title: a.name, sub: a.description, attr: `data-agent="${esc(a.id)}"` })),
     ...c.rules.filter(r => cfgMatch(q, r.id, r.title, r.default)).map(r => ({ kind: 'rule', id: r.id, title: `${r.id} · ${r.title}`, sub: r.default || '', href: href('configuracion', { tab: 'Reglas de decisión' }) })),
-    ...c.standards.filter(x => cfgMatch(q, x.title, x.id)).map(x => ({ kind: 'standard', id: x.id, title: x.title, sub: `${x.severity} · ${x.id}`, attr: `data-standard="${esc(x.id)}"` })),
+    ...c.standards.filter(x => cfgMatch(q, x.title, x.id)).map(x => ({ kind: 'standard', id: x.id, title: x.title, sub: `${severityLabel(x.severity)} · ${x.id}`, attr: `data-standard="${esc(x.id)}"` })),
   ] : [];
   const tile = (kind, n, parts, tab) => { const [, tone, icon, label] = CFG_KIND[kind]; return `<a class="cfg-tile" data-tone="${tone}" href="${href('configuracion', { tab })}"><span class="cfg-ico">${ico(icon)}</span><span class="cfg-l">${label}</span><b>${n}</b><span class="xs muted">${parts}</span></a>`; };
   const models = Object.entries(c.agents.reduce((acc, a) => { acc[a.model] = (acc[a.model] || 0) + 1; return acc; }, {})).map(([m, n]) => `${n} ${(MODEL_INFO[m] || [m])[0].toLowerCase()}`).join(' · ');
@@ -1976,13 +2218,13 @@ function agentsView(c) {
   const list = c.agents.filter(a => cfgMatch(q, a.name, a.description, a.model));
   const tiers = ['opus', 'sonnet', 'haiku', 'unknown'];
   return `${cfgSearch('Buscar agente…', list.length, c.agents.length, ['agente', 'agentes'])}
-    <div class="stack lg">${tiers.map(t => { const rows = list.filter(a => (MODEL_INFO[a.model] ? a.model : 'unknown') === t); const [label, tone, hint] = MODEL_INFO[t]; return rows.length ? `<section class="saga" style="margin-top:0"><h2 class="saga-head" data-tone="${tone}">${ico('users', 'sm')}<span>${label}</span><span class="saga-line"></span><span class="xs faint">${plural(rows.length, 'agente', 'agentes')}</span></h2><p class="small muted era-tag">${hint}</p><div class="agent-grid">${rows.map(a => `<button type="button" class="agent-card" data-tone="${tone}" data-agent="${esc(a.id)}">${AGENT_SPRITES.has(a.id) ? `<img src="assets/${esc(a.id)}.png" alt="" width="44" height="44">` : `<span class="pav md" data-tone="${tone}">${esc(a.id.slice(0, 2).toUpperCase())}</span>`}<span class="grow"><b>${esc(a.name)}</b>${a.effort ? `<span class="xs faint">esfuerzo ${esc(a.effort)}</span>` : ''}<small class="clamp-2 muted">${esc(firstSentence(a.description))}</small></span></button>`).join('')}</div></section>` : ''; }).join('') || empty('Ningún agente coincide.', 'search')}</div>`;
+    <div class="stack lg">${tiers.map(t => { const rows = list.filter(a => (MODEL_INFO[a.model] ? a.model : 'unknown') === t); const [label, tone, hint] = MODEL_INFO[t]; return rows.length ? `<section class="saga" style="margin-top:0"><h2 class="saga-head" data-tone="${tone}">${ico('users', 'sm')}<span>${label}</span><span class="saga-line"></span><span class="xs faint">${plural(rows.length, 'agente', 'agentes')}</span></h2><p class="small muted era-tag">${hint}</p><div class="agent-grid">${rows.map(a => `<button type="button" class="agent-card" data-tone="${tone}" data-agent="${esc(a.id)}">${AGENT_SPRITES.has(a.id) ? `<img src="assets/${esc(a.id)}.png" alt="" width="44" height="44">` : `<span class="pav md" data-tone="${tone}">${esc(a.id.slice(0, 2).toUpperCase())}</span>`}<span class="grow"><b>${esc(a.name)}</b>${a.effort ? `<span class="xs faint">esfuerzo ${esc(EFFORT_LABEL[a.effort] || a.effort)}</span>` : ''}<small class="clamp-2 muted">${esc(firstSentence(a.description))}</small></span></button>`).join('')}</div></section>` : ''; }).join('') || empty('Ningún agente coincide.', 'search')}</div>`;
 }
 function rulesView(c) {
   const q = UI.ruleQ.trim().toLowerCase();
   const list = c.rules.filter(r => (!UI.ruleApproval || r.approval === UI.ruleApproval) && (!q || `${r.id} ${r.title} ${r.default || ''}`.toLowerCase().includes(q)));
-  return `<div class="toolbar"><label class="field search">${ico('search', 'sm')}<input id="rule-search" type="search" placeholder="Buscar regla…" aria-label="Buscar regla" value="${esc(UI.ruleQ)}"></label><div class="chipset" role="group" aria-label="Aprobación">${[['', 'Todas', c.rules.length], ['auto', 'Automáticas', c.rules.filter(r => r.approval === 'auto').length], ['human', 'Requieren al owner', c.rules.filter(r => r.approval === 'human').length]].map(([v, l, n]) => `<button type="button" class="chipbtn" data-tone="${v === 'human' ? 'amber' : 'green'}" data-rule-approval="${v}" aria-pressed="${UI.ruleApproval === v}">${l} <span class="n">${n}</span></button>`).join('')}</div><span class="grow"></span><span class="small faint" id="rule-count">${plural(list.length, 'regla', 'reglas')}</span></div>
-    <div class="card flush"><div class="divided" id="rule-list">${moreList('rules', list, r => `<details class="plan-row rule-row"><summary><span class="mono faint rule-id" style="font-size:12px;min-width:62px">${esc(r.id)}</span><span class="grow">${inl(r.title)}</span>${r.domain ? chip(esc(r.domain), '', 'plain') : ''}${chip(r.approval === 'human' ? 'Owner' : 'Auto', r.approval === 'human' ? 'amber' : 'green')}</summary><div><p class="small muted">${inl(r.default || 'Sin valor por defecto registrado.')}</p>${r.summary ? `<p class="small faint">${inl(r.summary)}</p>` : ''}</div></details>`, 30) || `<div style="padding:16px">${empty('Ninguna regla coincide.', 'search')}</div>`}</div></div>`;
+  return `<div class="toolbar"><label class="field search">${ico('search', 'sm')}<input id="rule-search" type="search" placeholder="Buscar regla…" aria-label="Buscar regla" value="${esc(UI.ruleQ)}"></label><div class="chipset" role="group" aria-label="Aprobación">${[['', 'Todas', c.rules.length], ['auto', 'Automáticas', c.rules.filter(r => r.approval === 'auto').length], ['human', 'Requieren tu OK', c.rules.filter(r => r.approval === 'human').length]].map(([v, l, n]) => `<button type="button" class="chipbtn" data-tone="${v === 'human' ? 'amber' : 'green'}" data-rule-approval="${v}" aria-pressed="${UI.ruleApproval === v}">${l} <span class="n">${n}</span></button>`).join('')}</div><span class="grow"></span><span class="small faint" id="rule-count">${plural(list.length, 'regla', 'reglas')}</span></div>
+    <div class="card flush"><div class="divided" id="rule-list">${moreList('rules', list, r => `<details class="plan-row rule-row"><summary><span class="mono faint rule-id" style="font-size:12px;min-width:62px">${esc(r.id)}</span><span class="grow">${inl(r.title)}</span>${r.domain ? chip(esc(r.domain), '', 'plain') : ''}${chip(r.approval === 'human' ? 'Tu OK' : 'Auto', r.approval === 'human' ? 'amber' : 'green')}</summary><div><p class="small muted">${inl(r.default || 'Sin valor por defecto registrado.')}</p>${r.summary ? `<p class="small faint">${inl(r.summary)}</p>` : ''}</div></details>`, 30) || `<div style="padding:16px">${empty('Ninguna regla coincide.', 'search')}</div>`}</div></div>`;
 }
 function standardsView(c) {
   const q = UI.cfgQ.trim().toLowerCase();
@@ -2032,6 +2274,8 @@ function afterRender() {
   });
   $$('.md h1').forEach(h => { const h2 = document.createElement('h2'); h2.innerHTML = h.innerHTML; h.replaceWith(h2); });
   markScrollables();
+  // The captured Manual keeps the app's markup but not its sprite URLs; an image with no source would render as an empty box.
+  $$('.manual-live img:not([src])').forEach(img => img.remove());
   $$('.manual-live h1').forEach(h => { const h2 = document.createElement('h2'); h2.innerHTML = h.innerHTML; h2.style.fontSize = '26px'; h.replaceWith(h2); });
   // The captured Manual carries the app's own inline 10–11 px labels; the study keeps the 12 px reading floor.
   $$('.manual-live [style*="font-size"]').forEach(el => { if (parseFloat(getComputedStyle(el).fontSize) < 12) el.style.fontSize = '12px'; });
@@ -2069,9 +2313,9 @@ function dialog(title, html, opts = {}) {
   $('#dlg-close').focus();
   $$('#dlg-body .md h1').forEach(h => { const h2 = document.createElement('h2'); h2.innerHTML = h.innerHTML; h.replaceWith(h2); });
 }
-function confirmDialog(title, text, verb, onConfirm) {
+function confirmDialog(title, text, verb, onConfirm, { reason = true } = {}) {
   confirmDialog.previous = $('#dlg').open ? { title: $('#dlg-title').innerHTML, body: $('#dlg-body').innerHTML } : null;
-  dialog(title, `<p class="muted">${text}</p><div><label class="lbl" for="reason">Motivo (opcional)</label><div class="field"><textarea id="reason" placeholder="Por qué…"></textarea></div></div><div class="notice" data-tone="slate">${ico('alert')}<p class="small">Esta maqueta no modifica archivos de la fábrica. En la app real esta acción escribe solo el campo acotado de su tarjeta.</p></div><div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-action="close-dialog">Cancelar</button><button type="button" class="btn danger" data-action="confirm">${verb}</button></div>`, { tone: 'coral', kicker: 'Confirmar' });
+  dialog(title, `<p class="muted">${text}</p>${reason ? `<div><label class="lbl" for="reason">Motivo (opcional)</label><div class="field"><textarea id="reason" placeholder="Por qué…"></textarea></div></div>` : ''}<div class="row" style="justify-content:flex-end"><button type="button" class="btn ghost" data-action="close-dialog">Cancelar</button><button type="button" class="btn danger" data-action="confirm">${verb}</button></div>`, { tone: 'coral', kicker: 'Confirmar' });
   confirmDialog.pending = onConfirm;
 }
 function toast(text) { const t = $('#toast'); t.innerHTML = `${ico('check', 'sm')}${esc(text)}`; t.hidden = false; clearTimeout(toast.timer); toast.timer = setTimeout(() => { t.hidden = true; }, 2600); }
@@ -2086,7 +2330,7 @@ function openDoc(id, ctxScreen) {
 }
 function openWo(id, projectId) {
   const p = findProject(projectId);
-  if (!p?.orders.some(w => w.id === id)) { toast('Esa orden no está publicada en la captura'); return; }
+  if (!p?.orders.some(w => w.id === id)) { toast('Esa work order no está publicada'); return; }
   go('portfolio', { project: p.id, tab: 'Observabilidad', wo: id, frd: state.screen === 'portfolio' ? P('frd') : '', view: state.screen === 'portfolio' ? P('view') : '', state: state.screen === 'portfolio' ? P('state') : '' });
 }
 
@@ -2095,6 +2339,8 @@ document.addEventListener('click', async event => {
   const el = event.target.closest('a, button, summary');
   if (!el) return;
   const d = el.dataset;
+  // The skip link moves focus only: its #content target is not a route for the hash router.
+  if (el.matches('.skip')) { event.preventDefault(); $('#content').focus(); return; }
 
   // Links inside rendered markdown: resolve project-relative documents, keep anchors in-page.
   const mdRoot = el.closest('.md');
@@ -2104,20 +2350,23 @@ document.addEventListener('click', async event => {
     if (!/^(https?:|mailto:)/.test(raw)) {
       event.preventDefault();
       const p = currentProject();
-      if (!p) { toast('Este enlace apunta a un archivo fuera de la captura'); return; }
+      if (!p) { toast('Este enlace apunta a un archivo fuera del proyecto'); return; }
       const base = (mdRoot.dataset.docBase || 'docs/x.md').split('/').slice(0, -1);
       let path = raw.replace(/^#doc:/, '').split('#')[0];
       path = decodeURIComponent(path);
       if (path.startsWith('/')) path = path.slice(1); else { const parts = [...base]; for (const part of path.split('/')) { if (part === '..') parts.pop(); else if (part !== '.') parts.push(part); } path = parts.join('/'); }
       const doc = p.docs.find(x => x.relPath === path) || p.docs.find(x => x.relPath.endsWith('/' + path.split('/').pop()));
-      if (doc) openDoc(doc.id, state.screen); else toast('El enlace apunta a un archivo que no está en la captura');
+      if (doc) openDoc(doc.id, state.screen); else toast('El enlace apunta a un archivo que no existe en el proyecto');
       return;
     }
     el.target = '_blank'; el.rel = 'noopener noreferrer';
     return;
   }
-  if (el.matches('[data-ext]')) { event.preventDefault(); toast('Enlace interno del Manual de la app'); return; }
+  if (el.matches('[data-ext]')) { event.preventDefault(); toast('Enlace interno de la Documentación de la app'); return; }
 
+  if (d.goto) { event.preventDefault(); closeDrawer(); if (location.hash !== '#inicio') { location.hash = '#inicio'; route(); } document.getElementById(d.goto)?.scrollIntoView({ block: 'start' }); return; }
+  if (d.account) { accountDetail(d.account); return; }
+  if (d.accFilter !== undefined) { UI.accFilter = d.accFilter; render(); return; }
   if (d.tabsScroll) { const bar = $('.tabs', el.closest('.tabs-wrap')); bar.scrollBy({ left: Number(d.tabsScroll) * bar.clientWidth * 0.6 }); return; }
   if (d.idoc) { patch({ doc: d.idoc === 'resumen' ? '' : d.idoc }); return; }
   if (d.phase !== undefined && (el.classList.contains('room') || el.classList.contains('ps-step'))) { patch({ phase: d.phase }); return; }
@@ -2153,20 +2402,21 @@ document.addEventListener('click', async event => {
   if (d.trophyCat !== undefined) { UI.trophyCat = d.trophyCat; render(); return; }
   if (d.ruleApproval !== undefined) { UI.ruleApproval = d.ruleApproval; render(); return; }
   if (el.hasAttribute('data-dismiss')) { const row = el.closest('.lrow'); row.hidden = true; toast('Oculta solo en este navegador'); return; }
-  if (d.decision) { const [pid, id] = d.decision.split('|'); const p = projectById(pid); const dec = p.decisions.find(x => x.id === id); dialog(inl(dec.title.replace(/^·\s*/, '')), `<div class="row wrap">${chip(dec.resolved ? 'Resuelta' : 'Pendiente', dec.resolved ? 'green' : 'amber')}${chip(esc(p.short), p.tone)}${chip(esc(fmtDate(dec.date)), '', 'plain')}</div>${dec.recommendation ? `<div class="notice" data-tone="blue">${ico('bulb')}<div><strong>Recomendación del agente</strong><p class="small" style="margin-top:4px">${inl(dec.recommendation)}</p></div></div>` : ''}<p class="small faint">La captura guarda el título, la fecha, el estado y la recomendación; el razonamiento y las opciones completas están en <code>.pandacorp/inbox/decisions.md</code> del proyecto.</p><p class="small muted">Las decisiones se responden en el proyecto con:</p>${cmd('/pandacorp:decide')}<a class="btn" data-close-dialog href="${href('portfolio', { project: p.id })}">Abrir ${esc(p.short)}${ico('arrow', 'sm')}</a>`, { tone: 'amber', kicker: `Decisión · ${esc(p.short)}` }); return; }
-  if (d.change) { const [pid, id] = d.change.split('|'); const p = projectById(pid); const c = p.changesList.find(x => x.id === id); const [label, tone] = CHANGE_STATES[c.status] || [c.status, 'slate']; const canDiscard = ['ready', 'draft'].includes(c.status); dialog(inl(c.title), `<div class="row wrap">${chip(esc(label), tone)}${chip(c.type === 'bug' ? 'Bug' : 'Cambio', c.type === 'bug' ? 'coral' : 'pink', 'outline')}${chip(esc(c.id), '', 'plain')}${c.frd ? chip(esc(c.frd), 'violet') : ''}</div><div class="md compact" data-tone="pink">${c.html}</div>${['ready', 'draft', 'building'].includes(c.status) ? `<p class="small muted">Construir solo este cambio:</p>${cmd(`/pandacorp:implement change:${c.id}`)}` : ''}${canDiscard ? `<div class="row" style="justify-content:flex-end"><button type="button" class="btn danger" data-action="discard-change">${ico('trash', 'sm')}Descartar cambio</button></div>` : ''}`, { tone: c.type === 'bug' ? 'coral' : 'pink', kicker: `${c.type === 'bug' ? 'Bug' : 'Cambio'} · ${esc(c.id)}` }); return; }
+  if (d.decision) { const [pid, id] = d.decision.split('|'); const p = projectById(pid); const dec = p.decisions.find(x => x.id === id); dialog(inl(dec.title.replace(/^·\s*/, '')), `<div class="row wrap">${chip(dec.resolved ? 'Resuelta' : 'Pendiente', dec.resolved ? 'green' : 'amber')}${chip(esc(p.short), p.tone)}${chip(esc(fmtDate(dec.date)), '', 'plain')}</div>${dec.recommendation ? `<div class="notice" data-tone="blue">${ico('bulb')}<div><strong>Recomendación del agente</strong><p class="small" style="margin-top:4px">${inl(dec.recommendation)}</p></div></div>` : ''}<p class="small faint">El título, la fecha, el estado y la recomendación se leen de <code>.pandacorp/inbox/decisions.md</code> del proyecto; ahí también están el razonamiento y las opciones completas.</p><p class="small muted">${dec.resolved ? 'Ya está resuelta. Si quieres revisarla, corre en el proyecto:' : 'Se responde en la carpeta del proyecto con:'}</p>${cmd(`/pandacorp:decide ${dec.id}`)}<a class="btn" data-close-dialog href="${href('portfolio', { project: p.id })}">Abrir ${esc(p.short)}${ico('arrow', 'sm')}</a>`, { tone: 'amber', kicker: `Decisión · ${esc(p.short)}` }); return; }
+  if (d.change) { const [pid, id] = d.change.split('|'); const p = projectById(pid); const c = p.changesList.find(x => x.id === id); const [label, tone] = CHANGE_STATES[c.status] || [c.status, 'slate']; const canDiscard = ['ready', 'draft'].includes(c.status); const dep = c.dependsOn ? (p.changesList.find(x => x.id === c.dependsOn) || p.orders.find(w => w.id === c.dependsOn)) : null; dialog(inl(c.title), `<div class="row wrap">${chip(esc(label), tone)}${chip(c.type === 'bug' ? 'Bug' : 'Cambio', c.type === 'bug' ? 'coral' : 'pink', 'outline')}${c.cls === 'expedite' ? chip(`${ico('bolt', 'sm')}Urgente`, 'amber') : ''}${chip(esc(c.id), '', 'plain')}${c.frd ? chip(esc(c.frd), 'violet') : ''}</div>${c.rebuildsVerified ? `<div class="notice" data-tone="amber" role="note">${ico('alert')}<div class="grow"><b>Rehace trabajo ya verificado</b><p class="small">Construirlo reabre work orders verificadas${c.frd ? ` de <code>${esc(c.frd)}</code>` : ''}: vuelven a pasar por la revisión de su FRD.</p></div></div>` : ''}${c.dependsOn ? `<p class="small"><span class="muted">Depende de:</span> ${dep?.title ? `<b>${inl(dep.title)}</b> <span class="faint mono">${esc(c.dependsOn)}</span>` : `<code>${esc(c.dependsOn)}</code>`}. Se construye cuando eso termine.</p>` : ''}<div class="md compact" data-tone="pink">${c.html}</div>${['ready', 'draft', 'building'].includes(c.status) ? `<p class="small muted">Construir solo este cambio:</p>${cmd(`/pandacorp:implement change:${c.id}`)}` : ''}${canDiscard ? `<div class="row" style="justify-content:flex-end"><button type="button" class="btn danger" data-action="discard-change">${ico('trash', 'sm')}Descartar cambio</button></div>` : ''}`, { tone: c.type === 'bug' ? 'coral' : 'pink', kicker: `${c.type === 'bug' ? 'Bug' : 'Cambio'} · ${esc(c.id)}` }); return; }
   if (d.adr) { const p = currentProject(); const adr = p?.adrs.find(a => String(a.id) === d.adr); if (adr) dialog(esc(adr.title || adr.id), `<div class="md" data-tone="amber">${adr.html}</div>`, { tone: 'amber', kicker: esc(String(adr.id).replace(/^ADR-?/i, 'ADR-')) }); return; }
-  if (d.lesson) { const all = EXTRAS.memory.streams.flatMap(s => s.items); const l = all.find(x => x.id === d.lesson); const [tl, tt] = LESSON_TYPE[l.type] || [l.type, 'slate']; dialog(esc(l.id), `<div class="row wrap">${chip(esc(tl), tt)}${l.domain ? chip(esc(l.domain), '', 'plain') : ''}${l.promotion ? chip(`Promoción: ${esc(l.promotion)}`, 'green') : ''}${l.evalGate ? chip(esc(l.evalGate), 'blue', 'outline') : ''}</div><p><strong>${inl(l.title)}</strong></p>${l.summary ? `<div class="notice" data-tone="blue">${ico('target')}<p class="small">${inl(l.summary)}</p></div>` : ''}${l.html ? `<div class="md compact">${l.html}</div>` : ''}${l.appliedIn?.length ? `<p class="small faint">Aplicada en: ${esc(l.appliedIn.join(', '))}</p>` : ''}${l.promotion === 'proposed' ? `<p class="small muted">Promoverla a estándar, regla o skill:</p>${cmd(`/pandacorp:learn ${l.id}`)}` : ''}`, { tone: tt, kicker: `Lección · ${esc(tl)}` }); return; }
-  if (d.backlog) { const it = EXTRAS.backlog.items.find(x => x.id === d.backlog); const [pl, pt] = PRIORITY[it.priority] || ['—', 'slate']; dialog(`${esc(it.id)} · ${inl(it.title)}`, `<div class="row wrap">${chip(pl, pt)}${chip(it.type === 'bug' ? 'Bug' : 'Cambio', it.type === 'bug' ? 'coral' : 'blue', 'outline')}${chip(esc(it.status), it.status === 'done' ? 'green' : it.status === 'doing' ? 'violet' : 'blue')}${it.area ? chip(esc(it.area), '', 'plain') : ''}</div><div class="md compact">${it.html}</div>${['open', 'doing'].includes(it.status) ? `${cmd(`/pandacorp:implement-backlog ${it.id}`)}${['open', 'doing'].includes(it.status) ? `<div class="row" style="justify-content:flex-end"><button type="button" class="btn danger" data-action="discard-backlog">${ico('trash', 'sm')}Descartar</button></div>` : ''}` : ''}`, { tone: it.type === 'bug' ? 'coral' : 'blue', kicker: `Backlog · ${pl}` }); return; }
+  if (d.lesson) { const all = EXTRAS.memory.streams.flatMap(s => s.items); const l = all.find(x => x.id === d.lesson); const [tl, tt] = LESSON_TYPE[l.type] || [l.type, 'slate']; dialog(esc(l.id), `<div class="row wrap">${chip(esc(tl), tt)}${l.domain ? chip(esc(l.domain), '', 'plain') : ''}${PROMOTION_LABEL[l.promotion] ? chip(`Promoción: ${PROMOTION_LABEL[l.promotion]}`, 'green') : ''}${l.evalGate ? chip(esc(EVAL_GATE_LABEL[l.evalGate] || l.evalGate), 'blue', 'outline') : ''}</div><p><strong>${inl(l.title)}</strong></p>${l.summary ? `<div class="notice" data-tone="blue">${ico('target')}<p class="small">${inl(l.summary)}</p></div>` : ''}${l.html ? `<div class="md compact">${l.html}</div>` : ''}${l.appliedIn?.length ? `<p class="small faint">Aplicada en: ${esc(l.appliedIn.join(', '))}</p>` : ''}${l.promotion === 'proposed' ? `<p class="small muted">Promoverla a estándar, regla o skill:</p>${cmd(`/pandacorp:learn ${l.id}`)}` : ''}`, { tone: tt, kicker: `Lección · ${esc(tl)}` }); return; }
+  if (d.backlog) { const it = EXTRAS.backlog.items.find(x => x.id === d.backlog); const [pl, pt] = PRIORITY[it.priority] || ['—', 'slate']; dialog(`${esc(it.id)} · ${inl(it.title)}`, `<div class="row wrap">${chip(pl, pt)}${chip(it.type === 'bug' ? 'Bug' : 'Mejora', it.type === 'bug' ? 'coral' : 'blue', 'outline')}${chip(BACKLOG_STATUS[it.status] || esc(it.status), it.status === 'done' ? 'green' : it.status === 'doing' ? 'violet' : it.status === 'discarded' ? 'slate' : 'blue')}${it.area ? chip(esc(BACKLOG_AREA[it.area] || it.area), '', 'plain') : ''}</div><div class="md compact">${it.html}</div>${['open', 'doing'].includes(it.status) ? `${cmd(`/pandacorp:implement-backlog ${it.id}`)}${['open', 'doing'].includes(it.status) ? `<div class="row" style="justify-content:flex-end"><button type="button" class="btn danger" data-action="discard-backlog">${ico('trash', 'sm')}Descartar</button></div>` : ''}` : ''}`, { tone: it.type === 'bug' ? 'coral' : 'blue', kicker: `Backlog · ${pl}` }); return; }
   if (d.trophy) { const t = EXTRAS.guild.trophies.find(x => x.id === d.trophy); dialog(esc(t.title), `<div class="row wrap">${t.rarity ? chip(esc(t.rarity), RARITY[t.rarity] || 'slate') : ''}${chip(esc(CATEGORY[t.category] || t.category), '', 'plain')}${t.unlocked ? chip(`${ico('check', 'sm')}Desbloqueado ${esc(fmtDate(t.unlockedAt))}`, 'green') : chip(`${ico('lock', 'sm')}Bloqueado`, '', 'plain')}</div><p>${esc(t.description || 'Sin condición publicada.')}</p>${t.project ? `<p class="small faint">Proyecto: ${esc(t.project)}</p>` : ''}`, { tone: 'gold', kicker: 'Trofeo' }); return; }
-  if (d.skill) { const k = EXTRAS.config.skills.find(x => x.slug === d.skill); dialog(`<span class="mono">${esc(k.name)}</span>`, `<div class="row wrap">${chip(esc(k.scope || 'sin ámbito'), 'violet')}${k.userInvocable === false ? chip('Motor interno', '', 'plain') : chip('Comando del owner', 'green')}</div><p class="muted">${esc(k.description)}</p>${k.agents?.length ? `<div class="row wrap"><span class="small faint">Agentes:</span>${k.agents.map(a => `<button type="button" class="chipbtn" data-agent="${esc(a)}">${esc(a)}</button>`).join('')}</div>` : ''}${k.userInvocable !== false ? cmd(k.name) : ''}<details><summary class="link">Definición completa</summary><div class="md compact" style="margin-top:12px">${k.html}</div></details>`, { tone: 'violet', kicker: 'Skill' }); return; }
-  if (d.agent) { const a = EXTRAS.config.agents.find(x => x.id === d.agent || x.name === d.agent); if (!a) { toast('Ese agente no está en la captura'); return; } const skills = EXTRAS.config.skills.filter(k => (k.agents || []).includes(a.id)); dialog(esc(a.name), `<div class="row wrap">${chip(esc(a.model), MODEL_TONE[a.model] || 'slate')}${a.effort ? chip(`esfuerzo ${esc(a.effort)}`, '', 'plain') : ''}</div><p class="muted">${esc(a.description)}</p>${a.tools?.length ? `<div class="row wrap"><span class="small faint">Herramientas:</span>${a.tools.map(t => chip(esc(t), '', 'plain')).join('')}</div>` : ''}${skills.length ? `<div class="row wrap"><span class="small faint">Lo usan:</span>${skills.map(k => `<button type="button" class="chipbtn" data-skill="${esc(k.slug)}">${esc(k.name)}</button>`).join('')}</div>` : ''}<details><summary class="link">Definición completa</summary><div class="md compact" style="margin-top:12px">${a.html}</div></details>`, { tone: MODEL_TONE[a.model] || 'slate', kicker: 'Agente' }); return; }
-  if (d.standard) { const s = EXTRAS.config.standards.find(x => x.id === d.standard); dialog(esc(s.title), `<div class="row wrap">${chip(esc(s.severity), s.severity === 'MUST' ? 'coral' : 'amber')}${chip(esc(s.domain), 'teal')}${chip(esc(s.enforcement || ''), '', 'plain')}</div><div class="md compact">${s.html}</div>`, { tone: 'teal', kicker: `Estándar · ${esc(s.domain)}` }); return; }
+  if (d.skill) { const k = EXTRAS.config.skills.find(x => x.slug === d.skill); dialog(`<span class="mono">${esc(k.name)}</span>`, `<div class="row wrap">${chip(esc(SKILL_SCOPE[k.scope || 'unknown'] || k.scope), 'violet')}${k.userInvocable === false ? chip('Motor interno', '', 'plain') : chip('Comando tuyo', 'green')}</div><p class="muted">${esc(k.description)}</p>${k.agents?.length ? `<div class="row wrap"><span class="small faint">Agentes:</span>${k.agents.map(a => `<button type="button" class="chipbtn" data-agent="${esc(a)}">${esc(a)}</button>`).join('')}</div>` : ''}${k.userInvocable !== false ? cmd(k.name) : ''}<details><summary class="link">Definición completa</summary><div class="md compact" style="margin-top:12px">${k.html}</div></details>`, { tone: 'violet', kicker: 'Habilidad' }); return; }
+  if (d.agent) { const a = EXTRAS.config.agents.find(x => x.id === d.agent || x.name === d.agent); if (!a) { toast('Ese agente no existe'); return; } const skills = EXTRAS.config.skills.filter(k => (k.agents || []).includes(a.id)); dialog(esc(a.name), `<div class="row wrap">${chip(esc((MODEL_INFO[a.model] || MODEL_INFO.unknown)[0]), MODEL_TONE[a.model] || 'blue')}${a.effort ? chip(`esfuerzo ${esc(EFFORT_LABEL[a.effort] || a.effort)}`, '', 'plain') : ''}</div><p class="muted">${esc(a.description)}</p>${a.tools?.length ? `<div class="row wrap"><span class="small faint">Herramientas:</span>${a.tools.map(t => chip(esc(t), '', 'plain')).join('')}</div>` : ''}${skills.length ? `<div class="row wrap"><span class="small faint">Lo usan:</span>${skills.map(k => `<button type="button" class="chipbtn" data-skill="${esc(k.slug)}">${esc(k.name)}</button>`).join('')}</div>` : ''}<details><summary class="link">Definición completa</summary><div class="md compact" style="margin-top:12px">${a.html}</div></details>`, { tone: MODEL_TONE[a.model] || 'slate', kicker: 'Agente' }); return; }
+  if (d.standard) { const s = EXTRAS.config.standards.find(x => x.id === d.standard); const dl = (STD_DOMAIN[s.domain] || [s.domain])[0]; dialog(esc(s.title), `<div class="row wrap">${chip(severityLabel(s.severity), s.severity === 'MUST' ? 'coral' : 'amber')}${chip(esc(dl), 'teal')}${s.enforcement ? chip(esc(s.enforcement), '', 'plain') : ''}</div><div class="md compact">${s.html}</div>`, { tone: 'teal', kicker: `Estándar · ${esc(dl)}` }); return; }
 
   const action = d.action;
   if (!action) return;
   if (action === 'drawer') { openDrawer(); return; }
   if (action === 'toggle-empty') { store.set('orbita-hide-empty', String(!hideEmpty())); render(); $('[data-action="toggle-empty"]')?.focus(); return; }
+  if (action === 'toggle-theme') { toggleTheme(); return; }
   if (action === 'toggle-sidebar') { store.set('orbita-sidebar', sidebarCollapsed() ? 'expanded' : 'collapsed'); renderSidebar(); $('[data-action="toggle-sidebar"]').focus(); return; }
   if (action === 'toggle-projects') { store.set('orbita-projects-open', String(!projectsOpen())); renderSidebar(); $('[data-action="toggle-projects"]').focus(); return; }
   if (action === 'projects') { openPicker(); return; }
@@ -2178,8 +2428,8 @@ document.addEventListener('click', async event => {
   if (action === 'capture') { dialog('Capturar ideas', `<p class="muted">Copia el comando según lo que quieras hacer y pégalo en Claude Code.</p>${[['Explorar una idea difusa conversando', '/pandacorp:explore'], ['Capturar una idea que ya tienes clara', '/pandacorp:new-idea'], ['Que la fábrica busque oportunidades', '/pandacorp:discover'], ['Pedir una recomendación de cartera', '/pandacorp:recommend']].map(([t, c]) => `<div class="stack sm"><span class="small muted">${t}</span>${cmd(c)}</div>`).join('')}`, { tone: 'violet', kicker: 'Ideas' }); return; }
   if (action === 'frd-toggle-all') { UI.frdAllOpen = !UI.frdAllOpen; render(); $('[data-action="frd-toggle-all"]').focus(); return; }
   if (action === 'backlog-clear') { UI.backlogPri = ''; UI.backlogType = ''; UI.backlogArea = ''; render(); return; }
-  if (action === 'discarded') { const list = IDEAS.filter(i => i.status === 'discarded'); dialog(`Ideas descartadas · ${list.length}`, `<div class="divided">${list.map(i => `<a class="lrow" data-close-dialog href="${href('idea', { idea: i.slug })}"><span class="badge-icon sm" data-tone="slate">${ico('archive', 'sm')}</span><div class="grow"><strong>${esc(i.title)}</strong><small>${esc(i.category || '')} · leer propuesta y restaurar</small></div>${ico('chevR', 'sm')}</a>`).join('')}</div>`, { tone: 'slate', kicker: 'Ideas' }); return; }
-  if (action === 'discard-idea' || action === 'restore-idea') { const i = IDEAS.find(x => x.slug === d.slug); const discard = action === 'discard-idea'; confirmDialog(discard ? 'Descartar idea' : 'Restaurar idea', discard ? `«${esc(i.title)}» pasará a la lista de descartadas. Podrás restaurarla después.` : `«${esc(i.title)}» volverá a su columna del tablero.`, discard ? 'Descartar' : 'Restaurar', () => toast(discard ? 'Simulado: la maqueta no descarta ideas' : 'Simulado: la maqueta no restaura ideas')); return; }
+  if (action === 'discarded') { const list = IDEAS.filter(i => i.status === 'discarded'); dialog(`Ideas descartadas · ${list.length}`, `<div class="divided">${list.map(i => `<a class="lrow" data-close-dialog href="${href('idea', { idea: i.slug })}"><span class="badge-icon sm" data-tone="slate">${ico('archive', 'sm')}</span><div class="grow"><strong>${esc(i.title)}</strong><small>${esc(i.category || '')} · leer propuesta y restaurar</small>${i.discardReason ? `<small class="clamp-2">Motivo: ${esc(i.discardReason)}</small>` : ''}</div>${ico('chevR', 'sm')}</a>`).join('')}</div>`, { tone: 'slate', kicker: 'Ideas' }); return; }
+  if (action === 'discard-idea' || action === 'restore-idea') { const i = IDEAS.find(x => x.slug === d.slug); const discard = action === 'discard-idea'; confirmDialog(discard ? 'Descartar idea' : 'Restaurar idea', discard ? `«${esc(i.title)}» pasará a la lista de descartadas. Podrás restaurarla después.` : `«${esc(i.title)}» volverá a su columna del tablero.`, discard ? 'Descartar' : 'Restaurar', () => toast(discard ? 'Simulado: la maqueta no descarta ideas' : 'Simulado: la maqueta no restaura ideas'), { reason: discard }); return; }
   if (action === 'discard-change') { confirmDialog('Descartar cambio', 'El cambio saldrá de la cola y quedará en el historial como descartado.', 'Descartar', () => toast('Simulado: la maqueta no modifica la cola')); return; }
   if (action === 'discard-backlog') { confirmDialog('Descartar del backlog', 'El ítem pasará a descartados con el motivo indicado.', 'Descartar', () => toast('Simulado: la maqueta no modifica el backlog')); return; }
 });
@@ -2215,6 +2465,7 @@ document.addEventListener('input', event => {
     $('#model-body').innerHTML = P('model') === 'Esquema' ? schemaHtml(p.model.model) : diagramHtml(p.model.model);
     layoutDiagram();
   }
+  if (el.id === 'acc-search') { UI.accQ = el.value; const pos = el.selectionStart; render(); const again = $('#acc-search'); again.focus(); again.setSelectionRange(pos, pos); return; }
   if (el.id === 'cfg-search') { UI.cfgQ = el.value; const pos = el.selectionStart; render(); const again = $('#cfg-search'); again.focus(); again.setSelectionRange(pos, pos); }
   if (el.id === 'std-domain') patch({ dom: el.value });
   if (el.id === 'rule-search') { UI.ruleQ = el.value; const pos = el.selectionStart; render(); const again = $('#rule-search'); again.focus(); again.setSelectionRange(pos, pos); }
@@ -2265,12 +2516,19 @@ $('#menu').onclick = () => openDrawer();
 $('#scrim').onclick = () => closeDrawer();
 matchMedia('(max-width: 759px)').addEventListener('change', syncDrawerA11y);
 
-function setTheme(theme) {
+/** Applies a theme without remembering it (the system preference and the ?theme= capture parameter use this). */
+function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   $('#theme').textContent = theme === 'dark' ? 'Tema claro' : 'Tema oscuro';
+  syncThemeButton();
+}
+/** Applies a theme the owner chose and remembers it in this browser. */
+function setTheme(theme) {
+  applyTheme(theme);
   store.set('orbita-theme', theme);
 }
-$('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+const toggleTheme = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+$('#theme').onclick = toggleTheme;
 window.addEventListener('message', event => {
   if (parent === window || event.source !== parent || event.data?.source !== 'mc-preview') return;
   const { kind, value } = event.data;
@@ -2279,10 +2537,49 @@ window.addEventListener('message', event => {
 });
 window.addEventListener('hashchange', route);
 
+/* ================= Fixture scenarios (oracle states) ================= */
+/**
+ * States the fixture cannot hold together with the approved default: a read error, an empty factory, a build
+ * that lost its signal. Each changes only the data named here, then recomputes and re-renders. The fidelity
+ * config triggers one with a `js` action (`applyScenario('<name>')`); the build reproduces it by seeding the
+ * same condition in its own fixture. Nothing in the interface calls these.
+ */
+const SCENARIOS = {
+  /** funko-tracker still claims `running: true`, but its supervisor heartbeat is 25 minutes old (DR-066). */
+  'build-no-signal': () => { projectById('funko-tracker').heartbeatAt = new Date(Date.parse(SNAP.capturedAt) - 25 * 60000).toISOString(); },
+  /** funko-tracker's last green commit is 14 commits and 26 hours behind the build's HEAD (FRD-14 staleness). */
+  'snapshot-stale': () => { projectById('funko-tracker').snapshotBehind = { commits: 14, hours: 26 }; },
+  /** The backlog reader reports a malformed card and a duplicate id; every other card still parses. */
+  'backlog-errors': () => { EXTRAS.backlog.errors = [{ file: 'BL-0029-show-the-merge-queue-position.md', reason: 'el frontmatter no es YAML válido' }, { file: 'BL-0013-wave-planner-retries.md', reason: 'id duplicado BL-0013, ya definido en BL-0013-stop-gate-blocked-on-another-session-s-red-files.md' }]; },
+  /** pandasaga's data-model.json references an attribute that does not exist. */
+  'model-invalid': () => { projectById('pandasaga').model = { kind: 'error', message: 'docs/product/data-model.json: la relación «order-customer» apunta al atributo «customerRef», que no existe en Order.' }; },
+  /** git could not be read for pandasaga's repository. */
+  'worktrees-unreadable': () => { const r = HEALTH.pending.find(x => x.id === 'pandasaga'); r.kind = 'error'; r.reason = 'git worktree list terminó con error'; r.items = []; },
+  /** The usage event stream exists but cannot be parsed. */
+  'stats-stream-error': () => { EXTRAS.guild.stats.informe.usage = { ok: false, error: 'la línea 214 no es JSON válido' }; },
+  /** The private accounts file breaks its contract and one project link points to an unknown account. */
+  'accounts-source-error': () => { SERVICES_DIR.issues.push({ code: 'invalid', source: 'services/accounts.yaml' }, { code: 'dangling', source: 'projects/pandacast/.pandacorp/accounts/services.yaml' }); },
+  /** pandacast's folder is gone from disk; the portfolio still lists its repository. */
+  'portfolio-path-missing': () => { projectById('pandacast').pathMissing = { path: '~/Proyectos/pandacast', repo: 'https://example.com/git/pandacast.git' }; },
+  /** A factory with no projects and no ideas yet (a fresh clone). */
+  'factory-empty': () => { PROJECTS.length = 0; IDEAS.length = 0; },
+  /** Nothing waits on the owner: every decision answered, every ready change already building. */
+  'home-calm': () => { for (const p of PROJECTS) { p.decisions.forEach(x => { x.resolved = true; }); p.changesList.forEach(c => { if (c.status === 'ready') c.status = 'building'; }); } },
+};
+function applyScenario(name) {
+  if (!SCENARIOS[name]) throw new Error(`Unknown scenario ${name}`);
+  SCENARIOS[name]();
+  derive();
+  render();
+}
+window.applyScenario = applyScenario;
+
 const qs = new URLSearchParams(location.search);
-const startTheme = ['light', 'dark'].includes(qs.get('theme')) ? qs.get('theme') : store.get('orbita-theme');
-if (startTheme) setTheme(startTheme);
-if (qs.get('demo') === 'off') $$('[data-demo-only]').forEach(x => { x.hidden = true; });
+const THEMES = ['light', 'dark'];
+const systemTheme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+applyTheme(THEMES.includes(qs.get('theme')) ? qs.get('theme') : THEMES.includes(store.get('orbita-theme')) ? store.get('orbita-theme') : systemTheme);
+// Demo scaffolding is hidden by a document flag, so controls re-rendered later stay hidden too.
+if (qs.get('demo') === 'off') document.documentElement.dataset.demo = 'off';
 achievementNotice();
 syncDrawerA11y();
 route();

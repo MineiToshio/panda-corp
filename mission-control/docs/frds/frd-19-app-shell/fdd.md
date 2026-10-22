@@ -1,80 +1,104 @@
 ---
 id: FDD-19
 type: fdd
-title: 'FDD-19 — Global app shell (feature design)'
-frd: FRD-19
+slug: app-shell
+title: Global app shell (persistent sidebar navigation)
 status: ACTIVE
-visual_source: docs/design/prototype/index.html
-last_updated: '2026-10-17'
+parent: FRD-19
+last_updated: '2026-10-22'
+prototype_blessed_at: ''
 ---
-# FDD-19 — Global app shell (feature design)
 
-Feature design for [FRD-19](./frd.md). The visual contract is the prototype `topbar()`
-(`docs/design/prototype/index.html` ~L646–652) — see [`mocks/`](./mocks/README.md). Nothing here is
-invented; this FDD shards the prototype's persistent topbar into the components MC will assemble,
-reusing existing primitives (DR-057).
+# FDD — FRD-19 Global app shell
 
-## Anatomy (prototype `topbar()`)
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Feature design on the frozen Órbita contract (`docs/design/design-tokens.json` + root `DESIGN.md`). It uses the global tokens and components; it defines none. Frozen FROM the approved prototype `docs/design/prototype/index.html` (Órbita, round 5, iteration 28), shard `mocks/app-shell.html`.
 
-One `rpgpanel` header surface, a responsive grid with margin-bottom 16px. Brand and top-right actions share the first row; phone/tablet destinations expand across a second row inside that same surface. Desktop destinations stay inline. Two visual groups:
+The shell is the persistent frame every screen mounts into. It belongs to no single surface: the foundation build constructs it first and `app/layout.tsx` mounts it once, so no route renders without it. It is the landmark `aside#sidebar` (accessible name "Navegación principal") plus, on phones, a sticky top bar and a bottom navigation. All six captured states render the shell around Inicio (and, in `shell-pending-chip`, around Tablero); the page content in the frame belongs to FRD-18 and FRD-02 and is not specified here.
 
-1. **Brand + guild (left).** Logo (44×44, radius 10, hairline border, soft accent glow) + a stacked
-   block: title "Pandacorp Mission Control" over the guild line (NV pill · rank title · compact XP
-   bar). The guild line IS the existing `GuildBar` module (FRD-09) — reused, rendered without its own
-   panel chrome (see `embedded` variant below).
-2. **Nav + proposals (right).** `display:flex; gap:5px; flex-wrap:wrap` of the six destination pills
-   (`tab()`), with the Propuestas pill carrying its open-count badge (`tabProp()` = the existing
-   `ProposalsBadge`).
+## Screens
 
-### The `.tab` pill visual (prototype L62–63, already in `Tabs.topTabStyle()`)
-```
-.tab    { padding:7px 13px; border-radius:8px; font-size:13px; border:1px solid transparent;
-          color:var(--text2); font-family:var(--display); font-weight:500 }
-.tab.on { background:var(--accent-bg); color:var(--accent-text) }   /* active */
-```
-The nav links replicate this exact treatment (tokens only — `--color-accent-bg` / `--color-accent-text`
-/ `--color-text2`). Active = the route the operator is on.
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Shell, expanded (desktop, tablet rail and phone) | The default frame: brand, pills, the seven destinations with counts, Proyectos, guild card and collapse control; at 768 the icon rail; at 375 the top bar and bottom navigation. Route `#inicio`. | `shell-expanded` | AC-19-001.1, AC-19-001.2, AC-19-001.3, AC-19-002.1, AC-19-003.1, AC-19-003.2, AC-19-003.3, AC-19-003.5, AC-19-004.1, AC-19-005.1, AC-19-005.2, AC-19-005.4 |
+| Shell, collapsed rail | The 64 px icon rail the owner chooses on desktop. | `shell-rail-collapsed` | AC-19-005.3 |
+| Shell, collapsed rail floating open | The rail opened over the page on pointer or focus, without moving the content. | `shell-rail-float` | AC-19-005.3 |
+| Shell, projects folded | The Proyectos group folded to its header. | `shell-projects-folded` | AC-19-005.1 |
+| Shell, phone drawer open | The sidebar as an off-canvas drawer over a scrim. | `shell-drawer-open` | AC-19-003.3, AC-19-003.4 |
+| Shell on another screen, with the pending-merge pill | The shell on Tablero with its alert pills, to show that it is the same frame on every route and that exactly one destination is active. Route `#tablero`. | `shell-pending-chip` | AC-19-001.1, AC-19-001.3, AC-19-002.1 |
 
-## Components (what gets built vs reused)
+**The sidebar** (`shell-expanded` at 1280, 252 px, on the second background level, sticky, full height), top to bottom:
 
-| Component | New / reused | Role |
-|---|---|---|
-| `CMP-19-app-shell` (`AppShell`) | **new** (module) | The `[data-app-shell]` topbar surface. Semantic `<header role="banner">` with the rpgpanel signature (inlined, exactly as `GuildBar` already does — consistent), composing the brand + GuildBar + Nav + ProposalsBadge, the phone/tablet toggle + integrated disclosure, and the skip link; wraps page content in `#main-content`. |
-| `CMP-19-nav` (`Nav`) | **new** (module) | The six `next/link` destinations styled with the `.tab` visual; active by `usePathname()` (`aria-current="page"` + active treatment). |
-| `GuildBar` (`CMP-09-guild-bar`) | **reused, extended** | Brand/level/XP. Gains an `embedded` variant that drops its own panel chrome + margin so it sits inside the shell (DR-057 "adapt/extend (add a variant)", not a fork). |
-| `ProposalsBadge` (`CMP-17-badge`) | **reused, extended** | The Propuestas destination + open-count badge (`tabProp()` = ONE pill, not a tab + a separate badge). Extended to a client `.tab` link: active by `usePathname()`, accessible name "Propuestas" (Shell-Presence Gate matches by exact label), count as a visible aria-hidden `CountBadge`. Placed by `Nav` in its 4th (prototype) position. |
-| `Panel`/rpgpanel visual (`CMP-13-panel`), `.tab` (`CMP-13-tabs`) | **reused (visual)** | The embossed surface signature and the pill treatment. |
+- **Brand:** the logo tile and "Pandacorp" over "MISSION CONTROL" in small caps; one link, accessible name "Pandacorp Mission Control: ir a Inicio".
+- **Pills:** two full-width pills with the alert icon. "Plugin desactualizado" (FRD-15, title "Instalado 9.140.0 · repositorio 9.141.0") and "17 pendientes · depurar ya" (FRD-21, alert variant; its title says 17 branches are not integrated into main and points to "Árboles de trabajo" on Inicio). Each links to Inicio and renders only when it applies; the pending pill is hidden when nothing is pending.
+- **Destinations** (`nav` "Secciones"), each a link with a tinted icon, the label and, where it has one, a count: "Inicio" 6 (amber alert variant, accessible name "6 asuntos esperan tu decisión"), "Tablero" 10, "Portafolio", "Propuestas" 4 (accessible name "4 cosas esperan tu decisión"), "Logros", "Documentación", "Configuración". The current one has `aria-current="page"`, a raised surface and a bolder label; exactly one is active at a time. Counts show what needs attention: the owner's items on Inicio, ideas on Tablero, the owner's actions on Propuestas (AC-19-005.2).
+- **Proyectos group:** the header "PROYECTOS" with the count 5 and a chevron (a toggle with title "Ordenados por último cambio"), then up to five project rows by last change: an initials avatar in the project's phase hue, the name and "Construcción · 81%" (phase and percentage), each row with the full accessible name "Funko Tracker: Construcción · 81% de work orders verificadas". When there are more than five, a link to the rest follows the list. The group remembers in this browser whether it is folded (AC-19-005.1).
+- **Guild card:** the level crest (22), "Portador de Luz III", "175 / 200 XP al nivel 23" and the gold progress bar; a link to Logros (FRD-09).
+- **Collapse control** at the bottom: "Colapsar" with an icon, accessible name "Colapsar la barra lateral".
+- **Theme button** in the same footer row (`.theme-btn`, AC-19-005.5): a sun or moon icon (sun in the dark theme, moon in the light), accessible name «Cambiar a tema claro» or «Cambiar a tema oscuro»; icon-only in the sidebar and the rail, a labelled row inside the phone drawer. It starts from the system preference and remembers the owner's choice.
 
-## Behavior
+**Tablet (768)** in `shell-expanded`: the same sidebar as a 76 px icon rail. Destinations show their icon over a mini label ("Inicio", "Tablero", "Portafolio", "Propuestas", "Logros", "Docs", "Ajustes"); the two pills shrink to their alert icon; projects show only their avatars; the guild card shows only its crest; Inicio carries an amber dot when it has owner items. No collapse control.
 
-- **Active state.** `usePathname()` → exact match per destination (`/` exact; the other five by exact
-  path). One active at a time; exempt/unknown routes → none active. Active link gets
-  `aria-current="page"` (meaning is not color-alone — accessibility.md).
-- **Responsive.** Above 1100px the nav is inline. At/below 1100px, a top-right 44px toggle beside the brand reveals a full-width row inside the same header: three columns, or two at/below 600px. Scoped `shell.module.css` owns this grid. Escape restores toggle focus; outside pointer, destination activation and route changes close the disclosure. Dedicated mobile/tablet checks qualify the shell without changing historical build-state platform declarations.
-- **Scope.** The shell renders on the six top-level surfaces; it is NOT rendered on the exempt
-  drill-ins (`/projects/**`, `/configuration`), which carry their own in-context header + back control.
-  The exempt match is computed from a single app-side constant mirrored in `e2e/shell.ts`.
-- **Onboarding gate.** When the profile is absent, `layout.tsx` renders `OnboardingGate` instead of
-  the shell (FRD-01) — the shell never sits behind the gate.
+**Phone (375)** in `shell-expanded`: no sidebar column. A sticky top bar holds the menu button (accessible name "Abrir menú", `aria-expanded`, `aria-controls="sidebar"`), the logo and the page name over "Mission Control". A sticky bottom navigation holds five items: "Inicio", "Tablero", "Portafolio", "Docs" and "Más" (a button that opens the drawer).
 
-## Application frame and tab widths (owner clarification, 2026-10-17)
+## States
 
-Retain the original centered 1240px maximum outer application frame, including its page gutters. Below that size it shrinks to the viewport; above it, header and page content stay centered together. Propuesta/Spec/Architecture panels use their host's full content width without the narrower 920px inner-panel cap. Long introductory prose retains readable line lengths. This corrects the earlier interpretation of "full width" as an unbounded application; model-only fullscreen still fills the browser.
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Expanded sidebar (≥ 1180 px) | As above, with the content in a frame of at most 1180 px and 40 px gutters. | `shell-expanded` | AC-19-003.1, AC-19-003.5 |
+| Icon rail (760 to 1179 px) | 76 px rail, mini labels, icon-only pills, avatars, crest. | `shell-expanded` | AC-19-003.2 |
+| Top bar and bottom navigation (≤ 759 px) | Sticky top bar and bottom navigation; the sidebar is off-canvas. | `shell-expanded` | AC-19-003.3 |
+| Collapsed by the owner | A 64 px rail with only icons: brand logo, the two pills as alert icons, the destination icons (Inicio with its amber dot while it has owner items), a hairline in place of the Proyectos header, project avatars, the guild crest, and the control now reading "Fijar abierta" (accessible name "Fijar abierta la barra lateral"). The content keeps its position. The choice is remembered in this browser. | `shell-rail-collapsed` | AC-19-005.3 |
+| Collapsed rail floating open | On pointer or focus the full sidebar (labels, pills, projects, guild card, "Fijar abierta") floats over the page with a soft shadow; the content underneath does not move. Moving away closes it. | `shell-rail-float` | AC-19-005.3 |
+| Projects folded | The Proyectos header becomes a rounded pill with the count 5 and a right-pointing chevron; the project rows are hidden; everything else is unchanged. | `shell-projects-folded` | AC-19-005.1 |
+| Phone drawer open | The sidebar slides in from the left, `min(300px, 86vw)` wide, over a dim scrim, with every destination, the pills, the Proyectos group and the guild card; the bottom navigation stays visible under the scrim. While closed the drawer is inert. | `shell-drawer-open` | AC-19-003.3, AC-19-003.4 |
+| Another route, alert pills | On Tablero the same sidebar shows "Tablero" as the only active destination, and both coral pills. | `shell-pending-chip` | AC-19-001.1, AC-19-002.1, AC-19-001.3 |
 
-## Accessibility
-- Landmarks: `<header role="banner">` for the shell, `<nav aria-label="Navegación principal">` for the
-  destinations; page content stays in each page's own single `<main>` (the shell does not add a second
-  `main`; it wraps content in `#main-content` as the skip target).
-- Skip link is the first focusable element → `#main-content` (WCAG 2.4.1).
-- Toggle: real `<button>`, `aria-expanded`, `aria-controls`, Spanish accessible label; the disclosure is
-  keyboard-operable.
-- Active destination conveyed by `aria-current`, not color alone.
-- Tokens only — zero hardcoded colors; light + dark both first-class (inherited from the tokens).
+Behaviour with no separate picture:
 
-## Out of scope (this FDD)
-- Responsive certification of every destination’s own kanban/table/canvas remains separate; this correction qualifies the shared header and scoped model surfaces.
-- Any change to the destinations' own pages beyond exposing a skip target.
+- The drawer closes on Escape (focus returns to its opener), on a pointer press outside it, on activating any destination (including the current route) and on a route change (AC-19-003.4).
+- An unmatched route (for example not-found) marks no destination active; the project workspace keeps Portafolio active (AC-19-002.2).
+- Navigation is client-side (`next/link`), not a full reload (AC-19-001.4). The first focusable element of the page is a keyboard skip link that moves focus to `main#content` in place, without routing (AC-19-001.5); it shows only on focus.
+- The onboarding gate (FRD-01), when the factory profile is absent, is the entire view and the shell does not render behind it. Propuestas keeps its place with no count when nothing waits for the owner.
+- The prototype footer text and capture stamp under the content are prototype-only and are not product copy; the build omits them.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Nav contract
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+Recorded from the prototype markup for the Shell-Presence Gate (`e2e/shell.ts`); the same list is in `docs/design/components.md` under "AppShell nav contract".
+
+- Landmark: `aside#sidebar`. No route is exempt from the shell.
+- Destinations, in order (label, app path, prototype hash): Inicio `/` `#inicio`; Tablero `/board` `#tablero`; Portafolio `/portfolio` `#portfolio`; Propuestas `/proposals` `#propuestas`; Logros `/achievements` `#logros`; Documentación `/manual` `#documentacion`; Configuración `/configuration` `#configuracion`.
+- Phone: drawer toggled by `#menu`, closed by Escape; bottom navigation Inicio, Tablero, Portafolio, Docs, Más.
+
+## Components used
+
+From `docs/design/components.md`: `AppShell`, `Sidebar`, `Nav`, `NavItem`, `ProjectNavItem`, `GuildCard`, `PluginPill`, `PendingPill`, `TopBar`, `BottomNav`, `SkipLink`, `Footer` (prototype text only, omitted by the build). All are already inventoried; nothing new. `PendingPill` is drawn by `shell-pending-chip`.
+
+## Interaction & flow
+
+1. Whatever screen the owner is on, every destination is one click away in the sidebar (rail, or drawer on phones), and the pills keep the two global warnings visible.
+2. On desktop the owner can press "Colapsar" to get the 64 px rail; hovering or focusing the rail floats it open, "Fijar abierta" pins it open again. The choice survives a reload.
+3. On a phone, the menu button or "Más" opens the drawer; choosing a destination closes it.
+4. The owner can fold the Proyectos group; that choice is remembered too.
+
+## Responsive & accessibility
+
+- Breakpoints from FRD-19: ≥ 1180 px expanded sidebar, 760 to 1179 px icon rail, ≤ 759 px top bar, bottom navigation and drawer. Captured at 375, 768 and 1280, light and dark; the collapsed, floating and folded states at 1280, the drawer at 375, the pending-pill state at 768 and 1280.
+- Every link has a target of at least 44 px by design on phones and the tablet rail (24 px is only the gated floor). The current destination is carried by `aria-current` and a bolder label, not colour alone; counts have full accessible names; pills carry the alert icon and text. Icon-only elements on the rails keep their accessible names.
+- Focus is never hidden under the sticky top bar. While the drawer is closed it is `inert`; open, focus moves in and Escape restores it to the opener.
+
+## Copy
+
+Strings are the prototype's, Spanish; keyed strings are in `docs/design/microcopy.es.json`. The short rail and bottom-navigation label for Documentación is "Docs" and for Configuración "Ajustes".
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar). Component catalogue `docs/design/prototype/components.html`; measured styles `docs/design/prototype/reference/computed-styles.json`; icons and logo `docs/design/prototype/{icons,logo}/`; copy `docs/design/microcopy.es.json`; whole-app prototype `docs/design/prototype/index.html`.
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-19-app-shell/mocks/app-shell.html` (sections `shell-expanded`, `shell-rail-collapsed`, `shell-rail-float`, `shell-projects-folded`, `shell-drawer-open`, `shell-pending-chip`); screenshots in `mocks/screenshots/` as `<id>-<width>-<theme>.jpg` (`shell-expanded` at 375, 768 and 1280; `shell-rail-collapsed`, `shell-rail-float` and `shell-projects-folded` at 1280; `shell-drawer-open` at 375; `shell-pending-chip` at 768 and 1280), light and dark.
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#inicio` (`#tablero` for the pending pill state); actions per state in `fidelity.config.json`.
+- **Oracle entries (`fidelity.config.json`, `frd-19-app-shell`):** `shell-expanded`, `shell-rail-collapsed`, `shell-rail-float`, `shell-projects-folded`, `shell-drawer-open`, `shell-pending-chip`.
+- **Reference files:** `docs/design/freeze/packs/frd-19.md`, `docs/design/freeze/packs/_global.md`, `docs/design/freeze/reconciliation.md` (C-01), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
+- **components.md rows:** `AppShell`, `Nav`, `Sidebar`, `NavItem`, `ProjectNavItem`, `GuildCard`, `PluginPill`, `PendingPill`, `TopBar`, `BottomNav`, `SkipLink`, `Footer`, and the section "AppShell nav contract".

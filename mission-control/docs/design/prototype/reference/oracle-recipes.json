@@ -1,0 +1,376 @@
+{
+  "schemaVersion": 1,
+  "task": "S2.6",
+  "states_file": "docs/design/prototype/reference/oracle-states.json",
+  "seed": {
+    "name": "fixture-factory",
+    "paths_relative_to": "project root (mission-control/)",
+    "factory_root": "docs/design/prototype/fixtures/factory-root",
+    "fixture_factory": "docs/design/prototype/fixtures (specs/ + scripts/make-fixtures.mjs regenerate it; docs/design/prototype/reference/fixtures/README.md points here)",
+    "clock": "2026-10-21T00:20:00.000Z",
+    "env": {
+      "PANDACORP_FACTORY_ROOT": "docs/design/prototype/fixtures/factory-root",
+      "HOME": "docs/design/prototype/fixtures/home",
+      "PANDACORP_EVENTS_FILE": "docs/design/prototype/fixtures/home/.claude/dashboard-events.ndjson",
+      "PANDACORP_CODEX_EVENTS_FILE": "docs/design/prototype/fixtures/home/.codex/dashboard-events.ndjson",
+      "PANDACORP_ACCOUNTS_FILE": "docs/design/prototype/fixtures/pandacorp-vault/services/accounts.yaml",
+      "GIT_DIR": "docs/design/prototype/fixtures/.no-git",
+      "GIT_CEILING_DIRECTORIES": "docs/design/prototype/fixtures",
+      "MC_CLOCK": "2026-10-21T00:20:00.000Z"
+    },
+    "env_source": "fixtureEnv() in docs/design/prototype/scripts/make-fixtures.mjs",
+    "git": "fixtureGit(repo) in make-fixtures.mjs answers from fixtures/git-state.json; real git is blocked by GIT_DIR (five repos: factory at /workspace/panda-corp, pandasaga, funko-tracker, pandacast, personal-page-v2 at /workspace/<id>)",
+    "mtime": "every fixture file carries mtime = clock minus 3 h (stampFixtureTimes); overlays must restore it",
+    "read_only": "the committed fixture is read-only for the build and the gate (DR-080); doubles are overlays on a temp copy"
+  },
+  "route_rules": {
+    "path_source": "src/lib/navigation/urls.ts + src/app/**/[...segments]/page.tsx (canonical path form; the legacy query form is also parsed)",
+    "map": {
+      "#inicio": "/",
+      "#tablero": "/board",
+      "#idea?idea=<id>&tab=<T>": "/board/<id>[/proposal|spec|architecture|documents|campaign]  (Propuesta, Spec, Arquitectura, Documentos, Campaña)",
+      "#portfolio[?view=lista|cuentas]": "/portfolio[?view=…]",
+      "#portfolio?project=<p>&tab=<T>": "/portfolio/<p>[/summary|spec|architecture|changes|observability|documents|commands|accounts]  (Resumen omitted, Spec, Arquitectura, Cambios, Observabilidad, Documentos, Comandos, Cuentas); `Work orders` is the legacy alias that lands on observability",
+      "#logros[?tab=<T>]": "/achievements[/missions|trophies|statistics|ranks]  (Resumen omitted)",
+      "#propuestas[?tab=<T>]": "/proposals[/memory|backlog]",
+      "#documentacion?page=<slug>": "/manual/<group>/<slug>  (group from the Manual snapshot: tutorial, guides, concepts, workflows)",
+      "#configuracion[?tab=<T>]": "/configuration[/skills|agents|rules|standards]",
+      "?achievement=preview#inicio": "/?achievement=preview"
+    },
+    "kept_verbatim": "query keys with no codec yet: view, model, state, frd, dag, focus, wo, woview, phase. Architecture fixes their final spelling; the oracle only needs the same visible state."
+  },
+  "doubles": {
+    "build-no-signal": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('build-no-signal')",
+      "what": "funko-tracker still claims running, but its supervisor heartbeat is 25 min old (DR-066).",
+      "recipe": [
+        "Overlay `projects/funko-tracker/.pandacorp/status.yaml`: keep `running: true`; set `supervisor_heartbeat: \"2026-10-20T23:55:00Z\"` (default fixture: `2026-10-21T00:12:00Z`, 8 min old)."
+      ],
+      "asserts": "Heartbeat age 25 min is above NO_SIGNAL_TTL_MS (10 min, src/lib/status/liveness.ts) so `isLive()` is false and the reader returns noSignal. Needs the frozen server clock.",
+      "oracle_text": "Sin señal · último evento hace 25 min",
+      "reader_today": "liveness band `no-signal` (language of the chip is a UI string)",
+      "surfaces": [
+        "Inicio project cards",
+        "Portafolio cards",
+        "Resumen La Fragua headline",
+        "snapshot panel `snap-now`"
+      ],
+      "used_by": [
+        "frd-03-portfolio/build-no-signal",
+        "frd-06-party/build-no-signal",
+        "frd-12-observability-dataviz/build-no-signal",
+        "frd-14-snapshot-and-feedback/build-no-signal",
+        "frd-18-dashboard/build-no-signal"
+      ]
+    },
+    "snapshot-stale": {
+      "kind": "git-double",
+      "scenario": "applyScenario('snapshot-stale')",
+      "what": "funko-tracker's last green commit (a41c09e2) is 14 commits and 26 hours behind the build's HEAD (FRD-14).",
+      "recipe": [
+        "Extend `fixtureGit(repo)` (docs/design/prototype/scripts/make-fixtures.mjs) for repo `funko-tracker` (root `/workspace/funko-tracker`): answer the probe's commits-behind query (`rev-list --count a41c09e2..HEAD`) with `14` and the last-green commit time (`log -1 --format=%ct a41c09e2`) with HEAD time minus 26 h.",
+        "Default profile must answer BELOW both thresholds (SNAPSHOT_STALE_COMMITS_THRESHOLD 10, SNAPSHOT_STALE_HOURS_THRESHOLD 24, inclusive), e.g. 3 commits and 5 h, so `project-snapshot` shows no stale notice. The committed git-state.json has no entry for this probe: the double adds it, the committed file is not edited."
+      ],
+      "asserts": "Both thresholds exceeded => `isSnapshotStale()` true => amber notice «Este commit quedó atrás del build».",
+      "oracle_text": "El build lleva 14 commits y 26 horas más.",
+      "reader_today": "WO-14-002 probe not built yet (snapshot.ts sets stale:false by default)",
+      "surfaces": [
+        "Resumen snapshot panel `#snapshot-panel`"
+      ],
+      "used_by": [
+        "frd-14-snapshot-and-feedback/project-snapshot-stale"
+      ]
+    },
+    "backlog-errors": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('backlog-errors')",
+      "what": "The backlog reader reports a malformed card and a duplicate id; every other card still parses.",
+      "recipe": [
+        "Add `factory-root/factory/backlog/BL-0029-show-the-merge-queue-position.md` whose frontmatter is not valid YAML (e.g. an unclosed quote: `title: \"Show the merge queue position`).",
+        "Add `factory-root/factory/backlog/BL-0013-wave-planner-retries.md` with valid frontmatter and `id: \"BL-0013\"` (already defined by `BL-0013-stop-gate-blocked-on-another-session-s-red-files.md`)."
+      ],
+      "asserts": "Two entries in the reader's `errors`, all 28 fixture cards still listed.",
+      "oracle_text": "el frontmatter no es YAML válido / id duplicado BL-0013, ya definido en BL-0013-stop-gate-blocked-on-another-session-s-red-files.md",
+      "reader_today": "`malformed YAML frontmatter` / `duplicate id BL-0013 (already defined in <file>)` (src/lib/backlog/backlog.ts): English reasons, the Spanish sentences must come from the UI copy",
+      "surfaces": [
+        "Propuestas > Backlog alert notice"
+      ],
+      "used_by": [
+        "frd-22-factory-backlog/backlog-errors"
+      ]
+    },
+    "model-invalid": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('model-invalid')",
+      "what": "pandasaga's data-model.json references an attribute that does not exist (DR-078).",
+      "recipe": [
+        "Overlay `projects/pandasaga/docs/product/data-model.json`: add entities `order` (attributes `id` only, no `customerRef`) and `customer`, plus relationship `order-customer` whose `to.attributes` is `[\"customerRef\"]` on `order`. Everything else unchanged."
+      ],
+      "asserts": "The reader returns `{kind:'error'}` (never an empty diagram); the rest of the Arquitectura tab stays usable.",
+      "oracle_text": "docs/product/data-model.json: la relación «order-customer» apunta al atributo «customerRef», que no existe en Order.",
+      "reader_today": "validator message (src/lib/architecture/data-model/validation.ts) is English; the Spanish sentence needs a message mapping, else the L3 compare masks the notice detail line",
+      "surfaces": [
+        "Arquitectura > Modelo de datos `#g-data .notice[data-tone=coral]`"
+      ],
+      "used_by": [
+        "frd-02-ideas-board/model-invalid",
+        "frd-04-project-workspace/model-invalid"
+      ]
+    },
+    "worktrees-unreadable": {
+      "kind": "git-double",
+      "scenario": "applyScenario('worktrees-unreadable')",
+      "what": "git could not be read for pandasaga's repository.",
+      "recipe": [
+        "`fixtureGit` for repo `pandasaga` (root `/workspace/pandasaga`) throws on `worktree list --porcelain` with the message `git worktree list terminó con error`; the other four repos answer from git-state.json as in the default profile."
+      ],
+      "asserts": "pendingMerge returns `{kind:'error', reason}` for that repo only; the others still list.",
+      "oracle_text": "git worktree list terminó con error",
+      "reader_today": "`git read failed: <message>` (src/lib/pendingMerge/pendingMerge.ts)",
+      "surfaces": [
+        "Inicio > Árboles de trabajo `#worktrees-card .notice`"
+      ],
+      "used_by": [
+        "frd-21-pending-merge/worktrees-unreadable"
+      ]
+    },
+    "stats-stream-error": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('stats-stream-error')",
+      "what": "The usage event stream exists but cannot be parsed.",
+      "recipe": [
+        "Overlay `home/.claude/dashboard-events.ndjson` (the file `PANDACORP_EVENTS_FILE` points at): keep the 6 valid default lines unchanged, then pad with blank lines up to physical line 213 and put one non-JSON line (`not json {`) at physical line 214. The padding must not add events, so every other statistic stays equal to the default profile.",
+        "If the reader numbers only non-blank lines, pad with valid events the statistics ignore instead, and check the rendered message reads «la línea 214 no es JSON válido»."
+      ],
+      "asserts": "The reader fails loud on the bad line (DR-078) and the Estadísticas tab shows the coral alert; it must not skip the line and show stats as if nothing happened.",
+      "oracle_text": "la línea 214 no es JSON válido",
+      "reader_today": "not verified (the stats read model was not opened for this task)",
+      "surfaces": [
+        "Logros > Estadísticas `.notice[data-tone=coral]`"
+      ],
+      "used_by": [
+        "frd-10-achievements-hall/stats-stream-error"
+      ]
+    },
+    "accounts-source-error": {
+      "kind": "reader-injection",
+      "scenario": "applyScenario('accounts-source-error')",
+      "what": "The private accounts file breaks its contract and one project link points to an unknown account, while every account stays listed.",
+      "recipe": [
+        "Cannot be reproduced by files alone: in `readServicesDirectory()` a broken `accounts.yaml` makes `parseAccounts` throw and leaves `accounts: []` (src/lib/services/services.ts), so the directory would be empty, not the oracle's full list with two notices.",
+        "Reproduce with a harness-level decorator around the request-scoped `getServicesDirectory()`: read the default fixture, then append `{code:'invalid', source:'services/accounts.yaml'}` and `{code:'dangling', source:'projects/pandacast/.pandacorp/accounts/services.yaml'}` to `issues`.",
+        "Also open FRD-26: today the reader emits only `missing`/`invalid` with sources `accounts` / `project:<name>`; the oracle shows `dangling` and file-path sources."
+      ],
+      "asserts": "Two issues rendered, all fixture accounts and allocations still present.",
+      "oracle_text": "issues invalid (services/accounts.yaml) + dangling (projects/pandacast/.pandacorp/accounts/services.yaml)",
+      "reader_today": "codes `missing`|`invalid` only; sources `accounts`, `project:<name>`",
+      "surfaces": [
+        "Portafolio > Cuentas `.notice[role=alert]`"
+      ],
+      "used_by": [
+        "frd-26-services-accounts/accounts-source-error"
+      ]
+    },
+    "portfolio-path-missing": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('portfolio-path-missing')",
+      "what": "pandacast's folder is gone from disk; the portfolio still lists its repository.",
+      "recipe": [
+        "Overlay `factory-root/factory/portfolio.md`: in the PandaCast row set Path to `~/Proyectos/pandacast` (the reader does not expand `~`, so the folder does not resolve under the fixture) and Repo to `https://example.com/git/pandacast.git`. Other rows unchanged."
+      ],
+      "asserts": "The row is kept (never dropped) and flagged path-missing with the repository shown.",
+      "oracle_text": "~/Proyectos/pandacast · https://example.com/git/pandacast.git",
+      "reader_today": "not verified (portfolio.ts has no path-missing flag yet)",
+      "surfaces": [
+        "Portafolio cards `.proj-card.is-missing`"
+      ],
+      "used_by": [
+        "frd-03-portfolio/portfolio-path-missing"
+      ]
+    },
+    "factory-empty": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('factory-empty')",
+      "what": "A factory with no projects and no ideas yet (a fresh clone).",
+      "recipe": [
+        "Overlay `factory-root/factory/portfolio.md`: keep the header and the table header, delete the five project rows.",
+        "Delete every `factory-root/factory/ideas/*.md` except `_idea-template.md` (underscore files are not ideas). Leave `backlog/`, `memory/`, `services/`, `profile.md` and the ledger untouched."
+      ],
+      "asserts": "Inicio shows the first-action empty state (`.first-action`); nothing throws.",
+      "oracle_text": "first-action empty state",
+      "reader_today": "readers return [] for an empty table (portfolio.ts)",
+      "surfaces": [
+        "Inicio",
+        "Portafolio"
+      ],
+      "used_by": [
+        "frd-03-portfolio/factory-empty",
+        "frd-18-dashboard/factory-empty"
+      ]
+    },
+    "home-calm": {
+      "kind": "file-overlay",
+      "scenario": "applyScenario('home-calm')",
+      "what": "Nothing waits on the owner: every decision answered, every ready change already building.",
+      "recipe": [
+        "Overlay `projects/personal-page-v2/.pandacorp/inbox/decisions.md`: change the only pending block (`## 2026-09-10 · Textos del inicio y de \"sobre mí\"`) from `- **Estado:** PENDIENTE` to `- **Estado:** RESUELTO`.",
+        "Overlay the four `status: \"ready\"` change cards to `status: \"building\"`: `projects/funko-tracker/.pandacorp/inbox/changes/collection-csv-import.md`, `projects/mission-control/.pandacorp/inbox/changes/{board-search-diacritics,timeline-gap-label,rail-sort-ties}.md`."
+      ],
+      "asserts": "No owner items on Inicio (`.ask-list` empty or `.empty`), Inicio nav count 0.",
+      "oracle_text": "calm Inicio",
+      "reader_today": "decisions/changes readers already parse these markers",
+      "surfaces": [
+        "Inicio"
+      ],
+      "used_by": [
+        "frd-18-dashboard/home-calm"
+      ]
+    },
+    "scene-off": {
+      "kind": "file-overlay",
+      "scenario": "query `scene=off` (prototype demo override, not an app feature)",
+      "what": "La Fragua forced idle: «El equipo descansa: no hay un build corriendo.» (FDD FRD-06, factory off).",
+      "recipe": [
+        "Overlay `projects/funko-tracker/.pandacorp/status.yaml`: `running: false`. The prototype keeps the rest of the page as a running build (snapshot panel, «Construyendo» chip), which this overlay removes, so the fidelity comparison for this state is scoped to `section.fragua`."
+      ],
+      "asserts": "Scene idle, crews desaturated, no courier; the stale event tail does not turn it on (AC-06-013.4).",
+      "oracle_text": "El equipo descansa: no hay un build corriendo.",
+      "reader_today": "scene liveness reads `running` + heartbeat (src/lib/status/liveness.ts)",
+      "surfaces": [
+        "Resumen La Fragua"
+      ],
+      "used_by": [
+        "frd-06-party/fragua-off"
+      ]
+    },
+    "achievement-preview": {
+      "kind": "build-affordance",
+      "scenario": "query `achievement=preview` (prototype review affordance)",
+      "what": "Shows the latest unlock as a sample notice labelled «Vista previa del aviso».",
+      "recipe": [
+        "Recommended: the build supports read-only `/?achievement=preview` (shows the newest unlocked trophy, never marks it seen). Fallback if architecture refuses a preview param: a ledger overlay with one trophy unlocked within 7 days of the clock and no `seen` entry, which draws «¡Nuevo logro!» instead, so the label line must be masked in L3."
+      ],
+      "asserts": "`.ach-toast[role=status]` with Ver / Cerrar, auto-close 9 s (the capture settles before).",
+      "oracle_text": "Vista previa del aviso",
+      "reader_today": "not built (no preview param in src)",
+      "surfaces": [
+        "any page, top layer"
+      ],
+      "used_by": [
+        "frd-09-gamification/guild-achievement-notice"
+      ]
+    }
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "title": "Reader-generated sentences differ from the oracle's Spanish",
+      "detail": "Four scenarios (backlog-errors, model-invalid, worktrees-unreadable, stats-stream-error) show a sentence the prototype wrote in Spanish. The installed readers emit English reasons (`malformed YAML frontmatter`, `duplicate id … (already defined in …)`, `git read failed: …`, data-model validator messages). The file or git fault reproduces the STATE; the build must either map the reader's reason to the same Spanish copy or the detail line is masked in L3. Decide in the owning FRD, not in the gate."
+    },
+    {
+      "id": "F2",
+      "title": "accounts-source-error cannot be a file fault",
+      "detail": "A broken accounts.yaml empties the whole directory in readServicesDirectory() (accounts: []), while the oracle keeps every account and adds two notices. It needs the reader-level injection described in the double. The reader also lacks the `dangling` code and the file-path sources the oracle draws (FRD-26 contract to align)."
+    },
+    {
+      "id": "F3",
+      "title": "Actions replay verbatim against prototype selectors",
+      "detail": "build.actions is `replay-verbatim`: the build gate runs the same click/fill/waitFor/scroll/js actions. The build must expose the same hooks (data-action, data-*, ids, roles) or S2.6 adds a per-state `build.actions` override. The distinct selectors are listed in `action_selectors`."
+    },
+    {
+      "id": "F4",
+      "title": "Clock and git seams do not exist in src yet",
+      "detail": "Nothing in src reads MC_CLOCK or a git-state double. Server side: preload make-fixtures.mjs freezeClock(MC_CLOCK) (globalThis.Date override) with NODE_OPTIONS=--import. Browser side: Playwright context.clock fixed at the clock. Git: pendingMerge already takes an injectable GitRunner (feed it fixtureGit); achievements/report/scalars.ts shells `git rev-list --count HEAD` directly and falls back to 0 under the dead GIT_DIR, while the oracle shows the git-state.json commit count, so it needs the same seam."
+    },
+    {
+      "id": "F5",
+      "title": "Prototype-only URL params are not route state",
+      "detail": "demo=off, host=page and theme=<t> are capture params; the build applies the theme by the app's own mechanism. `scene=on|off|sim` is a demo override: on equals the default profile, off is the scene-off double. `achievement=preview` is a review affordance (double achievement-preview)."
+    },
+    {
+      "id": "F6",
+      "title": "Two states reach UI by script, not by user input",
+      "detail": "shell-rail-float sets `#sidebar[data-float=true]` and the a11y/token states call `.focus()` from js. The build keeps the same `data-float` attribute (AppShell, components.md) and runs the same js; no double."
+    }
+  ],
+  "action_selectors": [
+    "#cfg-search",
+    "#dlg [data-action=\"discard-backlog\"]",
+    "#dlg [data-action=\"discard-change\"]",
+    "#doc-search",
+    "#g-adrs [data-modal]",
+    "#g-data .notice[data-tone=\"coral\"]",
+    "#idea-search",
+    "#manual-search",
+    "#menu",
+    "#project-search",
+    "#rule-list details summary",
+    "#rule-search",
+    "#sidebar .pending-pill",
+    "#sidebar[data-open=\"true\"]",
+    "#snapshot-panel",
+    "#snapshot-panel .notice",
+    "#tok-tip",
+    "#worktrees-card",
+    "#worktrees-card .notice",
+    ".acc-dir",
+    ".ach-toast",
+    ".alert-banner",
+    ".area-bar",
+    ".ask-list, .empty",
+    ".discard-reason",
+    ".dl-frd > summary",
+    ".drift-note",
+    ".first-action",
+    ".flight-group > summary",
+    ".fragua",
+    ".frd-cards .frdc-open",
+    ".kcard [data-star]",
+    ".lrow[data-change]:has-text(\"Borrador\")",
+    ".notice.upgrade",
+    ".notice[data-tone=\"coral\"]",
+    ".notice[role=\"alert\"]",
+    ".proj-card",
+    ".proj-card .ring[data-tip]",
+    ".proj-card.is-missing",
+    ".wocard.is-failed",
+    ".worow.is-failed",
+    ".wt-table",
+    "[data-acc-filter=\"pending\"]",
+    "[data-account]",
+    "[data-action=\"capture\"]",
+    "[data-action=\"discard-idea\"]",
+    "[data-action=\"discarded\"]",
+    "[data-action=\"doc-index\"]",
+    "[data-action=\"frd-toggle-all\"]",
+    "[data-action=\"projects\"]",
+    "[data-action=\"restore-idea\"]",
+    "[data-action=\"toggle-empty\"]",
+    "[data-action=\"toggle-projects\"]",
+    "[data-action=\"toggle-sidebar\"]",
+    "[data-agent]",
+    "[data-backlog]",
+    "[data-bfilter=\"pri\"][data-val=\"p0\"]",
+    "[data-cat-filter=\"web\"]",
+    "[data-cfg-sev=\"MUST\"]",
+    "[data-change=\"funko-tracker|collection-csv-import\"]",
+    "[data-change]",
+    "[data-dag-frd]",
+    "[data-decision]",
+    "[data-graph=\"out\"]",
+    "[data-lesson]",
+    "[data-mode=\"powerful\"]",
+    "[data-phase-jump=\"architecture\"]",
+    "[data-select-entity]",
+    "[data-skill]",
+    "[data-standard]",
+    "[data-trophy-cat=\"Speed\"]",
+    "[data-trophy]",
+    "[data-turn=\"0\"]",
+    "[data-wo-more]",
+    "[data-wt-repo]:not([disabled])",
+    "[role=\"tabpanel\"] details.card > summary",
+    "dialog[open]"
+  ]
+}

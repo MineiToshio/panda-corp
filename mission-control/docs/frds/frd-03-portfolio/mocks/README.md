@@ -1,13 +1,7 @@
-# FRD-03 mocks — Portfolio and project navigation
+# frd-03-portfolio · design mocks
 
-**Visual source = the `portfolio` view of `docs/design/prototype/index.html`** (render function
-`portfolioView()` — the 240px project rail + the workspace pane; the rail items are `railproj`,
-the selected one is `.rail.on`).
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-The prototype `index.html` is the **runnable** owner-approved mockup (DR-054/056): a client-side SPA
-where this surface is a render function on the frozen tokens. No standalone HTML slice or screenshot is
-duplicated here — the build's **visual-fidelity gate captures the baseline from the `portfolio` view of
-`index.html`**, and the scoped spec lives in `../fdd.md`.
-
-> Fidelity, not novelty: nothing was relaxed or re-styled. The right-hand pane is the project workspace
-> (FRD-04); this shard owns only the rail + two-column shell.
+- `portfolio.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

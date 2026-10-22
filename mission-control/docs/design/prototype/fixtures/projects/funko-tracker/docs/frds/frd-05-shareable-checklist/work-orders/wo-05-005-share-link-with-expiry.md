@@ -5,7 +5,7 @@ slug: "share-link-with-expiry"
 title: "WO-05-005 — Share link with expiry"
 status: "ACTIVE"
 parent: "FRD-05"
-implementation_status: "IN_REVIEW"
+implementation_status: "BLOCKED"
 difficulty: "normal"
 reopen_count: 0
 artifacts:
@@ -14,6 +14,7 @@ source_requirements:
   - "REQ-05-005"
 dependsOn:
   - "WO-05-004"
+blocked_reason: "the link expiry needs an owner decision: seven days or never."
 last_updated: "2026-10-18"
 ---
 # WO-05-005 — Share link with expiry
@@ -38,6 +39,4 @@ Wires share link with expiry into shareable checklist without touching neighbour
 
 ## Status Note
 
-**Built:** the behaviour matches the FRD criteria; a follow-up nit about spacing is on the punch-list, not a blocker.
-
-**Integration seams:** consumed only by its parent route; no other module imports it.
+**Blocked:** the link expiry needs an owner decision: seven days or never.

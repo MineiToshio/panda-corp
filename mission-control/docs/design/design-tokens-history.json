@@ -1,0 +1,11 @@
+{
+ "note": "History of design-token proposals. The current set is docs/design/design-tokens.json, extracted from docs/design/prototype/index.html.",
+ "proposals": [
+  {
+   "date": "2026-10-22",
+   "name": "Token extraction (fidelity split stage)",
+   "source": "docs/design/prototype/index.html",
+   "outcome": "first extraction: light 94, dark 32, overrides 19"
+  }
+ ]
+}

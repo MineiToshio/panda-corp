@@ -1,25 +1,7 @@
-# FRD-11 mocks — Per-project build modes
+# frd-11-build-modes · design mocks
 
-**Visual source:** `docs/design/prototype/index.html` — the **Modo de construcción** panel, render fn
-`buildModePanel()` inside `projComandos()`. Frozen tokens: `docs/design/design-tokens.json`.
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-To preview in the prototype: open `index.html`, open a building project, go to the **Comandos** tab.
-The four mode chips (Pro / Equilibrado / Potente / Profundo) toggle the description + the copyable
-`/pandacorp:implement [mode]` command below.
-
-## Baseline
-
-The build's Preview Smoke / visual-fidelity gate (DR-055/056) renders a project's Comandos route and
-compares the mode panel against the `buildModePanel` region of `index.html`. A scoped self-contained
-slice (`mocks/build-modes.html`, the mode panel + command row only) + a 375px and 1280px screenshot
-are to be extracted at build time as the per-FRD fidelity baseline.
-
-## DR-061 note
-This is a **real read/copy-command** surface, not a demo-preview — the mode chips and command row are
-**not** DEMO-wrapped. MC is read-only: selecting a mode persists/reads per-project state and copies the
-command; the human runs `/pandacorp:implement [mode]` in the project folder. Do not add any run/launch
-control.
-
-## Token slice this feature uses
-`rpgSkin.overrides.panel` · `.stab`/`.stab.on` · `rpgSkin.cmd` · `typography.families.mono` + `display`
-· `accent.*` · `secondary`/`text.t2`/`text.t3`.
+- `build-modes.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

@@ -1,131 +1,87 @@
-# FDD-09 — Gamification (RPG theme) — feature design
+---
+id: FDD-09
+type: fdd
+slug: gamification
+title: Guild layer (sidebar guild card, rank ladder, achievement notice)
+status: ACTIVE
+parent: FRD-09
+ui: true
+visual_source: docs/design/prototype/index.html
+mock: docs/frds/frd-09-gamification/mocks/gamification.html
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
+---
 
-> **Visual source:** `docs/design/prototype/index.html` (the owner-approved whole-app SPA prototype).
-> Frozen tokens: `docs/design/design-tokens.json` (Atelier — pixel-RPG / guild). This FDD scopes the
-> gamification layer onto those frozen tokens. **No hardcoded visuals** — every value below maps to a
-> token group (`rpgSkin`, `tiers`, `accent`, `typography.families.pixel`).
+# FDD — FRD-09 Gamification (guild layer)
 
-## Nature of this feature — cross-cutting, not one screen
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> This is the Órbita design (round 5, iteration 28), frozen from the approved prototype. It describes only what the captured states of `mocks/gamification.html` draw (DR-130). The guild level lives in the sidebar guild card (no top bar). RPG flavour is used with restraint: pixel emblems and gold accents, never at the cost of legible data. The scaled celebrations (phase animation, release and level-up moments) are out of v2 and not drawn; the gold achievement notice is the only celebration. There are no leaderboards, lives, streak resets or timers.
 
-FRD-09 is **not a single page**. It is the *guild* meta-layer: a set of **shared gamified elements**
-(level/XP, the pixel numerals, tier medals, the celebration scale) that appear across many host
-surfaces. This FDD therefore describes the **shared elements + where they appear**, not a screen
-layout. The screens that *use* these elements are owned by other FRDs (the Achievements Hall by
-FRD-10, the Party canvas by FRD-06, the dashboard by FRD-12). FRD-09 owns the *vocabulary* and the
-*visual contract* of the gamified primitives.
+The Logros screens (hero, Resumen, Misiones, Trofeos, Estadísticas) belong to FRD-10; this FDD owns the sidebar guild card, the Rangos tab as the rank ladder, and the achievement notice. The vocabulary rule stands: «gremio» names the operator layer, «party» the agents building one project (FRD-06).
 
-Guild (gremio) vs Party are kept distinct per the FRD: **Guild** = operator + whole factory
-(top bar, Hall, codex, attributes — persistent, cross-cutting); **Party** = the agents on one
-project (FRD-06). FRD-09 covers the **Guild** elements only.
+## Screens
 
-## Shared gamified elements (token-mapped) and their host surfaces
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Sidebar guild card | The guild level, rank and progress to the next level, visible on every screen | `guild-rank-ladder` | AC-09-008.1, FRD-09#U1 |
+| Rank ladder (Logros, tab «Rangos») | The ladder of ranks by era: which are earned, where the owner is, what is still locked | `guild-rank-ladder` | FRD-09#U2 |
+| Gold achievement notice | A new trophy raises one notice on top of whatever screen is open (here, Inicio) | `guild-achievement-notice` | AC-09-008.2, FRD-09#U8 |
 
-### 1. Guild bar — level · title · XP (top of every page)
-- **Render fn:** `topbar()` (index.html ~L577). Host: the app shell header, on **every** view.
-- **Composition:** `.rpgpanel.rpggrid` container (`rpgSkin.rpgpanel` + `rpgSkin.rpggrid`) → Pandacorp
-  logo crest → app title in `typography.families.display` (`.ttl`) → a **level pill** (`NV {n}`, the
-  granular level) in `typography.families.pixel` on `accent` fill → the **rank emblem** (`RankEmblem`,
-  18px) + the rank **title** (e.g. "Portador de Luz I" — the level band, not the level) in `text.t2` →
-  a compact inline **`.xpbar`** (`rpgSkin.xpbar`, 90px wide, 9px tall) to the next level.
-- The level pill, the XP numerals and "NV" use the **pixel** family — the RPG signature numerals.
+## States
 
-### 2. Guild hero panel (the character sheet header) — Achievements Hall + dashboard footer
-- **Render fns:** `logrosHero()` (~L407, the full hero), `dashboardView()` foot block (~L665, the
-  compact variant).
-- **Composition:** `.rpgpanel.rpggrid` → the **`.shield.rpggrid`** crest (`rpgSkin.shield`, 96×96,
-  `accent`-bordered glowing medallion) carrying the pixel **NIVEL / {level}** numeral (42px pixel
-  font, `accent.accentText`) → "GREMIO PANDACORP" eyebrow → guild title (`.ttl`, 27px display) →
-  a feats/trophies/missions summary line → the full-width **`.xpbar`** (18px) with "faltan {n} para
-  Nv {n+1} · {nextRank}". Below a hairline: **TU PARTY** sprite roster (agent sprites, 38px,
-  `image-rendering: pixelated`) + three **`badge`** mini stat tiles (`rpgpanel`, pixel numeral).
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Guild card, expanded sidebar (1280) | At the foot of the sidebar: a crest with the guild level («22»), the rank name «Portador de Luz III», the line «175 / 200 XP al nivel 23» and a gold progress bar. The whole card is a link to Logros. Its accessible name reads «Gremio nivel 22: Portador de Luz III, 175 / 200 XP al nivel 23». | `guild-rank-ladder` | AC-09-008.1, FRD-09#U1 |
+| Guild card on the tablet rail (768) | The card is reduced to the crest with the level and a short gold bar under it. Name and XP line are not shown. | `guild-achievement-notice` | AC-09-008.1 |
+| Rank ladder at rest | The intro «El escalafón del gremio: tu nivel sube con XP y cada rango cubre un tramo de niveles.» followed by the eras as headings with their level span: «El despertar» («Nv 1–12 · completa»), «Los portadores» («Nv 13–24»), «Los guardianes» («Nv 25–72») open, and «Los campeones», «Los ascendidos» and «La trascendencia» collapsed with their rank count (for example «Nv 73–141 · 9 rangos»). Each rank is one row: its pixel emblem (with a small roman badge I, II or III when the emblem is shared by a family), the rank name, a one-line description, the level band («Nv 1–3») and its state at the right. | `guild-rank-ladder` | FRD-09#U2 |
+| Rank earned | The chip «Conseguido» with a check and the XP that unlocked it, for example «0 XP» for «Humano» and «Buscador del Alba I» through «Portador de Luz II». | `guild-rank-ladder` | FRD-09#U2 |
+| Current rank | «Portador de Luz III» is highlighted with the chip «Estás aquí», its XP («2040 XP»), a gold progress bar and the line «Faltan 450 XP para Guardián del Juramento I». | `guild-rank-ladder` | FRD-09#U2 |
+| Rank still locked | A lock icon with the level that unlocks it (for example «Nv 25») and the XP it needs («2860 XP»); the emblem is dimmed. State is the lock and the words, not colour alone. | `guild-rank-ladder` | FRD-09#U2 |
+| Achievement notice raised | A gold-bordered card fixed at the bottom right, over the page: a trophy tile, an uppercase gold eyebrow, the trophy title «El primer ladrillo», its description «Creaste tu primer proyecto.», the action «Ver» (opens Logros) and a close button named «Cerrar aviso». The captured notice is the preview mode and its eyebrow reads «Vista previa del aviso»; a real unlock draws the same card with the label AC-09-008.2 names. | `guild-achievement-notice` | AC-09-008.2, FRD-09#U8 |
 
-### 3. XP bar primitive (`.xpbar`)
-- **Token:** `rpgSkin.xpbar` — 18px tall (compact 9–14px variants per host), `bd2` border on `canvas`
-  base, `accent` fill with `transition: width .6s`, plus the `::after` segmented striping
-  (16px transparent + 2px canvas notch). Reused by the guild bar, hero panel, "Próximas hazañas"
-  cards (FRD-10) and the dashboard footer.
+Behaviour with no picture (data rules, not layout): the guild level is derived from XP by a super-linear per-level curve and the rank is the band of levels that contains it, with bands widening toward the summit (FRD-09#U2); XP comes from verified results, never from activity or opening the app; the guild outcome is `MAX(live, ledger)` from the local gitignored ledger, so deleting a project never lowers the level (AC-09-006.1 to AC-09-006.3); durable XP and achievements count a result once, from the server-side oracle, whatever runtime reported it (AC-09-007). The notice appears only for a trophy flagged new or unlocked in the last 7 days, once per browser, and closes by itself after 9 seconds (AC-09-008.2).
 
-### 4b. Rank emblems & the 40-rung ladder (`RankEmblem`) — reconciled from code 2026-06-25
-> *Reconciled from code by `/pandacorp:sync` on 2026-06-25 — describes the shipped rank system (owner-authored, phases 1–6).*
+## Components used
 
-The guild rank has a **custom pixel-art emblem** per family (the medal art the owner generated), rendered by the `RankEmblem` core component instead of a bare Tabler icon. Visual contract:
-- **Self-framed sprite.** `/ranks/<slug>.png` already IS the medal (its own circular frame + glow), so it renders directly — no extra bordered container. `object-fit: contain`, fixed square `size`. The Tabler `icon` is the graceful fallback when a sprite is missing (older `GuildLevel` objects / tests), mirroring the avatar `onerror` degrade.
-- **Grade badge.** When the rank is grade I·II·III, a small **roman-numeral badge** sits at the emblem's bottom-right corner (`accent` fill, `on-accent` text, pixel font, sized ∝ the emblem) so the three grades of a shared family emblem are told apart. Humano and the 6 summits carry no badge.
-- **Sizes by host.** 18px in the GuildBar (header), 32px in the GuildHero (hero), 88px (104px current / 124px summit) in the Rangos tab — the art is the hero on the ladder (FRD-10 FDD §Rangos).
-- The rank **name** always rides alongside the emblem (e.g. "Portador de Luz I"), so meaning is never carried by the emblem alone (a11y).
+From `docs/design/components.md`. Nothing new is introduced by this FRD.
 
-### 4. Tier medals & the Bronze→Legend ladder (`.itemslot` + `.node`)
-- **Tokens:** `tiers.tier1..tier5` (the rarity colors), `rpgSkin.itemslot` (the medal slot,
-  `image-rendering: pixelated`), `rpgSkin.node` (the 15px ladder pip). Owned visually here, consumed
-  by FRD-10's chain cards. Tier name + color always travel together (color is **never** the sole
-  signal — the tier name text rides alongside, satisfying "state by shape+text, not color alone").
+| On screen | Component | Notes |
+|---|---|---|
+| Sidebar guild card | `GuildCard` | crest, rank, XP line, gold bar; link to Logros; crest only on the rails |
+| Rank rows | `RankRow` | emblem on the left, level band, state at the right |
+| Era headings and groups | `EraGroup` | open up to the era after the current one; collapsed when further beyond the current rank |
+| Rank state chips | `Chip` family | «Conseguido» (green, with check), «Estás aquí» (gold); lock icon for locked |
+| Gold achievement notice | `AchievementToast` | trophy tile, eyebrow, title, description, «Ver», «Cerrar aviso» |
+| Rank emblems | `Avatar` pixel-art emblem set | one emblem per rank family, roman badge for I, II and III |
 
-### 5. The celebration scale (honest, graduated) — auto-firing
-The FRD mandates a celebration that **scales**, never flat. Mapped to the frozen motion system:
-- **Work order closed → small toast.** `toast()` — a transient bottom chip on `card` surface. No XP
-  fireworks.
-- **Phase closed → medium entrance.** The `rpgSkin.anim` keyframe (`rpgIn`: 9px rise + fade, 340ms,
-  transform/opacity only) replayed on the affected panel.
-- **Release → full-screen celebration** and **level-up → full-screen "¡Subiste de nivel!"** are the
-  reserved expressive tier — now drawn in the prototype as `bOverlay(kind)` (~L1433): a centered
-  `rpgpanel anim` over a dimmed/blurred backdrop, with `bConfetti()` (~L1432, `transform`/`opacity`-only
-  fall) — release shows the rocket crest + "+120 XP" + achievement chips; level-up shows the big pixel
-  "NV {n}" numeral + new rank + the fresh `XpBar`.
-- **The trigger is automatic.** In the real app the celebration fires when `/pandacorp:release` lands a
-  shipped product and the level-up fires **on crossing an XP threshold** — **not from a button**. The
-  prototype's "Previsualizar celebración / Previsualizar ¡Subiste de nivel!" buttons exist only to
-  preview the effect and are wrapped in a DR-061 `SOLO DEMO` block (see §Demo-only controls).
-- Expressive motion is **rationed** (frequency test): the everyday guild bar is sober; the celebration
-  is the rare expressive moment. All motion honors `prefers-reduced-motion` (the `anim`/`reveal`/
-  `bFall` rules gate this — confetti collapses to a static state under reduced-motion).
+## Interaction & flow
 
-### 6. Guild radar — "Atributos del gremio" (character attributes)
-- **Render fn:** `statRadar()` (~L446), hosted in the Hall's Stats tab (FRD-10). A 6-axis SVG radar
-  (`accent` polygon + glow, `bd` rings, pixel-font axis labels). Listed here because "Guild
-  Attributes" is named in the FRD as a guild meta-element; FRD-10 owns the host tab.
+- The guild card is always present in the shell and links to Logros (`guild-rank-ladder`).
+- The rank ladder is read-only: eras collapse and expand; no control changes the level or the XP (`guild-rank-ladder`).
+- The notice appears over the page on first load in a browser when a trophy is new. «Ver» opens Logros and closes the notice; «Cerrar aviso» closes it; left alone it closes after 9 seconds. It never blocks the page and never repeats in the same browser (`guild-achievement-notice`).
+- No other celebration exists in v2.
 
-## States (empty / loading / error)
+## Responsive & accessibility
 
-Gamification is a **read-only derived layer** over the factory (MC never writes XP). The states are
-host-driven but the gamified elements define their own fallbacks:
-- **Empty / day zero:** level 1, XP bar at its real (possibly low) value — **honest endowed
-  progress**, never faked to look further along. The hero line degrades to "Tu primer logro te
-  espera" (already in the dashboard foot). Sprite roster: `onerror="this.remove()"` drops any missing
-  sprite gracefully (already wired) — no broken-image box.
-- **Loading:** the guild bar renders its frame immediately from cached/SSR data (no skeleton for
-  server-delivered values, per the Next.js rule); the XP fill animates from 0 to its width on mount.
-- **Error / no data:** if the factory read fails, the bar shows the last-known level/title with the
-  XP fill omitted rather than a blank panel; numbers fall back to `0` with `tabular-nums` so layout
-  never shifts.
+- Expanded sidebar at 1280; at tablet width (768) the sidebar is a rail and the card is the crest alone; on phones the guild card is reached through the drawer and Logros (`guild-achievement-notice` at 375, 768 and 1280).
+- The notice sits at the bottom right on desktop and tablet; on phones it rises above the bottom navigation and is as wide as the viewport allows (`guild-achievement-notice` at 375).
+- The notice is a polite status region, its close button has the accessible name «Cerrar aviso», and focus is not taken from the page. The notice is dismissible by keyboard.
+- Rank state is conveyed by words and icons («Conseguido» with a check, «Estás aquí», a lock), never by colour or dimming alone. Gold is used for progress and the notice only.
+- Text on the dark and light themes meets AA contrast; the notice and the ladder use the same tokens in both themes. Motion is limited to transforms and respects `prefers-reduced-motion`.
 
-## Accessibility notes
-- Level/XP is conveyed by **text** ("NV 12", "{xp} / {next} XP") in addition to the bar fill — never
-  the bar alone. Tier badges carry the **tier name text**, not just color.
-- Pixel-font numerals keep `font-variant-numeric: tabular-nums` (no layout jitter as numbers change).
-- The XP bar has a `title` with the exact "{xp} / {next} XP" for hover/AT; consider an
-  `aria-label`/`role="progressbar"` with `aria-valuenow/min/max` when implemented.
-- Expressive motion gated by `prefers-reduced-motion`.
+## Copy
 
-## Cohesion (DR-062)
-The guild bar is the app shell's persistent top bar (one per app), not a per-screen header; the hero/
-foot variants sit **under** each host's own light `PageTitle` (`pageHead`) — they never replace it.
-Level/XP pills, tier medals and the celebration surface are the shared gamified primitives reused
-everywhere; no host re-implements an XP bar, level pill or celebration. The dashboard "Momentos de
-gamificación" group divider is the one `SectionHead` (`secthead`).
+Interface strings are the Spanish ones in the states above and in `docs/design/microcopy.es.json`. Rank names and descriptions are owner-authored game copy (Final Fantasy tone). The trophy title and description in the notice come from the trophy data.
 
-## Demo-only controls (DR-061)
-FRD-09's own elements are read-only derived data, **with one demo affordance**: the dashboard's
-**"Previsualizar celebración de release" / "Previsualizar ¡Subiste de nivel!"** buttons
-(`dashboardView` ~L764) exist only to preview the auto-firing overlays in the static prototype. They are
-wrapped in the prototype's `bDemo` block (dashed border + uppercase **`SOLO DEMO`** tag + note: "En la
-app real esto NO tiene botón: la celebración la dispara /pandacorp:release y el level-up se dispara solo
-al cruzar un umbral de XP"). On implementation these MUST keep that DR-061 wrapper — the real overlays
-fire automatically on the milestone, never from a control. (The dashboard digest's "simular/reiniciar"
-links are FRD-12's demo affordances, flagged in FRD-12's FDD.) The guild bar / hero / XP surfaces
-themselves gain no state-toggler.
+## Fidelity references
 
-## index.html render-fn pointers
-`topbar` (~L646) · `logrosHero` (~L413) · dashboard foot + celebration demo block in `dashboardView`
-(~L740/~L764) · `bOverlay` (~L1433) · `bConfetti` (~L1432) · `statRadar` (~L446 group) · `toast`.
-CSS: `.xpbar`, `.shield`, `.rpgpanel`, `.rpggrid`, `.itemslot`/`.node` (rpgSkin group), `.tab`/`.tab.on`,
-`rpgIn` + `bFall` keyframes (rpgSkin.anim / Group B confetti, gated by `prefers-reduced-motion`).
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate): the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file and the whole-app prototype for states and motion.
+
+prototype_blessed_at: 409a0564
+
+- **Mock:** `docs/frds/frd-09-gamification/mocks/gamification.html` (sections `guild-achievement-notice`, `guild-rank-ladder`).
+- **Mock screenshots** in `mocks/screenshots/`: `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark.
+- **Binding comparison URLs:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>&achievement=preview#inicio` for the notice and `…#logros?tab=Rangos` for the ladder.
+- **Oracle entries** (`docs/design/freeze/fidelity.config.json`, `states["frd-09-gamification"]`): `guild-achievement-notice`, `guild-rank-ladder`.
+- **Reference files:** root `DESIGN.md`, `docs/design/design-tokens.json`, `docs/design/freeze/m1-decisions.md`, `docs/design/freeze/reconciliation.md` (C-12, B-18), `docs/design/prototype/prototype.css` (`.ach-toast`, `.guildcard`, `.rank`).
+- **components.md rows:** `GuildCard`, `RankRow` / `EraGroup`, `AchievementToast`, `Chip` family.

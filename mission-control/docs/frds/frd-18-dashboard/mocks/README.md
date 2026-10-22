@@ -1,14 +1,7 @@
-# FRD-18 mocks — Dashboard ("Inicio")
+# frd-18-dashboard · design mocks
 
-**Visual source = the `dashboard` view of `docs/design/prototype/index.html`** (render function
-`dashboardView()`, with helpers `digestSection()` / `evCard()`, `qrow()`, `dStat()`, and the
-gamification foot built on `.rpgpanel.rpggrid` + `.xpbar`).
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-The prototype `index.html` is the **runnable** owner-approved mockup (DR-054/056): a client-side SPA
-where this surface is a render function on the frozen tokens. No standalone HTML slice or screenshot is
-duplicated here — the build's **visual-fidelity gate captures the baseline from the `dashboard` view of
-`index.html`**, and the scoped spec lives in `../fdd.md`.
-
-> Fidelity, not novelty: nothing was relaxed or re-styled. To preview, open
-> `docs/design/prototype/index.html` and stay on the default "Inicio" view.
-> The digest's "simular/reiniciar novedad" footer is **DEMO-only** (see `../fdd.md` §5).
+- `dashboard.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

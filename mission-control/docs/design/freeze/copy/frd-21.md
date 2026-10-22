@@ -1,0 +1,15 @@
+# S1.4-21 · Copy reconciliation · FRD-21 (Pending-merge visibility)
+
+Summary: 5 rows judged (4 listed mismatches, the legend row split in two), 2 stale FRD quotes (prototype string wins), 1 prototype copy error (double period in the legend), 2 both fine.
+
+Sources: `docs/design/freeze/packs/frd-21.md` §4, FRD `docs/frds/frd-21-pending-merge/frd.md`, prototype `prototype.js` lines 500-537 (`cleanupState`, `worktreesCard`, branch dialog) and the served state `#inicio`.
+
+| # | Mismatch | FRD quote | Prototype string | Verdict | Corrected string |
+|---|---|---|---|---|---|
+| 1 | Indicator label | `⎇ N pendientes` chip, "al día" affordance (REQ-21-001) | no chip; card title "Árboles de trabajo" with the lead "Trabajo en paralelo que no está en main, y worktrees que sobraron." | FRD quote stale (prototype string wins). Card title and lead are correct Spanish. Whether a global indicator should exist at all is a placement decision for S1.3, not a copy question. | none |
+| 2 | Row statuses | `in-progress`, `ready`, `stale` (REQ-21-003) | "Depurar ya", "Revisar pronto", "Al día", "Limpio" | FRD quote stale (prototype string wins). The FRD values are English data keys, not UI labels; the four Spanish labels are the approved ones. | none |
+| 3 | "worktree" in Spanish copy | n/a (FRD uses "worktree") | "worktrees que sobraron", "1 worktree sobrante", column "Sobrantes", title "Árboles de trabajo" | Both fine. "worktree" is a git/tool term (the skill is `/pandacorp:worktrees`) and the card title carries the owner-approved Spanish form. Not one of the listed artifact names, but it is a common developer term and not wrong. Optional polish, not required: keep the title as is. | none |
+| 4a | Legend "¿Cómo se decide el estado?" | not in the FRD (stale default is 3 h, `PANDACORP_STALE_HOURS`) | "Depurar ya: 3 o más sobrantes o ramas sin integrar, o alguna sin tocar hace más de 7 días. Revisar pronto: alguna rama de más de un día o algún sobrante. Al día: solo trabajo reciente. Captura del 20 oct. 2026, 7:20 p. m.." | Prototype copy wrong. The template appends a period after `fmtStamp()`, which already ends in "m.", so it renders "p. m..". The legend also explains three states but the table can show a fourth, "Limpio". | "Depurar ya: 3 o más sobrantes o ramas sin integrar, o alguna sin tocar hace más de 7 días. Revisar pronto: alguna rama de más de un día o algún sobrante. Al día: solo trabajo reciente. Limpio: nada pendiente ni sobrante. Captura del 20 oct. 2026, 7:20 p. m." (code fix: drop the literal `.` after `${esc(fmtStamp(...))}` at `prototype.js` line 528 and the same line in `index.html`; the "Limpio" sentence is a one-clause addition) |
+| 4b | Helper "Desliza la tabla para ver todas las columnas" | not in the FRD | "Desliza la tabla para ver todas las columnas" | Both fine. Short, imperative, correct. | none |
+
+Notes: the empty cells use a lone "—" as a no-value marker (`prototype.js` line 527). It is not a sentence separator, but the owner rule is "no em dash in product copy"; if the rule is read strictly, the build should use a plain hyphen or "0". Left for the owner, not judged here.

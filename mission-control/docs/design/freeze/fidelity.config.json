@@ -307,6 +307,11 @@
         "name": "shared-rules",
         "description": "Shared rules of iterations 27 and 28: tinted command boxes, card titles, search width, equal-height pairs, compact command",
         "component": "CommandCompact, CardHeader, SearchField"
+      },
+      {
+        "name": "freeze-additions",
+        "description": "Freeze S2.1: the pending-merge pill, failed work order, drift badge, snapshot panel, error notices, missing-folder card, first-action card and accounts directory",
+        "component": "PendingPill, WorkOrderCardFailed, WorkOrderRowFailed, DriftChip, SnapshotPanel, ErrorNotice, ProjectCardMissing, FirstActionCard, AccountsDirectory"
       }
     ],
     "rules": [
@@ -325,6 +330,10 @@
       {
         "family": "shared-rules",
         "match": "^(:is\\(|\\.card-head|\\.cmd-(step|l)\\b|\\.mode-(top|ico|power|tag)\\b|\\.mode\\[|\\.card-(intro|title)\\b|\\.field\\.search\\b|\\.verdict\\b|\\.grid-2|\\.saga-head|\\.card\\.flush|\\.wo-kanban\\b|\\.ask-cmd)"
+      },
+      {
+        "family": "freeze-additions",
+        "match": "^(\\.plugin-pill \\+ \\.pending-pill|\\.wocard\\.is-failed|\\.wocard \\.wid|\\.wocard \\.wo-block|\\.kcol\\[data-tone=\"coral\"\\]|\\.worow\\.is-failed|\\.fname \\.drift-chip|\\.frd-row \\.drift-note|\\.snap-|#snapshot-panel|\\.issue-list|\\.proj-card\\.is-missing|\\.proj-card-link|\\.proj-card \\.notice|\\.first-action|\\.acc-dir|\\.acc-links)"
       }
     ],
     "overrides": {
@@ -720,6 +729,26 @@
         "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a&phase=3"
       },
       {
+        "id": "idea-campaign-research",
+        "title": "Idea detail: Campaña, research phase sheet with explore",
+        "route": "#idea?idea=market-stall-ledger&tab=Campa%C3%B1a"
+      },
+      {
+        "id": "idea-campaign-design",
+        "title": "Idea detail: Campaña, Diseño phase sheet",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a&phase=2"
+      },
+      {
+        "id": "idea-campaign-build",
+        "title": "Idea detail: Campaña, Construcción phase sheet and La Fragua entry",
+        "route": "#idea?idea=funko-tracker&tab=Campa%C3%B1a"
+      },
+      {
+        "id": "idea-campaign-release",
+        "title": "Idea detail: Campaña, locked Lanzamiento phase sheet",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a&phase=5"
+      },
+      {
         "id": "idea-frd-dialog",
         "title": "Spec: FRD card dialog",
         "route": "#idea?idea=funko-tracker&tab=Spec",
@@ -752,6 +781,29 @@
         ]
       },
       {
+        "id": "idea-architecture-frd-dialog",
+        "title": "Architecture: FRD plan dialog",
+        "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+        "actions": [
+          {
+            "click": ".frd-cards .frdc-open"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "idea-architecture-missing",
+        "title": "Architecture: not published yet",
+        "route": "#idea?idea=tiktok-crossposter&tab=Arquitectura"
+      },
+      {
         "id": "idea-discard-dialog",
         "title": "Idea detail: discard confirmation",
         "route": "#idea?idea=book-memory-without-spoilers&tab=Propuesta",
@@ -774,6 +826,25 @@
         "id": "idea-not-found",
         "title": "Idea detail: unknown idea",
         "route": "#idea?idea=does-not-exist"
+      },
+      {
+        "id": "idea-discarded",
+        "title": "Idea detail: discarded idea offers restore",
+        "route": "#idea?idea=client-report-builder"
+      },
+      {
+        "id": "idea-restore-dialog",
+        "title": "Idea detail: restore confirmation",
+        "route": "#idea?idea=client-report-builder",
+        "actions": [
+          {
+            "click": "[data-action=\"restore-idea\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
       },
       {
         "id": "model-diagram",
@@ -815,6 +886,36 @@
         "id": "model-schema",
         "title": "Data model: schema view",
         "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Esquema"
+      },
+      {
+        "id": "model-none",
+        "title": "Data model: project declares no database",
+        "route": "#portfolio?project=personal-page-v2&tab=Arquitectura"
+      },
+      {
+        "id": "model-invalid",
+        "title": "Data model: unreadable artifact, explicit error, the rest of Arquitectura intact",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura",
+        "actions": [
+          {
+            "js": "applyScenario('model-invalid')"
+          },
+          {
+            "waitFor": "#g-data .notice[data-tone=\"coral\"]"
+          }
+        ],
+        "note": "Fixture scenario model-invalid: data-model.json references a missing attribute (DR-078)."
+      },
+      {
+        "id": "idea-discarded-reason",
+        "title": "Discarded idea: its discard reason as a banner in the detail",
+        "route": "#idea?idea=creative-studio-crm",
+        "actions": [
+          {
+            "waitFor": ".discard-reason"
+          }
+        ],
+        "note": "The Descartadas list shows the same reason per row (board-discarded-dialog)."
       }
     ],
     "frd-03-portfolio": [
@@ -874,6 +975,58 @@
         "id": "portfolio-project-not-found",
         "title": "Portfolio: unknown project",
         "route": "#portfolio?project=does-not-exist"
+      },
+      {
+        "id": "portfolio-accounts",
+        "title": "Portafolio third view: the factory accounts directory",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "waitFor": ".acc-dir"
+          }
+        ]
+      },
+      {
+        "id": "portfolio-path-missing",
+        "title": "Project folder missing: card chip and recovery command",
+        "route": "#portfolio",
+        "actions": [
+          {
+            "js": "applyScenario('portfolio-path-missing')"
+          },
+          {
+            "waitFor": ".proj-card.is-missing"
+          }
+        ],
+        "note": "Fixture scenario portfolio-path-missing: pandacast folder gone, repository known."
+      },
+      {
+        "id": "factory-empty",
+        "title": "Empty factory: Portafolio first-action card",
+        "route": "#portfolio",
+        "actions": [
+          {
+            "js": "applyScenario('factory-empty')"
+          },
+          {
+            "waitFor": ".first-action"
+          }
+        ],
+        "note": "Fixture scenario factory-empty: no projects and no ideas."
+      },
+      {
+        "id": "build-no-signal",
+        "title": "Build without signal: the Portafolio project card",
+        "route": "#portfolio",
+        "actions": [
+          {
+            "js": "applyScenario('build-no-signal')"
+          },
+          {
+            "waitFor": ".proj-card"
+          }
+        ],
+        "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
       }
     ],
     "frd-04-project-workspace": [
@@ -886,6 +1039,11 @@
         "id": "project-summary-funko",
         "title": "Workspace: Resumen with decisions and progress",
         "route": "#portfolio?project=funko-tracker"
+      },
+      {
+        "id": "project-summary-decisions",
+        "title": "Workspace: Resumen with pending decisions and upgrade notice",
+        "route": "#portfolio?project=personal-page-v2"
       },
       {
         "id": "project-decision-dialog",
@@ -905,6 +1063,11 @@
         "id": "project-spec",
         "title": "Workspace: Spec tab",
         "route": "#portfolio?project=pandasaga&tab=Spec"
+      },
+      {
+        "id": "project-spec-empty",
+        "title": "Workspace: Spec without a published digest",
+        "route": "#portfolio?project=mission-control&tab=Spec"
       },
       {
         "id": "project-architecture",
@@ -990,6 +1153,50 @@
         "id": "project-tab-not-found",
         "title": "Workspace: unknown tab",
         "route": "#portfolio?project=mission-control&tab=Inexistente"
+      },
+      {
+        "id": "project-snapshot",
+        "title": "Snapshot panel: last green commit, building now, worktree command",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "waitFor": "#snapshot-panel"
+          }
+        ],
+        "note": "Fixture: funko-tracker status.yaml running, last_green_sha a41c09e2, safe_to_test true, fresh heartbeat."
+      },
+      {
+        "id": "project-change-rebuilds",
+        "title": "Change dialog: urgent, depends on another change, rebuilds verified work",
+        "route": "#portfolio?project=funko-tracker&tab=Cambios",
+        "actions": [
+          {
+            "click": "[data-change=\"funko-tracker|collection-csv-import\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "widths": [
+          375,
+          1280
+        ],
+        "capture": "viewport",
+        "note": "Fixture: collection-csv-import is class expedite, depends_on owned-toggle-double-tap, rebuilds_verified true."
+      },
+      {
+        "id": "model-invalid",
+        "title": "Data model: unreadable artifact, explicit error, the rest of Arquitectura intact",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura",
+        "actions": [
+          {
+            "js": "applyScenario('model-invalid')"
+          },
+          {
+            "waitFor": "#g-data .notice[data-tone=\"coral\"]"
+          }
+        ],
+        "note": "Fixture scenario model-invalid: data-model.json references a missing attribute (DR-078)."
       }
     ],
     "frd-05-work-orders": [
@@ -1042,6 +1249,33 @@
         "id": "wo-detail-not-found",
         "title": "Work order: unknown order",
         "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-99-999"
+      },
+      {
+        "id": "wo-empty",
+        "title": "Work orders: project without work orders",
+        "route": "#portfolio?project=pandacast&tab=Observabilidad"
+      },
+      {
+        "id": "wo-failed",
+        "title": "Failed work order: Bloqueado column and coral card in Tablero",
+        "route": "#portfolio?project=funko-tracker&tab=Observabilidad&view=tablero",
+        "actions": [
+          {
+            "waitFor": ".wocard.is-failed"
+          }
+        ],
+        "note": "Fixture: WO-05-005 is BLOCKED with a blocked_reason."
+      },
+      {
+        "id": "wo-failed-row",
+        "title": "Failed work order: its row in Por FRD with the same treatment",
+        "route": "#portfolio?project=funko-tracker&tab=Observabilidad&frd=frd-05-shareable-checklist",
+        "actions": [
+          {
+            "waitFor": ".worow.is-failed"
+          }
+        ],
+        "note": "Fixture: WO-05-005 is BLOCKED."
       }
     ],
     "frd-06-party": [
@@ -1059,6 +1293,11 @@
         "id": "fragua-off",
         "title": "La Fragua: factory off",
         "route": "#portfolio?project=funko-tracker&scene=off"
+      },
+      {
+        "id": "fragua-empty",
+        "title": "La Fragua: project without work orders yet",
+        "route": "#portfolio?project=pandacast"
       },
       {
         "id": "fragua-token-card",
@@ -1079,6 +1318,20 @@
           }
         ],
         "capture": "viewport"
+      },
+      {
+        "id": "build-no-signal",
+        "title": "Build without signal: running flag with a stale heartbeat, Resumen",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "js": "applyScenario('build-no-signal')"
+          },
+          {
+            "waitFor": ".fragua"
+          }
+        ],
+        "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
       }
     ],
     "frd-07-configuration": [
@@ -1165,6 +1418,16 @@
         ]
       },
       {
+        "id": "config-rule-detail",
+        "title": "Configuration: decision rule opened",
+        "route": "#configuracion?tab=Reglas+de+decisi%C3%B3n",
+        "actions": [
+          {
+            "click": "#rule-list details summary"
+          }
+        ]
+      },
+      {
         "id": "config-standards",
         "title": "Configuration: standards",
         "route": "#configuracion?tab=Est%C3%A1ndares"
@@ -1240,6 +1503,26 @@
         "id": "docs-page-not-found",
         "title": "Documentation: unknown page",
         "route": "#documentacion?page=no-existe"
+      },
+      {
+        "id": "docs-page-tutorial",
+        "title": "Documentation: tutorial page with step counter",
+        "route": "#documentacion?page=como-empezar"
+      },
+      {
+        "id": "docs-page-guide",
+        "title": "Documentation: guide page",
+        "route": "#documentacion?page=g-modo"
+      },
+      {
+        "id": "docs-page-team",
+        "title": "Documentation: El equipo concept",
+        "route": "#documentacion?page=el-equipo"
+      },
+      {
+        "id": "docs-page-multi-runtime",
+        "title": "Documentation: multi-runtime concept",
+        "route": "#documentacion?page=multi-runtime"
       }
     ],
     "frd-09-gamification": [
@@ -1313,6 +1596,20 @@
         "id": "achievements-ranks",
         "title": "Achievements: ranks",
         "route": "#logros?tab=Rangos"
+      },
+      {
+        "id": "stats-stream-error",
+        "title": "Estadísticas: unreadable usage stream, distinct from the empty band",
+        "route": "#logros?tab=Estad%C3%ADsticas",
+        "actions": [
+          {
+            "js": "applyScenario('stats-stream-error')"
+          },
+          {
+            "waitFor": ".notice[data-tone=\"coral\"]"
+          }
+        ],
+        "note": "Fixture scenario stats-stream-error: the event stream has an unparseable line."
       }
     ],
     "frd-11-build-modes": [
@@ -1389,6 +1686,42 @@
           375,
           768
         ]
+      },
+      {
+        "id": "build-no-signal",
+        "title": "Build without signal: running flag with a stale heartbeat, Resumen",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "js": "applyScenario('build-no-signal')"
+          },
+          {
+            "waitFor": ".fragua"
+          }
+        ],
+        "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
+      },
+      {
+        "id": "wo-frd-drift",
+        "title": "Por FRD: verified FRD with gate drift, badge and note linking to Cambios",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&frd=frd-03-portfolio",
+        "actions": [
+          {
+            "waitFor": ".drift-note"
+          }
+        ],
+        "note": "Fixture: FRD-03 frontmatter drift [REQ-03-002, AC-03-001.2]."
+      },
+      {
+        "id": "wo-frd-drift-unreadable",
+        "title": "Por FRD: drift value that is not a list, «Deriva ilegible»",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&frd=frd-15-plugin-out-of-sync-warning",
+        "actions": [
+          {
+            "waitFor": ".drift-note"
+          }
+        ],
+        "note": "Fixture: FRD-15 frontmatter drift is a bare scalar (fail loud)."
       }
     ],
     "frd-13-visual-system-accessibility": [
@@ -1419,6 +1752,47 @@
           }
         ],
         "capture": "viewport"
+      }
+    ],
+    "frd-14-snapshot-and-feedback": [
+      {
+        "id": "project-snapshot",
+        "title": "Snapshot panel: last green commit, building now, worktree command",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "waitFor": "#snapshot-panel"
+          }
+        ],
+        "note": "Fixture: funko-tracker status.yaml running, last_green_sha a41c09e2, safe_to_test true, fresh heartbeat."
+      },
+      {
+        "id": "project-snapshot-stale",
+        "title": "Snapshot panel: last green commit far behind the build",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "js": "applyScenario('snapshot-stale')"
+          },
+          {
+            "waitFor": "#snapshot-panel .notice"
+          }
+        ],
+        "note": "Fixture scenario snapshot-stale: 14 commits and 26 hours behind HEAD."
+      },
+      {
+        "id": "build-no-signal",
+        "title": "Snapshot panel without signal: the running claim is not live",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "js": "applyScenario('build-no-signal')"
+          },
+          {
+            "waitFor": ".fragua"
+          }
+        ],
+        "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
       }
     ],
     "frd-15-plugin-out-of-sync-warning": [
@@ -1492,6 +1866,48 @@
             "click": ".flight-group > summary"
           }
         ]
+      },
+      {
+        "id": "home-calm",
+        "title": "Inicio calm: nothing waits on the owner, «Al día»",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('home-calm')"
+          },
+          {
+            "waitFor": ".ask-list, .empty"
+          }
+        ],
+        "note": "Fixture scenario home-calm: every decision answered, ready changes building."
+      },
+      {
+        "id": "factory-empty",
+        "title": "Empty factory: Inicio first-action card",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('factory-empty')"
+          },
+          {
+            "waitFor": ".first-action"
+          }
+        ],
+        "note": "Fixture scenario factory-empty: no projects and no ideas."
+      },
+      {
+        "id": "build-no-signal",
+        "title": "Build without signal: the Inicio project card",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('build-no-signal')"
+          },
+          {
+            "waitFor": ".proj-card"
+          }
+        ],
+        "note": "Fixture scenario build-no-signal: funko-tracker running, supervisor heartbeat 25 min old (DR-066)."
       }
     ],
     "frd-19-app-shell": [
@@ -1559,6 +1975,21 @@
         "widths": [
           375
         ]
+      },
+      {
+        "id": "shell-pending-chip",
+        "title": "Shell: global pending-merge pill (alert variant) on another screen",
+        "route": "#tablero",
+        "actions": [
+          {
+            "waitFor": "#sidebar .pending-pill"
+          }
+        ],
+        "widths": [
+          768,
+          1280
+        ],
+        "note": "At 375 the sidebar is the drawer: see FRD-19 shell-drawer-open."
       }
     ],
     "frd-20-overlay-freshness": [
@@ -1601,6 +2032,53 @@
           375,
           1280
         ]
+      },
+      {
+        "id": "shell-pending-chip",
+        "title": "Shell: global pending-merge pill (alert variant) on another screen",
+        "route": "#tablero",
+        "actions": [
+          {
+            "waitFor": "#sidebar .pending-pill"
+          }
+        ],
+        "widths": [
+          768,
+          1280
+        ],
+        "note": "At 375 the sidebar is the drawer: see FRD-19 shell-drawer-open."
+      },
+      {
+        "id": "shell-pending-chip-open",
+        "title": "Pending pill opens Inicio at «Árboles de trabajo»",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "#sidebar .pending-pill"
+          },
+          {
+            "waitFor": "#worktrees-card"
+          }
+        ],
+        "widths": [
+          768,
+          1280
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "worktrees-unreadable",
+        "title": "Árboles de trabajo: a repository that could not be read",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "applyScenario('worktrees-unreadable')"
+          },
+          {
+            "waitFor": "#worktrees-card .notice"
+          }
+        ],
+        "note": "Fixture scenario worktrees-unreadable: git could not be read for pandasaga."
       }
     ],
     "frd-22-factory-backlog": [
@@ -1673,6 +2151,20 @@
             "click": "[role=\"tabpanel\"] details.card > summary"
           }
         ]
+      },
+      {
+        "id": "backlog-errors",
+        "title": "Backlog: read errors named by file, parsed items still listed",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "js": "applyScenario('backlog-errors')"
+          },
+          {
+            "waitFor": ".notice[role=\"alert\"]"
+          }
+        ],
+        "note": "Fixture scenario backlog-errors: a malformed card and a duplicate id."
       }
     ],
     "frd-26-services-accounts": [
@@ -1680,6 +2172,61 @@
         "id": "accounts-project",
         "title": "Accounts: services of a project",
         "route": "#portfolio?project=funko-tracker&tab=Cuentas"
+      },
+      {
+        "id": "portfolio-accounts",
+        "title": "Portafolio third view: the factory accounts directory",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "waitFor": ".acc-dir"
+          }
+        ]
+      },
+      {
+        "id": "portfolio-accounts-filter",
+        "title": "Accounts directory filtered to pending accounts",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "click": "[data-acc-filter=\"pending\"]"
+          },
+          {
+            "waitFor": ".acc-dir"
+          }
+        ]
+      },
+      {
+        "id": "portfolio-accounts-dialog",
+        "title": "Accounts directory: one account in its detail dialog",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "click": "[data-account]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "widths": [
+          375,
+          1280
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "accounts-source-error",
+        "title": "Accounts directory: invalid registry and a dangling link, named and bounded",
+        "route": "#portfolio?view=cuentas",
+        "actions": [
+          {
+            "js": "applyScenario('accounts-source-error')"
+          },
+          {
+            "waitFor": ".notice[role=\"alert\"]"
+          }
+        ],
+        "note": "Fixture scenario accounts-source-error."
       }
     ]
   },
@@ -1714,7 +2261,8 @@
         ".navitem",
         ".navlabel",
         ".guildcard",
-        ".side-toggle"
+        ".side-toggle",
+        ".side-foot"
       ],
       "note": "Persistent shell, owned by the app-shell FRD. Phone: an off-canvas drawer.",
       "states": {
@@ -1733,7 +2281,7 @@
           ]
         },
         "drawer-open": {
-          "click": "doc:#menu",
+          "click": "#menu",
           "widths": [
             375
           ]
@@ -1939,7 +2487,6 @@
       "children": [
         ".titles h1",
         ".titles p",
-        ".stamp",
         ".btn.primary"
       ],
       "states": {
@@ -2432,7 +2979,13 @@
           ]
         },
         "on": {
-          "click": "$"
+          "attr": [
+            [
+              "$",
+              "aria-checked",
+              "true"
+            ]
+          ]
         }
       }
     },
@@ -2728,7 +3281,13 @@
           ]
         },
         "pressed": {
-          "click": "$"
+          "attr": [
+            [
+              "$",
+              "aria-pressed",
+              "true"
+            ]
+          ]
         }
       }
     },
@@ -2879,7 +3438,7 @@
       ],
       "states": {
         "default": {
-          "click": "doc:.ask-cmd .iconbtn"
+          "click": ".ask-cmd .iconbtn"
         }
       }
     },
@@ -2897,7 +3456,7 @@
       ],
       "states": {
         "default": {
-          "click": "doc:[data-turn=\"0\"]"
+          "click": "[data-turn=\"0\"]"
         }
       }
     },
@@ -2916,7 +3475,7 @@
       ],
       "states": {
         "default": {
-          "click": "doc:[data-action=\"discard-idea\"]"
+          "click": "[data-action=\"discard-idea\"]"
         }
       }
     },
@@ -2933,7 +3492,7 @@
       ],
       "states": {
         "default": {
-          "click": "doc:.frd-cards .frdc-open"
+          "click": ".frd-cards .frdc-open"
         }
       }
     },
@@ -3056,7 +3615,13 @@
           ]
         },
         "starred": {
-          "click": "$ .star"
+          "attr": [
+            [
+              "$ .star",
+              "aria-pressed",
+              "true"
+            ]
+          ]
         }
       }
     },
@@ -3338,7 +3903,13 @@
           ]
         },
         "focused": {
-          "click": "$",
+          "cls": [
+            [
+              "$",
+              "focus",
+              true
+            ]
+          ],
           "widths": [
             1280
           ]
@@ -3696,7 +4267,7 @@
           ]
         },
         "open-narrow": {
-          "click": "doc:[data-action=\"doc-index\"]",
+          "click": "[data-action=\"doc-index\"]",
           "widths": [
             375
           ]
@@ -3860,6 +4431,15 @@
             ]
           ]
         }
+      }
+    },
+    {
+      "name": "ManualBody",
+      "route": "#documentacion?page=g-modo",
+      "root": ".manual-live",
+      "note": "Body of a Manual page the app renders itself (REQ-08-013 changes its text in v2). The oracle compares it by computed styles only, never by pixels.",
+      "states": {
+        "default": {}
       }
     },
     {
@@ -4051,7 +4631,7 @@
       ],
       "states": {
         "default": {
-          "click": "doc:.flight-group > summary"
+          "click": ".flight-group > summary"
         }
       }
     },
@@ -4584,6 +5164,489 @@
               ]
             ]
           ]
+        }
+      }
+    },
+    {
+      "name": "BuildModeCard",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": ".mode:not([aria-pressed=\"true\"])",
+      "children": [
+        ".mode-top",
+        ".mode-ico",
+        ".mode-power",
+        ".mode-tag",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "selected": {
+          "root": ".mode[aria-pressed=\"true\"]"
+        }
+      }
+    },
+    {
+      "name": "PlanMosaic",
+      "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+      "root": ".mosaic",
+      "children": [
+        ".mos-row",
+        ".name",
+        ".tiles",
+        ".tile"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "PluginPill",
+      "route": "#inicio",
+      "root": "#sidebar .plugin-pill:not(.pending-pill)",
+      "children": [
+        ".i",
+        ".lbl"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "LastAchievement",
+      "route": "#inicio",
+      "root": ".last-ach",
+      "children": [
+        ".la-ico",
+        ".grow",
+        "b"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "NextRankCard",
+      "route": "#logros",
+      "root": ".nr",
+      "children": [
+        ".nr-step",
+        ".rank-emblem",
+        ".nr-arrow"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "SecretTile",
+      "route": "#logros?tab=Trofeos",
+      "root": ".secret",
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "SignalGroup",
+      "route": "#propuestas",
+      "root": ".sig-group",
+      "children": [
+        "summary",
+        ".chip",
+        ".sig-list"
+      ],
+      "states": {
+        "default": {},
+        "open": {
+          "click": "$ summary"
+        }
+      }
+    },
+    {
+      "name": "StatKpi",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".kpi",
+      "children": [
+        ".kpi-l",
+        "b",
+        "small"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "RecordTile",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".hstat:not(.nodata)",
+      "children": [
+        ".hstat-l",
+        "b",
+        ".nv"
+      ],
+      "states": {
+        "default": {},
+        "no-data": {
+          "root": ".hstat.nodata"
+        }
+      }
+    },
+    {
+      "name": "LedgerCard",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".ledger",
+      "children": [
+        ".card-head",
+        "li",
+        ".lg-ico",
+        ".nv",
+        ".lg-dot"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "TeamMember",
+      "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a",
+      "root": ".tmember",
+      "children": [
+        ".tm-stage",
+        "b",
+        ".tm-role",
+        "p"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "TransitionRow",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".trans li",
+      "children": [
+        ".tr-d",
+        ".tr-p",
+        ".tr-f",
+        ".chip"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "PendingPill",
+      "route": "#inicio",
+      "root": "#sidebar .pending-pill",
+      "children": [
+        ".i",
+        ".lbl"
+      ],
+      "note": "FRD-21 global pending-merge indicator; inside the drawer on phones.",
+      "states": {
+        "default": {
+          "widths": [
+            768,
+            1280
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "ThemeButton",
+      "route": "#inicio",
+      "root": "#sidebar .theme-btn",
+      "children": [
+        ".i",
+        ".lbl"
+      ],
+      "note": "Sidebar-footer sun/moon button beside the collapse button (icon only on the rail and when expanded); inside the drawer on phones it is a row with its label.",
+      "states": {
+        "default": {
+          "widths": [
+            768,
+            1280
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "drawer-open": {
+          "click": "#menu",
+          "widths": [
+            375
+          ]
+        }
+      }
+    },
+    {
+      "name": "SnapshotPanel",
+      "route": "#portfolio?project=funko-tracker",
+      "root": "#snapshot-panel",
+      "children": [
+        ".card-head",
+        ".snap-sha",
+        ".snap-now",
+        ".cmd"
+      ],
+      "states": {
+        "default": {},
+        "stale": {
+          "spre": "applyScenario('snapshot-stale')"
+        }
+      }
+    },
+    {
+      "name": "AccountsDirectory",
+      "route": "#portfolio?view=cuentas",
+      "root": ".acc-dir",
+      "children": [
+        "thead th",
+        "tbody tr",
+        "a.acc-name",
+        ".copy-text",
+        ".state-dot",
+        ".btn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "WorkOrderCardFailed",
+      "route": "#portfolio?project=funko-tracker&tab=Observabilidad&view=tablero",
+      "root": ".wocard.is-failed",
+      "children": [
+        ".wid",
+        "strong",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "WorkOrderRowFailed",
+      "route": "#portfolio?project=funko-tracker&tab=Observabilidad&frd=frd-05-shareable-checklist",
+      "root": ".worow.is-failed",
+      "children": [
+        ".wid",
+        ".wt",
+        ".chip"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "DriftChip",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": ".drift-chip",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ErrorNotice",
+      "route": "#propuestas?tab=Backlog",
+      "root": ".notice[role=\"alert\"]",
+      "children": [
+        ".i",
+        "b",
+        ".issue-list li",
+        "p"
+      ],
+      "states": {
+        "default": {
+          "spre": "applyScenario('backlog-errors')"
+        }
+      }
+    },
+    {
+      "name": "FirstActionCard",
+      "route": "#portfolio",
+      "root": ".first-action",
+      "children": [
+        ".card-head",
+        ".card-intro",
+        ".cmd"
+      ],
+      "states": {
+        "default": {
+          "spre": "applyScenario('factory-empty')"
+        }
+      }
+    },
+    {
+      "name": "ProjectCardMissing",
+      "route": "#portfolio",
+      "root": ".proj-card.is-missing",
+      "children": [
+        "h3",
+        ".notice",
+        ".cmd"
+      ],
+      "states": {
+        "default": {
+          "spre": "applyScenario('portfolio-path-missing')"
         }
       }
     }

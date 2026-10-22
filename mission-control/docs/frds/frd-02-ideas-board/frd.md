@@ -6,29 +6,32 @@ parent: product/prd.md
 status: ACTIVE
 implementation_status: IN_REVIEW
 ui: true
-visual_source: docs/frds/frd-02-ideas-board/mocks/la-campana.html
-last_updated: '2026-10-17'
+visual_source: docs/design/prototype/index.html
+visual_source_mocks: docs/frds/frd-02-ideas-board/mocks/ideas-board.html
+last_updated: '2026-10-22'
 ---
 # FRD-02 — Ideas board
 
 Read-only kanban of the idea base, with idea capture, a navigable detail and discard.
 
+> **Design freeze amendment (2026-10-22, S2.2).** The approved Órbita prototype (`docs/design/prototype/index.html`) is the visual and functional oracle for this FRD. Quoted UI strings are the prototype's Spanish strings. Items the owner left out of the v2 redesign (decision 2026-10-21) stay in place, prefixed **Out of v2**, so their ids keep tracing. Items the prototype draws and this FRD lacked are REQ-02-016 (AC-02-016.1 to AC-02-016.8). Source: `docs/design/freeze/reconciliation.md`.
+
 ## Acceptance criteria (EARS)
 - The board SHALL place each idea into one of the columns `discovered → documented → design → architecture → building → shipped` (plus a `discarded` column) by **deriving the column from two axes** (the card `status` and, once handed off, the project `phase` — see FRD-01), NOT from the card `status` alone:
-  - card `status: discovered` or `recommended` (not handed off yet) → **discovered** column (a `recommended` card SHALL show a "recommended" badge).
+  - card `status: discovered` or `recommended` (not handed off yet) → **discovered** column (**Out of v2 (owner decision 2026-10-21):** a `recommended` card showing a "recommended" badge; in v2 the card sits in the column without a badge).
   - card `status: in-pipeline` → the column comes from the linked project's `.pandacorp/status.yaml` **phase**: `product`→documented, `design`→design, `architecture`→architecture, `implementation`→building, `release`→shipped.
   - card `status: shipped` → **shipped** column; card `status: discarded` → **discarded** column.
   - The board SHALL NOT expect `design`/`architecture`/`building` to ever appear as a card `status` (those columns only come from the project phase). IF an `in-pipeline` card's project or `status.yaml` is missing, THEN it SHALL fall back to the **documented** column without breaking.
 - **REQ-02-002** — The board SHALL NOT allow moving cards by hand (drag or arrows): the transitions are written by the skills. The columns SHALL have the same width, be **wide** (not tiny) and have **horizontal scroll** when they don't fit; the text SHALL wrap onto several lines if it doesn't fit.
-- **REQ-02-003** — WHEN the owner clicks "Capture ideas / oportunidades", the system SHALL open a **modal overlay** (dark backdrop + blur) with the four intake commands — `/pandacorp:explore`, `:new-idea`, `:discover` and `:recommend` — each with an icon, title, description and copy-command row. Clicking the backdrop or the ✕ button SHALL close the modal. The board SHALL remain visible behind the modal as context.
+- **REQ-02-003** — WHEN the owner clicks "Capturar ideas", the system SHALL open a **modal overlay** (dark backdrop + blur) with the four intake commands — `/pandacorp:explore`, `:new-idea`, `:discover` and `:recommend` — each with an icon, title, description and copy-command row. Clicking the backdrop or the ✕ button SHALL close the modal. The board SHALL remain visible behind the modal as context.
 - WHEN the owner clicks a card, the system SHALL show the card: summary, key points, a navigator of the idea's documents, and the next-step command (with a copy button).
 - **REQ-02-005** — EACH card SHALL show two labels besides the score: **category** (`project_type`: web, mobile, desktop, ai, claude-code, prompt-system, automation, cli, rework…) and **return** (`return_type`: monetary, opportunity, personal or mixed). The board SHALL allow **filtering by category**.
 - **REQ-02-006** — WHILE an idea's project has `running: true` (build in progress, phase `implementation` → "building" column), the system SHALL show an indicator on its card that it is being built.
-- WHEN the owner presses "Discard idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (one of the app's small, bounded set of human-triggered writes — see REQ-02-012 and architecture §7).
-- **REQ-02-008** — WHEN the owner presses "Discard idea", the system SHALL open a confirmation **modal** (the shared `Modal` core, DR-057) that captures an **optional reason** (quick-tags — *saturado/competencia · no me interesa el tema · no apalanca mi canal · muy complejo · no monetiza en Perú · otro* — plus free text) and SHALL write it to the `discard_reason` frontmatter field alongside `status`. The reason is optional (confirming without one writes only `status`), and the capture is part of the same write. (Owner rule: reveal-more is a modal, never an inline expand-that-pushes-content — the reason capture does **not** expand inline below the trigger. While the write is in flight the modal stays open with a disabled "Descartando…" state; backdrop/✕/Escape are inert until it settles.) This feeds `/pandacorp:discover`'s rejection-pattern learning so it stops proposing ideas the owner keeps rejecting (factory v9.8.0). On discard the system SHALL also record `status_before_discard` (the prior status) so a restore is exact.
-- The board SHALL NOT render a "Descartado" column. Discarded ideas are reached via a **"Ver descartadas" button** (beside "Capturar ideas", shown only when discarded ideas exist) that opens a **modal** listing them (title + discard reason); selecting one opens its detail. (Owner rule: no inline expand-that-pushes-content — reveal-more is a modal. The shared `Modal` core, DR-057, powers this and the intake modal.)
-- WHEN the owner opens a discarded idea's detail, the system SHALL show its **full documentation** (in the Documentos tab) and a banner with the **discard reason**, and SHALL offer **"Volver a agregar"** — which restores the idea to the status it had **before** being discarded (`status_before_discard`, fallback `discovered`) and clears `discard_reason` + `status_before_discard`. Restore is the board's second write (ADR-0002).
-- **REQ-02-014** — WHEN a board column has no cards, it SHALL show an accessible empty-state marker: an element with role `status` whose text is "Sin ideas en esta columna" (visually hidden), with the visual dash kept as `aria-hidden` decoration, so the empty state is not conveyed by shape alone (WO-02-014).
+- WHEN the owner presses "Descartar idea", the system SHALL rewrite `status: discarded` in the `.md` frontmatter, preserving the rest of the file (one of the app's small, bounded set of human-triggered writes — see REQ-02-012 and architecture §7).
+- **REQ-02-008** — WHEN the owner presses "Descartar idea", the system SHALL open a confirmation **modal** titled "Descartar idea" (the shared `Modal` core, DR-057) that captures an **optional reason** ("Motivo (opcional)" free text; **Out of v2 (owner decision 2026-10-21):** the quick-tags — *saturado/competencia · no me interesa el tema · no apalanca mi canal · muy complejo · no monetiza en Perú · otro*) and SHALL write it to the `discard_reason` frontmatter field alongside `status`. The reason is optional (confirming without one writes only `status`), and the capture is part of the same write. (Owner rule: reveal-more is a modal, never an inline expand-that-pushes-content — the reason capture does **not** expand inline below the trigger. **Out of v2 (owner decision 2026-10-21):** while the write is in flight the modal stays open with a disabled "Descartando…" state; backdrop/✕/Escape are inert until it settles.) This feeds `/pandacorp:discover`'s rejection-pattern learning so it stops proposing ideas the owner keeps rejecting (factory v9.8.0). On discard the system SHALL also record `status_before_discard` (the prior status) so a restore is exact.
+- The board SHALL NOT render a "Descartado" column. Discarded ideas are reached via a **"Descartadas · N" button** (beside "Capturar ideas", always shown, N = the count of discarded ideas) that opens a **modal** titled "Ideas descartadas · N" listing them (title, category and discard reason, with "leer propuesta y restaurar"); selecting one opens its detail. (Owner rule: no inline expand-that-pushes-content — reveal-more is a modal. The shared `Modal` core, DR-057, powers this and the intake modal.)
+- WHEN the owner opens a discarded idea's detail, the system SHALL show its **full documentation** (in the Documentos tab) and a banner with the **discard reason**, and SHALL offer **"Restaurar"** — which opens the "Restaurar idea" confirmation dialog (no reason field: restore takes none) and, on confirm, restores the idea to the status it had **before** being discarded (`status_before_discard`, fallback `discovered`) and clears `discard_reason` + `status_before_discard`. Restore is the board's second write (ADR-0002).
+- **REQ-02-014** — WHEN a board column has no cards, it SHALL show an accessible empty-state marker: an element with role `status` whose visible text is "Sin ideas en esta fase" (columns are pipeline phases), so the empty state is conveyed by text and not by shape alone (WO-02-014).
 
 ## Card detail — "La Campaña" + tabbed restructure (extension, 2026-06-18)
 
@@ -48,8 +51,7 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   (Arquitectura → Spec → Propuesta); Documentos and Campaña are never the default. Only the initial tab
   is derived: the owner's later pick persists (AC-02-009.4). (Owner decision, discover redesign 2026-06-26; the Comandos tab was folded into the
   campaign ficha earlier.) A **Spec** tab is inserted **between Propuesta and Documentos** when the
-  project has a spec digest (REQ-02-011), and an **Arquitectura** tab **after Spec** when it has an
-  architecture digest or a present structured model artifact (REQ-02-013) — absent the corresponding source artifacts, that tab is not rendered. Full order when both exist: Propuesta · Spec · Arquitectura · Documentos · Campaña.
+  project has a spec digest (REQ-02-011), and an **Arquitectura** tab **after Spec** (and a **Documentos** tab with its document count) whenever the idea is linked to a project (REQ-02-013); an idea with no linked project shows Propuesta · Campaña only. Full order when all exist: Propuesta · Spec · Arquitectura · Documentos · Campaña.
 - AC-02-009.5 — WHEN the **Propuesta** tab is active, THE system SHALL render the idea's **memo-pitch**
   (the card's hot→cold body produced by `/discover`/`/new-idea`, plugin v9.9.0) natively via the
   `IdeaPitch` component (CMP-02-idea-pitch) using the design tokens — the on-brand pitch that makes the
@@ -74,8 +76,9 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
 
 - AC-02-010.1 — WHEN the **Campaña** tab is active, THE system SHALL render **La Campaña**: the
   **6-phase pipeline** in fixed order `research → product → design → architecture → build → release`,
-  each phase shown as a room, wrapped in a labelled container ("EL VIAJE DE ESTA IDEA POR LAS 6
-  FASES").
+  each phase shown as a room, wrapped in a labelled container ("El viaje de esta idea por las 6
+  fases"). The phase names are Investigación · Producto · Diseño · Arquitectura · Construcción ·
+  Lanzamiento.
 - AC-02-010.2 — THE system SHALL **derive the ACTIVE phase from the project's real status** (the card
   `status` / linked project `status.yaml` phase) with the mapping `discovered→research`,
   `documented→product`, `design→design`, `architecture→architecture`, `building→build`,
@@ -106,30 +109,25 @@ Read-only kanban of the idea base, with idea capture, a navigable detail and dis
   Option-B wave commit (consistent with FRD-06 / La Fragua).
 - AC-02-010.9 — Each phase's ficha SHALL carry a **"Qué puedes correr"** section listing that phase's
   **runnable commands** (the first is the advance/recommended step; the rest are the phase's other
-  options), each as a **copyable** `CmdRow`. The command text SHALL **substitute the project slug**
+  options), each as a **copyable** `CmdRow` (the first labelled "Siguiente paso", the rest under
+  "Otras opciones de esta fase"). The command text SHALL **substitute the project slug**
   into the `<idea>` token (e.g. `/pandacorp:spec <idea>` renders `/pandacorp:spec <slug>`) so it
   copy-pastes directly — never a literal `<idea>` placeholder. The factory-run commands (`spec`,
   `explore`) carry the project name; the in-project commands (`design`, `blueprint`, `implement`,
   `release`, `iterate`, `bug`, `change`, `review-launch`, `new-version`, `sync`) do not. A command
-  that has **modes** SHALL render an inline **`<select>`** (same height as the copy button, pinned to
-  its left) whose first option is **`default`** — a neutral word meaning "no flag, the skill decides"
-  (NOT the field name, which would read as if that value were chosen). What the field controls is
-  carried by a **custom hover/focus tooltip** — a styled bubble that appears **above** the select
-  **immediately** (no native-`title` delay), **bounded to a max width** (~240px, wrapping to 2–3
-  lines), with a descriptive sentence (e.g. "Cuántas preguntas te hago antes de generar la
-  documentación" / "Modo de construcción — con cuánta potencia se construye el proyecto"; wired as
-  `aria-describedby` for assistive tech) — plus the one-line hint below — keeping the option text
-  (and so the control) narrow. The remaining options
-  each fold their flag into the displayed AND copied command (`/pandacorp:spec <slug>` →
-  `/pandacorp:spec <slug> --ask`). Choosing `default` again clears the flag. A
-  `<select>` (not a row of pills) keeps the control compact no matter how many modes a command has. A
-  one-line hint SHALL describe the selected mode (or the default behaviour). Today two commands carry modes: **`spec`** (clarification modes
-  `--ask` / `--auto` / `--infer`, DR-095) and **`implement`** (the build modes Pro / Potente /
-  Profundo, derived from the canonical `BUILD_MODES`; balanced = no flag). Commands without modes
-  render as a plain row. Read-only (AC-02-010.6): showing the command is not running it.
+  that has **modes** SHALL NOT render an inline `<select>` (amended 2026-10-22 to the approved
+  prototype): the **`spec`** clarification modes (`--ask` / `--auto` / `--infer`, DR-095) SHALL sit
+  in a disclosure whose summary reads "Cuántas preguntas te hago antes de generar la documentación"
+  and which lists each mode with its own copyable command (the mode's flag folded into the command,
+  e.g. `/pandacorp:spec <slug> --ask`); the **`implement`** build modes are offered by the
+  four-card picker behind "Elegir modo de construcción" (FRD-11 AC-11-005.1). A one-line hint
+  SHALL describe each mode. Commands without modes render as a plain row. Read-only
+  (AC-02-010.6): showing the command is not running it.
 - AC-02-010.5 — WHEN the owner activates the **Construcción** (build) phase's "Entrar a La Fragua"
-  action, THE system SHALL **navigate the host app** to Portfolio → that project → the **Party** tab
-  (FRD-06 / La Fragua) for that project, WITHOUT an inner iframe reload of the card detail.
+  action, THE system SHALL **navigate the host app** to Portafolio → that project's **Resumen** tab,
+  whose head is La Fragua (FRD-06; there is no Party tab), WITHOUT an inner iframe reload of the
+  card detail. THE system SHALL NOT show the action until the build phase is reached (a locked build
+  phase shows its ficha without the action, AC-02-010.7).
 - AC-02-010.6 — THE Campaña view SHALL be **read-only**: it SHALL NOT call Claude, write any file, or
   trigger any build; the only "communication" it depicts between phases is the deliverable document
   travelling to the next phase (artifact across time).
@@ -150,28 +148,32 @@ A visual-fidelity reconciliation of the card detail against `prototype/party-pip
 campaign map) + `prototype/index.html` `detailView()`:
 - **AC-02-010.4 amended** — the **active** phase's ficha is shown **by default** (the prototype opens
   the active phase) and **stays pinned**: clicking another phase switches it; clicking the open one
-  keeps it open (the detail below the map is always visible, never toggled closed). The ficha gains a
-  header "`{n} · {name}` — {state}" (e.g. "Investigación — EN CURSO"). The active room's cast **roams**
-  — sprites wander and collaborate (lead halo, speech on meet); `prefers-reduced-motion` renders them
-  static. The campaign body is one bordered panel below the (bare, icon-bearing) tab pills; the header
-  caption is left-aligned; the stage is full-width with the rooms centred; the road connectors sit
-  **under** the rooms.
-- **AC-02-010.3 deliverable** — each non-locked room shows the short artifact with its icon only
-  (`🔍 research.md`, `📋 PRD + FRDs`, …); the "entrega ▸" label + arrow were dropped. The inter-phase
-  connectors render as the prototype's striped **road** (done ✓ / flowing → / locked), not the Fragua
-  stone PNG.
-- **AC-02-009.1** — every rendered tab carries its icon (Propuesta `ti-sparkles`, Spec `ti-list-details`, Arquitectura `ti-affiliate`, Documentos `ti-files`, Campaña `ti-map-2`).
-- **AC-02-009.2/.3 Documentos** is a **rail (210px) + reader**: the rail always lists **Resumen** (the
-  summary reader) plus one item per project document; selecting an item shows it in the reader (a board
-  card defers the full document read to the project workspace). **Comandos** uses the shared `CmdRow`,
-  and building/release cards add a project-command box (`workspaceCommands`).
+  keeps it open (the detail below the map is always visible, never toggled closed). The ficha header
+  shows the kicker "Fase {n} de 6", the phase name and a state chip (e.g. "Fase 1 de 6" · "Investigación" ·
+  "en curso"), with previous/next phase arrows (AC-02-016.6). The active room's cast **roams**
+  — sprites wander and collaborate (lead halo, speech on meet), moved by `transform` only (FRD-13
+  motion rule); `prefers-reduced-motion` renders them static. The campaign body is one bordered panel
+  below the (bare, icon-bearing) tab pills; the header caption is left-aligned; the stage is
+  full-width with the rooms centred.
+- **AC-02-010.3 deliverable** — each room shows its cast and the room name; the hand-off artifact
+  (`research.md`, `PRD + FRDs`, `sistema + mocks`, `blueprint + Build Plan`, `el código`) is written
+  on the **corridor** between two rooms, which turns solid green once delivered; there is no artifact
+  pill inside the room and no striped road.
+- **AC-02-009.1** — every rendered tab carries an inline SVG icon (Propuesta bulb, Spec layers, Arquitectura cube, Documentos file, Campaña flag); the tab for the current location is the only one marked active.
+- **AC-02-009.2/.3 Documentos** is a **curated index + reader**: the index sits on the **RIGHT** of the
+  reader (folded behind a list below 900 px) and always lists **Resumen** (the summary reader) plus one
+  item per project document, grouped by purpose; selecting an item shows it in the reader (a board
+  card defers the full document read to the project workspace). Commands live in the Campaña ficha
+  (the `Comandos` tab no longer exists), through the shared `CmdRow`; building/release cards add a
+  project-command box (`workspaceCommands`).
 - **AC-02-009.4 In-document links open in the reader** — a relative link inside a document to another
   document the reader surfaces (e.g. the PRD linking an FRD) SHALL open that document in the SAME
   card-detail reader (it selects it in the rail — client-state navigation, not a page nav); an off-app
   URL SHALL open in a new tab; any other relative link SHALL render as plain text (never a broken link).
-- **Board columns use La Campaña's phase names** (numbered): `1 Investigación · 2 Producto · 3 Diseño ·
-  4 Arquitectura · 5 Construcción · 6 Release` (+ `Descartada`). Same vocabulary as the campaign;
-  the two-axis column derivation is unchanged.
+- **Board columns use La Campaña's phase names** (numbered): `1 · Investigación · 2 · Producto · 3 · Diseño ·
+  4 · Arquitectura · 5 · Construcción · 6 · Lanzamiento`. There is no `Descartada` column: discarded ideas
+  sit behind the "Descartadas · N" button. Same vocabulary as the campaign; the two-axis column
+  derivation is unchanged.
 - **Ambient roam, honest label (amended 2026-06-29).** The active phase's cast **always roams** —
   sprites wander as ambient liveliness of "where the idea is now", for **any** phase (research →
   release), **decoupled** from the build's `running` flag (which only `/pandacorp:implement` sets, so
@@ -198,7 +200,7 @@ campaign map) + `prototype/index.html` `detailView()`:
   (`project` set): in-pipeline, shipped (launched) or discarded, not only in-pipeline, so a launched
   or discarded project keeps its Spec, Arquitectura and Documentos tabs.
 - AC-02-011.2 — WHEN the **Spec** tab is active, THE system SHALL render the digest natively in three
-  sections — **📋 PRD**, **🔬 Research**, **🧩 FRDs** — reusing the Propuesta tab's visual language
+  sections — **"PRD · qué y por qué"**, **"Research · la evidencia"**, **"FRDs · las piezas del v1"** (plain headings, no emoji) — reusing the Propuesta tab's visual language
   (full-bleed tinted blocks, label rows, role/stat/reference cards, an amber callout for the open
   decisions) for cross-surface coherence (DR-062). PRD/Research subsections are classified by label and
   rendered to be **scannable at a glance** (owner rule): **El problema** → a bullet list (not a prose
@@ -211,8 +213,9 @@ campaign map) + `prototype/index.html` `detailView()`:
 - AC-02-011.3 — THE FRDs section SHALL render **one compact card per v1 FRD** (id · title · type tag ·
   one-line summary). WHEN the owner clicks an FRD card, THE system SHALL open a **modal** (not an inline
   expand — owner rule, reusing the core `Modal` with its focus-trap/Escape/return-focus a11y contract)
-  showing that FRD's detail — Overview, User stories, Reglas de negocio, Fuera de alcance and Open
-  questions — colour-coded per section, consistent with the Spec page.
+  showing that FRD's detail — Visión, Historias de usuario, Reglas de negocio, Fuera de alcance,
+  Preguntas abiertas and Work orders — colour-coded per section, consistent with the Spec page, and
+  ending with the buttons "Contrato", "Blueprint" and "Ver work orders".
 
 - AC-02-011.4 — WHEN Spec is opened from the Portfolio workspace or a direct project page, THE system SHALL reuse this complete Spec component and digest/count readers under FRD-04 REQ-04-013. The board's conditional-tab behavior remains unchanged; the workspace retains an honest empty state when its digest is absent.
 
@@ -232,13 +235,14 @@ campaign map) + `prototype/index.html` `detailView()`:
 - AC-02-012.3 — THE system SHALL render a **star toggle** in the top-right corner of **every** board
   card (in any column) and in the card-detail header; clicking it SHALL toggle the favourite flag
   via a Server Action with **optimistic UI** (the star flips immediately and auto-reverts on
-  failure). The star SHALL be `ti-star` (outline) when not a favourite and `ti-star-filled` (gold)
-  when it is, with a Spanish `aria-label` ("Marcar como favorita" / "Quitar de favoritas") and
-  `aria-pressed` reflecting the state.
-- AC-02-012.4 — WHEN a card is a favourite, THE system SHALL highlight it with a distinct **gold
+  failure). The star SHALL be an outline star when not a favourite and a filled gold star
+  when it is, with a Spanish `aria-label` that names the idea ("Marcar como favorita: <título>" /
+  "Quitar de favoritas: <título>") and `aria-pressed` reflecting the state.
+- AC-02-012.4 — **Out of v2 (owner decision 2026-10-21):** WHEN a card is a favourite, THE system SHALL highlight it with a distinct **gold
   card background + border** (the `--color-warn` token, distinct from the teal accent used by
   "recomendada"/"en construcción"). The highlight SHALL **not** be conveyed by colour alone — the
   card's `aria-label` SHALL include "favorita" and carry the filled-star control (accessibility.md).
+  In v2 the filled gold star of AC-02-012.3 alone marks a favourite.
 
 ### REQ-02-013 — "Arquitectura" tab: native high-level digest of the project's architecture (CMP-02-architecture-digest)
 
@@ -249,47 +253,65 @@ campaign map) + `prototype/index.html` `detailView()`:
 > rendering contract) for the NARRATIVE, plus the project's LIVE artifacts for the machine-truth blocks.
 > Read-only over the factory.
 
-- AC-02-013.1 — WHEN the open card's linked project has a non-empty architecture digest OR a present structured model artifact (including explicit none or invalid input), THE system SHALL render an **Arquitectura** tab after Spec when available, otherwise after Propuesta. WHEN both artifacts are absent, THE system SHALL omit the tab. Availability SHALL NOT depend on the digest when the model artifact is present. This applies to every project-linked card, including shipped and discarded cards.
+- AC-02-013.1 — WHEN the open card's linked project has a non-empty architecture digest OR a present structured model artifact (including explicit none or invalid input), THE system SHALL render an **Arquitectura** tab after Spec when available, otherwise after Propuesta. WHEN the card is linked to a project but both artifacts are absent, THE system SHALL still render the tab, with the message "La arquitectura todavía no está publicada." (amended 2026-10-22 to the approved prototype); WHEN the card has no linked project, THE system SHALL omit the tab. Availability SHALL NOT depend on the digest when the model artifact is present. This applies to every project-linked card, including shipped and discarded cards.
 - AC-02-013.2 — WHEN **Arquitectura** is active, THE system SHALL reuse the complete `ArchitectureDigest`: hero, **Stack & tecnologías**, **Integraciones y operación**, **Modelo de datos**, **Variables de entorno**, **Decisiones (ADRs)**, **Plan de implementación**, and per-FRD cards. The **Modelo de datos** heading SHALL remain present and host the shared logical-model viewer (REQ-02-015); existing narrative/content-entity context SHALL remain readable. Stack SHALL describe technology/provider choices and their rationale; Integraciones y operación SHALL preserve all authored service flows, responsibilities and operational tasks without deduplicating away facts merely because a vendor also appears in Stack. Missing narrative SHALL NOT suppress an available model or its error/none state.
-- AC-02-013.3 — THE **Plan de implementación** SHALL render the implementation-plan **DAG** by reusing
-  the work-order dependency graph component (`WoDag`/`DagCanvas`, dagre + SVG — no new graph library):
-  nodes = work orders grouped by FRD, edges = `dependsOn`, node state = `implementation_status`, so the
-  parallelism and the critical path are visible. The DAG is computed from the LIVE work-order frontmatter
-  (`docs/frds/*/work-orders/*.md`, DR-049), not from the digest.
+- AC-02-013.3 — THE **Plan de implementación** SHALL render a **state mosaic**: one tile per work
+  order, grouped by FRD, each tile coloured and labelled by `implementation_status`. WHILE the
+  project has not reached Construcción, the block SHALL be replaced by a line "N work orders
+  planificadas". The mosaic is computed from the LIVE work-order frontmatter
+  (`docs/frds/*/work-orders/*.md`, DR-049), not from the digest. The interactive dependency graph
+  (critical path, parallelism) lives in Observabilidad → Dependencias (FRD-12, amended 2026-10-22 to
+  the approved prototype; supersedes the earlier `WoDag` reuse here).
 - AC-02-013.4 — THE **Decisiones (ADRs)** and **Variables de entorno** blocks SHALL be read **live** from
   the real artifacts (`docs/adr/*` and `.env.example`), not duplicated in the digest, so they never drift.
   An ADR row SHALL be clickable and open a **modal** (the core `Modal` a11y contract) with the ADR body.
 - AC-02-013.5 — THE **per-FRD** cards SHALL render one card per FRD (id · title · WO count · blueprint
   one-liner); clicking a card SHALL open a **modal** with that FRD's blueprint summary + its work-orders
   list — consistent with the Spec tab's FRD-card→modal pattern (owner rule: heavy detail in a modal).
-- AC-02-013.6 — WHEN an FRD's modal is open AND that FRD has **more than one** live work order, THE
+- AC-02-013.6 — **Out of v2 (owner decision 2026-10-21):** WHEN an FRD's modal is open AND that FRD has **more than one** live work order, THE
   system SHALL render, at the end of the modal, a **scoped dependency DAG** (the same `WoDag` reused by
   the main Plan de implementación) showing ONLY that FRD's work orders and their intra-FRD dependencies
   /parallelism. WHEN the FRD has a single work order, THE system SHALL NOT render the DAG (there is no
-  dependency/parallelism to show).
+  dependency/parallelism to show). In v2 the FRD modal ends with its links only (Contrato, Diseño,
+  Blueprint, Ver work orders).
 
 ### REQ-02-015 — Shared logical data-model viewer (CMP-02-data-model-viewer)
 
 The project-owned source is `docs/product/data-model.json`. Contract and reader details live in [ADR-0006](../../adr/ADR-0006-shared-logical-data-model-viewer.md) and the [platform architecture](../../product/architecture.md). The architecture tooling producer/backfill is a separate factory dependency; this consumer never fabricates the source.
 
-- AC-02-015.1 — WHEN a valid version-1 relational or document model is available, THE viewer SHALL display every declared entity, ordered attribute, logical type, optionality, PK/FK/UQ membership and composite-key group, preserving isolated entities, self-relations, parallel edges and declared association entities without inventing joins.
-- AC-02-015.2 — WHEN a relationship is displayed or selected, THE viewer SHALL preserve attribute mappings and both endpoint cardinalities, explicitly labelled `1`, `0..1`, `0..*` or `1..*`, with independently selectable graph connectors; it SHALL NOT render a lower relationship inspector or duplicate relationship-button list.
-- AC-02-015.3 — WHEN the viewer opens at any viewport width, THE default SHALL be **Diagrama**, using content-sized entity cards that show full names, attribute names and types without ellipsis, 24px attribute rows and 12px field text; THE viewer SHALL offer native pointer-drag panning of the canvas background, zoom, fit/reset, keyboard arrows and labelled directional buttons without requiring scrollbars to navigate the diagram.
+- AC-02-015.1 — WHEN a valid version-1 relational or document model is available, THE viewer SHALL display every declared entity, ordered attribute, logical type, optionality, PK/FK/UQ membership as per-attribute badges and composite-key group, preserving isolated entities, self-relations, parallel edges and declared association entities without inventing joins. **Out of v2 (owner decision 2026-10-21):** the visual distinction of composite key groups, isolated entities and self-relations (the keys show as per-attribute badges only).
+- AC-02-015.2 — WHEN a relationship is displayed or selected, THE viewer SHALL preserve both endpoint cardinalities, explicitly labelled `1`, `0..1`, `0..*` or `1..*` (the "Relaciones N" list shows each as `from min..max → to min..max`); it SHALL NOT render a lower relationship inspector or duplicate relationship-button list. **Out of v2 (owner decision 2026-10-21):** the attribute mappings shown on links and the independently selectable graph connectors.
+- AC-02-015.3 — WHEN the viewer opens at desktop or tablet width, THE default SHALL be **Diagrama** (on phones it opens on **Esquema**, amended 2026-10-22), using content-sized entity cards that show full names, attribute names and types without ellipsis, 24px attribute rows and 12px field text; THE viewer SHALL offer native pointer-drag panning of the canvas background, zoom, fit/reset, keyboard arrows and labelled directional buttons without requiring scrollbars to navigate the diagram.
 - AC-02-015.4 — WHEN the owner chooses **Esquema**, THE viewer SHALL display a single column of compact, initially collapsed entity accordions; activating an entity SHALL expand its natural-height, selectable Prisma-like text, attributes, keys and explicit relationship/cardinality text from the same artifact, close any other open entity in that viewer, and permit collapsing it again; this SHALL be a viewing representation, not an executable Prisma schema or an HTML attribute table.
 - AC-02-015.5 — WHEN the owner searches an entity/attribute or selects an entity/relation, THE viewer SHALL reveal matching entities, center diagram search results and highlight matching/connected graph elements without editing or dropping model data or adding a lower detail panel. Activating the same explicitly selected relationship again SHALL clear selection; activating a connector highlighted only by entity-neighborhood selection SHALL select that relationship first. Selected and keyboard-focused relationship connectors SHALL use the routed line/cardinality strokes as their visual indicator, without an outline around the SVG group bounds; other controls SHALL retain their existing focus indicators. Active expanded search SHALL announce matches or no matches inside its dialog.
-- AC-02-015.6 — WHEN the owner expands the model, THE viewer SHALL request native browser fullscreen on a model-only host within the activating gesture, falling back to a viewport-filling diagram dialog when unavailable or rejected; it SHALL reuse the dependency map’s compact top-right icon toolbar for zoom, percentage/reset, fit and fullscreen/minimize, with search and click-pan alternatives and no source bands, tabs, visible instructions, legend or lower details; it SHALL preserve its model and selection, provide modal keyboard navigation/Escape, restore the actual activating text/icon trigger focus on close or native fullscreen exit, and prevent another selected project's model from leaking into the view.
-- AC-02-015.7 — WHEN the source is absent, explicitly `persistence: none`, valid with no entities, malformed, oversized, unreadable or unsupported, THE viewer SHALL show the corresponding missing/none/empty/error state and keep the rest of Architecture usable; invalid input SHALL never appear as a valid empty diagram.
-- AC-02-015.8 — WHEN a usable designed model is displayed without independent schema verification, THE inline viewer SHALL state **Modelo diseñado. Implementación sin verificar.**; phase, timestamps and work-order state SHALL NOT imply operational-schema verification.
+- AC-02-015.6 — WHEN the owner expands the model, THE viewer SHALL request native browser fullscreen ("Pantalla completa") on a model-only host within the activating gesture (**Out of v2 (owner decision 2026-10-21):** the fallback to a viewport-filling diagram dialog when native fullscreen is unavailable or rejected); it SHALL reuse the dependency map’s compact top-right icon toolbar for zoom, percentage/reset, fit and fullscreen/minimize, with search and click-pan alternatives and no source bands, tabs, visible instructions, legend or lower details; it SHALL preserve its model and selection, provide modal keyboard navigation/Escape, restore the actual activating text/icon trigger focus on close or native fullscreen exit, and prevent another selected project's model from leaking into the view.
+- AC-02-015.7 — WHEN the source is absent, explicitly `persistence: none`, valid with no entities, malformed, oversized, unreadable or unsupported, THE viewer SHALL show the corresponding missing/none/empty/error state and keep the rest of Architecture usable; invalid input SHALL never appear as a valid empty diagram. Malformed, oversized, unsupported and unreadable sources share ONE explicit error notice in Modelo de datos (same copy shape, naming what failed), distinct from the explicit-none state ("Este proyecto declara explícitamente que no usa base de datos.") and from the not-published state.
+- AC-02-015.8 — WHEN a usable designed model is displayed without independent schema verification, THE inline viewer SHALL state **"Modelo diseñado, no verificado contra una base viva"**; phase, timestamps and work-order state SHALL NOT imply operational-schema verification.
 - AC-02-015.9 — WHEN identical project artifacts are opened from the board, portfolio workspace or direct project page, THE system SHALL use the same reader and viewer and SHALL retain all other Architecture sections (REQ-02-013).
-- AC-02-015.10 — WHEN arranging a valid model, THE viewer SHALL use deterministic orthogonal field-port routing, keep every entity nonoverlapping and every connector outside card interiors, retain distinct self/parallel links and center an initially readable, complete connected entity rather than clipping the first table. Ajustar SHALL fit the complete graph; Restablecer SHALL restore the readable starting view.
-- AC-02-015.11 — WHEN asynchronous layout is pending, fails or belongs to a previous project, THE viewer SHALL show an explicit bounded loading/error state, isolate responses by model identity and cancel old/overdue worker tasks, without blocking browser interaction.
+- AC-02-015.10 — WHEN arranging a valid model, THE viewer SHALL use deterministic orthogonal field-port routing, keep every entity nonoverlapping and every connector outside card interiors, retain distinct self/parallel links and center an initially readable, complete connected entity rather than clipping the first table. Ajustar SHALL fit the complete graph; Restablecer SHALL restore the readable starting view. (Unchanged in v2: the owner kept the app's layout engine at M1 2026-10-22; the prototype's simpler masonry layout is not adopted for the data model, and its canvas is compared by computed styles, not pixels.)
+- AC-02-015.11 — WHEN asynchronous layout is pending, fails or belongs to a previous project, THE viewer SHALL show an explicit bounded loading/error state, isolate responses by model identity and cancel old/overdue worker tasks, without blocking browser interaction. (Kept in v2: the data model keeps the app's current layout engine, owner decision at M1 2026-10-22, so this behaviour stays; the prototype does not draw the state and it is verified by behaviour tests, not by pixels.)
 - AC-02-015.12 — WHEN the owner zooms or pans, THE model viewer SHALL use 15% button steps and delta-mode-normalized proportional wheel scaling, batch wheel/pointer updates once per animation frame, retain unchanged entity/edge content and cancel queued frames on direct reset/fit or unmount.
 
 - AC-02-015.13 — WHEN interacting with inline or expanded diagram entity cards, THE viewer SHALL prevent text selection inside those cards and clear any existing browser selection on canvas pointer-down; expanded schema text SHALL remain selectable.
 - AC-02-015.14 — WHEN Propuesta, Spec or Arquitectura is displayed, THE content panels SHALL use the available host width without a fixed inner panel-width cap; long introductory prose MAY retain its readable line-length limit.
 
+### REQ-02-016 — Board search and navigation, idea-page header and cards (added 2026-10-22, design freeze)
+
+> Group A of the design freeze: behaviours the approved Órbita prototype draws and this FRD lacked.
+
+- AC-02-016.1 — WHEN the owner types in the board search ("Buscar por nombre o contenido…"), THE system SHALL show only the ideas whose title matches, across every phase column.
+- AC-02-016.2 — THE board SHALL show one phase selector chip per phase with its idea count, and WHEN a chip is activated THE system SHALL scroll that phase's column into view.
+- AC-02-016.3 — WHEN the owner turns on "Ocultar columnas vacías", THE board SHALL remove the empty phases and their selector chips, and SHALL remember the choice in this browser.
+- AC-02-016.4 — WHILE a category filter is active, THE board SHALL show the live count "N ideas coinciden".
+- AC-02-016.5 — THE idea page SHALL show a header with the idea's stage line ("Etapa: <fase>", or "Descartada" for a discarded idea; no phase stepper), a "Volver al tablero" link, and its favorite, open-project and discard actions on one row.
+- AC-02-016.6 — THE Campaña SHALL show a six-segment strip with "N/6 entregadas", and the phase sheet SHALL offer previous and next phase arrows.
+- AC-02-016.7 — EACH FRD card in the Spec and Arquitectura tabs SHALL open its detail from its whole area, SHALL carry a coloured kind tag (UI, Infra, Tool/CLI, API or Data, taken from the FRD's `ui:` field when the digest lacks it), and SHALL show work-order progress only once construction has started (before that, the planned count).
+- AC-02-016.8 — THE "Variables de entorno" block SHALL group variables by their `.env.example` section, SHALL label a variable without its own comment "Sin descripción en .env.example" with a count badge, and SHALL fold any group longer than 12 variables.
+
+**Worked example (AC-02-016.2, AC-02-016.3).** The board has 6 phases, with Diseño and Lanzamiento empty. The owner turns on "Ocultar columnas vacías": 4 columns and 4 chips remain; reloading this browser keeps them hidden. Activating the chip "Arquitectura 2" scrolls that column into view.
+
 ## Edge cases
-- Idea with neither architecture digest nor structured model artifact → Arquitectura is absent; a present model without a digest keeps the tab reachable (AC-02-013.1).
+- Idea with neither architecture digest nor structured model artifact → a project-linked idea keeps the Arquitectura tab with "La arquitectura todavía no está publicada."; an idea with no linked project has no Arquitectura (nor Spec or Documentos) tab (AC-02-013.1, AC-02-009.1).
 - Idea with no spec digest → the Spec tab is simply absent; the other tabs render unchanged (AC-02-011.1).
 - Favourite is orthogonal to the column: a card keeps its derived column whether or not it is a favourite; toggling the star never moves it (REQ-02-012).
 - Idea with no documents → the Documentos rail still shows **Resumen** (the reader = the summary); there
@@ -297,7 +319,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 - Category (web/mobile/desktop/AI/…), return (monetary/opportunity/personal/mixed) and score are shown with a legend explaining them.
 - An `in-pipeline` card whose project / `status.yaml` is missing or malformed → La Campaña active phase falls back to **research** (index 0) and the view still renders (AC-02-010.2).
 - A `discovered` card (no project yet) → La Campaña active phase = **research**; the future phases are all locked (AC-02-010.3 / AC-02-010.7).
-- A `shipped` card → La Campaña active phase = **release**; the build phase's "Entrar a La Fragua" still navigates to the project's Party tab (AC-02-010.5).
+- A `shipped` card → La Campaña active phase = **release**; the build phase's "Entrar a La Fragua" still navigates to the project's Resumen, headed by La Fragua (AC-02-010.5).
 - Clicking the build phase's "Entrar a La Fragua" while the card detail is embedded must not reload the embed; it hands off to the host (AC-02-010.5).
 
 ## Does NOT include

@@ -1,33 +1,75 @@
-# Technical assumptions — Mission Control design (ADOPT-VISUAL, DR-054)
+# Technical assumptions — Mission Control design (Órbita, ADOPT-VISUAL, DR-054)
 
-What the **faithful reproduction** of the approved prototype (`prototype/index.html` + `party-*.html`) assumes from the implementation. The architect/build reads this; none are high-risk (Mission Control is an internal, read-only, local tool — no real-time backend, no offline, no server-side media generation, no third-party integrations). These are **cost/staging** notes, not feasibility blockers.
+What the **faithful reproduction** of the approved Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21) assumes from the implementation, and the build requirements that follow from the fidelity target (`docs/design/fidelity-checklist.md`). The architect and the build read this. Mission Control is an internal, read-only, local tool: no real-time backend, no offline, no server-side media generation, no third-party integrations. Nothing below is a feasibility blocker; the items in section 3 are **cost and staging** notes, and section 4 lists the few that deserve an explicit blueprint decision.
 
-## 1. Two custom web fonts via `next/font`
+This file replaces the notes of the earlier pixel-RPG design (Pixelify Sans, Space Grotesk via `next/font/google`, ~19 MB of zone and sprite art, the Party canvas). Still true and kept: both themes first-class, pixelated art rendering, no optimising image pipeline for pixel art, no animation library, motion gated by `prefers-reduced-motion`.
 
-- The contract requires **Pixelify Sans** (pixel numerals) and **Space Grotesk** (display) at weights **400 / 500 / 600 / 700**.
-- The prototype loaded them from the Google Fonts CDN (`fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700`).
-- **Assumption:** wire both via `next/font/google` (self-hosted, no runtime CDN call, avoids CLS per `web-performance.md`). Cost: low. Expose them as the `--pixel` / `--display` CSS vars the `@theme` mirror expects. `--mono` and `--body` are system stacks (no download).
-- **Frequency test:** Pixelify is the *rare/expressive* face (numerals/badges) — keep its usage rationed; Space Grotesk is the everyday display face.
+## 1. Build requirements (what the gate checks)
 
-## 2. ~19MB of pixel-art assets to stage in `public/`
+1. **Self-host exactly three font families, with the prototype's `@font-face` rules** (never `next/font/google`, never a loader that renames the family or adds fallback faces). Copy these files into the build's served assets and keep the family names, weights and `font-display: swap`:
+   - `docs/design/prototype/assets/SpaceGrotesk.ttf` (variable, weights 300-700, display)
+   - `docs/design/prototype/assets/inter-400.ttf`, `inter-500.ttf`, `inter-600.ttf`, `inter-700.ttf`, `inter-800.ttf` (body)
+   - `docs/design/prototype/assets/JetBrainsMono.ttf` (variable, weights 100-800, code)
+   - licences to ship alongside: `SpaceGrotesk-LICENSE.txt`, `Inter-OFL.txt`, `JetBrainsMono-LICENSE.txt` (all SIL OFL 1.1).
+   - Do not ship the Manrope files or `manrope.css` (an abandoned comparison). The `@font-face` source of truth is the first seven lines of `docs/design/prototype/base.css` (also `reference/css/00-fonts.css`; its header note claiming the family is empty is stale).
+   - The computed `font-family` stacks must be string-exact; they are listed in the checklist § Fonts.
+2. **Use only the exported SVG icons.** `docs/design/prototype/icons/*.svg` (64 files, 24x24 viewBox, `stroke="currentColor"`, width 1.8, round caps and joins). No icon library (lucide, heroicons, …) and no hand-drawn substitute; wrap the files in one `Icon` component keyed by file name. The brand mark is the raster `docs/design/prototype/assets/pandacorp.png`, a recorded exception to the vector-logo rule (M2 owner decision 4): served as original bytes. `docs/design/prototype/logo/` holds a lossless SVG wrapper around the PNG, the PNG and a README stating the exception; the wrapper is not a redrawn vector.
+3. **Run the automated computed-style check** against `docs/design/prototype/reference/computed-styles.json` (137 components, 849 records, pareto scope) with `diff.mjs styles` from the fidelity toolkit, and the pixel check against the live prototype with `diff.mjs pixels` (900 px slices, YIQ 0.1, 0.5%), for every oracle state of the FRD being built. It blocks by default (checklist § How to verify). The build keeps the prototype's ids, class names and `data-*` / `aria-*` attributes on recorded elements so the recorded selectors resolve; it adds them as semantic hooks if styling is done with utilities.
+4. **Load copy verbatim.** The prototype's rendered strings are the oracle (`prototype.js`, `prototype.template.html`, `data/*.js`), with the owner-confirmed corrections in `docs/design/freeze/copy/frd-NN.md`. Strings go through i18n (Spanish default) with the prototype's wording; prototype-only text (the review-frame footer, anything in `[data-demo-only]`) never ships. The key-value catalogue is `docs/design/microcopy.es.json`; the copy files are reconciliation tables.
+5. **The fixture factory is the build's fidelity seed.** Start the app for the gate with:
+   - `PANDACORP_FACTORY_ROOT=<repo>/docs/design/prototype/fixtures/factory-root`
+   - `HOME=<repo>/docs/design/prototype/fixtures/home` (the installed-plugin version and the event stream live in `home/.claude`)
+   - `PANDACORP_EVENTS_FILE`, `PANDACORP_CODEX_EVENTS_FILE` → `fixtures/home/.claude|.codex/dashboard-events.ndjson`
+   - `PANDACORP_ACCOUNTS_FILE=<repo>/docs/design/prototype/fixtures/pandacorp-vault/services/accounts.yaml`
+   - git answered from `fixtures/git-state.json` through an injectable git runner (`GIT_DIR` pointed at a non-existent folder so the real repository is unreachable), as `scripts/make-fixtures.mjs` `fixtureGit()` does for the exporters
+   - clock frozen at `2026-10-21T00:20:00.000Z` (`MC_CLOCK` overrides it for a diagnostic run)
+   - The fixture is fictional (the repository is public); the gate must never read the owner's real factory. Regenerate with `node docs/design/prototype/scripts/make-fixtures.mjs`.
+6. **Serve the art unmodified.** Everything under `docs/design/prototype/assets/` that the screens use (agent sprites, `courier.png`, `panda-mascot.png`, `ranks/`, `zones/`, `pandacorp.png`) goes to `public/` as original bytes, rendered with `image-rendering: pixelated` where the prototype sets it (`.fr-cast img`, `.fr-courier`, Campaña rooms). No `next/image` optimisation, resizing or re-encoding for these; plain `<img>` or CSS backgrounds. The gate serves fixture images the same way.
+7. **Tokens only.** Values come from `docs/design/design-tokens.json` mirrored into the `@theme` block (both themes via a `[data-theme]` attribute with a `prefers-color-scheme` default and no server round-trip; the owner's choice from the theme button in the sidebar footer and the phone drawer is remembered per browser, M2 decision 5). `--scene-*` and `--map-*` stay dark in both themes. No hardcoded colours; the prototype's 881 literal px lengths are an acknowledged warning the build resolves into tokens or `calc()` on theme variables.
+8. **Demo chrome never ships.** Everything marked `data-demo-only` (the La Fragua scene selector «Demo · Estado real / Apagada / Encendida / Simulación», the review-frame controls) is a prototype affordance: the real app drives La Fragua from the build's real state, and the simulation exists only as a configured gate state.
+9. **Shell first.** `AppShell` (sidebar, rail, drawer, top bar, bottom nav, skip link) is a foundation component mounted in `app/layout.tsx` before any surface (checklist signature detail 6; nav contract in `docs/design/freeze/packs/_global.md` §4). The skip link must be a real in-page anchor, not a hash-router route.
+10. **Motion.** The prototype is transform-only and the build copies it: drawer slide 220 ms, dialog pop, achievement notice, courier walk, crew bob and work jump, rail float. No colour, border, shadow or width transition exists to reproduce, and hover feedback does not animate. `prefers-reduced-motion: reduce` switches every animation and transition off and hides the courier and route. Text never fades.
 
-- `prototype/assets/` is **~19MB**: `zones/` (~12MB, 12 zone PNGs), `agents/` (~5.2MB, 13 sprite PNGs + grid sheets), `pandacorp.png` (~1.6MB logo).
-- **Assumption:** these must be copied into `public/` (e.g. `public/assets/{zones,agents}/`, `public/pandacorp.png`) so the Next.js app serves them. They are part of the contract (the Party / La Fragua / La Campaña views), not optional decoration.
-- **Cost / flag:** 19MB is heavy for a repo and for first paint. Mitigations for the build to consider (NOT for the designer to decide):
-  - The logo (1.6MB) and individual zone PNGs are oversized for their on-screen size — re-export/optimize (the sprites are small pixel-art; they should compress hard).
-  - The grid sheets (`grid.png`, `grid-v2.png`, `zones-grid.png`, `zones-grid-v2.png`) look like authoring sheets — confirm whether the runtime needs them or only the individual frames; drop the unused ones.
-  - Pixel-art tolerates aggressive PNG quantization / lossless crush with no visible loss.
-  - Lazy-load the Party canvas assets (they only appear on the Party view), not on the dashboard's critical path.
+## 2. Test doubles the gate needs
 
-## 3. `image-rendering: pixelated` for sprites and zones
+Mission Control runs no job of its own, so the doubles are **data variants**, set per oracle state by the harness and absent from production builds:
 
-- The pixel-art identity depends on **`image-rendering: pixelated`** on agent sprites (`.mcag img`, 54×54) and zone backgrounds (`.mcstation .bg`), on a 32px scene grid.
-- **Assumption:** supported in all evergreen browsers; no polyfill, no cost. Just don't let an image pipeline (e.g. `next/image` optimization/resampling) re-sample these and soften them — sprites should be served at integer scale with pixelated rendering, likely via plain `<img>`/CSS background rather than the optimizing `<Image>` for these specific pixel-art assets.
+- La Fragua live (`fragua-on`, running tokens) from the fixture event stream and work-order states; «sin señal», failing work order, six read errors, calm Inicio, empty factory and drift badge from fixture variants named in `oracle-states.json` (S2.6). A read error is produced by pointing a reader at a malformed fixture file, never by mocking the reader (`docs/rules/quality-and-testing.md`, fail-loud read boundaries).
+- Git facts (worktrees, «⎇ N pendientes», last green commit, phase history) from `git-state.json`.
+- Plugin drift from `fixtures/home/.claude`.
 
-## 4. Both themes, theme switching
+## 3. Costly or risky interactions the design assumes
 
-- Dark (default) + light are both first-class; the prototype resolves theme from `[data-theme]` with a `prefers-color-scheme` fallback. **Assumption:** a class/attribute theme toggle (no server round-trip). Cost: low.
+| Interaction | Where | Cost / risk | Note for the build |
+|---|---|---|---|
+| **Collapsible sidebar with hover float** | `#sidebar`, desktop ≥ 1180 px | Low to medium. 252 px ↔ 64 px rail, preference remembered per browser (`localStorage`), while collapsed hover or keyboard focus floats it open over the page without reflowing content (`data-float`, `:has(:focus-visible)`) | The prototype does not animate the sidebar `width` (transform-only, DR-129): the build must not add a width transition either. The float must be keyboard-reachable and must not trap focus. Default state for the gate is pinned open with no stored preference |
+| **La Fragua courier animation, limited to busy stations** | `.fr-courier`, `.fr-route` | Low. CSS transform animation, 3 s per station, drawn only between the first and last station that hold work, only while the build is live; paused at `currentTime` 0 for capture | Keep it a pure CSS animation with custom properties (`--from`, `--to`, `--dur`); no JS animation loop or library. Hidden below 900 px and under reduced motion. The live/idle state is derived from the build's real signal (one resolver, DR-115), not toggled in the client |
+| **Work-order token tooltip** | `#tok-tip` (`role="tooltip"`), 44×40 px `.token[data-wo]` | Low to medium. A single tooltip element appended to `body`, positioned from the token's box; anchor offset is gated at ±1 px | Render in place with the prototype's own offset arithmetic; no portal or floating-positioning library (the gate forbids it). Hover and keyboard focus both open it; touch behaviour is not captured by the prototype, so the blueprint decides it |
+| **Dependency maps** | Observabilidad → Dependencias, by FRD (`.fdag-box`) and by work order (`.dag-node`) | Medium. SVG curved edges plus absolutely positioned boxes and nodes; layouts are the prototype's (M1), pixel-compared; chain highlighting on click | Compute the layout from structure only (work-order ids, dependencies, FRD) so it is byte-deterministic and a state change only recolours a node. Reproduce the prototype's column/box arithmetic exactly; do not substitute a graph library. **Below 900 px both levels are ordered lists** (`ol.dag-list`, «Paso N · M órdenes»), not scaled diagrams |
+| **Data-model viewer kept** | Arquitectura → Modelo de datos, `#diagram` | Medium. Pan/zoom canvas, search, selection that lights relations, Esquema accordion list. Layout engine is the app's current one (owner-approved 2026-10-16); only its computed styles are compared (M1), the canvas is excluded from L3 | Keep the existing layout engine and restyle entity cards, badges and toolbar to the recorded styles. Input is `docs/product/data-model.json` (DATA-7); the «no verificado contra una base viva» chip stays. Phones open on Esquema |
+| **Phone card layouts for tables** | `.t-cards`, `.acc-table`, list rows | Low. The same table data renders as a table ≥ 1024 px and as a card per row below, via `data-label` captions | One markup, CSS-only switch; do not render two DOM trees. Verify no horizontal overflow at 320, 375, 768, 1280 |
+| **Phone shell** | `.topbar`, `#bottomnav`, drawer | Low. Off-canvas drawer is `inert` when closed, sticky bars need `scroll-padding` and `scroll-margin` so focus is not obscured (WCAG 2.4.11) | Touch emulation is part of the gate; hover rules must sit inside `@media (hover: hover)` |
+| **Campaña journey map** | `#idea?…&tab=Campaña`, 6 pixel-art rooms, 5-column snake, roaming sprites | Medium. Many small animated sprites; CSS transforms only | Lazy-load room art; sprites roam only when not reduced-motion; pause at capture |
+| **Guild and achievements** | sidebar guild card, `.ach-toast`, rank emblems (18 sprites) | Low. Reads the gamification ledger; toast auto-closes after 9 s | Level/XP derive from one resolver; the card is a link to Logros |
+| **Documentation reader (`.paper`) and live Manual capture** | Documentación | Low to medium. Markdown rendered with type-tinted styles, index on the right; the Manual content in the prototype is a capture of the app's own pages (`data/manual-live.js`) | The real app renders the Manual from its own sources; the capture is only the oracle |
+| **Dialogs** | one `dialog#dlg` | Low. Native `<dialog>`, Escape and focus return built in, transform-only pop animation (`@keyframes pop`) | Copy the transform-only pop; text never fades |
+
+## 4. Feasibility risks for the architect
+
+No spike is required before the contract is frozen. Items worth an explicit blueprint line:
+
+1. **Fixture-driven build mode.** The fidelity gate needs the app to run against an injectable factory root, home directory, events file, accounts file, git runner and clock. The prototype's exporters already do this for the app's readers (`scripts/make-fixtures.mjs`: `fixtureEnv`, `fixtureGit`, `freezeClock`), but a grep of `mission-control/src` for a clock override (`PANDACORP_NOW`, `MC_NOW`, `PANDACORP_CLOCK`) found nothing, and whether the app's own readers accept an injected git runner was not verified here. Each reader's path resolution happens at import time (`lib/config.ts`), so the harness must set the environment before the server starts. Cost: low; it must be a foundation work order, because every fidelity state depends on it.
+2. **Transform-only motion.** Resolved: the prototype was aligned in S2.1 and animates transforms only, so the oracle's `transition` values equal the contract. The build copies them; nothing diverges.
+3. **Dependency map determinism.** Pixel comparison of the by-FRD box layout needs the build's layout to equal the prototype's to within the 0.5% slice budget; any iteration-order or float difference shifts boxes. Port the prototype's placement code, do not re-derive it.
+4. **Image volume.** `docs/design/prototype/assets/` is about 10 MB (zones 3.4 MB, ranks 0.56 MB, `pandacorp.png` 1.6 MB, the rest fonts and agent sprites). The brand PNG is oversized for its 30 to 34 px display; it must still ship as the same bytes (original-bytes rule and the M2 brand-mark exception), so any optimisation is a later, separately blessed change. Lazy-load Campaña, Logros and Configuración art off the Inicio critical path.
+5. **Live-state signal.** La Fragua's «Construyendo ahora» / «En pausa» / «sin señal» states depend on the freshness of the events stream; the app must compute this with one resolver and a stale label, never present stale as live (`docs/rules/resilience.md`).
+
+## 5. Gaps on disk
+
+- `docs/design/prototype/reference/oracle-states.json` and `oracle-recipes.json`/`.md` now exist (S2.6); the checklist cites them as binding. `docs/design/microcopy.es.json` exists; the owner-confirmed corrections live in `docs/design/freeze/copy/frd-NN.md`.
+- `docs/design/prototype/fixtures/README.md` does not exist; the seeding instructions are in `docs/design/prototype/OPEN-MOCKUP.md` and the header of `scripts/make-fixtures.mjs`. Section 1 item 5 is the consolidated recipe.
+- `docs/design/prototype/assets/fonts/` does not exist; the font files sit directly in `assets/`. The checklist uses the real paths.
 
 ## Not assumed / explicitly out of scope
 
-- No real-time/collaboration, no offline, no server-side PDF/media generation, no heavy data export, no costly third-party integrations. The expressive sprite motion (bob/halo/emote) is pure CSS `transform`/`opacity`, gated by `prefers-reduced-motion` — no animation library required.
+No real-time or collaboration, no offline, no server-side PDF or media generation, no heavy data export, no costly third-party integrations. Mission Control never runs a command (command boxes are copy-only) and only writes the bounded idea-card flags documented in its `CLAUDE.md`.

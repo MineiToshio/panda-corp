@@ -1,156 +1,102 @@
 ---
 id: FDD-12
 type: fdd
-title: FDD-12 — Observability & data visualization (feature design)
-parent: frds/frd-12-observability-dataviz/frd.md
-ui: true
-visual_source: docs/design/prototype/index.html
-mock: docs/design/prototype/index.html
+slug: observability-dataviz
+title: Observability and data visualization (Observabilidad)
 status: ACTIVE
-last_updated: '2026-06-19'
+parent: FRD-12
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
 ---
-# FDD-12 — Observability & data visualization — feature design
 
-> **Visual source:** `docs/design/prototype/index.html` — the **now-canonical** Group B surfaces.
-> The Observabilidad project tab is `observabilidadBody(i)` (~L1214) with `bTimeline()` (~L1156) and
-> `bDag()` (~L1169); the project tab bar that hosts it is `projectPane(i)` (~L895). The dashboard KPI
-> header / freshness / digest / WO-board pieces remain in `dashboardView()` (~L690), `digestSection()`
-> (~L673), `evCard()` (~L670) and `projWO()` (~L933). Frozen tokens: `docs/design/design-tokens.json`
-> (Atelier — pixel-RPG / guild). **Fidelity, not novelty** — no hardcoded visuals.
+# FDD — FRD-12 Observability and data visualization (Observabilidad)
+
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> This FDD describes the Observabilidad tab of a project in the approved Órbita prototype (`docs/design/prototype/index.html`, route `#portfolio?project=<slug>&tab=Observabilidad`), frozen FROM that prototype on 2026-10-22. It uses the global design system (`DESIGN.md`, `docs/design/design-tokens.json`, `docs/design/components.md`) and defines no token or component of its own. Every screen and state below is a captured state of `docs/frds/frd-12-observability-dataviz/mocks/observability-dataviz.html`; the screenshots in `mocks/screenshots/` are the binding picture.
 >
-> **Re-anchor note (2026-06-19):** the RPG↔timeline↔tree toggle and the work-order DAG that earlier
-> editions of this FDD flagged as "not present in the prototype" **now exist and are canonical**. They
-> were moved out of Party (Party = live agents only) into a **new project tab, "Observabilidad"**, the
-> sibling of Party. This FDD is updated to freeze that surface.
+> **Scope decisions that shape this FDD (M1, 2026-10-22).** The timeline view no longer exists (owner decision, iteration 22): Observabilidad has three views, Por FRD, Tablero and Dependencias, over the same work-order data. The dependency map follows the prototype's layouts: a deterministic FRD-level map (boxes, two per row) and a work-order graph in depth columns. The data-model canvas is another feature (FRD-02's `model-diagram`): it keeps the app's current layout engine and is compared by computed styles only, so it is not specified here. La Fragua heads the project Resumen (FRD-06), not this tab.
 
-## 1. The Observabilidad tab — Línea de tiempo ↔ DAG toggle (the new surface)
+## Screens
 
-- **Render fn:** `observabilidadBody(i)` (~L1214). It is a project-workspace sub-tab, the **sibling of
-  Party**: the project tab bar (`projectPane`, ~L897) is **Resumen · Work orders · Party · Observabilidad ·
-  Documentos · Comandos**. Party (`missionBody`, ~L1206) is now **live agents only** (the La Fragua
-  embed); the timeline and DAG were moved here.
-- **Local header (the one canonical section header pattern):** a thin `panel` strip — an `eye-search`
-  icon + the eyebrow "OBSERVABILIDAD · 2 vistas sobre los MISMOS work orders" on the left, and on the
-  right the **2-view toggle** built from the **one `.stab` sub-tab pattern** (Tabs primitive): **Línea
-  de tiempo** (`ti-timeline`) ↔ **DAG** (`ti-binary-tree`). A muted line below points to Party for the
-  live agents ("¿Buscas a los agentes en vivo? Están en la pestaña Party."). Both views read the **same
-  work orders** — the toggle never changes the data, only the lens.
+The project header (`ProjectHeroCompact`), the breadcrumb and the project tab bar above the tab are FRD-04's. Inside the tab, a `Segmented` view switch offers Por FRD · Tablero · Dependencias (the tab is third after Spec: Resumen · Spec · Observabilidad · Arquitectura · …, with a count chip "110" on the tab, AC-12-002.1). The Tablero view's content is FRD-05's and is not described here.
 
-### 1a. Línea de tiempo (`bTimeline`, ~L1156)
-- A `panel` with a one-line legend, an optional **jump-to-first-error** note, a **time axis** (0 →
-  `BWO_TOTAL/2` → `BWO_TOTAL` min) and one **row per work order**: a 150px label column (state icon in
-  the WO's state color + title + `WO-id · FRD` in `mono`) and a horizontal **duration bar** positioned
-  by `start`/`dur` against the total (`done`/`progress`/`fail`/`todo` colored). **Nested tasks** render
-  as fainter (`opacity:.55`) sub-bars under each WO ("WO → tareas → acciones, por duración"). The first
-  `fail` WO surfaces a danger line ("Primer error en … — la barra roja marca dónde se rompió la cadena").
+| Screen | Purpose | Captured state | Acceptance criteria |
+|---|---|---|---|
+| Por FRD (default view) | The FRD-by-FRD reading of the same work-order data: four state tiles, a filter, one collapsed row per FRD. A legacy link with `tab=Work orders` lands here. | `observability-legacy-link` | AC-12-002.1, AC-12-002.3, AC-12-003.3, AC-12-006.4 |
+| Dependencias, level Por FRD | The FRD-level map: one box per FRD, aggregated lines between boxes. | `observability-deps-frd` | AC-12-002.3, AC-12-004.1, AC-12-004.1a, AC-12-004.1b, AC-12-005.1, AC-12-006.1 |
+| Dependencias, level Por work order | The work-order graph in depth columns, filterable by FRD. | `observability-deps-wo` | AC-12-004.1, AC-12-004.1a, AC-12-004.5, AC-12-004.6, AC-12-006.1, AC-12-006.3 |
+| Dependencias, one order focused | The chain of one work order lit, the rest dimmed, with the focus card below. | `observability-deps-focus` | AC-12-004.2, AC-12-006.2 |
 
-### 1b. DAG — dependency graph (`bDag`, ~L1169)
-- A `panel` with an SVG **dependency graph** of the work orders (static topological layout standing in
-  for **Dagre** in the real app, noted as "~39KB"). Nodes are rounded `card` rects (title slice +
-  `WO-id · FRD` mono + a state dot); edges are bezier arrows from each dep to its dependent.
-- **Chain highlight:** hovering/clicking a node highlights its **full dependency chain** (`bDagChain`,
-  upstream + downstream) with `accent` edges + thicker stroke and **dims everything else** to
-  `opacity:.32`; a hint line shows "Resaltando la cadena de … (upstream + downstream) · limpiar".
-- **Jump to first error:** a `danger`-bordered button selects the first `fail` WO and highlights its
-  chain.
-- **Follow the active step:** a toggle ("Seguir al paso activo: ON/OFF"); when on, the running
-  (`progress`) WO gets an accent drop-shadow + a "▶ paso activo" caption.
+### Por FRD (`observability-legacy-link`)
 
-## 2. Dashboard surfaces (unchanged, still part of this FRD)
+Top to bottom (the card family is `Card`, `Segmented`, `StateTile`, `FrdRow`, `WorkOrderRow`):
+1. **View switch** `Segmented` (selected = neutral surface): "Por FRD" selected, "Tablero", "Dependencias", each with a 15px icon; at its right a `SelectField` "Filtrar por FRD" with "Todos los FRDs (23)" and one option per FRD ("FRD-01 · Data reading"), and the count "110 work orders" muted at the far right.
+2. **Four state tiles** (`StateTile`, a combinable filter when pressed): Planificado 0 · En curso 0 · En revisión 1 · Verificado 109, each with a dot, a display number and a thin bar.
+3. **"Expandir todo"** (a `Button` with a plus icon) at the right, above the list. FRD groups start collapsed (owner decision, iteration 23).
+4. **FRD rows** (`FrdRow`, native `details`): chevron, the FRD code in mono ("FRD-01"), the FRD title ("Data reading"), a stacked state bar named "10 verificado, 0 en revisión, 0 en curso, 0 bloqueado, 0 planificado", "10/10" and "100%". A row with open work (FRD-02, "8/9") shows its bar split by state.
+5. **Drift badge and chip** (AC-12-003.3): the verified FRD-03 row carries the amber chip "Verificado · 2 derivas" (warning icon plus text); the FRD-15 row carries the coral chip "Deriva ilegible" (icon plus text). They read from one field through one shared reader; neither appears on an FRD without drift.
+6. An expanded row lists its **work orders** (`WorkOrderRow`): id in mono ("WO-03-001"), title, the state chip "Verificado" (check icon plus text) and the dependency count in a fixed-width column (link icon and "1").
 
-### 2a. KPI header — "Pulso de la fábrica" (≤5 critical KPIs)
-- **Render fn:** `dashboardView()` (~L690), the `dStat` grid. A `SectionHead` ("Pulso de la fábrica")
-  over a responsive grid of **`dStat`** tiles — each a `secondary` card with an icon label (`text.t2`,
-  11px), a large **pixel** numeral (30px, `tabular-nums`) and a sub-line (`text.t3`): **Ideas vivas · En
-  construcción ("{n} en vivo") · Lanzados · Esperan por ti** (last accent-colored by state). Below, the
-  one-line **conversión idea→lanzada** metric. Cap ≤5 KPIs.
+### Dependencias (`observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`)
 
-### 2b. Live / No signal — data-freshness indicators
-- **Digest freshness** (`digestSection`, ~L673): "Desde tu última visita" with an **al día** (`ok`) chip
-  or "{n} nuevas" (`accent`) chip + "última revisión hace {ago}".
-- **Per-project live/no-signal** (cartera cards in `dashboardView`, ~L717): each running project shows
-  **"en vivo"** (`ok`, play icon) when `signal` is "hace N min/seg", else **"sin señal"** (`warn`, alert
-  icon) + the timestamp — conveyed by **icon + text + color** together (a11y).
+- **Card** "Grafo de dependencias" (`CardHeader`) with a count chip in the same hue: "23 FRDs" at the FRD level, "110 work orders" at the work-order level (the focus capture is a different project: "48 work orders"). Under it a second `Segmented` named "Nivel del grafo": "Por FRD" · "Por work order" (AC-12-006.1).
+- **Level Por FRD** (`DependencyFrdBox`): the line "Cada caja es un FRD con sus work orders en el orden de su cadena. Las líneas entre cajas agrupan las dependencias entre FRDs: el número dice cuántas, y «⇄» las que van en sentido contrario. Pulsa el título de un FRD para verlo en detalle, o una work order para abrirla." Boxes sit **two per row** in a deterministic layout (computed from structure only, so a state change recolours a card and never moves a box); each box has the FRD tag, the title, a green state bar, the count ("10/10") and its work orders in chain order in three columns (state dot, id in mono, clamped title). Cross-FRD dependencies are **aggregated to one line per directed pair**, curved, with the count at the line ("1"); the tooltip reads "FRD-01 → FRD-02: 1 dependencia". The map is a bounded canvas named "Mapa de dependencias entre FRDs, desplazable": it keeps its natural size and pans inside its own box, so the page never scrolls sideways (AC-12-004.5). There is no zoom toolbar here.
+- **Opening an FRD** (AC-12-006.1): activating an FRD title (the box has the title "Ver las work orders de FRD-01 en el grafo detallado") switches to the work-order level filtered to that FRD (see `observability-deps-frd-open` in States).
+- **Level Por work order** (`DependencyNode`): a `SelectField` named "Filtrar el grafo por FRD" ("Todos los FRDs"), the line "De izquierda a derecha: lo que va primero → lo que desbloquea. Pulsa una work order para ver su cadena.", then the canvas named "Grafo de dependencias, desplazable" with nodes of 176 x 46 px tinted by state, curved edges and columns by depth (what goes first at the left, what it unblocks to the right). Each node shows a state dot, the id in mono and the title on one line, clamped with an ellipsis (the full text "WO-01-001 · Factory root resolution · Verificado" is the tooltip); the `WO-NN-MMM` prefix is not repeated in the title (AC-12-004.6). A work order without a declared dependency is an **independent node**: it has no edge and nothing is invented to connect it (AC-12-004.1a). The canvas scrolls inside its bounded box.
+- **Focus** (`observability-deps-focus`, AC-12-004.2): after a click on a work order ("WO-05-001"), its whole upstream and downstream chain is lit in ONE highlight colour and the cards of the chain are outlined; every other node and edge is dimmed. At rest every edge is uniform. A "Quitar foco" action (close icon, at the right of the intro line) clears the focus; the focus lives in the URL. Below the graph the **focus card** `DependencySide` (named "Work order en foco") shows the state chip "Verificado", the id, the title ("Checklist export model"), the button "Abrir work order" with an arrow, and two columns "Depende de · 2" and "Desbloquea · 1" with the work orders (id, title) of each (AC-12-006.2).
 
-### 2c. Event digest cards (`evCard`, ~L670)
-- A `secondary` card, icon in the event's semantic color, title + "{sub} · hace {ago}". New events get
-  an `accent` border; older ones dim. Newest-first, scoped to the 24h tail (cap 100–200).
+## States
 
-### 2d. Work-order board (`projWO`, ~L933)
-- Columns **todo · progress · review · fail · done** (`.col`), `.card` per work order with its FRD chip;
-  **fail** cards use `danger`/`dangerBg`. Read-only. The kanban is the *resting* per-project task view
-  the Observabilidad timeline/DAG augment with duration and dependencies.
+| State | What it shows | Captured state | Acceptance criteria |
+|---|---|---|---|
+| FRD opened in the detailed graph | At 1280 only. After a click on the FRD box, the level switches to "Por work order", the filter reads "FRD-01 · Data reading", the count chip "32 work orders", and the orders of other FRDs that FRD-01 touches appear as dashed neighbour nodes. | `observability-deps-frd-open` | AC-12-006.1, AC-12-004.1 |
+| Narrow screens, list instead of map | Below 900px (captured at 375 and 768) the FRD map is an ordered list: one row per FRD (code, title, "10/10 verificadas", a chevron); an unfolded FRD shows "Depende de" (here "Nada: es un punto de partida"), "Desbloquea" as chips of FRD codes and its work orders as rows with a chevron. | `observability-deps-list-open` | AC-12-006.3 |
+| Narrow screens, work-order list | Below 900px the work-order level is a list by build step ("Paso 1 · 1 work order", "Paso 2 · 3 work orders", and so on), each step with its orders (id, title, state dot); the focused order is tinted. The intro line changes to "Por pasos: cada paso se puede construir cuando termina el anterior. Pulsa una work order para ver de qué depende y qué desbloquea." and the focus card moves ABOVE the list. | `observability-deps-wo`, `observability-deps-focus` | AC-12-006.3, AC-12-006.2 |
+| Legacy link | A link with `tab=Work orders` opens the Observabilidad tab on the Por FRD view; nothing else changes. | `observability-legacy-link` | AC-12-006.4 |
+| Build without signal | A project with `running` true and a stale heartbeat reads "Sin señal · último evento hace 25 min" in the project header chip (coral, warning icon) instead of the running wording; La Fragua carries the chip "Sin señal" and the line "El equipo se detuvo: el build dice estar corriendo, pero el último evento llegó hace 25 min."; the "Último commit en verde" panel repeats the warning "El build dice estar corriendo, pero no hay señal del supervisor desde hace 25 min. Revisa si sigue vivo antes de fiarte de ese estado." No progress is invented while no event arrives. The scene itself is FRD-06's; the snapshot panel is FRD-14's. | `build-no-signal` | AC-12-001.2, AC-12-005.2 |
+| FRD verified with drift | The FRD-03 row is expanded: the chip "Verificado · 2 derivas" in the title line and a note box (warning icon, amber tint): "Verificado con 2 derivas del gate: REQ-03-002, AC-03-001.2. Sus tarjetas de cambio esperan en Cambios." with the link "Ver en Cambios" and an arrow, which opens the project's Cambios tab. The filter reads "FRD-03 · Portfolio". | `wo-frd-drift` | AC-12-003.3 |
+| Unreadable drift | FRD-15: the coral chip "Deriva ilegible" and a coral note: "El campo drift de FRD-15 no es una lista de requisitos, así que no se puede contar. Revisa su frd.md." The row keeps its other data (4/4, 100%) and its work orders; it is never a silent empty list. | `wo-frd-drift-unreadable` | AC-12-003.3 |
+| Collapsed rows at rest | Every FRD row starts collapsed with one "Expandir todo" toggle. | `observability-legacy-link` | AC-12-003.3 |
 
-## 3. Components mapped to frozen primitives
+Rules that need no picture: the grouping and ranking limit of AC-12-001.3 and the honest metrics of AC-12-001.4 are data rules over the same event file; AC-12-005.1 is live behaviour (the map refreshes when the SSE `stateVersion` moves; a state change only recolours a card). No loading state is designed: the work-order data arrives with the page.
 
-| Element | Render fn | Token / primitive |
-|---|---|---|
-| Observabilidad tab shell + view toggle | `observabilidadBody` | `Panel` strip + `SectionHead` + `Tabs` (`.stab` toggle) |
-| Timeline view | `bTimeline` | `TimelineView` (`Panel` + duration bars + nested task bars + time axis) |
-| DAG view | `bDag` | `WoDag` (SVG graph, Dagre in app; chain-highlight, jump-to-error, follow-active) |
-| Project tab bar | `projectPane` | `Tabs` (`.stab`) — Resumen·Work orders·Party·**Observabilidad**·Documentos·Comandos |
-| KPI tile | `dStat` | `secondary` card + pixel 30px numeral + state accent |
-| Section header | `secthead` | `SectionHead` (one canonical pattern) |
-| Event card | `evCard` | `secondary` card + semantic icon color + `accent` "new" border |
-| Freshness / live-no-signal chip | `digestSection` / cartera | `Chip` on `okBg`/`accentBg`/`warnBg` |
-| WO board column / card | `projWO` | `.col` + `.card` (+ `dangerBg` for fail) |
-| WO card FRD tag | `frdChip` | `Chip` on `infoBg` |
+## Components used
 
-## 4. States (empty / loading / error)
+From `docs/design/components.md`; nothing new is introduced by this FRD.
 
-- **Empty:** no work orders → Observabilidad shows the WO-board empty line ("Los work orders se generan
-  en /pandacorp:architecture"); the timeline/DAG render their frame with no rows rather than blank. No
-  projects → cartera shows the empty card with `/pandacorp:spec`. No 24h activity → digest shows "Sin
-  actividad en las últimas 24 h." KPI tiles show `0` (pixel, `tabular-nums`), never blank.
-- **Loading:** server-delivered KPIs/timeline/DAG render directly (no skeleton, Next.js rule).
-- **No signal / stale feed:** the per-project chip flips to **"sin señal"** (`warn`) and the digest
-  shows "última revisión hace {ago}" — the operator always knows whether the data is live or frozen.
-- **Error:** if `~/.claude/dashboard-events.ndjson` is unreadable, degrade to last-known KPIs + a "sin
-  señal" state; a malformed WO set degrades the timeline/DAG to their empty frame, never an error page.
+| Part | Components |
+|---|---|
+| Tab frame | `Tabs` (count chip on Observabilidad), `Segmented` (view switch and graph level), `SelectField` |
+| Por FRD | `StateTile`, `FrdRow` (drift badge variant), `WorkOrderRow`, `StackBar` (`ProgressBar` family), `Button` (Expandir todo), `Notice` for the drift notes |
+| Dependencias | `Card` and `CardHeader` with `Chip` count, `DependencyFrdBox` / `DependencyFrdItem`, `DependencyNode`, `DependencyList` / `DependencySide`, `DependencyButton`, `StateDot` |
+| Build without signal | `Chip` (coral), `FraguaScene` (FRD-06), `SnapshotPanel` (FRD-14), `ProjectHeroCompact` |
 
-## 5. Demo-only controls (DR-061) — MUST be marked on implementation
+## Interaction & flow
 
-- **Dashboard digest** (`digestSection`): the **"simular novedad · reiniciar novedades"** links exist
-  only to preview the "new events" state in the static prototype. The real feed comes from
-  `~/.claude/dashboard-events.ndjson`; MC never injects events. The "marcar visto" control persists a
-  genuine read-marker (real). On implementation the **simular/reiniciar** pair MUST be wrapped per
-  DR-061: dashed border + uppercase **`SOLO DEMO`** tag (warn) + a one-line note. Any value they preview
-  (freshness timestamp, new-count) is already surfaced as **real read-only data** in the digest header.
-- **Observabilidad** itself has **no demo toggler**: the view toggle (Línea de tiempo ↔ DAG), the
-  chain-highlight, jump-to-first-error and follow-active are **real interactions** over real WO data,
-  not state-preview controls — they ship as-is.
+- Entry: Portafolio → a project → Observabilidad (`/portfolio?project=<slug>&tab=Observabilidad`); the selected view (`view=deps`), the graph level (`dag=wo`), the focused order (`focus=WO-05-001`) and the FRD filter are in the URL (FRD-25), so reload and Back restore them.
+- Por FRD: a row opens in place; a state tile filters; "Expandir todo" toggles every row; the drift link goes to Cambios.
+- Dependencias: pick the level; click a work order to light its chain (click it again, the background or Escape, or "Quitar foco", clears it); activate an FRD title to open it in the work-order graph; "Abrir work order" opens the order's detail.
+- Read-only: nothing here writes to the factory.
+- Out of v2 (FRD marks, owner decision 2026-10-21; not drawn, so not specified here): jump-to-first-error, the follow-the-active-step mode, and the zoom / fit / fullscreen toolbar, wheel zoom and drag-to-pan on the dependency map; the data-model viewer keeps its own toolbar in FRD-02. The standalone KPI header (AC-12-001.1) and the timeline (AC-12-003.1, AC-12-003.1a, AC-12-003.2) are retired.
 
-## 6. Cohesion (DR-062)
+## Responsive & accessibility
 
-This surface uses the app-wide framing, not bespoke chrome:
-- **Page title** — the dashboard host uses the one **`PageTitle`** block (`pageHead`, ~L964): a light
-  icon + H1 (= the nav label) + subtitle, **not** a heavy panel. The Observabilidad tab lives inside the
-  project workspace under its light `compactProjectHeader` (FDD-04), never its own heavy title panel.
-- **Section header** — every grouping (Pulso de la fábrica, the Observabilidad eyebrow strip) is the one
-  **`SectionHead`** (`secthead`).
-- **Tabs** — the project tab bar AND the Línea-de-tiempo↔DAG toggle are the **one `Tabs` pattern**
-  (`.stab`); no ad-hoc switcher.
-- **Chip / panel** — KPI tiles, freshness chips, WO cards and graph nodes all use the shared `Chip` /
-  `Panel` shapes. No surface re-invents a pill, panel or header.
+- Widths 375 / 768 / 1280, light and dark, as captured (the open-FRD state at 1280 only; the narrow list state at 375 and 768). Below 900px the dependency map is a list; the FRD rows and tiles keep one column; the tab bar scrolls sideways with overflow arrows.
+- Meaning is never colour alone: a work-order state is a dot plus its word ("Verificado"); the drift badge and chip carry a warning icon and text; a focused chain is outlined as well as tinted.
+- The canvases are keyboard-scrollable regions with accessible names ("Mapa de dependencias entre FRDs, desplazable", "Grafo de dependencias, desplazable"); every node and FRD box is a button with a full name; the stacked state bars carry a text alternative with the five counts; chain lighting works with focus as well as click.
+- Targets are at least 44px on touch layouts; the focus ring is the shared token; no text fades and only transforms animate.
 
-## 7. Accessibility notes
-- Live/no-signal and WO/graph state are **icon + shape + text + color** (play/"en vivo" vs alert/"sin
-  señal"; the DAG node carries a state dot + WO id, not color alone), never color alone.
-- KPI numerals and durations are pixel/`tabular-nums` so headers and bars never reflow as counts change.
-- The DAG chain-highlight has a focusable jump-to-error button and a text hint ("Resaltando la cadena de
-  …"); follow-active is a labelled toggle. Motion is `transform`/`opacity` only and honors
-  `prefers-reduced-motion`.
+## Copy
 
-## 8. index.html render-fn pointers
-`observabilidadBody` (~L1214) · `bTimeline` (~L1156) · `bDag` (~L1169) · `bDagChain` (~L1154) ·
-`missionBody` (Party, live agents only, ~L1206) · `projectPane` (tab bar, ~L895) · `dashboardView`
-(~L690) · `dStat` (~L659) · `digestSection` (~L673) · `evCard` (~L670) · `secthead` (~L453) ·
-`projWO` (~L933) · `frdChip` (~L931) · `pageHead` (~L964) · `compactProjectHeader` (~L890).
+Interface strings are Spanish (`docs/design/microcopy.es.json`); FRD and work-order titles keep their source language, today English; artifact names stay English (work order, FRD). No em dash in product copy.
 
-### Shared Architecture graph navigation — 2026-10-16
+## Fidelity references
 
-WoDag/ZoomControls and WoDag/useFullscreen now delegate to shared GraphControls and src/hooks/useFullscreen. This promotes the existing top-right icon design and native browser behavior for reuse by the logical model (ADR-0008). Dependency layout, graph selection, live coloring, follow/jump controls, 100% reset and existing zoom behavior are unchanged. No project/build machine-state transition is implied.
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar): the component catalogue `docs/design/prototype/components.html`, measured styles `docs/design/prototype/reference/computed-styles.json`, icons `docs/design/prototype/icons/`, root `DESIGN.md`, `docs/design/components.md` (rows `FrdRow`, `WorkOrderRow`, `StateTile`, `DependencyFrdBox` / `DependencyFrdItem`, `DependencyNode`, `DependencyList` / `DependencySide`, `Segmented`, `Tabs`, `Chip`, `Notice`, `CardHeader`), `docs/design/freeze/m1-decisions.md` and `docs/design/freeze/reconciliation.md`.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+prototype_blessed_at: 409a0564
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+- **Mocks:** `docs/frds/frd-12-observability-dataviz/mocks/observability-dataviz.html`; screenshots `docs/frds/frd-12-observability-dataviz/mocks/screenshots/<id>-<width>-<theme>.jpg` (375, 768, 1280; light and dark; `observability-deps-frd-open` at 1280, `observability-deps-list-open` at 375 and 768).
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#portfolio?project=mission-control&tab=Observabilidad&view=deps` (the other states add the parameters listed in `docs/design/freeze/fidelity.config.json`).
+- **Oracle states of this FRD** (`oracle-states.json`): `observability-legacy-link`, `observability-deps-frd`, `observability-deps-wo`, `observability-deps-focus`, `observability-deps-frd-open`, `observability-deps-list-open`, `build-no-signal`, `wo-frd-drift`, `wo-frd-drift-unreadable`.
+- **Measured by styles, not pixels:** the dependency canvases are compared by computed styles of their nodes, boxes and lines (L1/L2) and by the checks above; the data-model canvas of FRD-02 follows the same rule.

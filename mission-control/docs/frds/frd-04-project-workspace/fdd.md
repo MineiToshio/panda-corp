@@ -1,105 +1,104 @@
 ---
 id: FDD-04
 type: fdd
+slug: project-workspace
 title: FDD-04 — Project workspace (feature design)
-parent: frds/frd-04-project-workspace/frd.md
+status: ACTIVE
+parent: FRD-04
 ui: true
 visual_source: docs/design/prototype/index.html
-status: ACTIVE
-last_updated: '2026-10-17'
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
 ---
-# FDD-04 — Project workspace (feature design)
 
-The feature's design **on the frozen tokens** (`docs/design/design-tokens.json`, root `DESIGN.md`),
-sharded from the owner-approved whole-app prototype. **Fidelity, not novelty**: this describes the
-project workspace exactly as the prototype renders it, mapped to the frozen design system and to
-FRD-04's acceptance criteria.
+# FDD — FRD-04 Project workspace
 
-- **Visual source:** `docs/design/prototype/index.html` — render functions **`projectPane()`** (the
-  header + subtabs shell), **`projResumen()`** (Summary tab, with `decisionesBox()` + `logBox()`),
-  **`buildModePanel()`** + **`commandsBox()`** (Commands tab), **`projDocs()`** (Documents tab),
-  **`progressBar()`** and **`snapshotPanel()`** (header objectives + green-snapshot banner). The
-  **Work orders** tab is FDD-05 and the **Party** tab is FDD-06 — referenced, not redefined here.
-- The build's visual-fidelity gate captures the baseline from the `portfolio` view of `index.html`
-  with a project selected (see `mocks/README.md`).
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Frozen FROM the approved Órbita prototype (round 5, iteration 28). This FDD specifies only what the captured states of this FRD draw (DR-130). It uses the global design system and redefines none of it.
 
-> The design contract (palette, typography, surfaces, the app-wide RPG skin) is the **global PDD** —
-> not redefined here. Every value named below resolves to a token, never a hardcoded literal.
+The workspace is what opens from the Portafolio (FRD-03) for one project. Every state below shares one frame: breadcrumb, a project header, the tab bar and the selected tab's content. The header is the full hero on Resumen only and a one-line compact header on every other tab. There are eight tabs, in this order: "Resumen", "Spec", "Observabilidad", "Arquitectura", "Cuentas", "Cambios", "Documentos", "Comandos". There is no Party tab and no work-orders tab.
 
-## 1. Layout
+Owned by other FRDs and only referred to here: La Fragua scene at the head of Resumen (FRD-06), the Observabilidad views (FRD-05 and FRD-12), the Cuentas tab (FRD-26), the Comandos tab and its build-mode picker (FRD-11, captured in FRD-11's `commands` states), the Spec and Arquitectura digests and the data-model viewer (FRD-02).
 
-The portfolio's selected-project pane and `/projects/<slug>` use one tabs-first workspace:
+## Screens
 
-1. A compact project header with the project H1, stage/version and thin work-order progress; it remains visible across tabs. Detailed overview and Mission Objectives live within **Resumen**.
-2. A reachable shared `Tabs` row in this exact order: **Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas**. Default is Resumen; `tab=architecture` selects Arquitectura while retaining the current project.
-3. Selected content: Resumen (summary, decisions and activity), Spec (complete shared PRD/research/FRD overview), Work orders (FDD-05), Arquitectura (the complete shared `ArchitectureDigest`, FDD-02 §12), Cambios (queue/detail modal), Party (FDD-06), Observabilidad (FDD-12), Documentos (nav/reader) or Comandos (FRD-11 selector and command rows).
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Resumen of a project with no build running | Hero, upgrade notice, "Siguiente paso", La Fragua, then "Avance por FRD" and "Decisiones" and "Tu turno" and "Últimos avances", and a collapsed "Bitácora técnica del motor". | `project-summary` | REQ-04-001, REQ-04-002, REQ-04-003, REQ-04-004, AC-04-012.1, AC-04-014.1, AC-04-014.2, AC-04-014.3, AC-04-014.4, AC-04-014.7 |
+| Resumen of a project with a running build | The hero chip "Construyendo", and all the cards; decisions are all "Resuelta". | `project-summary-funko` | REQ-04-004, AC-04-014.4, AC-04-014.5, AC-04-014.7 |
+| Resumen with pending decisions | "Decisiones" lists "Pendiente" entries; "Tu turno" carries the scoped decision commands. | `project-summary-decisions` | REQ-04-004, FRD-04#U1, AC-04-014.5, AC-04-014.6 |
+| Decision dialog | Kicker "Decisión · Funko Tracker", the decision title, status chip, date, a sentence on what the capture holds, and the command to review it. | `project-decision-dialog` | FRD-04#U1, AC-04-014.5 |
+| Spec tab | Compact header, then the project's Spec digest (FRD-02's components): PRD band, research band, FRD cards. | `project-spec` | REQ-04-013, AC-04-013.1, AC-04-013.2, AC-04-013.3, AC-04-013.5 |
+| Arquitectura tab | Compact header, then the architecture digest in this order: "Stack y tecnologías", "Integraciones y operación", "Modelo de datos", "Variables de entorno", "Decisiones", "Plan de implementación". | `project-architecture` | AC-04-012.1, AC-04-012.2, AC-04-012.3, AC-04-012.5 |
+| Cambios tab | The change queue in groups, each card a row: title, `slug · date · frd`, kind chip, status chip; a collapsed "Historial" with done and discarded together; the card "Pedir un cambio". | `project-changes` | FRD-04#U3, REQ-04-010, REQ-04-011 |
+| Change detail dialog | Kicker "Cambio · `<slug>`", title, chips, the body as titled sections ("Qué pasa", "Qué se espera") and the scoped build command. | `project-change-dialog` | FRD-04#U3, REQ-04-010 |
+| Discard confirmation | Replaces the detail dialog: kicker "Confirmar", title "Descartar cambio", the optional "Motivo", "Cancelar" and "Descartar". | `project-change-discard` | FRD-04#U4 |
+| Documentos tab | Type filter chips with counts, the open document as typed paper at full reader width, the document index on the right with a search. | `project-documents` | FRD-04#U5, AC-04-014.8 |
 
-The Architecture tab sits immediately after Work orders. It preserves **Modelo de datos** inside the complete Architecture surface, using the compact shared **Diagrama / Esquema** viewer; it is never a database-only tab. Its scoped visual reference is `docs/design/prototype/data-model-viewer/index.html` (round 2), layered onto the whole-app visual source. All model interaction/dimensions/states in [FDD-02 §12](../frd-02-ideas-board/fdd.md#12-shared-architecture--logical-model-2026-10-16) apply identically here.
+## States
 
-## 2. Components used (all on the frozen tokens / PDD)
+| State | What the user sees | Oracle state | ACs |
+|---|---|---|---|
+| Documentos filtered by search | The search holds "blueprint" and the index narrows (captured at 1280). | `project-documents-search` | AC-04-014.8 |
+| Documentos index folded (phone and tablet) | Below 900px the index is folded behind the button "Elegir documento · 66" and opens above the reader (captured at 375 and 768). | `project-documents-index-open` | AC-04-014.8 |
+| Spec not published | The Spec tab stays and says "El spec todavía no está publicado." then "Su PRD y sus FRDs reales siguen disponibles."; below, the button "PRD completo" and the project's real FRD cards, each tagged with a tooltip that the digest does not list it yet. | `project-spec-empty` | AC-04-013.4 |
+| Unknown tab | Under the compact header: a card "Esta sección no existe" with "«Inexistente» no es una sección del proyecto." and the button "Ir al resumen". | `project-tab-not-found` | REQ-04-002 |
+| Snapshot panel | While a build runs, a card "Último commit en verde" with the chip "Seguro para probar", the short SHA, "verificó WO-07-002 de FRD-07", the line "Construyendo ahora: el build sigue avanzando. Eso todavía no está en verde: no lo pruebes." and the copyable `git worktree add /Users/Shared/review-worktrees/funko-tracker a41c09e2` command, between La Fragua and "Avance por FRD". | `project-snapshot` | REQ-04-005 |
+| Change that rebuilds verified work | The dialog of an urgent change shows the chips "Listos para construir", "Cambio", "Urgente", the slug and the FRD, a warning "Rehace trabajo ya verificado" with the sentence "Construirlo reabre work orders verificadas de `frd-03-my-collection`: vuelven a pasar por la revisión de su FRD.", the line "Depende de: …", and the button "Descartar cambio". | `project-change-rebuilds` | REQ-04-010, FRD-04#U3, FRD-04#U4 |
+| Unreadable data model | In Arquitectura, the "Modelo de datos" band shows the one explicit error "No se pudo leer el modelo de datos docs/product/data-model.json: …" and "No se dibuja ningún diagrama hasta que el archivo sea válido."; every other band is intact. | `model-invalid` | AC-04-012.4 |
+| Change in construction (no discard) | The detail dialog of an "En construcción" change shows its status chip and the build command and offers no discard action. | `project-change-dialog` | REQ-04-010 |
 
-| On screen | Component (see `docs/design/components.md`) | Notes |
-|---|---|---|
-| Header / section containers | `Panel` (`.panel`) | app-wide RPG-skinned surface |
-| Status / version / "verde" pills | `Chip` | ok-bg / info-bg variants (`chip2`, `frdChip`) |
-| Mission-objectives bar | `ProgressBar` | accent fill, `var(--ok)` at 100%; `done/tot · pct%` |
-| Green-snapshot banner | `Banner` | ok-accented `.panel` + copyable `git worktree` `CommandChip` |
-| Subtab switcher | `SubTabs` (`.stab`) | Resumen · Spec · Work orders · Arquitectura · Cambios · Party · Observabilidad · Documentos · Comandos · Cuentas; `.on` active |
-| Decision points | `DecisionCard` (`decisionesBox`) | warn-bg cards, AI recommendation, `/pandacorp:decide` command |
-| Activity log | `ActivityLog` (`logBox`) | dotted-rule rows of high-level AI activity |
-| Build-mode selector | `BuildModeSelector` (`.stab` group, FRD-11) | 4 modes; surfaces the matching `/pandacorp:implement…` command |
-| Commands at hand | `CommandsBox` | stage-relevant `/pandacorp:*` `CommandChip` rows |
-| Docs nav + rendered doc | `DocNav` (`.navitem`) + `DocView` (`.panel.doc`) | 200px nav rail + markdown body |
-| Copyable command | `CommandChip` (`.cmd`) + `Toast` | mono command + copy |
+Not specified by this FDD, because no captured state of this FRD draws it:
 
-`SubTabs` (`.stab`) is the project-scoped tab primitive — distinct from the top-nav `.tab`; reuse it,
-don't fork. `BuildModeSelector` and the Party/Work-orders tab bodies are owned by FRD-11 / FRD-06 /
-FRD-05; this FDD only places them in the tab shell.
+- The "Obsoleta" tag, the unreadable-change-files banner, the "Cerrando" group and the "Listos para construir" group on `project-changes` (that state holds none), the `implemented_sha` evidence: Out of v2 or without a picture. Their FRD wording stays the only definition.
+- Success feedback after discarding, and the unparseable-date slot of a change card: behaviour (no picture).
+- How links inside a document resolve (same reader, new tab, plain text): behaviour (no picture).
+- The Comandos tab: see FRD-11.
+- Loading: behaviour (no picture).
 
-## 3. States
+## Components used
 
-- **Decisions present** — `decisionesBox()` highlights pending decisions with a warn count chip, each
-  card carrying the AI recommendation as context and the scoped
-  `/pandacorp:decide <id>` command (no one-click recommendation approval) (`AC`: "WHEN there are pending decisions, it SHALL highlight them").
-- **Empty** — no decisions → the calm "Sin puntos pendientes" `.panel`; no activity → "Aún sin actividad
-  registrada"; no work orders → the bar/`projWO` empty message (FDD-05).
-- **Loading** — the Next.js build streams the header + active tab; tab bodies read project state under
-  their own boundary. No skeleton for content the server already delivers.
-- **Error** — a tab whose source fails to read renders an inline `Banner` naming the source, not a blank
-  panel; the header still renders (segment `error.tsx`).
+| Screen or state | Components (`docs/design/components.md`) |
+|---|---|
+| All | `AppShell` (FRD-19), `Crumbs`, `Tabs` (with count badges), `ProjectSwitcher` ("Cambiar proyecto", the dialog is FRD-03's picker) |
+| `project-summary`, `project-summary-funko`, `project-summary-decisions` | `ProjectHero` (ring, stat counts, full `PhaseStepper`), `Notice` (upgrade), `CommandBox`, `FraguaScene` (FRD-06), `Card` + `CardHeader` + `CountPill`, `FrdRow`-style progress rows with `StackBar` ("Avance por FRD"), `ListRow` (decisions), `AskRow` ("Tu turno"), `ProgressList` ("Últimos avances"), native `details` (Bitácora) |
+| `project-snapshot` | `SnapshotPanel` (`Card`, `Chip`, `CommandBox`) |
+| `project-decision-dialog`, `project-change-dialog`, `project-change-rebuilds`, `project-change-discard` | `Dialog` / `DialogConfirm`, `Chip`, `Notice` (warning tone), `CommandBox`, `Button` (`danger`, `ghost`) |
+| `project-changes` | `Card` groups with `ListRow`, `Chip`, collapsed `details` "Historial", `CommandBox` |
+| `project-spec`, `project-spec-empty`, `project-architecture`, `model-invalid` | `ProjectHeroCompact`, `DigestHero`, `ReportBand`, `FrdCard`, `EnvRow` / `EnvFold`, `AdrRow`, `PlanMosaic` (hidden before Construcción), `ModelDiagram` / `SchemaList`, `Notice` (error) |
+| `project-documents`, `project-documents-search`, `project-documents-index-open` | `FilterChip`, `Paper`, `Markdown`, `DocIndex` / `DocItem`, `SearchField`, `Button` (index toggle) |
+| `project-tab-not-found` | `Card`, `Button` |
 
-## 4. Demo-only controls (DR-061)
+No new component is introduced.
 
-The **build-mode selector** (`buildModePanel()`, FRD-11) lets the operator pick Pro / Equilibrado /
-Potente / Profundo. In the read-only app this is **not** a live build switch — it only changes which
-`/pandacorp:implement…` command the box surfaces to copy and run in the project folder. The selector
-itself is a real preference/affordance (it picks the displayed command), so it stays in the real UI;
-but the build must make clear (as the prototype's copy already does) that **changing the mode here does
-not start or reconfigure a build** — it only updates the copyable command. The currently-selected mode
-is real surfaced data (the command), not a hidden demo value. No other workspace control is demo-only.
+## Interaction & flow
 
-Workspace integration contains Architecture’s existing full-bleed bands horizontally inside its selected-project pane, including when the portfolio rail makes that pane asymmetric. Board rendering retains its original full-bleed presentation.
+- **Entry.** A project from the Portafolio, the sidebar or the picker lands on Resumen unless the URL names a tab (`tab=Spec` and so on); the tab and its filters live in the URL (FRD-25). An unknown tab shows the "Esta sección no existe" card.
+- **Header.** Resumen shows the hero with the ring, the counts and the full stepper; every other tab shows the one-line header with "n/m WO · pct", the compact stepper and "Cambiar proyecto". The tab bar sits right below, scrolls sideways with arrow buttons and keeps the selected tab in view on phones.
+- **Resumen.** Top to bottom: upgrade notice (only when the project's engine is old), "Siguiente paso" with its copyable command, La Fragua, the snapshot card (only while a build runs), then two columns that become one below 1024px with "Tu turno" first. "Avance por FRD" lists unfinished FRDs first. "Decisiones" rows open the decision dialog; the dialog only shows the recommendation as text and the command to review it; nothing is answered in the app.
+- **Cambios.** Cards open the detail dialog; a change that can be discarded offers "Descartar cambio", which swaps the detail for the confirmation (never a second modal on top). The confirmation closes with "Cancelar" or Escape. Changes in construction offer no discard.
+- **Documentos.** The reader is full width; the index is on the right from 900px and folded behind "Elegir documento · 66" below it; chips filter by type with counts, the search filters by name.
+- **Copy-only commands.** Every command is text to copy; Mission Control never runs one.
 
-## Shared Spec presentation (2026-10-16)
+## Responsive & accessibility
 
-Spec sits between Resumen and Work orders. Reuse the board's existing Spec visual source and full `SpecDigest`: hero/meta chips, PRD blocks, Research blocks and compact FRD cards with their existing focus/Escape/return-focus modal. Source: FDD-02's Spec contract and the existing board Spec prototype; this extension changes placement, not that component's visual language. Clip full-bleed bands to the Portfolio pane horizontally, preserving text/control usability at narrow widths. Retain the ten-tab navigation and explicit pending message without a digest. Known markdown targets open Documents in the selected project, external URLs open separately and unsupported relative links become text.
+- **Widths.** 1280, 768 and 375 for every state except `project-change-discard` (375 and 1280), `project-documents-search` (1280 only) and `project-documents-index-open` (375 and 768). On phones the hero stacks and "Cambiar proyecto" takes the full width; the sidebar rail on tablet and the drawer on phone are FRD-19's.
+- **Not colour alone.** Decision state is the word "Resuelta" or "Pendiente"; change state is a chip with its word; the warning "Rehace trabajo ya verificado" has an alert icon; urgency is the chip "Urgente" with a bolt icon.
+- **Keyboard.** The tab bar is a `tablist` with arrow-key movement; dialogs trap focus, close on Escape and return focus to the opener; the index toggle is a real button with `aria-expanded`; copy buttons are labelled "Copiar `<comando>`".
+- **Language.** Artifact names stay English; change titles, document bodies and work-order titles keep their source language.
 
+## Copy
 
-## Shared modal focus — 2026-10-16
+Spanish, from `docs/design/microcopy.es.json`; no em dash in product copy.
 
-Spec FRD details use the shared Modal. On dismissal, return keyboard focus to the connected FRD-card opener; project changes discard the old modal/opener.
+## Fidelity references
 
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate).
 
-## Shared model readability correction — 2026-10-16
+prototype_blessed_at: 409a0564
 
-Reuse the same FRD-02 AC-02-015.1–.14 viewer: content-sized full-text entity cards, compact layered orthogonal field-port routing, a readable centered starting entity and a diagram-only full-browser expansion. No lower relationship inspector/list. The inline designed-model provenance remains; the full-window view contains only graph and compact floating controls. No project/build machine-status changes.
-
-The shared model viewer now follows the owner-selected dependency-map navigation design (ADR-0008): native browser fullscreen first with full-window fallback, one top-right GraphControls icon toolbar, separate search, actual opener restoration and frame-batched zoom/pan. This same implementation is reused in embedded Portfolio and direct project Architecture, without changing tab order or source ownership.
-
-## Shared usability amendment — 2026-10-17
-
-The same complete Architecture now orders Stack (choices/why), Integraciones y operación (authored flows/tasks), Modelo de datos, then environment variables, ADRs and plan. Reuse FRD-02 AC-02-015.1–.14: repeated relationship click clears selection, diagram cards prevent text selection while schema code permits it, and the single-column schema opens with all entities collapsed and allows one expanded entity at a time. Shared Spec/Architecture panels fill their host; prose alone retains readable line lengths. Portfolio and direct-project behavior remain identical, with no new database-only tab or data source. ADR-0009 records the current design.
-
-## Persistent navigation integration — FRD-25 (2026-10-17)
-
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+- **Mocks:** `docs/frds/frd-04-project-workspace/mocks/project-workspace.html` (one `mock-screen` section per captured state) and `docs/frds/frd-04-project-workspace/mocks/screenshots/<id>-<width>-<theme>.jpg`.
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#portfolio?project=<slug>&tab=<tab>` with the parameters of each state.
+- **Oracle states of this FRD (`oracle-states.json`):** `project-summary`, `project-summary-funko`, `project-summary-decisions`, `project-decision-dialog`, `project-spec`, `project-spec-empty`, `project-architecture`, `project-changes`, `project-change-dialog`, `project-change-discard`, `project-documents`, `project-documents-search`, `project-documents-index-open`, `project-tab-not-found`, `project-snapshot`, `project-change-rebuilds`, `model-invalid`.
+- **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/reference/css/` (06-card, 07-chip, 12-command, 13-list-row, 14-empty-notice, 19-page-header, 20-tabs, 21-phase-stepper, 22-inicio, 25-spec, 27-architecture, 28-documents, 29-markdown), `docs/design/prototype/components.html`.
+- **`docs/design/components.md` rows:** `Tabs`, `ProjectHero`, `ProjectHeroCompact`, `ProjectSwitcher`, `FraguaScene`, `SnapshotPanel`, `AskRow`, `ProgressList`, `Dialog`, `Notice`, `CommandBox`, `ListRow`, `Chip` family, `StackBar`, `DigestHero`, `ReportBand`, `FrdCard`, `EnvRow` / `EnvFold`, `AdrRow`, `PlanMosaic`, `ModelDiagram` / `SchemaList`, `DocIndex` / `DocItem`, `Paper`, `Markdown`, `SearchField`.

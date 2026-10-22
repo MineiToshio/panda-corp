@@ -1,109 +1,103 @@
-# FDD-13 — Visual system and accessibility (cross-cutting)
+---
+id: FDD-13
+type: fdd
+slug: visual-system-accessibility
+title: Visual system and accessibility
+status: ACTIVE
+parent: FRD-13
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
+---
 
-> **Cross-cutting, not a screen.** FRD-13 is the **token system + accessibility rules** applied
-> everywhere in Mission Control — it has no single view. This FDD describes the frozen visual layer
-> and how it is applied; the per-screen FDDs (FRD-14 snapshot, FRD-15 plugin-sync banner, FRD-16
-> orphans banner, plus the Party FDDs) all sit **on top of** this contract.
+# FDD — FRD-13 Visual system and accessibility
 
-- **Visual source (anchor):** `docs/design/prototype/index.html` — the owner-approved whole-app SPA
-  prototype (DR-054 ADOPT-VISUAL). Its `<style>` block (lines ~20–158) is the reference for **how**
-  the tokens and a11y rules are applied app-wide; this FDD does not invent values, it points at the
-  frozen artifacts below.
-- **Frozen contract (source of truth):**
-  - `docs/design/design-tokens.json` — the canonical token file (hex, frozen from the prototype).
-  - root `DESIGN.md` — tokens + allowed components + prohibitions.
-  - `src/app/_design/tokens/tokens.ts` + `src/app/globals.css` — the runtime mirror.
-- **Source-of-truth hierarchy (DR-049):** `FRD > FDD > design-tokens > blueprint > work order`.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> FRD-13 is the cross-cutting layer, not a screen: the visual system frozen FROM the approved Órbita prototype (`docs/design/prototype/index.html`, owner approval 2026-10-21) into `docs/design/design-tokens.json` and root `DESIGN.md`, plus the accessibility behaviour every surface shares. Its two captured states show the two accessibility behaviours that have a picture: the focused skip link and the progress ring that explains itself on focus. Both are drawn on Inicio (a surface owned by FRD-18); the rules in this FDD apply to every FRD's screens. The tokens and the component inventory (`docs/design/components.md`) are defined elsewhere; this FDD uses them and defines none.
+>
+> The captured states are in `docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html`, screenshots in `mocks/screenshots/` (viewport captures).
 
-## What this layer is (the frozen visual system)
+## Screens
 
-The visual system was **extracted faithfully from the prototype**, not invented. It supersedes the
-earlier invented cold-blue (hue ~230) OKLCH palette from `docs/design/brief.md`. The committed tokens
-are **hex** (warm pixel-RPG / "guild" palette); only the per-agent role-identity palette stays OKLCH
-(perceptual spacing keeps roles distinguishable).
+| Screen | Purpose | Captured state | Acceptance criteria |
+|---|---|---|---|
+| Skip link focused | The first Tab stop of every page: the skip link appears at the top left over the sidebar, with the visible focus ring, so a keyboard user can jump the navigation. | `a11y-skip-link-focus` | REQ-13-009, AC-13-010.3 |
+| Progress ring explains itself on focus | A project card's progress ring, reached by keyboard, shows a dark tooltip with its meaning, "39 de 48 work orders verificadas", with the same text as its accessible name. | `a11y-ring-tooltip-focus` | REQ-13-007, REQ-13-009 |
 
-### 1. Themes — few tokens, two committed themes
-- Exactly **two committed themes**: `dark` (default) + `light`, each a small structured set of
-  `surfaces` / `text` / `borders` / `accent` / `status` / `categories` / `tiers` tokens
-  (`design-tokens.json` → `themes.dark` / `themes.light`).
-- **High-contrast** is a var-override layer over the dark theme (pure black/white extreme inversion),
-  NOT a third token theme.
-- Touching the accent never throws off text contrast because the themes are structured, not loose
-  hex (REQ-13, AC: "few tokens").
+### Skip link focused (`a11y-skip-link-focus`)
 
-### 2. Single rationed accent (punctuation, not paint)
-- One accent (`accent.accent` = `#33B6D1` dark / `#007890` light) reserved for **what matters**:
-  active tab/nav (`navitem.on`, `tab.active` → `accent-bg` + `accent-text`), the working agent halo,
-  the XP-bar fill, focus ring. Everything else is warm neutrals.
-- In the prototype `<style>`: `.navitem.on`, `.stab.on`, `.rail.on` carry the accent; bodies/cards stay
-  neutral. The banners (FRD-15/16) deliberately use `warn`, not accent — they are alerts, not navigation.
+- The link is the first focusable element of the page, before the sidebar. At rest it sits off-screen above the frame; on focus it drops into view at the top left (`SkipLink`): its label (the Spanish skip text of `SkipLink`, see `docs/design/microcopy.es.json`), a surface fill, a hairline border and radius 10, over the brand block of the sidebar.
+- A 2px focus ring in the focus token, with 2px offset, surrounds it and follows its border radius (REQ-13-009). No hover effect is involved.
+- Activating it moves focus to the content region in place (`main#content`); it does not navigate to another screen.
+- Behind it the page is Inicio at 1280 (page title "Inicio", the plugin banner, "Tu turno", "Pulso", "Gremio"); those regions belong to FRD-18 and the shell, and only the focus behaviour belongs here.
 
-### 3. tabular-nums on every number
-- `body { font-variant-numeric: tabular-nums }` is set globally (prototype line 58); `.px` (Pixelify)
-  and `.herostat .big` re-assert it. Every count, SHA, level, XP, timestamp aligns. The implemented
-  `StatusChips`, `SnapshotPanel` and `StateBadge` all carry `tabular-nums` on their numerals.
+### Progress ring explains itself on focus (`a11y-ring-tooltip-focus`)
 
-### 4. Three elevation levels
-- `--shadow-0` (none / canvas) → `--shadow-1` (resting, `shadows.shadow`) → `--shadow-2` (pop,
-  `shadows.shadowPop`). The light theme re-declares `--shadow-1/2` softer.
-- Radii: `sm 8px · md 12px · lg 16px · pill 999px` (`radii`). The app-wide **RPG embossed skin**
-  (`rpgSkin.overrides.panel` / `rpgpanel`) re-skins panels with the `inset 0 1px 0 …, inset 0 -2px 0 …,
-  0 2px 0 canvas` "pressed pixel tile" signature — this is part of the contract (complete extraction,
-  DR-056) and applies app-wide, so every surface this FDD governs inherits it.
+- On the Funko Tracker card of "Tu cartera", the conic progress ring (`Ring`, 52px, "81%") has the focus ring around it and an inverted tooltip pill above it reading "39 de 48 work orders verificadas".
+- The ring is `role="img"` and focusable (`tabindex="0"`); its accessible name and its tooltip are the same sentence, so the meaning is available to a keyboard user and a screen reader, not only to a pointer (REQ-13-009). Other rings carry their own sentence ("109 de 110 work orders verificadas").
+- The percentage is real text inside the ring, with tabular figures (REQ-13-003).
 
-### 5. Motion — frequency test + reduced-motion
-- `transform`/`opacity` only, <300ms. Everyday motion (tabs, hover) is sober; **expressive motion is
-  reserved for the Party canvas** (sprite bob, halos, emotes) and rare satisfying events (level-up,
-  WO completed). 2–3 easing tokens, not per-component curves.
-- `@media (prefers-reduced-motion: reduce)` disables `.anim`, `.reveal` transitions and all Party
-  animation (prototype lines 142, 151) — long unattended sessions must not fatigue.
+## States
 
-### 6. State never by color alone
-- Each state (working / idle / failed / completed / blocked / reviewing) is paired with an
-  **icon/shape + Spanish label** — critical with a warm palette (reds/oranges/amber are close).
-- Realized by the **`StateBadge`** primitive (`src/components/core/StateBadge/StateBadge.tsx`):
-  geometrically distinct inline SVG per state + visible label + `aria-label`. The two FRD-15/16
-  banners reinforce the same rule (warning triangle icon + heading text, not color alone).
+| State | What it shows | Captured state | Acceptance criteria |
+|---|---|---|---|
+| Keyboard focus on the skip link | The link is visible and ringed; every other element is at rest. This is the focus-visible state the whole app uses (2px ring, 2px offset, radius follows the element). | `a11y-skip-link-focus` | REQ-13-009 |
+| Keyboard focus on a ring | The ring has the focus ring and the tooltip is open; moving focus away closes it. The tooltip is not hover-only. | `a11y-ring-tooltip-focus` | REQ-13-009, AC-13-010.3 |
 
-### 7. Canonical agent-role set
-- `AGENT_ROLES` / `AGENT_COLOR` (`src/app/_design/tokens/tokens.ts`) is the single source for the real
-  engine/pipeline roles (implementer, reviewer, test-writer, backend-dev, frontend-dev, plus the
-  per-phase specialists). It does **not** include the fictitious `guild` aggregate. Each role carries a
-  fixed OKLCH color token.
+No loading, empty or error state exists for this FRD: it owns no data. The surfaces that consume the rules design their own.
 
-### 8. Accessibility rules (applied everywhere)
-- Spanish `aria-label` on icons; `aria-live="polite"` to announce events without stealing focus;
-  visible focus ring respecting `border-radius` (`:focus-visible { outline: 2px solid var(--accent);
-  outline-offset: 2px }`, prototype line 88); keyboard list navigation; **contrast ≥4.5:1** in both
-  themes (a real risk with light warms). These ride on the a11y primitives in `src/components/a11y/`.
+## Rules without a picture
 
-## States (cross-cutting, not a single screen)
-Because this layer is the token/a11y system rather than a view, its "states" are the **theme/contrast
-modes** it must hold up under:
-- **Default (dark):** the frozen warm pixel-RPG identity.
-- **Light:** every token re-declared; contrast re-verified ≥4.5:1.
-- **High-contrast:** var-override over dark (pure black/white inversion) — must enable without a
-  redesign.
-- **Reduced-motion:** all expressive/Party motion disabled; layout unchanged.
-- **Empty / loading / error of consuming screens:** governed by each consuming FDD (FRD-14/15/16,
-  Party), but they MUST draw their colors/spacing/radii from this contract only — no hardcoded values.
+These rules of the FRD have no captured state because they are values in tokens and CSS, behaviour, or properties of every screen at once. The build verifies them with the frozen tokens (`docs/design/design-tokens.json`, root `DESIGN.md`), the round preflight, the computed styles (`docs/design/prototype/reference/computed-styles.json`), axe-core and the fidelity gate on the other FRDs' states; none is specified as UI here.
 
-## Components mapped to shared primitives
-This layer is consumed by every screen via the frozen primitives — see `docs/design/components.md`.
-Most relevant here: `StateBadge` (icon+shape+label state), `ThemeToggle` (light/dark, both
-first-class), `XpBar` (rationed accent fill), `CelebrationSurface` (reduced-motion-aware expressive
-moment), and the `a11y/` primitives (`LiveRegion`, `useKeyboardNav`).
+| Rule | Where it is fixed and checked |
+|---|---|
+| REQ-13-001 few tokens, two committed themes (light and dark, both first-class), authored in hex, high-contrast as a var-override layer over dark | `design-tokens.json` (custom properties per theme), `DESIGN.md` § Tokens; the build mirrors them in `src/app/globals.css` `@theme` |
+| REQ-13-002, AC-13-010.1 neutral chrome, hue only with meaning and always with text or an icon, green / amber / red only for status or severity (phase counts as status), no edge stripes | `DESIGN.md` § Colour rules; every FRD's screens show it (this FRD's own states: the neutral chrome and the single coral banner) |
+| REQ-13-003 tabular figures on every number | CSS (`.num`, `font-variant-numeric: tabular-nums`); visible in the ring percentage of `a11y-ring-tooltip-focus` |
+| REQ-13-004 elevation and radius from the token scales, no per-component shadow or radius | `design-tokens.json` shadows (`shadow`, `shadow-sm`, `node`, `drop`, `panel`, `dialog`, `toast`) and radii (6, 8, 10, 12, 16, 22, 28, pill) |
+| REQ-13-005 motion: transforms only, under 300ms (160ms base, ease token), the frequency test; the sidebar collapse is a transform and a dialog's text never fades | `DESIGN.md` § Motion; the M1 decision of 2026-10-22 keeps this rule and the prototype animates transforms only |
+| REQ-13-006 `prefers-reduced-motion` disables La Fragua and every non-essential motion | one CSS rule in `base.css`; checked in a reduced-motion run |
+| REQ-13-007 no state by colour alone: icon or shape plus label | every state chip in the app; for example the label "Construcción: fase actual" in the phase stepper of `a11y-ring-tooltip-focus`, "Conseguido" with a check in FRD-10's `achievements-ranks`, "En revisión" in FRD-12's `observability-legacy-link` |
+| REQ-13-008 agent identity by sprite or initials plus the model tier chip; no per-role colour set; the roster excludes the `guild` aggregate | FRD-07's agent catalogue; no picture in this FRD |
+| REQ-13-009 Spanish `aria-label` on icons ("Abrir menú", "Colapsar la barra lateral", "Copiar claude plugin update pandacorp@panda-corp"), `aria-live="polite"` for events, arrow-key navigation on tab strips, contrast at least 4.5:1 | axe-core and the round preflight on every state; the labels above are drawn in both states of this FRD |
+| AC-13-010.2 the three self-hosted families (Space Grotesk, Inter, JetBrains Mono), no product text below 12px, monospace only for ids, code, commands and paths | `DESIGN.md` § Typography; files in `docs/design/prototype/assets/` |
+| AC-13-010.3 no hover effect where the pointer cannot hover; a focused element is never under a sticky bar | hover rules sit inside `@media (hover: hover)`; focus is scrolled clear with `scroll-margin`; the ring state above shows the tooltip opening on focus |
+| AC-13-010.4 La Fragua and the Campaña map use the always-dark scene tokens in both themes | `--scene-*` and `--map-*` tokens, defined once; drawn in the FRD-06 and FRD-02 states |
+| Shared modal focus (2026-10-16): the Modal returns focus to its opener on close if the opener is still in the document | `Dialog` behaviour in `components.md`; exercised by the dialog states of other FRDs |
 
-## Visual reference
-`docs/design/prototype/index.html` `<style>` block (the app-wide skin + a11y rules) + the frozen
-`docs/design/design-tokens.json` and root `DESIGN.md`. There is no single render function: this is the
-cross-cutting token/a11y layer every render function inherits.
+## Components used
 
+From `docs/design/components.md`; nothing new is introduced by this FRD.
 
-## Shared modal focus — 2026-10-16
+| Part | Components |
+|---|---|
+| Skip link | `SkipLink` (first focusable element of `AppShell`, in-page anchor to `main#content`) |
+| Progress ring and its tooltip | `Ring` (`pct`, `tone`, `size`, `tip`; `role="img"` with the sentence as label) inside `ProjectCard` |
+| Surroundings | `AppShell`, `Nav`, `PageHead` (FRD-19 and FRD-18 own them) |
 
-A shared modal focuses its panel on open, traps keyboard navigation, and returns focus to its still-connected opener on dismissal or unmount. Switching projects must not return focus to a removed FRD control. No visual tokens or modal chrome change.
+## Interaction & flow
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+- Keyboard path: Tab from the address bar lands on the skip link; Enter moves focus to the content; the next Tab stops are inside the page. On Inicio the rings of "Tu cartera" are Tab stops and each shows its sentence on focus.
+- The tooltip opens on focus and on hover (hover only where the pointer can hover) and closes on blur or Escape.
+- Focus ring, contrast, motion and tabular figures are not interactions of this feature: they are the properties every other FDD inherits.
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+## Responsive & accessibility
+
+- Captured at 375, 768 and 1280, light and dark. At 375 the skip link appears over the top bar; the ring tooltip is clamped inside the viewport.
+- The focus ring is 2px with a 2px offset and uses the focus token in both themes; it must stay visible on every surface (cards, command boxes, chips, tabs).
+- Contrast is at least 4.5:1 for text and 3:1 for the ring and UI components in both themes; touch targets 44px as a design target, 24px as the gated floor.
+- Motion: only transforms animate; text never fades; `prefers-reduced-motion: reduce` turns animation and transitions off.
+
+## Copy
+
+Interface strings are Spanish (`docs/design/microcopy.es.json`); accessible names are Spanish; content the app only shows (documents, skill and agent descriptions) keeps its source language. No em dash in product copy.
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar): the frozen tokens `docs/design/design-tokens.json` and its history, root `DESIGN.md`, the component catalogue `docs/design/prototype/components.html`, measured styles `docs/design/prototype/reference/computed-styles.json`, portable CSS `docs/design/prototype/reference/css/`, fonts and icons under `docs/design/prototype/assets/` and `docs/design/prototype/icons/`, `docs/design/components.md` (rows `SkipLink`, `Ring`, `AppShell`, `Dialog`), `docs/design/freeze/m1-decisions.md` and `docs/design/freeze/reconciliation.md`.
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-13-visual-system-accessibility/mocks/visual-system-accessibility.html`; screenshots `docs/frds/frd-13-visual-system-accessibility/mocks/screenshots/<id>-<width>-<theme>.jpg` (375, 768, 1280; light and dark; viewport captures).
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#inicio`, then the actions listed for each state in `docs/design/freeze/fidelity.config.json` (focus the skip link; scroll to the ring and focus it).
+- **Oracle states of this FRD** (`oracle-states.json`): `a11y-skip-link-focus`, `a11y-ring-tooltip-focus`.

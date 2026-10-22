@@ -3,6 +3,7 @@ id: "FRD-15"
 title: "Plugin out-of-sync warning"
 status: "APPROVED"
 ui: true
+drift: "REQ-15-001"
 ---
 # FRD-15 — Plugin out-of-sync warning
 

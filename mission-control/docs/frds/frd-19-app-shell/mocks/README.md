@@ -1,32 +1,7 @@
-# FRD-19 mocks — global app shell
+# frd-19-app-shell · design mocks
 
-The visual contract is a **slice of the frozen whole-app prototype**, not a separate mock file
-(DR-054/056): the persistent topbar is rendered on every view of the prototype, so the canonical
-reference is the prototype itself.
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-## Source slice
-- File: [`docs/design/prototype/index.html`](../../../design/prototype/index.html)
-- Functions: `topbar()` (~L646), `tab(id,label)` (L650), `tabProp()` (L652) — the brand + guild block,
-  the six `.tab` destinations, and the Propuestas pill with its open-count badge.
-- Visual tokens: `.tab` / `.tab.on` (L62–63); the `rpgpanel` / `rpggrid` surface signature; the
-  brand logo `assets/pandacorp.png`.
-- Live prototype (served): `/prototype/index.html` (the topbar is visible on every view).
-
-## The six destinations (the nav contract)
-| Label | Route | Prototype `tab()` id |
-|---|---|---|
-| Inicio | `/` | `dashboard` |
-| Tablero | `/board` | `ideas` |
-| Portfolio | `/portfolio` | `portfolio` |
-| Propuestas | `/proposals` | `propuestas` (`tabProp()`, with badge) |
-| Logros | `/achievements` | `logros` |
-| Documentación | `/manual` | `manual` |
-
-This table is the source of `e2e/shell.ts` `NAV_DESTINATIONS` (the Shell-Presence Gate contract) and
-of the `Nav` component's link list. They must agree.
-
-## Not separate mock HTML
-Per the re-anchor (DR-056), surfaces are repainted to the prototype directly; the topbar has no
-standalone mock — the prototype `topbar()` is the byte-level reference. Fidelity is verified by the
-Shell-Presence Gate (`e2e/shell.spec.ts`) against the contract above, plus the browser smoke at
-desktop and mobile widths.
+- `app-shell.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

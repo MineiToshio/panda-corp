@@ -1,0 +1,2019 @@
+{
+  "common": {
+    "phases": {
+      "discovered": "Investigación",
+      "product": "Producto",
+      "design": "Diseño",
+      "architecture": "Arquitectura",
+      "implementation": "Construcción",
+      "release": "Lanzamiento",
+      "none": "Sin fase"
+    },
+    "phaseSteps": {
+      "past": "completada",
+      "current": "fase actual",
+      "next": "pendiente",
+      "aria": "Fase: {phase}",
+      "tip": "{index}. {phase} · {status}",
+      "srLabel": "{phase}: {status}"
+    },
+    "workOrderStates": {
+      "todo": "Planificado",
+      "inProgress": "En curso",
+      "review": "En revisión",
+      "done": "Verificado",
+      "blocked": "Bloqueado",
+      "none": "Sin estado"
+    },
+    "returnTypes": {
+      "monetary": "Monetaria",
+      "personal": "Personal",
+      "mixed": "Mixta",
+      "none": "Sin retorno"
+    },
+    "build": {
+      "building": "Construyendo",
+      "noSignal": "Sin señal · último evento {ago}",
+      "noEvents": "sin eventos",
+      "minutesAgo": "hace {minutes} min",
+      "hoursAgo": "hace {hours} h"
+    },
+    "relativeTime": {
+      "lessThanHour": "hace menos de 1 h",
+      "hours": "hace {hours} h",
+      "days": "hace {days} días",
+      "noRecord": "sin registro",
+      "today": "hoy",
+      "yesterday": "ayer"
+    },
+    "noDate": "Sin fecha",
+    "workspaceTabs": {
+      "resumen": "Resumen",
+      "spec": "Spec",
+      "observabilidad": "Observabilidad",
+      "arquitectura": "Arquitectura",
+      "cuentas": "Cuentas",
+      "cambios": "Cambios",
+      "documentos": "Documentos",
+      "comandos": "Comandos"
+    },
+    "docTypes": {
+      "product": "Producto",
+      "research": "Investigación",
+      "contract": "Contrato funcional",
+      "design": "Diseño",
+      "architecture": "Arquitectura",
+      "decision": "Decisión técnica",
+      "order": "Work order",
+      "review": "Revisión",
+      "rule": "Regla",
+      "reference": "Referencia"
+    },
+    "illustrative": {
+      "label": "Ilustrativo",
+      "tip": "Composición de ejemplo: no hay datos reales de esta fuente"
+    },
+    "ring": {
+      "defaultAria": "{pct}% completado"
+    },
+    "copy": {
+      "command": "Copiar {command}",
+      "commandTip": "Copiar comando",
+      "hint": "Copiar"
+    },
+    "tabs": {
+      "previous": "Ver secciones anteriores",
+      "next": "Ver más secciones"
+    },
+    "breadcrumb": {
+      "aria": "Ruta"
+    },
+    "stackbar": {
+      "item": "{count} {state}"
+    },
+    "newTab": {
+      "srSuffix": " (se abre en una pestaña nueva)"
+    },
+    "noContent": "Sin contenido.",
+    "none": "Ninguno",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "shell": {
+    "skipLink": "Saltar al contenido",
+    "topbar": {
+      "openMenu": "Abrir menú"
+    },
+    "brand": {
+      "name": "Pandacorp",
+      "product": "MISSION CONTROL",
+      "aria": "Pandacorp Mission Control: ir a Inicio"
+    },
+    "sidebar": {
+      "aria": "Navegación principal",
+      "sectionsAria": "Secciones",
+      "pin": "Fijar abierta la barra lateral",
+      "collapse": "Colapsar la barra lateral",
+      "pinShort": "Fijar abierta",
+      "collapseShort": "Colapsar"
+    },
+    "theme": {
+      "toLight": "Cambiar a tema claro",
+      "toDark": "Cambiar a tema oscuro",
+      "labelLight": "Tema claro",
+      "labelDark": "Tema oscuro"
+    },
+    "nav": {
+      "inicio": "Inicio",
+      "tablero": "Tablero",
+      "portafolio": "Portafolio",
+      "propuestas": "Propuestas",
+      "logros": "Logros",
+      "documentacion": "Documentación",
+      "configuracion": "Configuración"
+    },
+    "navMini": {
+      "inicio": "Inicio",
+      "tablero": "Tablero",
+      "portafolio": "Portafolio",
+      "propuestas": "Propuestas",
+      "logros": "Logros",
+      "documentacion": "Docs",
+      "configuracion": "Ajustes"
+    },
+    "navCount": {
+      "decisions": {
+        "one": "{count} asunto espera tu decisión",
+        "other": "{count} asuntos esperan tu decisión"
+      },
+      "proposals": {
+        "one": "{count} cosa espera tu decisión",
+        "other": "{count} cosas esperan tu decisión"
+      }
+    },
+    "bottomNav": {
+      "aria": "Accesos rápidos",
+      "more": "Más"
+    },
+    "plugin": {
+      "outdated": "Plugin desactualizado",
+      "title": "Instalado {installed} · repositorio {source}"
+    },
+    "pending": {
+      "label": {
+        "one": "{count} pendiente",
+        "other": "{count} pendientes"
+      },
+      "labelNone": "Árboles",
+      "labelUnread": " · sin leer",
+      "labelUrgent": " · depurar ya",
+      "titleBranches": {
+        "one": "{count} rama sin integrar en main",
+        "other": "{count} ramas sin integrar en main"
+      },
+      "titleUnread": {
+        "one": " · {count} repositorio no se pudo leer",
+        "other": " · {count} repositorios no se pudieron leer"
+      },
+      "titleSuffix": ". Abre «Árboles de trabajo» en Inicio."
+    },
+    "projects": {
+      "label": "Proyectos",
+      "toggleTitle": "Ordenados por último cambio",
+      "itemAriaWithOrders": "{name}: {phase} · {pct}% de work orders verificadas",
+      "itemAriaNoOrders": "{name}: {phase}, sin work orders",
+      "seeAll": "Ver los {count}"
+    },
+    "guild": {
+      "aria": "Gremio nivel {level}: {rank}, {current} / {total} XP al nivel {next}",
+      "progress": "{current} / {total} XP al nivel {next}"
+    }
+  },
+  "inicio": {
+    "title": "Inicio",
+    "subtitle": "Tu centro de mando: primero lo que necesita tu acción; después lo que avanza y el estado de tus proyectos.",
+    "turn": {
+      "title": "Tu turno",
+      "upToDate": "Al día",
+      "empty": "Nada espera tu acción ahora mismo.",
+      "kindDecision": "Decisión",
+      "kindChange": "Cambio listo",
+      "ageDays": {
+        "one": "hace {count} día",
+        "other": "hace {count} días"
+      },
+      "requestedOn": "pedido el {date}",
+      "details": "Detalles",
+      "detailsAria": "Detalles: {title}",
+      "runIn": "Corre {where}:",
+      "inProjectFolder": "en la carpeta de {project}"
+    },
+    "attention": {
+      "decision": {
+        "kind": "Decisión pendiente",
+        "sub": "{project} · {date}",
+        "verb": "Ver decisión"
+      },
+      "review": {
+        "kind": "Work order en revisión",
+        "sub": "{project} · se cierra cuando el build revise su FRD",
+        "verb": "Abrir work order"
+      },
+      "ready": {
+        "kind": "Cambio listo",
+        "sub": "{project} · listo para construir",
+        "verb": "Ver cambio"
+      },
+      "building": {
+        "kind": "En construcción",
+        "sub": "{project} · cambio en curso",
+        "verb": "Ver cambio"
+      },
+      "draft": {
+        "kind": "Borradores",
+        "title": {
+          "one": "{count} cambio en borrador",
+          "other": "{count} cambios en borrador"
+        },
+        "sub": "{project} · aún no entran al build hasta quedar listos",
+        "verb": "Revisar"
+      }
+    },
+    "portfolio": {
+      "title": "Tu cartera",
+      "seeAll": "Ver portafolio"
+    },
+    "projectCard": {
+      "noOrders": "Sin WOs",
+      "noOrdersTip": "Aún no tiene work orders publicadas",
+      "ringTip": "{done} de {total} work orders verificadas",
+      "stage": "Etapa {index} de {total} del pipeline",
+      "lastChange": " · último cambio {ago}",
+      "factsOrders": "<b>{done}/{total}</b> WO verificadas",
+      "factsFrds": "<b>{count}</b> FRDs",
+      "factsDocs": "<b>{count}</b> docs",
+      "next": "Siguiente · <code>{command}</code>"
+    },
+    "pathMissing": {
+      "title": "Ruta no encontrada",
+      "bodyWithRepo": "La carpeta <code>{path}</code> ya no está en el disco. Clónala de nuevo y vuelve a sincronizar el portafolio:",
+      "bodyNoRepo": "La carpeta <code>{path}</code> ya no está en el disco. El portafolio no tiene un repositorio remoto: devuelve la carpeta a su sitio o corrige su ruta en <code>factory/portfolio.md</code>."
+    },
+    "firstProject": {
+      "title": "Tu fábrica todavía no tiene proyectos",
+      "intro": "Un proyecto nace de una idea. Captura una o pide a la fábrica que busque oportunidades; cuando una idea te convenza, su spec crea el proyecto.",
+      "captureStep": "Captura tu primera idea, en la carpeta de la fábrica:",
+      "convertStep": "Cuando la idea esté lista, conviértela en proyecto:"
+    },
+    "pulse": {
+      "title": "Pulso",
+      "projects": "Proyectos",
+      "frds": "FRDs",
+      "orders": "de {total} WO verificadas"
+    },
+    "guild": {
+      "title": "Gremio",
+      "level": "Nivel {level} · {xp} XP",
+      "toNext": "{xp} XP para el nivel {next} · {trophies} trofeos",
+      "seeAchievements": "Ver logros"
+    },
+    "funnel": {
+      "title": "Embudo de ideas",
+      "discarded": "{count} descartadas",
+      "openBoard": "Abrir tablero"
+    },
+    "pluginBanner": {
+      "title": "El plugin instalado está atrás",
+      "body": "Tienes instalada la <b>{installed}</b> y el repositorio ya va por la <b>{source}</b>. Las skills que corras usan la versión vieja hasta que actualices.",
+      "steps": "1) Corre el comando · 2) Reinicia la sesión de Claude Code."
+    },
+    "worktrees": {
+      "title": "Árboles de trabajo",
+      "intro": "Trabajo en paralelo que no está en <code>main</code>, y worktrees que sobraron.",
+      "cleanupHint": "Para depurar un proyecto, corre en su carpeta",
+      "columns": {
+        "project": "Proyecto",
+        "unmerged": "Sin integrar",
+        "unmergedTitle": "Ramas con trabajo que no está en main",
+        "leftovers": "Sobrantes",
+        "leftoversTitle": "Worktrees abiertos sin nada pendiente",
+        "state": "Estado"
+      },
+      "states": {
+        "clean": "Limpio",
+        "upToDate": "Al día",
+        "reviewSoon": "Revisar pronto",
+        "cleanNow": "Depurar ya"
+      },
+      "unreadable": "No se pudo leer",
+      "unreadableNote": "<b>{project}:</b> no se pudo leer su estado de git. No cuenta como «Al día» ni como «Limpio».",
+      "unreadableNoteWithReason": "<b>{project}:</b> no se pudo leer su estado de git ({reason}). No cuenta como «Al día» ni como «Limpio».",
+      "legendSummary": "¿Cómo se decide el estado?",
+      "legendBody": "<b>Depurar ya:</b> 3 o más sobrantes o ramas sin integrar, o alguna sin tocar hace más de 7 días. <b>Revisar pronto:</b> alguna rama de más de un día o algún sobrante. <b>Al día:</b> solo trabajo reciente. <b>Limpio:</b> nada pendiente ni sobrante.",
+      "origin": {
+        "lane": "Carril de un build",
+        "claude": "Sesión de Claude Code",
+        "codex": "Sesión de Codex",
+        "manual": "Rama manual"
+      },
+      "detail": {
+        "title": "Árboles de trabajo · {repo}",
+        "kicker": "Árboles de trabajo",
+        "branches": {
+          "one": "{count} rama sin integrar",
+          "other": "{count} ramas sin integrar"
+        },
+        "leftovers": {
+          "one": "{count} worktree sobrante",
+          "other": "{count} worktrees sobrantes"
+        },
+        "summary": "{branches} y {leftovers}{locked}.",
+        "locked": " (más {count} bloqueado, que no se toca)",
+        "ageHours": "{hours} h",
+        "ageDays": "{days} días",
+        "commits": {
+          "one": "{count} commit",
+          "other": "{count} commits"
+        },
+        "meta": "{origin} · hace {age} · {commits} fuera de main",
+        "uncommitted": " · {count} sin guardar",
+        "run": "Corre en la carpeta de {repo} para depurarlo:"
+      }
+    },
+    "inFlight": {
+      "title": "En marcha",
+      "intro": "Trabajo que ya está en manos de la fábrica. No espera una decisión tuya; avanza cuando corre el build.",
+      "building": {
+        "title": "Construyéndose ahora",
+        "hint": "Cambios que un build está implementando."
+      },
+      "review": {
+        "title": "Esperan la revisión de su FRD",
+        "hint": "Work orders ya construidas; se verifican cuando el build revisa su FRD completo."
+      },
+      "draft": {
+        "title": "Borradores en la cola",
+        "hint": "Cambios capturados que aún no están listos para construirse."
+      }
+    }
+  },
+  "tablero": {
+    "title": "Tablero",
+    "subtitle": "Todas tus ideas por fase. Cada tarjeta abre su propuesta y, si ya es proyecto, su documentación completa.",
+    "actions": {
+      "discarded": "Descartadas · {count}",
+      "capture": "Capturar ideas"
+    },
+    "search": {
+      "placeholder": "Buscar por nombre o contenido…",
+      "aria": "Buscar ideas"
+    },
+    "filters": {
+      "categoryAria": "Filtrar por categoría",
+      "all": "Todas",
+      "clear": "Limpiar",
+      "hideEmpty": "Ocultar columnas vacías",
+      "matches": {
+        "one": "{count} idea coincide",
+        "other": "{count} ideas coinciden"
+      }
+    },
+    "phaseNavAria": "Ir a una fase",
+    "boardAria": "Tablero por fases. Desliza o usa las flechas para ver más columnas.",
+    "column": {
+      "aria": "{phase}: {ideas}",
+      "ideas": {
+        "one": "{count} idea",
+        "other": "{count} ideas"
+      },
+      "empty": "Sin ideas en esta fase",
+      "noMatches": "Sin coincidencias"
+    },
+    "card": {
+      "unfavorite": "Quitar de favoritas",
+      "favorite": "Marcar como favorita",
+      "favoriteAria": "{action}: {title}",
+      "noCategory": "Sin categoría",
+      "score": "Score",
+      "noScore": "Sin score",
+      "ordersProgress": "{done}/{total} WO",
+      "projectCreated": "Proyecto creado"
+    }
+  },
+  "idea": {
+    "notFound": {
+      "title": "Esta idea no existe",
+      "detail": "No hay ninguna idea con el identificador «{id}».",
+      "emptyId": "(vacío)",
+      "back": "Volver al tablero"
+    },
+    "tabs": {
+      "aria": "Secciones de la idea",
+      "propuesta": "Propuesta",
+      "spec": "Spec",
+      "arquitectura": "Arquitectura",
+      "documentos": "Documentos",
+      "campana": "Campaña"
+    },
+    "header": {
+      "stageDiscarded": "Descartada",
+      "stage": "Etapa: {phase}",
+      "scoreOf": "Score {score}/100",
+      "backShort": "Volver",
+      "backLong": "Volver al tablero",
+      "openInPortfolioShort": "Portafolio",
+      "openInPortfolioLong": "Abrir en Portafolio",
+      "restore": "Restaurar",
+      "discard": "Descartar idea",
+      "discardAria": "Descartar idea"
+    },
+    "discarded": {
+      "title": "Idea descartada",
+      "reason": "Motivo: {reason}",
+      "noReason": "Se descartó sin motivo registrado.",
+      "restoreHint": "«Restaurar» la devuelve a su columna del tablero."
+    },
+    "pitch": {
+      "eyebrow": "Memo-pitch de idea",
+      "noType": "Sin tipo",
+      "glance": "De un vistazo · el sueño",
+      "deep": "Profundizar · el criterio",
+      "board": "El tablero de decisión",
+      "mitigation": "Mitigación",
+      "scorecard": "Scorecard",
+      "effortValue": "Esfuerzo vs. valor",
+      "chartAria": "Esfuerzo frente a valor: la idea está en esfuerzo {effort} % y valor {value} %",
+      "sweetSpot": "★ zona ideal",
+      "thisIdea": "esta idea",
+      "tickMicro": "MICRO",
+      "tickSmall": "PEQUEÑA",
+      "tickLarge": "GRANDE",
+      "axisEffort": "← más fácil · esfuerzo · más complejo →",
+      "axisValue": "valor →",
+      "evidence": "Evidencia y fuentes (lo que sostiene este memo)"
+    },
+    "docs": {
+      "noProject": "Esta idea todavía no tiene proyecto ni documentos.",
+      "railAria": "Documentos de la idea",
+      "sectionDocuments": "Documentos",
+      "sectionProduct": "Producto",
+      "summary": "Resumen",
+      "prd": "PRD",
+      "research": "Investigación",
+      "contract": "Contrato (frd.md)",
+      "design": "Diseño (fdd.md)",
+      "implementation": "Implementación (blueprint.md)",
+      "ideaCard": "Tarjeta de la idea",
+      "change": "Cambiar · {count}"
+    },
+    "campaign": {
+      "title": "El viaje de esta idea por las 6 fases",
+      "hint": "Clic en una sala para su ficha",
+      "roomState": {
+        "delivered": "entregado",
+        "current": "en curso",
+        "waiting": "en espera"
+      },
+      "roomAria": "{index}. {name}: {state}",
+      "handoff": {
+        "research": "research.md",
+        "product": "PRD + FRDs",
+        "design": "sistema + mocks",
+        "architecture": "blueprint + Build Plan",
+        "implementation": "el código"
+      },
+      "progressAria": "{done} de {total} fases entregadas; en curso: {current}",
+      "progressLabel": "<b>{done}/{total}</b> entregadas",
+      "sheet": {
+        "kicker": "Fase {index} de {total}",
+        "previous": "Fase anterior: {name}",
+        "next": "Fase siguiente: {name}",
+        "description": "Descripción",
+        "flow": "Entra y sale",
+        "reads": "Lee",
+        "writes": "Escribe",
+        "team": {
+          "one": "Equipo · {count} especialista",
+          "other": "Equipo · {count} especialistas"
+        },
+        "commands": "Qué puedes correr",
+        "nextStep": "Siguiente paso",
+        "advanceTo": " · avanza a {name}",
+        "otherOptions": "Otras opciones de esta fase",
+        "where": "spec y explore se corren desde la fábrica con el nombre de la idea; el resto, dentro de la carpeta del proyecto.",
+        "chooseMode": "Elegir modo de construcción",
+        "modesDefault": "Modos",
+        "enterForge": "Entrar a La Fragua"
+      }
+    }
+  },
+  "portafolio": {
+    "title": "Portafolio",
+    "subtitle": "Tus proyectos lado a lado. Entra a uno para recorrer su Spec, arquitectura, work orders y documentos.",
+    "views": {
+      "aria": "Vista del portafolio",
+      "cards": "Tarjetas",
+      "list": "Lista",
+      "accounts": "Cuentas",
+      "hintAccounts": "Directorio de cuentas de la fábrica",
+      "hintSorted": "Ordenados por último cambio"
+    },
+    "compare": {
+      "title": "Comparativa",
+      "aria": "Comparativa de proyectos",
+      "columns": {
+        "project": "Proyecto",
+        "phase": "Fase",
+        "workOrders": "Work orders",
+        "frds": "FRDs",
+        "docs": "Docs",
+        "adrs": "ADRs",
+        "openChanges": "Cambios abiertos",
+        "decisions": "Decisiones"
+      },
+      "mobileLabels": {
+        "workOrders": "Work orders",
+        "frds": "FRDs",
+        "docs": "Docs",
+        "adrs": "ADRs",
+        "changes": "Cambios",
+        "decisions": "Decisiones"
+      }
+    },
+    "notFoundProject": {
+      "title": "Este proyecto no existe",
+      "detail": "No hay ningún proyecto «{id}».",
+      "link": "Ver todos los proyectos"
+    },
+    "notFoundSection": {
+      "title": "Esta sección no existe",
+      "detail": "«{tab}» no es una sección del proyecto.",
+      "link": "Ir al resumen"
+    },
+    "tabsAria": "Secciones de {project}",
+    "accounts": {
+      "intro": "Las cuentas de la fábrica en un solo lugar: qué servicio es, con qué usuario entrar y qué proyectos lo usan. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Lo guardado son observaciones con fecha, no una sesión activa; las credenciales nunca se muestran.",
+      "searchPlaceholder": "Buscar servicio, correo o proyecto…",
+      "searchAria": "Buscar servicio, correo o proyecto",
+      "filtersAria": "Filtrar cuentas",
+      "filters": {
+        "all": "Todas",
+        "active": "Activas",
+        "pending": "Pendientes",
+        "candidates": "Candidatos",
+        "reference": "Referencia"
+      },
+      "count": {
+        "one": "{count} cuenta",
+        "other": "{count} cuentas"
+      },
+      "tableAria": "Cuentas de la fábrica",
+      "columns": {
+        "service": "Servicio",
+        "purpose": "Para qué",
+        "user": "Usuario",
+        "projects": "Proyectos",
+        "state": "Estado",
+        "detail": "Detalle"
+      },
+      "status": {
+        "candidate": "Candidato",
+        "reference": "Referencia",
+        "active": "Activa",
+        "pending": "Pendiente"
+      },
+      "toVerify": "Por verificar",
+      "unidentified": "Cuenta pendiente de identificar",
+      "noMatches": "No hay coincidencias para esta búsqueda.",
+      "detailAria": "Detalles: {name}",
+      "details": "Detalles"
+    }
+  },
+  "workspace": {
+    "hero": {
+      "version": "v{version}",
+      "noVersion": "Sin versión",
+      "noBuild": "Sin construcción activa",
+      "switcher": {
+        "label": "Cambiar proyecto",
+        "count": "{count} proyectos"
+      },
+      "subtitle": {
+        "less": "Ver menos",
+        "more": "Leer completo"
+      },
+      "stats": {
+        "ordersVerified": "work orders verificadas",
+        "noPlan": "Plan aún sin work orders",
+        "frds": "FRDs",
+        "documents": "documentos",
+        "adrs": "ADRs",
+        "openChanges": "cambios abiertos",
+        "lastMove": "último movimiento"
+      },
+      "compact": {
+        "progress": "{done}/{total} WO · {pct}%",
+        "noOrders": "Sin work orders"
+      }
+    },
+    "resumen": {
+      "upgrade": {
+        "aria": "Actualización pendiente",
+        "title": "Este proyecto usa una versión vieja del motor de Pandacorp",
+        "body": "Va con la v{projectVersion} y la fábrica ya está en la v{factoryVersion}. Actualízalo para que el próximo build use las reglas y herramientas nuevas.",
+        "bodyBuilding": "Va con la v{projectVersion} y la fábrica ya está en la v{factoryVersion}. Actualízalo para que el próximo build use las reglas y herramientas nuevas (espera a que termine el build en curso).",
+        "runIn": "Córrelo en la carpeta de {project}"
+      },
+      "nextStep": {
+        "label": "Siguiente paso:",
+        "implementOne": "Sigue la construcción: queda 1 work order abierta.",
+        "implementMany": "Sigue la construcción: quedan {count} work orders abiertas.",
+        "release": "Estable · en operación: revisa cómo va el lanzamiento."
+      },
+      "verdict": {
+        "noSignal": "Sin señal",
+        "waitingYou": "Espera tu decisión",
+        "building": "Construyendo ahora",
+        "paused": "En pausa",
+        "readyToLaunch": "Listo para lanzar",
+        "advancing": "Avanzando",
+        "progress": "{phase} al {pct} %: {done} de {total} work orders verificadas.",
+        "remainingOneReview": "La 1 restante ya está construida y espera la revisión de su FRD.",
+        "remainingManyReview": "Las {left} restantes ya están construidas y esperan la revisión de su FRD.",
+        "missingOne": "Falta 1: {parts}.",
+        "missingMany": "Faltan {left}: {parts}.",
+        "partReview": "{count} en revisión",
+        "partInProgress": "{count} en curso",
+        "partTodo": "{count} por empezar",
+        "partBlocked": {
+          "one": "{count} bloqueada",
+          "other": "{count} bloqueadas"
+        },
+        "noOrders": "Fase de {phase}: el plan de construcción todavía no tiene work orders.",
+        "openChanges": {
+          "one": "{count} cambio abierto.",
+          "other": "{count} cambios abiertos."
+        },
+        "noSignalRegistered": "El build dice estar corriendo, pero no hay señal del supervisor registrada.",
+        "noSignalSince": "El build dice estar corriendo, pero no hay señal del supervisor desde {ago}.",
+        "waitingCount": {
+          "one": "{count} cosa espera tu decisión.",
+          "other": "{count} cosas esperan tu decisión."
+        },
+        "nothingWaiting": "Nada espera tu decisión."
+      },
+      "frdProgress": {
+        "title": "Avance por FRD",
+        "intro": "Primero lo que falta terminar.",
+        "total": "{count} FRDs en total",
+        "seeAll": "Ver todos",
+        "empty": "Aún no hay FRDs publicados."
+      },
+      "decisions": {
+        "title": "Decisiones",
+        "resolved": "Resuelta",
+        "resolvedInFile": "ya resuelta en el archivo",
+        "pending": "Pendiente",
+        "none": "Sin decisiones tuyas registradas.",
+        "hidden": {
+          "one": "{count} entrada automática del motor oculta (no son preguntas para ti).",
+          "other": "{count} entradas automáticas del motor ocultas (no son preguntas para ti)."
+        }
+      },
+      "turn": {
+        "title": "Tu turno",
+        "empty": "Nada espera tu acción en este proyecto."
+      },
+      "progress": {
+        "title": "Últimos avances",
+        "empty": "Sin avances registrados todavía.",
+        "ordersVerified": {
+          "one": "{count} work order verificada",
+          "other": "{count} work orders verificadas"
+        },
+        "changeBuilding": "En construcción",
+        "changeReady": "Listo para construir",
+        "changeDraft": "Pedido (borrador)",
+        "changeDone": "Terminado",
+        "changeDiscarded": "Descartado",
+        "changeOther": "Registrado"
+      },
+      "forge": {
+        "eyebrow": "La Fragua · {project}",
+        "statusNoSignal": "El equipo se detuvo: el build dice estar corriendo, pero el último evento llegó {ago}.",
+        "statusWorking": "El equipo está trabajando: hay un build corriendo.",
+        "statusResting": "El equipo descansa: no hay un build corriendo.",
+        "questAria": "{done} verificadas, {review} en revisión, {inProgress} en el taller, {todo} en cola",
+        "stations": {
+          "todo": { "label": "Cola", "sub": "por empezar" },
+          "inProgress": { "label": "Taller", "sub": "construyéndose" },
+          "review": { "label": "Revisión", "sub": "esperan a su FRD" },
+          "done": { "label": "Bóveda", "sub": "verificadas" }
+        },
+        "stationEmpty": {
+          "todo": "Nada por empezar",
+          "inProgress": "Nadie construyendo ahora",
+          "review": "Nada esperando revisión",
+          "done": "Aún nada verificado"
+        },
+        "tokenAria": "{id}: {title}",
+        "noOrders": "Aún no hay work orders: la escena se llena cuando la arquitectura publique el plan.",
+        "missingOne": "Falta 1",
+        "missingMany": "Faltan {count}",
+        "allForged": "Todo forjado",
+        "openChanges": {
+          "one": "{count} cambio abierto",
+          "other": "{count} cambios abiertos"
+        },
+        "lastMove": "Último movimiento {ago}",
+        "note": "Cada cuadradito es una work order real: púlsalo para abrirla."
+      },
+      "snapshot": {
+        "title": "Último commit en verde",
+        "behindChip": "Quedó atrás del build",
+        "safeChip": "Seguro para probar",
+        "unsafeChip": "Aún no es seguro",
+        "intro": "El último commit del build que pasó todos los gates. Puedes probarlo en un worktree aparte mientras el build sigue; no se toca nada de lo que está construyendo.",
+        "verified": "verificó <b>{id}</b>",
+        "verifiedFrd": "verificó <b>{id}</b> de {frd}",
+        "passedGates": "pasó todos los gates",
+        "noSignal": "El build dice estar corriendo, pero no hay señal del supervisor desde {ago}. Revisa si sigue vivo antes de fiarte de ese estado.",
+        "buildingNow": "<b>Construyendo ahora:</b> {order}. Eso todavía no está en verde: no lo pruebes.",
+        "buildingFallback": "el build sigue avanzando",
+        "behindTitle": "Este commit quedó atrás del build",
+        "behindBody": "El build lleva {commits} y {hours} más. Lo que pruebes ahí ya no refleja lo que el build construyó desde entonces.",
+        "commits": {
+          "one": "{count} commit",
+          "other": "{count} commits"
+        },
+        "hours": {
+          "one": "{count} hora",
+          "other": "{count} horas"
+        },
+        "testIn": "Para probarlo, córrelo en la carpeta de {project}:"
+      },
+      "engineLog": {
+        "title": "Bitácora técnica del motor",
+        "hint": "Notas en crudo del build"
+      }
+    },
+    "spec": {
+      "noProject": "Esta idea todavía no tiene proyecto.",
+      "eyebrow": "Resumen del spec",
+      "phaseChip": "fase · {phase}",
+      "notPublished": {
+        "title": "El spec todavía no está publicado.",
+        "body": "Su PRD y sus FRDs reales siguen disponibles."
+      },
+      "bands": {
+        "prd": "PRD · qué y por qué",
+        "research": "Research · la evidencia",
+        "frds": "FRDs · las piezas del v1 ({count})"
+      },
+      "buttons": {
+        "prdFull": "PRD completo",
+        "research": "Research",
+        "researchFull": "Research completo"
+      },
+      "kindTagDerivedTip": "Tomado del frd.md (ui:); el spec todavía no lista este FRD",
+      "frdCard": {
+        "kickerSpec": "{code} · Spec",
+        "kickerBlueprint": "{code} · Plan de implementación",
+        "ordersPlanned": {
+          "one": "{count} work order planificada",
+          "other": "{count} work orders planificadas"
+        }
+      },
+      "frdDetail": {
+        "vision": "Visión",
+        "implementation": "Implementación",
+        "userStories": "Historias de usuario",
+        "businessRules": "Reglas de negocio",
+        "outOfScope": "Fuera de alcance",
+        "openQuestions": "Preguntas abiertas",
+        "workOrders": "Work orders",
+        "verified": "{done}/{total} verificadas",
+        "contract": "Contrato",
+        "design": "Diseño",
+        "blueprint": "Blueprint",
+        "seeWorkOrders": "Ver work orders"
+      }
+    },
+    "observabilidad": {
+      "empty": "Este proyecto todavía no tiene work orders publicadas. Sus documentos de producto y diseño siguen disponibles.",
+      "notFound": {
+        "title": "Esta work order no está publicada",
+        "detail": "{id} no aparece entre las work orders de {project}.",
+        "link": "Ver work orders"
+      },
+      "views": {
+        "aria": "Vista de work orders",
+        "byFrd": "Por FRD",
+        "board": "Tablero",
+        "deps": "Dependencias"
+      },
+      "filters": {
+        "frdLabel": "Filtrar por FRD",
+        "allFrds": "Todos los FRDs ({count})",
+        "stateAria": "Filtrar por estado",
+        "noMatches": "Ninguna work order coincide con el filtro.",
+        "count": {
+          "one": "{count} work order",
+          "other": "{count} work orders"
+        }
+      },
+      "frdRows": {
+        "collapseAll": "Colapsar todo",
+        "expandAll": "Expandir todo"
+      },
+      "drift": {
+        "unreadable": "Deriva ilegible",
+        "badge": {
+          "one": "Verificado · {count} deriva",
+          "other": "Verificado · {count} derivas"
+        },
+        "unreadableNote": "El campo <code>drift</code> de <code>{code}</code> no es una lista de requisitos, así que no se puede contar. Revisa su <code>frd.md</code>.",
+        "note": {
+          "one": "Verificado con {count} deriva del gate: {ids}. Sus tarjetas de cambio esperan en Cambios.",
+          "other": "Verificado con {count} derivas del gate: {ids}. Sus tarjetas de cambio esperan en Cambios."
+        },
+        "seeInChanges": "Ver en Cambios"
+      },
+      "kanban": {
+        "columnAria": "{state}: {count}",
+        "dependencies": {
+          "one": "{count} dependencia",
+          "other": "{count} dependencias"
+        },
+        "empty": "Sin work orders",
+        "showMore": "Mostrar {count} más",
+        "showLess": "Mostrar menos"
+      },
+      "dag": {
+        "levelsAria": "Nivel del grafo",
+        "levelFrd": "Por FRD",
+        "levelOrder": "Por work order",
+        "empty": "No hay work orders publicadas para trazar dependencias.",
+        "title": "Grafo de dependencias",
+        "frdCount": {
+          "one": "{count} FRD",
+          "other": "{count} FRDs"
+        },
+        "noteSmall": "Los FRDs en el orden en que se pueden construir. Abre uno para ver de qué depende, qué desbloquea y sus work orders.",
+        "noteLarge": "Cada caja es un FRD con sus work orders en el orden de su cadena. Las líneas entre cajas agrupan las dependencias entre FRDs: el número dice cuántas, y «⇄» las que van en sentido contrario. Pulsa el título de un FRD para verlo en detalle, o una work order para abrirla.",
+        "regionAria": "Mapa de dependencias entre FRDs, desplazable",
+        "linkTitle": {
+          "one": "{from} → {to}: {count} dependencia",
+          "other": "{from} → {to}: {count} dependencias"
+        },
+        "linkBack": " (y {count} en sentido contrario)",
+        "headTitle": "Ver las work orders de {code} en el grafo detallado",
+        "verified": "{done}/{total} verificadas",
+        "dependsOn": "Depende de",
+        "startingPoint": "Nada: es un punto de partida",
+        "unlocks": "Desbloquea",
+        "nothing": "Nada",
+        "nodeTitle": "{id} · {title} · {state}"
+      },
+      "dagOrders": {
+        "title": "Grafo de dependencias",
+        "orderCount": {
+          "one": "{count} work order",
+          "other": "{count} work orders"
+        },
+        "allFrds": "Todos los FRDs",
+        "filterAria": "Filtrar el grafo por FRD",
+        "noteLarge": "De izquierda a derecha: lo que va primero → lo que desbloquea. Pulsa una work order para ver su cadena.",
+        "noteSmall": "Por pasos: cada paso se puede construir cuando termina el anterior. Pulsa una work order para ver de qué depende y qué desbloquea.",
+        "clearFocus": "Quitar foco",
+        "regionAria": "Grafo de dependencias, desplazable",
+        "step": {
+          "one": "Paso {index} · {count} work order",
+          "other": "Paso {index} · {count} work orders"
+        },
+        "focusAria": "Work order en foco",
+        "open": "Abrir work order",
+        "dependsOn": "Depende de · {count}",
+        "unlocks": "Desbloquea · {count}",
+        "startingPoint": "Es un punto de partida.",
+        "nothingDepends": "Nada depende de ella."
+      },
+      "difficulty": {
+        "trivial": "Trivial",
+        "low": "Baja",
+        "normal": "Media",
+        "medium": "Media",
+        "high": "Alta"
+      },
+      "now": {
+        "todo": "Todavía no empieza. Se construye cuando sus dependencias estén verificadas.",
+        "inProgress": "Un agente la está construyendo ahora, con las pruebas primero.",
+        "review": "Ya está construida. Espera la revisión de su FRD, que mira todas sus work orders juntas.",
+        "done": "Construida y verificada en la revisión de su FRD.",
+        "blocked": "Está bloqueada: necesita una decisión o un arreglo antes de seguir."
+      },
+      "detail": {
+        "stepsAria": "Avance de la work order",
+        "back": "Volver",
+        "now": "<b>Ahora:</b> {text}",
+        "viewAria": "Vista de la work order",
+        "viewSummary": "Resumen",
+        "viewFull": "Documento completo",
+        "chipLabel": "Work order",
+        "copyDocument": "Copiar documento",
+        "about": "De qué trata",
+        "scope": "Qué cambia",
+        "outOfScope": "Fuera de alcance",
+        "verify": "Cómo se comprueba",
+        "built": "Qué se construyó",
+        "statusNote": "Nota de estado",
+        "noSections": "Esta work order no publica resumen, alcance ni criterios; su contrato está en el documento completo.",
+        "language": "El contenido viene del documento de la work order, escrito en inglés; los títulos son de Mission Control.",
+        "readFull": "Leer el documento completo",
+        "readMore": "Ver la nota completa",
+        "sheet": {
+          "title": "Ficha",
+          "state": "Estado",
+          "difficulty": "Dificultad",
+          "reopenings": "Reaperturas",
+          "reopeningsNone": "Ninguna",
+          "updated": "Actualizada",
+          "requirements": "Requisitos",
+          "blocker": "Bloqueo",
+          "files": "Archivos que toca"
+        },
+        "dependencies": {
+          "title": "Dependencias",
+          "dependsOn": "Depende de",
+          "unlocks": "Desbloquea",
+          "none": "Ninguna"
+        },
+        "build": {
+          "title": "Construir esta work order"
+        }
+      }
+    },
+    "arquitectura": {
+      "noProject": "Esta idea todavía no tiene documentos de arquitectura.",
+      "notPublished": "La arquitectura todavía no está publicada.",
+      "openTechDoc": "Abrir el documento técnico",
+      "eyebrow": "Arquitectura",
+      "stack": {
+        "title": "Stack y tecnologías",
+        "note": "Qué tecnologías se usarán para construir la aplicación y por qué se eligieron.",
+        "layer": "Capa",
+        "choice": "Elección",
+        "why": "Por qué"
+      },
+      "services": {
+        "title": "Integraciones y operación",
+        "note": "Cómo se conectan y operan las piezas del sistema: flujos, responsabilidades y límites."
+      },
+      "dataModel": {
+        "title": "Modelo de datos",
+        "errorTitle": "No se pudo leer el modelo de datos",
+        "errorFallback": "El archivo publicado no cumple el contrato.",
+        "errorNoDiagram": "No se dibuja ningún diagrama hasta que el archivo sea válido.",
+        "none": "Este proyecto declara explícitamente que no usa base de datos.",
+        "pending": "Todavía no hay un modelo de datos publicado; queda visiblemente pendiente.",
+        "designedChip": "Modelo diseñado, no verificado contra una base viva",
+        "counts": "{entities} entidades · {relationships} relaciones · <code>docs/product/data-model.json</code>",
+        "searchPlaceholder": "Buscar entidad o atributo…",
+        "searchAria": "Buscar entidad o atributo",
+        "viewAria": "Vista del modelo",
+        "viewDiagram": "Diagrama",
+        "viewSchema": "Esquema",
+        "relations": "Relaciones",
+        "toolbarAria": "Controles del diagrama",
+        "zoomOut": "Alejar",
+        "zoomIn": "Acercar",
+        "fit": "Ajustar a la vista",
+        "reset": "Restablecer",
+        "fullscreen": "Pantalla completa",
+        "diagramAria": "Diagrama de entidades. Arrastra o usa las barras para desplazarte; el esquema textual tiene la misma información.",
+        "diagramHint": "Selecciona una entidad para resaltar sus relaciones; vuelve a pulsarla para limpiar la selección.",
+        "attributes": "{count} atributos",
+        "schemaAria": "Esquema de {name}",
+        "noEntityMatch": "Ninguna entidad coincide."
+      },
+      "env": {
+        "title": "Variables de entorno · {count}",
+        "empty": "No hay variables documentadas.",
+        "note": "Qué es y para qué sirve cada variable, según <code>.env.example</code>. Los valores nunca se muestran.",
+        "missingChip": "{missing} de {total} sin descripción",
+        "allDescribed": "Todas descritas",
+        "noDescription": "Sin descripción en <code>.env.example</code>",
+        "generalGroup": "General"
+      },
+      "adrs": {
+        "title": "Decisiones · {count}",
+        "empty": "No hay ADRs publicados."
+      },
+      "plan": {
+        "title": "Plan de implementación",
+        "notStarted": "{orders} en {frds}. Su avance aparece aquí cuando empiece la construcción.",
+        "orders": {
+          "one": "{count} work order planificada",
+          "other": "{count} work orders planificadas"
+        },
+        "frdCount": {
+          "one": "{count} FRD",
+          "other": "{count} FRDs"
+        },
+        "mosaicNote": "Cada fila es un FRD y cada cuadro una work order, por su estado; en la app real este bloque es el grafo interactivo de dependencias.",
+        "noOrders": "El plan todavía no tiene work orders publicadas.",
+        "byFrd": "Por FRD",
+        "tileAria": "{id}: {state}"
+      }
+    },
+    "cuentas": {
+      "empty": "Este proyecto no tiene servicios asignados en el directorio de la fábrica.",
+      "intro": "Servicios externos del proyecto según el directorio de la fábrica: para qué sirve cada uno, con qué usuario entrar y en qué entornos tiene recursos. Clic en el nombre para abrir su panel y en el usuario para copiarlo. Las credenciales nunca se muestran.",
+      "tableAria": "Servicios del proyecto",
+      "columns": {
+        "service": "Servicio",
+        "purpose": "Para qué",
+        "user": "Usuario",
+        "environments": "Entornos",
+        "state": "Estado"
+      },
+      "openPanelTitle": "Abrir el panel de {provider} en una pestaña nueva",
+      "copyUserAria": "Copiar el usuario de {provider}: {login}",
+      "serviceStatus": {
+        "configured": "Configurado",
+        "active": "Activo",
+        "planned": "Planificado",
+        "pending": "Pendiente",
+        "proposed": "Propuesto",
+        "candidate": "Candidato",
+        "inactive": "Inactivo"
+      },
+      "issues": {
+        "title": "Información incompleta o inválida",
+        "unreadable": "no se pudo leer",
+        "line": "<code>{source}</code>: {reason}.",
+        "note": "Se revisa sin mostrar datos sensibles. El resto del directorio sí se pudo leer.",
+        "missing": "falta el archivo de registro",
+        "invalid": "el registro no cumple el contrato",
+        "duplicate": "hay una entrada duplicada",
+        "dangling": "apunta a una cuenta que no existe",
+        "productionAsDev": "usa un recurso de producción como desarrollo"
+      }
+    },
+    "cambios": {
+      "states": {
+        "ready": "Listos para construir",
+        "draft": "Borradores",
+        "building": "En construcción",
+        "closing": "Cerrando",
+        "done": "Hechos",
+        "discarded": "Descartados"
+      },
+      "typeBug": "Bug",
+      "typeChange": "Cambio",
+      "errors": {
+        "one": "{count} archivo de cambios no se pudo interpretar. No se cuentan como cola vacía.",
+        "other": "{count} archivos de cambios no se pudieron interpretar. No se cuentan como cola vacía."
+      },
+      "empty": "No hay cambios abiertos en la cola.",
+      "history": "Historial",
+      "request": {
+        "title": "Pedir un cambio",
+        "intro": "La puerta única para features, ajustes y bugs. El cambio queda en la cola hasta el siguiente punto seguro del build."
+      }
+    },
+    "documentos": {
+      "empty": "No hay documentos publicados para este proyecto.",
+      "notFound": {
+        "title": "Este documento no existe en el proyecto",
+        "detail": "No hay un documento «{id}» en {project}.",
+        "link": "Ver documentos"
+      },
+      "typeFilterAria": "Filtrar por tipo de documento",
+      "all": "Todos",
+      "indexAria": "Documentos del proyecto",
+      "searchPlaceholder": "Buscar documento…",
+      "searchAria": "Buscar documento",
+      "pick": "Elegir documento · {count}",
+      "copy": "Copiar el documento",
+      "emptyDocument": "Documento vacío.",
+      "groups": {
+        "product": "Producto",
+        "global": "Arquitectura y decisiones",
+        "design": "Diseño",
+        "analytics": "Analítica",
+        "reviews": "Revisiones",
+        "rules": "Reglas",
+        "workOrders": "Work orders"
+      }
+    },
+    "comandos": {
+      "nextStep": {
+        "title": "Siguiente paso",
+        "empty": "No hay comandos de fase para este proyecto."
+      },
+      "buildMode": {
+        "title": "Modo de construcción",
+        "intro": "Con cuánta potencia se construye. Se recuerda por proyecto.",
+        "groupAria": "Modo de construcción",
+        "powerAria": "Potencia {power} de 4",
+        "balanced": {
+          "label": "Equilibrado",
+          "tag": "por defecto",
+          "hint": "Equipo de ≤3 agentes; líder opus, obreros sonnet/haiku. Por defecto, pensado para Max 5x."
+        },
+        "pro": {
+          "label": "Pro",
+          "tag": "pro",
+          "hint": "1 agente a la vez, modelos económicos (sonnet/haiku). Más lento, mínimo consumo. Para el plan Pro."
+        },
+        "powerful": {
+          "label": "Potente",
+          "tag": "powerful",
+          "hint": "Hasta 5 agentes en paralelo → avanza más rápido. Para Max 20x."
+        },
+        "deep": {
+          "label": "Profundo",
+          "tag": "deep",
+          "hint": "Mejores modelos en todos + revisión adversarial extra. Para un proyecto especial."
+        }
+      },
+      "target": {
+        "title": "Construir un objetivo concreto",
+        "intro": "Elige un FRD, una work order pendiente o un cambio de la cola para acotar el build.",
+        "label": "Objetivo",
+        "aria": "Objetivo del build",
+        "placeholder": "Elige un FRD o work order…",
+        "changeOption": "Cambio · {title}"
+      },
+      "changesAndDecisions": {
+        "title": "Cambios y decisiones",
+        "requestChange": "Pedir un cambio o un bug",
+        "answerDecision": "Responder una decisión pendiente",
+        "bigPackage": "Paquete grande o rediseño",
+        "note": "Los comandos se copian para pegarlos en Claude Code. Mission Control nunca los ejecuta."
+      }
+    }
+  },
+  "propuestas": {
+    "title": "Propuestas",
+    "subtitleFallback": "Lo que la fábrica propone mejorar.",
+    "subtitle": "Lo que la fábrica aprendió construyendo y lo que hay que arreglar en ella misma. Aquí ves qué te toca y qué comando correr.",
+    "tabs": {
+      "aria": "Propuestas",
+      "resumen": "Resumen",
+      "memoria": "Memoria",
+      "backlog": "Backlog"
+    },
+    "priority": {
+      "p0": "P0",
+      "p1": "P1",
+      "p2": "P2"
+    },
+    "lessonTypes": {
+      "gotcha": "Trampa",
+      "pattern": "Patrón",
+      "libraryVerdict": "Veredicto",
+      "antiPattern": "Antipatrón",
+      "problemSolution": "Problema→solución"
+    },
+    "showMore": "Mostrar {count} más · quedan {remaining}",
+    "actions": {
+      "urgent": {
+        "kind": "Urgente",
+        "title": {
+          "one": "{count} problema urgente en la fábrica",
+          "other": "{count} problemas urgentes en la fábrica"
+        },
+        "whyOne": "Es el ítem P0 del backlog: «{title}». Arréglalo antes que lo demás.",
+        "whyMany": "Son los P0 del backlog: «{title}». Arréglalo antes que lo demás.",
+        "where": "en la carpeta de la fábrica",
+        "link": "Ver el backlog"
+      },
+      "decide": {
+        "kind": "Decidir",
+        "title": {
+          "one": "{count} lección espera tu sí o no",
+          "other": "{count} lecciones esperan tu sí o no"
+        },
+        "why": "La fábrica las vio funcionar en varios proyectos y propone volverlas estándar, regla o skill. Revisa una, decide, y sigue con la próxima.",
+        "whyRecent": "La fábrica las vio funcionar en varios proyectos y propone volverlas estándar, regla o skill ({recent} recién detectadas en 2 proyectos). Revisa una, decide, y sigue con la próxima.",
+        "where": "en la carpeta de la fábrica · cambia el número por la lección que elijas",
+        "link": "Ver las lecciones"
+      },
+      "important": {
+        "kind": "Importante",
+        "title": {
+          "one": "{count} arreglo importante en cola",
+          "other": "{count} arreglos importantes en cola"
+        },
+        "why": "Prioridad P1: fallos o mejoras del motor, las plantillas y las skills que conviene hacer pronto. Se hacen de a uno.",
+        "where": "en la carpeta de la fábrica · el primero de la lista",
+        "link": "Ver los P1"
+      },
+      "ideas": {
+        "kind": "Ideas",
+        "title": {
+          "one": "{count} idea descubierta espera decisión",
+          "other": "{count} ideas descubiertas esperan decisión"
+        },
+        "why": "Están en la primera columna del tablero sin proyecto. La recomendación te dice cuál conviene llevar a spec y cuáles descartar.",
+        "where": "en la carpeta de la fábrica",
+        "link": "Ver el tablero"
+      },
+      "memoryStale": {
+        "kind": "Memoria",
+        "title": {
+          "one": "La memoria lleva {count} día sin revisarse",
+          "other": "La memoria lleva {count} días sin revisarse"
+        },
+        "why": "La rutina diaria no ha corrido. Cosechar convierte las notas de los proyectos en lecciones candidatas.",
+        "where": "en la carpeta de la fábrica",
+        "link": "Ver la memoria"
+      },
+      "memoryFine": {
+        "kind": "Al día",
+        "title": "La memoria se revisa sola",
+        "why": "La rutina diaria cosechó y revisó por última vez el {date}. No necesitas hacer nada."
+      }
+    },
+    "summary": {
+      "title": "Qué te toca, en orden",
+      "needYou": {
+        "one": "{count} cosa necesita tu decisión. Copia el comando, pégalo en Claude Code y vuelve.",
+        "other": "{count} cosas necesitan tu decisión. Copia el comando, pégalo en Claude Code y vuelve."
+      },
+      "nothing": "Nada necesita tu decisión ahora.",
+      "forYou": "{count} para ti",
+      "runIt": "Córrelo {where}",
+      "memory": {
+        "title": "Memoria de la fábrica",
+        "intro": "Lo que aprendió construyendo tus proyectos.",
+        "activeRules": "Reglas activas",
+        "waiting": "Esperan tu decisión",
+        "candidates": "Candidatas",
+        "candidatesNote": "se corroboran solas",
+        "link": "Ver cómo avanza una lección"
+      },
+      "backlog": {
+        "title": "Backlog de la fábrica",
+        "intro": "Fallos y mejoras de la propia fábrica (motor, plantillas, skills), no de tus proyectos.",
+        "urgent": "Urgentes · P0",
+        "important": "Importantes · P1",
+        "whenTime": "Cuando haya tiempo · P2",
+        "doing": {
+          "one": "{count} ítem ya está en curso.",
+          "other": "{count} ítems ya están en curso."
+        },
+        "link": "Ver el backlog por tema"
+      }
+    },
+    "signals": {
+      "title": "Señales automáticas",
+      "intro": "Avisos que la fábrica genera sola. Ya están incluidos arriba cuando piden algo de ti.",
+      "board": {
+        "title": "Columnas del tablero con muchas ideas",
+        "note": "Una columna acumula ideas por encima del umbral. Las descubiertas se resuelven con <code>/pandacorp:recommend</code>; las descartadas no piden nada."
+      },
+      "recurring": {
+        "title": "Lecciones vistas en 2 proyectos",
+        "note": "Se suman a «lecciones que esperan tu sí o no». Cada una se decide con su propio comando."
+      },
+      "unused": {
+        "title": "Skills sin uso registrado",
+        "noteNoisy": "<b>Señal poco fiable:</b> marca {unused} de {skills} skills, incluidas algunas que se usan a diario. Solo mira las últimas 200 entradas del registro de uso; no pide ninguna acción.",
+        "note": "Skills sin eventos de uso en las últimas 200 entradas del registro. Revísalas si crees que deberías estar usándolas."
+      },
+      "other": {
+        "title": "Otras"
+      }
+    },
+    "memory": {
+      "flow": {
+        "title": "Cómo avanza una lección",
+        "intro": "Cada build deja notas; la fábrica las convierte en lecciones y, cuando una se confirma en varios proyectos, te pide decidir si se vuelve regla para todos.",
+        "rawNotes": "Notas sin refinar",
+        "rawNotesSub": "de los proyectos",
+        "dailyRoutine": "rutina diaria",
+        "candidates": "Candidatas",
+        "candidatesSub": "esperan confirmarse",
+        "twoProjects": "2+ proyectos",
+        "waiting": "Esperan tu decisión",
+        "waitingSub": "sí o no",
+        "youDecide": "tú decides",
+        "activeRules": "Reglas activas",
+        "activeRulesSub": "para todos los proyectos",
+        "lastReview": "Última revisión automática: {date}",
+        "daysAgo": {
+          "one": " · hace {count} día",
+          "other": " · hace {count} días"
+        },
+        "upToDate": " · al día",
+        "pruneCount": {
+          "one": "{count} lección obsoleta para podar.",
+          "other": "{count} lecciones obsoletas para podar."
+        },
+        "pruneNone": "Ninguna lección obsoleta."
+      },
+      "lessonFallback": "Lección",
+      "waiting": {
+        "title": "Esperan tu decisión",
+        "intro": "Abre una, lee qué propone y, si te convence, copia su comando. <code>/pandacorp:learn</code> la convierte en estándar, regla o skill; si no, la dejas como está.",
+        "recent": "Recién detectadas en 2 proyectos",
+        "newChip": "Nueva"
+      },
+      "candidates": {
+        "title": "Candidatas",
+        "hint": "No piden nada",
+        "intro": "Se confirman solas cuando vuelven a aparecer en otro proyecto."
+      },
+      "prune": {
+        "title": "Para podar"
+      }
+    },
+    "backlog": {
+      "priorityAria": "Filtrar por prioridad",
+      "tileUrgent": "urgente",
+      "tileUrgentHint": "arréglalo primero",
+      "tileImportant": "importante",
+      "tileImportantHint": "pronto, de a uno",
+      "tileSomeday": "cuando haya tiempo",
+      "tileSomedayHint": "mejoras y detalles",
+      "byArea": {
+        "title": "Por tema",
+        "intro": "Dónde se concentran los arreglos. Clic para filtrar.",
+        "aria": "Filtrar por tema"
+      },
+      "howTo": {
+        "title": "Cómo avanzar",
+        "allAtOnceLabel": "Todo de una vez.",
+        "allAtOnce": "Lanza un agente por ítem ({count} ítems): consume mucho y conviene solo con la cola corta.",
+        "oneByOneLabel": "Uno por uno.",
+        "oneByOne": "Abre un ítem y copia su comando; empieza por los P0 y P1.",
+        "where": "Se corren en la carpeta de la fábrica."
+      },
+      "typeAria": "Tipo",
+      "typeAll": "Todo tipo",
+      "typeBugs": "Bugs",
+      "typeChanges": "Mejoras",
+      "clearFilters": "Quitar filtros",
+      "itemCount": {
+        "one": "{count} ítem",
+        "other": "{count} ítems"
+      },
+      "doing": "En curso",
+      "open": "Abiertos",
+      "noPriority": "Sin prioridad",
+      "openEmpty": "Nada abierto con este filtro.",
+      "history": "Hechos y descartados",
+      "rowBug": "Bug",
+      "rowChange": "Mejora",
+      "status": {
+        "open": "Abierto",
+        "doing": "En curso",
+        "done": "Hecho",
+        "discarded": "Descartado"
+      },
+      "promotion": {
+        "proposed": "propuesta",
+        "promoted": "promovida",
+        "rejected": "rechazada"
+      },
+      "evalGate": {
+        "awaitingSecond": "Espera un segundo proyecto",
+        "corroborated": "Corroborada"
+      },
+      "areas": {
+        "buildEngine": "Motor de construcción",
+        "pluginSkill": "Skills",
+        "templates": "Plantillas de proyecto",
+        "hooks": "Controles automáticos",
+        "pluginHooks": "Controles automáticos",
+        "standards": "Estándares",
+        "missionControl": "Mission Control",
+        "pluginAgent": "Agentes",
+        "plugin": "Plugin",
+        "other": "Otros"
+      },
+      "errors": {
+        "title": {
+          "one": "{count} archivo del backlog no se pudo leer",
+          "other": "{count} archivos del backlog no se pudieron leer"
+        },
+        "note": "Los demás ítems sí se leyeron y aparecen abajo; los que fallan no se cuentan."
+      }
+    }
+  },
+  "logros": {
+    "title": "Logros",
+    "subtitleFallback": "El progreso del gremio.",
+    "subtitle": "El progreso que ha construido tu gremio, con la evidencia detrás.",
+    "tabs": {
+      "aria": "Secciones de logros",
+      "resumen": "Resumen",
+      "misiones": "Misiones",
+      "trofeos": "Trofeos",
+      "estadisticas": "Estadísticas",
+      "rangos": "Rangos"
+    },
+    "hero": {
+      "eyebrow": "Gremio Pandacorp · nivel {level}",
+      "xp": "{xp} XP · {left} para el nivel {next}",
+      "trophies": "trofeos",
+      "secrets": "secretos",
+      "missionTiers": "niveles de misión"
+    },
+    "rarity": {
+      "common": "Común",
+      "uncommon": "Poco común",
+      "rare": "Raro",
+      "epic": "Épico",
+      "legend": "Leyenda"
+    },
+    "categories": {
+      "discovery": "Descubrimiento",
+      "speed": "Velocidad",
+      "quality": "Calidad",
+      "consistency": "Constancia",
+      "mastery": "Maestría",
+      "production": "Producción",
+      "guild": "Gremio",
+      "resilience": "Resiliencia",
+      "secret": "Secretos",
+      "grand": "Todos los sellos"
+    },
+    "trophy": {
+      "locked": "Bloqueado"
+    },
+    "summary": {
+      "almostThere": "Casi lo tienes",
+      "noMissionNear": "Ninguna misión cerca de su siguiente nivel.",
+      "seals": "Sellos del gremio",
+      "recentTrophies": "Trofeos recientes",
+      "noTrophies": "Aún no hay trofeos.",
+      "attributes": "Atributos del gremio",
+      "shape": "Tu forma como gremio: <b>{strong}</b> es lo más fuerte; {weak}.",
+      "seeStats": "Ver todas las estadísticas",
+      "radarWeakZero": "{list} aún sin datos",
+      "radarWeakLowest": "{label} lo que más puede crecer"
+    },
+    "radar": {
+      "produccion": "producción",
+      "velocidad": "velocidad",
+      "calidad": "calidad",
+      "constancia": "constancia",
+      "ideacion": "ideación",
+      "alcance": "alcance",
+      "axisProduccion": "Producción",
+      "axisVelocidad": "Velocidad",
+      "axisCalidad": "Calidad",
+      "axisConstancia": "Constancia",
+      "axisIdeacion": "Ideación",
+      "axisAlcance": "Alcance",
+      "aria": "Atributos del gremio: {values}"
+    },
+    "nextRank": {
+      "title": "Tu siguiente rango",
+      "now": "ahora · Nv {level}",
+      "from": "desde Nv {level}",
+      "progressAria": "XP hacia {name}",
+      "left": "Faltan <b>{xp} XP</b>. Se gana XP construyendo: cada work order verificada, fase completada y lanzamiento suma.",
+      "ladder": "Ver el escalafón"
+    },
+    "lastAchievement": {
+      "fresh": "Nuevo logro",
+      "last": "Último logro",
+      "line": "{label} · {date}",
+      "newChip": "Nuevo"
+    },
+    "notice": {
+      "title": "¡Nuevo logro!",
+      "view": "Ver",
+      "closeAria": "Cerrar aviso"
+    },
+    "missions": {
+      "intro": "Misiones acumulativas, agrupadas por saga: cada tier alcanzado deja huella verificable en el tiempo.",
+      "count": {
+        "one": "{count} misión",
+        "other": "{count} misiones"
+      },
+      "oneStep": "A un paso de subir",
+      "noTier": "Sin tier",
+      "lowerIsBetter": " · menos es mejor",
+      "allTiers": "Todos los tiers",
+      "chainComplete": "cadena completa",
+      "end": "el final",
+      "progressAria": "{title}: {pct}% hacia {next}",
+      "accumulated": "{value} acumulado"
+    },
+    "trophies": {
+      "progress": "{won} / {total} trofeos conquistados",
+      "seals": "Sellos",
+      "sealsCount": "{done} de {total}",
+      "categoryAria": "Categoría",
+      "all": "Todos",
+      "won": "Conquistados",
+      "wonEmpty": "Ningún trofeo conquistado en esta categoría.",
+      "near": "Los más alcanzables",
+      "nearCount": "{shown} de {total}",
+      "nearNotePerCategory": "Los de rareza más baja, uno por categoría: los primeros que conviene perseguir.",
+      "nearNote": "Los de rareza más baja: los primeros que conviene perseguir.",
+      "todo": "Por conquistar",
+      "todoEmpty": "Todo conquistado en esta categoría.",
+      "secrets": "Secretos",
+      "secretsCount": "{done} de {total}"
+    },
+    "stats": {
+      "executive": "Resumen ejecutivo",
+      "executiveSub": "El pulso de la fábrica",
+      "pulse": "El pulso de la fábrica",
+      "kpiWeek": "Work orders verificadas / semana",
+      "kpiWeekUnit": " últ. sem",
+      "kpiWeekFoot": "{arrow} {current} vs {previous} la previa",
+      "kpiActive": "Proyectos activos",
+      "kpiActiveUnit": " en curso",
+      "kpiConversion": "Conversión",
+      "kpiConversionUnit": "% idea→lanzado",
+      "kpiConversionFoot": {
+        "one": "{launched} lanzada de {total}",
+        "other": "{launched} lanzadas de {total}"
+      },
+      "kpiLeadTime": "Lead time",
+      "kpiLeadTimeUnit": " idea→release",
+      "notWired": "no cableado",
+      "attributes": "Atributos del gremio",
+      "hero": {
+        "shipped": "Productos lanzados",
+        "shippedSub": "tu marca del gremio",
+        "streak": "Racha récord",
+        "streakSub": "semanas seguidas",
+        "speed": "Récord idea→launch",
+        "speedSub": "días, lo más rápido",
+        "peak": "Pico semanal",
+        "peakSub": "work orders en la mejor semana",
+        "lessons": "Lecciones",
+        "lessonsSub": "capturadas en memoria",
+        "subagents": "Subagentes",
+        "subagentsSub": "coordinados en total"
+      },
+      "noData": "sin datos aún",
+      "noDataNote": "«Sin datos aún»: la fábrica todavía no registra ese tipo de evento (gates, reviews, días activos…). No es un cero medido.",
+      "level": "Nv {level}",
+      "ledger": {
+        "production": "Producción",
+        "quality": "Calidad",
+        "rhythm": "Ritmo y alcance",
+        "frds": "FRDs completados",
+        "commits": "Commits",
+        "projects": "Proyectos creados",
+        "testsPassing": "Tests en verde",
+        "decisions": "Decisiones (DR)"
+      },
+      "time": "En el tiempo, de verdad",
+      "timeSub": "¿Cómo voy semana a semana?",
+      "week": "sem {week}",
+      "chartAria": "{week}: {count} {unit}",
+      "ordersPerWeek": "Work orders verificadas por semana",
+      "ordersUnit": "work orders",
+      "ordersInsight": "Pico de {peak} en una semana; la última semana con datos cerró {last}.",
+      "ideasPerWeek": "Ideas capturadas por semana",
+      "ideasUnit": "ideas",
+      "ideasInsight": "Las ideas llegan a ráfagas, no de forma continua.",
+      "weeklyError": "No se pudo leer la serie semanal.",
+      "usage": "Cómo usas la fábrica",
+      "usageSub": "¿En qué me apoyo y a qué coste?",
+      "usageError": "No se pudo leer el registro de uso",
+      "usageErrorBody": "<code>~/.claude/dashboard-events.ndjson</code>. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.",
+      "usageErrorBodyWithReason": "<code>~/.claude/dashboard-events.ndjson</code>: {reason}. Los dos bloques quedan sin datos hasta que se pueda leer; no es un cero medido.",
+      "workflows": "Workflows y skills más usados",
+      "workflowsErrorEmpty": "Sin datos: el registro no se pudo leer.",
+      "workflowsEmpty": "Sin eventos de uso en el registro todavía: este bloque se llena cuando las skills emiten su evento.",
+      "effort": "Esfuerzo de los agentes",
+      "effortEmpty": "Sin registro de esfuerzo por agente todavía.",
+      "flow": "Embudo y flujo",
+      "flowSub": "¿Dónde se atascan las ideas y los proyectos?",
+      "funnel": "Embudo ideas → lanzado",
+      "funnelCaptured": "capturadas",
+      "funnelAlive": "vivas",
+      "funnelPipeline": "en pipeline",
+      "funnelLaunchedOne": "lanzada",
+      "funnelLaunchedMany": "lanzadas",
+      "funnelInsight": "El cuello está en decidir y arrancar: pocas ideas entran al pipeline.",
+      "transitions": "Transiciones de fase por proyecto",
+      "transitionsEmpty": "Sin transiciones registradas.",
+      "reopening": "Reapertura",
+      "health": "Estado y salud del proceso",
+      "healthSub": "¿Qué proyectos hay y qué señales vigilar?",
+      "projectsByState": "Proyectos por estado",
+      "signals": "Señales del proceso",
+      "distilledLessons": "Lecciones destiladas",
+      "relaunches": "Relanzamientos de build",
+      "discardsNoReason": "Descartes sin razón estructurada",
+      "qualityTelemetry": "Telemetría de calidad",
+      "moveNow": "Qué mover ahora",
+      "moveNowSub": "La conclusión, con su comando"
+    },
+    "ranks": {
+      "intro": "El escalafón del gremio: tu nivel sube con XP y cada rango cubre un tramo de niveles. Cada nivel cuesta más que el anterior; la cima está lejos a propósito.",
+      "here": "Estás aquí",
+      "achieved": "Conseguido",
+      "left": "Faltan {xp} XP para {name}",
+      "eraRange": "{levels} · {count} rangos",
+      "eraDone": "{levels} · completa",
+      "eras": {
+        "awakening": { "name": "El despertar", "tag": "Los primeros pasos del gremio" },
+        "bearers": { "name": "Los portadores", "tag": "Llevar la luz a la obra" },
+        "guardians": { "name": "Los guardianes", "tag": "Custodios del juramento, los glifos y el éter" },
+        "champions": { "name": "Los campeones", "tag": "Esquirlas, espadas y reinos" },
+        "ascended": { "name": "Los ascendidos", "tag": "Heraldos, tormentas y trascendencia" },
+        "transcendence": { "name": "La trascendencia", "tag": "Más allá de lo mortal: la cima" }
+      },
+      "flavor": {
+        "human": "El punto de partida: todo gremio empieza con una sola persona.",
+        "dawnSeeker": "Buscas la primera luz; el camino apenas comienza.",
+        "lightbearer": "Llevas la llama que guía a quienes vienen detrás.",
+        "oathkeeper": "Tu palabra es ley; el juramento no se rompe.",
+        "glyphwarden": "Custodias los glifos que dan forma a la obra.",
+        "aetherWarden": "Dominas la energía que fluye entre los mundos.",
+        "shardbearer": "Portas una esquirla de poder puro.",
+        "knightRadiant": "Tu espada brilla con la luz de mil victorias.",
+        "realmcaller": "Invocas reinos enteros con una sola orden.",
+        "dawnHerald": "Anuncias el amanecer de una nueva era.",
+        "stormlord": "El trueno responde a tu llamada.",
+        "ascendant": "Te elevas por encima de lo mortal.",
+        "phoenixAscendant": "Renaces de tus cenizas, más fuerte cada vez.",
+        "leviathanLord": "Las profundidades te obedecen.",
+        "crimsonDragonlord": "El dragón carmesí vuela bajo tu estandarte.",
+        "celestialWarden": "Vigilas el gremio desde las estrellas.",
+        "dawnSovereign": "Reinas sobre el alba eterna.",
+        "eternalOathbearer": "La cima: el juramento que nunca termina."
+      }
+    }
+  },
+  "documentacion": {
+    "title": "Documentación",
+    "subtitle": "El manual de la fábrica. Empieza por el tutorial, resuelve tareas con las guías y entiende el porqué con los conceptos.",
+    "subtitlePage": "El manual de la fábrica: empieza por el tutorial, sigue con las guías y profundiza en los conceptos.",
+    "search": {
+      "placeholder": "Buscar en {count} páginas…",
+      "aria": "Buscar en toda la Documentación",
+      "pagePlaceholder": "Buscar en la Documentación…",
+      "pageAria": "Buscar en la Documentación"
+    },
+    "results": {
+      "title": "Resultados",
+      "empty": "Ninguna página habla de eso."
+    },
+    "startHere": {
+      "title": "Empieza aquí",
+      "intro": {
+        "one": "Si es tu primera vez, el tutorial te lleva de cero a tu primer proyecto en {count} paso.",
+        "other": "Si es tu primera vez, el tutorial te lleva de cero a tu primer proyecto en {count} pasos."
+      },
+      "essentials": "Después, entiende lo esencial"
+    },
+    "guides": {
+      "title": "Guías para el día a día",
+      "count": "{count} guías",
+      "seeAll": "Ver todas"
+    },
+    "explore": {
+      "title": "Explorar por tipo",
+      "pageCount": {
+        "one": "{count} página",
+        "other": "{count} páginas"
+      },
+      "groups": {
+        "tutorial": { "label": "Tutorial", "what": "Aprender haciendo, de principio a fin." },
+        "guides": { "label": "Guías", "what": "Recetas para una tarea concreta." },
+        "concepts": { "label": "Conceptos", "what": "Cómo funciona la fábrica y por qué." },
+        "workflows": { "label": "Workflows", "what": "Qué pasa por dentro de cada skill." }
+      },
+      "reference": {
+        "label": "Referencia",
+        "what": "Comandos, agentes, reglas y estándares.",
+        "count": "En Configuración"
+      }
+    },
+    "referencePages": {
+      "commands": "Comandos",
+      "agents": "Agentes",
+      "rules": "Reglas de decisión",
+      "standards": "Estándares"
+    },
+    "notFound": {
+      "title": "Esta página no existe",
+      "detail": "La Documentación no tiene una página «{slug}».",
+      "link": "Ir al inicio de la Documentación"
+    },
+    "reader": {
+      "indexAria": "Índice de la Documentación",
+      "indexToggle": "Índice · {title}",
+      "stepOf": "Paso {index} de {total}",
+      "positionOf": "{index} de {total}",
+      "tutorialProgressAria": "Paso {index} de {total} del tutorial",
+      "previousIn": "Anterior en {group}",
+      "nextIn": "Siguiente en {group}"
+    }
+  },
+  "configuracion": {
+    "title": "Configuración",
+    "subtitleFallback": "Las capacidades y reglas de tu fábrica.",
+    "subtitle": "Las habilidades, el equipo y las reglas con las que trabaja tu fábrica, leídas de sus archivos.",
+    "tabs": {
+      "aria": "Secciones de configuración",
+      "resumen": "Resumen",
+      "habilidades": "Habilidades",
+      "agentes": "Agentes",
+      "reglas": "Reglas de decisión",
+      "estandares": "Estándares"
+    },
+    "kinds": {
+      "skill": "Habilidad",
+      "agent": "Agente",
+      "rule": "Regla",
+      "standard": "Estándar"
+    },
+    "search": {
+      "hub": "Buscar en habilidades, agentes, reglas y estándares…",
+      "hubAria": "Buscar en toda la configuración",
+      "skills": "Buscar habilidad…",
+      "agents": "Buscar agente…",
+      "rules": "Buscar regla…",
+      "rulesAria": "Buscar regla",
+      "standards": "Buscar estándar…",
+      "countOf": "{count} de {total}"
+    },
+    "counts": {
+      "skill": {
+        "one": "{count} habilidad",
+        "other": "{count} habilidades"
+      },
+      "agent": {
+        "one": "{count} agente",
+        "other": "{count} agentes"
+      },
+      "rule": {
+        "one": "{count} regla",
+        "other": "{count} reglas"
+      },
+      "standard": {
+        "one": "{count} estándar",
+        "other": "{count} estándares"
+      }
+    },
+    "hub": {
+      "results": "Resultados",
+      "noMatch": "Nada coincide con la búsqueda.",
+      "skillsSub": "{own} comandos tuyos · {internal} motores internos",
+      "rulesSub": "{human} requieren tu OK · {auto} automáticas",
+      "standardsSub": "{must} obligatorios · {should} recomendados",
+      "commands": {
+        "title": "Tus comandos",
+        "intro": "Las habilidades que corres tú. Clic en el comando para copiarlo; en el nombre de la fila para ver qué hace."
+      }
+    },
+    "skills": {
+      "typeAria": "Tipo de habilidad",
+      "all": "Todas",
+      "owner": "Comandos tuyos",
+      "internal": "Motores internos",
+      "internalChip": "Motor interno",
+      "copy": "copiar",
+      "empty": "Ninguna habilidad coincide.",
+      "scopes": {
+        "project": { "label": "Dentro de un proyecto", "hint": "Se corren en la carpeta del proyecto." },
+        "factory": { "label": "En la fábrica", "hint": "Se corren en la carpeta de panda-corp." },
+        "unknown": { "label": "Otras", "hint": "" }
+      },
+      "scopeUndeclared": "Ámbito sin declarar"
+    },
+    "agents": {
+      "empty": "Ningún agente coincide.",
+      "effort": "esfuerzo {level}",
+      "effortLevels": {
+        "high": "alto",
+        "medium": "medio",
+        "low": "bajo"
+      },
+      "models": {
+        "opus": { "label": "Opus", "hint": "Juicio y diseño: decisiones difíciles, revisión y arquitectura." },
+        "sonnet": { "label": "Sonnet", "hint": "El caballo de batalla: construir, documentar, investigar." },
+        "haiku": { "label": "Haiku", "hint": "Trabajo mecánico y rápido." },
+        "unknown": { "label": "Modelo heredado", "hint": "Usa el modelo de la sesión que lo llama." }
+      }
+    },
+    "rules": {
+      "approvalAria": "Aprobación",
+      "all": "Todas",
+      "auto": "Automáticas",
+      "human": "Requieren tu OK",
+      "chipHuman": "Tu OK",
+      "chipAuto": "Auto",
+      "noDefault": "Sin valor por defecto registrado.",
+      "empty": "Ninguna regla coincide."
+    },
+    "standards": {
+      "title": "Estándares",
+      "severityAria": "Severidad",
+      "all": "Todos",
+      "must": "Obligatorios",
+      "should": "Recomendados",
+      "domainLabel": "Dominio",
+      "domainAria": "Filtrar por dominio",
+      "allDomains": "Todos los dominios",
+      "severityMust": "Obligatorio",
+      "severityShould": "Recomendado",
+      "empty": "Ningún estándar coincide.",
+      "domains": {
+        "programming": "Programación",
+        "technology": "Tecnología",
+        "architecture": "Arquitectura",
+        "design": "Diseño",
+        "productDocs": "Producto y docs",
+        "quality": "Calidad",
+        "security": "Seguridad",
+        "dataPrivacy": "Datos y privacidad",
+        "operation": "Operación",
+        "other": "Otros"
+      }
+    }
+  },
+  "dialogs": {
+    "default": {
+      "title": "Detalle",
+      "close": "Cerrar"
+    },
+    "projectPicker": {
+      "title": "Cambiar de proyecto",
+      "kicker": "Portafolio",
+      "searchPlaceholder": "Buscar proyecto…",
+      "searchAria": "Buscar proyecto",
+      "meta": "{phase} · {frds} FRDs · {docs} documentos · {orders}",
+      "ordersProgress": "{done}/{total} WO",
+      "noOrders": "sin WOs",
+      "current": "Actual"
+    },
+    "account": {
+      "kicker": "Cuenta · {provider}",
+      "purpose": "Finalidad",
+      "email": "Correo",
+      "identity": "Identidad y acceso",
+      "plan": "Plan registrado",
+      "automation": "Automatización",
+      "nextStep": "Siguiente paso",
+      "acceptsNew": "Acepta proyectos nuevos",
+      "copyAria": "Copiar {email}",
+      "linkedProjects": "Proyectos vinculados",
+      "noLinks": "Sin vínculos documentados. No demuestra ausencia de uso.",
+      "howToReuse": "Cómo reutilizarlo",
+      "openPanel": "Abrir el panel de {provider}",
+      "adoption": {
+        "base": "Base",
+        "optional": "Opcional",
+        "projectSpecific": "Específico de un proyecto",
+        "reference": "Referencia"
+      },
+      "access": {
+        "historicalIdentityVerified": "Identidad observada",
+        "unverified": "Sin verificar",
+        "accessRequired": "Requiere acceso",
+        "unavailable": "No disponible"
+      },
+      "automationStatus": {
+        "documented": "Documentada, sin prueba registrada",
+        "accessTested": "Acceso probado",
+        "provisionTested": "Aprovisionamiento probado",
+        "pending": "Pendiente"
+      }
+    },
+    "decision": {
+      "kicker": "Decisión · {project}",
+      "recommendation": "Recomendación del agente",
+      "note": "El título, la fecha, el estado y la recomendación se leen de <code>.pandacorp/inbox/decisions.md</code> del proyecto; ahí también están el razonamiento y las opciones completas.",
+      "runResolved": "Ya está resuelta. Si quieres revisarla, corre en el proyecto:",
+      "runPending": "Se responde en la carpeta del proyecto con:",
+      "openProject": "Abrir {project}"
+    },
+    "turnDecision": {
+      "kicker": "Decisión · {project}",
+      "intro": "Decisión pendiente en <b>{project}</b>: un agente encontró algo que no debe decidir solo (alcance, dinero o algo irreversible) y ese punto espera tu respuesta.",
+      "ask": "Lo que se necesita de ti",
+      "recommendation": "Recomendación del agente",
+      "context": "Contexto",
+      "run": "Corre en la carpeta de {project}. Te muestra la pregunta, las opciones y la recomendación, y guarda tu respuesta.",
+      "runStale": "Corre en la carpeta de {project}. Te muestra la pregunta, las opciones y la recomendación, primero te pregunta si sigue vigente, y guarda tu respuesta."
+    },
+    "turnChange": {
+      "kicker": "Cambio en cola · {project}",
+      "intro": "Cambio que pediste en <b>{project}</b>, ya especificado y en la cola. El próximo build lo construye solo; el comando lo construye ahora, solo a él (primero lo convierte en FRD y work orders).",
+      "run": "Corre en la carpeta de {project}:"
+    },
+    "change": {
+      "kicker": "{type} · {id}",
+      "urgent": "Urgente",
+      "rebuildsTitle": "Rehace trabajo ya verificado",
+      "rebuildsBody": "Construirlo reabre work orders verificadas: vuelven a pasar por la revisión de su FRD.",
+      "rebuildsBodyFrd": "Construirlo reabre work orders verificadas de <code>{frd}</code>: vuelven a pasar por la revisión de su FRD.",
+      "dependsOn": "Depende de:",
+      "dependsOnNote": "Se construye cuando eso termine.",
+      "buildOnly": "Construir solo este cambio:",
+      "discard": "Descartar cambio"
+    },
+    "lesson": {
+      "kicker": "Lección · {type}",
+      "promotion": "Promoción: {state}",
+      "appliedIn": "Aplicada en: {list}",
+      "promote": "Promoverla a estándar, regla o skill:"
+    },
+    "backlogItem": {
+      "kicker": "Backlog · {priority}",
+      "discard": "Descartar"
+    },
+    "trophy": {
+      "kicker": "Trofeo",
+      "unlocked": "Desbloqueado {date}",
+      "locked": "Bloqueado",
+      "noCondition": "Sin condición publicada.",
+      "project": "Proyecto: {name}"
+    },
+    "skill": {
+      "kicker": "Habilidad",
+      "ownerCommand": "Comando tuyo",
+      "internalEngine": "Motor interno",
+      "agents": "Agentes:",
+      "fullDefinition": "Definición completa"
+    },
+    "agent": {
+      "kicker": "Agente",
+      "notFound": "Ese agente no existe",
+      "tools": "Herramientas:",
+      "usedBy": "Lo usan:",
+      "fullDefinition": "Definición completa"
+    },
+    "standard": {
+      "kicker": "Estándar · {domain}"
+    },
+    "captureIdeas": {
+      "title": "Capturar ideas",
+      "kicker": "Ideas",
+      "intro": "Copia el comando según lo que quieras hacer y pégalo en Claude Code.",
+      "explore": "Explorar una idea difusa conversando",
+      "newIdea": "Capturar una idea que ya tienes clara",
+      "discover": "Que la fábrica busque oportunidades",
+      "recommend": "Pedir una recomendación de cartera"
+    },
+    "discardedIdeas": {
+      "title": "Ideas descartadas · {count}",
+      "kicker": "Ideas",
+      "row": "{category} · leer propuesta y restaurar",
+      "reason": "Motivo: {reason}"
+    },
+    "confirm": {
+      "kicker": "Confirmar",
+      "cancel": "Cancelar",
+      "reasonLabel": "Motivo (opcional)",
+      "reasonPlaceholder": "Por qué…",
+      "discardIdea": {
+        "title": "Descartar idea",
+        "text": "«{title}» pasará a la lista de descartadas. Podrás restaurarla después.",
+        "verb": "Descartar"
+      },
+      "restoreIdea": {
+        "title": "Restaurar idea",
+        "text": "«{title}» volverá a su columna del tablero.",
+        "verb": "Restaurar"
+      },
+      "discardChange": {
+        "title": "Descartar cambio",
+        "text": "El cambio saldrá de la cola y quedará en el historial como descartado.",
+        "verb": "Descartar"
+      },
+      "discardBacklog": {
+        "title": "Descartar del backlog",
+        "text": "El ítem pasará a descartados con el motivo indicado.",
+        "verb": "Descartar"
+      }
+    }
+  },
+  "states": {
+    "toast": {
+      "copied": "Copiado al portapapeles",
+      "clipboardBlocked": "El navegador bloqueó el portapapeles: selecciona y copia el texto",
+      "workOrderNotPublished": "Esa work order no está publicada",
+      "linkOutsideProject": "Este enlace apunta a un archivo fuera del proyecto",
+      "linkMissingFile": "El enlace apunta a un archivo que no existe en el proyecto"
+    },
+    "scrollable": {
+      "tableAria": "Tabla desplazable",
+      "codeAria": "Código desplazable",
+      "tableHint": "Desliza la tabla para ver todas las columnas",
+      "codeHint": "Desliza para ver cada línea completa"
+    },
+    "pageTitles": {
+      "idea": "Idea",
+      "subtitleDefault": "Mission Control",
+      "tabDefault": "Resumen"
+    }
+  }
+}

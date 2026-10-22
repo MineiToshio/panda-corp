@@ -180,6 +180,7 @@ function ideaSnapshot(idea) {
     score: idea.score ?? null,
     status: idea.status,
     favorite: idea.favorite === true,
+    discardReason: idea.discardReason ?? null,
     body: idea.body,
     html: renderMarkdown(idea.body),
     pitch: pitchSnapshot(idea.body),
@@ -358,6 +359,12 @@ function buildProject(project, ideas) {
     subtitle,
     phase,
     running: status?.running ?? null,
+    // FRD-14 snapshot panel and DR-066 liveness: the last commit that passed every gate, whether it is
+    // safe to test, and the supervisor heartbeat the "sin señal" state is derived from.
+    lastGreenSha: status?.lastGreenSha ?? null,
+    safeToTest: status?.safeToTest ?? null,
+    heartbeatAt: status?.supervisorHeartbeat ?? null,
+    runStartedAt: status?.runStartedAt ?? null,
     version,
     overlay: getOverlayFreshness(status?.overlayVersion ?? null, FACTORY_ROOT),
     idea,
@@ -394,7 +401,15 @@ const manual = readManualPages(MISSION_CONTROL_ROOT).map((page) => ({
   html: renderMarkdown(page.body),
 }));
 const capturedAt = new Date().toISOString();
-const snapshot = { capturedAt, ideas, projects, manual, campaign: CAMPAIGN_PHASES };
+// The global accounts directory (FRD-26), through the same whitelisted DTO as the project tab: no
+// credentials, notes, native resource ids or quota snapshots; reader issues carry only code and source.
+const services = {
+  providers: SERVICES.providers.map((p) => ({ id: p.id, name: p.name, type: p.type, purpose: p.purpose, adoption: p.adoption, dashboardUrl: p.dashboardUrl, reusePolicy: p.reusePolicy, environmentPolicy: p.environmentPolicy, automation: p.automation, quotaNotes: p.quotaNotes })),
+  accounts: SERVICES.accounts.map((a) => ({ id: a.id, providerId: a.providerId, loginEmail: a.loginEmail, displayName: a.displayName, dashboardUrl: a.dashboardUrl, accessStatus: a.accessStatus, observedAt: a.observedAt, plan: a.plan, acceptingNewProjects: a.acceptingNewProjects, automationStatus: a.automationStatus, nextStep: a.nextStep })),
+  allocations: SERVICES.allocations.map((a) => ({ projectId: a.projectId, projectName: a.projectName, providerId: a.providerId, accountRef: a.accountRef, status: a.status, environments: a.resources.map((r) => ({ environment: r.environment, resource: r.resourceName })) })),
+  issues: SERVICES.issues.map((i) => ({ code: i.code, source: i.source })),
+};
+const snapshot = { capturedAt, ideas, projects, manual, campaign: CAMPAIGN_PHASES, services };
 
 const gaps = projects.flatMap((project) => {
   const missing = [];

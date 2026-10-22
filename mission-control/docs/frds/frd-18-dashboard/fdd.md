@@ -1,135 +1,88 @@
 ---
 id: FDD-18
 type: fdd
-title: FDD-18 — Dashboard ("Inicio") feature design
-parent: frds/frd-18-dashboard/frd.md
-ui: true
-visual_source: docs/design/prototype/index.html
+slug: dashboard
+title: Inicio (the command center)
 status: ACTIVE
-last_updated: '2026-06-19'
+parent: FRD-18
+last_updated: '2026-10-22'
+prototype_blessed_at: ''
 ---
-# FDD-18 — Dashboard ("Inicio") feature design
 
-The feature's design **on the frozen tokens** (`docs/design/design-tokens.json`, root `DESIGN.md`),
-sharded from the owner-approved whole-app prototype. This document is **fidelity, not novelty**: it
-describes the dashboard exactly as the prototype renders it, mapped to the frozen design system and to
-FRD-18's acceptance criteria.
+# FDD — FRD-18 Inicio (the command center)
 
-- **Visual source:** `docs/design/prototype/index.html` — render function **`dashboardView()`**
-  (with its helpers `digestSection()` / `evCard()`, `qrow()`, `dStat()`, and the gamification foot
-  reusing `.rpgpanel.rpggrid` + `.xpbar`).
-- **Runnable source, not a duplicated slice:** the prototype is the live mockup; this FDD scopes it to
-  the dashboard surface. The build's visual-fidelity gate captures the baseline from the `dashboard`
-  view of `index.html` (see `mocks/README.md`).
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Feature design on the frozen Órbita contract (`docs/design/design-tokens.json` + root `DESIGN.md`). It uses the global tokens and components; it defines none. Frozen FROM the approved prototype `docs/design/prototype/index.html` (Órbita, round 5, iteration 28), shard `mocks/dashboard.html`.
 
-> The design contract (palette, typography, the 3 surface elevations, the app-wide RPG embossed skin,
-> the pixel/Space-Grotesk type pairing) is the **global PDD** — it is NOT redefined here. This FDD
-> only assembles the dashboard's sections on top of it. Every value named below resolves to a token,
-> never a hardcoded literal.
+Inicio is the default landing screen of Mission Control: what needs the owner now, what the factory is already doing, and the state of every project. It is read-only: every actionable item shows the exact `/pandacorp:*` command with a copy button, and a project card navigates to the project. It renders inside the persistent shell (FRD-19). The page title block is the shared `PageHead`: the eyebrow "Captura de proyectos · 20 oct. 2026, 7:20 p. m." (prototype capture stamp, not product copy), the `h1` "Inicio" (equal to the nav label) and the subtitle "Tu centro de mando: primero lo que necesita tu acción; después lo que avanza y el estado de tus proyectos."
 
-## 1. Layout (top → bottom)
+Below the title block, in order: the plugin banner when the plugin is behind (FRD-15, `AlertBanner`, `role="alert"`, first content element), then a two-column composition. Left column: Tu turno, Tu cartera, En marcha. Right column: Pulso, Gremio, Embudo de ideas, Árboles de trabajo. Below 1024 px it is one column with Tu turno first (AC-18-022.1).
 
-The dashboard is the default view, rendered inside the `#pcapp` max-width-1240 column under the topbar
-(`topbar()`, the `.rpgpanel.rpggrid` operator strip — owned by FRD-09/FRD-13, not this FDD). Sections
-are separated by the **`.secthead`** rule (display-font label + trailing 1px line + optional right
-count). In order:
+## Screens
 
-1. **Health banners** (conditional) — onboarding gate (`onboardingGate()`, FRD-01), plugin drift
-   (FRD-15), orphan projects (FRD-16). Rendered as a warn-bordered `.panel` (`Banner`). Not authored
-   here; the dashboard only reserves the top slot.
-2. **Desde tu última visita** — `digestSection()`. `.secthead` (`ti-history`) carrying either a
-   `var(--accent-bg)` "N nuevas" chip + a **marcar visto** button, or a `var(--ok-bg)` "al día" chip.
-   Body is a wrap row of **event cards** (`evCard()`): a `.secondary` rounded tile, status-colored
-   leading icon, title + source + relative time; **new** events get a `var(--accent)` border, the
-   24h-fallback events are dimmed (`opacity .5`).
-3. **Tu turno** — `.secthead` (`ti-flag-3`) with a `var(--danger-bg)` "N esperan por ti" chip or an
-   "al día" `var(--ok-bg)` chip. Body is the human-gate **queue** of `qrow()` cards (see §3) or a
-   centered calm empty-state `.panel`.
-4. **Pulso de la fábrica** — `.secthead` (`ti-activity-heartbeat`) + a 4-up auto-fit grid of
-   **stat tiles** (`dStat()`), then a centered one-line conversion metric (idea → shipped).
-5. **Construcción y cartera** — `.secthead` (`ti-layout-grid`) + an auto-fit grid (`minmax(290px,1fr)`)
-   of **project cards** (one `.panel` per active/shipped project; see §3), or a first-action empty card.
-6. **Tu progreso** — `.secthead` (`ti-trophy`) + the honest gamification **foot**: a
-   `.rpgpanel.rpggrid` strip with a recent-achievement medal, the next milestone line, and the
-   operator-level **XP bar** (`.xpbar`). Derived from FRD-09; this FDD only places it.
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Inicio | The command center: the owner's queue, the project portfolio, in-flight work, the pulse, the guild and the worktrees table. Route `#inicio`. | `home` | REQ-18-001, REQ-18-002, REQ-18-010, REQ-18-011, REQ-18-012, REQ-18-013, REQ-18-016, REQ-18-021, AC-18-022.1, AC-18-022.2, AC-18-022.3, AC-18-022.4 |
+| Tu turno detail dialog | The explanation of one queue item, opened from its "Detalles" button. | `home-turn-dialog` | AC-18-022.2 |
 
-## 2. Components used (all on the frozen tokens / PDD)
+Blocks of `home`, in reading order:
 
-| On screen | Component (see `docs/design/components.md`) | Notes |
-|---|---|---|
-| Section dividers | `SectionHeader` (`.secthead`) | display label + trailing rule + optional right count |
-| Health banners (gate / drift / orphan) | `Banner` | warn/info variant, copyable command; owned by FRD-01/15/16 |
-| "N nuevas" / "al día" / count pills | `Chip` | accent-bg / ok-bg / danger-bg / secondary variants |
-| Event item (digest) | `EventCard` | `.secondary` tile, status icon, title+source+`ago()`; `isNew` border + `dim` variants |
-| "marcar visto" + "simular/reiniciar" | `Button` / text link (`.lnk`) | mark-seen is real; simular/reiniciar are **DEMO-only** (see §5) |
-| Human-gate queue item | `QueueRow` (`qrow`) | 34px icon badge + title/sub + inline `CommandChip` |
-| Pulse stat tile | `StatTile` (`dStat`) | label + big pixel numeral (`.px`) + sub; optional accent color |
-| Project card (build & portfolio) | `ProjectCard` | `.panel`, status/live/stalled/bugs chips, progress bar, next-command, inline blocker |
-| Copyable `/pandacorp:*` command | `CommandChip` (`.cmd`) | mono command + copy button (`Toast` on copy) |
-| Gamification foot | `RpgPanel` (`.rpgpanel.rpggrid`) + `XpBar` (`.xpbar`) | medal + next milestone + level/XP bar |
+- **Tu turno** (count pill 5, same hue as its icon tile). One line per item, decisions first, then changes ready to build (REQ-18-010, REQ-18-012): a flag icon for a decision or a branch icon for a change, the title, the line "project · kind · age" ("PersonalPage v2 · Decisión · hace 41 días"; "Mission Control · Cambio listo · pedido el 18 oct. 2026"), the scoped command in a compact `CommandBox` with copy (`/pandacorp:decide 2026-09-10-1`, `/pandacorp:implement change:board-search-diacritics`), and a "Detalles" button at the right (accessible name "Detalles: <title>"). A decision already answered in its own file is not listed and not counted. Routine progress (a running build, an auto-retried work order) is not here (REQ-18-011); it lives in En marcha.
+- **Tu cartera**: a section heading outside any card (folder icon, "Tu cartera", a hairline) with the link "Ver portafolio" at the right, then one project card per project (REQ-18-016). A card is a link to the project and carries: the initials avatar in the phase hue, the name, the phase chip ("Construcción", "Arquitectura", "Lanzamiento"), the progress ring with its percentage (accessible name "39 de 48 work orders verificadas"), the six-segment phase stepper (accessible name "Fase: Construcción", each step "Investigación: completada" / "Construcción: fase actual" / "Lanzamiento: pendiente"), the line "Etapa 5 de 6 del pipeline · último cambio hace 1 h", the counts "39/48 WO verificadas", "8 FRDs", "82 docs", the status chip when it applies, and the closing line "Siguiente · /pandacorp:implement" (the next command comes from the phase: implement for a building project, review-launch for the launched one, REQ-18-021). A project with no work orders yet shows the neutral chip "Sin WOs".
+- **En marcha** (count pill 29): "Trabajo que ya está en manos de la fábrica. No espera una decisión tuya; avanza cuando corre el build." Three collapsible groups, each with its title, a one-line explanation and a count pill: "Construyéndose ahora" (18), "Esperan la revisión de su FRD" (9) and "Borradores en la cola" (2) (AC-18-022.3). Closed at rest.
+- **Pulso** (right column): three tiles with display numbers, 5 "Proyectos", 53 "FRDs" and 167 "de 218 WO verificadas" (AC-18-022.4, at most five signals).
+- **Gremio**: the rank crest and name "Portador de Luz III", "Nivel 22 · 2410 XP", the gold bar, "25 XP para el nivel 23 · 18 trofeos", a link row "Último logro · 6 oct. 2026" with its title "El primer ladrillo" and the link "Ver logros". Derived from real outcomes (FRD-09); no streaks, no urgency.
+- **Embudo de ideas**: one row per phase (Investigación, Producto, Diseño, Arquitectura, Construcción, Lanzamiento) with a bar and its count, then "12 descartadas" counted apart and the link "Abrir tablero" (AC-18-022.4). The Lanzamiento count comes from the one launched-ideas resolver, the same one the Logros funnel uses (REQ-18-014).
+- **Árboles de trabajo** (FRD-21's content, hosted here): "Trabajo en paralelo que no está en main, y worktrees que sobraron." and "Para depurar un proyecto, corre en su carpeta" with `/pandacorp:worktrees` and copy. A horizontally scrollable table region ("Tabla desplazable") with the columns "Proyecto", "Sin integrar", "Sobrantes" and "Estado"; the project names are buttons; the state reads "Depurar ya" (coral dot) or "Limpio" (green dot), and the hint "Desliza la tabla para ver todas las columnas" appears under it. The expander "¿Cómo se decide el estado?" explains the four states.
 
-All map to shared primitives in `docs/design/components.md`; none are dashboard-bespoke beyond the
-section composition.
+The **dialog** (`home-turn-dialog`, a native `dialog`, tinted head): the uppercase kicker "Decisión · PersonalPage v2", the item's title, a close button "Cerrar"; the body opens with "Decisión pendiente en PersonalPage v2: un agente encontró algo que no debe decidir solo (alcance, dinero o algo irreversible) y ese punto espera tu respuesta.", then two chips ("hace 41 días" and the decision id), the labelled sections "Lo que se necesita de ti" and "Recomendación del agente", the collapsed expander "Contexto", the sentence saying what the command does ("Corre en la carpeta de PersonalPage v2. Te muestra la pregunta, las opciones y la recomendación, primero te pregunta si sigue vigente, y guarda tu respuesta.") and the `CommandBox` with `/pandacorp:decide 2026-09-10-1` and copy.
 
-## 3. Section detail
+## States
 
-### Desde tu última visita
-`evCard()`: `.secondary` background, `radius md`, `.5px` border that becomes `var(--accent)` when the
-event is newer than the persisted seen-marker; status-colored leading icon (17px); two-line text with
-`ago()` relative time. The "seen" marker is client-local (`localStorage` in the prototype), persisted
-across refresh/close. Header right side: the **marcar visto** button (`Button`, small) when there are
-new events; the "al día" `Chip` otherwise.
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Busy factory (default) | All blocks as above: plugin banner, six Tu turno items, five project cards, En marcha closed. | `home` | REQ-18-001, REQ-18-010, REQ-18-016, AC-18-022.1 |
+| Decision story dialog open | Page dimmed and blurred; dialog as above. | `home-turn-dialog` | AC-18-022.2 |
+| En marcha group opened | The first group, "Construyéndose ahora", open: each change is a block with an icon tile, the kicker "En construcción", its title, "Funko Tracker · cambio en curso" and the button "Ver cambio". The other groups use "Work order en revisión" blocks with the link "Abrir work order" and "Borradores" blocks ("5 cambios en borrador", link "Revisar"). | `home-in-flight-open` | AC-18-022.3 |
+| Nothing waits on the owner | Tu turno shows the green "Al día" badge (check icon) beside its title and, inside, a dashed box with a check icon and "Nada espera tu acción ahora mismo." The rest of the page is unchanged; En marcha holds the ready changes that are now building. Calm, no manufactured urgency. | `home-calm` | REQ-18-003, REQ-18-012 |
+| Empty factory (no projects, no ideas) | Tu turno as in the calm state; Tu cartera holds the first-action card instead of project cards: the icon tile, "Tu fábrica todavía no tiene proyectos", "Un proyecto nace de una idea. Captura una o pide a la fábrica que busque oportunidades; cuando una idea te convenza, su spec crea el proyecto.", then "Captura tu primera idea, en la carpeta de la fábrica:" with `/pandacorp:new-idea` and "Cuando la idea esté lista, conviértela en proyecto:" with `/pandacorp:spec <idea>`, each with copy. Pulso shows 0, 0 and "de 0 WO verificadas"; Embudo de ideas shows zeros and "0 descartadas"; the sidebar's Proyectos group counts 0. Never a blank. | `factory-empty` | Tu cartera first-action rule |
+| Build claims to run but has no signal | The project card's status chip reads "Sin señal · último evento hace 25 min" instead of "Construyendo": the absence of signal is itself the alarm, and a live build keeps the "Construyendo" chip (the same voice as FRD-06 and the Resumen of FRD-14). The rest of Inicio is unchanged. | `build-no-signal` | REQ-18-015, REQ-18-017 |
 
-### Tu turno (queue)
-`qrow()`: a `.card` row — a 34px rounded icon badge tinted per priority (danger-bg / warn-bg /
-accent-bg / secondary), a two-line title+subtitle, and a trailing inline **`.cmd` CommandChip** with
-the exact `/pandacorp:*` command + copy. The whole row is clickable (`data-act` → navigate to project
-/ board). Priority order: pending decisions → review-launch → memory backlog → unprioritized ideas.
+Behaviour with no separate picture:
 
-### Pulso de la fábrica
-`dStat()`: a `.secondary` tile with an 11px label + icon, a **30px pixel numeral** (`.px`, tabular),
-and an 11px sub. The "En construcción" tile colors its numeral `var(--ok)` when builds are live. Below
-the grid, a centered line surfaces the **idea → shipped conversion %** — the one metric that matters.
+- The dashboard updates live from the events stream and the project `status.yaml` files, with no reload; the surfaces affected are the queue, the pulse and the project cards (REQ-18-004). Nothing is faked when there is no event stream yet.
+- Many waiting items: the queue stays decisions-first and never truncates silently.
+- Out of v2 by owner decision 2026-10-21, nothing to build: the "Desde tu última visita" digest and its seen marker (REQ-18-005 to REQ-18-009), the version and the age-in-stage on the card, the stalled flag, the bugs chip, the inline blocker reason, and the "estable · en operación" presentation of a launched project.
 
-### Construcción y cartera
-Project card = a clickable `.panel` (`padding 14px 16px`): title + a flex-wrap chip row
-(status+version chip; `en vivo`/`sin señal` chip with play/alert icon; `estancado · N días` or
-`Nd en fase` chip; `N bugs` chip), an accent **progress bar** (work orders done/total) for non-shipped
-projects, a meta line (`done/tot work orders` or `estable · en operación`) with the next-command
-`<code>`, and an inline **danger blocker** line when a work order has failed.
+## Components used
 
-### Tu progreso (foot)
-`.rpgpanel.rpggrid` strip: a 42px warn-bg medal (recent achievement icon), a two-line
-achievement + next-milestone block, and the operator **`.xpbar`** with the `NV N · título` /
-`xp / next XP` caption. Honest gamification — derived from real outcomes (FRD-09), no streaks.
+From `docs/design/components.md`: `PageHead`, `AlertBanner` (FRD-15), `Card` and `CardHeader` (tinted icon tile, one-size title, same-hue count pill), `AskRow` (a Tu turno line) with the compact `CommandBox`, `Dialog`, `ProjectCard` (with `PhaseStepper` compact and the progress ring), `Chip` family (status chip, "Al día" badge, count pills), `EmptyState`/`Notice` (the "Nada espera tu acción ahora mismo." box and the first-action card), the collapsible in-flight groups (`.flight-group`, native `details`), `KpiTiles` (Pulso), `FunnelRow` (Embudo), `WorktreesTable`, the Gremio card (FRD-09 data), and `AppShell` (FRD-19). Nothing new beyond rows the inventory already lists.
 
-## 4. States
+## Interaction & flow
 
-- **Empty (fresh factory)** — digest shows the *al día* state; "Tu turno" shows the calm empty `.panel`
-  ("Nada espera por ti…"); "Construcción y cartera" shows a first-action `.card` with the
-  `/pandacorp:spec <idea>` command. Nothing is faked (`AC` quiet-when-healthy).
-- **Loading** — the Next.js build streams each section; sections that read the event stream / state
-  render under their own boundary. No skeleton is shown for content the server already delivers
-  (per `nextjs.md`); a section awaiting the event stream may show its calm/al-día state as the fallback.
-- **Error** — a section that fails to read its source renders an inline `Banner` (info/warn) with the
-  source it could not read, never a blank panel; the rest of the dashboard still renders (segment
-  `error.tsx`).
-- **Healthy / quiet** — exception-first: "Tu turno" and the digest read *al día*; no manufactured
-  urgency, no vanity counters.
+1. The owner opens the app and lands on Inicio. If the plugin is behind, the banner is the first thing they read (FRD-15).
+2. In Tu turno they copy the command of an item or press "Detalles" to read what it is, what is needed, the agent's recommendation and the context, then run the command in the folder the dialog names. Escape or "Cerrar" closes the dialog and returns focus to its button.
+3. Tu cartera cards open the project; "Ver portafolio", "Ver logros" and "Abrir tablero" go to their screens; "Ver cambio", "Abrir work order" and "Revisar" open the change, the work order or the drafts list.
+4. The owner opens a En marcha group to see work already in the factory's hands; none of it asks for a decision.
 
-## 5. Demo-only controls (DR-061)
+## Responsive & accessibility
 
-The prototype's digest exposes a demo footer: **"simular novedad"** and **"reiniciar novedades"**
-(`data-act="seen-sim"` / `seen-reset`) plus the "Evento simulado (demo)" entries. These exist purely
-to **preview the new-events state** in a static mockup; the real app reads the live factory event
-stream (`~/.claude/dashboard-events.ndjson` + state diffs, FRD-01) and has no event simulator. In the
-build, this footer MUST be wrapped in a **dashed-border `DEMO` block** with a one-line note
-("real app reads the live event stream; there is no simulate/reset"), or omitted. The **marcar visto**
-action is **real** (it advances the client-local seen-marker) and stays in the real UI.
+- Captured at 375, 768 and 1280, light and dark (the dialog as a viewport capture). At 1280 the two columns sit side by side; at 768 and 375 it is one column, Tu turno first, then Tu cartera, En marcha, Pulso, Gremio, Embudo de ideas and Árboles de trabajo; at 768 the project cards go two per row (see `mocks/screenshots/home-375-light.jpg` for the phone).
+- The `h1` is "Inicio" and each block heading is an `h2`. Status is carried by icon and text (flag and branch icons, "Al día" with a check, state labels with a dot and a word), not colour alone. The worktrees table sits in a labelled scroll region ("Tabla desplazable") with the hint under it.
+- The dialog moves focus in, traps Tab, closes on Escape and restores focus to "Detalles".
 
-No other dashboard control is demo-only: the copy buttons, queue navigation, and project-card links are
-all real read-only affordances.
+## Copy
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+Interface strings are the prototype's, Spanish; commands, ids and work-order titles stay literal, and work-order and FRD titles keep their source language (English). Keyed strings are in `docs/design/microcopy.es.json`.
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar). Component catalogue `docs/design/prototype/components.html`; measured styles `docs/design/prototype/reference/computed-styles.json`; icons and logo `docs/design/prototype/{icons,logo}/`; copy `docs/design/microcopy.es.json`; whole-app prototype `docs/design/prototype/index.html`.
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-18-dashboard/mocks/dashboard.html` (sections `home`, `home-turn-dialog`, `home-in-flight-open`, `home-calm`, `factory-empty`, `build-no-signal`); screenshots in `mocks/screenshots/` as `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark.
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#inicio`; the scenarios `home-calm`, `factory-empty` and `build-no-signal` after `applyScenario('<name>')`; the dialog after clicking `[data-turn="0"]`; the open group after clicking `.flight-group > summary`.
+- **Oracle entries (`fidelity.config.json`, `frd-18-dashboard`):** `home`, `home-turn-dialog`, `home-in-flight-open`, `home-calm`, `factory-empty`, `build-no-signal`.
+- **Reference files:** `docs/design/freeze/packs/frd-18.md`, `docs/design/freeze/reconciliation.md` (C-18), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
+- **components.md rows:** `PageHead`, `AlertBanner`, `Card`/`CardHeader`, `AskRow`, `CommandBox`, `Dialog`, `ProjectCard`, `PhaseStepper`, `Chip` family, `EmptyState`/`Notice`, `KpiTiles`, `FunnelRow`, `WorktreesTable`, `AppShell`.

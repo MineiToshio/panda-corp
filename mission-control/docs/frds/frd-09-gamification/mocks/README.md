@@ -1,27 +1,7 @@
-# FRD-09 mocks — Gamification (RPG theme)
+# frd-09-gamification · design mocks
 
-**Visual source:** `docs/design/prototype/index.html` — the **shared gamified elements** (not a single
-screen), specifically the render functions:
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-- `topbar()` — the guild bar (level · title · XP) at the top of every view.
-- `logrosHero()` — the guild hero / character-sheet panel (shield crest + XP bar + party roster).
-- the `dashboardView()` footer block — the compact guild-progress strip.
-- `statRadar()` — the "Atributos del gremio" radar.
-- `toast()` — the small work-order celebration toast.
-
-These are **cross-cutting** elements rendered inside host surfaces owned by other FRDs (FRD-10 Hall,
-FRD-06 Party, FRD-12 dashboard). FRD-09 owns their visual contract on the frozen tokens
-(`docs/design/design-tokens.json`, `rpgSkin` + `tiers` groups).
-
-## Baseline
-
-No standalone scoped screenshot is staged here yet — the gamified elements are baselined **in context**
-by the Preview Smoke Gate / visual-fidelity gate (DR-055/056) on their host routes (top bar on every
-route; hero on the Hall route). When the build runs, the gate captures the guild bar + hero panel and
-compares them to the corresponding regions of `index.html`. A scoped slice
-(`mocks/gamification-elements.html`) carrying the guild bar + hero + XP bar + a tier medal row may be
-extracted at build time if an isolated baseline is needed.
-
-## Token slice this feature uses
-`rpgSkin` (rpgpanel, rpggrid, shield, xpbar, herostat, itemslot, node, anim) ·
-`tiers.tier1..tier5` · `accent.*` · `typography.families.pixel` + `display` · `motion`.
+- `gamification.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

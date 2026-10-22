@@ -1,180 +1,103 @@
 ---
 id: FDD-08
 type: fdd
-title: FDD-08 — Documentation · the Manual ("Códice del gremio") (feature design)
-parent: frds/frd-08-documentation/frd.md
+slug: documentation
+title: Documentación (home, search and reader)
+status: ACTIVE
+parent: FRD-08
 ui: true
 visual_source: docs/design/prototype/index.html
-mock: docs/design/prototype/index.html
-status: ACTIVE
-last_updated: '2026-06-19'
+mock: docs/frds/frd-08-documentation/mocks/documentation.html
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
 ---
-# FDD-08 — Documentation · the Manual (feature design)
 
-The feature's design **on the frozen tokens** (`docs/design/design-tokens.json`, root `DESIGN.md`),
-sharded from the owner-approved whole-app prototype. This document is **fidelity, not novelty**: it
-describes the Manual ("Códice del gremio") exactly as the prototype renders it, mapped to the frozen
-design system (the PDD) and the FRD's acceptance criteria.
+# FDD — FRD-08 Documentación
 
-**Visual source:** the Manual view of `docs/design/prototype/index.html`.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> This is the Órbita design (round 5, iteration 28), frozen from the approved prototype. It describes only what the captured states of `mocks/documentation.html` draw (DR-130). The surface is called «Documentación» everywhere: sidebar, page `h1`, search labels, index label and the not-found page. «Manual» and «Códice» are not the surface name. The curated per-skill explainer, the interactive flow graph and its cross-navigation (REQ-08-008 to REQ-08-010, REQ-08-012) are out of v2 and not drawn.
 
-> **Re-anchor note (2026-06-19):** the section is **renamed "Documentación"** — the nav tab label is
-> "Documentación" (`topbar()` ~L649) and the page H1 matches it (`manualView` uses
-> `pageHead("ti-book","Documentación", …)`, ~L1364). The internal "Códice del gremio" stays as the
-> subtitle/flavor, not the title. The Referencia catalogs are **derived dynamically from the factory**
-> (plugin skill/agent frontmatter + `registry.yaml` + `factory/standards/`, DR-046); the Guías reflect
-> the **current** workflow (capture → handoff → design/blueprint → implement → test-without-stopping →
-> hand-off → update-plugin).
+Page frame, shared by every state: the shared `PageHead` with an eyebrow, the `h1` «Documentación» (equal to the nav label) and a one-line subtitle. Below it the home, the results or the reader. The reader's hue follows the page's group; the catalogs of Referencia live in Configuración (FRD-07), not here.
 
-**Exact render functions:** `manualView()` (the navigable shell — light page title + sticky side nav +
-reader, ~L1361), `manualContent(id)` (the router that picks the page kind, ~L1352), and the reader kinds
-it routes to:
-- **Empezar aquí** → `manualLanding()` (Qué es Pandacorp, ~L1279) and `manualQuickstart()` ("Tu primera
-  misión", ~L1289);
-- **Guías** → `manualGuide(id)` + `guiaDoc()` (~L1300–1350) — the current-workflow how-tos;
-- **Referencia** → `refSection(sec)` (~L1256), which reuses the Configuración cards/detail
-  (`gxSkillCard` / `gxAgentCard` / `gxRuleCard` / `gxStdCard` / `configDetail`) — the same catalogs as
-  FRD-07, **derived from the factory** and surfaced read-only inside the Manual;
-- **Conceptos** → `docPage(p)` (~L1075), the long explanation pages incl. the diagrams
-  `pipelineDiagram`, `teamDiagram`, `channelsDiagram`, `archDiagram`, `cockpitDataDiagram`,
-  `snapshotMini` and the **Autoaprendizaje** concept page (`docPage` p=14).
+## Screens
 
-Page/nav data: `MANUALNAV` (the four Diátaxis groups + items, ~L1223). Headings via `docH`,
-copy-command chips via `docCmd`, the Manual page title via `pageHead`, the Referencia section heroes via
-`gxHero` (which itself delegates to `pageHead`).
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Documentación home | Where to start: the tutorial path, the everyday guides, and the four page types plus Referencia | `docs-home` | AC-08-020.1, REQ-08-001, REQ-08-003, REQ-08-007 |
+| Search results | Matching pages from every group, each with a snippet | `docs-search` | AC-08-020.2 |
+| Reader, concept page | A page with breadcrumbs, a position counter, previous and next, and the page index at the right | `docs-page` | AC-08-020.3, REQ-08-002, REQ-08-003 |
+| Reader, index opened on a narrow screen | The page index folded behind a control and opened | `docs-page-index-open` | AC-08-020.3, REQ-08-002 |
+| Reader, unknown page | The not-found page | `docs-page-not-found` | REQ-08-001 |
+| Reader, tutorial page | A tutorial page with its step progress bar | `docs-page-tutorial` | AC-08-020.3, REQ-08-003 |
+| Reader, guide page | A task-oriented page | `docs-page-guide` | AC-08-020.3, REQ-08-003 |
+| Reader, «El equipo» concept | One card per agent, grouped by phase | `docs-page-team` | REQ-08-019 |
+| Reader, multi-runtime concept | Codex and Claude Code, both with full access | `docs-page-multi-runtime` | REQ-08-014, REQ-08-015, REQ-08-016 |
 
-> The design contract (palette, typography, surfaces, the **app-wide RPG embossed skin**, the
-> pixel-art spec) is the global PDD — it is NOT redefined here. This FDD only assembles the Manual on
-> top of it. Every named value comes from a token, never a hardcoded literal.
+## States
 
-## 1. Layout — a navigable shell + a reader (`AC`)
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Home at rest | Search «Buscar en toda la Documentación» with the placeholder «Buscar en 38 páginas…». Card «Empieza aquí»: «Si es tu primera vez, el tutorial te lleva de cero a tu primer proyecto en 2 pasos.», then the numbered path 1 «Qué es Pandacorp» and 2 «Cómo empezar», then «Después, entiende lo esencial» with the links «El pipeline», «El equipo», «Los gates humanos» and «Estado y archivos». Card «Guías para el día a día» with six guide links, the count «11 guías» and «Ver todas». Block «Explorar por tipo»: «Tutorial» («2 páginas»), «Guías» («11 páginas»), «Conceptos» («22 páginas»), «Workflows» («3 páginas») and «Referencia» («Comandos, agentes, reglas y estándares.», with «En Configuración» instead of a page count). | `docs-home` | AC-08-020.1, REQ-08-003, REQ-08-007 |
+| Search with results | The term is typed in the search. A card «Resultados» with its count lists each matching page: its title, a snippet that opens and closes with an ellipsis around the match, and a chip with its group («Guías», «Conceptos» or «Workflows»). | `docs-search` | AC-08-020.2 |
+| Reader at rest, concept page | Breadcrumbs «Documentación», «Conceptos», the page name, with the counter «2 de 22». The page title «El pipeline · de idea a producto» and its body. At the foot, the previous and next cards: «Anterior en Conceptos» («Qué es Pandacorp») and «Siguiente en Conceptos» («El equipo»). At the right, the index «Índice de la Documentación» with its own search «Buscar en la Documentación…» and the groups «Tutorial», «Guías», «Conceptos», «Workflows» and «Referencia», each with its count and its pages; the current page is highlighted. | `docs-page` | AC-08-020.3, REQ-08-002, REQ-08-003 |
+| Index folded on a narrow screen | Below 900 px the index is not at the right. A control labelled «Índice · El pipeline» (the group's page name follows the dot) opens it above the page; it holds the same search and groups as the wide index. | `docs-page-index-open` | AC-08-020.3, REQ-08-002 |
+| Unknown page | The title «Esta página no existe», the line «La Documentación no tiene una página «no-existe».» and a link «Ir al inicio de la Documentación». No index and no reader. | `docs-page-not-found` | REQ-08-001 |
+| Tutorial page | Breadcrumbs «Documentación», «Tutorial», «Cómo empezar», with «Paso 2 de 2» and a two-segment progress bar. The page «Tu primera misión» shows its checklist and numbered step cards 1 to 5, each with a command in a monospace box, then a «Lo que acabas de ver:» note and «A continuación». Previous and next read «Anterior en Tutorial» and «Siguiente en Tutorial». | `docs-page-tutorial` | AC-08-020.3, REQ-08-003 |
+| Guide page | Breadcrumbs «Documentación», «Guías», «Elegir modo de construcción», with the counter «4 de 11». The page is a numbered list of options, each with its command. Previous and next read «Anterior en Guías» and «Siguiente en Guías». | `docs-page-guide` | AC-08-020.3, REQ-08-003 |
+| «El equipo» concept | Title «El equipo de agentes». A roster of avatars grouped by phase («Producto», «Diseño y contenido», «Arquitectura e infra», «Construcción y datos», «Calidad», «Memoria y motor»), each with the agent's name and role. Below, «Quién hace qué» with one bio card per agent in the same phase groups, including «drift-finder», then «Cómo se orquesta el equipo». | `docs-page-team` | REQ-08-019, AC-08-020.3 |
+| Multi-runtime concept | Title «Operar desde cualquier agente». The diagram «Dos puertas, un núcleo» with «Puerta Claude Code» and «Puerta Codex» (each labelled with its access) over the shared core. The statement «Codex y Claude Code: acceso completo.» and the note «Permiso no significa automatización certificada.». The section «Cómo probar que funciona» with three numbered steps. | `docs-page-multi-runtime` | REQ-08-014, REQ-08-015, REQ-08-016 |
 
-The Manual is one `.rpghall` column: the one light **`pageHead`** title block on top
-(`pageHead("ti-book","Documentación", "El códice del gremio · …")` — icon + H1 = nav label
-"Documentación" + subtitle, **not** a heavy hero panel), then a **two-pane grid** (`236px 1fr`, gap 14px,
-align start):
-- **Side menu** (`AC` "side menu with pages") — a `panel` that is **`position: sticky; top: 14px`**,
-  listing every page as a `.navitem` (icon + label), grouped under four uppercase **Diátaxis group
-  headers** in the `pixel` accent color: **Empezar aquí · Guías · Referencia · Conceptos**. The active
-  page carries `.navitem.on` (`{accent.accentBg}` fill + `1px` inset accent ring from the RPG skin).
-- **Reading area** (`AC` "renders each page", `min-width:0`) — renders the selected page via
-  `manualContent(id)`. Each page opens with a `docH` title (a 6px accent ledge + the title) and lays
-  content into `panel` cards and `.doc` prose.
+Behaviour with no picture (content and data rules, not layout): the pages cover what Pandacorp is, the flow, the stages, the commands, the build modes, the standards and handing off (REQ-08-004, REQ-08-005); the pages reflect the current v2 engine and the feature-centric document layout (REQ-08-013, REQ-08-017); a page with a bespoke renderer takes its content only from that renderer and its `.md` is an index stub (REQ-08-018, a test); the catalogs behind Referencia are read from the factory and never hand-copied (REQ-08-006); every agent shipped in `plugin/agents/` has a bio card (REQ-08-019, a test). The full `SKILL.md` as markdown behind «Definición completa» is FRD-07's dialog (REQ-08-011).
 
-Mobile: the `236px 1fr` grid collapses to a single column (the nav stacks above the reader and is no
-longer sticky); `panel`s and diagram rows wrap. Touch targets ≥44px via `.navitem` padding.
+## Components used
 
-## 2. The four Diátaxis page kinds
+From `docs/design/components.md`. Nothing new is introduced by this FRD.
 
-**Empezar aquí (tutorial).** `manualLanding()` = the "Qué es Pandacorp" overview: a `panel` intro, a
-three-up `rpgpanel` feature row (Solo-lectura · Estado en vivo · Te da el comando) and the
-`pipelineDiagram`, plus a CTA card into "Tu primera misión". `manualQuickstart()` = a 5-step
-numbered walkthrough (`rpgpanel` step cards with an accent `itemslot` numeral + a `docCmd` copy-chip
-per step) ending in the first build. Together they satisfy "sufficient for someone with no prior
-context".
-
-**Guías (how-to).** `manualGuide(id)` renders task recipes via `guiaDoc(title, intro, steps, tip)`:
-a `docH` title + intro + a `panel` of numbered steps (each an accent `pixel` numeral + the step text
-with inline `<code>` commands) + an optional warn-bulb tip card. Covers capturing an idea, the
-handoff, choosing a build mode, reporting a bug / deciding, testing without stopping the agent,
-handing the project to another person, updating the plugin (`AC` "how to operate / hand off").
-
-**Referencia (reference) — AUTO-DERIVED (DR-046).** `refSection(sec)` renders the four catalogs —
-**Comandos (skills) · Agentes (party) · Reglas de decisión · Estándares** — reusing the exact
-Configuración cards and the shared `configDetail`. **Per `AC` + DR-046 these catalogs are NOT
-hand-maintained: in the real app they are derived at build/read time** from the canonical source —
-the plugin skill+agent frontmatter (`name` + `description`) under `plugin/skills/` and
-`plugin/agents/`, `factory/decisions/registry.yaml`, and `factory/standards/` — so a new, renamed or
-removed skill/agent/rule/standard appears automatically with no drift. The prototype's `CONFIG.*`
-arrays are the hand-kept stand-in for that derivation (see the FRD's "Prototype note"). The **design**
-of this page is therefore the navigable shell + the reader + the **derived** catalog cards; the cards
-themselves are FRD-07's components, reused here, not re-styled.
-
-**Conceptos (explanation).** `docPage(p)` renders the long "why" pages, several anchored to a diagram
-built from data + tokens (no images): `pipelineDiagram` (the 6 stages), `teamDiagram` (the agent
-roster grouped by phase, each clickable), `channelsDiagram` (bug/iterate/decide), `archDiagram`
-(factory ↔ products), `cockpitDataDiagram` (the files MC reads → Mission Control), `snapshotMini` (the
-git-worktree testing model). Includes the **Autoaprendizaje / self-learning** concept page
-(`docPage` p=14, surfaced as `c-autoaprendizaje`) required by DR-046 — the loop, the 3 actors, the
-captures/protections, the promotions queue — which is also where FRD-17's surface is forward-referenced.
-
-## 3. Components used (all on the frozen tokens / PDD)
-
-| On screen | Component (see `docs/design/components.md`) | Notes |
+| On screen | Component | Notes |
 |---|---|---|
-| Manual page title | `PageTitle` (`pageHead`) | light icon + H1 "Documentación" + subtitle — the one canonical title block |
-| Referencia section hero | `SectionHero` (`gxHero`) | per-catalog section title; **delegates to `pageHead`** — same light title shape |
-| Sticky side menu | `DocNav` (`manualView` nav) | grouped `.navitem`s, `sticky top:14px`, `pixel` group headers |
-| Page heading | `DocHeading` (`docH`) | accent ledge + title |
-| Tutorial / landing | `ManualLanding` (`manualLanding`) | intro + feature row + pipeline + CTA |
-| Quickstart walkthrough | `Quickstart` (`manualQuickstart`) | numbered `rpgpanel` step cards + `docCmd` |
-| How-to recipe | `GuideDoc` (`guiaDoc` / `manualGuide`) | numbered steps + tip card |
-| Reference catalog (derived) | `RefSection` (`refSection`) | **reuses** FRD-07's `SkillCard`/`AgentCard`/`RuleCard`/`StandardCard` + `configDetail` |
-| Concept page | `DocPage` (`docPage`) | `panel`/`.doc` prose + a diagram |
-| Pipeline diagram | `PipelineDiagram` (`pipelineDiagram`) | 6 stage rows + `↓` + `docCmd` |
-| Team diagram | `TeamDiagram` (`teamDiagram`) | roster grouped by phase, clickable avatars |
-| Channels diagram | `ChannelsDiagram` (`channelsDiagram`) | bug/iterate/decide panels |
-| Data-flow diagrams | `ArchDiagram` / `CockpitDataDiagram` / `SnapshotMini` | factory↔products, files→MC, worktree |
-| Copy-command chip | `CmdRow` / `DocCmd` (`.cmd` / `docCmd`) | the `/pandacorp:*` commands |
-| Section header w/ rule | `SectionHead` (`secthead`) | inside Referencia card groups |
+| Title block | `PageHead` | eyebrow, one `h1` equal to the nav label, subtitle |
+| Home | `DocsGroupCard` / `DocsSteps` | «Empieza aquí» numbered path, «Guías para el día a día», «Explorar por tipo»; the two cards end at the same height |
+| Search fields | `SearchField` | one width; the index search sits in the index |
+| Search results | `Card` with `CardHeader`, `ListRow`, `Chip` | group chip per hit |
+| Breadcrumbs | `Crumbs` | last item is the current page |
+| Page index | `DocIndex` / `DocItem` | at the right from 900 px, folded behind the «Índice · …» control below |
+| Reader body | `Markdown` | in the group's hue; steps, callouts and command boxes follow the shared `CommandBox` |
+| Previous and next | `Button` link variant as two cards | label «Anterior en <grupo>» / «Siguiente en <grupo>» |
+| Agent roster and bio cards | `Avatar` (sprite) and `Card` | one per agent, grouped by phase |
+| Not-found | `EmptyState` | title, sentence and one link |
 
-The Reference catalog reuses FRD-07's card primitives verbatim (reuse-before-create, DR-057) — this
-page adds the **navigable shell, the tutorial/how-to/concept readers and the diagrams**, not new
-catalog cards. All on the PDD's `panel`/`rpgpanel` surfaces, `chip`, `button`, the `pixel`/`mono`/
-`display` families, the 3 elevation shadows, the `2px accent` focus ring.
+## Interaction & flow
 
-## 4. Designed states (empty / loading / error)
+- Entry: «Documentación» in the primary nav (short label «Docs» on the rail and the bottom navigation) opens the home (`docs-home`).
+- Searching the home lists results across all groups (`docs-search`); choosing a hit opens that page in the reader.
+- Choosing a link on the home or in the index opens the page in the reader (`docs-page`). The page, the opened index state and the search live in the URL (FRD-25), so reload and Back restore them.
+- Inside the reader, previous and next move through the page order; the breadcrumb returns to the home or to the group (`docs-page`, `docs-page-guide`).
+- On tutorial pages the progress bar and the label «Paso 2 de 2» show where the reader is in the tutorial (`docs-page-tutorial`).
+- The Referencia entries («Comandos», «Agentes», «Reglas de decisión», «Estándares») lead to Configuración (FRD-07): one catalog, one set of cards (`docs-home`, `docs-page`).
+- A page address that does not exist shows the not-found page, never a blank screen (`docs-page-not-found`).
+- Read-only: every command is shown to copy, never run.
 
-- **Empty** — a not-yet-written hand-authored Guide/Concept renders a `docH` title + a `panel`
-  **"Próximamente."** (this is the prototype's `manualGuide` fallback) rather than a blank reader. A
-  Reference section whose **source could not be read** shows the hero + a `panel` note naming the
-  source path (consistent with FRD-07's read-error state), never an empty catalog.
-- **Loading** — pages are server-rendered from the filesystem (the Reference is read live from
-  `plugin/`/`factory/`); no fake client skeleton over content the server already delivers. The default
-  page (`MANUALNAV[0].items[0]`, "Qué es Pandacorp") renders immediately.
-- **Error** — a malformed source file for a derived Reference section degrades to the read-error note
-  for that section (danger color + icon), with the rest of the Manual still navigable; an unknown
-  `?page` id falls back to the default page (`manualContent` guard).
+## Responsive & accessibility
 
-## Cohesion (DR-062)
-The Manual uses the app-wide framing: the one light **`PageTitle`** block (`pageHead`) for the page
-title, and the Referencia **`gxHero`** section titles **delegate to `pageHead`** so a section header is
-the same light icon + title shape, never a heavy bespoke banner. Section dividers inside Referencia card
-groups are the one **`SectionHead`** (`secthead`); the four Diátaxis nav groups are the one `.navitem`
-nav (a distinct primitive from `.tab`/`.rail`, picked deliberately). Cards, chips and command-rows are
-the shared `Panel`/`Chip`/`CmdRow`. No surface re-invents a title, header, chip or command-row.
+- At 1280 the reader and the index sit side by side, the index at the right with its own search; the home is two cards of equal height over the «Explorar por tipo» block (four tiles in a row, then «Referencia»). Below 900 px the index folds behind the «Índice · …» control and opens above the page (`docs-page-index-open` at 375 and 768); the two home cards stack to one column below 1024 px.
+- Wide tables and code in the reader scroll sideways inside their own box, never the page.
+- The index control is a `button` with the page name in its label; the opened index is reachable by keyboard and closes back to its control. The current page in the index is marked with `aria-current="page"` and a highlight, not colour alone.
+- The agent avatars carry the accessible name «Avatar de agente <nombre>». The progress bar carries the text «Paso 2 de 2 del tutorial».
+- Only transforms animate; no motion is needed to read the page.
 
-## 5. Demo-only controls — none
+## Copy
 
-The Manual is **read-only navigation + a reader**: every control either **navigates** to a page or
-**copies a `/pandacorp:*` command** (`docCmd` / the CTA chips). There is no affordance that previews a
-state the real app lacks, so **no DR-061 `SOLO DEMO` block is needed** here. The diagrams are static
-data renders (not interactive simulators), and the team diagram's clickable avatars only jump to the
-agent's Reference detail.
+Interface strings are the Spanish ones in the states above and in `docs/design/microcopy.es.json`. The page bodies are authored content in Spanish; artifact names stay English (FRD, work order, spec, ADR). The surface name is «Documentación»; the search labels and placeholders say «Documentación».
 
-## 6. Accessibility & motion
+## Fidelity references
 
-- Landmarks: the side menu is the page's local navigation; exactly one `<h1>` lives in the app shell,
-  the `docH` titles and group headers are sub-headings (no skipped levels). The nav is keyboard-
-  reachable and focus-visible; the sticky menu must not obscure focus (WCAG 2.2 SC 2.4.11 →
-  `scroll-margin`).
-- State by **icon + text** (the channel/standard/severity references carry their label, never color
-  alone). `tabular-nums` on any counts. The `anim` entrance is `transform`/`opacity` only and honors
-  `prefers-reduced-motion` (PDD). Focus ring `2px solid {accent.accent}`.
-- WCAG AA contrast on both themes (pre-checked tokens). Copy-command chips have an explicit copy button
-  with an accessible label.
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate): the component catalogue (`docs/design/prototype/components.html`), measured styles (`docs/design/prototype/reference/computed-styles.json`), the exported icons and logo (`docs/design/prototype/{icons,logo}/`), the copy file and the whole-app prototype for states and motion.
 
-## Traceability
+prototype_blessed_at: 409a0564
 
-Maps `frd.md` ACs → this design: **side menu + reading area** → §1; **pages cover what/flow/stages/
-commands/modes/standards/operate-handoff** → §2 (all four kinds); **sufficient for a no-context
-reader** → §2 (Empezar aquí + Guías); **Reference catalogs auto-derived from the canonical source
-(DR-046)** → §2 Referencia + the design note; **Manual stays in sync (derived Reference + disciplined
-hand-authored pages)** → §2 (the derivation is the design, not a hand-copy); **Concept/Guide reflects
-the feature-centric DR-049 layout** → §2 Conceptos (the "Estado y archivos" / structure pages render
-the feature-centric model). The self-learning Concept page (DR-046) → §2 Conceptos
-(`docPage` p=14).
-
-## Persistent navigation integration — FRD-25 (2026-10-17)
-
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+- **Mock:** `docs/frds/frd-08-documentation/mocks/documentation.html` (sections `docs-home`, `docs-search`, `docs-page`, `docs-page-index-open`, `docs-page-not-found`, `docs-page-tutorial`, `docs-page-guide`, `docs-page-team`, `docs-page-multi-runtime`).
+- **Mock screenshots** in `mocks/screenshots/`: `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark (the index-open state at 375 and 768).
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#documentacion` (pages by `?page=<slug>`).
+- **Oracle entries** (`docs/design/freeze/fidelity.config.json`, `states["frd-08-documentation"]`): the nine ids above.
+- **Reference files:** root `DESIGN.md` (responsive thresholds, shared component rules), `docs/design/design-tokens.json`, `docs/design/freeze/m1-decisions.md`, `docs/design/freeze/reconciliation.md`, `docs/design/prototype/prototype.css`.
+- **components.md rows:** `PageHead`, `Crumbs`, `DocsGroupCard` / `DocsSteps`, `DocIndex` / `DocItem`, `SearchField` / `SelectField`, `Markdown`, `CommandBox`, `Avatar`, `EmptyState` / `Notice`.

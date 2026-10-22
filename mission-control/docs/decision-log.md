@@ -1,5 +1,24 @@
 # Decision Log — Mission Control
 
+## 2026-10-22 — Órbita design frozen (design contract for the v2 build)
+
+**What:** The owner-approved Órbita prototype is frozen into the design contract. The design gate (`check-design-gate.mjs`) is READY.
+- The prototype is at `docs/design/prototype/` and renders from a privacy-safe fixture factory, because this repository is public.
+- Tokens are regenerated in `design-tokens.json`, with Space Grotesk, Inter and JetBrains Mono self-hosted.
+- The contract docs are `DESIGN.md` (FROZEN), `design-decisions.md` (with the DR-064 functional reconciliation), `components.md` (with the AppShell nav contract), `fidelity-checklist.md` and `technical-assumptions.md`, plus `microcopy.es.json` (1,425 keyed strings).
+- The measured references are `prototype/reference/` (computed styles for 146 components, the split CSS, 159 oracle states with build recipes, and 65 icons).
+- The 21 UI FRDs are amended: 79 new ACs, items out of v2 marked in place, and contradictions aligned. Each FRD has an FDD whose rows cite its captured states (FDD ↔ oracle coverage: COVERED) and per-FRD mocks.
+
+Owner decisions taken during the freeze (`docs/design/freeze/m1-decisions.md`):
+- Four existing features are drawn and stay in scope: the pending-merges pill, the last-green-commit panel, the global accounts view, and 12 safety states.
+- The dependency map follows the prototype layouts; the data-model canvas keeps the app's engine and is compared by styles only.
+- The brand mark stays a raster exception.
+- A theme button is drawn.
+
+Run record: `docs/design/freeze/tracker.md`. One independent audit raised 18 blockers, all fixed. 24 non-blocking items went to `.pandacorp/comms/visual-punch-list.md` for the end-of-build Visual QA. The freeze ran far over its 2 h time box (outcome: shipped with backlog).
+
+**Why:** A frozen, measurable contract stops a build from drifting from an approved design, as the first Mission Control build did. Next step: the v2 milestone through `/pandacorp:change`, which plans the FRD changes and work orders against this contract.
+
 ## 2026-10-21 — Scope decisions for the Órbita v2 (owner)
 
 **What:** The owner accepted all four recommendations:

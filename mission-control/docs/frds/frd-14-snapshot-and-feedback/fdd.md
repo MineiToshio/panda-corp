@@ -1,71 +1,82 @@
-# FDD-14 — Probable snapshot and feedback channels
+---
+id: FDD-14
+type: fdd
+slug: snapshot-and-feedback
+title: Último commit en verde (snapshot panel)
+status: ACTIVE
+parent: FRD-14
+last_updated: '2026-10-22'
+prototype_blessed_at: ''
+---
 
-> Scoped feature design on the **frozen visual contract** (`docs/design/design-tokens.json` + root
-> `DESIGN.md`, extracted from the owner-approved prototype under DR-054). This FDD describes only the
-> FRD-14 surfaces; the cross-cutting token/a11y layer is FRD-13's FDD. No new tokens are introduced.
+# FDD — FRD-14 Último commit en verde (snapshot panel)
 
-- **Visual source:** `docs/design/prototype/index.html`.
-  - Snapshot panel render fn: **`snapshotPanel(i)`** (~L867).
-  - Staleness panel render fn: **`bStalenessPanel(i)`** (~L876).
-  - Per-project rail chips (decisions/bugs/rethink): **`portfolioView()`** `dchip` / `bchip` / rethink
-    (~L854–858).
-  - "Building now" + progress: `projResumen(i)` / `progressBar(i)` (~L906/~L924).
-  - Shared style: `.panel`, `.chip`, `.cmd` and the app-wide `rpgSkin` panel override.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Feature design on the frozen Órbita contract (`docs/design/design-tokens.json` + root `DESIGN.md`). It uses the global tokens and components; it defines none. Frozen FROM the approved prototype `docs/design/prototype/index.html` (Órbita, round 5), shard `mocks/snapshot-and-feedback.html`.
 
-> **Re-anchor note (2026-06-19):** the snapshot copy is now the **clear** wording — **"Último commit en
-> verde · seguro para probar"** (the last build commit that passed ALL gates), replacing the old/confusing
-> "punto verde / punto probable". The staleness case is its own panel (`bStalenessPanel`).
+FRD-14 draws one surface: the **snapshot panel**, a card in the project **Resumen** directly below La Fragua (FRD-06), shown only while a build runs and a green commit exists. The three captured states render the whole Resumen of Funko Tracker, because the panel mounts inside it; the hero, La Fragua, "Avance por FRD", "Decisiones", "Tu turno" and "Últimos avances" blocks around the panel belong to FRD-04 and FRD-06 and are specified there. The rail chips and the `rethink_pending` indicator are out of v2 (owner decision 2026-10-21, AC-14-003.1, AC-14-003.2, AC-14-004.1) and have nothing to build.
 
-## Surfaces (this FRD)
+## Screens
 
-### A. Snapshot panel (CMP-14-snapshot-panel) — `snapshotPanel(i)` (~L867)
-- **Layout:** a `.panel` (frozen `rpgSkin` embossed panel) with a left status icon (`ti-circle-check`,
-  `--ok`) + body. Body line 1: **"Último commit en verde · seguro para probar"** + a green chip with the
-  FRD (`ok-bg`/`ok`). Line 2 (muted, `text3`): `commit <sha> — pasó todos los gates. Pruébalo en un
-  worktree aparte sin parar el build.` SHA rendered with `tabular-nums`.
-- **"Building now" block** (when `running`): a visually-distinct line with a hammer icon (`--accent`):
-  *"El build sigue avanzando: `<progreso>` · eso aún no está en verde, no lo pruebes"* — distinct from
-  the last-green commit (REQ-14-002). The two are never conflated.
-- **Command row:** the `git worktree add …` command in a `.cmd` row + `CopyButton` ("crea un worktree de
-  prueba en esa carpeta"). Read-only — Mission Control never runs it (Non-goal).
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Snapshot panel in the project Resumen | Say which build commit is safe to test in a separate worktree while the build continues, tell "building now" apart from it, and give the command to copy. Route `#portfolio?project=funko-tracker`, panel root `#snapshot-panel`. | `project-snapshot` | AC-14-001.1, AC-14-001.2, AC-14-001.3 |
 
-### A2. Staleness panel (CMP-14-staleness) — `bStalenessPanel(i)` (~L876)
-- **Layout:** a separate `.panel` with `border-color:var(--warn)`, a left `ti-clock-exclamation`
-  (`--warn`) icon, the heading **"El último commit en verde quedó atrás del build"** and a `text2`
-  detail: "El último commit en verde (`<ultimoVerde>`) quedó `<adelanto>`. Lo que pruebes ahí ya no
-  refleja lo que el build lleva construido." (REQ-14-003) — warn meaning carried by **icon + text**, not
-  color alone. Rendered only when `i.staleness` is present.
+What the panel draws, top to bottom, in `project-snapshot`:
 
-### B. Per-project status chips (CMP-14-status-chips)
-- On each portfolio-rail row: an **amber** chip with `pendingDecisions` and a **red** chip with
-  `pendingBugs` (from `status.yaml`), plus a `rethink pendiente` indicator when `rethinkPending`. Each
-  chip carries its count (`tabular-nums`) + a Spanish label/title — never color alone.
-
-## Components mapped to shared primitives
-| Surface | Primitive | Notes |
-|---|---|---|
-| Snapshot panel container | `Panel` (`.panel` / `rpgSkin` embossed) | frozen app-wide skin — no bespoke panel |
-| Green chip + staleness | `StateBadge` idiom (icon+shape+label) | reinforce ok/warn by icon, not color alone |
-| Staleness panel | `Panel` (warn-border) / shared `Banner` idiom | icon + text warning, not color alone |
-| Command row + copy | `CmdRow` + `CopyButton` (`src/components/core/CopyButton/CopyButton.tsx`) | read-only command surface |
-| Rail decisions/bugs/rethink | `StatusChips` / `CountBadge` (`src/app/portfolio/_components/status-chips/status-chips.tsx`) | counts with `tabular-nums` |
-
-## Cohesion (DR-062)
-Both panels are the one shared **`Panel`** (the staleness one a warn-bordered variant, never a second
-panel type); the green/staleness signals use the shared `StateBadge`/`Chip` idioms and the command row is
-the shared `CmdRow`. These surfaces live inside the project workspace (FDD-04) under its light
-`compactProjectHeader` — they never carry their own heavy title. One panel, one chip, one command-row.
+- **Card header** (the shared `CardHeader`): green check icon tile, the title "Último commit en verde" and, at the right, a status pill. The pill reads "Seguro para probar" (green, check icon): state by icon and text, never colour alone.
+- **Intro line:** "El último commit del build que pasó todos los gates. Puedes probarlo en un worktree aparte mientras el build sigue; no se toca nada de lo que está construyendo." It frames the commit as safe to test in a separate worktree while the build continues, and never as a local-versus-remote matter (AC-14-001.2).
+- **Commit row:** the short SHA as a mono chip (`a41c09e2`), then "verificó WO-07-002 de FRD-07" (the last verified work order and the FRD it belongs to).
+- **Building-now line** (blue, loader icon): a bold "Construyendo ahora:" followed by "el build sigue avanzando. Eso todavía no está en verde: no lo pruebes." It is a separate line from the commit row, so the two facts are never conflated (AC-14-001.3).
+- **Command block:** the lead-in "Para probarlo, córrelo en la carpeta de Funko Tracker:" and the `CommandBox` with `git worktree add /Users/Shared/review-worktrees/funko-tracker a41c09e2` and its copy button (accessible name "Copiar git worktree add /Users/Shared/review-worktrees/funko-tracker a41c09e2"). Mission Control never runs it.
 
 ## States
-- **Populated:** probable point + (optionally) building-now + (optionally) staleness warning.
-- **No snapshot** (`last_green_sha` absent / `snapshot === null`): the **panel is omitted entirely**
-  (AC-14-001.3) — no empty shell.
-- **Loading:** Server Component reads `status.yaml` in the same navigation — no client loading phase /
-  skeleton (Next.js rule: don't add skeletons for server-delivered UI).
-- **Error:** if `status.yaml` is unreadable/malformed, the snapshot resolves to `null` → panel omitted
-  (fail-safe, never a broken render); the rest of the workspace still renders.
-- **Empty chips:** `StatusChips` returns `null` when all counters are zero — no empty wrapper.
 
-## Visual reference
-`docs/design/prototype/index.html` → `snapshotPanel(i)` (~L867), `bStalenessPanel(i)` (~L876) + the rail
-chips in `portfolioView()` (~L854–858), on the frozen tokens. See `mocks/README.md`.
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Green commit, build live (default) | The panel exactly as described above: green pill "Seguro para probar", the commit row, the blue building-now line and the command. The build is live (fresh supervisor heartbeat), so the hero chip reads "Construyendo". | `project-snapshot` | AC-14-001.1, AC-14-001.2, AC-14-001.3 |
+| Green commit far behind the build | The header pill becomes "Quedó atrás del build" (amber, alert icon). An amber notice (`role="status"`, alert icon) is inserted between the building-now line and the command: bold "Este commit quedó atrás del build" and "El build lleva 14 commits y 26 horas más. Lo que pruebes ahí ya no refleja lo que el build construyó desde entonces." The commit row, the building-now line and the command stay. The commits and hours come from comparing `last_green_sha` with the build's HEAD. | `project-snapshot-stale` | AC-14-002.1 |
+| Build claims to run but has no signal | The building-now line is replaced by a coral line with the alert icon: "El build dice estar corriendo, pero no hay señal del supervisor desde hace 25 min. Revisa si sigue vivo antes de fiarte de ese estado." The pill, the commit row and the command stay. The same capture shows the hero chip "Sin señal · último evento hace 25 min" in place of "Construyendo" and the La Fragua health chip "Sin señal" (those two are drawn by FRD-04 and FRD-06 on the same screen). The `running` flag is never dressed up as a live build (DR-066: live means running and a fresh heartbeat, 10 min TTL). | `build-no-signal` | AC-14-002.2 |
+
+Data cases the oracle does not capture reuse what is drawn, they do not get a new design:
+
+- No build running, or no `last_green_sha`: the panel is not rendered (an absence, AC-14-001.1).
+- `safe_to_test` false: the header pill uses the amber alert variant that `project-snapshot-stale` draws, with its own verdict text.
+- A work order in progress: the building-now line names it in the same slot.
+
+## Components used
+
+From `docs/design/components.md`: `SnapshotPanel` (new, root `#snapshot-panel`, states default and stale; the no-signal variant swaps its building-now line), `Card` and `CardHeader` (icon tile, display title, pill), `Chip` (the SHA chip and the status pill), `Notice` (the amber behind-the-build notice and the coral no-signal line), `CommandBox` (the worktree command with copy). The frame around it is `AppShell` (FRD-19) and the Resumen is FRD-04's. No new component beyond `SnapshotPanel`, which the inventory already lists as planned for this state.
+
+## Interaction & flow
+
+1. The owner opens Portafolio, picks a project with a running build, and lands on its Resumen. The panel sits below La Fragua.
+2. They read the verdict pill, check whether "Construyendo ahora" or the no-signal line is shown, and, if the commit is safe, copy the command with the copy button and run it in the Funko Tracker folder.
+3. The panel is read-only: it reads `last_green_sha` and `safe_to_test` from `.pandacorp/status.yaml` and the heartbeat, and never runs `git worktree` or starts a server.
+4. The staleness notice and the no-signal line appear on their own when the data says so; nothing is dismissible or nagging.
+
+Behaviour with no picture of its own (non-visual rules):
+
+- The documentation explains the three feedback channels to a running build, `/pandacorp:bug`, `/pandacorp:iterate` and `/pandacorp:decide`, all via files picked up at the next safe point (AC-14-003.3, AC-14-005.1). That content lives in the Documentación pages (FRD-08); this FRD adds no screen for it.
+
+## Responsive & accessibility
+
+- Captured at 375, 768 and 1280, light and dark. The panel is one column at every width; the `CommandBox` keeps its 36 px copy icon button (the shared component's size) and wraps only at ":" and spaces.
+- The pill and the lines carry meaning by icon and text, not colour alone (check, alert, loader). The behind-the-build notice has `role="status"`, so it is announced when it appears.
+- The copy button has the accessible name "Copiar <command>". The panel heading is an `h2` in the Resumen's heading order.
+
+## Copy
+
+All strings above are the prototype's, in Spanish. Command, path and file names stay literal. The panel never uses the old "punto verde" term. Keyed strings are in `docs/design/microcopy.es.json`.
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar). Component catalogue `docs/design/prototype/components.html`; measured styles `docs/design/prototype/reference/computed-styles.json`; icons `docs/design/prototype/icons/`; copy `docs/design/microcopy.es.json`; whole-app prototype `docs/design/prototype/index.html`.
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-14-snapshot-and-feedback/mocks/snapshot-and-feedback.html` (sections `project-snapshot`, `project-snapshot-stale`, `build-no-signal`); screenshots in `mocks/screenshots/` named `<id>-<width>-<theme>.jpg` at 375, 768 and 1280, light and dark.
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#portfolio?project=funko-tracker`; `project-snapshot-stale` after `applyScenario('snapshot-stale')`, `build-no-signal` after `applyScenario('build-no-signal')`.
+- **Oracle entries (`fidelity.config.json` states of `frd-14-snapshot-and-feedback`):** `project-snapshot`, `project-snapshot-stale`, `build-no-signal`.
+- **Reference files:** `docs/design/freeze/packs/frd-14.md`, `docs/design/freeze/reconciliation.md`, `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
+- **components.md rows:** `SnapshotPanel`, `Card`/`CardHeader`, `Chip` family, `EmptyState`/`Notice`, `CommandBox`, `AppShell`.

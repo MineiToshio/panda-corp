@@ -1,12 +1,7 @@
-# Mocks — FRD-14 (Probable snapshot and feedback channels)
+# frd-14-snapshot-and-feedback · design mocks
 
-- **Visual source:** `docs/design/prototype/index.html` — the **snapshot panel + status-chips** slice
-  of the project workspace, NOT the whole app:
-  - `snapshotPanel(i)` (lines ~781–786) — last probable point, green badge, "building now" notice,
-    `git worktree add` command row.
-  - `portfolioView()` rail chips `dchip` / `bchip` (lines ~774–776) — pending decisions (amber) /
-    bugs (red) per project.
-  - Shared style: `.panel` (app-wide `rpgSkin` embossed panel override), `.chip`, `.cmd`.
-- **Scope:** only this FRD's screens (the snapshot panel + its rail chips). Never the whole prototype.
-- All visual values come from the frozen `docs/design/design-tokens.json`; this README points at the
-  banner/panel view of the prototype as the fidelity reference. The scoped design is in `../fdd.md`.
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
+
+- `snapshot-and-feedback.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

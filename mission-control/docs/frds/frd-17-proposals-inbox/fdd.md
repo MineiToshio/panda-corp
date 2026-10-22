@@ -1,135 +1,98 @@
 ---
 id: FDD-17
 type: fdd
-title: FDD-17 — Proposals inbox (self-learning gate + self-suggestion) (feature design)
-parent: frds/frd-17-proposals-inbox/frd.md
-ui: true
-visual_source: docs/design/prototype/index.html
-mock: docs/design/prototype/index.html
+slug: proposals-inbox
+title: Propuestas (to-do, memory and signals)
 status: ACTIVE
-last_updated: '2026-06-19'
+parent: FRD-17
+last_updated: '2026-10-22'
+prototype_blessed_at: ''
 ---
-# FDD-17 — Proposals inbox (feature design)
 
-The feature's design **on the frozen tokens** (`docs/design/design-tokens.json`, root `DESIGN.md`),
-sharded from the owner-approved whole-app prototype. **Fidelity, not novelty.**
+# FDD — FRD-17 Propuestas
 
-> **Re-anchor note (2026-06-19):** the Proposals inbox is now a **canonical, dedicated screen in the
-> prototype** — render fn **`propuestasView()`** (~L1404), reached from the top-bar tab **`tabProp()`**
-> (~L652) with an open-count badge. Earlier editions of this FDD said "the prototype does not yet draw
-> this screen and must be assembled from primitives" — that is **superseded**: the screen exists and is
-> frozen here. The cards (`bPropCard`, ~L1394), groups (`bPropGroup`, ~L1401), proposal data
-> (`BPROPOSALS`, ~L1372) and the memory-health block (inside `propuestasView`, ~L1408) are the contract.
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Feature design on the frozen Órbita contract (`docs/design/design-tokens.json` + root `DESIGN.md`). It uses the global tokens and components; it defines none. Frozen FROM the approved prototype `docs/design/prototype/index.html` (Órbita, round 5, iteration 28), shard `mocks/proposals-inbox.html`.
 
-## 1. Layout
+"Propuestas" is a sidebar destination (FRD-19) and the owner's to-do for the factory itself: what needs a decision, in order, with the exact command and where to run it. The page has three tabs, Resumen (default), Memoria and Backlog; this FDD covers Resumen and Memoria and the lesson dialog. The Backlog tab is FRD-22's (its captured state is `backlog` in that FRD). The page title block is the shared `PageHead`: the eyebrow "Captura de la fábrica · 20 oct. 2026, 7:20 p. m." (prototype capture stamp, not product copy), the `h1` "Propuestas" (equal to the nav label) and the subtitle "Lo que la fábrica aprendió construyendo y lo que hay que arreglar en ella misma. Aquí ves qué te toca y qué comando correr." The tab strip is the shared `Tabs`: "Resumen", "Memoria" with the count pill 16 and "Backlog" with 11, each with its icon, the selected one with the underline.
 
-A single **`pageHead`** light title block ("Propuestas") with a `tail` open-count pill, then a read-only
-note, then two stacked regions — **Salud de la memoria** first, then the **proposal groups**:
+Mission Control only shows. It never harvests, promotes, prunes or runs a skill; every action is a command to copy and run in Claude Code.
 
-- **Entry points (AC):** a **top-bar tab** `Propuestas` with an open-count badge (`tabProp`, ~L652) and
-  a **per-project rail chip** in the portfolio rail (FRD-14 cluster). Both open this view.
-- **Page title:** `pageHead("ti-mail-opened","Propuestas", <subtitle>, <open-count tail>)` — the one
-  canonical light title block (icon + H1 = nav label "Propuestas" + subtitle), **not** a heavy hero.
-- Mobile: single column throughout; the tab badge and rail chip wrap with the existing clusters. Touch
-  targets ≥44px.
+## Screens
 
-## 2. Memory-health panel (`MemoryHealthPanel`)
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Propuestas · Resumen | The ordered to-do of what needs the owner, two summary cards and the automatic signals. Route `#propuestas`. | `proposals-summary` | AC-17-011.1, AC-17-011.2, AC-17-011.3, AC-17-001.2 |
+| Propuestas · Memoria | How a lesson advances, the lessons that wait for the owner, and the candidates. Route `#propuestas?tab=Memoria`. | `proposals-memory` | AC-17-011.4, AC-17-001.1, AC-17-001.2, AC-17-001.3, AC-17-010.1, AC-17-010.2, AC-17-010.3, AC-17-010.4 |
+| Lesson detail dialog | The formatted detail of one lesson with its promotion command. Opened from a lesson row in Memoria. | `proposals-lesson-dialog` | AC-17-006.7 and the lesson-detail rule |
 
-A **`SectionHead`** ("Salud de la memoria") over a responsive `dStat` grid of `tabular-nums` counters
-(`MEM`, ~L352): **Notas sin refinar · Lecciones candidatas · Última cosecha (hace {n}d) · Promociones a
-aprobar** (warn-accented when stale / non-zero). If the backlog is large or `/pandacorp:memory` has not
-run in a while, a **staleness nudge** appears (`/pandacorp:memory harvest` copy-chip) using the shared
-**`Banner`** staleness pattern — a reminder, not a red alert. This panel doubles as the on-demand
-refine-trigger surface.
+**Resumen** (`proposals-summary`), top to bottom:
 
-## 3. The four proposal-kind groups (`bPropGroup` + `bPropCard`)
+- **"Qué te toca, en orden"** card: header with the target icon tile, the title, the sentence "4 cosas necesitan tu decisión. Copia el comando, pégalo en Claude Code y vuelve." and the pill "4 para ti". It holds an ordered list of only the actions that need the owner. Each action is a tinted block with its number, a kind label with icon, a bold title, the reason in plain words, a `CommandBox` with copy, where to run it, and a link button at the right:
+  1. **Urgente** (coral, alert icon): "2 problemas urgentes en la fábrica", the P0 reason, `/pandacorp:implement-backlog BL-0001`, "Córrelo en la carpeta de la fábrica", link "Ver el backlog".
+  2. **Decidir** (green, rocket icon): "16 lecciones esperan tu sí o no", `/pandacorp:learn LESSON-0001`, the hint "Córrelo en la carpeta de la fábrica · cambia el número por la lección que elijas", link "Ver las lecciones".
+  3. **Importante** (amber, list icon): "4 arreglos importantes en cola", `/pandacorp:implement-backlog BL-0004`, hint "Córrelo en la carpeta de la fábrica · el primero de la lista", link "Ver los P1".
+  4. **Ideas** (blue, bulb icon): "5 ideas descubiertas esperan decisión", `/pandacorp:recommend`, link "Ver el tablero".
+  - Below the list, a calm strip with a check icon: "La memoria se revisa sola." and "La rutina diaria cosechó y revisó por última vez el 20 oct. 2026. No necesitas hacer nada." Memory upkeep reads this way while the daily routine is current.
+- Two cards side by side, ending at the same height: **"Memoria de la fábrica"** ("Lo que aprendió construyendo tus proyectos.", the figures "Reglas activas" 12, "Esperan tu decisión" 16, "Candidatas" 24 with "se corroboran solas", link "Ver cómo avanza una lección") and **"Backlog de la fábrica"** ("Fallos y mejoras de la propia fábrica (motor, plantillas, skills), no de tus proyectos.", the figures "Urgentes · P0" 2, "Importantes · P1" 4, "Cuando haya tiempo · P2" 3, "1 ítem ya está en curso.", link "Ver el backlog por tema").
+- **"Señales automáticas"** card with the count pill 42 and the sentence "Avisos que la fábrica genera sola. Ya están incluidos arriba cuando piden algo de ti." Signals are grouped by kind into four expander rows, each with an icon, title and count pill, collapsed in the capture: "Columnas del tablero con muchas ideas" (2), "Lecciones vistas en 2 proyectos" (12), "Skills sin uso registrado" (27) and "Otras" (1). A row opens to its explanation and its items (for example the 12 lessons each with its own `/pandacorp:learn LESSON-NNNN` and copy). The unused-skills row, which flags 27 of 27 skills, opens with the marker "Señal poco fiable:" and says it only reads the last 200 usage entries and asks for no action (AC-17-011.3).
+- The Propuestas sidebar item carries the count 4, the owner's actions, not the 42 + 16 + 24 items behind them (AC-17-011.2). Its accessible name is "4 cosas esperan tu decisión".
 
-The stream is **four `SectionHead` groups**, ordered and adjacency-grouped per the prototype:
-1. **Lecciones candidatas** (`bulb`, accent) — eval-gate state line ("esperando 2ª aparición" /
-   "corroborada — activa", DR-047);
-2. **Lecciones obsoletas / para podar** (`trash`, muted) — **placed adjacent to candidates** because
-   both share `/pandacorp:memory`;
-3. **Promociones esperando tu aprobación** (`arrow-up-right`, tier-4) — each with a **target** chip
-   (estándar / regla de decisión);
-4. **Auto-sugerencias de Mission Control** (`sparkles`, info) — bottleneck / velocity / unused-capability
-   / shipped-review nudges, each with its computed metric as evidence.
+**Memoria** (`proposals-memory`), top to bottom:
 
-**The activating command is GROUP-level, not per item (`bPropGroup` `groupCmd`, ~L1401).** When a whole
-group shares one skill (candidates + prune both run `/pandacorp:memory`), the command shows **once under
-the group title** ("Para revisar/activar toda esta lista, corre: …") and the individual cards carry **no
-command**. Only when a group's items each have a distinct command (promotions → each its own
-`/pandacorp:learn …`; auto-suggestions → `/pandacorp:decide` / `/pandacorp:review-launch`) does the
-command move onto the card (`withCmd`).
+- **"Cómo avanza una lección"** card: "Cada build deja notas; la fábrica las convierte en lecciones y, cuando una se confirma en varios proyectos, te pide decidir si se vuelve regla para todos." Four tiles joined by arrows say who moves each step: 65 "Notas sin refinar" ("de los proyectos") → "rutina diaria" → 24 "Candidatas" ("esperan confirmarse") → "2+ proyectos" → 16 "Esperan tu decisión" ("sí o no") → "tú decides" → 12 "Reglas activas" ("para todos los proyectos"). Under them: "Última revisión automática: 20 oct. 2026 · al día. Ninguna lección obsoleta." (AC-17-011.4). There is no prune list in v2; the prune group is out of v2 by owner decision.
+- **"Esperan tu decisión"** card (pill 16, first of the lesson groups): "Abre una, lee qué propone y, si te convence, copia su comando. `/pandacorp:learn` la convierte en estándar, regla o skill; si no, la dejas como está." Lesson rows are buttons: tinted icon tile, the lesson's title (its `context`, in its source language, English), "LESSON-0001 · javascript · funko-tracker, pandasaga", and a type chip at the right ("Trampa" pink, "Patrón" blue, "Problema→solución" violet). A second block under the uppercase label "Recién detectadas en 2 proyectos" lists lessons with the green chip "Nueva" and each one's own command, for example `/pandacorp:learn LESSON-0001`, with a copy button. Per-item commands differ (the lesson id), so each row shows its own (AC-17-001.2).
+- **"Candidatas"** card (pill 24): a collapsed expander with the right-hand text "No piden nada" and a chevron. Opened, it says "Se confirman solas cuando vuelven a aparecer en otro proyecto." and lists lesson rows (type chips include "Antipatrón") with no command, then the full-width dashed bar "Mostrar 14 más · quedan 14" (AC-17-010.1, AC-17-010.4). Candidates defer to the daily routine, so no row carries a command (AC-17-001.1: a command shared by a whole group would appear once under the group title; the candidates group has none).
 
-### The proposal card (`bPropCard`, ~L1394) — one card, four kinds
-A clean **`rpgpanel` card**: a 32px `itemslot` icon in the kind color, then a header row with the
-`LESSON-NNNN` id (`mono`), an optional **eval-gate chip** (ok/warn by state) or **target chip** (accent),
-the **title** (plain language), and an evidence line ("Capturada en … · (agent-inferred/owner-stated)")
-with a file-search icon. **It is just title + evidence (+ command only when the group doesn't carry
-one)** — no per-item action clutter. State is conveyed by **icon + text**, never color alone.
+**Lesson dialog** (`proposals-lesson-dialog`, a native `dialog`, captured at 375 and 1280): a tinted head with the uppercase kicker "Lección · Trampa", the title "LESSON-0001" and a close button "Cerrar". The body: chips "Trampa", "javascript", "Promoción: propuesta" and "Corroborada"; the lesson's context as a bold sentence; the retrieval trigger in a blue box with a target icon ("use this when returning a constant array of objects from a module"); the sectioned body with bold labels "Situation:", "Lesson:" and "Apply next time:" (source language); the line "Aplicada en: funko-tracker, pandasaga"; and "Promoverla a estándar, regla o skill:" with the `CommandBox` `/pandacorp:learn LESSON-0001` and copy.
 
-## 4. Components used (all on the frozen tokens / PDD)
+## States
 
-| On screen | Component (see `docs/design/components.md`) | Notes |
-|---|---|---|
-| Page title | `PageTitle` (`pageHead`) | icon + H1 "Propuestas" + subtitle + open-count tail |
-| Top-bar open-count badge | `ProposalsBadge` (`tabProp`) | tab with count pill |
-| Per-project rail chip | `ProposalsChip` | portfolio rail, beside pending/bugs (FRD-14) |
-| Memory-health counters + nudge | `MemoryHealthPanel` | 3+ `tabular-nums` `dStat` counters + shared-`Banner` staleness nudge |
-| Section header w/ count | `SectionHead` (`secthead`) | the four kind groups + the health header |
-| Proposal group (group-level command) | `ProposalStream` (`bPropGroup`) | one `CmdRow` under the title when the group shares a skill |
-| Proposal card (4 kinds) | `ProposalCard` (`bPropCard`) | `rpgpanel` + itemslot icon + id + eval-gate/target chip + evidence |
-| Eval-gate / target chip | `Chip` presets | candidate corroboration state / promotion target — icon+text |
-| Copy-command chip | `CmdRow` (`cmdRow`) | group-level or per-card; copy only — MC never runs it |
+| State | How it looks | Oracle state | ACs |
+|---|---|---|---|
+| Resumen with the owner's four actions | As described: ordered blocks, calm "La memoria se revisa sola." strip, signals collapsed. | `proposals-summary` | AC-17-011.1, AC-17-011.2, AC-17-011.3 |
+| Unreliable signal | The unused-skills row carries "Señal poco fiable:" because it flags 27 of 27 skills. | `proposals-summary` | AC-17-011.3 |
+| Memoria at rest | Flow card, "Esperan tu decisión" open with its rows, "Candidatas" collapsed under "No piden nada". | `proposals-memory` | AC-17-011.4, AC-17-001.3 |
+| Candidatas opened, long list | Rows plus the dashed bar "Mostrar 14 más · quedan 14"; activating it adds the next page in place. | `proposals-memory` | AC-17-010.1, AC-17-010.2, AC-17-010.4 |
+| Lesson dialog open | Pink-tinted head for a Trampa, body and command as above, page dimmed and blurred behind. | `proposals-lesson-dialog` | AC-17-006.7 |
 
-The inbox is an **assembly** of PDD primitives — no new visual language. Surfaces: `panel`/`rpgpanel`,
-`chip`, `button`, the `pixel`/`mono` families, the 3 elevation shadows, the `2px accent` focus ring.
+Behaviour with no separate picture:
 
-## 5. Cohesion (DR-062)
-- **Page title** — the one light `PageTitle` block (`pageHead`), not a heavy `gxHero` panel (earlier
-  editions used `gxHero`; the canonical inbox uses the light title to match every other top-level view).
-- **Section header** — every group divider is the one `SectionHead` (`secthead`).
-- **Chip / panel / command-row** — eval-gate/target chips are shared `Chip` presets; cards are the
-  shared `rpgpanel`; commands are the shared `CmdRow`; the staleness nudge is the shared `Banner`. No
-  bespoke pill, header, panel or banner on this surface.
+- A short list shows no bar and every card renders (AC-17-010.3). The bar adds the next page in place, with no fetch and no way to collapse back (AC-17-010.2).
+- The page order of the lesson groups is "Esperan tu decisión", then the collapsed "Candidatas" (AC-17-001.3, AC-17-011.4).
+- Self-suggestions (the automatic signals) are computed locally from files and events already read, with no Claude call. They have no markdown body, so they are not clickable.
+- High-risk proposals are only displayed; approval is the owner running the skill (DR-047).
+- Out of v2 by owner decision 2026-10-21, nothing to build: the dismiss affordance and remembered dismissal, the per-stream explainers, the prune list, the harvest-orphans banner, the staleness nudge on the memory panel, the portfolio-rail chip, the "Crónica del gremio" alias, and lesson rejection.
 
-## 6. Designed states (empty / loading / error)
-- **Empty (the good state)** — no open proposals: the groups collapse to nothing (`bPropGroup` returns
-  empty for an empty array) and the tab badge hides its count (no zero-badge nag); the memory-health
-  panel still shows its counters. (The implementation should render a calm "El gremio está al día — sin
-  propuestas pendientes." line so the page is never blank.)
-- **Loading** — counts and proposals are computed **locally from files MC already reads** (no Claude
-  calls); server-rendered in the same navigation, no fake client skeleton.
-- **Error** — an unreadable `factory/memory/` entry or events tail degrades that stream to empty (danger
-  icon + a one-line note naming the source), never a crash; the other streams still render.
+## Components used
 
-## 7. Demo-only controls (DR-061)
-The proposal stream is **read-only**: every "action" is a copy-command chip (group-level or per-card)
-plus a real dismiss — no control pretends to mutate the factory, so the cards need **no `SOLO DEMO`
-block**. The **only** demo affordance is the memory-health **staleness nudge**, which in the prototype is
-wrapped in a `bDemo` block (~L1408) noting "En la app real el aviso de staleness lo decide el tamaño del
-backlog + días desde la última corrida de /pandacorp:memory" — on implementation that demo framing is
-kept around the *simulated* staleness trigger only; the real counts and last-run timestamp are **real
-read-only data**, surfaced in the counters, not inside a demo block.
+From `docs/design/components.md`: `PageHead`, `Tabs`, `Card` and `CardHeader` (tinted icon tile, one-size title, same-hue count pill), `CommandBox` (and the compact form in list rows), `Chip` family and `CountPill`, lesson type chips (Trampa pink, Memoria teal family), `MoreBar` ("Mostrar más", full-width dashed bar, the one shared component of memory, backlog, rules, trophies and transitions), `Dialog` (native `dialog`, tinted sticky head with the kicker, display title, close, body) with the sectioned markdown body, `Notice`, the sidebar `NavItem` count (FRD-19). The Resumen action blocks and the flow tiles are Propuestas-specific compositions of those primitives; register them in the inventory if they repeat elsewhere.
 
-## 8. Accessibility & motion
-- State by **icon + text** in addition to color — proposal kind, candidate-vs-active eval-gate, the
-  promotion target and high-risk flag all carry a label/icon, never the chip color alone (DR-047 wants
-  the owner to *see* why something is pending). `tabular-nums` on every counter/timestamp.
-- Honest framing (no streaks, no false urgency, dismissible) is an accessibility-of-attention property.
-  The `anim` entrance is `transform`/`opacity` only and honors `prefers-reduced-motion`. Focus ring
-  `2px solid {accent.accent}`; cards, dismiss and copy chips are keyboard-reachable with accessible
-  labels. WCAG AA contrast on both themes; one `<h1>` in the app shell, the page/section titles are
-  sub-headings.
+## Interaction & flow
 
-## Traceability
-Maps `frd.md` ACs → this design: **top-bar badge + per-project chip** → §1, §4; **four proposal kinds,
-group-level activating command** → §3; **candidate vs active + eval-gate state visible** → §3;
-**evidence/source + suggested action + exact command, copy-only** → §3, §7; **memory-health panel +
-staleness nudge + refine trigger** → §2; **self-suggestions computed locally, no Claude** → §3, §6;
-**honest & dismissible (White-Hat)** → §3, §7, §8. Visual provenance: `propuestasView()`,
-`bPropGroup`/`bPropCard`, `BPROPOSALS`, `MEM` and `tabProp` in `docs/design/prototype/index.html`.
+1. The owner opens Propuestas and lands on Resumen. They read the four blocks top to bottom, copy the command of the first one, run it in the factory folder and come back.
+2. "Ver las lecciones" and the other link buttons move to the matching tab or screen (Memoria, Backlog, Tablero); tab and filter state live in the URL (FRD-25).
+3. In Memoria they open a lesson (a real `<button>`, accessible name naming the lesson), read the formatted detail, copy `/pandacorp:learn LESSON-NNNN` from the dialog or from the row, and run it in the factory folder. Escape or the close button returns focus to the row.
+4. Opening "Candidatas" shows candidates that confirm themselves when they reappear in another project; nothing is asked of the owner.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Responsive & accessibility
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+- Captured at 375, 768 and 1280, light and dark; the dialog at 375 and 1280, viewport capture. At 768 the two summary cards are already stacked, one per row; at 375 the four flow tiles stack vertically and the arrows point down with their captions ("rutina diaria", "2+ proyectos", "tú decides"); commands wrap only at ":" and spaces.
+- Every action block states its kind by label and icon, not colour alone; counts are text. The lesson rows are buttons with an accessible name; the dialog moves focus in, traps Tab, closes on Escape and returns focus to its opener.
+- Lesson titles and bodies keep their source language (English) inside the Spanish interface.
+
+## Copy
+
+Interface strings are the prototype's, Spanish; lesson ids, commands and file names stay literal. Keyed strings are in `docs/design/microcopy.es.json`. No streaks, no false urgency, no nagging (White-Hat, FRD-09).
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar). Component catalogue `docs/design/prototype/components.html`; measured styles `docs/design/prototype/reference/computed-styles.json`; icons `docs/design/prototype/icons/`; copy `docs/design/microcopy.es.json`; whole-app prototype `docs/design/prototype/index.html`.
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-17-proposals-inbox/mocks/proposals-inbox.html` (sections `proposals-summary`, `proposals-memory`, `proposals-lesson-dialog`); screenshots in `mocks/screenshots/` as `<id>-<width>-<theme>.jpg` at 375, 768 and 1280 (the dialog at 375 and 1280), light and dark.
+- **Binding comparison URLs:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#propuestas`, `…#propuestas?tab=Memoria`, and the dialog after clicking the first `[data-lesson]` on Memoria.
+- **Oracle entries (`fidelity.config.json`, `frd-17-proposals-inbox`):** `proposals-summary`, `proposals-memory`, `proposals-lesson-dialog`.
+- **Reference files:** `docs/design/freeze/packs/frd-17.md`, `docs/design/freeze/reconciliation.md` (C-17), `docs/design/freeze/m1-decisions.md`, root `DESIGN.md`.
+- **components.md rows:** `PageHead`, `Tabs`, `Card`/`CardHeader`, `CommandBox`, `Chip` family, `MoreBar`, `Dialog`, `NavItem`, `AppShell`.

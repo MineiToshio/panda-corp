@@ -1,88 +1,89 @@
 ---
 id: FDD-05
 type: fdd
-title: FDD-05 — Work orders (live view) feature design
-parent: frds/frd-05-work-orders/frd.md
+slug: work-orders-live-view
+title: FDD-05 — Work orders (live view, feature design)
+status: ACTIVE
+parent: FRD-05
 ui: true
 visual_source: docs/design/prototype/index.html
-status: ACTIVE
-last_updated: '2026-06-19'
+last_updated: '2026-10-22'
+prototype_blessed_at: '409a0564'
 ---
-# FDD-05 — Work orders (live view) feature design
 
-The feature's design **on the frozen tokens** (`docs/design/design-tokens.json`, root `DESIGN.md`),
-sharded from the owner-approved whole-app prototype. **Fidelity, not novelty**: this describes the
-work-orders kanban exactly as the prototype renders it, mapped to the frozen design system and to
-FRD-05's acceptance criteria.
+# FDD — FRD-05 Work orders (live view)
 
-- **Visual source:** `docs/design/prototype/index.html` — render function **`projWO()`** (the kanban
-  board **and** the single-work-order detail view), with **`woFullDoc()`** (the full-document markdown)
-  and **`frdChip()`**. It renders inside the project workspace's "Work orders" subtab (FDD-04).
-- The build's visual-fidelity gate captures the baseline from the `portfolio` view of `index.html`
-  with a project selected and the **Work orders** subtab active (see `mocks/README.md`).
+> Source-of-truth hierarchy: `FRD > FDD > design-tokens > blueprint > work order`.
+> Frozen FROM the approved Órbita prototype (round 5, iteration 28). This FDD specifies only what the captured states of this FRD draw (DR-130). It uses the global design system and redefines none of it.
 
-> The design contract (palette, typography, surfaces, the app-wide RPG skin) is the **global PDD** —
-> not redefined here. Every value named below resolves to a token, never a hardcoded literal.
+The work-order views live inside the project's Observabilidad tab (FRD-04 owns the workspace header, the tab bar and the Observabilidad tab itself; FRD-12 owns "Dependencias" and the drift badge). There is no separate work-orders tab. The view switch has Por FRD (default) and Tablero here; Dependencias is FRD-12's view. A work order opens as a drill-in inside the same tab.
 
-## 1. Layout
+The page frame of every state below is the workspace: breadcrumb, compact project header with "Cambiar proyecto", the tab bar with Observabilidad selected. Those belong to FRD-04's states; this FDD describes what appears under the tab bar.
 
-`projWO(i)` has **two states** within the subtab:
+## Screens
 
-### Board state (default)
-- A one-line read-only caption (`var(--text3)`): live state written by the agents, click a card for its
-  summary + FRD.
-- A **horizontal-scroll** row of equal-width **columns** (`.col`, fixed `224px`, `gap 8px`,
-  `overflow-x:auto`). Columns, in order: **To do · In progress · Review/Testing · Fail · Done**
-  (`WLBL`). Each column has a small header with its label + a `var(--text3)` count.
-- Each **work-order card** (`.card`): the title (wraps onto several lines — `overflow-wrap:anywhere`)
-  and its **FRD chip** (`frdChip()`, info-bg). A **failed** card is tinted `var(--danger-bg)` /
-  `var(--danger)` border with a leading `ti-alert-triangle`. Empty column → a `—` placeholder.
+| Screen | Purpose | Oracle state | ACs |
+|---|---|---|---|
+| Por FRD, collapsed (default) | The view switch, the "Filtrar por FRD" select, a count ("110 órdenes"), the four state tiles, one "Expandir todo" button and one collapsed row per FRD: FRD code, name, stacked state bar, "n/m" and percentage. | `wo-by-frd` | REQ-05-003, REQ-05-005, AC-05-008.1, AC-05-008.2 |
+| Por FRD, every group open | The same view after "Expandir todo": the button reads "Colapsar todo" and each FRD lists its work-order rows. | `wo-by-frd-expanded` | AC-05-008.2 |
+| Tablero | Columns by state: Planificado, En curso, En revisión, Verificado, each with its count; an empty column collapses to one line "Sin work orders"; a long column ends in the dashed bar "Mostrar N más". Cards show the id, the title and "FRD-NN · N dependencia(s)". | `wo-kanban` | REQ-05-001, REQ-05-003, AC-05-008.1, AC-05-008.3 |
+| Tablero, column open | After "Mostrar N más" the column lists every card and the bar reads "Mostrar menos". | `wo-kanban-expanded` | REQ-05-001, AC-05-008.3 |
+| Work order, Resumen | Drill-in: breadcrumb to the order, hero with the id chip, FRD chip, title and "Volver"; the four-step flow header with the "Ahora:" sentence; the Resumen / Documento completo tabs; then the cards "De qué trata", "Qué cambia", "Cómo se comprueba" (one card per acceptance criterion, EARS keywords marked), "Qué se construyó"; the line "El contenido viene del documento de la work order, escrito en inglés; los títulos son de Mission Control." and the link "Leer el documento completo". Beside them: "Ficha", "Dependencias" and "Construir esta work order". | `wo-detail` | REQ-05-004, REQ-05-005, AC-05-008.4 |
+| Work order, Documento completo | The same hero and flow header, the "Documento completo" tab selected: the document path with its "Copiar documento" button, the folded "Metadatos del documento" and the rendered document sections. | `wo-detail-full` | REQ-05-004 |
 
-### Detail state (a card clicked)
-- A **back** button ("← Work orders").
-- A header `.panel`: the work-order title + its **FRD chip** + a state chip (`WLBL`).
-- A `.stab` switcher: **Resumen** (the WO description) / **Documento completo** (the full work-order
-  markdown via `woFullDoc()` — description, acceptance criteria, scope, definition of done, evidence),
-  rendered in a `.panel` (the doc tab in a `.panel.doc`).
+## States
 
-## 2. Components used (all on the frozen tokens / PDD)
+| State | What the user sees | Oracle state | ACs |
+|---|---|---|---|
+| State tile filter active | `state=review` in the URL: the "En revisión" tile is pressed, the count reads "1 orden", and only the FRD that has an order in that state is listed, with its row open. | `wo-state-filter` | REQ-05-007, AC-05-008.2 |
+| Failed work order, Tablero | A fifth tile "Bloqueado" and a fifth column "Bloqueado", placed after Verificado in this capture, its header in the danger colour with an alert icon; the failed card has a coral fill and border, an alert icon, the id and title in danger colour, "FRD-05 · 1 dependencia" and the blocked reason in quotes. | `wo-failed` | REQ-05-001, REQ-05-002 |
+| Failed work order, Por FRD | With "FRD-05 · Lista para compartir" selected, the FRD row is open and the failed order's row carries the same coral fill and border, an alert icon on its id and the "Bloqueado" state chip. | `wo-failed-row` | REQ-05-002 |
+| Unknown work order | Under the tab bar: a card "Esta work order no está publicada" with "WO-99-999 no aparece entre las work orders capturadas de Mission Control." and the button "Ver work orders". No hero, no flow header. | `wo-detail-not-found` | AC-05-008.4 (the link must resolve or say so) |
+| Project without work orders | A dashed empty box "Este proyecto todavía no tiene work orders publicadas. Sus documentos de producto y diseño siguen disponibles." and the command box `/pandacorp:architecture` with its copy button; the Observabilidad tab shows no count. | `wo-empty` | REQ-05-005 |
+| Live refresh | Behaviour (no picture): the views update when work-order state changes without a reload; nothing visual is drawn for it. | `wo-by-frd` | FRD-05#U1, REQ-05-006 |
 
-| On screen | Component (see `docs/design/components.md`) | Notes |
-|---|---|---|
-| Kanban column | `KanbanColumn` (`.col`) | fixed 224px, header label + count; horizontal scroll row |
-| Work-order card | `WorkOrderCard` (`.card`) | wrapping title + FRD chip; `fail` danger variant |
-| FRD chip | `Chip` (`frdChip`) | info-bg, 10px |
-| State chip (todo/progress/review/fail/done) | `Chip` | secondary / danger variants (`WLBL`) |
-| Back button | `Button` | "← Work orders" |
-| Detail subtab switcher | `SubTabs` (`.stab`) | Resumen / Documento completo |
-| Rendered full document | `DocView` (`.panel.doc`) | markdown work order |
-| Empty board / no work orders | text empty-state | "Los work orders se generan en /pandacorp:architecture." |
+The drift badge "Verificado · N derivas" on a Por FRD row (visible in `wo-by-frd` on the FRD-03 row) belongs to FRD-12 (AC-12-003.3). Not specified here: editing a work order (the views are read-only) and the real-time transport.
 
-All reuse shared primitives. `WorkOrderCard` is the `.card` primitive with a `fail` (danger) variant —
-**not** a second card component. `KanbanColumn` is the `.col` primitive.
+## Components used
 
-## 3. States
+| Screen or state | Components (`docs/design/components.md`) |
+|---|---|
+| All | `Tabs` (FRD-04's bar), `Segmented` (Por FRD / Tablero), `SelectField`, `Crumbs` |
+| `wo-by-frd`, `wo-by-frd-expanded`, `wo-state-filter`, `wo-failed-row` | `StateTile` (combinable `aria-pressed` filters), `FrdRow` (native `details`, `StackBar`), `WorkOrderRow` (fixed-width dependency column), `Button` sm ("Expandir todo" / "Colapsar todo") |
+| `wo-kanban`, `wo-kanban-expanded`, `wo-failed` | `StateTile`, `WorkOrderColumn`, `WorkOrderCard` (`fail` variant is the same card), `MoreBar` ("Mostrar N más"), `StateDot` |
+| `wo-detail`, `wo-detail-full` | `Card` + `CardHeader`, `WoSteps`, `Tabs`, `CriterionList`, `KeyValue` ("Ficha"), `DependencyButton`, `CommandBox`, `Chip`, `Markdown` / `Paper`-style reader for the document, `Button` ("Volver") |
+| `wo-detail-not-found`, `wo-empty` | `Card`, `Button`, `EmptyState`, `CommandBox` |
 
-- **Empty (no work orders)** — a `.panel` message: "Los work orders se generan en
-  `/pandacorp:architecture`." (FRD-05 edge case). Never blank.
-- **Loading** — the Next.js build streams the board; it reads the per-feature
-  `docs/frds/frd-NN-<slug>/work-orders/` state under the subtab's boundary. No skeleton for content the
-  server already delivers.
-- **Error** — a board that fails to read the work-order state renders an inline `Banner` naming the
-  source, not a blank column.
-- **Fail column / blocked work order** — failed cards render in the `var(--danger-bg)` variant with the
-  alert icon, so the blocker is visible on the board (and surfaced on the dashboard project card per
-  FDD-18) without opening logs.
-- **Progress** — aggregated `done / tot · pct%` is shown by the header objectives bar (FDD-04
-  `progressBar()`), aggregated across every feature's `work-orders/`.
+No new component is introduced.
 
-## 4. Demo-only controls (DR-061)
+## Interaction & flow
 
-None. The kanban is **read-only** — the owner does not edit it; columns and cards reflect the live state
-written by the build agents. There are no state-preview/demo controls, no drag-to-move (the board is
-view-only, which also satisfies the WCAG "dragging has a single-pointer alternative" rule trivially —
-there is no drag). Clicking a card opens its read-only detail; nothing mutates state.
+- **Entry.** Observabilidad in the workspace tab bar opens Por FRD; the view and filters live in the URL (`view=tablero`, `state=review`, `frd=…`, `wo=…`, `woview=…`), so reload and Back restore them (FRD-25).
+- **Filters.** The state tiles are `aria-pressed` toggles that combine with each other and with the FRD select by logical AND. The selected tile is neutral-bordered, not a hue.
+- **Por FRD.** Every group starts closed; one toggle opens or closes all; a row opens a group and a work-order row opens that order.
+- **Tablero.** At most 8 cards per column (4 on phones, see `wo-kanban` at 375), then "Mostrar N más". A column with no orders is one line. A card opens the order.
+- **Order detail.** "Volver" returns to the list with its filters. The Resumen reads top to bottom in the fixed order of AC-05-008.4; "Leer el documento completo" switches to the other tab. The build command is copy-only; Mission Control runs nothing.
+- **Failure.** A failed order is visible without opening anything: the Bloqueado tile and column appear only while one exists, and its card and row use the danger treatment with an icon and the word, never colour alone.
 
-## Persistent navigation integration — FRD-25 (2026-10-17)
+## Responsive & accessibility
 
-The [cross-cutting URL contract](../frd-25-persistent-navigation/frd.md) supersedes earlier local-only tab/detail state, exact-root navigation matching and display-name-derived project addresses in this document. Meaningful selections/filters are URL-owned, legacy links retain their resource and presentation context, and reload/Back/Forward restore that location. Existing visual design, data-read boundaries, action gates and machine-status history remain unchanged. Implementation scope and evidence live in FRD-25's blueprint/work-order record and delivery note.
+- **Widths.** All states are captured at 1280, 768 and 375. Tablero columns share the width at 1280, flow as a masonry on tablet and stack on phones, where state tiles are two per row and empty columns collapse to one line (see `wo-kanban` at 375).
+- **Not colour alone.** State chips carry an icon and a word; the failed card, row and column add an alert icon; stacked bars have a text alternative such as "10 verificado, 0 en revisión, 0 en curso, 0 bloqueado, 0 planificado".
+- **Keyboard.** Tiles and rows are buttons or `summary` elements; Tab order follows reading order; "Volver" and the breadcrumb are real links; the copy buttons are labelled "Copiar `<comando>`".
+- **Language.** Artifact names stay English ("work orders", "FRD"); the interface around them is Spanish; titles, scope and criteria keep their source language, English, as the line under "Qué se construyó" says.
+
+## Copy
+
+Spanish, from `docs/design/microcopy.es.json`; no em dash in product copy.
+
+## Fidelity references
+
+Build against `docs/design/fidelity-checklist.md` (its `## Fidelity target` is the bar; its *How to verify* is the gate).
+
+prototype_blessed_at: 409a0564
+
+- **Mocks:** `docs/frds/frd-05-work-orders/mocks/work-orders.html` (one `mock-screen` section per captured state) and `docs/frds/frd-05-work-orders/mocks/screenshots/<id>-<width>-<theme>.jpg`.
+- **Binding comparison URL:** `docs/design/prototype/index.html?demo=off&host=page&theme=<theme>#portfolio?project=<slug>&tab=Observabilidad` plus the view parameters of each state (`view=tablero`, `state=review`, `wo=WO-02-014`).
+- **Oracle states of this FRD (`oracle-states.json`):** `wo-by-frd`, `wo-by-frd-expanded`, `wo-state-filter`, `wo-kanban`, `wo-kanban-expanded`, `wo-detail`, `wo-detail-full`, `wo-detail-not-found`, `wo-empty`, `wo-failed`, `wo-failed-row`.
+- **Reference files:** `docs/design/prototype/reference/computed-styles.json`, `docs/design/prototype/reference/css/` (11-progress, 12-command, 13-list-row, 14-empty-notice, 15-key-value, 20-tabs, 26-work-orders), `docs/design/prototype/components.html`.
+- **`docs/design/components.md` rows:** `StateTile`, `FrdRow`, `WorkOrderRow`, `WorkOrderColumn` / `WorkOrderCard`, `WoSteps`, `CriterionList`, `DependencyButton`, `MoreBar`, `Segmented`, `Tabs`, `ProgressBar` / `StackBar`, `StateDot`, `EmptyState` / `Notice`, `CommandBox`, `KeyValue`, `Markdown`, `Paper`.

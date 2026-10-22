@@ -11,6 +11,6 @@ supervisor_heartbeat: "2026-10-21T00:12:00Z"
 updated_at: "2026-10-20T23:40:00Z"
 repo: ""
 last_green_sha: "a41c09e2"
-safe_to_test: false
+safe_to_test: true
 rethink_pending: false
 advance_pending: false

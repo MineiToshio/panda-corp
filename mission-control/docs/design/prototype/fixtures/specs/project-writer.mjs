@@ -92,6 +92,7 @@ function workOrderDoc(project, frd, wo) {
     ["artifacts", wo.artifacts ?? [`${project.srcRoot}/${frd.area ?? frd.slug.replace(/^frd-\d+-/, "")}/**`]],
     ["source_requirements", [`REQ-${pad(frd.n)}-${pad(wo.req ?? wo.n, 3)}`]],
     ["dependsOn", wo.deps ?? []],
+    ["blocked_reason", wo.state === "fail" ? (wo.blocked ?? "waiting on an owner decision recorded in the decisions inbox.") : undefined],
     ["last_updated", wo.end ? isoDay(wo.end) : project.plannedOn],
   ]);
   return `${fm}
@@ -122,7 +123,7 @@ function frdDoc(frd) {
   const body = reqs
     .map((r, k) => `### REQ-${pad(frd.n)}-${pad(k + 1, 3)} — ${cap(r)}\n\n- AC-${pad(frd.n)}-${pad(k + 1, 3)}.1 — WHEN the owner opens the screen, the system SHALL show ${low(r)}.\n- AC-${pad(frd.n)}-${pad(k + 1, 3)}.2 — IF the source is missing, THEN the system SHALL show the designed empty state.`)
     .join("\n\n");
-  return `${frontmatter([["id", `FRD-${pad(frd.n)}`], ["title", frd.en], ["status", "APPROVED"], ["ui", frd.tag !== "Infra"]])}
+  return `${frontmatter([["id", `FRD-${pad(frd.n)}`], ["title", frd.en], ["status", "APPROVED"], ["ui", frd.tag !== "Infra"], ["drift", frd.drift]])}
 # FRD-${pad(frd.n)} — ${frd.en}
 
 ## Overview

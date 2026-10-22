@@ -1,22 +1,7 @@
-# FRD-10 mocks — Achievements Hall ("Salón del gremio")
+# frd-10-achievements-hall · design mocks
 
-**Visual source:** `docs/design/prototype/index.html` — the **Logros** view, render fn `logrosView()`
-and its family (`logrosResumen` / `logrosMisiones` / `logrosTrofeos` / `logrosStats`, plus
-`rpgChainCard`, `rpgChainSpot`, `rpgChainMini`, `rpgOneCard`, `rpgTrophyLock`, `heroStat`,
-`statLedgerRow`, `statRadar`). Frozen tokens: `docs/design/design-tokens.json` (rpgSkin + tiers).
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
 
-To preview in the prototype: open `index.html`, click the **Logros** tab, then walk the four
-sub-tabs (Resumen / Misiones / Trofeos / Estadísticas). The locked-trophy **hover/focus reveal** is on
-the "Por conquistar" cards in the Trofeos tab.
-
-## Baseline
-
-The build's Preview Smoke / visual-fidelity gate (DR-055/056) renders the Hall route and compares each
-sub-tab against the corresponding region of `index.html`. A scoped self-contained slice
-(`mocks/achievements-hall.html`, the Hall view only — never the whole app) + a 375px and 1280px
-screenshot are to be extracted from `logrosView` at build time as the per-FRD fidelity baseline.
-
-## Token slice this feature uses
-`rpgSkin` (rpgpanel, rpggrid, spot, itemslot, node, lockchip/reveal, herostat, ledrow, secthead, anim,
-glowwarn, xpbar) · `tiers.tier1..tier5` · `accent.*` · `warn`/`okBg` status · `typography.families.pixel`
-+ `display` · `categories` (trophy category accents) · `motion`.
+- `achievements-hall.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

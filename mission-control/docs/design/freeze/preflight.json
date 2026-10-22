@@ -2,9 +2,9 @@
   "tool": "preflight-round",
   "schema": 1,
   "prototype": "docs/design/prototype/index.html",
-  "prototypeSha256": "988072fbe9170802aad4dc1f1724653f0ec745f947b78ac514f72a23265c9b80",
-  "generatedAt": "2026-10-22T01:43:03.333Z",
-  "durationMs": 2081,
+  "prototypeSha256": "0f3761fc6c6f8fa182e589601febe3dd7bccbd641d2e4704af19a9b569646681",
+  "generatedAt": "2026-10-22T12:52:16.572Z",
+  "durationMs": 2086,
   "browser": "ran",
   "complete": true,
   "status": "warnings",
@@ -19,7 +19,7 @@
   },
   "literals": {
     "colors": 0,
-    "lengths": 881
+    "lengths": 886
   },
   "screens": [
     "inicio",
@@ -88,8 +88,8 @@
     {
       "check": "literalLengths",
       "severity": "warn",
-      "message": "881 literal px length(s) outside the token blocks (warn above 150); top: .area-bar (8); .ask-cmd (7); .ditem (6)",
-      "total": 881,
+      "message": "886 literal px length(s) outside the token blocks (warn above 150); top: .area-bar (8); .ask-cmd (7); .ditem (6)",
+      "total": 886,
       "topSelectors": [
         [
           ".area-bar",
@@ -119,11 +119,11 @@
         ],
         [
           "10px",
-          91
+          93
         ],
         [
           "2px",
-          65
+          64
         ],
         [
           "8px",

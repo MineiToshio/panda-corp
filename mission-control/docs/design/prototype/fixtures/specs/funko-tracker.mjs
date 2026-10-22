@@ -29,7 +29,9 @@ const frds = [
   }),
   planFrd({
     n: 5, slug: "frd-05-shareable-checklist", en: "Shareable checklist", es: "Lista para compartir", tag: "UI", area: "export",
-    states: "ddrrrr", from: T("2026-10-18T05:31:00Z"), every: 64, extraDeps: { 0: ["WO-03-004", "WO-04-002"] },
+    states: "ddrrfr", from: T("2026-10-18T05:31:00Z"), every: 64, extraDeps: { 0: ["WO-03-004", "WO-04-002"] },
+    // One blocked order: the build stopped it and waits for an owner decision (the failed-card state).
+    overrides: { 4: { blocked: "the link expiry needs an owner decision: seven days or never." } },
     titles: ["Checklist export model", "Image renderer worker", "Export modes for all, owned and missing", "Poster layout for long lists", "Share link with expiry", "Export history page"],
   }),
   planFrd({
@@ -372,6 +374,8 @@ const changes = [
   ["wishlist-share-empty", "bug", "draft", "2026-10-18", "frd-04-goals-and-wishlist", "Compartir la lista de deseos vacía rompe la página", "Con cero figuras la exportación devuelve un error."],
   ["ingestion-retry-loop", "bug", "draft", "2026-10-17", "frd-06-catalog-seeding", "Una fuente caída reintenta sin fin", "Si una fuente responde 500 la corrida no termina nunca."],
 ].map(([id, type, status, date, frd, title, what]) => ({ id, type, status, date, frd, title, what, cls: type === "bug" && status === "building" ? "expedite" : "standard" }));
+// An urgent change that depends on another one and reopens verified work (the rebuilds-verified warning).
+Object.assign(changes.find((c) => c.id === "collection-csv-import"), { cls: "expedite", dependsOn: "owned-toggle-double-tap", rebuildsVerified: true });
 
 const decisions = `# Decisiones pendientes — Funko Tracker
 
@@ -584,7 +588,7 @@ supervisor_heartbeat: "2026-10-21T00:12:00Z"
 updated_at: "2026-10-20T23:40:00Z"
 repo: ""
 last_green_sha: "a41c09e2"
-safe_to_test: false
+safe_to_test: true
 rethink_pending: false
 advance_pending: false
 `,

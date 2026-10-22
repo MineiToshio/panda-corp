@@ -65,7 +65,7 @@ await check('Inicio: ring explains itself on focus', async () => {
   await page.locator('.proj-card .ring[data-tip]').first().focus();
   const tip = await page.locator('.proj-card .ring[data-tip]').first().getAttribute('data-tip');
   const shown = await page.evaluate(() => getComputedStyle(document.activeElement, '::after').display);
-  assert(/work orders verificados/.test(tip) && shown === 'block', tip + ' ' + shown); return tip;
+  assert(/work orders verificadas/.test(tip) && shown === 'block', tip + ' ' + shown); return tip;
 });
 await check('sidebar: projects ordered by last change and collapsible (remembered)', async () => {
   const names = await page.locator('#projlist .navitem .meta span').allInnerTexts();
@@ -502,16 +502,20 @@ await check('Resumen + La Fragua: real counts, scene modes, simulation moves tok
   const counts = (await page.locator('.fr-count').allInnerTexts()).map(Number);
   const total = await page.evaluate(() => window.MC_SNAPSHOT.projects.find(p => p.id === 'funko-tracker').orders.length);
   const noParty = await page.locator('[role="tab"]', { hasText: 'Party' }).count();
+  // The scene-mode picker is demo-only (DR-061): hidden with ?demo=off, exercised here with the demo layer on.
+  const hiddenOff = await page.locator('.demo-inline').isHidden();
+  await page.evaluate(() => { delete document.documentElement.dataset.demo; });
   await page.locator('[data-scene-mode="off"]').click(); await page.waitForTimeout(150);
   const idle = await page.locator('.fragua.is-idle').count();
   await page.locator('[data-scene-mode="sim"]').click(); await page.waitForTimeout(3200);
   const after = (await page.locator('.fr-count').allInnerTexts()).map(Number);
   const panel = 1 - await page.locator('.seg button', { hasText: 'Panel' }).count();
   const scene = 0;
+  await page.evaluate(() => { document.documentElement.dataset.demo = 'off'; });
   await hash('#portfolio?project=funko-tracker');
   await page.locator('.token[data-wo]').first().click(); await page.waitForTimeout(150);
   const url = await page.evaluate(() => location.hash);
-  assert(counts.reduce((a, b) => a + b, 0) === total && noParty === 0 && idle === 1 && after.join() !== counts.join() && panel === 1 && scene === 0 && /wo=WO-/.test(url), `${counts} ${total} ${noParty} ${idle} ${after} ${panel} ${scene} ${url}`);
+  assert(hiddenOff && counts.reduce((a, b) => a + b, 0) === total && noParty === 0 && idle === 1 && after.join() !== counts.join() && panel === 1 && scene === 0 && /wo=WO-/.test(url), `${counts} ${total} ${noParty} ${idle} ${after} ${panel} ${scene} ${url}`);
   return `${counts.join('/')} → simulación ${after.join('/')}`;
 });
 await check('Observabilidad: dependency graph lays out every order and focusing lights its chain', async () => {
@@ -568,9 +572,10 @@ await check('La Fragua tokens: two-line codes, a hover card, equal plates, empty
   const plates = new Set(await page.locator('.fr-plate').evaluateAll(e => e.map(x => Math.round(x.getBoundingClientRect().height))));
   const empties = await page.locator('.tokens.is-empty .fr-empty-msg').count();
   const counts = (await page.locator('.fr-count').allInnerTexts()).map(Number);
-  const route = await page.locator('.fr-courier').evaluate(e => [e.style.getPropertyValue('--from'), e.style.getPropertyValue('--to')]).catch(() => null);
+  // The courier's track spans the busy stretch (it walks by transform across 100 % of it).
+  const route = await page.locator('.fr-courier').evaluate(e => [e.style.left, e.style.right]).catch(() => null);
   const busy = counts.map((n, i) => (n ? i : -1)).filter(i => i >= 0);
-  const want = busy.length > 1 ? [`calc(${(busy[0] + 0.5) * 25}% - 28px)`, `calc(${(busy.at(-1) + 0.5) * 25}% - 28px)`] : null;
+  const want = busy.length > 1 ? [`${(busy[0] + 0.5) * 25}%`, `${(3 - busy.at(-1) + 0.5) * 25}%`] : null;
   assert(txt === id.replace(/^WO-(\d+)-(\d+)$/, '$1 $2') && tip === id && plates.size === 1 && empties === counts.filter(n => !n).length && JSON.stringify(route) === JSON.stringify(want), `${txt} ${tip} ${[...plates]} ${empties} ${route} ${want}`);
   return `«${txt}» → ${tip} · placas ${[...plates][0]}px · mensajero ${busy[0] + 1}→${busy.at(-1) + 1}`;
 });

@@ -1,14 +1,7 @@
-# Mocks — FRD-15 (Plugin out-of-sync warning)
+# frd-15-plugin-out-of-sync-warning · design mocks
 
-- **Visual source:** `docs/design/prototype/index.html` — the **plugin-sync drift banner** slice,
-  NOT the whole app:
-  - `pluginBanner()` (lines ~573–575) — the persistent warn-tone banner: alert-triangle icon,
-    heading, detail line, 3-step recall, and the `claude plugin update pandacorp@panda-corp` command
-    row.
-  - Demo flag: `PLUGIN_SYNC` (line 572) — `drift:true` previews the banner. In the real app the state
-    is decided server-side from git, not a flag.
-  - Shared style: `.cmd` / `cmdRow()` + the `warn` tokens.
-- **Scope:** only this FRD's banner. Never the whole prototype.
-- The banner reuses the **shared `Banner` primitive** (warn variant) — same shape as the FRD-16
-  orphans banner (DR-057). The scoped design is in `../fdd.md`; all visual values come from the frozen
-  `docs/design/design-tokens.json`.
+Shard of the frozen Órbita prototype (`docs/design/prototype/index.html`, approved 2026-10-21, frozen 2026-10-22), written by the design-freeze toolkit (`freeze.mjs shard`). Do not edit by hand: re-run the freeze stage instead.
+
+- `plugin-out-of-sync-warning.html`: one `<section class="mock-screen" id="<state>">` per captured state of this FRD, rendered with `?demo=off&host=page` from the privacy-safe fixture (`docs/design/prototype/fixtures/`).
+- `screenshots/<state>-<width>-<theme>.jpg`: the captured states. Their oracle entries are in `docs/design/prototype/reference/oracle-states.json`.
+- The FRD's `fdd.md` cites these state ids, and the fidelity references are listed in its `## Fidelity references`.

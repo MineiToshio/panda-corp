@@ -3,6 +3,9 @@ id: "FRD-03"
 title: "Portfolio"
 status: "APPROVED"
 ui: true
+drift:
+  - "REQ-03-002"
+  - "AC-03-001.2"
 ---
 # FRD-03 — Portfolio
 
