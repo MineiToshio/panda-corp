@@ -60,3 +60,6 @@ factory/gamification-ledger.json
 # Owner-facing Spanish pitches/memos (HTML) — gitignored per the committed=English rule
 docs/proposals/*.html
 factory/ideas/*.html
+
+# Playwright MCP browser-tool logs (local tooling output)
+.playwright-mcp/
