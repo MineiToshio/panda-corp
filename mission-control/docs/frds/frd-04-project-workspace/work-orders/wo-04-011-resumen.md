@@ -54,8 +54,11 @@ notice is folded here (DR-100 fold).
   and AC-06-020.7 (foot chips) read; the scene derives none of them itself.
 - «Avance por FRD» names FRDs through `listProjectFrds()` (one FRD index, DR-115).
 - Snapshot: mounts `SnapshotPanel` (WO-14-005) between La Fragua and the columns, passing the project name,
-  the folder, the `buildSnapshot` result, the `readSnapshotGap` result and the no-signal age from the shared
-  liveness module; rendered only while a build is running and a `last_green_sha` exists.
+  the folder, the `buildSnapshot` result, the `readSnapshotGap` result and `noSignalAgo`, set only when
+  `project.build` (the value of FRD-06's `buildSignal()`, WO-06-013: running and fresh by the freshest of the
+  supervisor heartbeat OR the latest event, AC-06-019.7) is `no-signal`, formatted from its signal age; never a
+  heartbeat-only check and never `src/lib/status/liveness.ts` (DR-115: La Fragua, the hero chip and the panel
+  share one verdict); rendered only while a build is running and a `last_green_sha` exists.
 - `CMP-04-frd-progress`: «Avance por FRD» card with count pill, «Primero lo que falta terminar.», FRD rows
   (code, title, `StackBar` with its text alternative, n/m) with unfinished FRDs first, eight shown, «N FRDs en
   total» + «Ver todos» to the Observabilidad tab, each row linking to Observabilidad filtered by its FRD;

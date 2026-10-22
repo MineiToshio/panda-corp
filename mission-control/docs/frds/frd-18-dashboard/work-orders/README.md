@@ -8,7 +8,7 @@
 
 | WO | Slug | Status | Depends on | Summary |
 |---|---|---|---|---|
-| WO-18-002 | inicio-orbita | PLANNED | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-25-001 | The whole Inicio surface: plugin banner, two columns (Tu turno with its Detalles dialog, Tu cartera, En marcha; Pulso, Gremio, Embudo, Árboles de trabajo), the `src/lib/inicio` resolvers and the removal of the digest and the dropped card facts. |
+| WO-18-002 | inicio-orbita | PLANNED | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-19-002, WO-25-001 | The whole Inicio surface: plugin banner, two columns (Tu turno with its Detalles dialog, Tu cartera, En marcha; Pulso, Gremio, Embudo, Árboles de trabajo), the `src/lib/inicio` resolvers and the removal of the digest and the dropped card facts. |
 
 > **Depends on** mirrors the work order's `dependsOn` frontmatter (DR-087).
 

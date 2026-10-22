@@ -67,7 +67,14 @@ stages the prototype art in `public/` as original bytes. Every later work order 
    or equivalent per the installed Tailwind 4.3.1 docs), so a `[data-theme]` switch restyles every
    utility. Where a raw name already sits in a Tailwind namespace (`--font-display`, `--font-body`,
    `--font-mono`, `--shadow-sm`), the raw declaration is the registry entry: never a self-referencing
-   alias. Spacing keeps Tailwind's 4 px base, which maps 1:1 onto `--s1`..`--s12`.
+   alias. **Explicit exception:** the raw colour tokens `--text`, `--text-2` and `--text-3` collide with
+   Tailwind 4's `--text-*` font-size namespace, so they stay declared only in the raw token layer (`:root` /
+   `[data-theme]`), never inside `@theme`, and the colour registry aliases them under the colour namespace
+   (`--color-text`, `--color-text-2`, `--color-text-3` → `var(--text…)`), so `text-text-2` is a colour and no
+   font-size utility ever resolves to a colour value; the `--text-*: initial` reset of the size scale does
+   not touch them. The `--font-*` and `--shadow-*` entries stay as written above. The raw names are the
+   DESIGN.md / `design-tokens.json` names and are not renamed. Spacing keeps Tailwind's 4 px base, which maps
+   1:1 onto `--s1`..`--s12`.
 3. **Global base (CMP-13-globals).** Ported from `docs/design/prototype/reference/css/02-base.css`
    and the app-wide rules of the prototype CSS: box sizing, body font (`--font-body`, 15 px / 1.55,
    `font-feature-settings: "cv11","ss01"`), heading families and weights, `.mono` and `code` in
@@ -96,7 +103,17 @@ stages the prototype art in `public/` as original bytes. Every later work order 
    stored sidebar preference (`orbita-sidebar`) onto `<html data-sidebar-pref>` so the collapsed rail
    of WO-19-003 also paints without a flash. `<html lang="es" suppressHydrationWarning>`. No
    high-contrast value is accepted or stored (REQ-13-001, owner default O1). The visible control
-   (`ThemeToggle`) is WO-19-003's.
+   (`ThemeToggle`) is WO-19-003's. **Mechanism under the canonical `biome.json`** (which nobody may edit and
+   which sets `security.noDangerouslySetInnerHtml: "error"` and the `next` domain's `noImgElement`): the boot
+   script is a static inline `<script>` in the root layout's `<head>` (a Server Component, so React hydrates
+   it rather than creating it and the smoke gate sees no "Encountered a script tag" error), its source string
+   rendered with a `biome-ignore lint/security/noDangerouslySetInnerHtml: <reason>` comment (precedent
+   `src/app/projects/[slug]/_observability/TimelineView/TimelineView.tsx:677`) or as string children;
+   `next/script` `beforeInteractive` is not used (not paint-blocking in the App Router). Every `<img>` of the
+   staged original-bytes art (item 8; rendered by later WOs such as the shell's brand mark) carries the same
+   kind of reasoned `biome-ignore lint/performance/noImgElement: <reason>`, never `next/image` (precedent
+   `src/app/projects/[slug]/_party/FraguaScene/FraguaScene.tsx:1045`; both precedent files are deleted later in
+   v2, so cite the pattern, not the file).
 6. **Copy accessor (IF-13-copy, `src/lib/copy/`, ADR-0013).** `t(key, vars?) → string` over
    `docs/design/microcopy.es.json` read in place (no copy into `src/`). Keys are typed from the
    catalogue's shape, so an unknown key fails `tsc`. `vars` fill `{name}` placeholders; a placeholder
@@ -110,7 +127,9 @@ stages the prototype art in `public/` as original bytes. Every later work order 
    date-only values read in UTC, the raw string returned unchanged when unparseable, never a thrown
    error or an invented date) and `formatRelative(then, now)` → «hoy · ayer · hace N días · hace N min»
    and the hour forms, from the catalogue's `common.relativeTime.*` keys (no literal). `now` is passed in
-   (callers get it from WO-01-010's `now()`; this module reads no clock). Consumers: FRD-04 Cambios and
+   (callers get it from WO-01-010's `now()`; this module reads no clock). In a Client Component `now` is an
+   ISO string received from the server as a prop: `MC_CLOCK` is not a `NEXT_PUBLIC_*` variable and never
+   reaches a client bundle, so a client-side clock read would break oracle mode. Consumers: FRD-04 Cambios and
    Resumen dates (REQ-04-011, AC-04-014.5/.7), FRD-14 no-signal age (AC-14-002.2), Inicio, Backlog, the
    worktrees dialog (whose «N h» / «N días» are their own catalogue keys); comparisons stay on `Date.parse`
    (LESSON-0009).
@@ -249,6 +268,9 @@ TDD, RED first. Unit tests in `_tests/` next to each module; fixtures are the fr
 
 - Every owned AC test green; `.pandacorp/verify.sh` green (biome, tsc, knip, madge, vitest, smoke,
   shell). No arbitrary values or literal colours introduced outside `globals.css`'s token blocks.
+- `pnpm build` succeeds (proves the root-relative `@font-face … url('/fonts/<file>')` rules pass through
+  Turbopack to `public/`), and `document.fonts.check` succeeds for the three families in the e2e spec above
+  against that build's server.
 - The fenced v1 compatibility block exists and is the only place a v1 token name is defined.
 - Status Note lists the final registry names (the table every later WO uses) and the `t()` /
   `tRich()` / `Icon` / theme signatures.

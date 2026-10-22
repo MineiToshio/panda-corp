@@ -75,6 +75,15 @@ copy-only note. It removes the v1 inline mode `<select>` (`ModeSelector`).
 
 REQ-11-001 to REQ-11-005 (the tab is the picker's home), REQ-04-006 (the Comandos tab's content).
 
+REQ-04-006 is built as the oracle draws the v2 tab (`commandsView` in the frozen prototype, mock section
+`commands`): «Construir un objetivo concreto» (FRD, pending work order and queued-change targets for
+`/pandacorp:implement`) is drawn in every phase and is NOT gated by phase, and `/pandacorp:change`,
+`/pandacorp:decide` and `/pandacorp:new-version` live in «Cambios y decisiones»; the phase-dependent commands
+appear only in «Siguiente paso» (`workspaceCommands(phase)`). The v1 wording of REQ-04-006 (implement and
+change only in `implementation` / `release`, a CommandsBox below the picker with release/iterate) is the
+retired v1 layout; the PM amends REQ-04-006 to this drawn layout (FRD > FDD > WO: if the amended FRD text
+differs from this paragraph, stop and report instead of choosing).
+
 - **AC-11-005.2** — WHEN the owner picks a target under "Construir un objetivo concreto" (an FRD, a pending work order or a change from the queue), THE command box SHALL show `/pandacorp:implement` scoped to that target: `/pandacorp:implement <id>` for an FRD or a work order and `/pandacorp:implement change:<id>` for a queued change.
 
 AC-11-005.1 (the cards) is WO-11-003's and AC-11-005.3 (the Campaña entry) is WO-02-020's; this WO mounts the

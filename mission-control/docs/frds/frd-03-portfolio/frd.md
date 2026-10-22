@@ -29,7 +29,7 @@ The Portafolio overview lists **every** project, whatever its phase (`product`, 
 - IF there are no projects, THEN the system SHALL show a designed empty state in the Portafolio: a first-action message with the command that starts a first project, never a blank page (state `factory-empty`, M1 2026-10-22).
 - IF a project's local path does not exist on disk (folder deleted or moved), the system SHALL show a "Ruta no encontrada" chip on the project card (state `portfolio-path-missing`, M1 2026-10-22; replaces the `⚠️ path not found` badge on the rail row).
   - IF the project has a `repo:` URL in the portfolio, the system SHALL show the recovery command: `git clone <repo> <path>` then re-run `/pandacorp:sync-portfolio` (copyable text, same shape as FRD-15/16 banners).
-  - IF there is no `repo:`, the system SHALL show a warning: "Sin remoto registrado: revisa una copia local o recréalo con `/pandacorp:spec`." (Spanish wording proposed 2026-10-22 for the English original "No remote registered; check a local backup or recreate with `/pandacorp:spec`"; the copy owner confirms it when the `portfolio-path-missing` state is drawn.)
+  - **Out of v2 (owner rule: v2 builds only what is drawn; amended 2026-10-22, gate fix):** IF there is no `repo:`, the system SHALL show a warning "Sin remoto registrado: revisa una copia local o recréalo con `/pandacorp:spec`." The copy is drawn in no prototype state, so v2 does not build it; the "Ruta no encontrada" chip alone is shown (no clone command without a `repo:`).
   - The detection is **read-only**: the app never clones, writes to the portfolio, or calls Claude.
   - The chip disappears once the path exists on disk again (detected on next read/sync).
 

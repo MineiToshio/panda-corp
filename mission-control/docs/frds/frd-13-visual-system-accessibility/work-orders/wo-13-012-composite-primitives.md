@@ -162,7 +162,9 @@ None.
   `Markdown`, `PageTitle`, `PageLayout`, `Panel`-dependent assertions): updated in this change.
 - Reviewer-authored, never edited: `src/components/core/Modal/_tests/Modal.focus.reviewer.test.tsx`
   must stay green (the focus rule is unchanged); the two `frd13-wo0*-09*.reviewer*` suites (see
-  WO-13-011) are derogated where they pin v1 visuals of `Tabs`, `SectionHead`, `PageTitle`, `Banner`.
+  WO-13-011) must also stay green until WO-04-010 (W5) `git rm`s them with the `party/*` set they import
+  (their only ending; nothing re-blesses them): the restyle in place keeps the behaviour and `data-testid`s
+  they pin of `Tabs`, `SectionHead`, `PageTitle`, `Banner`; if it would turn one red, stop and report.
 
 ## Definition of done
 

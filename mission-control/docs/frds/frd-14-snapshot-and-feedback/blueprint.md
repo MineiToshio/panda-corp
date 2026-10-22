@@ -37,21 +37,26 @@ gone); FRD-03's WO-03-007 removes them.
 | ID | Kind | Responsibility | Path | REQ | WO |
 |---|---|---|---|---|---|
 | `CMP-14-snapshot-panel` | Server | `SnapshotPanel`: card header with the verdict pill, intro, commit row, building-now or no-signal line, behind-the-build notice, folder lead-in + `CommandBox`. Renders nothing without a snapshot. | `src/app/projects/[slug]/_components/snapshot-panel/` | REQ-14-001, REQ-14-002 | WO-14-005 |
-| `IF-14-snapshot` | lib (pure) | `buildSnapshot(folder, status, nowMs?)` → `SnapshotInfo \| null` (sha, safeToTest, worktree command, buildingNow when live, noSignal when `running` lacks a fresh heartbeat, DR-066); `isSnapshotStale(commits, hours)`. | `src/lib/snapshot/snapshot.ts` | REQ-14-001, REQ-14-002 | WO-14-001 (history) |
+| `IF-14-snapshot` | lib (pure) | `buildSnapshot(folder, status, nowMs?)` → `SnapshotInfo \| null` (sha, safeToTest, worktree command, buildingNow when live, noSignal when `running` lacks a fresh heartbeat, DR-066; v2 surfaces do not read this heartbeat-only `noSignal`, they read `buildSignal()`); `isSnapshotStale(commits, hours)`. | `src/lib/snapshot/snapshot.ts` | REQ-14-001, REQ-14-002 | WO-14-001 (history) |
 | `IF-14-snapshot-gap` | lib (git, read-only) | `readSnapshotGap(projectPath, sha)` → `ok { commitsBehind, hoursBehind, stale, verified?: { wo, frd } }` or `unavailable { reason }`, through `runGit`. | `src/lib/snapshot/gap.ts` | REQ-14-001, REQ-14-002 | WO-14-005 |
 | Feedback-channels page | content | `g-feedback` guide naming `/pandacorp:bug`, `/pandacorp:iterate`, `/pandacorp:decide` as file-based channels picked up at the next safe point. | `content/manual/guides/g-feedback.md` | REQ-14-003 (AC-14-003.3) | WO-14-004 (history, owner) |
 | Rail chips + rethink indicator | removed | Out of v2; verified by their removal. | `src/app/portfolio/_components/status-chips/` | REQ-14-003 (AC-14-003.1, .2) | WO-03-007 |
 
 The panel is mounted by FRD-04's Resumen (`CMP-04-resumen`, WO-04-011), which decides «only while a build is
 running and a green SHA exists», passes the project name and folder, the `buildSnapshot` result, the
-`readSnapshotGap` result and the no-signal age from the shared liveness module (`src/lib/status/liveness.ts`).
+`readSnapshotGap` result and the no-signal age derived from FRD-06's single build-signal resolver `buildSignal()`
+(`src/lib/fragua/build-signal.ts`, WO-06-013: running and fresh by the freshest of the supervisor heartbeat OR
+the latest event, AC-06-019.7) through `WorkspaceProject.build`, never from a heartbeat-only check or a second
+derivation (DR-115): La Fragua, the hero chip and this panel read the same verdict on `build-no-signal`.
 
 ## 4. Contracts
 
 - **`SnapshotPanel` props (restyle in place, map §0.4):** the v1 props stay valid
   (`slug` = the project folder name used in the worktree path, `snapshot: SnapshotInfo | null`), plus optional
   `projectName` (the «córrelo en la carpeta de …» name; falls back to the folder), `gap` (the
-  `IF-14-snapshot-gap` result) and `noSignalAgo` (formatted age). This keeps the v1 Resumen compiling between
+  `IF-14-snapshot-gap` result) and `noSignalAgo` (formatted age, passed only when `buildSignal()` reads
+  `no-signal`; the panel chooses building-now vs no-signal from this prop alone and ignores the v1
+  heartbeat-only `SnapshotInfo.noSignal`). This keeps the v1 Resumen compiling between
   W3 and W6. The map's seam wording `SnapshotPanel({ project })` is replaced by these explicit props
   (deviation recorded in the ledger).
 - **`readSnapshotGap`:** input an absolute project path and the green sha; success `ok` as above, with
@@ -78,7 +83,7 @@ running and a green SHA exists», passes the project name and folder, the `build
 | REQ | AC | Components / interfaces | Work order |
 |---|---|---|---|
 | REQ-14-001 | AC-14-001.1, AC-14-001.2, AC-14-001.3 | `CMP-14-snapshot-panel`, `IF-14-snapshot`, `IF-14-snapshot-gap` | WO-14-005 |
-| REQ-14-002 | AC-14-002.1, AC-14-002.2 | `CMP-14-snapshot-panel`, `IF-14-snapshot-gap`, `IF-14-snapshot` (noSignal) | WO-14-005 |
+| REQ-14-002 | AC-14-002.1, AC-14-002.2 | `CMP-14-snapshot-panel` (`noSignalAgo` from FRD-06 `buildSignal()`), `IF-14-snapshot-gap` | WO-14-005 |
 | REQ-14-003 | AC-14-003.1, AC-14-003.2 (Out of v2, verified by removal) | rail chips removed | WO-03-007 |
 | REQ-14-003 | AC-14-003.3 | feedback-channels page | WO-14-004 |
 | REQ-14-004 | AC-14-004.1 struck (retired id) | none | none |
@@ -95,7 +100,7 @@ running and a green SHA exists», passes the project name and folder, the `build
 - **Order:** WO-14-005 builds in W3 after the composite primitives and the git seam; WO-04-011 (W6) mounts it.
 - **Disjointness:** in W3, WO-14-005 writes the panel folder and the new `gap.ts` + its test; WO-14-001's
   declared files (`snapshot.ts` and its test) are different files; WO-01-011 (W5) later edits
-  `src/lib/snapshot/**` to adopt `now()`, a different wave.
+  `src/lib/snapshot/**` to adopt `now()`, ordered after this work order by its `dependsOn` edge to WO-14-005.
 - **Visual spec (DR-054):** `mocks/snapshot-and-feedback.html#project-snapshot`, `#project-snapshot-stale`,
   `#build-no-signal`; oracle states with the same ids, plus the scenario state `snapshot-unsafe` («Aún no es
   seguro», `oracle-recipes.json` double). No raster assets.

@@ -112,6 +112,11 @@ plain cards, mono for commands only, 12 px floor; icons `layers`, `clock`, `bolt
   derivation; it deletes `_components/mode-selector/**`, the last product consumer of `IMPLEMENT_MODES`, whose
   export WO-13-013 removes in W7; it consumes `readChangeQueue()`'s stable `id` / `title` / `status` (WO-04-012,
   same wave) and renders no `<main>`.
+- WO-11-004 also carries FRD-04 REQ-04-006 as the oracle's `commandsView` draws it: «Construir un objetivo
+  concreto» in every phase (not gated by phase), change / decide / new-version in «Cambios y decisiones», the
+  phase-dependent commands only in «Siguiente paso». The v1 REQ-04-006 wording (implement and change only in
+  `implementation` / `release`, a CommandsBox below the picker) is the retired v1 layout; the PM amends
+  REQ-04-006 to the drawn layout (gate finding B6).
 
 ## Superseded (v1 history)
 

@@ -29,7 +29,7 @@ Pandacorp reads the factory's and each project's information from disk, without 
   (e2e fixtures).
 - **Out of v2 (owner decision 2026-10-21; amended 2026-10-22, v2 plan, removed together with the digest):** the system SHALL persist the dashboard's "seen" marker (`visto_hasta`, FRD-18) as **client-local UI state** that survives a refresh and a tab close; this is a UI preference, NOT a write to the factory or a project (the read-only constraint below is unaffected).
 - IF a project's path does not exist, THEN the system SHALL mark it as not found and SHALL NOT break the rest of the view.
-- The system SHALL NEVER call Claude or any AI API, nor write to the factory's or projects' files (except the FRD-02 discard case; browser-local UI preferences are not a factory/project write; amended 2026-10-22, v2 plan).
+- The system SHALL NEVER call Claude or any AI API, nor write to the factory's or projects' files (except the bounded, human-triggered write set listed in `docs/product/architecture.md` §7: idea discard/restore and favourite, change discard, backlog discard, guild ledger; browser-local UI preferences are not a factory/project write; amended 2026-10-22, v2 plan and gate fix).
 
 ## Edge cases
 - `factory/profile.md` absent → onboarding gate (an empty profile is not assumed nor invented).

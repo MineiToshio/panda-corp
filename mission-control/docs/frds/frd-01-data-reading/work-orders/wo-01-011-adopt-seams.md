@@ -23,7 +23,7 @@ artifacts:
   - 'src/app/api/plugin-sync/**'
   - 'src/app/_actions/snapshotLedger.ts'
 source_requirements: [REQ-01-008, REQ-01-011]
-dependsOn: [WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003]
+dependsOn: [WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-14-005, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003, WO-21-003]
 last_updated: 2026-10-22
 ---
 
@@ -58,6 +58,9 @@ adds a guard test that keeps `child_process` inside `src/lib/git/`.
 ## Out of Scope
 
 - Readers and pages owned by a v2 work order: they adopt the seams themselves (`pendingMerge` WO-21-003,
+  which swaps the private runner of `src/lib/pendingMerge/pendingMerge.ts` for `runGit` in W3, so the
+  boundary test below finds no `node:child_process` importer outside `src/lib/git/` and this work order's
+  artifacts when it lands;
   `changes` WO-04-012, the portfolio overview WO-03-007, Inicio WO-18-002, the Logros pages WO-10-016 /
   WO-10-017, the shell WO-19-002 / WO-19-003). App pages and components are not touched here.
 - The clock or git seam definitions (WO-01-010) and any behavioural change of a reader.
@@ -117,6 +120,10 @@ and the FRD-01 gate reviewer rewrites it (DR-080); the implementer does not weak
 ## Dependencies
 
 WO-01-010 (the seams) and the owners of each migrated reader: WO-10-014, WO-23-006, WO-14-001, WO-17-003,
-WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003. Enables the oracle-mode run of the close-out Visual QA.
+WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003. WO-14-005 (W3) writes `src/lib/snapshot/gap.ts` and its
+test inside this work order's `src/lib/snapshot/**` glob, so the edge orders the two writers. WO-21-003 (W3)
+moves `pendingMerge.ts` onto `runGit`, which the boundary test requires. If any other non-test importer of
+`node:child_process` outside `src/lib/git/` and outside `artifacts` remains, stop and report instead of
+editing it or allow-listing it. Enables the oracle-mode run of the close-out Visual QA.
 
 ## Status Note

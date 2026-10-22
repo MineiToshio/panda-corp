@@ -80,8 +80,9 @@ AC-13-010.1.
      `pageSize` from the consumer, each press reveals `step` more items, `step` defaulting to
      `2 × pageSize` (prototype `moreList`: «Mostrar 14 más · quedan 14» with 24 candidates at page 10,
      «Mostrar 2 más · quedan 2» at page 15), N = min(step, remaining) and M = remaining before the press,
-     both handed to the caller's label; a consumer whose FRD fixes another step passes it (FRD-10's
-     «Por conquistar» passes 12, AC-10-028.3); **reveal-all**: one press shows the whole remainder
+     both handed to the caller's label; a consumer whose FRD fixes another step passes it explicitly
+     (FRD-10's «Por conquistar» passes `pageSize` 12 and `step` 24: the first 12, then up to 24 per press,
+     AC-10-028.3; FRD-10's phase transitions pass `step` 10, AC-10-028.5); **reveal-all**: one press shows the whole remainder
      (label «Mostrar {count} más»), then «Mostrar menos» collapses (FRD-05's Tablero,
      `workspace.observabilidad.kanban.showMore` / `showLess`, AC-05-008.3). (drawn in FRD-05's captured states)
    - `StateDot` (new): 7 px dot plus the state word (never colour alone). `StateBadge` keeps its
@@ -186,8 +187,11 @@ removed).
   assertions stay.
 - Reviewer-authored, never edited: `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx`
   and `frd13-wo07-09.adversarial.reviewer2.test.tsx` probe the v1 foundation primitives (and the
-  `party/*` set): any assertion of theirs that pins a v1 visual detail is derogated here and re-blessed
-  by the FRD-13 gate reviewer; `frd13.integration.reviewer.test.tsx` must stay green (`StateBadge`
+  `party/*` set). Their ending is single: WO-04-010 (W5) `git rm`s both with the `party/*` set they import,
+  and nothing re-blesses them. Until then they MUST stay green: they mostly pin behaviour and `data-testid`s
+  (`banner-icon`, `progress-bar`) that a restyle in place keeps; if this restyle would turn one red, stop and
+  report (other FRDs' whole-project gates in W2 to W4 would see it), never edit or weaken it.
+  `frd13.integration.reviewer.test.tsx` must stay green (`StateBadge`
   keeps its contract). If a restyle cannot keep a reviewer test's import or prop shape compiling,
   stop and report rather than editing the test.
 

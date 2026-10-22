@@ -50,7 +50,7 @@ layer on top of it (ADR-0012), adds a typed copy accessor (ADR-0013) and retires
 | UI runtime | **React 19** | Bundled with Next 16. |
 | Styling | **Tailwind CSS v4** (CSS-first `@theme`) | The `@theme` block mirrors the frozen Órbita `docs/design/design-tokens.json` (light + dark). No `tailwind.config.js`. |
 | Fonts | Three **self-hosted** families (Space Grotesk, Inter, JetBrains Mono) via the prototype's exact `@font-face` rules | Fidelity gate needs string-exact families; `next/font` and Pixelify Sans are retired (ADR-0012, technical-assumptions §1.1). |
-| Icons | The **64 exported SVGs** behind one `Icon` component | No icon library and no icon CDN; the v1 Tabler CDN link is removed in v2. |
+| Icons | The **65 exported SVGs** behind one `Icon` component | No icon library and no icon CDN; the v1 Tabler CDN link is removed in v2. |
 | Copy | Typed accessor `t(key, vars?)` in `src/lib/copy/` over the frozen `docs/design/microcopy.es.json` | Single-locale Spanish UI; no `next-intl` (ADR-0013). |
 | Lint + format | **Biome** | One fast tool; replaces ESLint+Prettier. Gate #1. |
 | Tests | **Vitest** + `@testing-library/react` + `jsdom`; **Playwright** + `@axe-core/playwright` for the browser gates | TDD in `lib/`; component tests; e2e/fidelity gates (§9). |
@@ -351,10 +351,13 @@ One owning work order per file per wave.
   fictional fixture factory, so every reader resolves its inputs through injectable seams: the factory
   root, `HOME`, the two event files, the accounts file, the clock (`now()` honouring `MC_CLOCK`) and git
   (`runGit()` answering from the fixture's `git-state.json` when `MC_GIT_FIXTURE` is set). Each seam is
-  **inert unless its variable is set**: `pnpm dev`/`pnpm start` never set them, and only `pnpm dev:oracle`
-  (WO-01-010) and the test/e2e harness do. Oracle mode never reads the owner's real factory. A read error
+  **present in every build and inert unless its variable is set**: `pnpm dev`/`pnpm start` never set them,
+  production never sets them, and only `pnpm dev:oracle` (WO-01-010) and the test/e2e harness do (ADR-0012).
+  Oracle mode never reads the owner's real factory. A read error
   state is produced by pointing a reader at a malformed fixture, never by mocking the reader. Because
-  `config.ts` resolves some paths at import time, the variables must be set before the server starts.
+  `src/lib/config/config.ts` resolves some paths at import time, the variables must be set before the server
+  starts. `MC_CLOCK` is not a `NEXT_PUBLIC_*` variable, so it never reaches a client bundle: Client
+  Components receive `now` from the server as a prop and never read the clock for a displayed age.
   The harness also forces its own default root to be catalog-absent, so owner-private files never leak
   into tests (LESSON-0450).
 - **Error / empty / loading states.** Every reader distinguishes empty from unreadable; every surface
@@ -379,10 +382,13 @@ variable gets its own comment line, CONV-16).
 | `PANDACORP_CODEX_EVENTS_FILE` | Codex event stream path. | `~/.codex/dashboard-events.ndjson` | `dev:oracle` | pending (WO-01-010) |
 | `PANDACORP_ACCOUNTS_FILE` | Private account registry (identities, never secrets). | `<factory-root>/../pandacorp-vault/services/accounts.yaml` | `dev:oracle` | yes |
 | `PANDACORP_CODEX_PLUGIN_ROOT` | Authoritative Codex plugin activation pointer for the drift check. | Codex cache probe | owner, when Codex uses a non-standard install | pending (WO-01-010) |
-| `PANDACORP_STALE_HOURS` | Hours of inactivity after which unmerged work is flagged stale. | `3` | owner | pending (WO-01-010) |
 | `MC_CLOCK` (v2) | Frozen ISO-8601 instant returned by `now()`. | real clock | `dev:oracle` (`2026-10-21T00:20:00.000Z`), tests | pending (WO-01-010) |
 | `MC_GIT_FIXTURE` (v2) | Path to a `git-state.json`; when set, `runGit()` answers from it and never spawns git. | real read-only git | `dev:oracle`, tests | pending (WO-01-010) |
 
+`PANDACORP_STALE_HOURS` is not part of the v2 contract and is not documented: FRD-21 replaced its idle
+threshold with the legend rule (fixed constants in WO-21-003), and its only reader,
+`src/lib/pendingMerge/pendingMerge.ts`, is deleted by WO-13-013 (the factory's `.pandacorp/pending-work.sh`
+keeps its own shell default and is not MC configuration).
 `NODE_ENV` is the framework's own. The prototype exporters (`docs/design/prototype/scripts/`) also
 use `MC_REAL`, `GIT_DIR` and `GIT_CEILING_DIRECTORIES`; those belong to the design tooling, not the app.
 MC has no secrets, so the three-file environment handoff of `external-services.md` reduces to the

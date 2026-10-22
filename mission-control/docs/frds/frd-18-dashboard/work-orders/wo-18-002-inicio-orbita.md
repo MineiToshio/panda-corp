@@ -11,7 +11,7 @@ difficulty: high
 reopen_count: 0
 artifacts: ["src/app/page.tsx", "src/app/(dashboard)/**", "src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**", "src/components/modules/{Pulso,Digest}/**", "src/app/_lib/**", "src/app/_components/plugin-sync-banner/**", "src/lib/inicio/**", "src/lib/docs/activity.ts", "src/lib/docs/_tests/activity.turn-detail.test.ts", "src/lib/constants.ts", "src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx", "e2e/inicio.spec.ts"]
 source_requirements: [REQ-18-001, REQ-18-002, REQ-18-003, REQ-18-004, REQ-18-010, REQ-18-011, REQ-18-012, REQ-18-013, REQ-18-014, REQ-18-015, REQ-18-016, REQ-18-017, REQ-18-021, REQ-18-022, REQ-15-002, REQ-15-004, REQ-15-005, REQ-06-019, REQ-12-001]
-dependsOn: [WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-25-001]
+dependsOn: [WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-19-002, WO-25-001]
 last_updated: '2026-10-22'
 ---
 
@@ -75,6 +75,10 @@ dropped, and publishes `ownerTurnItems()` (the Tu turno list and its count, also
 - `ProjectCard` itself and the project list: WO-03-007; the freshness resolver and `FraguaScene`: WO-06-013; the
   worktrees reader, card and dialog: WO-21-003; the shell: WO-19-002.
 - The Resumen "Tu turno" of a single project (WO-04-011) and any write.
+- The fresh-decision run sentence (a decision younger than 7 days): not built.
+  The catalogue holds the key, but no captured state of this FRD draws it (`home-turn-dialog` shows a decision
+  7 days old or more, so only `dialogs.turnDecision.runStale` is drawn; DR-130). A younger decision's dialog shows
+  the command without a run sentence.
 
 ### Removals (map §6.C item 11 and §0.6; delete in this work order, with their tests)
 
@@ -99,7 +103,7 @@ are removals), plus the FRD-15 banner, the FRD-06 freshness AC and the FRD-12 Pu
 order by the plan. The acceptance criteria it owns, copied from the owning `frd.md` files:
 
 - **AC-18-022.1** — THE Inicio SHALL arrange its cards in two columns (left: Tu turno, Tu cartera, En marcha; right: Pulso, Gremio, Embudo de ideas, Árboles de trabajo) below the plugin warning, and SHALL put Tu turno first when the layout is one column (below 1024 px).
-- **AC-18-022.2** — EACH Tu turno item SHALL be one line (title, "project · kind · age", its scoped command with copy), and WHEN "Detalles" is activated THE system SHALL open a dialog explaining what it is, what is needed, the recommendation, the context and what the command does.
+- **AC-18-022.2** — (amended 2026-10-22, gate fix) EACH Tu turno item SHALL be one line (title, "project · kind · age", its scoped command with copy), and WHEN "Detalles" is activated THE system SHALL open a dialog explaining what it is, what is needed, the recommendation, the context and the command; WHEN the decision is 7 days old or more, the dialog SHALL also carry the drawn sentence on what the command does (`dialogs.turnDecision.runStale`). A younger decision's dialog SHALL show the command without a run sentence (the fresh variant is drawn in no captured state).
 - **AC-18-022.3** — THE Inicio SHALL list in-flight work in the "En marcha" card, apart from Tu turno, in collapsible groups: "Construyéndose ahora", "Esperan la revisión de su FRD" and "Borradores en la cola".
 - **AC-18-022.4** — THE Inicio SHALL show the factory pulse (Proyectos, FRDs, work orders verificadas) and the "Embudo de ideas" per phase, with the discarded ideas counted apart.
 - **AC-15-002.1** — IF the installed `version` is **strictly behind** the source `version` (semver), Mission Control SHALL show the banner — heading "El plugin instalado está atrás", the detail naming both versions, and the recall steps (run command → restart session).
@@ -192,7 +196,8 @@ copy buttons); the cross-surface AC-06-019.7 test; the e2e spec above. No whole-
 ## Dependencies
 
 WO-21-003 (worktrees card), WO-03-007 (`ProjectCard`, project list), WO-04-013 (`resolvedInFile`), WO-06-013
-(freshness voice), WO-13-012 (composite primitives), WO-25-001 (URL codec). Consumers: WO-19-003 (reads
+(freshness voice), WO-13-012 (composite primitives), WO-19-002 (the shell; it also writes `src/lib/constants.ts`,
+so this work order's constant removals run after it), WO-25-001 (URL codec). Consumers: WO-19-003 (reads
 `ownerTurnItems().count` and `lastAchievement()`), WO-13-013.
 
 ## Status Note

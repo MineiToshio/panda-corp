@@ -102,34 +102,52 @@ make that tab unreachable. Each v2 surface applies the normalizer at its route b
 v1 form (WO-03-007, WO-04-010, WO-07-006, WO-08-003) and passes the result to `NavigationCanonical` (a replace,
 never a push).
 
-### Key registry (`validateNavigationQuery`) — keys v2 adds or re-spells
+### Key registry (`validateNavigationQuery`) — the complete v2 key set
 
+This table is THE key registry; WO-25-001's In Scope list states the same set, key for key (gate finding B9).
 Each surface validates the keys it owns; unsupported means "reject or bounded unavailable content", not a
 silent default. Repeated keys stay rejected by the bounds gate, so every multi-valued key is one
-comma-joined value in canonical order.
+comma-joined value in canonical order. Status: **v2** = added or re-spelled by v2; **kept** = a v1 key a v2
+surface still produces and restores (explicitly round-tripped).
 
-| Context | Key | Allowed values and bounds |
-|---|---|---|
-| Portafolio (`/portfolio`) | `view` | `tarjetas` (default), `lista`, `cuentas` |
-| Portafolio, Cuentas | `accountsQuery` | free text, ≤ 200 characters |
-| | `accountsState` | `all` (default), `active`, `pending`, `candidates`, `reference` |
-| | `account` | the open row key, `<provider-id>:<account-id or candidate>` |
-| Observabilidad | `view` | `frd` (default), `tablero`, `deps` |
-| | `frd` | one FRD id |
-| | `state` | comma-joined set of the work-order board's state ids, canonical order |
-| | `wo`, `focus` | a work-order id |
-| | `woview` | `summary` (default), `full` |
-| | `dag` | `frd` (default), `wo` |
-| Idea page and workspace Spec / Arquitectura | `model` | `Diagrama` (default), `Esquema` |
-| | `entity`, `modelQuery`, `schemaTable` | selected entity, search text, open schema table (kept) |
-| | `expanded` | `1`; a restored expanded URL renders the inline viewer and never requests native fullscreen until a user gesture (AC-25-011.1) |
-| Idea page, La Campaña | `phase` | a campaign phase id (kept) |
+| Context | Key | Allowed values and bounds | Status |
+|---|---|---|---|
+| Portafolio (`/portfolio`) | `view` | `tarjetas` (default), `lista`, `cuentas` (`portfolioView=accounts` is the accepted alias) | v2 |
+| Portafolio, Cuentas | `accountsQuery` | free text, ≤ 200 characters | v2 |
+| | `accountsState` | `all` (default), `active`, `pending`, `candidates`, `reference` | v2 |
+| | `account` | the open row key, `<provider-id>:<account-id or candidate>` | v2 |
+| Observabilidad (the whole set: these seven) | `view` | `frd` (default), `tablero`, `deps` | v2 |
+| | `frd` | one FRD id | v2 |
+| | `state` | comma-joined set of the work-order board's state ids, canonical order (a single value such as `state=review` stays valid) | v2 |
+| | `wo`, `focus` | a work-order id | v2 |
+| | `woview` | `summary` (default), `full` | v2 |
+| | `dag` | `frd` (default), `wo` | v2 |
+| Configuración (`/configuration`) | `q` | free text search | v2 |
+| | `type` (Habilidades), `approval` (Reglas), `severity` and `domain` (Estándares) | the filter's value ids | v2 |
+| Documentación (`/manual`) | `q` | free text search | v2 |
+| | `index` | present while the folded index is open | v2 |
+| Logros (`/achievements`) | `category` | a trophy category id | v2 |
+| | `trophy` | the open trophy dialog id | v2 |
+| | `eras` | comma-joined set of opened era ids | v2 |
+| Propuestas (`/proposals`) | `proposalsTab` | `resumen` (bare `/proposals`), `memory`, `backlog` | kept |
+| | `stream` | `promotions`, `candidate-lesson`, `prune` | kept |
+| | `lesson`, `backlogItem` | the open lesson / backlog item id (Backlog filters, history paging and the discard confirmation stay out of the URL, AC-22-002.4) | kept |
+| Tablero and idea page (`/board`) | `boardQuery`, `category`, `discarded`, `idea` | board search, category filter, discarded view, selected idea | kept |
+| | the idea tab segment | `proposal`, `spec`, `architecture`, `documents`, `campaign`; legacy `boardTab` and `doc`, and the `/board/:idea/documents/:doc` segment | kept |
+| | `specFrd`, `architectureFrd`, `adr` | the open FRD card / ADR of the digests | kept |
+| Idea page, La Campaña | `phase` | a campaign phase id | kept |
+| Data-model viewer (idea page and workspace Arquitectura) | `model` | `Diagrama` (default), `Esquema` (legacy `diagram` / `schema` aliased) | v2 |
+| | `modelQuery`, `entity`, `schemaTable` | search text, selected entity, open schema table | kept |
+| | `relationship` | the relationship selected through its «Relaciones N» row (AC-02-015.5; FRD-02 blueprint C4) | kept |
+| | `expanded` | `1`; a restored expanded URL renders the inline viewer and never requests native fullscreen until a user gesture (AC-25-011.1) | kept |
 
-Kept unchanged: every other v1 key (`boardTab`, `doc`, `proposalsTab`, `lesson`, `stream`, `backlogItem`,
-`hallTab`, `trophyCategory`, `manualGroup`, `manualPage`, `configSection`, `configItem`, `standardView`,
-`specFrd`, `architectureFrd`, `adr`, `change`, `boardQuery`, `category`, `discarded`, …). Unknown optional
-keys are retained for compatibility. A key the v2 design retires (`relationship`, per-connector selection) is
-simply no longer produced.
+Path-family state, kept (derived from the path, not query keys): `hallTab`, `configSection`, `configItem`,
+`manualGroup`, `manualPage`. Every other v1 key (for example the workspace's `change`) is kept unchanged.
+Unknown optional keys are retained for compatibility. No longer produced by any v2 surface (still retained
+if present, like any unknown optional key): `trophyCategory` (the v1 Trofeos filter; Logros uses `category`,
+WO-10-016), `standardView` (the Estándares sub-tabs WO-07-006 removes) and `backlogGroups` (AC-22-002.4,
+WO-22-002). Per-connector selection of the data-model canvas is Out of v2 (AC-02-015.2) and never had a key of
+its own; `relationship` stays because the «Relaciones N» row selection is a v2 model selection (AC-25-001.1).
 
 ### Destination (`activeDestinationPath`)
 

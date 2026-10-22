@@ -80,8 +80,11 @@ changed value or an extra Órbita-named property fails the round-trip unit test 
 (tokens only, no arbitrary values, `calc()` on theme variables as the one exception, per
 `docs/rules/styling-and-ui.md`). Names: Tailwind namespace + the Órbita suffix (for example
 `bg-surface-2`, `text-text-3`, `border-line`, `rounded-xl`, `shadow-dialog`, `font-display`,
-`text-h1`). The font-size scale is reset to the eleven `--fs-*` steps (smallest 12 px). The final name
-table is published in WO-13-010's Status Note and is the reference for every later WO.
+`text-h1`). The font-size scale is reset to the eleven `--fs-*` steps (smallest 12 px). The raw colour
+tokens `--text`, `--text-2`, `--text-3` sit in Tailwind 4's `--text-*` font-size namespace, so they never
+enter `@theme`: the colour registry aliases them (`--color-text-2` → `var(--text-2)`), which is what makes
+`text-text-3` a colour utility. The final name table is published in WO-13-010's Status Note and is the
+reference for every later WO.
 
 **Theme contract (IF-13-theme).** `Theme = "light" | "dark"`. Resolution: stored `orbita-theme` if it is
 `light` or `dark`; else the system (`prefers-color-scheme: light` → light, otherwise dark). Applying a
@@ -155,9 +158,10 @@ Each WO lists its derogated tests in its body. Summary for this FRD:
   The v1 compatibility block keeps `src/app/_tests/agentColorTokens.integration.reviewer.test.ts`
   green until WO-13-013.
 - WO-13-011 / WO-13-012 update their primitives' implementer tests; the two v1 foundation reviewer
-  suites (`src/app/_design/tokens/_tests/frd13-wo06-09*`, `frd13-wo07-09*`) are derogated where they pin
-  v1 visuals; they import the `party/*` set that FRD-04's WO-04-010 deletes in W5, so WO-04-010 `git rm`s
-  them (map §3.3 rule 3; reconciliation 2026-10-22: they only probe the superseded WO-13-006..009, one
+  suites (`src/app/_design/tokens/_tests/frd13-wo06-09*`, `frd13-wo07-09*`) stay green through W1 to W4
+  (the restyles in place keep the behaviour and `data-testid`s they pin; a WO that would turn one red stops
+  and reports); they import the `party/*` set that FRD-04's WO-04-010 deletes in W5, so WO-04-010 `git rm`s
+  them, their only ending (nothing re-blesses them) (map §3.3 rule 3; reconciliation 2026-10-22: they only probe the superseded WO-13-006..009, one
   owner, not WO-13-010 and not WO-13-013).
 - WO-13-013 removes the reviewer suites whose subject it deletes and derogates the per-agent colour
   sync suite; the FRD-13 gate reviewer, in the same final wave, re-authors any surviving case.

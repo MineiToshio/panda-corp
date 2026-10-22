@@ -43,13 +43,18 @@ verified work order) through `runGit`, which v1 never wired (`stale` was always 
   call through `runGit` (WO-01-010), read-only commands only; no clock needed.
 - `CMP-14-snapshot-panel` (`snapshot-panel/`): the exported name `SnapshotPanel` and its v1 props
   (`slug`, `snapshot: SnapshotInfo | null`) stay valid (the v1 Resumen keeps compiling until WO-04-011);
-  new optional props `projectName`, `gap` (the result above) and `noSignalAgo` (the formatted age of the last
-  supervisor signal, computed by the caller from the shared liveness module). Renders nothing when `snapshot`
-  is null. Structure as drawn: `Card` + `CardHeader` (green check tile, title «Último commit en verde», pill),
+  new optional props `projectName`, `gap` (the result above) and `noSignalAgo` (the formatted age of the
+  freshest signal, present only when the build reads «Sin señal»). The caller derives it from FRD-06's single
+  build-signal resolver `buildSignal()` (`src/lib/fragua/build-signal.ts`, WO-06-013: running and fresh by the
+  freshest of the supervisor heartbeat OR the latest event, AC-06-019.7) through `WorkspaceProject.build`
+  (WO-04-010/WO-04-011), never from a heartbeat-only check: the panel ignores `snapshot.noSignal` (the v1
+  heartbeat-only flag of `buildSnapshot`) for the building-now / no-signal choice, so La Fragua, the hero chip
+  and this panel never disagree on the same `build-no-signal` screen (DR-115). The panel takes a plain string,
+  so it imports nothing from `src/lib/fragua/`. Renders nothing when `snapshot` is null. Structure as drawn: `Card` + `CardHeader` (green check tile, title «Último commit en verde», pill),
   intro line, commit row (mono SHA chip + «verificó <WO> de <FRD>»; the `workspace.resumen.snapshot.verified`
   / `.passedGates` keys when the subject names no FRD or no work order, or the gap is unavailable), the building-now line (blue, loader
   icon, «Construyendo ahora:» + «el build sigue avanzando. Eso todavía no está en verde: no lo pruebes.») or, when
-  `snapshot.noSignal`, the coral line «El build dice estar corriendo, pero no hay señal del supervisor desde
+  `noSignalAgo` is passed, the coral line «El build dice estar corriendo, pero no hay señal del supervisor desde
   hace N. Revisa si sigue vivo antes de fiarte de ese estado.», the amber `Notice` (`role="status"`) «Este commit
   quedó atrás del build» + «El build lleva N commits y N horas más. …» when `gap.stale`, then the lead-in «Para
   probarlo, córrelo en la carpeta de <Proyecto>:» and the `CommandBox` with the worktree command.
@@ -63,8 +68,8 @@ verified work order) through `runGit`, which v1 never wired (`stale` was always 
 ## Out of Scope
 
 - `buildSnapshot`, `isSnapshotStale` and their thresholds (`src/lib/snapshot/snapshot.ts`, WO-14-001, read only).
-- Mounting the panel in the Resumen and computing `noSignalAgo` (WO-04-011); La Fragua and the hero chips
-  of the same `build-no-signal` screen (WO-06-013, WO-04-010).
+- Mounting the panel in the Resumen and computing `noSignalAgo` from `buildSignal()` (WO-04-011); the
+  resolver itself, La Fragua and the hero chips of the same `build-no-signal` screen (WO-06-013, WO-04-010).
 - The Portafolio rail chips and the rethink indicator (out of v2, removed by WO-03-007).
 
 ## Requirements & Acceptance Criteria
@@ -75,11 +80,12 @@ REQ-14-001, REQ-14-002.
 - **AC-14-001.2** — The copy SHALL state that the green commit is **safe to test in a separate git worktree while the build continues** — it SHALL NOT frame it as a local-vs-remote git matter, nor use the "punto verde" term.
 - **AC-14-001.3** — The panel SHALL distinguish **"building now"** (the work order in progress — "this is not green yet, don't test it") from the **last green commit** — they are two different things.
 - **AC-14-002.1** — IF the last green commit (`last_green_sha`) is **far behind the build's current HEAD** (many commits/hours), THEN Mission Control SHALL warn that the green commit has fallen behind the build, and that testing it no longer reflects the build's current state.
-- **AC-14-002.2** — WHILE `status.yaml` claims `running: true`, THE panel SHALL show "building
-  now" ONLY when the claim is LIVE — `running` crossed with the supervisor heartbeat's recency
-  (DR-066: liveness = running AND fresh, never the flag alone). WHEN the heartbeat is stale
-  (≥ the 10-min TTL) or absent, THE panel SHALL show "Sin señal · último evento hace N" instead — the flag is
-  never dressed up as a live build (the same voice as FRD-06 AC-06-019.7, state `build-no-signal`).
+- **AC-14-002.2** — (amended 2026-10-22, gate fix) WHILE `status.yaml` claims `running: true`, THE panel SHALL show "building
+  now" ONLY when the claim is LIVE — `running` AND a fresh signal, where the signal is the freshest of the
+  supervisor heartbeat and the latest event (DR-066: never the flag alone). WHEN that signal is older than the freshness
+  TTL (10 min) or absent, THE panel SHALL show "Sin señal · último evento hace N" instead — the flag is
+  never dressed up as a live build. The panel SHALL read this state from the one resolver `buildSignal()` (via `WorkspaceProject.build`),
+  the same rule as FRD-06 AC-06-019.7 (state `build-no-signal`), so the Resumen can never show «Construyendo» and «Sin señal» together (DR-115).
   (Change `mc-observability-consumer-dr066`, 2026-07-02.)
 
 The «only while a build is running» condition of AC-14-001.1 is enforced by the mounting Resumen
@@ -115,7 +121,8 @@ Builds `CMP-14-snapshot-panel` (restyle in place) and `IF-14-snapshot-gap`. Reus
 - `src/lib/snapshot/_tests/gap.test.ts`: against the git fixture runner (`MC_GIT_FIXTURE`, WO-01-010): 0 commits
   behind, below and at both thresholds, subject with and without a work-order id, unknown sha → `unavailable`.
 - Component tests (`snapshot-panel/_tests/`): the three drawn states, the unsafe pill, null snapshot renders
-  nothing, v1 props still render, copy and command text, no «punto verde», no local-vs-remote wording.
+  nothing, v1 props still render, the no-signal line follows `noSignalAgo` and not `snapshot.noSignal` (a stale
+  heartbeat with a fresh event, which `buildSignal()` reads as live, shows «Construyendo ahora»), copy and command text, no «punto verde», no local-vs-remote wording.
 - **Derogated tests (map §3.3):** implementer-authored, updated here:
   `snapshot-panel/_tests/snapshot-panel.test.tsx`, `snapshot-panel.adversarial.test.tsx`. Reviewer-authored, NOT
   edited (the FRD-14 gate reviewer re-blesses or rewrites them): `snapshot-panel.gate.reviewer.test.tsx`,

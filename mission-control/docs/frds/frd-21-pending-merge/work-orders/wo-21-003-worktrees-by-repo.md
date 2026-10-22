@@ -38,6 +38,13 @@ anchor.
   `runGit`, all "now" through `now()` (WO-01-010); leftovers from `git worktree list --porcelain` minus the
   locked worktrees (counted apart for the dialog summary); repositories identified by the first worktree path so
   repositories sharing a git directory collapse into one row.
+- `src/lib/pendingMerge/pendingMerge.ts` (the v1 reader, still live until WO-13-013 deletes it): its private
+  default runner `realGit` (`execFileSync("git", …)`, the file's only `node:child_process` import) becomes a
+  thin adapter over `runGit(args, repoRoot)` of WO-01-010 with the same trimmed-stdout contract, and the
+  `Date.now()` default of `readPending` becomes `now().getTime()`. Results are unchanged with no seam variable
+  set: same commands (all inside `runGit`'s read-only allowlist), same `GitRunner` type, same error and empty
+  results; `getPendingMerge()` and `readPending()` keep their signatures. The `node:child_process` import is
+  removed, so WO-01-011's boundary test (W5) finds no importer outside `src/lib/git/` here.
 - `src/components/modules/Worktrees/`: `WorktreesCard` (its root element carries `id={WORKTREES_CARD_ID}`,
   i.e. `id="worktrees-card"`, the anchor the sidebar pill links to, AC-21-008.1 and oracle
   `shell-pending-chip-open`; WO-18-002 only places the card), `WorktreesTable`, `WorktreesBranchDialog`. No
@@ -144,12 +151,14 @@ rows, notice `role="alert"`, legend toggles, command has a copy button); the e2e
   section; WO-18-002 deletes the page tests later.
 - Reviewer-authored, not edited here (DR-080): `src/app/(dashboard)/_tests/frd-18-integration.reviewer.test.tsx`
   assertions on the old section are derogated; the FRD-18 gate's reviewer re-blesses them.
-- Kept compiling and passing untouched: `src/lib/pendingMerge/_tests/pendingMerge.test.ts`, the badge and block
+- Kept compiling and passing untouched: `src/lib/pendingMerge/_tests/pendingMerge.test.ts` (it injects a fake
+  `GitRunner`, so the runner swap leaves it green and is the proof of unchanged results), the badge and block
   tests (their owners remove them later).
 
 ## Dependencies
 
-WO-01-010 (the clock and git seams), WO-13-012 (composite primitives). Consumers: WO-18-002 (places the card),
+WO-01-010 (the clock and git seams, also adopted by the v1 `pendingMerge.ts` runner here), WO-13-012 (composite
+primitives). Consumers: WO-01-011 (its boundary test needs the runner swap), WO-18-002 (places the card),
 WO-19-003 (pill: `pendingPillSummary()` and `WORKTREES_CARD_ID`), WO-13-013 (deletes the legacy reader).
 
 ## Status Note

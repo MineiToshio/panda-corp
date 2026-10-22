@@ -76,8 +76,9 @@ language.
 **Dialog (`AC-18-022.2`).** Decision: kicker "Decisión · <project>", the sentence of `dialogs.turnDecision.intro`,
 chips (age, decision id), "Lo que se necesita de ti", "Recomendación del agente", the collapsed "Contexto", the
 drawn run sentence `dialogs.turnDecision.runStale` when the decision is 7 days old or more, and the command.
-A younger decision shows the command without a run sentence: the prototype draws no fresh-decision wording, so
-none is built (DR-130; design item, reconciliation 2026-10-22).
+A younger decision shows the command without a run sentence: the fresh-decision variant sits in
+the catalogue, but no captured state of this FRD draws it (`home-turn-dialog` shows a decision 7 days old or
+more), so it is not built (DR-130; reconciliation 2026-10-22).
 Change: kicker "Cambio en cola · <project>", the change body, `dialogs.turnChange.*` and the command. Native
 dialog: focus in, Tab trapped, Escape closes, focus returns to "Detalles: <title>".
 
@@ -142,7 +143,7 @@ Assets: the rank crest PNG from `public/ranks/` (original bytes, `image-renderin
 
 - Upstream, all earlier waves: WO-21-003 (the worktrees card and reader), WO-03-007 (`ProjectCard` and the
   project-card list), WO-04-013 (`resolvedInFile`), WO-06-013 (the freshness voice), WO-13-012 (composite
-  primitives), WO-25-001 (URL codec). Legacy readers it composes stay as they are: `lib/ideas`, `lib/board`,
+  primitives), WO-19-002 (the shell; co-writer of `src/lib/constants.ts`), WO-25-001 (URL codec). Legacy readers it composes stay as they are: `lib/ideas`, `lib/board`,
   `lib/changes`, `lib/work-orders`, `lib/gamification`, `lib/achievements`, `lib/plugin-sync`.
 - Consumers: WO-19-003 reads `ownerTurnItems().count` and `lastAchievement().fresh` (one predicate for the
   «Nuevo» chip and the `CMP-09-achievement-notice` of the FRD-09 blueprint), WO-04-011 reads
@@ -150,8 +151,8 @@ Assets: the rank crest PNG from `public/ranks/` (original bytes, `image-renderin
   props `phase`, `count`, `max`), WO-13-013 deletes whatever v1 name stays unreferenced.
 - **Reconciliation (2026-10-22, binding).** Tu cartera reads `getProjectOverview()` (WO-03-007) including
   `nextCommand` and reuses `FirstProjectCard`; the Árboles card anchor `id="worktrees-card"` belongs to
-  WO-21-003's card; the page renders no `<main>`; the fresh-decision run sentence is not built (drawn
-  nowhere, design item).
+  WO-21-003's card; the page renders no `<main>`; the fresh-decision run sentence is not built (no captured
+  state draws it; see Dialog above).
 - Risk: the heaviest dependency surface of the app. Mitigation: one new lib module, every other fact read from
   its owner; the cross-surface test for AC-06-019.7 and the oracle-mode states catch drift early.
 - Risk: the page is slow when it reads every portfolio project. Mitigation: parallel reads, request cache, a
@@ -166,13 +167,14 @@ would never reach; it uses `gotoHydrated` and web-first assertions).
 
 | WO | Depends on | Artifacts (globs) | Foundation | Parallel with |
 |---|---|---|---|---|
-| WO-18-002 | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-25-001 | `src/app/page.tsx`, `src/app/(dashboard)/**`, `src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**`, `src/components/modules/{Pulso,Digest}/**`, `src/app/_lib/**`, `src/app/_components/plugin-sync-banner/**`, `src/lib/inicio/**`, `src/lib/docs/activity.ts`, `src/lib/docs/_tests/activity.turn-detail.test.ts`, `src/lib/constants.ts`, `src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx`, `e2e/inicio.spec.ts` | false | W5; WO-04-010, WO-01-011 (other FRDs) |
+| WO-18-002 | WO-21-003, WO-03-007, WO-04-013, WO-06-013, WO-13-012, WO-19-002, WO-25-001 | `src/app/page.tsx`, `src/app/(dashboard)/**`, `src/components/dashboard/{TuTurno,Progreso,Cartera,DashboardLiveWatcher}/**`, `src/components/modules/{Pulso,Digest}/**`, `src/app/_lib/**`, `src/app/_components/plugin-sync-banner/**`, `src/lib/inicio/**`, `src/lib/docs/activity.ts`, `src/lib/docs/_tests/activity.turn-detail.test.ts`, `src/lib/constants.ts`, `src/app/_tests/{page.dashboard,wo-18-001-fixes,wo-18-001-inicio-dashboard}.test.tsx`, `e2e/inicio.spec.ts` | false | W5; WO-04-010, WO-01-011 (other FRDs) |
 
 - **Order and integration.** A single, terminal work order of the surface; it must run after the worktrees card
   (W3) and the Portafolio card (W4) exist. WO-19-003 (W6) then reads its published resolvers; WO-04-011 (W6)
   does not depend on it.
 - **Disjointness.** `src/app/page.tsx` was written by WO-21-003 in W3 (an earlier wave). `src/lib/docs/activity.ts`
-  was written by WO-04-013 in W3. `src/lib/constants.ts` was written by WO-19-002 in W3. In W5 the other writers
+  was written by WO-04-013 in W3. `src/lib/constants.ts` is also written by WO-19-002 (W3); the `dependsOn`
+  edge to WO-19-002 orders the two writers (a wave label alone is not an ordering guarantee). In W5 the other writers
   are WO-04-010 (`src/app/projects/[slug]/**`) and WO-01-011 (kept readers), both disjoint.
 - **No backend contract file.** `/api/live` and `/api/plugin-sync` keep their contracts; nothing is added, so no
   `docs/api/<wo-id>.md` (DR-060).

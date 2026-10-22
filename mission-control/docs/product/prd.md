@@ -13,7 +13,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | ID | Feature | What it does | v2 (Órbita) |
 |---|---|---|---|
 | [FRD-01](../frds/frd-01-data-reading/frd.md) | Data reading layer | Reads the factory's and each project's state from disk, read-only, never calling Claude. | Unchanged (no UI). |
-| [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the only bounded writes (discard / restore `status`, and the visual `favorite` flag). | **Changed** (+8 ACs, REQ-02-016). Out of v2 items: see non-goals. |
+| [FRD-02](../frds/frd-02-ideas-board/frd.md) | Ideas board | The ideas kanban; derives each card's column and handles the idea-card writes (discard / restore `status`, and the visual `favorite` flag), part of the bounded write set in `architecture.md` §7. | **Changed** (+8 ACs, REQ-02-016). Out of v2 items: see non-goals. |
 | [FRD-03](../frds/frd-03-portfolio/frd.md) | Portfolio and project navigation | Lists created projects with their state and links into each project's workspace. | **Changed** (rail replaced by an overview of all projects; +3 ACs, REQ-03-008). Out of v2 items. |
 | [FRD-04](../frds/frd-04-project-workspace/frd.md) | Project workspace | Nine-tab per-project workspace with complete shared Spec and Architecture surfaces, logical data-model viewer, docs, commands and the build-mode selector. | **Changed** (eight tabs; +8 ACs, REQ-04-014; carries the `readDecisions` fix). Out of v2 items. |
 | [FRD-05](../frds/frd-05-work-orders/frd.md) | Work orders (live view) | Read-only kanban of a project's work orders, grouped by FRD, with the full document. | **Changed** (moves inside Observabilidad; +4 ACs, REQ-05-008). |
@@ -36,7 +36,7 @@ Living index of the FRDs (feature-centric docs, DR-049). Each FRD is a self-cont
 | [FRD-22](../frds/frd-22-factory-backlog/frd.md) | Factory backlog | The factory's `BL-*` work queue as the Backlog tab of Propuestas, read-only. | **Changed** (+4 ACs, REQ-22-010; read-error state). Out of v2 items. |
 | [FRD-23](../frds/frd-23-materialized-stats-read-model/frd.md) | Materialized stats read-model | The Informe reads a materialized `.pandacorp/stats.json` (honest cache + freshness seal) instead of deriving git on every render, falling back to live git when the snapshot is missing/stale/corrupt. | Unchanged (no UI). |
 | [FRD-24](../frds/frd-24-decision-id-emitter/frd.md) | Shared decision-id emitter | Extracts the `decisions.md` id-derivation into a pure function + CLI so the factory's `/pandacorp:decide` skill can invoke the same rule instead of re-deriving it in prose; golden vectors prove both paths agree. | Unchanged (no UI); its golden vectors must keep passing. |
-| [FRD-25](../frds/frd-25-persistent-navigation/frd.md) | Persistent navigation URLs | Stable resource/tab/detail URLs across all views, legacy links and history/refresh restoration. | Unchanged (no UI); not amended by the freeze, see open decision 1. |
+| [FRD-25](../frds/frd-25-persistent-navigation/frd.md) | Persistent navigation URLs | Stable resource/tab/detail URLs across all views, legacy links and history/refresh restoration. | **Changed** (no UI; v2 URL catalog work, WO-25-001: eight tabs, Observabilidad and Portafolio views, no-exemption shell). |
 | [FRD-26](../frds/frd-26-services-accounts/frd.md) | Services and accounts | Read-only directory of the external services and accounts each project uses, per project and factory-wide. | **Changed** (+1 AC; the global directory becomes the third Portafolio view; read-error state). |
 
 ## Problem
@@ -49,7 +49,7 @@ The owner (sole operator, Spanish-speaking). Weak at UX → the tool must **guid
 A read-only view that shows state + documentation + the next command, wrapped in an **honest** RPG layer (XP, levels and achievements that reflect real work), reduces friction and makes operating the factory daily pleasant — **without burning the subscription** (it never calls Claude) and **without falling into toxic gamification**.
 
 ## Principles and constraints
-- **Read-only**: it never calls Claude or executes anything. The only writes are a small, bounded, human-triggered set on one idea card's frontmatter: discard / restore its `status` ([FRD-02](../frds/frd-02-ideas-board/frd.md), ADR-0002) and toggle the visual `favorite` flag ([FRD-02](../frds/frd-02-ideas-board/frd.md) REQ-02-012, ADR-0003).
+- **Read-only**: it never calls Claude or executes anything. The only writes are the bounded, human-triggered set listed in [`architecture.md`](architecture.md) §7 (amended 2026-10-22, gate fix): idea discard / restore ([FRD-02](../frds/frd-02-ideas-board/frd.md), ADR-0002), the visual idea `favorite` flag ([FRD-02](../frds/frd-02-ideas-board/frd.md) REQ-02-012, ADR-0003), change-queue discard ([FRD-04](../frds/frd-04-project-workspace/frd.md)), backlog discard ([FRD-22](../frds/frd-22-factory-backlog/frd.md) REQ-22-007) and the guild ledger (ADR-0005). Nothing else is written.
 - **Reads files**: idea base and portfolio in the factory; documentation and state of each project in its folder.
 - **Local**: listens on `127.0.0.1`. No auth, no deploy.
 - **Honest gamification**: it represents real work (XP for results, not for volume or for opening the app). No leaderboards, lives/death, daily streaks or false urgency (see [FRD-09](../frds/frd-09-gamification/frd.md)).
@@ -122,7 +122,7 @@ How it is measured (all machine-checkable except the last):
 **Activation milestone:** the owner opens the v2 build on each of the three form factors and walks Inicio → a project's Resumen → Observabilidad → Documentos without a broken layout. **Review signal** (personal tool, so a review rather than a revenue kill-signal; thresholds are assumptions, see A-5): v2 does not ship while any of the 159 states is RED after the 3-repair-attempt budget, or while the retained v1 suite has a regression.
 
 ### Scope (in v2), by FRD
-The 21 UI FRDs amended by the design freeze (the 79 prototype-drawn ACs are numbered per FRD; ids in parentheses). Non-UI FRDs (01, 23, 24, 25) are unchanged and FRD-16 stays removed.
+The 21 UI FRDs amended by the design freeze (the 79 prototype-drawn ACs are numbered per FRD; ids in parentheses). Non-UI FRDs 01, 23 and 24 are unchanged in behaviour; FRD-25 got v2 URL work (WO-25-001); FRD-16 stays removed.
 
 - **FRD-02 · Tablero and idea page** — board search, phase chips with counts and jump, «Ocultar columnas vacías» (remembered), live «N ideas coinciden», idea header (stage line, «Volver al tablero», favorite / open project / discard on one row), Campaña strip «N/6 entregadas» with prev/next arrows, fully clickable FRD cards with a kind tag, environment variables grouped by `.env.example` section (AC-02-016.1 to .8). Discard goes through a confirm dialog with an optional reason; restore takes no reason.
 - **FRD-03 · Portafolio** — the rail is replaced by an overview of all projects: cards and Lista (`view=lista`), plus the «Cambiar proyecto» searchable picker (AC-03-008.1 to .3, REQ-03-009).
@@ -186,7 +186,7 @@ Rule (owner, 2026-10-21): an app feature the prototype does not draw stays out o
 
 ### Constraints
 - **Language:** the interface is Spanish. Content Mission Control only shows keeps its language (project documents, AI-generated files of projects and factory: skill and agent descriptions, rules, lessons, backlog items). Artifact names stay English (FRD, PRD, ADR, work order, spec, backlog) with Spanish agreement («work orders verificadas»). The surface is «Documentación»; the short rail label is «Docs». Code, committed docs and identifiers are English.
-- **Read-only over the factory:** the only writes remain discard/restore and `favorite` on one idea card. Browser-local preferences (collapsed sidebar, projects group fold, hide-empty columns, theme, shown-once notice) are not factory writes.
+- **Read-only over the factory:** the only writes are the bounded, human-triggered set listed in `architecture.md` §7 (idea discard/restore and favourite, change discard, backlog discard, guild ledger; amended 2026-10-22, gate fix); v2 adds none. Browser-local preferences (collapsed sidebar, projects group fold, hide-empty columns, theme, shown-once notice) are not factory writes.
 - **Frozen design contract:** `DESIGN.md`, `docs/design/design-tokens.json`, `docs/design/components.md`, `docs/design/fidelity-checklist.md`, the prototype at `docs/design/prototype/` and its measured `reference/`. Where the drawn prototype and the stray CSS disagree, the drawn prototype binds, except where an FRD wins (motion, the dirty-plugin banner). The implementer may not edit the oracle or blessed baselines (DR-080).
 - **Data-model canvas:** keeps the app's current layout engine (owner-approved 2026-10-16) and is compared by computed styles (L1/L2), not by pixels (L3); entity positions are not compared. The dependency map, by contrast, follows the prototype's layouts and is pixel-compared.
 - **Brand mark:** the raster emblem `docs/design/prototype/assets/pandacorp.png` stays as a recorded exception to the vector-logo rule (internal tool, the guild crest); the build serves the original bytes.
@@ -205,6 +205,6 @@ Assumptions:
 - **A-6** The 24 non-blocking audit findings go to `.pandacorp/comms/visual-punch-list.md` for the end-of-build Visual QA, not into v2 FRDs.
 
 Open decisions to settle in the planning step (`/pandacorp:change`):
-1. **FRD-25 not amended.** AC-25-009 and AC-25-010 still mention the Party tab and the shell exemption, both gone in v2. Align the URL catalog with the eight tabs, the Observabilidad views, the Portafolio views and the no-exemption shell.
+1. **FRD-25 amended (resolved 2026-10-22, gate fix).** The URL catalog is aligned with the eight tabs, the Observabilidad views, the Portafolio views and the no-exemption shell (WO-25-001).
 2. **Stale frontmatter.** FRD-22 says `implementation_status: PLANNED` although the backlog panel exists in `src/`, and FRD-02 says `IN_REVIEW`. Reconcile before work orders are cut.
 3. **Short-label copy.** The M1 copy fix says «Documentación» for the surface and FRD-08 REQ-08-001 sets «Docs» for the rail; confirm `components.md` and the Shell-Presence contract (`e2e/shell.ts`) use «Docs».

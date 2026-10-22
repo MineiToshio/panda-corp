@@ -27,11 +27,12 @@ The "green" point is the **last build commit that passed all the gates** (tests/
 
 ### REQ-14-002 — Staleness warning
 - **AC-14-002.1** — IF the last green commit (`last_green_sha`) is **far behind the build's current HEAD** (many commits/hours), THEN Mission Control SHALL warn that the green commit has fallen behind the build, and that testing it no longer reflects the build's current state.
-- **AC-14-002.2** — WHILE `status.yaml` claims `running: true`, THE panel SHALL show "building
-  now" ONLY when the claim is LIVE — `running` crossed with the supervisor heartbeat's recency
-  (DR-066: liveness = running AND fresh, never the flag alone). WHEN the heartbeat is stale
-  (≥ the 10-min TTL) or absent, THE panel SHALL show "Sin señal · último evento hace N" instead — the flag is
-  never dressed up as a live build (the same voice as FRD-06 AC-06-019.7, state `build-no-signal`).
+- **AC-14-002.2** — (amended 2026-10-22, gate fix) WHILE `status.yaml` claims `running: true`, THE panel SHALL show "building
+  now" ONLY when the claim is LIVE — `running` AND a fresh signal, where the signal is the freshest of the
+  supervisor heartbeat and the latest event (DR-066: never the flag alone). WHEN that signal is older than the freshness
+  TTL (10 min) or absent, THE panel SHALL show "Sin señal · último evento hace N" instead — the flag is
+  never dressed up as a live build. The panel SHALL read this state from the one resolver `buildSignal()` (via `WorkspaceProject.build`),
+  the same rule as FRD-06 AC-06-019.7 (state `build-no-signal`), so the Resumen can never show «Construyendo» and «Sin señal» together (DR-115).
   (Change `mc-observability-consumer-dr066`, 2026-07-02.)
 
 ### REQ-14-003 — Portfolio chips & feedback channels

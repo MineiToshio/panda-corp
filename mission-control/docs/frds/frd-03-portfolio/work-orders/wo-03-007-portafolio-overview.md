@@ -117,8 +117,9 @@ gone); «Siguiente · `<command>`». The whole card is one link to the workspace
 (`article.proj-card.is-missing`, coral tint) keeps its title as the only link and shows the `Notice`
 «Ruta no encontrada» with the sentence and two `CommandBox`es, `git clone <repo> <path>` then
 `/pandacorp:sync-portfolio`; with no `repo` the same drawn title and body are kept and only the
-`/pandacorp:sync-portfolio` command box is shown (no clone command can be built); the dedicated no-remote
-sentence is drawn in no state of the prototype, so it is not built (design item, reconciliation 2026-10-22).
+`/pandacorp:sync-portfolio` command box is shown (no clone command can be built). The dedicated no-remote
+warning («Sin remoto registrado …») is **Out of v2** (the PM marks it in FRD-03): no captured state draws it
+and the frozen catalogue has no key for it, so building it would invent copy (DR-130); it is not built.
 Counts and age are omitted when the folder is missing. Detection is read-only: the app never clones, writes the
 portfolio or calls Claude.
 
@@ -149,7 +150,7 @@ focus returns to the button; a row navigates to that project's workspace. WO-04-
 - Where the sidebar and Inicio read the project list (WO-19-003, WO-18-002): they consume
   `getProjectOverview()`.
 - `AccountsDirectory` internals (WO-26-001) and the `Segmented` primitive (WO-13-011).
-- The «hace N meses» header string and the no-remote wording (design, reported).
+- The «hace N meses» header string (design, reported) and the no-remote warning (Out of v2, see In Scope).
 
 ## Requirements & Acceptance Criteria
 
@@ -215,7 +216,7 @@ None.
 - Copy keys: `portafolio.*`, `dialogs.projectPicker.*`, `inicio.pathMissing.*`, `inicio.firstProject.*`,
   `common.build.*`, `common.relativeTime.*`, `workspace.hero.switcher.*`, `shell.projects.toggleTitle`.
   The button «Cambiar proyecto» is drawn in FRD-04's `project-summary` state (the picker states of this FRD
-  show the dialog it opens); the no-remote sentence is drawn nowhere and is not built (design item).
+  show the dialog it opens); the no-remote warning is Out of v2 and not built (no captured state, no key).
 
 ## Tests this WO owns
 

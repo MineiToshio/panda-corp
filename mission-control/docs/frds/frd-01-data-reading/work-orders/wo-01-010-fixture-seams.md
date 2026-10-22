@@ -39,7 +39,10 @@ every v2 WO migrates the readers it owns.
 - `src/lib/clock/clock.ts`: `now(): Date`, evaluated at call time. `MC_CLOCK` set to a valid ISO-8601
   instant returns that instant (a new `Date` each call); set but unparseable throws `ClockConfigError`
   (fail loud, never falls back to the real clock); unset returns the real clock. Dependency-free (no
-  `react`, no `next`) so the CLIs under `scripts/` can import it.
+  `react`, no `next`) so the CLIs under `scripts/` can import it. Server-side by contract: Next inlines only
+  `NEXT_PUBLIC_*` variables into client bundles, so `MC_CLOCK` never reaches a Client Component. Client
+  Components receive `now` (an ISO string) from the server as a prop and never call `now()` or `Date.now()`
+  for a displayed age; the module header states this rule.
 - `src/lib/git/git.ts`: `runGit(args, cwd?): string` and `GitError` (typed: `kind` is `disallowed`,
   `failed`, `timeout` or `no-fixture-answer`; message never echoes file contents).
   - Real mode: spawns `git` with `execFileSync`, `cwd` default the factory root, an explicit timeout
@@ -58,7 +61,10 @@ every v2 WO migrates the readers it owns.
     --format=%(refname:short)`, `status --porcelain` (per worktree and `-- plugin`), `rev-list --count
     main..<branch>`, `log -1 --format=%ct|%s <branch>`, `diff --shortstat main...<branch>`. Added here
     because v2 readers need them: `rev-list --count HEAD` (from `commits`) and `log -1 --format=%cI` (the
-    repository's last commit, from `lastActivity[<id>]`). A command with no answer throws `GitError`
+    repository's last commit, from `lastActivity[<id>]`). The dispatcher answers `log -1 --format=%cI` from
+    `lastActivity[<id>]` even when `repos[<id>]` is absent: the fixture has no `repos["mission-control"]`, yet
+    the portfolio lists `mission-control` and `lastActivity["mission-control"]` exists, so its card must not
+    fall to `no-fixture-answer`. A command with no answer throws `GitError`
     `no-fixture-answer`, exactly like a failing git, so readers take their existing fail-soft path.
     WO-01-011 extends the table with the history families the report readers issue.
     Also answered here, because W3 consumers read them (reconciliation 2026-10-22; a command the table cannot
@@ -76,17 +82,21 @@ every v2 WO migrates the readers it owns.
       `project-snapshot` and 14 commits / 26 hours for `project-snapshot-stale`.
 - `src/lib/config/env.ts`: the environment contract as typed constants (the variable names of
   architecture.md §7 "Environment variables": `PANDACORP_FACTORY_ROOT`, `PANDACORP_EVENTS_FILE`,
-  `PANDACORP_CODEX_EVENTS_FILE`, `PANDACORP_ACCOUNTS_FILE`, `PANDACORP_CODEX_PLUGIN_ROOT`,
-  `PANDACORP_STALE_HOURS`, `MC_CLOCK`, `MC_GIT_FIXTURE`) plus `resolveHomeDir()` (`HOME`, then
-  `USERPROFILE`). `resolveFactoryRoot` and the import-time path constants of `config.ts` stay as they are;
-  the module header states why the variables must be set before the server starts.
+  `PANDACORP_CODEX_EVENTS_FILE`, `PANDACORP_ACCOUNTS_FILE`, `PANDACORP_CODEX_PLUGIN_ROOT`, `MC_CLOCK`,
+  `MC_GIT_FIXTURE`) plus `resolveHomeDir()` (`HOME`, then `USERPROFILE`). `resolveFactoryRoot` and the
+  import-time path constants of `src/lib/config/config.ts` stay as they are; the module header states why the
+  variables must be set before the server starts. `PANDACORP_STALE_HOURS` is deliberately NOT part of the
+  contract and is not documented: FRD-21 replaced its idle threshold with the legend rule (WO-21-003 uses fixed
+  constants), and its only reader, `src/lib/pendingMerge/pendingMerge.ts`, is deleted by WO-13-013.
 - `src/lib/config/oracleEnv.ts`: `oracleEnv(repoRoot): Record<string, string>`, the pure recipe of
   technical-assumptions §1.5: factory root `docs/design/prototype/fixtures/factory-root`, `HOME`
   `fixtures/home`, the two event files under that home, the accounts file under
   `fixtures/pandacorp-vault/services/accounts.yaml`, `MC_GIT_FIXTURE` `fixtures/git-state.json`,
   `MC_CLOCK` `2026-10-21T00:20:00.000Z` (a caller-supplied `MC_CLOCK` wins, for a diagnostic run) and
   `NEXT_TELEMETRY_DISABLED=1` (so the overridden `HOME` receives no framework writes). Absolute paths
-  only; relative imports only (the launcher loads it through the repo's `ts-loader`).
+  only; relative imports only (the launcher loads it through the repo's `ts-loader`). It never asserts that
+  the Codex events file exists: `fixtures/home/.codex/dashboard-events.ndjson` is absent and the events reader
+  already skips a missing transport.
 - `scripts/oracle/dev-oracle.mjs` and the `package.json` script `"dev:oracle"`: builds the environment
   with `oracleEnv`, refuses with an actionable message when the fixture tree is missing
   (`node docs/design/prototype/scripts/make-fixtures.mjs` regenerates it) and then starts `next dev` on
@@ -94,7 +104,9 @@ every v2 WO migrates the readers it owns.
   generates fixtures implicitly.
 - `.env.example`: every variable above, in labelled groups, commented out, each with its OWN one-line
   `# what it is for / how to obtain it` comment directly above it (CONV-16); the three already present
-  keep their values and wording intent. `HOME` is an OS variable and is not listed.
+  keep their values and wording intent, and every comment that cites the config module names its real path
+  `src/lib/config/config.ts` (today's comments say `src/lib/config.ts`). `HOME` is an OS variable and is not
+  listed; `PANDACORP_STALE_HOURS` is not listed (above).
 - `README.md`: the Getting-started environment section lists the variables (pointing to `.env.example`)
   and documents `pnpm dev:oracle`.
 
@@ -163,8 +175,8 @@ None. Nothing existing pins the clock or git behaviour changed here.
   git timeout, missing fixture tree for `dev:oracle`; each surfaces a typed error with an actionable
   message and no file contents.
 - Non-functional: `runGit` has an explicit timeout and bounded output (resilience.md); no secret, no
-  network call; the seams are inert when their variable is unset, so `pnpm dev` and `pnpm start` behave
-  exactly as before.
+  network call; the seams are present in every build (including `pnpm build`) and inert when their variable
+  is unset, so `pnpm dev` and `pnpm start` behave exactly as before; production never sets them (ADR-0012).
 - Every new exported function and type carries a short JSDoc; comments explain why only.
 - Cite `LESSON-0450` in the commit (the harness must not let owner-private files into tests).
 

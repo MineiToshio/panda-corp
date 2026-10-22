@@ -100,7 +100,7 @@ portfolio) and `U2` (folder missing), as in the FDD.
 | REQ-03-008 | Cards, Lista and the project picker (AC-03-008.1 to .3). | `CMP-03-project-card`, `CMP-03-compare-list`, `CMP-03-project-switcher`, `CMP-03-view-switch` |
 | REQ-03-009 | Cuentas as the third view, working with no project and with an empty portfolio. | `CMP-03-view-switch`, `CMP-03-portfolio-page`, `AccountsDirectory` (FRD-26) |
 | U1 | No projects: a designed first-action empty state. | `CMP-03-project-card` (`FirstProjectCard`), `CMP-03-portfolio-page` |
-| U2 | Folder missing: «Ruta no encontrada» chip, recovery command or no-remote warning, read-only. | `CMP-03-project-card` (missing variant), `CMP-03-overview` (`pathMissing`) |
+| U2 | Folder missing: «Ruta no encontrada» chip and recovery command, read-only. The no-remote warning («Sin remoto registrado …», no `repo:`) is **Out of v2** (the PM marks it in FRD-03): not built. | `CMP-03-project-card` (missing variant), `CMP-03-overview` (`pathMissing`) |
 
 ## Dependencies & Risks
 
@@ -141,7 +141,10 @@ portfolio) and `U2` (folder missing), as in the FDD.
   `countOpenChanges`, the build chip from `buildSignal()`, the last commit from the published
   `getLastCommit()`; `getProjectOverview()` is the list the sidebar, Inicio's «Tu cartera» and the workspace
   hero read. `ProjectListItem.snapshot` / `.lastSync` are removed by WO-13-013 (cross-FRD fixtures). The
-  no-remote sentence of U2 is drawn nowhere: not built (design item).
+  no-remote warning of U2 is Out of v2 (the PM marks it in FRD-03): no captured state of the frozen design draws
+  it and the catalogue has no key for it, so building it would invent copy (DR-130); it is not built. A
+  missing folder without `repo:` shows the same «Ruta no encontrada» card with the `/pandacorp:sync-portfolio`
+  command only.
 - **Visual spec.** `mocks/portfolio.html`: `#portfolio-cards`, `#portfolio-list`, `#portfolio-project-picker`,
   `#portfolio-project-picker-search`, `#portfolio-project-not-found`, `#portfolio-path-missing`,
   `#factory-empty`, `#build-no-signal`; host of `frd-26-services-accounts/mocks/services-accounts.html#portfolio-accounts`.

@@ -108,7 +108,7 @@ Prototype reference functions: `ordersView`, `woRow`, `woByFrd`, `woKanban`, `dr
 `docs/design/prototype/reference/css/` 11-progress, 12-command, 13-list-row, 14-empty-notice, 15-key-value, 20-tabs,
 26-work-orders. Token slice: surfaces `--surface`/`--surface-2`, hairline `--line`, the five state hues
 (`slate`, `blue`, `amber`, `green`, `coral`) through `data-tone`, radius 16 cards / chips, the 12 px floor,
-`tabular-nums` on every count, JetBrains Mono only for ids, paths and commands. No asset beyond the 64 exported icons.
+`tabular-nums` on every count, JetBrains Mono only for ids, paths and commands. No asset beyond the 65 exported icons.
 Copy from `t()` (`src/lib/copy`, ADR-0013) over `docs/design/microcopy.es.json`, `workspace.observabilidad.*` keys.
 
 ## Dependencies & Risks

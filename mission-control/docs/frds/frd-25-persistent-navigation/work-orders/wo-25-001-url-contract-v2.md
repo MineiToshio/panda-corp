@@ -65,7 +65,8 @@ owner adopts the v2 form; no URL write ever runs a mutation).
 - A key registry with value sets and bounds for the keys v2 adds, and `validateNavigationQuery(context,
   state)` returning a typed result (`ok`, or `unsupported` with the key and the reason; never a thrown
   exception). Each surface validates the keys it owns; the global bounds gate (`routeHref`: repeated values,
-  length, traversal) is unchanged. v2 keys (the full table is in `../blueprint.md` § Key registry):
+  length, traversal) is unchanged. The key set below is identical, key for key, to the registry table in
+  `../blueprint.md` § Key registry (the two must never diverge; gate finding B9). v2 keys:
   Portafolio `view` in `tarjetas`, `lista`, `cuentas`; Observabilidad `view` in `frd`, `tablero`, `deps`,
   `frd` (one FRD id), `state` (a comma-joined set of work-order states in canonical order, because repeated
   keys are rejected; a single value such as `state=review` stays valid), `wo`, `woview` in `summary`, `full`,
@@ -73,16 +74,23 @@ owner adopts the v2 form; no URL write ever runs a mutation).
   and WO-12-007 use exactly these and report any other in the ledger);
   Cuentas `accountsQuery`, `accountsState` in `all`, `active`, `pending`, `candidates`, `reference`, and
   `account` (the open row); Configuración `q`, `type` (Habilidades), `approval` (Reglas), `severity` and
-  `domain` (Estándares); Documentación `q` and `index` (folded index open); Logros `category`, `trophy` (the
-  open trophy dialog id) and `eras` (the opened eras, a comma-joined set); Propuestas `proposalsTab` in
-  `resumen`, `memory`, `backlog` (the bare `/proposals` is `resumen`), `stream` in `promotions`,
-  `candidate-lesson`, `prune`, `lesson` and `backlogItem` (Backlog filters, history paging and the discard
-  confirmation stay out of the URL, AC-22-002.4). Kept, and explicitly round-tripped because the FRD-02
-  surfaces restore from them: `boardQuery`, `category`, `discarded`, `idea`, the idea tab segment
-  (`proposal`, `spec`, `architecture`, `documents`, `campaign`) plus the legacy `boardTab`, `doc` and the
-  `/board/:idea/documents/:doc` segment, `phase`, `specFrd`, `architectureFrd`, `adr`, `model` in `Diagrama`,
-  `Esquema`, `modelQuery`, `entity`, `relationship`, `schemaTable`, `expanded` in `1` (read as "restore the
-  inline viewer", never a fullscreen request), and every other v1 key. Unknown optional keys stay retained.
+  `domain` (Estándares); Documentación `q` and `index` (present while the folded index is open); Logros
+  `category`, `trophy` (the open trophy dialog id) and `eras` (the opened eras, a comma-joined set); the
+  data-model viewer's `model` in `Diagrama`, `Esquema` (legacy `diagram` / `schema` aliased). Kept, and
+  explicitly round-tripped because v2 surfaces restore from them: Propuestas `proposalsTab` in `resumen`,
+  `memory`, `backlog` (the bare `/proposals` is `resumen`), `stream` in `promotions`, `candidate-lesson`,
+  `prune`, `lesson` and `backlogItem` (Backlog filters, history paging and the discard confirmation stay out of
+  the URL, AC-22-002.4); the FRD-02 surfaces' `boardQuery`, `category`, `discarded`, `idea`, the idea tab
+  segment (`proposal`, `spec`, `architecture`, `documents`, `campaign`) plus the legacy `boardTab`, `doc` and
+  the `/board/:idea/documents/:doc` segment, `phase`, `specFrd`, `architectureFrd`, `adr`; the data-model
+  viewer's `modelQuery`, `entity`, `schemaTable`, `relationship` (the relationship selected through its
+  «Relaciones N» row, AC-02-015.5, FRD-02 blueprint C4) and `expanded` in `1` (read as "restore the inline
+  viewer", never a fullscreen request). Path-family state, kept: `hallTab`, `configSection`, `configItem`,
+  `manualGroup`, `manualPage`; every other v1 key (for example the workspace's `change`) is kept unchanged.
+  Unknown optional keys stay retained. No longer produced by any v2 surface (still retained if present):
+  `trophyCategory` (Logros uses `category`, WO-10-016), `standardView` (removed by WO-07-006) and
+  `backlogGroups` (AC-22-002.4, WO-22-002); per-connector canvas selection is Out of v2 (AC-02-015.2) and never
+  had a key.
   A URL fragment (for example Inicio's `#worktrees-card`) survives every codec-built href.
 - `activeDestinationPath(pathname): string | null` (single source of the active sidebar destination):
   `/` exact is Inicio; `/board/**` Tablero; `/portfolio/**` and `/projects/**` Portafolio (a project

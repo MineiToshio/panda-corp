@@ -331,7 +331,7 @@ The project-owned source is `docs/product/data-model.json`. Contract and reader 
 
 ## Does NOT include
 - No live agent chat or simulation backed by real-time events in La Campaña — it is a faithful, read-only depiction of the per-phase team and the document hand-off across time (the live build animation belongs to FRD-06 / La Fragua, fed by `~/.claude/dashboard-events.ndjson`).
-- No new write *from La Campaña*: the tabbed detail and La Campaña add **zero** mutations. The app's writes are a small, bounded, human-triggered set — discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012) — all isolated to `lib/discard/` + `lib/favorite/` (architecture §7, ADR-0003).
+- No new write *from La Campaña*: the tabbed detail and La Campaña add **zero** mutations. The app's writes are the bounded, human-triggered set listed in `docs/product/architecture.md` §7 (amended 2026-10-22, gate fix): idea discard/restore status (REQ-02-007) and the visual favourite flag (REQ-02-012), isolated to this FRD's `lib/discard/` + `lib/favorite/` (ADR-0002, ADR-0003), plus change discard (FRD-04), backlog discard (FRD-22) and the guild ledger (ADR-0005), owned by their own FRDs.
 - No mode selector / pause / reset controls in La Campaña (those are demo-only in the prototype; MC is read-only).
 - No regeneration of room art or new sprites — assets are reused/added by the design phase, not specified here.
 

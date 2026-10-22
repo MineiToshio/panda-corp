@@ -26,7 +26,7 @@ blueprint (§ Requirement → component traceability).
 | WO-01-008 | onboarding-gate | VERIFIED | WO-01-002 | The onboarding gate instead of the app when there is no profile. |
 | WO-01-010 | fixture-seams | PLANNED | WO-01-000, WO-01-001 | v2: `now()`, `runGit()`, the env contract and `pnpm dev:oracle` for the fidelity gate. |
 | WO-01-009 | live-transport-sse | VERIFIED | WO-01-005, WO-01-007, WO-05-001 | The shared SSE transport (`/api/live`) and `useLiveSnapshot`. |
-| WO-01-011 | adopt-seams | PLANNED | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003 | v2: route the kept readers' clock and git calls through the seams. |
+| WO-01-011 | adopt-seams | PLANNED | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-14-005, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003, WO-21-003 | v2: route the kept readers' clock and git calls through the seams. |
 
 > **Depends on** mirrors each work order's `dependsOn` frontmatter (DR-087). **Status** is the
 > `implementation_status` of the work order.

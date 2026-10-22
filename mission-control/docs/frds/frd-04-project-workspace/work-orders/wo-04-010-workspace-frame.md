@@ -31,7 +31,7 @@ artifacts:
   - 'e2e/{_workspaceTabs.ts,logical-data-model.spec.ts,portfolio-spec.spec.ts,persistent-navigation.spec.ts}'
   - 'e2e/persistent-navigation/workspace.spec.ts'
 source_requirements: [REQ-04-001, REQ-04-002, REQ-04-003, REQ-04-012, REQ-04-013, REQ-04-014, REQ-12-006]
-dependsOn: [WO-19-002, WO-03-007, WO-02-017, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013, WO-02-020, WO-12-007]
+dependsOn: [WO-19-002, WO-03-007, WO-02-017, WO-02-018, WO-26-001, WO-25-001, WO-13-012, WO-06-013, WO-04-013, WO-02-020, WO-12-007]
 last_updated: 2026-10-22
 change_ref: e2e-workspace-tabs-stale.md
 ---
@@ -222,7 +222,8 @@ Builds `CMP-04-workspace`, `CMP-04-tabbar`, `CMP-04-project-hero`, `CMP-04-proje
   work order deletes their only v2-relevant subject `src/components/modules/party/**` and they only probe
   the superseded v1 foundation WO-13-006..009): the FRD-13 reviewer suites
   `src/app/_design/tokens/_tests/frd13-wo06-09.adversarial.reviewer.test.tsx` and
-  `frd13-wo07-09.adversarial.reviewer2.test.tsx`, listed as derogated for the FRD-13 gate reviewer.
+  `frd13-wo07-09.adversarial.reviewer2.test.tsx`, listed in the Status Note; this removal is their only ending
+  (WO-13-011/012 keep them green until here and nothing re-blesses them).
   `ServicesDirectory/_tests/ServicesDirectory.test.tsx` goes with the facade. Reviewer-authored, NOT edited (the FRD-04 gate reviewer re-blesses or
   rewrites them): `_tests/page.reviewer.test.tsx`, `_tests/page.reviewer.integration.test.tsx`,
   `_components/_tests/spec-workspace.reviewer.test.tsx`. Visual baselines: never touched.
@@ -230,7 +231,9 @@ Builds `CMP-04-workspace`, `CMP-04-tabbar`, `CMP-04-project-hero`, `CMP-04-proje
 ## Dependencies
 
 WO-19-002 (shell), WO-03-007 (`ProjectSwitcher`, `getProjectOverview()`, `getLastCommit()`, `allProjects()`,
-Portafolio host), WO-02-017 (digests), WO-26-001 (`ProjectAccounts`, `projectServiceRows`), WO-25-001
+Portafolio host), WO-02-017 (digests), WO-02-018 (`DataModelViewer`; it rewrites the viewer steps of
+`e2e/logical-data-model.spec.ts` after WO-02-019 stabilized it, so this work order's tab-list steps of the same
+spec run after both), WO-26-001 (`ProjectAccounts`, `projectServiceRows`), WO-25-001
 (codec, aliases, `normalizeLegacyNavigation`), WO-13-012 (primitives), WO-06-013 (`buildSignal()`,
 `FreshnessBadge`, and the v2 scene that makes `_party/**` removable), WO-04-013 (`countOpenChanges`),
 WO-02-020 (`CampaignPipeline`/`RoamingCast` stop importing `src/components/modules/party/**` in W3),

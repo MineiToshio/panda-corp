@@ -137,7 +137,10 @@ Each seam is **inert unless its variable is set**: `pnpm dev` and `pnpm start` n
 them are architecture §7 "Environment variables"; `.env.example` documents each with its own comment line.
 
 - `now()`: reads `MC_CLOCK` at call time, returns a new `Date` per call, throws on an invalid value, has no
-  framework dependency (the CLIs under `scripts/` import it).
+  framework dependency (the CLIs under `scripts/` import it). It is server-side only in effect: Next inlines
+  only `NEXT_PUBLIC_*` variables into client bundles, so `MC_CLOCK` never reaches a Client Component.
+  Client Components receive `now` (an ISO string) from the server as a prop and never call `now()` or
+  `Date.now()` for a displayed age.
 - `runGit(args, cwd?)`: refuses any subcommand outside the read-only allowlist before spawning
   (`log`, `rev-parse`, `rev-list`, `status`, `diff`, `show`, `symbolic-ref`, `branch` list forms,
   `worktree list`); runs with an explicit timeout, a bounded output buffer and `GIT_OPTIONAL_LOCKS=0`. With
@@ -269,7 +272,7 @@ correction (the events reader is REQ-01-008).
 | WO-01-008 | WO-01-002 | `src/app/_components/OnboardingGate/**`, `src/app/_tests/layout.guard.test.tsx`, `src/app/layout.tsx` | false | W2; with WO-01-005, WO-01-006, WO-01-010 |
 | WO-01-010 | WO-01-000, WO-01-001 | `src/lib/clock/**`, `src/lib/git/**`, `src/lib/config/**`, `scripts/oracle/**`, `.env.example`, `README.md`, `package.json` | false | W2; with WO-01-005, WO-01-006, WO-01-008, WO-13-012, WO-11-003 |
 | WO-01-009 | WO-01-005, WO-01-007, WO-05-001 | `src/app/api/live/**`, `src/hooks/useLiveSnapshot.ts`, `src/hooks/_tests/useLiveSnapshot*.test.ts` | true | W3 |
-| WO-01-011 | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003 | `src/lib/achievements/report/**`, `src/lib/achievements/read-model/**`, `src/lib/snapshot/**`, `src/lib/memory/memory-health.ts`, `src/lib/self-suggest/**`, `src/lib/gamification/ledger.ts`, `src/lib/build-track/**`, `src/lib/git/fixtureAnswers.ts`, `src/lib/git/_tests/gitBoundary.test.ts`, `src/app/api/live/**`, `src/app/api/plugin-sync/**`, `src/app/_actions/snapshotLedger.ts` | false | W5; with WO-04-010, WO-18-002 |
+| WO-01-011 | WO-01-010, WO-10-014, WO-23-006, WO-14-001, WO-14-005, WO-17-003, WO-17-005, WO-17-008, WO-09-006, WO-01-009, WO-15-003, WO-21-003 | `src/lib/achievements/report/**`, `src/lib/achievements/read-model/**`, `src/lib/snapshot/**`, `src/lib/memory/memory-health.ts`, `src/lib/self-suggest/**`, `src/lib/gamification/ledger.ts`, `src/lib/build-track/**`, `src/lib/git/fixtureAnswers.ts`, `src/lib/git/_tests/gitBoundary.test.ts`, `src/app/api/live/**`, `src/app/api/plugin-sync/**`, `src/app/_actions/snapshotLedger.ts` | false | W5; with WO-04-010, WO-18-002 |
 
 - **Order and parallelism.** WO-01-000 first (every reader consumes its fixture tree). The pure readers
   (001, 002, 003, 004, 007) are independent and run in parallel in W1; 005, 006, 008 and the new 010 run in
@@ -278,13 +281,15 @@ correction (the events reader is REQ-01-008).
 - **Artifacts, disjoint within a wave (DR-060).** Same-wave rows write different `src/lib/<module>/` folders
   (W1, W2); WO-01-010 owns `package.json`, `.env.example`, `README.md` and `scripts/oracle/**` in W2, and no
   other W2 work order writes them. Overlaps with later waves (`src/app/api/live/**` in WO-01-009 and
-  WO-01-011, `src/lib/git/**` in WO-01-010 and WO-01-011, `src/app/layout.tsx` with the shell WOs) are
-  serialized by dependency, never parallel.
+  WO-01-011, `src/lib/git/**` in WO-01-010 and WO-01-011, `src/lib/snapshot/**` in WO-14-005 and WO-01-011,
+  `src/app/layout.tsx` with the shell WOs) are serialized by a `dependsOn` edge, never by the wave label alone.
 - **Integration order.** Seams (010) before any consumer: WO-21-003 and WO-03-007 depend on WO-01-010 and
   adopt `runGit` / `now` for what they own; WO-01-011 closes the rest. The oracle-mode boot is complete
   only after WO-01-011.
 - **Cross-FRD dependencies.** WO-01-009 depends on WO-05-001 (work-order reader). WO-01-011 depends on the
-  owners of the readers it migrates (FRD-09, 10, 14, 15, 17, 23). Consumers of the seams: WO-03-007,
+  owners of the readers it migrates (FRD-09, 10, 14, 15, 17, 23), on WO-14-005 (co-writer of
+  `src/lib/snapshot/**`) and on WO-21-003 (which moves `src/lib/pendingMerge/pendingMerge.ts` onto `runGit`,
+  so the boundary test of WO-01-011 can pass). Consumers of the seams: WO-03-007,
   WO-21-003, WO-10-016.
 - **Visual spec.** None: FRD-01 has no screen (the onboarding gate keeps its v1 look until the shell WOs
   restyle it through the tokens; its oracle states, if any, belong to FRD-19).
