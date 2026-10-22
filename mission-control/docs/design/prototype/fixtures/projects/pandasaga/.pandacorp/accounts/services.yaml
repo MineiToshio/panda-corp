@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "project_id": "pandasaga",
+  "resource_slug": "pandasaga",
+  "services": {
+    "web": {
+      "provider_id": "vercel",
+      "account_ref": "vercel-main",
+      "status": "proposed",
+      "environments": {
+        "preview": {
+          "resource_name": "pandasaga-preview"
+        },
+        "prod": {
+          "resource_name": "pandasaga"
+        }
+      }
+    },
+    "database": {
+      "provider_id": "neon",
+      "account_ref": "neon-main",
+      "status": "proposed",
+      "environments": {
+        "dev": {
+          "resource_name": "pandasaga / dev"
+        },
+        "prod": {
+          "resource_name": "pandasaga / prod"
+        }
+      }
+    },
+    "dns": {
+      "provider_id": "cloudflare",
+      "account_ref": "cloudflare-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "saga.example.com"
+        }
+      }
+    },
+    "errors": {
+      "provider_id": "sentry",
+      "account_ref": "sentry-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "pandasaga-web"
+        }
+      }
+    },
+    "ci": {
+      "provider_id": "github",
+      "account_ref": "github-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "example-org/pandasaga"
+        }
+      }
+    }
+  }
+}

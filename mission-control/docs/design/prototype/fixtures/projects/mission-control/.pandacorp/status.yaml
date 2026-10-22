@@ -1,0 +1,17 @@
+# Machine-readable status for Mission Control (the factory dashboard).
+project: "Pandacorp"
+phase: implementation
+version: v1
+overlay_version: "8.100.0"
+created_with: "6.0.0"
+target_platforms: desktop
+deploy_target: internal
+running: false
+run_started_at: "2026-09-25T01:00:00.000Z"
+updated_at: "2026-10-13T07:00:00.000Z"
+repo: ""
+last_green_sha: "5c594bde"
+safe_to_test: true
+rethink_pending: false
+advance_pending: false
+last_harvest: "2026-10-20T00:00:00Z"

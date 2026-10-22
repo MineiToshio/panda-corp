@@ -1,0 +1,1724 @@
+{
+  "schemaVersion": 1,
+  "persistence": "relational",
+  "entities": [
+    {
+      "id": "user",
+      "name": "User",
+      "description": "A reader account; guests can read without one.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "email",
+          "name": "email",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "displayName",
+          "name": "displayName",
+          "type": "text",
+          "optional": true
+        },
+        {
+          "id": "createdAt",
+          "name": "createdAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "guestContext",
+      "name": "Guest context",
+      "description": "Anonymous progress kept on one device.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "deviceKey",
+          "name": "deviceKey",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "createdAt",
+          "name": "createdAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "mergedIntoUserId",
+          "name": "mergedIntoUserId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "name": "Work",
+      "description": "A story told in one or more media.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "slug",
+          "name": "slug",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "summary",
+          "name": "summary",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "medium",
+      "name": "Medium",
+      "description": "Book, series, film or game.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "code",
+          "name": "code",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "label",
+          "name": "label",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "name": "Release",
+      "description": "A concrete way to consume a work (a book edition, a season).",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "mediumId",
+          "name": "mediumId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "position",
+          "name": "position",
+          "type": "integer",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "chapter",
+      "name": "Chapter",
+      "description": "The smallest unit a reader can mark as read.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "releaseId",
+          "name": "releaseId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "number",
+          "name": "number",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "readingProgress",
+      "name": "Reading progress",
+      "description": "How far a reader has gone in a release.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "guestId",
+          "name": "guestId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "releaseId",
+          "name": "releaseId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "chapterId",
+          "name": "chapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "updatedAt",
+          "name": "updatedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "character",
+      "name": "Character",
+      "description": "A person or creature in the story.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "firstChapterId",
+          "name": "firstChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "place",
+      "name": "Place",
+      "description": "A location in the story.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "firstChapterId",
+          "name": "firstChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "faction",
+      "name": "Faction",
+      "description": "A group characters belong to.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "firstChapterId",
+          "name": "firstChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "entry",
+      "name": "Encyclopedia entry",
+      "description": "A spoiler-safe article about something in the story.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "kind",
+          "name": "kind",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "entryRevision",
+      "name": "Entry revision",
+      "description": "What an entry says up to a given chapter.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "entryId",
+          "name": "entryId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "visibleFromChapterId",
+          "name": "visibleFromChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "name": "Connection",
+      "description": "A relation between two story elements.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "fromEntryId",
+          "name": "fromEntryId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "toEntryId",
+          "name": "toEntryId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "typeId",
+          "name": "typeId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "revealedAtChapterId",
+          "name": "revealedAtChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "connectionType",
+      "name": "Connection type",
+      "description": "Ally, rival, family, location of…",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "label",
+          "name": "label",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "name": "Recap",
+      "description": "A before-you-resume summary up to a chapter.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "releaseId",
+          "name": "releaseId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "upToChapterId",
+          "name": "upToChapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "generatedAt",
+          "name": "generatedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "recapSection",
+      "name": "Recap section",
+      "description": "One paragraph of a recap.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "recapId",
+          "name": "recapId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "position",
+          "name": "position",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "chapterSummary",
+      "name": "Chapter summary",
+      "description": "A short summary of one chapter.",
+      "attributes": [
+        {
+          "id": "chapterId",
+          "name": "chapterId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK",
+            "FK"
+          ]
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "catalogBundle",
+      "name": "Catalog bundle",
+      "description": "A versioned set of files describing a work.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "version",
+          "name": "version",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "publishedAt",
+          "name": "publishedAt",
+          "type": "timestamp",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "publishRun",
+      "name": "Publish run",
+      "description": "An atomic publication of a bundle.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "bundleId",
+          "name": "bundleId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "startedAt",
+          "name": "startedAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "status",
+          "name": "status",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "imageAsset",
+      "name": "Image asset",
+      "description": "Cover art or portraits with their credit.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "url",
+          "name": "url",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "credit",
+          "name": "credit",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ingestionSource",
+      "name": "Ingestion source",
+      "description": "A reference the ingestion skill reads from.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "url",
+          "name": "url",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ingestionJob",
+      "name": "Ingestion job",
+      "description": "One run of the ingestion skill for a work.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "workId",
+          "name": "workId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "sourceId",
+          "name": "sourceId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "status",
+          "name": "status",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "startedAt",
+          "name": "startedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "spoilerReport",
+      "name": "Spoiler report",
+      "description": "A reader's report of a leaked spoiler.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "entryRevisionId",
+          "name": "entryRevisionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "reportedAt",
+          "name": "reportedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "bookmark",
+      "name": "Bookmark",
+      "description": "A saved entry or connection.",
+      "attributes": [
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "entryId",
+          "name": "entryId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "savedAt",
+          "name": "savedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "userId",
+            "entryId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auditEvent",
+      "name": "Audit event",
+      "description": "Append-only record of publication actions.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "actorId",
+          "name": "actorId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "action",
+          "name": "action",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "at",
+          "name": "at",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "featureFlag",
+      "name": "Feature flag",
+      "description": "A server-side switch.",
+      "attributes": [
+        {
+          "id": "key",
+          "name": "key",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "enabled",
+          "name": "enabled",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "user-guestContext-mergedIntoUserId",
+      "name": "absorbs",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "guestContext",
+        "attributes": [
+          "mergedIntoUserId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-release-workId",
+      "name": "published as",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "release",
+        "attributes": [
+          "workId"
+        ],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "medium-release-mediumId",
+      "name": "format of",
+      "from": {
+        "entity": "medium",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "release",
+        "attributes": [
+          "mediumId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "release-chapter-releaseId",
+      "name": "split into",
+      "from": {
+        "entity": "release",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "chapter",
+        "attributes": [
+          "releaseId"
+        ],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-readingProgress-userId",
+      "name": "reads",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "readingProgress",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "guestContext-readingProgress-guestId",
+      "name": "reads as guest",
+      "from": {
+        "entity": "guestContext",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "readingProgress",
+        "attributes": [
+          "guestId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "release-readingProgress-releaseId",
+      "name": "tracked in",
+      "from": {
+        "entity": "release",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "readingProgress",
+        "attributes": [
+          "releaseId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-readingProgress-chapterId",
+      "name": "reached",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "readingProgress",
+        "attributes": [
+          "chapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-character-workId",
+      "name": "features",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "character",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-character-firstChapterId",
+      "name": "introduces",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "character",
+        "attributes": [
+          "firstChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-place-workId",
+      "name": "is set in",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "place",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-place-firstChapterId",
+      "name": "reveals place",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "place",
+        "attributes": [
+          "firstChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-faction-workId",
+      "name": "has factions",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "faction",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-faction-firstChapterId",
+      "name": "reveals faction",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "faction",
+        "attributes": [
+          "firstChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-entry-workId",
+      "name": "documented by",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "entry",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "entry-entryRevision-entryId",
+      "name": "revised as",
+      "from": {
+        "entity": "entry",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "entryRevision",
+        "attributes": [
+          "entryId"
+        ],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-entryRevision-visibleFromChapterId",
+      "name": "unlocks",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "entryRevision",
+        "attributes": [
+          "visibleFromChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-connection-workId",
+      "name": "relates",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "connection",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "entry-connection-fromEntryId",
+      "name": "links from",
+      "from": {
+        "entity": "entry",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "connection",
+        "attributes": [
+          "fromEntryId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "entry-connection-toEntryId",
+      "name": "links to",
+      "from": {
+        "entity": "entry",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "connection",
+        "attributes": [
+          "toEntryId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "connectionType-connection-typeId",
+      "name": "classifies",
+      "from": {
+        "entity": "connectionType",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "connection",
+        "attributes": [
+          "typeId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-connection-revealedAtChapterId",
+      "name": "reveals link",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "connection",
+        "attributes": [
+          "revealedAtChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "release-recap-releaseId",
+      "name": "summarised by",
+      "from": {
+        "entity": "release",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "recap",
+        "attributes": [
+          "releaseId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-recap-upToChapterId",
+      "name": "bounds",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "recap",
+        "attributes": [
+          "upToChapterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "recap-recapSection-recapId",
+      "name": "made of",
+      "from": {
+        "entity": "recap",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "recapSection",
+        "attributes": [
+          "recapId"
+        ],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "chapter-chapterSummary-chapterId",
+      "name": "summarised as",
+      "from": {
+        "entity": "chapter",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "chapterSummary",
+        "attributes": [
+          "chapterId"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "work-catalogBundle-workId",
+      "name": "packaged as",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "catalogBundle",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "catalogBundle-publishRun-bundleId",
+      "name": "published by",
+      "from": {
+        "entity": "catalogBundle",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "publishRun",
+        "attributes": [
+          "bundleId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-imageAsset-workId",
+      "name": "illustrated by",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "imageAsset",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "work-ingestionJob-workId",
+      "name": "ingested by",
+      "from": {
+        "entity": "work",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionJob",
+        "attributes": [
+          "workId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "ingestionSource-ingestionJob-sourceId",
+      "name": "feeds",
+      "from": {
+        "entity": "ingestionSource",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionJob",
+        "attributes": [
+          "sourceId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "entryRevision-spoilerReport-entryRevisionId",
+      "name": "flagged by",
+      "from": {
+        "entity": "entryRevision",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "spoilerReport",
+        "attributes": [
+          "entryRevisionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-spoilerReport-userId",
+      "name": "reports",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "spoilerReport",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-bookmark-userId",
+      "name": "saves",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "bookmark",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "entry-bookmark-entryId",
+      "name": "saved as",
+      "from": {
+        "entity": "entry",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "bookmark",
+        "attributes": [
+          "entryId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-auditEvent-actorId",
+      "name": "performs",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "auditEvent",
+        "attributes": [
+          "actorId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Machine-readable status for PandaCast.
+project: "PandaCast"
+phase: architecture
+version: v1
+overlay_version: "8.98.0"
+created_with: "8.90.0"
+target_platforms: responsive
+running: false
+updated_at: "2026-10-19T05:40:00Z"
+repo: ""
+last_green_sha: ""
+safe_to_test: false
+rethink_pending: false
+advance_pending: false

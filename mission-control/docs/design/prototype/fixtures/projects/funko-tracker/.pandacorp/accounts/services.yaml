@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "project_id": "funko-tracker",
+  "resource_slug": "funko-tracker",
+  "services": {
+    "database": {
+      "provider_id": "neon",
+      "account_ref": "neon-main",
+      "status": "configured",
+      "environments": {
+        "dev": {
+          "resource_name": "funko-tracker / dev"
+        },
+        "prod": {
+          "resource_name": "funko-tracker / prod"
+        }
+      }
+    },
+    "web": {
+      "provider_id": "vercel",
+      "account_ref": "vercel-main",
+      "status": "configured",
+      "environments": {
+        "preview": {
+          "resource_name": "funko-tracker-preview"
+        },
+        "prod": {
+          "resource_name": "funko-tracker"
+        }
+      }
+    },
+    "media": {
+      "provider_id": "cloudflare",
+      "account_ref": "cloudflare-main",
+      "status": "configured",
+      "environments": {
+        "dev": {
+          "resource_name": "funko-exports-dev"
+        },
+        "prod": {
+          "resource_name": "funko-exports-live"
+        }
+      }
+    },
+    "dns": {
+      "provider_id": "cloudflare",
+      "account_ref": "cloudflare-main",
+      "status": "configured",
+      "environments": {
+        "prod": {
+          "resource_name": "figuras.example.com"
+        }
+      }
+    },
+    "email": {
+      "provider_id": "resend",
+      "account_ref": "resend-main",
+      "status": "configured",
+      "environments": {
+        "prod": {
+          "resource_name": "avisos.example.com"
+        }
+      }
+    },
+    "errors": {
+      "provider_id": "sentry",
+      "account_ref": "sentry-main",
+      "status": "configured",
+      "environments": {
+        "dev": {
+          "resource_name": "funko-web-dev"
+        },
+        "prod": {
+          "resource_name": "funko-web"
+        }
+      }
+    },
+    "ci": {
+      "provider_id": "github",
+      "account_ref": "github-main",
+      "status": "configured",
+      "environments": {
+        "prod": {
+          "resource_name": "example-org/funko-tracker"
+        }
+      }
+    },
+    "worker": {
+      "provider_id": "railway",
+      "account_ref": "railway-main",
+      "status": "configured",
+      "environments": {
+        "prod": {
+          "resource_name": "funko-worker"
+        }
+      }
+    },
+    "analytics": {
+      "provider_id": "posthog",
+      "account_ref": "posthog-main",
+      "status": "inactive",
+      "environments": {}
+    },
+    "cache": {
+      "provider_id": "upstash",
+      "account_ref": null,
+      "status": "proposed",
+      "environments": {}
+    }
+  }
+}

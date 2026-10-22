@@ -1,0 +1,158 @@
+{
+  "capturedAt": "2026-10-21T00:20:00.000Z",
+  "generator": "scripts/export-snapshot.mjs",
+  "source": "fixture factory (docs/design/prototype/fixtures)",
+  "command": "node --loader ./scripts/read-model/ts-loader.mjs docs/design/prototype/scripts/export-snapshot.mjs",
+  "provenance": {
+    "ideas": "factory/ideas/*.md via readIdeas",
+    "status": ".pandacorp/status.yaml via readStatus",
+    "spec": ".pandacorp/comms/spec-resumen.md via readSpecDigest + parseSpec",
+    "architecture": ".pandacorp/comms/arquitectura-resumen.md and architecture artifacts via readArchitectureArtifacts + parseArchitecture",
+    "orders": "docs/frds/*/work-orders/wo-*.md via listWorkOrders + readWorkOrderDoc",
+    "docs": "docs/**/*.md and DESIGN.md; canonical subset via listProjectDocs + readDoc",
+    "changes": ".pandacorp/inbox/changes/**/*.md via readChangeQueue",
+    "timeline": ".pandacorp/track.jsonl, git history, or structural fallback via readBuildTimeline",
+    "decisions": ".pandacorp/inbox/decisions.md via readDecisions",
+    "activity": ".pandacorp/comms/progress.md via readActivityLog",
+    "commands": "project phase via workspaceCommands",
+    "manual": "mission-control/content/manual/**/*.{md,mdx} via readManualPages",
+    "markdown": "react-markdown + remark-gfm + react-dom/server; raw HTML disabled",
+    "environment": ".env.example names via readArchitectureArtifacts; values excluded"
+  },
+  "counts": {
+    "ideas": 22,
+    "projects": 5,
+    "orders": 218,
+    "done": 167,
+    "docs": 387,
+    "frds": 53,
+    "adrs": 24,
+    "changes": 68,
+    "decisions": 5,
+    "activityEntries": 126,
+    "manual": 38
+  },
+  "projects": [
+    {
+      "id": "mission-control",
+      "idea": "mission-control",
+      "counts": {
+        "orders": 110,
+        "done": 109,
+        "docs": 175,
+        "frds": 26
+      },
+      "adrs": 5,
+      "changes": 29,
+      "changeErrors": 0,
+      "decisions": 0,
+      "activityEntries": 9,
+      "timeline": "track",
+      "commands": 2,
+      "envNames": 0,
+      "hasSpec": false,
+      "hasArchitecture": false,
+      "dataModel": "none"
+    },
+    {
+      "id": "pandasaga",
+      "idea": "book-memory-without-spoilers",
+      "counts": {
+        "orders": 35,
+        "done": 0,
+        "docs": 66,
+        "frds": 7
+      },
+      "adrs": 8,
+      "changes": 1,
+      "changeErrors": 0,
+      "decisions": 0,
+      "activityEntries": 0,
+      "timeline": "structural",
+      "commands": 1,
+      "envNames": 13,
+      "hasSpec": true,
+      "hasArchitecture": true,
+      "dataModel": "ready"
+    },
+    {
+      "id": "funko-tracker",
+      "idea": "funko-tracker",
+      "counts": {
+        "orders": 48,
+        "done": 39,
+        "docs": 82,
+        "frds": 8
+      },
+      "adrs": 8,
+      "changes": 21,
+      "changeErrors": 0,
+      "decisions": 3,
+      "activityEntries": 44,
+      "timeline": "track",
+      "commands": 2,
+      "envNames": 46,
+      "hasSpec": true,
+      "hasArchitecture": true,
+      "dataModel": "ready"
+    },
+    {
+      "id": "pandacast",
+      "idea": "tiktok-crossposter",
+      "counts": {
+        "orders": 0,
+        "done": 0,
+        "docs": 11,
+        "frds": 4
+      },
+      "adrs": 0,
+      "changes": 0,
+      "changeErrors": 0,
+      "decisions": 0,
+      "activityEntries": 0,
+      "timeline": "empty",
+      "commands": 1,
+      "envNames": 0,
+      "hasSpec": true,
+      "hasArchitecture": false,
+      "dataModel": "missing"
+    },
+    {
+      "id": "personal-page-v2",
+      "idea": "personal-page-v2",
+      "counts": {
+        "orders": 25,
+        "done": 19,
+        "docs": 53,
+        "frds": 8
+      },
+      "adrs": 3,
+      "changes": 17,
+      "changeErrors": 1,
+      "decisions": 2,
+      "activityEntries": 73,
+      "timeline": "track",
+      "commands": 2,
+      "envNames": 4,
+      "hasSpec": true,
+      "hasArchitecture": true,
+      "dataModel": "none"
+    }
+  ],
+  "gaps": [
+    {
+      "projectId": "mission-control",
+      "missing": [
+        "spec",
+        "architecture"
+      ]
+    },
+    {
+      "projectId": "pandacast",
+      "missing": [
+        "architecture",
+        "data-model"
+      ]
+    }
+  ]
+}

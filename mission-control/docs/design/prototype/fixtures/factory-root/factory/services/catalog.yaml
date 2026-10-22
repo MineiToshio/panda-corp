@@ -1,0 +1,285 @@
+{
+  "schema_version": 1,
+  "providers": [
+    {
+      "id": "neon",
+      "name": "Neon",
+      "type": "database",
+      "purpose": "Managed PostgreSQL database",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/neon",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/neon",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "vercel",
+      "name": "Vercel",
+      "type": "hosting",
+      "purpose": "Web hosting with preview deployments",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/vercel",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/vercel",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare",
+      "type": "storage",
+      "purpose": "DNS and object storage",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/cloudflare",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/cloudflare",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "resend",
+      "name": "Resend",
+      "type": "email",
+      "purpose": "Transactional email",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/resend",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/resend",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "sentry",
+      "name": "Sentry",
+      "type": "monitoring",
+      "purpose": "Error tracking",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/sentry",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/sentry",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "github",
+      "name": "GitHub",
+      "type": "ci",
+      "purpose": "Source hosting and CI",
+      "adoption": "base",
+      "dashboard_url": "https://example.com/dashboards/github",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/github",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "railway",
+      "name": "Railway",
+      "type": "hosting",
+      "purpose": "Small always-on worker hosting",
+      "adoption": "optional",
+      "dashboard_url": "https://example.com/dashboards/railway",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/railway",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog",
+      "type": "analytics",
+      "purpose": "Product analytics",
+      "adoption": "optional",
+      "dashboard_url": "https://example.com/dashboards/posthog",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/posthog",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "upstash",
+      "name": "Upstash",
+      "type": "database",
+      "purpose": "Serverless cache",
+      "adoption": "optional",
+      "dashboard_url": "https://example.com/dashboards/upstash",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/upstash",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    },
+    {
+      "id": "formspark",
+      "name": "Formspark",
+      "type": "email",
+      "purpose": "Hosted form submissions",
+      "adoption": "project_specific",
+      "dashboard_url": "https://example.com/dashboards/formspark",
+      "reuse_policy": "Reuse the authorised account; one resource per application named after its resource slug.",
+      "environment_policy": "Separate development and production resources; never share credentials between them.",
+      "automation": {
+        "methods": [
+          "browser"
+        ],
+        "status": "documented",
+        "steps": [
+          "Confirm the authorised account before creating anything.",
+          "Create only the approved resources and record their names.",
+          "Store credentials in the project's environment, never in the repository."
+        ]
+      },
+      "quota_notes": "Free tier assumed for the fixture; verify current limits before relying on them.",
+      "sources": [
+        {
+          "url": "https://example.com/docs/formspark",
+          "checked_at": "2026-10-12"
+        }
+      ]
+    }
+  ]
+}

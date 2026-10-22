@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "project_id": "personal-page-v2",
+  "resource_slug": "personal-page-v2",
+  "services": {
+    "web": {
+      "provider_id": "vercel",
+      "account_ref": "vercel-main",
+      "status": "observed",
+      "environments": {
+        "preview": {
+          "resource_name": "personal-page-v2-preview"
+        },
+        "prod": {
+          "resource_name": "personal-page-v2"
+        }
+      }
+    },
+    "ci": {
+      "provider_id": "github",
+      "account_ref": "github-main",
+      "status": "observed",
+      "environments": {
+        "prod": {
+          "resource_name": "example-org/personal-page-v2"
+        }
+      }
+    },
+    "forms": {
+      "provider_id": "formspark",
+      "account_ref": null,
+      "status": "proposed",
+      "environments": {}
+    }
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "tool": "preflight-round",
+  "schema": 1,
+  "prototype": "docs/design/prototype/index.html",
+  "prototypeSha256": "988072fbe9170802aad4dc1f1724653f0ec745f947b78ac514f72a23265c9b80",
+  "generatedAt": "2026-10-22T01:43:03.333Z",
+  "durationMs": 2081,
+  "browser": "ran",
+  "complete": true,
+  "status": "warnings",
+  "counts": {
+    "fail": 0,
+    "warn": 1
+  },
+  "thresholds": {
+    "minFontPx": 12,
+    "maxLiteralColors": 0,
+    "maxLiteralLengths": 150
+  },
+  "literals": {
+    "colors": 0,
+    "lengths": 881
+  },
+  "screens": [
+    "inicio",
+    "tablero",
+    "portfolio",
+    "propuestas",
+    "logros",
+    "documentacion",
+    "configuracion"
+  ],
+  "widths": [
+    375,
+    1280
+  ],
+  "checks": {
+    "smallText": {
+      "status": "ok",
+      "findings": 0
+    },
+    "demoLeaks": {
+      "status": "ok",
+      "findings": 0
+    },
+    "demoMarkup": {
+      "status": "ok",
+      "findings": 0
+    },
+    "literalColors": {
+      "status": "ok",
+      "findings": 0
+    },
+    "literalLengths": {
+      "status": "warn",
+      "findings": 1
+    },
+    "unguardedHover": {
+      "status": "ok",
+      "findings": 0
+    },
+    "textFades": {
+      "status": "ok",
+      "findings": 0
+    },
+    "overflow": {
+      "status": "ok",
+      "findings": 0
+    },
+    "fonts": {
+      "status": "ok",
+      "findings": 0
+    },
+    "tokens": {
+      "status": "ok",
+      "findings": 0
+    },
+    "configCoverage": {
+      "status": "ok",
+      "findings": 0
+    },
+    "screens": {
+      "status": "ok",
+      "findings": 0
+    }
+  },
+  "findings": [
+    {
+      "check": "literalLengths",
+      "severity": "warn",
+      "message": "881 literal px length(s) outside the token blocks (warn above 150); top: .area-bar (8); .ask-cmd (7); .ditem (6)",
+      "total": 881,
+      "topSelectors": [
+        [
+          ".area-bar",
+          8
+        ],
+        [
+          ".ask-cmd",
+          7
+        ],
+        [
+          ".ditem",
+          6
+        ],
+        [
+          ".manual-live",
+          6
+        ],
+        [
+          ".crest-xl",
+          6
+        ]
+      ],
+      "topValues": [
+        [
+          "6px",
+          109
+        ],
+        [
+          "10px",
+          91
+        ],
+        [
+          "2px",
+          65
+        ],
+        [
+          "8px",
+          59
+        ],
+        [
+          "4px",
+          56
+        ]
+      ]
+    }
+  ]
+}

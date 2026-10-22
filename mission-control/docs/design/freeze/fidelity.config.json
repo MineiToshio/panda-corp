@@ -1,0 +1,4674 @@
+{
+  "prototype": "docs/design/prototype/index.html",
+  "lang": "es",
+  "widths": [
+    375,
+    768,
+    1280
+  ],
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "params": {
+    "demoOff": "demo=off",
+    "theme": "theme"
+  },
+  "probe": {
+    "demoOff": "![...document.querySelectorAll('[data-demo-only]')].some((e) => e.getClientRects().length > 0)"
+  },
+  "screenSelector": "#app",
+  "sprite": null,
+  "screens": [
+    "inicio",
+    "tablero",
+    {
+      "id": "idea",
+      "route": "#idea?idea=book-memory-without-spoilers&tab=Propuesta"
+    },
+    "portfolio",
+    {
+      "id": "proyecto",
+      "route": "#portfolio?project=mission-control"
+    },
+    "propuestas",
+    "logros",
+    "documentacion",
+    "configuracion"
+  ],
+  "css": {
+    "families": [
+      {
+        "name": "fonts",
+        "description": "Self-hosted @font-face rules",
+        "note": "The prototype links its fonts from assets/fonts.css and assets/inter.css, so this family is empty until the @font-face rules sit inside the prototype <style>."
+      },
+      {
+        "name": "tokens",
+        "description": "Design tokens: :root custom properties, the dark theme and the tone scale"
+      },
+      {
+        "name": "base",
+        "description": "Reset, element defaults, focus ring, reduced motion"
+      },
+      {
+        "name": "icons",
+        "description": "Icon glyph sizing and stroke",
+        "component": "Icon"
+      },
+      {
+        "name": "text-helpers",
+        "description": "Muted, faint, small and numeric text helpers",
+        "component": "Text helpers"
+      },
+      {
+        "name": "layout-helpers",
+        "description": "Row, stack and grid helpers",
+        "component": "Layout helpers"
+      },
+      {
+        "name": "card",
+        "description": "Card, card header, card footer and the tinted icon tile",
+        "component": "Card, CardHeader, CardFlush, CardTinted, CardFoot, BadgeIcon"
+      },
+      {
+        "name": "chip",
+        "description": "Chips, count pills and the illustrative label",
+        "component": "Chip, ChipPlain, ChipOutline, CountPill"
+      },
+      {
+        "name": "button",
+        "description": "Buttons, icon buttons and links",
+        "component": "Button, ButtonPrimary, ButtonGhost, ButtonSmall, ButtonToned, IconButton, Link"
+      },
+      {
+        "name": "form-field",
+        "description": "Fields, search, select and text area",
+        "component": "SearchField, SelectField"
+      },
+      {
+        "name": "segmented",
+        "description": "Segmented control",
+        "component": "Segmented"
+      },
+      {
+        "name": "progress",
+        "description": "Bar, stack bar and progress ring",
+        "component": "ProgressBar, StackBar, Ring"
+      },
+      {
+        "name": "command",
+        "description": "Copyable command box",
+        "component": "CommandBox"
+      },
+      {
+        "name": "list-row",
+        "description": "List row and divided list",
+        "component": "ListRow"
+      },
+      {
+        "name": "empty-notice",
+        "description": "Empty state and notice",
+        "component": "EmptyState, Notice"
+      },
+      {
+        "name": "key-value",
+        "description": "Key and value list",
+        "component": "KeyValue"
+      },
+      {
+        "name": "table",
+        "description": "Data table",
+        "component": "Table"
+      },
+      {
+        "name": "demo-strip",
+        "description": "Review-only chrome",
+        "note": "DO NOT BUILD: review-only chrome (data-demo-only); kept so the reference pages render like the prototype."
+      },
+      {
+        "name": "app-frame",
+        "description": "App grid, sidebar, rail, top bar, bottom navigation and drawer",
+        "component": "Sidebar, NavItem, ProjectNavItem, GuildCard, TopBar, BottomNav, SkipLink, Footer"
+      },
+      {
+        "name": "page-header",
+        "description": "Page title block, crumbs and capture stamp",
+        "component": "PageHead, Crumbs"
+      },
+      {
+        "name": "tabs",
+        "description": "Tab strip with overflow arrows",
+        "component": "Tabs"
+      },
+      {
+        "name": "phase-stepper",
+        "description": "Six-phase stepper",
+        "component": "Stepper, StepperCompact"
+      },
+      {
+        "name": "inicio",
+        "description": "Dashboard: owner turn, portfolio cards, pulse, funnel",
+        "component": "AskRow, ProjectCard, KpiTiles, FunnelRow"
+      },
+      {
+        "name": "tablero",
+        "description": "Ideas board: columns and idea cards",
+        "component": "BoardColumn, IdeaCard, FilterChip, Switch"
+      },
+      {
+        "name": "idea-header",
+        "description": "Idea header and project hero",
+        "component": "ProjectHero, ProjectHeroCompact"
+      },
+      {
+        "name": "spec",
+        "description": "Spec digest layout",
+        "component": "FrdCard"
+      },
+      {
+        "name": "work-orders",
+        "description": "Work-order rows, state tiles and board",
+        "component": "WorkOrderRow, WorkOrderColumn, WorkOrderCard, StateTile, FrdRow"
+      },
+      {
+        "name": "architecture",
+        "description": "Architecture digest and data-model viewer",
+        "component": "ModelDiagram, SchemaList, EnvRow, AdrRow"
+      },
+      {
+        "name": "documents",
+        "description": "Document reader and index",
+        "component": "Paper, DocIndex, DocItem"
+      },
+      {
+        "name": "markdown",
+        "description": "Rendered markdown and the captured Manual mapping",
+        "component": "Markdown"
+      },
+      {
+        "name": "party-observability",
+        "description": "Party and Observability headings (their rules live in later sections)"
+      },
+      {
+        "name": "commands",
+        "description": "Commands tab and build modes",
+        "component": "CommandStep, ModeCard"
+      },
+      {
+        "name": "logros",
+        "description": "Achievements shell (superseded by logros-hall)"
+      },
+      {
+        "name": "dialog",
+        "description": "Dialog, backdrop and toast",
+        "component": "Dialog, Toast"
+      },
+      {
+        "name": "responsive",
+        "description": "Breakpoint overrides: tablet rail, phone drawer, bottom navigation"
+      },
+      {
+        "name": "late-additions",
+        "description": "Late additions"
+      },
+      {
+        "name": "review-fixes",
+        "description": "Round 5 review fixes"
+      },
+      {
+        "name": "iteration-2",
+        "description": "Inicio and sidebar, tooltips"
+      },
+      {
+        "name": "iteration-3",
+        "description": "Tu turno for returning owners, branches explained",
+        "component": "AskRow"
+      },
+      {
+        "name": "iteration-4",
+        "description": "Quieter Inicio; card headers carry their colour",
+        "component": "CardHeader"
+      },
+      {
+        "name": "board-pipeline",
+        "description": "Board as one horizontal pipeline at every width",
+        "component": "PhaseNav"
+      },
+      {
+        "name": "board-columns",
+        "description": "Equal-width board columns",
+        "component": "BoardColumn"
+      },
+      {
+        "name": "campana",
+        "description": "Campaign journey map",
+        "component": "CampaignRoom, PhaseSheet"
+      },
+      {
+        "name": "idea-layout",
+        "description": "Idea detail bands, label and content rows, campaign cast",
+        "component": "DigestHero, ReportBand, PhaseSheet"
+      },
+      {
+        "name": "propuestas",
+        "description": "Proposals summary, lesson flow and backlog by area",
+        "component": "ProposalActionRow, LessonFlow, AreaBar"
+      },
+      {
+        "name": "logros-hall",
+        "description": "Achievements: missions, trophies, statistics, ranks",
+        "component": "GuildHero, MissionCard, TrophyCard, SealTile, RankRow, EraGroup, RadarChart, ColumnChart, LineChart"
+      },
+      {
+        "name": "project-summary",
+        "description": "Project summary and accounts table",
+        "component": "AccountsTable, ProgressList"
+      },
+      {
+        "name": "fragua",
+        "description": "La Fragua scene, stations, tokens and the token card",
+        "component": "FraguaScene, FraguaStation, FraguaToken"
+      },
+      {
+        "name": "sidebar-rail",
+        "description": "Collapsible icon rail that floats open on hover",
+        "component": "Sidebar"
+      },
+      {
+        "name": "dependency-graph",
+        "description": "Dependency graphs between work orders and FRDs, click-to-copy text",
+        "component": "DependencyNode, DependencyList, DependencyFrdBox, DependencyFrdItem, DependencySide, CopyText"
+      },
+      {
+        "name": "config",
+        "description": "Configuration hub and catalogs",
+        "component": "ConfigTile, ConfigRow, AgentCard, RuleRow"
+      },
+      {
+        "name": "docs-home",
+        "description": "Documentation home and reader chrome",
+        "component": "DocsGroupCard, DocsSteps"
+      },
+      {
+        "name": "phone-pass",
+        "description": "First phone pass"
+      },
+      {
+        "name": "phone-tablet-pass",
+        "description": "Phone and tablet pass, second review"
+      },
+      {
+        "name": "wo-detail",
+        "description": "Work-order detail: steps, criteria, story cards",
+        "component": "WoSteps, CriterionList, CardTinted"
+      },
+      {
+        "name": "shared-rules",
+        "description": "Shared rules of iterations 27 and 28: tinted command boxes, card titles, search width, equal-height pairs, compact command",
+        "component": "CommandCompact, CardHeader, SearchField"
+      }
+    ],
+    "rules": [
+      {
+        "family": "fonts",
+        "match": "^@font-face$"
+      },
+      {
+        "family": "tokens",
+        "match": "^\\[data-tone="
+      },
+      {
+        "family": "base",
+        "match": "^(\\*|body|h1|h2|h3|h4|p|a|img|button|code|:focus-visible|::selection|\\[hidden\\]|\\.sr-only)$"
+      },
+      {
+        "family": "shared-rules",
+        "match": "^(:is\\(|\\.card-head|\\.cmd-(step|l)\\b|\\.mode-(top|ico|power|tag)\\b|\\.mode\\[|\\.card-(intro|title)\\b|\\.field\\.search\\b|\\.verdict\\b|\\.grid-2|\\.saga-head|\\.card\\.flush|\\.wo-kanban\\b|\\.ask-cmd)"
+      }
+    ],
+    "overrides": {
+      ":root": "tokens",
+      ":root[data-theme=\"dark\"]": "tokens",
+      "html": "base"
+    },
+    "verbatim": [
+      {
+        "family": "icons",
+        "begin": "---------- Icons ----------",
+        "end": "---------- Text helpers ----------"
+      },
+      {
+        "family": "text-helpers",
+        "begin": "---------- Text helpers ----------",
+        "end": "---------- Layout helpers ----------"
+      },
+      {
+        "family": "layout-helpers",
+        "begin": "---------- Layout helpers ----------",
+        "end": "---------- Cards ----------"
+      },
+      {
+        "family": "card",
+        "begin": "---------- Cards ----------",
+        "end": "---------- Chips ----------"
+      },
+      {
+        "family": "chip",
+        "begin": "---------- Chips ----------",
+        "end": "---------- Buttons ----------"
+      },
+      {
+        "family": "button",
+        "begin": "---------- Buttons ----------",
+        "end": "---------- Form fields ----------"
+      },
+      {
+        "family": "form-field",
+        "begin": "---------- Form fields ----------",
+        "end": "---------- Segmented control ----------"
+      },
+      {
+        "family": "segmented",
+        "begin": "---------- Segmented control ----------",
+        "end": "---------- Progress ----------"
+      },
+      {
+        "family": "progress",
+        "begin": "---------- Progress ----------",
+        "end": "---------- Command row ----------"
+      },
+      {
+        "family": "command",
+        "begin": "---------- Command row ----------",
+        "end": "---------- List rows ----------"
+      },
+      {
+        "family": "list-row",
+        "begin": "---------- List rows ----------",
+        "end": "---------- Empty / notice ----------"
+      },
+      {
+        "family": "empty-notice",
+        "begin": "---------- Empty / notice ----------",
+        "end": "---------- Key/value ----------"
+      },
+      {
+        "family": "key-value",
+        "begin": "---------- Key/value ----------",
+        "end": "---------- Tables ----------"
+      },
+      {
+        "family": "table",
+        "begin": "---------- Tables ----------",
+        "end": "---------- Demo strip"
+      },
+      {
+        "family": "demo-strip",
+        "begin": "---------- Demo strip",
+        "end": "---------- App frame ----------"
+      },
+      {
+        "family": "app-frame",
+        "begin": "---------- App frame ----------",
+        "end": "---------- Page header ----------"
+      },
+      {
+        "family": "page-header",
+        "begin": "---------- Page header ----------",
+        "end": "---------- Tabs ----------"
+      },
+      {
+        "family": "tabs",
+        "begin": "---------- Tabs ----------",
+        "end": "---------- Phase stepper ----------"
+      },
+      {
+        "family": "phase-stepper",
+        "begin": "---------- Phase stepper ----------",
+        "end": "---------- Inicio ----------"
+      },
+      {
+        "family": "inicio",
+        "begin": "---------- Inicio ----------",
+        "end": "---------- Tablero ----------"
+      },
+      {
+        "family": "tablero",
+        "begin": "---------- Tablero ----------",
+        "end": "---------- Idea detail / project header ----------"
+      },
+      {
+        "family": "idea-header",
+        "begin": "---------- Idea detail / project header ----------",
+        "end": "---------- Spec ----------"
+      },
+      {
+        "family": "spec",
+        "begin": "---------- Spec ----------",
+        "end": "---------- Work orders ----------"
+      },
+      {
+        "family": "work-orders",
+        "begin": "---------- Work orders ----------",
+        "end": "---------- Architecture & model ----------"
+      },
+      {
+        "family": "architecture",
+        "begin": "---------- Architecture & model ----------",
+        "end": "---------- Documents / Manual reader ----------"
+      },
+      {
+        "family": "documents",
+        "begin": "---------- Documents / Manual reader ----------",
+        "end": "---------- Markdown ----------"
+      },
+      {
+        "family": "markdown",
+        "begin": "---------- Markdown ----------",
+        "end": "---------- Party ----------"
+      },
+      {
+        "family": "party-observability",
+        "begin": "---------- Party ----------",
+        "end": "---------- Commands ----------"
+      },
+      {
+        "family": "commands",
+        "begin": "---------- Commands ----------",
+        "end": "---------- Logros ----------"
+      },
+      {
+        "family": "logros",
+        "begin": "---------- Logros ----------",
+        "end": "---------- Dialog & toast ----------"
+      },
+      {
+        "family": "dialog",
+        "begin": "---------- Dialog & toast ----------",
+        "end": "---------- Responsive ----------"
+      },
+      {
+        "family": "responsive",
+        "begin": "---------- Responsive ----------",
+        "end": "---------- Late additions ----------"
+      },
+      {
+        "family": "late-additions",
+        "begin": "---------- Late additions ----------",
+        "end": "---------- Round-5 review fixes ----------"
+      },
+      {
+        "family": "review-fixes",
+        "begin": "---------- Round-5 review fixes ----------",
+        "end": "---------- Round-5 · iteration 2"
+      },
+      {
+        "family": "iteration-2",
+        "begin": "---------- Round-5 · iteration 2",
+        "end": "---------- Round-5 · iteration 3"
+      },
+      {
+        "family": "iteration-3",
+        "begin": "---------- Round-5 · iteration 3",
+        "end": "---------- Round-5 · iteration 4"
+      },
+      {
+        "family": "iteration-4",
+        "begin": "---------- Round-5 · iteration 4",
+        "end": "---------- Board: one horizontal pipeline"
+      },
+      {
+        "family": "board-pipeline",
+        "begin": "---------- Board: one horizontal pipeline",
+        "end": "---------- Board iteration 6"
+      },
+      {
+        "family": "board-columns",
+        "begin": "---------- Board iteration 6",
+        "end": "---------- Campaña ----------"
+      },
+      {
+        "family": "campana",
+        "begin": "---------- Campaña ----------",
+        "end": "---------- Idea detail: the app's layout"
+      },
+      {
+        "family": "idea-layout",
+        "begin": "---------- Idea detail: the app's layout",
+        "end": "---------- Propuestas: summary"
+      },
+      {
+        "family": "propuestas",
+        "begin": "---------- Propuestas: summary",
+        "end": "---------- Logros: missions, trophies"
+      },
+      {
+        "family": "logros-hall",
+        "begin": "---------- Logros: missions, trophies",
+        "end": "---------- Project Resumen (managerial) and Cuentas"
+      },
+      {
+        "family": "project-summary",
+        "begin": "---------- Project Resumen (managerial) and Cuentas",
+        "end": "---------- La Fragua (Party)"
+      },
+      {
+        "family": "fragua",
+        "begin": "---------- La Fragua (Party)",
+        "end": "---------- Collapsible sidebar"
+      },
+      {
+        "family": "sidebar-rail",
+        "begin": "---------- Collapsible sidebar",
+        "end": "---------- Dependency graph"
+      },
+      {
+        "family": "dependency-graph",
+        "begin": "---------- Dependency graph",
+        "end": "---------- Configuración hub and catalogs"
+      },
+      {
+        "family": "config",
+        "begin": "---------- Configuración hub and catalogs",
+        "end": "---------- Documentación home and reader chrome"
+      },
+      {
+        "family": "docs-home",
+        "begin": "---------- Documentación home and reader chrome",
+        "end": "---------- Phone pass ----------"
+      },
+      {
+        "family": "phone-pass",
+        "begin": "---------- Phone pass ----------",
+        "end": "---------- Phone and tablet pass (iteration 26)"
+      },
+      {
+        "family": "phone-tablet-pass",
+        "begin": "---------- Phone and tablet pass (iteration 26)",
+        "end": "---------- Work-order detail"
+      },
+      {
+        "family": "wo-detail",
+        "begin": "---------- Work-order detail",
+        "end": "Comandos: each card and command carries"
+      }
+    ],
+    "unmatched": "fail"
+  },
+  "states": {
+    "frd-02-ideas-board": [
+      {
+        "id": "board",
+        "title": "Board: ideas by phase",
+        "route": "#tablero"
+      },
+      {
+        "id": "board-hide-empty",
+        "title": "Board: empty phases hidden",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "[data-action=\"toggle-empty\"]"
+          }
+        ]
+      },
+      {
+        "id": "board-search",
+        "title": "Board: search narrows the cards",
+        "route": "#tablero",
+        "actions": [
+          {
+            "fill": [
+              "#idea-search",
+              "panda"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "board-category-filter",
+        "title": "Board: category chip filter",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "[data-cat-filter=\"web\"]"
+          }
+        ]
+      },
+      {
+        "id": "board-favorite",
+        "title": "Board: favourite star pressed",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": ".kcard [data-star]"
+          }
+        ]
+      },
+      {
+        "id": "board-phase-jump",
+        "title": "Board: phase selector jumps to a column",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "[data-phase-jump=\"architecture\"]"
+          }
+        ],
+        "settleMs": 800
+      },
+      {
+        "id": "board-capture-dialog",
+        "title": "Board: capture ideas dialog",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "[data-action=\"capture\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "board-discarded-dialog",
+        "title": "Board: discarded ideas dialog",
+        "route": "#tablero",
+        "actions": [
+          {
+            "click": "[data-action=\"discarded\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "idea-pitch",
+        "title": "Idea detail: Propuesta tab",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Propuesta"
+      },
+      {
+        "id": "idea-spec",
+        "title": "Idea detail: Spec tab",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Spec"
+      },
+      {
+        "id": "idea-architecture",
+        "title": "Idea detail: Arquitectura tab",
+        "route": "#idea?idea=funko-tracker&tab=Arquitectura"
+      },
+      {
+        "id": "idea-documents",
+        "title": "Idea detail: Documentos tab",
+        "route": "#idea?idea=funko-tracker&tab=Documentos"
+      },
+      {
+        "id": "idea-campaign",
+        "title": "Idea detail: Campaña journey map",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a"
+      },
+      {
+        "id": "idea-campaign-phase",
+        "title": "Idea detail: Campaña, Arquitectura phase sheet",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a&phase=3"
+      },
+      {
+        "id": "idea-frd-dialog",
+        "title": "Spec: FRD card dialog",
+        "route": "#idea?idea=funko-tracker&tab=Spec",
+        "actions": [
+          {
+            "click": ".frd-cards .frdc-open"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "idea-adr-dialog",
+        "title": "Architecture: ADR dialog",
+        "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+        "actions": [
+          {
+            "click": "#g-adrs [data-modal]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "idea-discard-dialog",
+        "title": "Idea detail: discard confirmation",
+        "route": "#idea?idea=book-memory-without-spoilers&tab=Propuesta",
+        "actions": [
+          {
+            "click": "[data-action=\"discard-idea\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "idea-shipped",
+        "title": "Idea detail: shipped idea offers no discard",
+        "route": "#idea?idea=personal-page-v2"
+      },
+      {
+        "id": "idea-not-found",
+        "title": "Idea detail: unknown idea",
+        "route": "#idea?idea=does-not-exist"
+      },
+      {
+        "id": "model-diagram",
+        "title": "Data model: diagram view",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Diagrama",
+        "actions": [
+          {
+            "waitFor": "[data-select-entity]"
+          }
+        ]
+      },
+      {
+        "id": "model-entity-selected",
+        "title": "Data model: entity selected, relations lit",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Diagrama",
+        "actions": [
+          {
+            "waitFor": "[data-select-entity]"
+          },
+          {
+            "click": "[data-select-entity]"
+          }
+        ]
+      },
+      {
+        "id": "model-zoomed-out",
+        "title": "Data model: zoomed out",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Diagrama",
+        "actions": [
+          {
+            "waitFor": "[data-graph=\"out\"]"
+          },
+          {
+            "click": "[data-graph=\"out\"]"
+          }
+        ]
+      },
+      {
+        "id": "model-schema",
+        "title": "Data model: schema view",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Esquema"
+      }
+    ],
+    "frd-03-portfolio": [
+      {
+        "id": "portfolio-cards",
+        "title": "Portfolio: project cards",
+        "route": "#portfolio"
+      },
+      {
+        "id": "portfolio-list",
+        "title": "Portfolio: comparison list",
+        "route": "#portfolio?view=lista"
+      },
+      {
+        "id": "portfolio-project-picker",
+        "title": "Portfolio: change-project dialog",
+        "route": "#portfolio?project=mission-control",
+        "actions": [
+          {
+            "click": "[data-action=\"projects\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "portfolio-project-picker-search",
+        "title": "Portfolio: project picker filtered",
+        "route": "#portfolio?project=mission-control",
+        "actions": [
+          {
+            "click": "[data-action=\"projects\"]"
+          },
+          {
+            "fill": [
+              "#project-search",
+              "funko"
+            ]
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "portfolio-project-not-found",
+        "title": "Portfolio: unknown project",
+        "route": "#portfolio?project=does-not-exist"
+      }
+    ],
+    "frd-04-project-workspace": [
+      {
+        "id": "project-summary",
+        "title": "Workspace: Resumen of the running build",
+        "route": "#portfolio?project=mission-control"
+      },
+      {
+        "id": "project-summary-funko",
+        "title": "Workspace: Resumen with decisions and progress",
+        "route": "#portfolio?project=funko-tracker"
+      },
+      {
+        "id": "project-decision-dialog",
+        "title": "Workspace: decision dialog",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "click": "[data-decision]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "project-spec",
+        "title": "Workspace: Spec tab",
+        "route": "#portfolio?project=pandasaga&tab=Spec"
+      },
+      {
+        "id": "project-architecture",
+        "title": "Workspace: Arquitectura tab",
+        "route": "#portfolio?project=pandasaga&tab=Arquitectura"
+      },
+      {
+        "id": "project-changes",
+        "title": "Workspace: Cambios queue",
+        "route": "#portfolio?project=personal-page-v2&tab=Cambios"
+      },
+      {
+        "id": "project-change-dialog",
+        "title": "Workspace: change detail dialog",
+        "route": "#portfolio?project=personal-page-v2&tab=Cambios",
+        "actions": [
+          {
+            "click": "[data-change]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "project-change-discard",
+        "title": "Workspace: discard a draft change",
+        "route": "#portfolio?project=personal-page-v2&tab=Cambios",
+        "actions": [
+          {
+            "click": ".lrow[data-change]:has-text(\"Borrador\")"
+          },
+          {
+            "click": "#dlg [data-action=\"discard-change\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "project-documents",
+        "title": "Workspace: Documentos reader",
+        "route": "#portfolio?project=pandasaga&tab=Documentos"
+      },
+      {
+        "id": "project-documents-search",
+        "title": "Workspace: document index filtered",
+        "route": "#portfolio?project=pandasaga&tab=Documentos",
+        "actions": [
+          {
+            "fill": [
+              "#doc-search",
+              "blueprint"
+            ]
+          }
+        ],
+        "widths": [
+          1280
+        ]
+      },
+      {
+        "id": "project-documents-index-open",
+        "title": "Workspace: document index opened on narrow screens",
+        "route": "#portfolio?project=pandasaga&tab=Documentos",
+        "actions": [
+          {
+            "click": "[data-action=\"doc-index\"]"
+          }
+        ],
+        "widths": [
+          375,
+          768
+        ]
+      },
+      {
+        "id": "project-tab-not-found",
+        "title": "Workspace: unknown tab",
+        "route": "#portfolio?project=mission-control&tab=Inexistente"
+      }
+    ],
+    "frd-05-work-orders": [
+      {
+        "id": "wo-by-frd",
+        "title": "Work orders: grouped by FRD, collapsed",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad"
+      },
+      {
+        "id": "wo-by-frd-expanded",
+        "title": "Work orders: every FRD expanded",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad",
+        "actions": [
+          {
+            "click": "[data-action=\"frd-toggle-all\"]"
+          }
+        ]
+      },
+      {
+        "id": "wo-state-filter",
+        "title": "Work orders: state tile filter active",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&state=review"
+      },
+      {
+        "id": "wo-kanban",
+        "title": "Work orders: board by state",
+        "route": "#portfolio?project=personal-page-v2&tab=Observabilidad&view=tablero"
+      },
+      {
+        "id": "wo-kanban-expanded",
+        "title": "Work orders: board column expanded",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&view=tablero",
+        "actions": [
+          {
+            "click": "[data-wo-more]"
+          }
+        ]
+      },
+      {
+        "id": "wo-detail",
+        "title": "Work order: summary read in order",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014"
+      },
+      {
+        "id": "wo-detail-full",
+        "title": "Work order: full document",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014&woview=Documento+completo"
+      },
+      {
+        "id": "wo-detail-not-found",
+        "title": "Work order: unknown order",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-99-999"
+      }
+    ],
+    "frd-06-party": [
+      {
+        "id": "fragua-real",
+        "title": "La Fragua: real build state",
+        "route": "#portfolio?project=funko-tracker"
+      },
+      {
+        "id": "fragua-on",
+        "title": "La Fragua: build running scene",
+        "route": "#portfolio?project=funko-tracker&scene=on"
+      },
+      {
+        "id": "fragua-off",
+        "title": "La Fragua: factory off",
+        "route": "#portfolio?project=funko-tracker&scene=off"
+      },
+      {
+        "id": "fragua-token-card",
+        "title": "La Fragua: work order card on a focused token",
+        "route": "#portfolio?project=funko-tracker",
+        "actions": [
+          {
+            "scroll": ".fragua"
+          },
+          {
+            "wait": 300
+          },
+          {
+            "js": "document.querySelector('.token[data-wo]').focus({ preventScroll: true })"
+          },
+          {
+            "waitFor": "#tok-tip"
+          }
+        ],
+        "capture": "viewport"
+      }
+    ],
+    "frd-07-configuration": [
+      {
+        "id": "config-hub",
+        "title": "Configuration: hub with catalog tiles",
+        "route": "#configuracion"
+      },
+      {
+        "id": "config-hub-search",
+        "title": "Configuration: one search across catalogs",
+        "route": "#configuracion",
+        "actions": [
+          {
+            "fill": [
+              "#cfg-search",
+              "review"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "config-skills",
+        "title": "Configuration: skills by scope",
+        "route": "#configuracion?tab=Habilidades"
+      },
+      {
+        "id": "config-skill-dialog",
+        "title": "Configuration: skill detail dialog",
+        "route": "#configuracion?tab=Habilidades",
+        "actions": [
+          {
+            "click": "[data-skill]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "config-agents",
+        "title": "Configuration: agents by model",
+        "route": "#configuracion?tab=Agentes"
+      },
+      {
+        "id": "config-agent-dialog",
+        "title": "Configuration: agent detail dialog",
+        "route": "#configuracion?tab=Agentes",
+        "actions": [
+          {
+            "click": "[data-agent]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "config-rules",
+        "title": "Configuration: decision rules",
+        "route": "#configuracion?tab=Reglas+de+decisi%C3%B3n"
+      },
+      {
+        "id": "config-rules-search",
+        "title": "Configuration: rule search",
+        "route": "#configuracion?tab=Reglas+de+decisi%C3%B3n",
+        "actions": [
+          {
+            "fill": [
+              "#rule-search",
+              "dependency"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "config-standards",
+        "title": "Configuration: standards",
+        "route": "#configuracion?tab=Est%C3%A1ndares"
+      },
+      {
+        "id": "config-standards-must",
+        "title": "Configuration: mandatory standards filter",
+        "route": "#configuracion?tab=Est%C3%A1ndares",
+        "actions": [
+          {
+            "click": "[data-cfg-sev=\"MUST\"]"
+          }
+        ]
+      },
+      {
+        "id": "config-standard-dialog",
+        "title": "Configuration: standard detail dialog",
+        "route": "#configuracion?tab=Est%C3%A1ndares",
+        "actions": [
+          {
+            "click": "[data-standard]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      }
+    ],
+    "frd-08-documentation": [
+      {
+        "id": "docs-home",
+        "title": "Documentation: home",
+        "route": "#documentacion"
+      },
+      {
+        "id": "docs-search",
+        "title": "Documentation: full-text search",
+        "route": "#documentacion",
+        "actions": [
+          {
+            "fill": [
+              "#manual-search",
+              "worktree"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "docs-page",
+        "title": "Documentation: reader page",
+        "route": "#documentacion?page=el-pipeline"
+      },
+      {
+        "id": "docs-page-index-open",
+        "title": "Documentation: index opened on narrow screens",
+        "route": "#documentacion?page=el-pipeline",
+        "actions": [
+          {
+            "click": "[data-action=\"doc-index\"]"
+          }
+        ],
+        "widths": [
+          375,
+          768
+        ]
+      },
+      {
+        "id": "docs-page-not-found",
+        "title": "Documentation: unknown page",
+        "route": "#documentacion?page=no-existe"
+      }
+    ],
+    "frd-09-gamification": [
+      {
+        "id": "guild-achievement-notice",
+        "title": "Guild: new achievement notice",
+        "route": "?achievement=preview#inicio",
+        "actions": [
+          {
+            "waitFor": ".ach-toast"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "guild-rank-ladder",
+        "title": "Guild: rank ladder by era",
+        "route": "#logros?tab=Rangos"
+      }
+    ],
+    "frd-10-achievements-hall": [
+      {
+        "id": "achievements-summary",
+        "title": "Achievements: summary",
+        "route": "#logros"
+      },
+      {
+        "id": "achievements-missions",
+        "title": "Achievements: missions by saga",
+        "route": "#logros?tab=Misiones"
+      },
+      {
+        "id": "achievements-trophies",
+        "title": "Achievements: trophies",
+        "route": "#logros?tab=Trofeos"
+      },
+      {
+        "id": "achievements-trophy-category",
+        "title": "Achievements: trophy category filter",
+        "route": "#logros?tab=Trofeos",
+        "actions": [
+          {
+            "click": "[data-trophy-cat=\"Speed\"]"
+          }
+        ]
+      },
+      {
+        "id": "achievements-trophy-dialog",
+        "title": "Achievements: trophy detail dialog",
+        "route": "#logros?tab=Trofeos",
+        "actions": [
+          {
+            "click": "[data-trophy]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "achievements-stats",
+        "title": "Achievements: operator report",
+        "route": "#logros?tab=Estad%C3%ADsticas"
+      },
+      {
+        "id": "achievements-ranks",
+        "title": "Achievements: ranks",
+        "route": "#logros?tab=Rangos"
+      }
+    ],
+    "frd-11-build-modes": [
+      {
+        "id": "commands",
+        "title": "Commands: next step and build mode",
+        "route": "#portfolio?project=mission-control&tab=Comandos"
+      },
+      {
+        "id": "commands-mode-powerful",
+        "title": "Commands: powerful mode selected",
+        "route": "#portfolio?project=mission-control&tab=Comandos",
+        "actions": [
+          {
+            "click": "[data-mode=\"powerful\"]"
+          }
+        ]
+      },
+      {
+        "id": "commands-target-scoped",
+        "title": "Commands: scoped build command",
+        "route": "#portfolio?project=mission-control&tab=Comandos",
+        "actions": [
+          {
+            "js": "const s = document.querySelector('#cmd-target'); s.selectedIndex = 1; s.dispatchEvent(new Event('change', { bubbles: true }));"
+          }
+        ]
+      }
+    ],
+    "frd-12-observability-dataviz": [
+      {
+        "id": "observability-legacy-link",
+        "title": "Observability: a legacy Work orders link lands here",
+        "route": "#portfolio?project=mission-control&tab=Work+orders"
+      },
+      {
+        "id": "observability-deps-frd",
+        "title": "Observability: dependency map between FRDs",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps"
+      },
+      {
+        "id": "observability-deps-wo",
+        "title": "Observability: dependency graph of work orders",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps&dag=wo"
+      },
+      {
+        "id": "observability-deps-focus",
+        "title": "Observability: one order focused, its chain lit",
+        "route": "#portfolio?project=funko-tracker&tab=Observabilidad&view=deps&dag=wo&focus=WO-05-001"
+      },
+      {
+        "id": "observability-deps-frd-open",
+        "title": "Observability: FRD box opens its detailed graph",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps",
+        "actions": [
+          {
+            "click": "[data-dag-frd]"
+          }
+        ],
+        "widths": [
+          1280
+        ]
+      },
+      {
+        "id": "observability-deps-list-open",
+        "title": "Observability: dependency list opened on narrow screens",
+        "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps",
+        "actions": [
+          {
+            "click": ".dl-frd > summary"
+          }
+        ],
+        "widths": [
+          375,
+          768
+        ]
+      }
+    ],
+    "frd-13-visual-system-accessibility": [
+      {
+        "id": "a11y-skip-link-focus",
+        "title": "Accessibility: skip link focused",
+        "route": "#inicio",
+        "actions": [
+          {
+            "js": "document.querySelector('.skip').focus()"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "a11y-ring-tooltip-focus",
+        "title": "Accessibility: progress ring explains itself on focus",
+        "route": "#inicio",
+        "actions": [
+          {
+            "scroll": ".proj-card .ring[data-tip]"
+          },
+          {
+            "wait": 300
+          },
+          {
+            "js": "document.querySelector('.proj-card .ring[data-tip]').focus({ preventScroll: true })"
+          }
+        ],
+        "capture": "viewport"
+      }
+    ],
+    "frd-15-plugin-out-of-sync-warning": [
+      {
+        "id": "plugin-banner",
+        "title": "Plugin out of sync: banner with the update command",
+        "route": "#inicio",
+        "actions": [
+          {
+            "waitFor": ".alert-banner"
+          }
+        ]
+      }
+    ],
+    "frd-17-proposals-inbox": [
+      {
+        "id": "proposals-summary",
+        "title": "Proposals: what needs the owner, in order",
+        "route": "#propuestas"
+      },
+      {
+        "id": "proposals-memory",
+        "title": "Proposals: lesson flow and candidates",
+        "route": "#propuestas?tab=Memoria"
+      },
+      {
+        "id": "proposals-lesson-dialog",
+        "title": "Proposals: lesson detail dialog",
+        "route": "#propuestas?tab=Memoria",
+        "actions": [
+          {
+            "click": "[data-lesson]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      }
+    ],
+    "frd-18-dashboard": [
+      {
+        "id": "home",
+        "title": "Dashboard: command center",
+        "route": "#inicio"
+      },
+      {
+        "id": "home-turn-dialog",
+        "title": "Dashboard: decision story dialog",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "[data-turn=\"0\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "home-in-flight-open",
+        "title": "Dashboard: work already in the factory",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": ".flight-group > summary"
+          }
+        ]
+      }
+    ],
+    "frd-19-app-shell": [
+      {
+        "id": "shell-expanded",
+        "title": "Shell: sidebar, top bar and bottom navigation",
+        "route": "#inicio"
+      },
+      {
+        "id": "shell-rail-collapsed",
+        "title": "Shell: sidebar collapsed to icons",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "[data-action=\"toggle-sidebar\"]"
+          }
+        ],
+        "widths": [
+          1280
+        ]
+      },
+      {
+        "id": "shell-rail-float",
+        "title": "Shell: collapsed rail floats open on hover",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "[data-action=\"toggle-sidebar\"]"
+          },
+          {
+            "js": "document.querySelector('#sidebar').dataset.float = 'true'"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          1280
+        ]
+      },
+      {
+        "id": "shell-projects-folded",
+        "title": "Shell: project list folded",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "[data-action=\"toggle-projects\"]"
+          }
+        ],
+        "widths": [
+          1280
+        ]
+      },
+      {
+        "id": "shell-drawer-open",
+        "title": "Shell: phone drawer open",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "#menu"
+          },
+          {
+            "waitFor": "#sidebar[data-open=\"true\"]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375
+        ]
+      }
+    ],
+    "frd-20-overlay-freshness": [
+      {
+        "id": "overlay-behind",
+        "title": "Overlay freshness: behind notice with the upgrade command",
+        "route": "#portfolio?project=pandasaga",
+        "actions": [
+          {
+            "waitFor": ".notice.upgrade"
+          }
+        ]
+      }
+    ],
+    "frd-21-pending-merge": [
+      {
+        "id": "worktrees-card",
+        "title": "Pending merge: work trees card",
+        "route": "#inicio",
+        "actions": [
+          {
+            "waitFor": ".wt-table"
+          }
+        ]
+      },
+      {
+        "id": "worktrees-branch-dialog",
+        "title": "Pending merge: branch list dialog",
+        "route": "#inicio",
+        "actions": [
+          {
+            "click": "[data-wt-repo]:not([disabled])"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      }
+    ],
+    "frd-22-factory-backlog": [
+      {
+        "id": "backlog",
+        "title": "Backlog: priorities, areas and lists",
+        "route": "#propuestas?tab=Backlog"
+      },
+      {
+        "id": "backlog-priority-filter",
+        "title": "Backlog: P0 filter",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "click": "[data-bfilter=\"pri\"][data-val=\"p0\"]"
+          }
+        ]
+      },
+      {
+        "id": "backlog-area-filter",
+        "title": "Backlog: area filter",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "click": ".area-bar"
+          }
+        ]
+      },
+      {
+        "id": "backlog-item-dialog",
+        "title": "Backlog: item dialog with its command",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "click": "[data-backlog]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport",
+        "widths": [
+          375,
+          1280
+        ]
+      },
+      {
+        "id": "backlog-discard-confirm",
+        "title": "Backlog: discard confirmation",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "click": "[data-backlog]"
+          },
+          {
+            "click": "#dlg [data-action=\"discard-backlog\"]"
+          },
+          {
+            "waitFor": "dialog[open]"
+          }
+        ],
+        "capture": "viewport"
+      },
+      {
+        "id": "backlog-history-open",
+        "title": "Backlog: done and discarded history",
+        "route": "#propuestas?tab=Backlog",
+        "actions": [
+          {
+            "click": "[role=\"tabpanel\"] details.card > summary"
+          }
+        ]
+      }
+    ],
+    "frd-26-services-accounts": [
+      {
+        "id": "accounts-project",
+        "title": "Accounts: services of a project",
+        "route": "#portfolio?project=funko-tracker&tab=Cuentas"
+      }
+    ]
+  },
+  "shard": {
+    "extras": [
+      {
+        "selector": "dialog[open]",
+        "label": "Dialog (top layer in the app)",
+        "style": "position:static;margin:24px auto;transform:none"
+      },
+      {
+        "selector": ".ach-toast",
+        "label": "Achievement notice (fixed in the app)",
+        "style": "position:static;margin:24px auto;transform:none"
+      },
+      {
+        "selector": "#tok-tip:not([hidden])",
+        "label": "Work order card (floating in the app)",
+        "style": "position:static;margin:24px auto;transform:none"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Sidebar",
+      "route": "#inicio",
+      "root": "#sidebar",
+      "children": [
+        ".brand",
+        ".brand img",
+        ".navgroup",
+        ".navitem",
+        ".navlabel",
+        ".guildcard",
+        ".side-toggle"
+      ],
+      "note": "Persistent shell, owned by the app-shell FRD. Phone: an off-canvas drawer.",
+      "states": {
+        "default": {},
+        "collapsed": {
+          "click": "$ .side-toggle",
+          "widths": [
+            1280
+          ]
+        },
+        "collapsed-float": {
+          "click": "$ .side-toggle",
+          "spre": "document.getElementById('sidebar').dataset.float = 'true'",
+          "widths": [
+            1280
+          ]
+        },
+        "drawer-open": {
+          "click": "doc:#menu",
+          "widths": [
+            375
+          ]
+        }
+      }
+    },
+    {
+      "name": "NavItem",
+      "route": "#tablero",
+      "root": "#sidebar .navgroup[aria-label=\"Secciones\"] .navitem:not([aria-current=\"page\"])",
+      "children": [
+        ".i",
+        ".lbl",
+        ".mini"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "current": {
+          "root": "#sidebar .navgroup[aria-label=\"Secciones\"] .navitem[aria-current=\"page\"]"
+        }
+      }
+    },
+    {
+      "name": "ProjectNavItem",
+      "route": "#portfolio?project=funko-tracker",
+      "root": "#projlist .navitem:not([aria-current=\"page\"])",
+      "children": [
+        ".pav",
+        ".meta span",
+        ".meta small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "current": {
+          "root": "#projlist .navitem[aria-current=\"page\"]"
+        }
+      }
+    },
+    {
+      "name": "GuildCard",
+      "route": "#inicio",
+      "root": "#sidebar .guildcard",
+      "children": [
+        ".crest",
+        ".gtext b",
+        ".gtext small",
+        ".bar"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "TopBar",
+      "route": "#inicio",
+      "root": ".topbar",
+      "children": [
+        "#menu",
+        "img",
+        ".where"
+      ],
+      "note": "Phone only; hidden from 760 px.",
+      "states": {
+        "default": {
+          "widths": [
+            375
+          ]
+        },
+        "menu-focus-visible": {
+          "force": [
+            [
+              "$ #menu",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            375
+          ]
+        }
+      }
+    },
+    {
+      "name": "BottomNav",
+      "route": "#inicio",
+      "root": "#bottomnav",
+      "children": [
+        "a",
+        "a[aria-current=\"page\"]",
+        "button[data-action=\"drawer\"]"
+      ],
+      "note": "Phone only; hidden from 760 px.",
+      "states": {
+        "default": {
+          "widths": [
+            375
+          ]
+        },
+        "item-focus-visible": {
+          "force": [
+            [
+              "$ a",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            375
+          ]
+        }
+      }
+    },
+    {
+      "name": "SkipLink",
+      "route": "#inicio",
+      "root": ".skip",
+      "states": {
+        "default": {},
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "PageHead",
+      "route": "#tablero",
+      "root": ".pagehead",
+      "children": [
+        ".titles h1",
+        ".titles p",
+        ".stamp",
+        ".btn.primary"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Crumbs",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".crumbs",
+      "children": [
+        "a",
+        "span[aria-current=\"page\"]",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "link-hover": {
+          "force": [
+            [
+              "$ a",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Footer",
+      "route": "#inicio",
+      "root": ".foot",
+      "children": [
+        "span",
+        "#foot-stamp"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Tabs",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": ".tabs-wrap",
+      "children": [
+        ".tabs",
+        "[role=\"tab\"]",
+        "[role=\"tab\"][aria-selected=\"true\"]",
+        ".badge",
+        ".tabs-arrow.right"
+      ],
+      "states": {
+        "default": {},
+        "tab-hover": {
+          "force": [
+            [
+              "$ [role=\"tab\"][aria-selected=\"false\"]",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "tab-focus-visible": {
+          "force": [
+            [
+              "$ [role=\"tab\"][aria-selected=\"false\"]",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Stepper",
+      "route": "#portfolio?project=mission-control",
+      "root": ".hero .stepper",
+      "children": [
+        "li",
+        ".seg-line",
+        ".lbl"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "StepperCompact",
+      "route": "#portfolio",
+      "root": ".proj-card .stepper.compact",
+      "children": [
+        "li",
+        ".seg-line"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "SectionHeading",
+      "route": "#logros?tab=Misiones",
+      "root": ".saga-head",
+      "children": [
+        ".i",
+        "span",
+        ".saga-line",
+        ".xs"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "SectionHeadingLink",
+      "route": "#inicio",
+      "root": ".saga-head",
+      "children": [
+        ".i",
+        "span",
+        ".saga-line",
+        ".link"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$ .link",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$ .link",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Button",
+      "route": "#tablero",
+      "root": "[data-action=\"discarded\"]",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "disabled": {
+          "attr": [
+            [
+              "$",
+              "disabled",
+              ""
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ButtonPrimary",
+      "route": "#tablero",
+      "root": ".btn.primary",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "disabled": {
+          "attr": [
+            [
+              "$",
+              "disabled",
+              ""
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ButtonGhost",
+      "route": "#inicio",
+      "root": ".ask-row .btn.ghost",
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ButtonSmall",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".btn.sm",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ButtonToned",
+      "route": "#idea?idea=funko-tracker&tab=Spec",
+      "root": ".btn.toned",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "IconButton",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": ".cmd .iconbtn",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Link",
+      "route": "#inicio",
+      "root": ".saga-head .link",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Chip",
+      "route": "#portfolio",
+      "root": ".proj-card .chip",
+      "children": [
+        ".dot"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ChipPlain",
+      "route": "#tablero",
+      "root": ".kcard .chip.plain",
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ChipOutline",
+      "route": "#portfolio?project=personal-page-v2&tab=Cambios",
+      "root": ".chip.outline",
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CountPill",
+      "route": "#inicio",
+      "root": ".card-head .chip",
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FilterChip",
+      "route": "#tablero",
+      "root": ".chipset .chipbtn[aria-pressed=\"false\"]",
+      "children": [
+        ".n"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "pressed": {
+          "root": ".chipset .chipbtn[aria-pressed=\"true\"]"
+        }
+      }
+    },
+    {
+      "name": "Switch",
+      "route": "#tablero",
+      "root": ".switch",
+      "children": [
+        ".track",
+        ".track span"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "on": {
+          "click": "$"
+        }
+      }
+    },
+    {
+      "name": "SearchField",
+      "route": "#tablero",
+      "root": ".field.search",
+      "children": [
+        "input",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "focused": {
+          "click": "$ input"
+        }
+      }
+    },
+    {
+      "name": "SelectField",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": ".field:has(#wo-frd)",
+      "children": [
+        "select",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "focus-within": {
+          "force": [
+            [
+              "$",
+              [
+                "focus-within"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Segmented",
+      "route": "#portfolio",
+      "root": ".seg",
+      "children": [
+        "button",
+        "button[aria-pressed=\"true\"]",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$ button[aria-pressed=\"false\"]",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$ button[aria-pressed=\"false\"]",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "CommandBox",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": ".cmd",
+      "children": [
+        ".i",
+        "code",
+        ".iconbtn"
+      ],
+      "states": {
+        "default": {},
+        "copy-hover": {
+          "force": [
+            [
+              "$ .iconbtn",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "copy-focus-visible": {
+          "force": [
+            [
+              "$ .iconbtn",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "CommandCompact",
+      "route": "#inicio",
+      "root": ".ask-cmd",
+      "children": [
+        ".i",
+        "code",
+        ".iconbtn"
+      ],
+      "states": {
+        "default": {},
+        "copy-hover": {
+          "force": [
+            [
+              "$ .iconbtn",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "copy-focus-visible": {
+          "force": [
+            [
+              "$ .iconbtn",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Card",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": "section.card[data-tone]",
+      "children": [
+        ".card-head",
+        ".badge-icon",
+        ".cmd"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CardHeader",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": ".card-head",
+      "children": [
+        "h2",
+        ".badge-icon.sm"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CardFlush",
+      "route": "#configuracion?tab=Reglas+de+decisi%C3%B3n",
+      "root": ".card.flush",
+      "children": [
+        ".divided",
+        ".rule-row",
+        ".morebtn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CardTinted",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".card.tinted",
+      "children": [
+        ".wo-title",
+        ".wo-steps",
+        ".wo-now",
+        ".chip"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CardFoot",
+      "route": "#inicio",
+      "root": ".card-foot",
+      "children": [
+        ".small",
+        ".link"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "BadgeIcon",
+      "route": "#inicio",
+      "root": ".card-head .badge-icon",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Avatar",
+      "route": "#portfolio",
+      "root": ".proj-card .pav",
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ListRow",
+      "route": "#propuestas?tab=Memoria",
+      "root": ".lrow[data-lesson]",
+      "children": [
+        ".badge-icon",
+        ".grow strong",
+        ".grow small",
+        ".chip",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "StateTile",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": ".state-tile",
+      "children": [
+        ".lbl",
+        ".dot",
+        "b",
+        ".bar"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "pressed": {
+          "click": "$"
+        }
+      }
+    },
+    {
+      "name": "KpiTiles",
+      "route": "#inicio",
+      "root": ".pulse",
+      "children": [
+        ".num",
+        "small"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "HeroStats",
+      "route": "#portfolio?project=mission-control",
+      "root": ".hero-stats",
+      "children": [
+        ".ring",
+        ".st",
+        ".st b",
+        ".st small"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Ring",
+      "route": "#portfolio",
+      "root": ".proj-card .ring",
+      "states": {
+        "default": {},
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ProgressBar",
+      "route": "#tablero",
+      "root": ".projline .bar",
+      "children": [
+        "span"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "StackBar",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": ".frd-row .stackbar",
+      "children": [
+        "span"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Notice",
+      "route": "#portfolio?project=pandasaga",
+      "root": ".notice.upgrade",
+      "children": [
+        ".i",
+        "b",
+        "p",
+        ".cmd"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "AlertBanner",
+      "route": "#inicio",
+      "root": ".alert-banner",
+      "children": [
+        ".badge-icon",
+        "h2",
+        "p",
+        ".cmd"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "EmptyState",
+      "route": "#idea?idea=does-not-exist",
+      "root": "main .empty",
+      "children": [
+        ".i",
+        "strong",
+        "span",
+        ".btn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "MoreBar",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&view=tablero",
+      "root": ".morebtn",
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "Toast",
+      "route": "#inicio",
+      "root": "#toast",
+      "children": [
+        ".i"
+      ],
+      "states": {
+        "default": {
+          "click": "doc:.ask-cmd .iconbtn"
+        }
+      }
+    },
+    {
+      "name": "Dialog",
+      "route": "#inicio",
+      "root": "#dlg",
+      "children": [
+        ".dhead",
+        "#dlg-kicker",
+        "#dlg-title",
+        "#dlg-close",
+        ".dbody",
+        ".cmd"
+      ],
+      "states": {
+        "default": {
+          "click": "doc:[data-turn=\"0\"]"
+        }
+      }
+    },
+    {
+      "name": "DialogConfirm",
+      "route": "#idea?idea=book-memory-without-spoilers&tab=Propuesta",
+      "root": "#dlg",
+      "children": [
+        ".dhead",
+        "#dlg-title",
+        "#dlg-close",
+        ".dbody",
+        "#reason",
+        "[data-action=\"confirm\"]",
+        "[data-action=\"close-dialog\"]"
+      ],
+      "states": {
+        "default": {
+          "click": "doc:[data-action=\"discard-idea\"]"
+        }
+      }
+    },
+    {
+      "name": "DialogSheet",
+      "route": "#idea?idea=funko-tracker&tab=Spec",
+      "root": "#dlg",
+      "children": [
+        ".dhead",
+        ".dsheet",
+        ".brow",
+        ".brow-label",
+        ".brow-body"
+      ],
+      "states": {
+        "default": {
+          "click": "doc:.frd-cards .frdc-open"
+        }
+      }
+    },
+    {
+      "name": "KeyValue",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".kv",
+      "children": [
+        "dt",
+        "dd",
+        ".chip"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Table",
+      "route": "#portfolio?view=lista",
+      "root": "table.t",
+      "children": [
+        "thead th",
+        "tbody td",
+        "tbody a.link"
+      ],
+      "states": {
+        "default": {},
+        "link-hover": {
+          "force": [
+            [
+              "$ tbody a.link",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "WorktreesTable",
+      "route": "#inicio",
+      "root": ".wt-table",
+      "children": [
+        "thead th",
+        "tbody th .link",
+        ".state-dot"
+      ],
+      "states": {
+        "default": {},
+        "link-hover": {
+          "force": [
+            [
+              "$ .link[data-wt-repo]:not([disabled])",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "StateDot",
+      "route": "#inicio",
+      "root": ".wt-table .state-dot",
+      "children": [
+        ".dot"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "BoardColumn",
+      "route": "#tablero",
+      "root": ".kanban.ideas .kcol",
+      "children": [
+        ".kcol-head",
+        ".kcol-head .chip",
+        ".kcard",
+        ".kempty"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "IdeaCard",
+      "route": "#tablero",
+      "root": ".kcard",
+      "children": [
+        ".title",
+        ".star",
+        ".meta",
+        ".meta .chip",
+        ".score"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$ .title",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "starred": {
+          "click": "$ .star"
+        }
+      }
+    },
+    {
+      "name": "IdeaCardProject",
+      "route": "#tablero",
+      "root": ".kcard:has(.projline)",
+      "children": [
+        ".title",
+        ".projline",
+        ".projline .bar"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "PhaseNav",
+      "route": "#tablero",
+      "root": ".phase-nav",
+      "children": [
+        "button",
+        "button[aria-current=\"true\"]",
+        ".dot",
+        ".n"
+      ],
+      "states": {
+        "default": {},
+        "item-hover": {
+          "force": [
+            [
+              "$ button[aria-current=\"false\"]",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "item-focus-visible": {
+          "force": [
+            [
+              "$ button[aria-current=\"false\"]",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "WorkOrderColumn",
+      "route": "#portfolio?project=personal-page-v2&tab=Observabilidad&view=tablero",
+      "root": ".wo-kanban .kcol",
+      "children": [
+        ".kcol-head",
+        ".kcol-head .chip",
+        ".wocard"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "WorkOrderCard",
+      "route": "#portfolio?project=personal-page-v2&tab=Observabilidad&view=tablero",
+      "root": ".wocard",
+      "children": [
+        ".wid",
+        "strong",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "WorkOrderRow",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&state=review",
+      "root": ".worow",
+      "children": [
+        ".wid",
+        ".wt",
+        ".chip",
+        ".wdeps"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "FrdRow",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad",
+      "root": "details.frd-row",
+      "children": [
+        "summary",
+        ".fname",
+        ".stackbar",
+        ".fcount",
+        ".fpct"
+      ],
+      "states": {
+        "default": {},
+        "summary-hover": {
+          "force": [
+            [
+              "$ summary",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "summary-focus-visible": {
+          "force": [
+            [
+              "$ summary",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "open": {
+          "attr": [
+            [
+              "$",
+              "open",
+              ""
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "WoSteps",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".wo-steps",
+      "children": [
+        "li",
+        "li.is-now",
+        ".wo-step-dot"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "CriterionList",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".crit",
+      "children": [
+        "li",
+        ".crit-id",
+        ".crit-t",
+        ".ears"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "DependencyButton",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&wo=WO-02-014",
+      "root": ".wo-detail-grid .btn.sm[data-wo]",
+      "children": [
+        ".dot"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "DependencyNode",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps&dag=wo",
+      "root": ".dag-node",
+      "children": [
+        ".dot",
+        ".dag-id",
+        ".dag-t"
+      ],
+      "note": "Canvas from 900 px; narrower screens use DependencyList.",
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focused": {
+          "click": "$",
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "DependencyList",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps&dag=wo",
+      "root": ".dag-list .lrow",
+      "children": [
+        ".state-dot",
+        ".mono",
+        "small"
+      ],
+      "states": {
+        "default": {
+          "widths": [
+            375,
+            768
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            375,
+            768
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            375,
+            768
+          ]
+        }
+      }
+    },
+    {
+      "name": "DependencyFrdBox",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps",
+      "root": ".fdag-box",
+      "children": [
+        ".fdag-head",
+        ".fcode",
+        ".fdag-title",
+        ".fdag-bar",
+        "doc:.dag-node.mini"
+      ],
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        },
+        "head-hover": {
+          "force": [
+            [
+              "$ .fdag-head",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "head-focus-visible": {
+          "force": [
+            [
+              "$ .fdag-head",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "DependencyFrdItem",
+      "route": "#portfolio?project=mission-control&tab=Observabilidad&view=deps",
+      "root": ".dl-frd",
+      "children": [
+        "summary",
+        ".fcode",
+        ".chev"
+      ],
+      "states": {
+        "default": {
+          "widths": [
+            375,
+            768
+          ]
+        },
+        "open": {
+          "attr": [
+            [
+              "$",
+              "open",
+              ""
+            ]
+          ],
+          "widths": [
+            375,
+            768
+          ]
+        }
+      }
+    },
+    {
+      "name": "DependencySide",
+      "route": "#portfolio?project=funko-tracker&tab=Observabilidad&view=deps&dag=wo&focus=WO-05-001",
+      "root": ".dag-side",
+      "children": [
+        ".dag-focus",
+        ".eyebrow",
+        ".lrow",
+        ".btn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "DigestHero",
+      "route": "#idea?idea=funko-tracker&tab=Spec",
+      "root": ".dhero",
+      "children": [
+        ".eyebrow",
+        "h2",
+        ".dhero-lead",
+        ".chip"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ReportBand",
+      "route": "#idea?idea=funko-tracker&tab=Spec",
+      "root": ".band",
+      "children": [
+        ".band-head",
+        ".band-head h2",
+        ".badge-icon",
+        ".brow",
+        ".brow-label",
+        ".brow-body"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FrdCard",
+      "route": "#idea?idea=funko-tracker&tab=Spec",
+      "root": ".frdc",
+      "children": [
+        ".fcode",
+        ".kind-tag",
+        ".frdc-open",
+        ".stackbar"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$ .frdc-open",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "EnvRow",
+      "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+      "root": ".envrow",
+      "children": [
+        ".env-name",
+        ".env-text"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "EnvFold",
+      "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+      "root": "details.env-fold",
+      "children": [
+        "summary",
+        ".chip",
+        ".envrows"
+      ],
+      "states": {
+        "default": {},
+        "closed": {
+          "root": "details.env-fold:not([open])"
+        }
+      }
+    },
+    {
+      "name": "AdrRow",
+      "route": "#idea?idea=funko-tracker&tab=Arquitectura",
+      "root": ".adr-row",
+      "children": [
+        ".fcode",
+        "b",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ModelDiagram",
+      "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Diagrama",
+      "root": "#diagram",
+      "children": [
+        ".diagram-tools",
+        ".entity",
+        ".entity header button",
+        ".field-row",
+        ".field-row .k",
+        "svg.links"
+      ],
+      "states": {
+        "default": {},
+        "entity-selected": {
+          "click": "$ [data-select-entity]"
+        },
+        "zoomed-out": {
+          "click": "$ [data-graph=\"out\"]"
+        }
+      }
+    },
+    {
+      "name": "SchemaList",
+      "route": "#portfolio?project=pandasaga&tab=Arquitectura&model=Esquema",
+      "root": ".schema-list",
+      "children": [
+        "details[data-schema]",
+        "summary",
+        "pre"
+      ],
+      "states": {
+        "default": {},
+        "second-open": {
+          "click": "$ details[data-schema]:nth-of-type(2) summary"
+        }
+      }
+    },
+    {
+      "name": "Paper",
+      "route": "#portfolio?project=pandasaga&tab=Documentos",
+      "root": "#paper",
+      "children": [
+        ".paper-head",
+        ".path",
+        ".md",
+        ".iconbtn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "Markdown",
+      "route": "#portfolio?project=pandasaga&tab=Documentos",
+      "root": "#paper .md",
+      "children": [
+        "h2",
+        "p",
+        "ul",
+        "pre",
+        "code",
+        "a"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "DocIndex",
+      "route": "#portfolio?project=pandasaga&tab=Documentos",
+      "root": "#doc-index",
+      "children": [
+        ".field",
+        "details.dgroup",
+        "summary",
+        ".ditem"
+      ],
+      "note": "From 900 px a right-hand column; narrower, a folded list.",
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        },
+        "open-narrow": {
+          "click": "doc:[data-action=\"doc-index\"]",
+          "widths": [
+            375
+          ]
+        }
+      }
+    },
+    {
+      "name": "DocItem",
+      "route": "#portfolio?project=pandasaga&tab=Documentos",
+      "root": ".ditem",
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "IdeaDocsRail",
+      "route": "#idea?idea=funko-tracker&tab=Documentos",
+      "root": ".idocs-rail",
+      "children": [
+        ".idocs-sec",
+        ".idocs-item"
+      ],
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "IdeaDocsItem",
+      "route": "#idea?idea=funko-tracker&tab=Documentos",
+      "root": ".idocs-item",
+      "states": {
+        "default": {
+          "widths": [
+            1280
+          ]
+        },
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ],
+          "widths": [
+            1280
+          ]
+        }
+      }
+    },
+    {
+      "name": "DocsGroupCard",
+      "route": "#documentacion",
+      "root": ".docs-group",
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "DocsSteps",
+      "route": "#documentacion",
+      "root": ".docs-steps",
+      "children": [
+        "li",
+        "a",
+        ".docs-n",
+        "b",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "step-hover": {
+          "force": [
+            [
+              "$ a",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "step-focus-visible": {
+          "force": [
+            [
+              "$ a",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "CampaignRoom",
+      "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a",
+      "root": ".room",
+      "children": [
+        "img",
+        ".room-name",
+        ".cast"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "selected": {
+          "root": ".room.is-sel"
+        },
+        "current": {
+          "root": ".room.is-current"
+        },
+        "locked": {
+          "root": ".room.is-locked"
+        }
+      }
+    },
+    {
+      "name": "PhaseSheet",
+      "route": "#idea?idea=book-memory-without-spoilers&tab=Campa%C3%B1a",
+      "root": ".phase-sheet",
+      "children": [
+        ".ps-head",
+        ".ps-num",
+        ".ps-kicker",
+        "h3",
+        ".brow",
+        ".ps-next",
+        ".team"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ProjectCard",
+      "route": "#portfolio",
+      "root": ".proj-card",
+      "children": [
+        ".pav",
+        "h3",
+        ".chip",
+        ".ring",
+        ".stepper",
+        ".facts"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ProjectHero",
+      "route": "#portfolio?project=mission-control",
+      "root": ".hero",
+      "children": [
+        ".hero-title",
+        ".hero-title h1",
+        ".switcher",
+        ".hero-stats",
+        ".stepper"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ProjectHeroCompact",
+      "route": "#portfolio?project=mission-control&tab=Comandos",
+      "root": ".hero.compact",
+      "children": [
+        ".pav",
+        "h1",
+        ".chip",
+        ".compact-step",
+        ".switcher"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ProjectSwitcher",
+      "route": "#portfolio?project=mission-control",
+      "root": ".switcher",
+      "children": [
+        ".i",
+        "b",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "AskRow",
+      "route": "#inicio",
+      "root": ".ask-row",
+      "children": [
+        ".ask-ico",
+        "strong",
+        ".ask-meta",
+        ".ask-cmd",
+        ".btn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "TurnRow",
+      "route": "#inicio",
+      "root": ".turn",
+      "children": [
+        ".badge-icon",
+        ".kind",
+        "strong",
+        "small",
+        ".btn"
+      ],
+      "states": {
+        "default": {
+          "click": "doc:.flight-group > summary"
+        }
+      }
+    },
+    {
+      "name": "FlightGroup",
+      "route": "#inicio",
+      "root": "details.flight-group",
+      "children": [
+        "summary",
+        ".chip",
+        ".i"
+      ],
+      "states": {
+        "default": {},
+        "open": {
+          "attr": [
+            [
+              "$",
+              "open",
+              ""
+            ]
+          ]
+        },
+        "summary-hover": {
+          "force": [
+            [
+              "$ summary",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ProgressList",
+      "route": "#portfolio?project=funko-tracker",
+      "root": ".progress-list",
+      "children": [
+        ".pg-row",
+        ".pg-ico",
+        ".pg-verb",
+        ".pg-subj"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FunnelRow",
+      "route": "#inicio",
+      "root": ".funnel .frow",
+      "children": [
+        "span",
+        ".bar",
+        "b"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FraguaScene",
+      "route": "#portfolio?project=funko-tracker",
+      "root": ".fragua",
+      "children": [
+        ".fr-head",
+        ".fr-head h2",
+        ".fr-modes",
+        ".fr-quest",
+        ".fr-scene",
+        ".fr-station",
+        ".fr-foot"
+      ],
+      "states": {
+        "default": {},
+        "running": {
+          "route": "#portfolio?project=funko-tracker&scene=on"
+        },
+        "off": {
+          "route": "#portfolio?project=funko-tracker&scene=off"
+        }
+      }
+    },
+    {
+      "name": "FraguaStation",
+      "route": "#portfolio?project=funko-tracker",
+      "root": ".fr-station:has(.token)",
+      "children": [
+        ".fr-cast img",
+        ".fr-plate",
+        ".fr-plate b",
+        ".fr-count",
+        ".token"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FraguaStationEmpty",
+      "route": "#portfolio?project=funko-tracker",
+      "root": ".fr-station:has(.tokens.is-empty)",
+      "children": [
+        ".fr-cast img",
+        ".fr-plate",
+        ".tk-ghost",
+        ".fr-empty-msg"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "FraguaToken",
+      "route": "#portfolio?project=funko-tracker",
+      "root": ".token[data-wo]",
+      "children": [
+        ".tk-a",
+        ".tk-b"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "tooltip": {
+          "js": "const t = document.querySelector('.token[data-wo]'); t.scrollIntoView({ block: 'center' }); setTimeout(() => t.focus({ preventScroll: true }), 400);",
+          "wait": 1100
+        }
+      }
+    },
+    {
+      "name": "GuildHero",
+      "route": "#logros",
+      "root": ".guild-hero",
+      "children": [
+        ".crest-xl",
+        ".eyebrow",
+        "h2",
+        ".bar",
+        ".hero-stats"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "MissionCard",
+      "route": "#logros?tab=Misiones",
+      "root": ".mcard:not(.spot)",
+      "children": [
+        ".mhead",
+        ".mslot",
+        ".mtitle",
+        ".chip",
+        ".nodes",
+        ".mbar",
+        ".mfoot"
+      ],
+      "states": {
+        "default": {},
+        "spotlight": {
+          "root": ".mcard.spot"
+        }
+      }
+    },
+    {
+      "name": "TrophyCard",
+      "route": "#logros?tab=Trofeos",
+      "root": ".tcard",
+      "children": [
+        ".tslot",
+        "b",
+        ".trar"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        },
+        "near": {
+          "root": ".tcard.near"
+        },
+        "won": {
+          "root": ".tcard.won"
+        }
+      }
+    },
+    {
+      "name": "SealTile",
+      "route": "#logros?tab=Trofeos",
+      "root": ".seal",
+      "children": [
+        ".seal-ico",
+        "b",
+        ".xs"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "RankRow",
+      "route": "#logros?tab=Rangos",
+      "root": ".rank",
+      "states": {
+        "default": {},
+        "current": {
+          "root": ".rank.current"
+        }
+      }
+    },
+    {
+      "name": "EraGroup",
+      "route": "#logros?tab=Rangos",
+      "root": "details.era",
+      "children": [
+        "summary"
+      ],
+      "states": {
+        "default": {},
+        "far": {
+          "root": "details.era.far"
+        }
+      }
+    },
+    {
+      "name": "RadarChart",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": "svg.radar",
+      "children": [
+        "polygon.r-data"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ColumnChart",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".cols",
+      "children": [
+        ".col"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "LineChart",
+      "route": "#logros?tab=Estad%C3%ADsticas",
+      "root": ".linechart",
+      "children": [
+        "circle"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "AchievementToast",
+      "route": "?achievement=preview#inicio",
+      "root": ".ach-toast",
+      "children": [
+        ".la-ico",
+        "b",
+        ".btn",
+        ".iconbtn"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "ProposalActionRow",
+      "route": "#propuestas",
+      "root": ".pa-row",
+      "children": [
+        ".cmd"
+      ],
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "LessonFlow",
+      "route": "#propuestas?tab=Memoria",
+      "root": ".lf",
+      "states": {
+        "default": {}
+      }
+    },
+    {
+      "name": "AreaBar",
+      "route": "#propuestas?tab=Backlog",
+      "root": ".area-bar",
+      "children": [
+        ".area-name",
+        ".area-track",
+        "b"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ConfigTile",
+      "route": "#configuracion",
+      "root": ".cfg-tile",
+      "children": [
+        ".cfg-ico",
+        ".cfg-l",
+        "b",
+        ".xs"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "ConfigRow",
+      "route": "#configuracion?tab=Habilidades",
+      "root": ".cfg-row:has(.copy-text)",
+      "children": [
+        ".badge-icon",
+        ".cfg-name",
+        "small",
+        ".copy-text"
+      ],
+      "states": {
+        "default": {},
+        "name-hover": {
+          "force": [
+            [
+              "$ .cfg-name",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "CopyText",
+      "route": "#configuracion?tab=Habilidades",
+      "root": ".copy-text",
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "AgentCard",
+      "route": "#configuracion?tab=Agentes",
+      "root": ".agent-card",
+      "children": [
+        "img",
+        "b",
+        ".xs",
+        "small"
+      ],
+      "states": {
+        "default": {},
+        "hover": {
+          "force": [
+            [
+              "$",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        },
+        "focus-visible": {
+          "force": [
+            [
+              "$",
+              [
+                "focus",
+                "focus-visible"
+              ]
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "RuleRow",
+      "route": "#configuracion?tab=Reglas+de+decisi%C3%B3n",
+      "root": "details.rule-row",
+      "children": [
+        "summary",
+        ".rule-id",
+        ".chip"
+      ],
+      "states": {
+        "default": {},
+        "open": {
+          "attr": [
+            [
+              "$",
+              "open",
+              ""
+            ]
+          ]
+        }
+      }
+    },
+    {
+      "name": "AccountsTable",
+      "route": "#portfolio?project=funko-tracker&tab=Cuentas",
+      "root": ".acc-table",
+      "children": [
+        "thead th",
+        "tbody tr",
+        "a.acc-name",
+        ".env-chips",
+        ".state-dot",
+        ".copy-text"
+      ],
+      "states": {
+        "default": {},
+        "name-hover": {
+          "force": [
+            [
+              "$ a.acc-name",
+              [
+                "hover"
+              ]
+            ]
+          ]
+        }
+      }
+    }
+  ],
+  "floating": [
+    {
+      "component": "FraguaToken",
+      "state": "tooltip",
+      "panel": "doc:#tok-tip",
+      "anchor": "$"
+    }
+  ],
+  "scope": {
+    "mode": "pareto"
+  },
+  "catalog": {
+    "title": "Mission Control · Órbita components",
+    "sheetMax": 30000
+  },
+  "identity": {
+    "screens": [
+      "inicio",
+      "tablero",
+      "proyecto",
+      "logros"
+    ],
+    "widths": [
+      375,
+      1280
+    ],
+    "theme": "light",
+    "attempts": 3
+  },
+  "tokens": {
+    "groups": [
+      {
+        "group": "space",
+        "match": "^--s\\d+$"
+      },
+      {
+        "group": "layout",
+        "match": "^--(sidebar|rail|rail-c|content)$"
+      },
+      {
+        "group": "stroke",
+        "match": "^--(hairline|rule)$"
+      },
+      {
+        "group": "color",
+        "match": "^--focus$"
+      },
+      {
+        "group": "scene",
+        "match": "^--scene-"
+      },
+      {
+        "group": "map",
+        "match": "^--map-"
+      },
+      {
+        "group": "hue",
+        "match": "^--(blue|teal|violet|pink|amber|green|coral|slate|gold)$"
+      },
+      {
+        "group": "tint",
+        "match": "^--tint"
+      }
+    ]
+  },
+  "preflight": {
+    "minFontPx": 12,
+    "maxLiteralColors": 0,
+    "maxLiteralLengths": 150,
+    "screens": [
+      "inicio",
+      "tablero",
+      "portfolio",
+      "propuestas",
+      "logros",
+      "documentacion",
+      "configuracion"
+    ]
+  },
+  "exports": "Object.fromEntries(Object.entries(ICONS).map(([name, body]) => ['icons/' + name + '.svg', '<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\">' + body + '</svg>']))",
+  "exportPaths": [
+    "icons"
+  ]
+}

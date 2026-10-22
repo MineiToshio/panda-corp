@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "plugins": {
+    "pandacorp@panda-corp": [
+      {
+        "scope": "user",
+        "version": "9.140.0"
+      }
+    ]
+  }
+}

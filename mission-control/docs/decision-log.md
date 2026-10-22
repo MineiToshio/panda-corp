@@ -1,5 +1,15 @@
 # Decision Log — Mission Control
 
+## 2026-10-21 — Scope decisions for the Órbita v2 (owner)
+
+**What:** The owner accepted all four recommendations:
+1. **Platforms:** Mission Control targets desktop, tablet and phone. The approved design includes phone and tablet layouts, so the small-screen gates apply from the v2 build.
+2. **Scope:** the app features the prototype does not draw stay out of v2. These are the Inicio digest with mark-seen, the board's «recommended» badge, Campaña's per-phase checklists, the deploy target and objectives in the Resumen, the skill workflow diagram, and the creation affordances.
+3. **Artifact names:** FRD, PRD, ADR, work order, spec and backlog keep their English names in the Spanish interface (see the interface-language entry below).
+4. **Fixes in v2:** two pending fixes touch the redesigned screens, so v2 includes them: the e2e specs that still expect 9 workspace tabs, and `readDecisions` counting a RESOLVED PersonalPage v2 decision as pending.
+
+**Why:** v2 stays the redesign itself, with no new features mixed in. Phone and tablet are where the design already proved itself. The artifact names are the owner's own vocabulary and the names of files and commands.
+
 ## 2026-10-21 — Órbita visual redesign approved by the owner
 
 **What:** The owner approved the Órbita exploration as Mission Control's new design: round 5, iteration 28, `docs/design/explorations/visual-refresh-2026/index.html` (preview round 5.28). Canonical doc: [proposal](design/explorations/visual-refresh-2026/proposal.md). Next comes the design freeze (tokens, `DESIGN.md`, component inventory, per-FRD mocks and fidelity oracle). Then a v2 milestone through `/pandacorp:change` updates the PRD/FRDs and plans the build.

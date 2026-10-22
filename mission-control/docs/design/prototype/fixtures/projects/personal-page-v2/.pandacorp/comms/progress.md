@@ -1,0 +1,75 @@
+# Bitácora del motor
+
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-03-003 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-05-001 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-07-002 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-01-003 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-03-001 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-05-002 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-07-003 verificada tras el gate de su FRD.
+- (agent-inferred) Las imágenes para redes se generan más rápido si las fuentes se cargan una sola vez por build.
+- (agent-inferred) El formulario alojado necesita la clave pública también en el entorno de pruebas.
+- Gate completo en verde con las pruebas de idioma y de contacto.
+- (agent-inferred) El tema oscuro sin parpadeo exige fijar la clase antes de pintar.
+- Lanzamiento externo verificado en el dominio de producción.
+- (agent-inferred) Las colecciones de contenido fallan mejor cuando el esquema se valida al construir.
+- (owner-stated) Los casos deben empezar por el resultado.
+- (agent-inferred) Las rutas con prefijo de idioma necesitan una redirección explícita desde la raíz.
+- Cambio archivado tras su cierre.
+- WO-01-001 verificada tras el gate de su FRD.

@@ -1,0 +1,66 @@
+# Bandeja de notas crudas
+
+- (owner-stated) a rebase orphans the recorded green commit (nota 1).
+- (agent-inferred) forms posted before hydration leak their fields into the url (nota 2).
+- (agent-inferred) test each reader against a real-shaped fixture and a malformed one (nota 3).
+- (agent-inferred) self-review is not evidence that a change works (nota 4).
+- (agent-inferred) parallel note files next to code drift from the docs (nota 5).
+- (owner-stated) shallow copies of constant catalogs leak mutations to every caller (nota 6).
+- (agent-inferred) rehearse the release against a non-mocked boundary (nota 7).
+- (agent-inferred) public form keys must exist in every test environment (nota 8).
+- (agent-inferred) normalise accents before matching (nota 9).
+- (agent-inferred) overlapping env files cause wrong deploys (nota 10).
+- (owner-stated) label stale data as stale (nota 11).
+- (agent-inferred) pin exact versions in the lockfile (nota 12).
+- (agent-inferred) split long checklist images into pages (nota 13).
+- (agent-inferred) a scheduled job in ci can exhaust free minutes (nota 14).
+- (agent-inferred) show the result first in a case study (nota 15).
+- (owner-stated) merging a guest into an account must keep the furthest progress (nota 16).
+- (agent-inferred) a job queue in a table is enough below a thousand jobs a day (nota 17).
+- (agent-inferred) fixing another session's red files masks real failures (nota 18).
+- (agent-inferred) snapshot baselines drift when fonts load late (nota 19).
+- (agent-inferred) generate social images at build time (nota 20).
+- (owner-stated) never compare iso timestamps as strings (nota 21).
+- (agent-inferred) dialogs return focus to the control that opened them (nota 22).
+- (agent-inferred) the markdown front-matter parser caches failed parses (nota 23).
+- (agent-inferred) declare cross-feature dependencies in machine-readable fields (nota 24).
+- (agent-inferred) a rebase orphans the recorded green commit (nota 25).
+- (owner-stated) forms posted before hydration leak their fields into the url (nota 26).
+- (agent-inferred) test each reader against a real-shaped fixture and a malformed one (nota 27).
+- (agent-inferred) self-review is not evidence that a change works (nota 28).
+- (agent-inferred) port the approved prototype css instead of redrawing (nota 29).
+- (agent-inferred) hotlinked images need a fallback for licence changes (nota 30).
+- (owner-stated) magic links expire before slow mail providers deliver them (nota 31).
+- (agent-inferred) idle workers should sleep and wake on a queue signal (nota 32).
+- (agent-inferred) hotlinked images need a fallback for licence changes (nota 33).
+- (agent-inferred) port the approved prototype css instead of redrawing (nota 34).
+- (agent-inferred) locale-prefixed routes need an explicit root redirect (nota 35).
+- (owner-stated) stage catalog loads behind a review queue (nota 36).
+- (agent-inferred) snapshot baselines drift when fonts load late (nota 37).
+- (agent-inferred) generate social images at build time (nota 38).
+- (agent-inferred) declare cross-feature dependencies in machine-readable fields (nota 39).
+- (agent-inferred) the markdown front-matter parser caches failed parses (nota 40).
+- (owner-stated) the markdown front-matter parser caches failed parses (nota 41).
+- (agent-inferred) declare cross-feature dependencies in machine-readable fields (nota 42).
+- (agent-inferred) never compare iso timestamps as strings (nota 43).
+- (agent-inferred) dialogs return focus to the control that opened them (nota 44).
+- (agent-inferred) flex children need min-width zero to shrink (nota 45).
+- (owner-stated) hard waits hide hydration races (nota 46).
+- (agent-inferred) one writer per fact; everything else derives (nota 47).
+- (agent-inferred) parallel orders that touch the same file need a declared order (nota 48).
+- (agent-inferred) idle workers should sleep and wake on a queue signal (nota 49).
+- (agent-inferred) magic links expire before slow mail providers deliver them (nota 50).
+- (owner-stated) parallel orders that touch the same file need a declared order (nota 51).
+- (agent-inferred) one writer per fact; everything else derives (nota 52).
+- (agent-inferred) hard waits hide hydration races (nota 53).
+- (agent-inferred) flex children need min-width zero to shrink (nota 54).
+- (agent-inferred) hotlinked images need a fallback for licence changes (nota 55).
+- (owner-stated) port the approved prototype css instead of redrawing (nota 56).
+- (agent-inferred) magic links expire before slow mail providers deliver them (nota 57).
+- (agent-inferred) idle workers should sleep and wake on a queue signal (nota 58).
+- (agent-inferred) snapshot baselines drift when fonts load late (nota 59).
+- (agent-inferred) generate social images at build time (nota 60).
+- (owner-stated) a rebase orphans the recorded green commit (nota 61).
+- (agent-inferred) forms posted before hydration leak their fields into the url (nota 62).
+- (agent-inferred) test each reader against a real-shaped fixture and a malformed one (nota 63).
+- (agent-inferred) self-review is not evidence that a change works (nota 64).

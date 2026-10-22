@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "project_id": "pandacast",
+  "resource_slug": "pandacast",
+  "services": {
+    "web": {
+      "provider_id": "vercel",
+      "account_ref": "vercel-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "pandacast"
+        }
+      }
+    },
+    "database": {
+      "provider_id": "neon",
+      "account_ref": "neon-main",
+      "status": "proposed",
+      "environments": {
+        "dev": {
+          "resource_name": "pandacast / dev"
+        },
+        "prod": {
+          "resource_name": "pandacast / prod"
+        }
+      }
+    },
+    "worker": {
+      "provider_id": "railway",
+      "account_ref": "railway-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "pandacast-worker"
+        }
+      }
+    },
+    "email": {
+      "provider_id": "resend",
+      "account_ref": "resend-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "cast.example.com"
+        }
+      }
+    },
+    "errors": {
+      "provider_id": "sentry",
+      "account_ref": "sentry-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "pandacast"
+        }
+      }
+    },
+    "ci": {
+      "provider_id": "github",
+      "account_ref": "github-main",
+      "status": "proposed",
+      "environments": {
+        "prod": {
+          "resource_name": "example-org/pandacast"
+        }
+      }
+    },
+    "cache": {
+      "provider_id": "upstash",
+      "account_ref": null,
+      "status": "proposed",
+      "environments": {}
+    }
+  }
+}

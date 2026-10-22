@@ -1,0 +1,2 @@
+# Real-factory captures (MC_REAL=1) hold the owner's private data; only the fixture capture in data/ is committed.
+data-live/

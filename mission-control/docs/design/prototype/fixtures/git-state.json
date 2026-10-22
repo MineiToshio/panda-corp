@@ -1,0 +1,447 @@
+{
+  "note": "Stands in for git: the fixture lives inside this repository, so it cannot carry its own history.",
+  "repos": {
+    "factory": {
+      "name": "Fábrica (panda-corp)",
+      "root": "/workspace/panda-corp",
+      "commits": 1762,
+      "pluginUncommitted": 0,
+      "branches": [
+        {
+          "name": "codex/backlog-gate-retry",
+          "lastCommitAt": "2026-10-20T14:20:00.000Z",
+          "ahead": 1,
+          "subject": "fix(build-engine): keep the first red run when a retry passes",
+          "filesChanged": 4,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/stats-seal-refresh",
+          "lastCommitAt": "2026-10-20T14:20:00.000Z",
+          "ahead": 1,
+          "subject": "fix(mission-control): refresh the stats seal after a merge",
+          "filesChanged": 3,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/stats-seal-refresh",
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/manual-anchor-links",
+          "lastCommitAt": "2026-10-20T13:20:00.000Z",
+          "ahead": 1,
+          "subject": "feat(mission-control): anchor links in the manual",
+          "filesChanged": 5,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/manual-anchor-links",
+          "uncommitted": 0
+        },
+        {
+          "name": "wt/prototype-fixture",
+          "lastCommitAt": "2026-10-20T22:20:00.000Z",
+          "ahead": 2,
+          "subject": "docs(mission-control): fixture data for the prototype",
+          "filesChanged": 12,
+          "worktree": "/workspace/panda-corp/.claude/worktrees/prototype-fixture",
+          "uncommitted": 3
+        }
+      ],
+      "extraWorktrees": [
+        {
+          "path": "/workspace/panda-corp/.claude/worktrees/old-review",
+          "detached": true,
+          "locked": true
+        },
+        {
+          "path": "/workspace/panda-corp/.claude/worktrees/scratch-check",
+          "detached": true
+        }
+      ]
+    },
+    "pandasaga": {
+      "name": "PandaSaga",
+      "root": "/workspace/pandasaga",
+      "commits": 214,
+      "branches": [],
+      "extraWorktrees": []
+    },
+    "funko-tracker": {
+      "name": "Funko Tracker",
+      "root": "/workspace/funko-tracker",
+      "commits": 512,
+      "branches": [
+        {
+          "name": "build/frd-01-reopen",
+          "lastCommitAt": "2026-10-20T16:20:00.000Z",
+          "ahead": 12,
+          "subject": "feat(catalog): reopen WO-01-001 for the gate fix",
+          "filesChanged": 36,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "build/frd-05-poster",
+          "lastCommitAt": "2026-10-20T15:20:00.000Z",
+          "ahead": 9,
+          "subject": "feat(export): poster pages for long lists",
+          "filesChanged": 27,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "build/frd-03-counters",
+          "lastCommitAt": "2026-10-20T15:20:00.000Z",
+          "ahead": 6,
+          "subject": "feat(collection): counters per franchise",
+          "filesChanged": 18,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "change/variant-badge-overflow",
+          "lastCommitAt": "2026-10-20T17:20:00.000Z",
+          "ahead": 4,
+          "subject": "fix(catalog): wrap variant badges on phones",
+          "filesChanged": 12,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/variant-badge-overflow",
+          "uncommitted": 0
+        },
+        {
+          "name": "change/catalog-search-accents",
+          "lastCommitAt": "2026-10-20T16:20:00.000Z",
+          "ahead": 3,
+          "subject": "fix(catalog): accent-insensitive search",
+          "filesChanged": 9,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/catalog-search-accents",
+          "uncommitted": 0
+        },
+        {
+          "name": "change/owned-toggle-double-tap",
+          "lastCommitAt": "2026-10-20T15:20:00.000Z",
+          "ahead": 2,
+          "subject": "fix(collection): debounce the owned toggle",
+          "filesChanged": 6,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "change/franchise-count-stale",
+          "lastCommitAt": "2026-10-18T02:20:00.000Z",
+          "ahead": 2,
+          "subject": "fix(catalog): revalidate franchise counts after a load",
+          "filesChanged": 6,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/franchise-count-stale",
+          "uncommitted": 0
+        },
+        {
+          "name": "change/sheet-gallery-keyboard",
+          "lastCommitAt": "2026-10-20T02:20:00.000Z",
+          "ahead": 1,
+          "subject": "fix(figure): keyboard arrows in the gallery",
+          "filesChanged": 3,
+          "worktree": null,
+          "uncommitted": 0
+        },
+        {
+          "name": "change/single-environment-file",
+          "lastCommitAt": "2026-10-20T23:20:00.000Z",
+          "ahead": 7,
+          "subject": "chore(env): one file per environment",
+          "filesChanged": 21,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/single-environment-file",
+          "uncommitted": 2
+        },
+        {
+          "name": "change/poster-long-lists",
+          "lastCommitAt": "2026-10-20T23:20:00.000Z",
+          "ahead": 4,
+          "subject": "feat(export): split long posters",
+          "filesChanged": 12,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/poster-long-lists",
+          "uncommitted": 0
+        },
+        {
+          "name": "change/export-ready-email",
+          "lastCommitAt": "2026-10-21T00:20:00.000Z",
+          "ahead": 3,
+          "subject": "feat(export): email when the export is ready",
+          "filesChanged": 9,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/export-ready-email",
+          "uncommitted": 0
+        },
+        {
+          "name": "change/review-queue-bulk-approve",
+          "lastCommitAt": "2026-10-20T22:20:00.000Z",
+          "ahead": 2,
+          "subject": "feat(ingestion): bulk approve in the review queue",
+          "filesChanged": 6,
+          "worktree": "/workspace/funko-tracker/.claude/worktrees/review-queue-bulk-approve",
+          "uncommitted": 0
+        }
+      ],
+      "extraWorktrees": [
+        {
+          "path": "/workspace/funko-tracker/.claude/worktrees/gate-scratch",
+          "detached": true
+        }
+      ]
+    },
+    "pandacast": {
+      "name": "PandaCast",
+      "root": "/workspace/pandacast",
+      "commits": 96,
+      "branches": [],
+      "extraWorktrees": []
+    },
+    "personal-page-v2": {
+      "name": "PersonalPage v2",
+      "root": "/workspace/personal-page-v2",
+      "commits": 388,
+      "branches": [
+        {
+          "name": "wt/og-image-experiment",
+          "lastCommitAt": "2026-09-09T03:20:00.000Z",
+          "ahead": 2,
+          "subject": "experiment: alternative share image layout",
+          "filesChanged": 6,
+          "worktree": "/workspace/personal-page-v2/.claude/worktrees/og-image-experiment",
+          "uncommitted": 0
+        }
+      ],
+      "extraWorktrees": [
+        {
+          "path": "/workspace/personal-page-v2/.claude/worktrees/old-preview",
+          "detached": true
+        }
+      ]
+    }
+  },
+  "lastActivity": {
+    "funko-tracker": "2026-10-20T18:40:11-05:00",
+    "mission-control": "2026-10-20T16:10:24-05:00",
+    "pandasaga": "2026-10-20T14:30:05-05:00",
+    "pandacast": "2026-10-19T00:40:00-05:00",
+    "personal-page-v2": "2026-10-19T00:38:00-05:00"
+  },
+  "phaseHistory": {
+    "Pandacorp (Mission Control)": [
+      {
+        "date": "2026-06-12",
+        "phase": "architecture"
+      },
+      {
+        "date": "2026-06-16",
+        "phase": "implementation"
+      },
+      {
+        "date": "2026-06-18",
+        "phase": "release"
+      },
+      {
+        "date": "2026-06-19",
+        "phase": "implementation"
+      },
+      {
+        "date": "2026-06-21",
+        "phase": "release"
+      },
+      {
+        "date": "2026-06-29",
+        "phase": "implementation"
+      },
+      {
+        "date": "2026-06-29",
+        "phase": "release"
+      },
+      {
+        "date": "2026-07-06",
+        "phase": "implementation"
+      },
+      {
+        "date": "2026-07-07",
+        "phase": "release"
+      },
+      {
+        "date": "2026-09-03",
+        "phase": "implementation"
+      }
+    ],
+    "PersonalPage v2": [
+      {
+        "date": "2026-06-23",
+        "phase": "product"
+      },
+      {
+        "date": "2026-06-26",
+        "phase": "design"
+      },
+      {
+        "date": "2026-06-29",
+        "phase": "architecture"
+      },
+      {
+        "date": "2026-06-30",
+        "phase": "implementation"
+      },
+      {
+        "date": "2026-10-07",
+        "phase": "release"
+      }
+    ],
+    "Funko Tracker": [
+      {
+        "date": "2026-10-12",
+        "phase": "product"
+      },
+      {
+        "date": "2026-10-14",
+        "phase": "design"
+      },
+      {
+        "date": "2026-10-16",
+        "phase": "architecture"
+      },
+      {
+        "date": "2026-10-18",
+        "phase": "implementation"
+      }
+    ],
+    "PandaSaga": [
+      {
+        "date": "2026-10-10",
+        "phase": "product"
+      },
+      {
+        "date": "2026-10-13",
+        "phase": "design"
+      },
+      {
+        "date": "2026-10-15",
+        "phase": "architecture"
+      }
+    ],
+    "PandaCast": [
+      {
+        "date": "2026-10-11",
+        "phase": "product"
+      },
+      {
+        "date": "2026-10-13",
+        "phase": "design"
+      },
+      {
+        "date": "2026-10-14",
+        "phase": "architecture"
+      }
+    ]
+  },
+  "verifiedAt": {
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-001-factory-root-resolution.md": "2026-06-16T02:26:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-002-idea-card-reader.md": "2026-06-16T02:44:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-003-portfolio-table-parser.md": "2026-06-16T02:57:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-004-status-file-reader.md": "2026-06-16T03:16:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-005-project-path-existence-check.md": "2026-06-16T03:37:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-006-docs-tree-listing.md": "2026-06-16T03:49:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-007-decision-inbox-parser.md": "2026-06-16T04:08:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-008-activity-log-reader.md": "2026-06-16T04:32:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-009-events-tail-reader.md": "2026-06-16T04:48:00.000Z",
+    "docs/frds/frd-01-data-reading/work-orders/wo-01-010-reader-fixtures-and-malformed-cases.md": "2026-06-16T05:05:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-001-column-derivation-from-status.md": "2026-06-16T06:30:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-003-next-step-hint-per-column.md": "2026-06-16T06:50:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-004-discard-with-confirmation.md": "2026-06-16T07:28:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-005-board-view-with-search.md": "2026-06-16T08:06:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-007-card-detail-with-tabs.md": "2026-06-16T08:29:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-011-phase-taken-from-the-project-status.md": "2026-06-16T09:23:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-012-favourite-flag-on-cards.md": "2026-06-16T09:43:00.000Z",
+    "docs/frds/frd-02-ideas-board/work-orders/wo-02-013-idea-name-inside-next-step-hints.md": "2026-06-16T10:16:00.000Z",
+    "docs/frds/frd-03-portfolio/work-orders/wo-03-001-portfolio-rail-with-phases.md": "2026-06-17T03:22:00.000Z",
+    "docs/frds/frd-03-portfolio/work-orders/wo-03-002-release-snapshot-columns.md": "2026-06-17T03:44:00.000Z",
+    "docs/frds/frd-03-portfolio/work-orders/wo-03-003-last-sync-formatting.md": "2026-06-17T04:13:00.000Z",
+    "docs/frds/frd-04-project-workspace/work-orders/wo-04-001-workspace-route-by-slug.md": "2026-06-17T06:24:00.000Z",
+    "docs/frds/frd-04-project-workspace/work-orders/wo-04-002-summary-tab.md": "2026-06-17T06:41:00.000Z",
+    "docs/frds/frd-04-project-workspace/work-orders/wo-04-003-documents-tab-with-index.md": "2026-06-17T07:06:00.000Z",
+    "docs/frds/frd-04-project-workspace/work-orders/wo-04-004-commands-tab.md": "2026-06-17T07:27:00.000Z",
+    "docs/frds/frd-04-project-workspace/work-orders/wo-04-005-not-found-project-state.md": "2026-06-17T07:54:00.000Z",
+    "docs/frds/frd-05-work-orders/work-orders/wo-05-001-work-order-discovery.md": "2026-06-18T02:18:00.000Z",
+    "docs/frds/frd-05-work-orders/work-orders/wo-05-002-kanban-by-state.md": "2026-06-18T02:31:00.000Z",
+    "docs/frds/frd-05-work-orders/work-orders/wo-05-003-work-order-detail-tabs.md": "2026-06-18T03:09:00.000Z",
+    "docs/frds/frd-05-work-orders/work-orders/wo-05-004-full-document-view.md": "2026-06-18T03:38:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-001-party-scene-layout.md": "2026-06-18T05:16:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-002-agent-tokens-by-station.md": "2026-06-18T05:40:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-003-live-event-mapping.md": "2026-06-18T05:57:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-004-relay-animation.md": "2026-06-18T06:19:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-005-idle-and-empty-states.md": "2026-06-18T06:38:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-006-reduced-motion-variant.md": "2026-06-18T06:53:00.000Z",
+    "docs/frds/frd-06-party/work-orders/wo-06-007-party-legend.md": "2026-06-18T07:18:00.000Z",
+    "docs/frds/frd-07-configuration/work-orders/wo-07-001-skills-catalog.md": "2026-06-19T02:13:00.000Z",
+    "docs/frds/frd-07-configuration/work-orders/wo-07-002-agents-catalog.md": "2026-06-19T02:42:00.000Z",
+    "docs/frds/frd-07-configuration/work-orders/wo-07-003-decision-rules-list.md": "2026-06-19T03:08:00.000Z",
+    "docs/frds/frd-07-configuration/work-orders/wo-07-004-standards-with-facets.md": "2026-06-19T03:38:00.000Z",
+    "docs/frds/frd-08-documentation/work-orders/wo-08-001-manual-reader.md": "2026-06-19T05:32:00.000Z",
+    "docs/frds/frd-08-documentation/work-orders/wo-08-002-manual-search.md": "2026-06-19T05:58:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-001-guild-level-from-outcomes.md": "2026-06-19T07:12:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-002-rank-catalogue.md": "2026-06-19T07:29:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-003-ledger-snapshot.md": "2026-06-19T07:56:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-004-level-up-celebration.md": "2026-06-19T08:18:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-005-xp-bar.md": "2026-06-19T08:33:00.000Z",
+    "docs/frds/frd-09-gamification/work-orders/wo-09-006-durable-outcome-merge.md": "2026-06-19T08:49:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-001-trophy-catalogue.md": "2026-06-20T01:15:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-002-secret-achievements.md": "2026-06-20T01:27:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-003-mission-chains.md": "2026-06-20T01:43:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-004-seals-by-axis.md": "2026-06-20T02:06:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-005-stats-panel.md": "2026-06-20T02:19:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-006-radar-of-guild-attributes.md": "2026-06-20T02:33:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-007-weekly-flow-chart.md": "2026-06-20T02:53:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-008-funnel-and-flow.md": "2026-06-20T03:02:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-009-phase-transitions-list.md": "2026-06-20T03:19:00.000Z",
+    "docs/frds/frd-10-achievements-hall/work-orders/wo-10-010-informe-verdict.md": "2026-06-20T03:38:00.000Z",
+    "docs/frds/frd-11-build-modes/work-orders/wo-11-001-build-mode-catalogue.md": "2026-06-20T06:19:00.000Z",
+    "docs/frds/frd-11-build-modes/work-orders/wo-11-002-mode-switch-with-memory.md": "2026-06-20T06:35:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-001-build-timeline-reader.md": "2026-06-21T01:19:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-002-timeline-bars.md": "2026-06-21T01:37:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-003-dependency-graph-layout.md": "2026-06-21T01:57:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-004-graph-focus-and-trace.md": "2026-06-21T02:30:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-005-per-frd-progress-rows.md": "2026-06-21T02:42:00.000Z",
+    "docs/frds/frd-12-observability-dataviz/work-orders/wo-12-006-freshness-badge.md": "2026-06-21T03:04:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-001-design-token-registry.md": "2026-06-21T05:20:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-002-light-and-dark-themes.md": "2026-06-21T05:29:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-003-focus-ring-and-skip-link.md": "2026-06-21T05:52:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-004-dialog-focus-trap.md": "2026-06-21T06:03:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-005-tab-strip-with-arrows.md": "2026-06-21T06:29:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-006-touch-target-floor.md": "2026-06-21T06:48:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-007-reduced-motion.md": "2026-06-21T07:02:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-008-contrast-audit-fixes.md": "2026-06-21T07:19:00.000Z",
+    "docs/frds/frd-13-visual-system-accessibility/work-orders/wo-13-009-responsive-shell.md": "2026-06-21T07:41:00.000Z",
+    "docs/frds/frd-14-snapshot-and-feedback/work-orders/wo-14-001-snapshot-export.md": "2026-06-24T02:30:00.000Z",
+    "docs/frds/frd-14-snapshot-and-feedback/work-orders/wo-14-002-feedback-channel-links.md": "2026-06-24T02:58:00.000Z",
+    "docs/frds/frd-14-snapshot-and-feedback/work-orders/wo-14-003-copy-command-buttons.md": "2026-06-24T03:13:00.000Z",
+    "docs/frds/frd-14-snapshot-and-feedback/work-orders/wo-14-004-toast-notices.md": "2026-06-24T03:52:00.000Z",
+    "docs/frds/frd-15-plugin-out-of-sync-warning/work-orders/wo-15-001-installed-version-reader.md": "2026-06-26T02:15:00.000Z",
+    "docs/frds/frd-15-plugin-out-of-sync-warning/work-orders/wo-15-002-source-version-reader.md": "2026-06-26T02:44:00.000Z",
+    "docs/frds/frd-15-plugin-out-of-sync-warning/work-orders/wo-15-003-drift-banner.md": "2026-06-26T03:09:00.000Z",
+    "docs/frds/frd-15-plugin-out-of-sync-warning/work-orders/wo-15-004-update-command-copy.md": "2026-06-26T03:48:00.000Z",
+    "docs/frds/frd-16-orphan-project-detection/work-orders/wo-16-001-sibling-folder-scan.md": "2026-06-30T02:29:00.000Z",
+    "docs/frds/frd-16-orphan-project-detection/work-orders/wo-16-002-orphan-classification.md": "2026-06-30T02:38:00.000Z",
+    "docs/frds/frd-16-orphan-project-detection/work-orders/wo-16-003-orphan-list-view.md": "2026-06-30T03:06:00.000Z",
+    "docs/frds/frd-16-orphan-project-detection/work-orders/wo-16-004-adopt-command-hint.md": "2026-06-30T03:45:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-001-lesson-reader.md": "2026-07-01T02:16:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-002-promotion-queue.md": "2026-07-01T02:40:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-003-prune-list.md": "2026-07-01T03:01:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-004-memory-health.md": "2026-07-01T03:33:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-005-self-suggestions.md": "2026-07-01T03:50:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-006-backlog-reader.md": "2026-07-01T04:14:00.000Z",
+    "docs/frds/frd-17-proposals-inbox/work-orders/wo-17-007-proposals-summary.md": "2026-07-01T04:41:00.000Z",
+    "docs/frds/frd-18-dashboard/work-orders/wo-18-001-home-dashboard-cards.md": "2026-06-22T03:29:00.000Z",
+    "docs/frds/frd-19-app-shell/work-orders/wo-19-001-global-shell-with-sidebar.md": "2026-06-22T05:29:00.000Z",
+    "docs/frds/frd-20-overlay-freshness/work-orders/wo-20-001-factory-overlay-version-reader.md": "2026-07-07T02:27:00.000Z",
+    "docs/frds/frd-20-overlay-freshness/work-orders/wo-20-002-upgrade-notice-on-the-summary.md": "2026-07-07T02:58:00.000Z",
+    "docs/frds/frd-21-pending-merge/work-orders/wo-21-001-unmerged-branch-reader.md": "2026-09-24T02:11:00.000Z",
+    "docs/frds/frd-21-pending-merge/work-orders/wo-21-002-pending-work-indicator.md": "2026-09-24T02:39:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-001-stats-schema.md": "2026-07-07T05:15:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-002-per-project-portada-writer.md": "2026-07-07T05:31:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-003-freshness-seal.md": "2026-07-07T06:02:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-004-aggregate-index.md": "2026-07-07T06:20:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-005-factory-wide-store.md": "2026-07-07T06:51:00.000Z",
+    "docs/frds/frd-23-materialized-stats-read-model/work-orders/wo-23-006-composed-informe-reader.md": "2026-07-07T07:12:00.000Z",
+    "docs/frds/frd-24-decision-id-emitter/work-orders/wo-24-001-stable-decision-ids.md": "2026-09-03T17:19:00.000Z",
+    "docs/frds/frd-24-decision-id-emitter/work-orders/wo-24-002-decide-command-with-ids.md": "2026-09-03T17:57:00.000Z"
+  }
+}

@@ -1,0 +1,16 @@
+# Machine-readable status for Funko Tracker.
+project: "Funko Tracker"
+phase: implementation
+version: v1
+overlay_version: "8.110.0"
+created_with: "8.96.0"
+target_platforms: responsive
+running: true
+run_started_at: "2026-10-20T22:05:00Z"
+supervisor_heartbeat: "2026-10-21T00:12:00Z"
+updated_at: "2026-10-20T23:40:00Z"
+repo: ""
+last_green_sha: "a41c09e2"
+safe_to_test: false
+rethink_pending: false
+advance_pending: false

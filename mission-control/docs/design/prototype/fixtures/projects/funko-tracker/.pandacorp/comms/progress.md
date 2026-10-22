@@ -1,0 +1,46 @@
+# Bitácora del motor
+
+- Arranque del build: 8 FRDs y 48 work orders planificadas en 4 oleadas.
+- Oleada 1 en marcha: FRD-01, FRD-02, FRD-03 y FRD-05 en paralelo.
+- WO-01-001 construida: el modelo de lectura del catálogo carga la semilla de prueba.
+- WO-01-002 y WO-01-003 en revisión de su FRD.
+- FRD-02 completo: 5 de 5 work orders construidas.
+- Gate de FRD-02 aprobado a la primera.
+- WO-03-001: el acceso por enlace mágico funciona en desarrollo.
+- WO-05-001 espera a WO-03-004 y WO-04-002 (dependencias entre FRDs).
+- La construcción se detuvo por una dependencia cruzada; queda registrada como decisión.
+- Relanzado el build con el orden de dependencias corregido.
+- FRD-01: 10 de 16 work orders construidas.
+- El gate visual pidió ajustar el espaciado de la tarjeta de figura (nota, no bloquea).
+- WO-01-014: navegación con teclado por la grilla verificada.
+- FRD-03: la migración de la colección pasó en la base de prueba.
+- Reversión parcial bloqueada en FRD-01 por conflicto con otra feature; se conserva el código.
+- Gate de FRD-01 aprobado con 2 órdenes reabiertas para un ajuste menor.
+- FRD-04 completo y aprobado.
+- Oleada 2 en marcha: FRD-06 y FRD-08.
+- WO-06-001: registro de fuentes y licencias listo.
+- WO-06-003: la carga de una franquicia de prueba terminó con 412 fichas en cola.
+- Gate de FRD-06 aprobado.
+- WO-08-001 y WO-08-002 construidas; esperan el gate de FRD-08.
+- FRD-05: el trabajador genera la imagen de una lista de 40 figuras en 6 segundos.
+- WO-05-003 a WO-05-006 construidas y en revisión.
+- Oleada 3: FRD-07 en marcha.
+- WO-07-001: el vigilante horario detecta 3 novedades en la fuente de prueba.
+- WO-07-002 construida.
+- Cola de cambios drenada: 15 cambios entran al build en curso.
+- Cambio "búsqueda con tildes" en construcción.
+- Cambio "insignias que se desbordan" en construcción.
+- El gate completo pasó en verde salvo el recorrido de exportación (pendiente de su FRD).
+- Nada quedó bloqueado en esta corrida.
+- Totales: 48 work orders · 39 verificadas · 9 en revisión.
+- Siguiente punto seguro: gate de FRD-05 tras terminar los cambios en curso.
+- Se actualizaron los recuentos de la portada del informe.
+- Supervisor activo; latido cada 5 minutos.
+- Cambio "aprobar en lote la cola de revisión" en construcción.
+- Cambio "avisar por correo la exportación" en construcción.
+- WO-03-008: contadores por franquicia construidos, esperan su gate.
+- El gate de accesibilidad marcó dos etiquetas faltantes; corregidas en la misma orden.
+- Snapshot visual de la grilla del catálogo bendecido en el gate de FRD-01.
+- Se registró una lección: las dependencias entre FRDs deben declararse en la orden, no en el texto.
+- Corrida nocturna: sin errores en el trabajador.
+- Build en curso: 9 work orders esperan la revisión de sus FRDs.

@@ -1,0 +1,4 @@
+# The fixture projects mirror real project layouts, whose .pandacorp/ layer the repository-wide
+# ignore rule excludes; here it is fictional source data and must be versioned.
+!.pandacorp/
+!.pandacorp/**

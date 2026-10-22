@@ -1,0 +1,16 @@
+# Machine-readable status for PersonalPage v2.
+project: "PersonalPage v2"
+phase: release
+version: v1
+overlay_version: "8.98.0"
+created_with: "8.20.0"
+target_platforms: responsive
+deploy_target: external
+deploy_url: "https://example.com/"
+running: false
+updated_at: "2026-10-07T04:26:42.952Z"
+repo: ""
+last_green_sha: "f04c2b19"
+safe_to_test: true
+rethink_pending: false
+advance_pending: false

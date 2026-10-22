@@ -1,0 +1,2433 @@
+{
+  "schemaVersion": 1,
+  "persistence": "relational",
+  "entities": [
+    {
+      "id": "franchise",
+      "name": "Franchise",
+      "description": "A licensed universe the catalog groups figures by.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "slug",
+          "name": "slug",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "logoAssetId",
+          "name": "logoAssetId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "createdAt",
+          "name": "createdAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "series",
+      "name": "Series",
+      "description": "A numbered run of figures inside a franchise.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "franchiseId",
+          "name": "franchiseId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "startedOn",
+          "name": "startedOn",
+          "type": "date",
+          "optional": true
+        },
+        {
+          "id": "isActive",
+          "name": "isActive",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "character",
+      "name": "Character",
+      "description": "A character that can appear in many figures.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "franchiseId",
+          "name": "franchiseId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "alias",
+          "name": "alias",
+          "type": "text",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "figure",
+      "name": "Figure",
+      "description": "One catalog piece identified by series and box number.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "seriesId",
+          "name": "seriesId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "characterId",
+          "name": "characterId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "boxNumber",
+          "name": "boxNumber",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "releasedOn",
+          "name": "releasedOn",
+          "type": "date",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "variant",
+      "name": "Variant",
+      "description": "A distinguishable version of a figure (chase, glow, metallic).",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "figureId",
+          "name": "figureId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "kind",
+          "name": "kind",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "label",
+          "name": "label",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "edition",
+      "name": "Edition",
+      "description": "A production run or re-release of a variant.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "variantId",
+          "name": "variantId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "year",
+          "name": "year",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "isReissue",
+          "name": "isReissue",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "retailer",
+      "name": "Retailer",
+      "description": "A store that sells exclusives.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "country",
+          "name": "country",
+          "type": "text",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "retailerExclusive",
+      "name": "Retailer exclusive",
+      "description": "A variant sold only by one retailer.",
+      "attributes": [
+        {
+          "id": "variantId",
+          "name": "variantId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "retailerId",
+          "name": "retailerId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "stickerText",
+          "name": "stickerText",
+          "type": "text",
+          "optional": true
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "variantId",
+            "retailerId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "region",
+      "name": "Region",
+      "description": "A market where an edition is released.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "code",
+          "name": "code",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "regionalRelease",
+      "name": "Regional release",
+      "description": "When an edition reached a region.",
+      "attributes": [
+        {
+          "id": "editionId",
+          "name": "editionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "regionId",
+          "name": "regionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "releasedOn",
+          "name": "releasedOn",
+          "type": "date",
+          "optional": true
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "editionId",
+            "regionId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mediaAsset",
+      "name": "Media asset",
+      "description": "An image with its source and licence.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "url",
+          "name": "url",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "width",
+          "name": "width",
+          "type": "integer",
+          "optional": true
+        },
+        {
+          "id": "height",
+          "name": "height",
+          "type": "integer",
+          "optional": true
+        },
+        {
+          "id": "licenceId",
+          "name": "licenceId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mediaLicence",
+      "name": "Media licence",
+      "description": "The terms under which an image may be shown.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "allowsHotlink",
+          "name": "allowsHotlink",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "figureImage",
+      "name": "Figure image",
+      "description": "Ordered images of a variant.",
+      "attributes": [
+        {
+          "id": "variantId",
+          "name": "variantId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "assetId",
+          "name": "assetId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "position",
+          "name": "position",
+          "type": "integer",
+          "optional": false
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "variantId",
+            "assetId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "source",
+      "name": "Source",
+      "description": "Where catalog data comes from.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "baseUrl",
+          "name": "baseUrl",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "reviewedOn",
+          "name": "reviewedOn",
+          "type": "date",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "sourceRecord",
+      "name": "Source record",
+      "description": "One raw row fetched from a source.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "sourceId",
+          "name": "sourceId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "externalId",
+          "name": "externalId",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "payloadHash",
+          "name": "payloadHash",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "fetchedAt",
+          "name": "fetchedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ingestionRun",
+      "name": "Ingestion run",
+      "description": "One batch load of the catalog.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "sourceId",
+          "name": "sourceId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "startedAt",
+          "name": "startedAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "finishedAt",
+          "name": "finishedAt",
+          "type": "timestamp",
+          "optional": true
+        },
+        {
+          "id": "status",
+          "name": "status",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ingestionItem",
+      "name": "Ingestion item",
+      "description": "A staged change waiting for review.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "runId",
+          "name": "runId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "sourceRecordId",
+          "name": "sourceRecordId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "figureId",
+          "name": "figureId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "action",
+          "name": "action",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "reviewDecision",
+      "name": "Review decision",
+      "description": "A curator's verdict on a staged item.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "itemId",
+          "name": "itemId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK",
+            "UQ"
+          ]
+        },
+        {
+          "id": "curatorId",
+          "name": "curatorId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "verdict",
+          "name": "verdict",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "decidedAt",
+          "name": "decidedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "user",
+      "name": "User",
+      "description": "A collector or curator account.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "email",
+          "name": "email",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "displayName",
+          "name": "displayName",
+          "type": "text",
+          "optional": true
+        },
+        {
+          "id": "role",
+          "name": "role",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "createdAt",
+          "name": "createdAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "session",
+      "name": "Session",
+      "description": "A signed-in browser session.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "expiresAt",
+          "name": "expiresAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "magicLink",
+      "name": "Magic link",
+      "description": "A one-time sign-in token.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "email",
+          "name": "email",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "tokenHash",
+          "name": "tokenHash",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "expiresAt",
+          "name": "expiresAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "usedAt",
+          "name": "usedAt",
+          "type": "timestamp",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "collection",
+      "name": "Collection",
+      "description": "A user's private collection.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK",
+            "UQ"
+          ]
+        },
+        {
+          "id": "isPublic",
+          "name": "isPublic",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "collectionItem",
+      "name": "Collection item",
+      "description": "A variant the user owns.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "collectionId",
+          "name": "collectionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "variantId",
+          "name": "variantId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "boxCondition",
+          "name": "boxCondition",
+          "type": "text",
+          "optional": true
+        },
+        {
+          "id": "note",
+          "name": "note",
+          "type": "text",
+          "optional": true
+        },
+        {
+          "id": "addedAt",
+          "name": "addedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "wishlistItem",
+      "name": "Wishlist item",
+      "description": "A variant the user wants.",
+      "attributes": [
+        {
+          "id": "collectionId",
+          "name": "collectionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "variantId",
+          "name": "variantId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "addedAt",
+          "name": "addedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "collectionId",
+            "variantId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "goal",
+      "name": "Goal",
+      "description": "A target to complete a series.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "collectionId",
+          "name": "collectionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "seriesId",
+          "name": "seriesId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "includesExclusives",
+          "name": "includesExclusives",
+          "type": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "goalSnapshot",
+      "name": "Goal snapshot",
+      "description": "Daily progress of a goal.",
+      "attributes": [
+        {
+          "id": "goalId",
+          "name": "goalId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "day",
+          "name": "day",
+          "type": "date",
+          "optional": false
+        },
+        {
+          "id": "owned",
+          "name": "owned",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "total",
+          "name": "total",
+          "type": "integer",
+          "optional": false
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "goalId",
+            "day"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exportTemplate",
+      "name": "Export template",
+      "description": "A layout for checklist images.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "maxRows",
+          "name": "maxRows",
+          "type": "integer",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "exportJob",
+      "name": "Export job",
+      "description": "A queued checklist image render.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "collectionId",
+          "name": "collectionId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "templateId",
+          "name": "templateId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "mode",
+          "name": "mode",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "status",
+          "name": "status",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "requestedAt",
+          "name": "requestedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "exportFile",
+      "name": "Export file",
+      "description": "A rendered page of a checklist.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "jobId",
+          "name": "jobId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "page",
+          "name": "page",
+          "type": "integer",
+          "optional": false
+        },
+        {
+          "id": "assetUrl",
+          "name": "assetUrl",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "expiresAt",
+          "name": "expiresAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "shareLink",
+      "name": "Share link",
+      "description": "A public link to an export.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "jobId",
+          "name": "jobId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK",
+            "UQ"
+          ]
+        },
+        {
+          "id": "token",
+          "name": "token",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "expiresAt",
+          "name": "expiresAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "tag",
+      "name": "Tag",
+      "description": "A free label for figures.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "name",
+          "name": "name",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "figureTag",
+      "name": "Figure tag",
+      "description": "Tags applied to figures.",
+      "attributes": [
+        {
+          "id": "figureId",
+          "name": "figureId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "tagId",
+          "name": "tagId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        }
+      ],
+      "keyGroups": [
+        {
+          "kind": "PK",
+          "attributes": [
+            "figureId",
+            "tagId"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deltaCheck",
+      "name": "Delta check",
+      "description": "One run of the new-releases watch.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "sourceId",
+          "name": "sourceId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "ranAt",
+          "name": "ranAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "found",
+          "name": "found",
+          "type": "integer",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "deltaFinding",
+      "name": "Delta finding",
+      "description": "A new figure found by the watch.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "checkId",
+          "name": "checkId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "sourceRecordId",
+          "name": "sourceRecordId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "itemId",
+          "name": "itemId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "emailMessage",
+      "name": "Email message",
+      "description": "An outbound transactional email.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "kind",
+          "name": "kind",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "sentAt",
+          "name": "sentAt",
+          "type": "timestamp",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "deletionRequest",
+      "name": "Deletion request",
+      "description": "An account erasure request.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "userId",
+          "name": "userId",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "FK",
+            "UQ"
+          ]
+        },
+        {
+          "id": "requestedAt",
+          "name": "requestedAt",
+          "type": "timestamp",
+          "optional": false
+        },
+        {
+          "id": "completedAt",
+          "name": "completedAt",
+          "type": "timestamp",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "auditEvent",
+      "name": "Audit event",
+      "description": "An append-only record of privileged actions.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "actorId",
+          "name": "actorId",
+          "type": "uuid",
+          "optional": true,
+          "keys": [
+            "FK"
+          ]
+        },
+        {
+          "id": "action",
+          "name": "action",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "at",
+          "name": "at",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "featureFlag",
+      "name": "Feature flag",
+      "description": "A server-side switch.",
+      "attributes": [
+        {
+          "id": "key",
+          "name": "key",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "enabled",
+          "name": "enabled",
+          "type": "boolean",
+          "optional": false
+        },
+        {
+          "id": "note",
+          "name": "note",
+          "type": "text",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "helpArticle",
+      "name": "Help article",
+      "description": "A help or FAQ page.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "slug",
+          "name": "slug",
+          "type": "text",
+          "optional": false,
+          "keys": [
+            "UQ"
+          ]
+        },
+        {
+          "id": "title",
+          "name": "title",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "contactMessage",
+      "name": "Contact message",
+      "description": "A message sent from the contact form.",
+      "attributes": [
+        {
+          "id": "id",
+          "name": "id",
+          "type": "uuid",
+          "optional": false,
+          "keys": [
+            "PK"
+          ]
+        },
+        {
+          "id": "email",
+          "name": "email",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "body",
+          "name": "body",
+          "type": "text",
+          "optional": false
+        },
+        {
+          "id": "receivedAt",
+          "name": "receivedAt",
+          "type": "timestamp",
+          "optional": false
+        }
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "id": "franchise-series-franchiseId",
+      "name": "has series",
+      "from": {
+        "entity": "franchise",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "series",
+        "attributes": [
+          "franchiseId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "franchise-character-franchiseId",
+      "name": "has characters",
+      "from": {
+        "entity": "franchise",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "character",
+        "attributes": [
+          "franchiseId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "mediaAsset-franchise-logoAssetId",
+      "name": "logo",
+      "from": {
+        "entity": "mediaAsset",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "franchise",
+        "attributes": [
+          "logoAssetId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "series-figure-seriesId",
+      "name": "contains",
+      "from": {
+        "entity": "series",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "figure",
+        "attributes": [
+          "seriesId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "character-figure-characterId",
+      "name": "portrays",
+      "from": {
+        "entity": "character",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "figure",
+        "attributes": [
+          "characterId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "figure-variant-figureId",
+      "name": "has variants",
+      "from": {
+        "entity": "figure",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "variant",
+        "attributes": [
+          "figureId"
+        ],
+        "min": 1,
+        "max": "many"
+      }
+    },
+    {
+      "id": "variant-edition-variantId",
+      "name": "produced as",
+      "from": {
+        "entity": "variant",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "edition",
+        "attributes": [
+          "variantId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "variant-retailerExclusive-variantId",
+      "name": "exclusive at",
+      "from": {
+        "entity": "variant",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "retailerExclusive",
+        "attributes": [
+          "variantId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "retailer-retailerExclusive-retailerId",
+      "name": "sells",
+      "from": {
+        "entity": "retailer",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "retailerExclusive",
+        "attributes": [
+          "retailerId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "edition-regionalRelease-editionId",
+      "name": "released in",
+      "from": {
+        "entity": "edition",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "regionalRelease",
+        "attributes": [
+          "editionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "region-regionalRelease-regionId",
+      "name": "receives",
+      "from": {
+        "entity": "region",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "regionalRelease",
+        "attributes": [
+          "regionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "mediaLicence-mediaAsset-licenceId",
+      "name": "licenses",
+      "from": {
+        "entity": "mediaLicence",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "mediaAsset",
+        "attributes": [
+          "licenceId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "variant-figureImage-variantId",
+      "name": "shown by",
+      "from": {
+        "entity": "variant",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "figureImage",
+        "attributes": [
+          "variantId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "mediaAsset-figureImage-assetId",
+      "name": "used as",
+      "from": {
+        "entity": "mediaAsset",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "figureImage",
+        "attributes": [
+          "assetId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "source-sourceRecord-sourceId",
+      "name": "yields",
+      "from": {
+        "entity": "source",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "sourceRecord",
+        "attributes": [
+          "sourceId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "source-ingestionRun-sourceId",
+      "name": "loaded by",
+      "from": {
+        "entity": "source",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionRun",
+        "attributes": [
+          "sourceId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "ingestionRun-ingestionItem-runId",
+      "name": "stages",
+      "from": {
+        "entity": "ingestionRun",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionItem",
+        "attributes": [
+          "runId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "sourceRecord-ingestionItem-sourceRecordId",
+      "name": "proposes",
+      "from": {
+        "entity": "sourceRecord",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionItem",
+        "attributes": [
+          "sourceRecordId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "figure-ingestionItem-figureId",
+      "name": "targets",
+      "from": {
+        "entity": "figure",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "ingestionItem",
+        "attributes": [
+          "figureId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "ingestionItem-reviewDecision-itemId",
+      "name": "reviewed by",
+      "from": {
+        "entity": "ingestionItem",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "reviewDecision",
+        "attributes": [
+          "itemId"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "user-reviewDecision-curatorId",
+      "name": "decides",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "reviewDecision",
+        "attributes": [
+          "curatorId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-session-userId",
+      "name": "signs in",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "session",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-collection-userId",
+      "name": "owns",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collection",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "collection-collectionItem-collectionId",
+      "name": "holds",
+      "from": {
+        "entity": "collection",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collectionItem",
+        "attributes": [
+          "collectionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "variant-collectionItem-variantId",
+      "name": "collected as",
+      "from": {
+        "entity": "variant",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "collectionItem",
+        "attributes": [
+          "variantId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "collection-wishlistItem-collectionId",
+      "name": "wants",
+      "from": {
+        "entity": "collection",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "wishlistItem",
+        "attributes": [
+          "collectionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "variant-wishlistItem-variantId",
+      "name": "wished as",
+      "from": {
+        "entity": "variant",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "wishlistItem",
+        "attributes": [
+          "variantId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "collection-goal-collectionId",
+      "name": "sets",
+      "from": {
+        "entity": "collection",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "goal",
+        "attributes": [
+          "collectionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "series-goal-seriesId",
+      "name": "targeted by",
+      "from": {
+        "entity": "series",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "goal",
+        "attributes": [
+          "seriesId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "goal-goalSnapshot-goalId",
+      "name": "tracked by",
+      "from": {
+        "entity": "goal",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "goalSnapshot",
+        "attributes": [
+          "goalId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "collection-exportJob-collectionId",
+      "name": "exports",
+      "from": {
+        "entity": "collection",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "exportJob",
+        "attributes": [
+          "collectionId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "exportTemplate-exportJob-templateId",
+      "name": "lays out",
+      "from": {
+        "entity": "exportTemplate",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "exportJob",
+        "attributes": [
+          "templateId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "exportJob-exportFile-jobId",
+      "name": "renders",
+      "from": {
+        "entity": "exportJob",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "exportFile",
+        "attributes": [
+          "jobId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "exportJob-shareLink-jobId",
+      "name": "shared by",
+      "from": {
+        "entity": "exportJob",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "shareLink",
+        "attributes": [
+          "jobId"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "figure-figureTag-figureId",
+      "name": "tagged",
+      "from": {
+        "entity": "figure",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "figureTag",
+        "attributes": [
+          "figureId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "tag-figureTag-tagId",
+      "name": "applied",
+      "from": {
+        "entity": "tag",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "figureTag",
+        "attributes": [
+          "tagId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "source-deltaCheck-sourceId",
+      "name": "watched by",
+      "from": {
+        "entity": "source",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "deltaCheck",
+        "attributes": [
+          "sourceId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "deltaCheck-deltaFinding-checkId",
+      "name": "finds",
+      "from": {
+        "entity": "deltaCheck",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "deltaFinding",
+        "attributes": [
+          "checkId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "sourceRecord-deltaFinding-sourceRecordId",
+      "name": "reported as",
+      "from": {
+        "entity": "sourceRecord",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "deltaFinding",
+        "attributes": [
+          "sourceRecordId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "ingestionItem-deltaFinding-itemId",
+      "name": "staged as",
+      "from": {
+        "entity": "ingestionItem",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "deltaFinding",
+        "attributes": [
+          "itemId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-emailMessage-userId",
+      "name": "receives",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "emailMessage",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    },
+    {
+      "id": "user-deletionRequest-userId",
+      "name": "requests erasure",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 1,
+        "max": 1
+      },
+      "to": {
+        "entity": "deletionRequest",
+        "attributes": [
+          "userId"
+        ],
+        "min": 0,
+        "max": 1
+      }
+    },
+    {
+      "id": "user-auditEvent-actorId",
+      "name": "performs",
+      "from": {
+        "entity": "user",
+        "attributes": [
+          "id"
+        ],
+        "min": 0,
+        "max": 1
+      },
+      "to": {
+        "entity": "auditEvent",
+        "attributes": [
+          "actorId"
+        ],
+        "min": 0,
+        "max": "many"
+      }
+    }
+  ]
+}
