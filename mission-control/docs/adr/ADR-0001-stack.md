@@ -1,6 +1,12 @@
+---
+id: ADR-0001
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0001 — Trimmed Next.js stack for a local, read-only dashboard
 
-- **Status:** Accepted
+- **Status:** Accepted. Amended for v2 (2026-10-22) without a stack change: the OKLCH tokens are replaced by the Órbita tokens (ADR-0012), Dagre is retired (WO-13-013), the Playwright browser gates added since v1 stand, and copy goes through ADR-0013.
 - **Date:** 2026-06-16
 - **Scope:** Platform-level (cross-feature), Mission Control
 - **Decided by:** the `architect` agent (Claude Opus 4.8), approved by the owner in the

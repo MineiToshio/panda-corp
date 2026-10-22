@@ -1,6 +1,12 @@
+---
+id: ADR-0004
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0004 — Materialized stats read-model (git at safe points, not at render time)
 
-- **Status:** Accepted
+- **Status:** Accepted (unchanged in v2)
 - **Date:** 2026-07-06
 - **Scope:** Platform-level (cross-feature), Mission Control
 - **Decided by:** owner request (design agreed in full, change `materialized-stats-read-model`),

@@ -1,6 +1,12 @@
+---
+id: ADR-0003
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0003 — A third write: the visual favourite flag
 
-- **Status:** Accepted
+- **Status:** Accepted (unchanged in v2; the v2 board marks a favourite with the filled star only, without the gold card highlight)
 - **Date:** 2026-06-28
 - **Scope:** Platform-level (cross-feature), Mission Control
 - **Decided by:** owner request ("marcar ideas como favoritas en el tablero, solo visual"), implemented

@@ -1,6 +1,12 @@
+---
+id: ADR-0006
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0006 — Shared Architecture and logical data-model viewer
 
-- **Status:** Accepted for the owner-authorized implementation scope
+- **Status:** Accepted for the owner-authorized implementation scope. The artifact contract, the single reader and the shared digest stand in v2; the workspace tab order below is superseded by the v2 eight-tab order (FRD-04 AC-04-012.1: Resumen · Spec · Observabilidad · Arquitectura · Cuentas · Cambios · Documentos · Comandos) and the viewer's presentation by the Órbita contract (ADR-0012).
 - **Date:** 2026-10-16
 - **Decision agent/runtime:** OpenAI Codex, documenting the owner's requested behavior
 - **Traces:** FRD-02 REQ-02-013/015; FRD-04 REQ-04-012

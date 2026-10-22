@@ -1,6 +1,12 @@
+---
+id: ADR-0002
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0002 — A second write: restoring (un-discarding) an idea
 
-- **Status:** Accepted
+- **Status:** Accepted (unchanged in v2)
 - **Date:** 2026-06-26
 - **Scope:** Platform-level (cross-feature), Mission Control
 - **Decided by:** owner request ("dale un botón de volverlo a agregar"), implemented directly with

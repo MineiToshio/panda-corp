@@ -1,7 +1,13 @@
+---
+id: ADR-0011
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0011 — Separate public service recipes from private account identities
 
 - Date: 2026-10-20
-- Status: Accepted by owner
+- Status: Accepted by owner (unchanged in v2; the Portafolio view key accepts both `view=cuentas` and `portfolioView=accounts` until one is settled)
 - Runtime: Codex, native attended implementation
 
 ## Decision

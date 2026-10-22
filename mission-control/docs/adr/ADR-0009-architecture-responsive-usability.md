@@ -1,6 +1,13 @@
+---
+id: ADR-0009
+status: SUPERSEDED
+superseded_by: ADR-0012
+last_updated: 2026-10-22
+---
+
 # ADR-0009 — Architecture usability and responsive navigation
 
-- **Status:** Accepted under the owner's explicit direct correction
+- **Status:** Superseded by ADR-0012 (2026-10-22). Originally accepted under the owner's explicit direct correction. Every decision here is presentation, and the frozen Órbita design now owns it: the sidebar `AppShell` and 1180 px frame replace the top-bar header and the 1240 px frame, and the Arquitectura order, model selection and Esquema list follow the amended FRD-02 and its oracle states.
 - **Date:** 2026-10-17
 - **Decision agent/runtime:** OpenAI Codex
 - **Amends:** ADR-0006/0008 schema presentation and selection only; the global shell's original Phase A responsive design

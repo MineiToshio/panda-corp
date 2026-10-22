@@ -1,3 +1,9 @@
+---
+id: ADR-0012
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0012 — Adopt the Órbita design system as the frozen design contract
 
 - Date: 2026-10-22

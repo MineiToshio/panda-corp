@@ -1,6 +1,12 @@
+---
+id: ADR-0005
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0005 — Runtime-neutral event observability
 
-- **Status:** Accepted
+- **Status:** Accepted (unchanged in v2; La Fragua v2 derives its stations from work-order state and uses events only for liveness and activity)
 - **Date:** 2026-07-11
 - **Decision:** Proposal 32 R9
 

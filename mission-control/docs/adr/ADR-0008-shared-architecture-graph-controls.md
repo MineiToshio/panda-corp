@@ -1,6 +1,13 @@
+---
+id: ADR-0008
+status: SUPERSEDED
+superseded_by: ADR-0012
+last_updated: 2026-10-22
+---
+
 # ADR-0008 — Shared Architecture graph controls and native fullscreen
 
-- **Status:** Accepted under the owner’s explicit direct correction
+- **Status:** Superseded by ADR-0012 (2026-10-22). Originally accepted under the owner’s explicit direct correction. In v2 the frozen Órbita design is the oracle: the dependency map has no zoom/fit/fullscreen toolbar (FRD-12 AC-12-004.5), the data model has its own compact top-right toolbar (FRD-02 v2), and the viewport-filling fallback dialog is removed.
 - **Date:** 2026-10-16
 - **Decision agent/runtime:** OpenAI Codex
 - **Amends:** ADR-0007 navigation/presentation only

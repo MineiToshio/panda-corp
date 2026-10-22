@@ -1,6 +1,12 @@
+---
+id: ADR-0007
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0007 — Readable logical models and diagram-only full-window expansion
 
-- **Status:** Accepted under the owner's explicit direct correction
+- **Status:** Accepted under the owner's explicit direct correction. The ELK layout decision stands in v2 (ADR-0012 §5 keeps this engine). Superseded in part by ADR-0012: the «Ampliar modelo» viewport-filling dialog and the navigation amendment below are removed in v2 (FRD-02 v2; an expanded-model URL restores the inline viewer).
 - **Date:** 2026-10-16
 - **Decision agent/runtime:** OpenAI Codex, implementing owner feedback
 - **Amends:** ADR-0006 rendering/navigation only; artifact/reader contracts unchanged

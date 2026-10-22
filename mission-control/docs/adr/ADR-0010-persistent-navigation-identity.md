@@ -1,6 +1,12 @@
+---
+id: ADR-0010
+status: ACCEPTED
+last_updated: 2026-10-22
+---
+
 # ADR-0010 — Persistent resource identity and shared URL routing
 
-Date: 2026-10-17. Status: Accepted by owner. Agent: Codex (GPT-6 family), with runtime-local delegated implementation and independent verification.
+Date: 2026-10-17. Status: Accepted by owner. v2 note (2026-10-22): the codec and identity decisions stand; URL restoration of an expanded model now restores the inline viewer, since v2 removes the expanded dialog (FRD-25 v2). Agent: Codex (GPT-6 family), with runtime-local delegated implementation and independent verification.
 
 ## Decision and reason
 
