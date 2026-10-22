@@ -79,7 +79,7 @@ reader with the detail model and drops superseded work orders from every list.
 
 REQ-05-004 (Resumen and Documento completo), REQ-05-005 (the reader that feeds the counts), REQ-05-008.
 
-- **AC-05-008.4** — (amended 2026-10-22, v2 reconciliation) THE work-order Resumen SHALL read in this order: a flow header with an "Ahora:" sentence; "De qué trata"; "Qué cambia" (with "Fuera de alcance" apart); "Cómo se comprueba" (one card per acceptance criterion, EARS keywords marked); "Qué se construyó" (a long note folded). It SHALL show a fact sheet (Estado, Dificultad, Reaperturas, Actualizada, Requisitos, Archivos que toca, Dependencias up and down, "Construir esta work order" with its scoped build command) and a line saying the content comes from the order's own document.
+- **AC-05-008.4** — (amended 2026-10-22, v2 reconciliation) THE work-order Resumen SHALL read in this order: a flow header with an "Ahora:" sentence; "De qué trata"; "Qué cambia" (with "Fuera de alcance" apart); "Cómo se comprueba" (one card per acceptance criterion, EARS keywords marked); "Qué se construyó" (a long note folded). It SHALL show a fact sheet (Estado, Dificultad, Reaperturas, Actualizada, Requisitos, Archivos que toca, Dependencias up and down, "Construir esta work order" with its scoped build command) and a line saying the content comes from the order's own document. (drawn in FRD-02's captured states)
 
 The «Fuera de alcance» label is the catalogue's work-order out-of-scope string; no FRD-05 captured state draws it
 because the captured order (WO-02-014) has no out-of-scope section (reported to the design ledger). The fact-sheet
